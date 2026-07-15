@@ -20,7 +20,8 @@
         "backgroundColor": "#F8FAF9",
         "foregroundImage": "./assets/logo.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.kislaya_agarwal.arthik"
     },
     "plugins": [
       "@react-native-community/datetimepicker",
@@ -28,7 +29,10 @@
     ],
     "extra": {
       "supabaseUrl": "https://dapbkooakqiemgdkxonx.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhcGJrb29ha3FpZW1nZGt4b254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDY1NDUsImV4cCI6MjA5OTY4MjU0NX0.lVCtH2uz_jX3HP62ena1EXaep-Gi3TJDdig4ZCSzj48"
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhcGJrb29ha3FpZW1nZGt4b254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDY1NDUsImV4cCI6MjA5OTY4MjU0NX0.lVCtH2uz_jX3HP62ena1EXaep-Gi3TJDdig4ZCSzj48",
+      "eas": {
+        "projectId": "5760997d-33b7-48b5-995a-aedb1e29f1e2"
+      }
     }
   }
 }
