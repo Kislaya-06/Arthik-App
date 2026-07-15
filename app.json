@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "arthik",
+    "name": "Arthik",
     "slug": "arthik",
+    "scheme": "arthik",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -22,7 +23,12 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      "@react-native-community/datetimepicker"
-    ]
+      "@react-native-community/datetimepicker",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "supabaseUrl": "https://dapbkooakqiemgdkxonx.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhcGJrb29ha3FpZW1nZGt4b254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDY1NDUsImV4cCI6MjA5OTY4MjU0NX0.lVCtH2uz_jX3HP62ena1EXaep-Gi3TJDdig4ZCSzj48"
+    }
   }
 }

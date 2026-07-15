@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, isMockMode } from '../config/supabase';
+import { supabase } from '../config/supabase';
 import { useAuthStore } from './authStore';
 
 export interface Category {
@@ -40,13 +40,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
 
     set({ loading: true });
 
-    if (isMockMode) {
-      // TODO: Supabase Integration - Fetch categories from Supabase database when ready
-      // In mock mode, we keep categories in local state, seeded with defaults + any user custom categories
-      // Since it's mock, we'll keep the existing categories
-      set({ loading: false });
-      return;
-    }
+
 
     try {
       const { data, error } = await supabase
@@ -70,7 +64,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     set({ loading: true });
 
     const newCategory = {
-      id: isMockMode ? Math.random().toString() : undefined,
+      id: undefined,
       user_id: user.id,
       name,
       icon,
@@ -78,14 +72,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       is_default: false,
     };
 
-    if (isMockMode) {
-      // TODO: Supabase Integration - Insert new category to Supabase database when ready
-      set((state) => ({
-        categories: [...state.categories, newCategory as Category],
-        loading: false,
-      }));
-      return;
-    }
+
 
     try {
       const { error } = await supabase
@@ -105,16 +92,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   updateCategory: async (id, name, icon, color) => {
     set({ loading: true });
 
-    if (isMockMode) {
-      // TODO: Supabase Integration - Update category in Supabase database when ready
-      set((state) => ({
-        categories: state.categories.map((c) =>
-          c.id === id ? { ...c, name, icon, color } : c
-        ),
-        loading: false,
-      }));
-      return;
-    }
+
 
     try {
       const { error } = await supabase
@@ -135,14 +113,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   deleteCategory: async (id) => {
     set({ loading: true });
 
-    if (isMockMode) {
-      // TODO: Supabase Integration - Delete category from Supabase database when ready
-      set((state) => ({
-        categories: state.categories.filter((c) => c.id !== id),
-        loading: false,
-      }));
-      return;
-    }
+
 
     try {
       const { error } = await supabase

@@ -1,77 +1,93 @@
 # Arthik
-> Apna kharcha, apna hisaab — a personal expense tracker built with React Native
 
-<!-- ![Arthik Banner](./assets/readme-banner.png) -->
-<!-- *Note: Add a hero banner image above* -->
+> A premium personal expense tracker built with React Native & Supabase
 
-[![React Native](https://img.shields.io/badge/React_Native-0.86.0-blue.svg)](https://reactnative.dev/)
-[![Expo](https://img.shields.io/badge/Expo-57.0.4-black.svg)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React_Native-0.86-blue.svg)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Overview
-Arthik is a standalone, premium personal expense tracking application designed to help individuals monitor their financial health. Rather than focusing on splitting bills, Arthik provides a dedicated space for users to log daily expenses, categorize their spending, and gain actionable insights into their financial habits.
+---
 
-With a focus on a fluid user experience and modern design aesthetics, Arthik makes it effortless to record expenses with details like category, custom notes, dates, and payment modes (Cash, UPI, Card).
+## 📲 Download & Install
 
-## Features
-- **Authentication**: Email/Password login and onboarding flow (currently supporting a seamless mock-mode for rapid UI testing).
-- **Expense Management**: Add, edit, view, and delete expenses with an intuitive and fast interface.
-- **Categories**: Comes pre-configured with default categories (Food, Shopping, Travel, etc.) and allows users to add/edit custom categories with personalized colors and icons.
-- **Dashboard / Home**: A quick snapshot of your financial status featuring a summary card and a list of recent transactions.
-- **History**: A comprehensive, filterable, and searchable list of all your expenses logically grouped by date.
-- **Insights**: Visual breakdowns of your spending habits by category, complete with weekly, monthly, and yearly trend analysis.
-- **Profile & Settings**: Manage user profile details, application preferences, and navigation configurations.
+**Arthik is distributed as a direct APK — no Play Store needed.**
 
-## Tech Stack
-Arthik is built with a modern, performant, and scalable technology stack:
-- **Framework**: [React Native](https://reactnative.dev/) & [Expo](https://expo.dev/) (SDK 57) - For rapid, cross-platform mobile development.
-- **Language**: [TypeScript](https://www.typescriptlang.org/) - Ensuring robust type safety and a superior developer experience.
-- **Navigation**: [React Navigation](https://reactnavigation.org/) (Native Stack & Bottom Tabs) - For smooth, native-feeling routing.
-- **State Management**: [Zustand](https://github.com/pmndrs/zustand) - A small, fast, and scalable bearbones state-management solution.
-- **Backend**: [Supabase](https://supabase.com/) - Integrated for backend database and authentication services.
-- **Styling**: Vanilla React Native `StyleSheet` & `react-native-safe-area-context` - For precise and responsive layout control.
-- **Icons**: `lucide-react-native` - Clean, modern vector icons.
-- **Fonts**: `@expo-google-fonts/quicksand` - For a premium and modern typography experience.
-- **Graphics & Charts**: `react-native-svg` - For custom background notches and insights charts.
+1. Go to the [**Releases**](../../releases) section of this repository
+2. Open the **latest release**
+3. Under **Assets**, tap/click `arthik-v1.0.0.apk` to download
+4. On your Android phone:
+   - Open the downloaded file
+   - If prompted, tap **"Install anyway"** (since it's not from the Play Store)
+   - You may need to enable **"Install from unknown sources"** in your phone settings:
+     `Settings → Security → Install unknown apps → Allow`
+5. Done! Open **Arthik** from your home screen
 
-## Screenshots
+> **Minimum Android version:** Android 8.0 (Oreo) and above
 
-<!-- 
-Add screenshots of key screens here using the markdown image syntax below:
-| Home | Add Expense | Insights | Profile |
-|------|-------------|----------|---------|
-| ![Home](./assets/screenshots/home.png) | ![Add Expense](./assets/screenshots/add.png) | ![Insights](./assets/screenshots/insights.png) | ![Profile](./assets/screenshots/profile.png) |
--->
+---
 
-## Project Structure
+## ✨ Features
+
+- **Secure Authentication** — Email/password signup & login, Google OAuth, and password reset via email
+- **Expense Management** — Add, edit, view, and delete expenses with an intuitive custom number keypad
+- **Categories** — Pre-loaded default categories + create fully custom ones with your own icon and color
+- **Dashboard** — Snapshot of monthly spending with a donut chart and recent transactions
+- **History** — Full searchable and filterable expense history, grouped by date
+- **Insights** — Visual spending breakdowns by category with weekly, monthly, and yearly trends
+- **Payment Modes** — Track whether each expense was Cash, UPI, or Card
+- **Profile** — Edit your name, manage categories, and logout securely
+- **Cloud Sync** — All data stored securely in Supabase — accessible across reinstalls
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | React Native + Expo SDK 57 |
+| Language | TypeScript |
+| Navigation | React Navigation (Native Stack + Bottom Tabs) |
+| State Management | Zustand |
+| Backend & Auth | Supabase (PostgreSQL + Auth) |
+| Icons | lucide-react-native |
+| Fonts | Quicksand (Google Fonts via Expo) |
+| Charts | react-native-svg |
+
+---
+
+## 📁 Project Structure
 
 ```
 src/
-├── components/   # Reusable UI components (e.g., BottomNavBar, TabItem)
-├── config/       # Configuration setup (e.g., Supabase client, environment flags)
-├── hooks/        # Custom React hooks (e.g., useScrollDirection for animations)
-├── lib/          # Utility functions and formatters (currency, dates, icons)
-├── navigation/   # Application routing (Root Stack and Bottom Tabs)
-├── screens/      # Full-screen components (Home, History, Insights, etc.)
-├── store/        # Zustand global state stores (authStore, expenseStore, categoryStore)
-└── types/        # TypeScript type definitions and interfaces
+├── components/   # Reusable UI components
+├── config/       # Supabase client & environment config
+├── hooks/        # Custom React hooks (scroll direction, etc.)
+├── lib/          # Utility functions (formatters, icon utils)
+├── navigation/   # App routing (Root Stack + Bottom Tabs)
+├── screens/      # All full-screen views
+├── store/        # Zustand stores (auth, expenses, categories)
+└── types/        # TypeScript type definitions
 ```
 
-## Getting Started / Installation
+---
+
+## 🧑‍💻 Developer Setup
+
+Want to run this locally or contribute?
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (v18 or newer recommended)
-- npm or yarn
+- [Node.js](https://nodejs.org/) v18+
 - [Expo CLI](https://docs.expo.dev/get-started/installation/)
-- [Expo Go](https://expo.dev/client) app on your physical device, or Android Studio / Xcode for emulators
+- A [Supabase](https://supabase.com/) project (free tier works)
 
-### Installation
+### Steps
 
-1. **Clone the repository**
+1. **Clone the repo**
    ```bash
-   git clone https://github.com/yourusername/arthik.git
-   cd arthik
+   git clone https://github.com/Kislaya-06/Arthik-App.git
+   cd Arthik-App
    ```
 
 2. **Install dependencies**
@@ -79,71 +95,64 @@ src/
    npm install
    ```
 
-3. **Environment Setup**
-   Create a `.env` file in the root of the project and add your Supabase credentials:
+3. **Set up environment**  
+   Create a `.env` file in the root:
    ```env
    EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-4. **Run the app**
+4. **Run the database schema**  
+   In Supabase SQL Editor, paste and run the contents of `schema.sql`
+
+5. **Start the dev server**
    ```bash
    npx expo start
    ```
-   *Press `a` to open on Android, `i` to open on iOS, or scan the QR code with the Expo Go app on your physical device.*
+   Press `a` to open on Android emulator, or scan the QR code with [Expo Go](https://expo.dev/client)
 
-## Environment Variables
+---
 
-| Variable Name | Description |
-|---------------|-------------|
-| `EXPO_PUBLIC_SUPABASE_URL` | The REST URL for your Supabase project backend |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | The anonymous public API key for your Supabase project |
+## 🗄 Database Schema
 
-## Database Schema
+Three core tables in Supabase:
 
-The core backend structure relies on three primary entities managed via Supabase:
+**`profiles`** — User profile info linked to Supabase Auth  
+**`categories`** — Expense categories (global defaults + user-created)  
+**`expenses`** — All expense records with amount, category, date, mode, and note
 
-- **Profile**
-  - `id` (UUID): Matches the Supabase Auth user ID
-  - `first_name` (Text): User's first name
-  - `last_name` (Text): User's last name (optional)
-  - `email` (Text): User's email address
+See [`schema.sql`](./schema.sql) for the full DDL.
 
-- **Category**
-  - `id` (UUID): Unique category identifier
-  - `user_id` (UUID, nullable): Owner of the category (null for default global categories)
-  - `name` (Text): Display name
-  - `icon` (Text): Lucide icon reference name
-  - `color` (Text): Hex color code
-  - `is_default` (Boolean): Flag for pre-installed categories
+---
 
-- **Expense**
-  - `id` (UUID): Unique expense identifier
-  - `user_id` (UUID): Owner of the expense record
-  - `category_id` (UUID): Reference to the associated Category
-  - `amount` (Numeric): Expense amount
-  - `note` (Text, optional): Custom description
-  - `payment_mode` (Text): `'cash'`, `'upi'`, or `'card'`
-  - `expense_date` (Date): Formatted as `YYYY-MM-DD`
-  - `created_at` (Timestamp): Record creation time
+## 🚧 Roadmap
 
-## Known Limitations / Roadmap
+- [ ] Avatar / profile picture upload via `expo-image-picker`
+- [ ] Budget limits per category with alerts
+- [ ] Export expenses to CSV
+- [ ] Income tracking alongside expenses
+- [ ] iOS support
 
-The UI and application flow are fully built and currently operate perfectly in a local "Mock Mode" designed for iterative UI testing. The following features are planned for future releases:
+---
 
-- **Supabase Realtime Sync**: Wire up the Zustand stores to push/pull real data to the Supabase PostgreSQL database (CRUD operations).
-- **Authentication**: Replace mock login with real Supabase Auth (Email/Password) and implement the Google OAuth flow.
-- **Image Picker Integration**: Enable users to upload custom avatar images to Supabase Storage via `expo-image-picker`.
-- **Legal Pages**: Connect the Privacy Policy and Terms of Service placeholder buttons to actual webviews or screens.
-- **Profile Editing**: Implement the "Edit Profile" screen.
+## 🤝 Contributing
 
-## Contributing
-This is currently a personal portfolio project. However, feedback, bug reports, and pull requests are always welcome!
+This is a personal project, but PRs, bug reports, and suggestions are welcome!
 
-## License
-[MIT License](./LICENSE) *(Placeholder - License TBD)*
+1. Fork the repo
+2. Create your feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'Add your feature'`
+4. Push and open a Pull Request
 
-## Author
-**[Your Name]**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your LinkedIn Profile](https://linkedin.com/in/yourprofile)
+---
+
+## 📄 License
+
+[MIT License](./LICENSE)
+
+---
+
+## 👤 Author
+
+**Kislaya**  
+- GitHub: [@Kislaya-06](https://github.com/Kislaya-06)

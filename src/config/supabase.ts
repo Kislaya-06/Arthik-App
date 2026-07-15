@@ -1,10 +1,19 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
-// Replace these with actual Supabase project credentials
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://mock-project.supabase.co';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key';
+// In dev, reads from .env (EXPO_PUBLIC_*).
+// In APK builds, reads from app.json -> extra (bundled at build time).
+const SUPABASE_URL: string =
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  Constants.expoConfig?.extra?.supabaseUrl ||
+  '';
+
+const SUPABASE_ANON_KEY: string =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  Constants.expoConfig?.extra?.supabaseAnonKey ||
+  '';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -14,7 +23,3 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: false,
   },
 });
-
-// Helper to determine if we are running in mock mode (when real keys are not supplied)
-export const isMockMode =
-  SUPABASE_URL.includes('mock-project') || SUPABASE_ANON_KEY === 'mock-anon-key';

@@ -6,7 +6,7 @@ import { Theme } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
-import { isMockMode, supabase } from '../config/supabase';
+import { supabase } from '../config/supabase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
@@ -82,30 +82,25 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     const initAuthAndNavigate = async () => {
       let nextScreen: keyof RootStackParamList = 'Onboarding';
 
-      if (isMockMode) {
-        // TODO: Supabase Integration - Validate session with Supabase instead of defaulting to Onboarding in mock mode
-        nextScreen = 'Onboarding';
-      } else {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          await setSession(session);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        await setSession(session);
 
-          if (session) {
-            await Promise.all([fetchCategories(), fetchExpenses()]);
-            nextScreen = 'AppTabs';
-          }
-        } catch (e) {
-          console.error('Session retrieval error:', e);
+        if (session) {
+          await Promise.all([fetchCategories(), fetchExpenses()]);
+          nextScreen = 'AppTabs';
         }
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-          await setSession(session);
-          if (session) {
-            await Promise.all([fetchCategories(), fetchExpenses()]);
-          }
-        });
-        authSubscription = subscription;
+      } catch (e) {
+        console.error('Session retrieval error:', e);
       }
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        await setSession(session);
+        if (session) {
+          await Promise.all([fetchCategories(), fetchExpenses()]);
+        }
+      });
+      authSubscription = subscription;
 
       // Transition to next screen after 1.8 seconds
       setTimeout(() => {

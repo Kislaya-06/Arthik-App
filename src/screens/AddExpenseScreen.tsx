@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  Platform, KeyboardAvoidingView, StyleSheet,
+  Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -25,6 +25,8 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
   const { addExpense } = useExpenseStore();
   const { categories, fetchCategories } = useCategoryStore();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const noteInputRef = useRef<TextInput>(null);
 
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -88,7 +90,8 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
     >
       <StatusBar style="dark" />
 
@@ -124,7 +127,12 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* 3. Scrollable Middle Section */}
-      <ScrollView style={styles.scrollSection} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scrollSection}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
 
         {/* Category Selector */}
         <Text style={[styles.sectionLabel, { fontFamily: 'Quicksand_700Bold' }]}>
@@ -162,11 +170,20 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <View style={styles.inputContainer}>
           <TextInput
+            ref={noteInputRef}
             value={note}
             onChangeText={setNote}
             placeholder="Add a note..."
             placeholderTextColor="#A8ADBD"
             style={[styles.inputText, { fontFamily: 'Quicksand_500Medium' }]}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
+            onFocus={() => {
+              // Scroll down so the note field is visible above the keyboard
+              setTimeout(() => {
+                scrollRef.current?.scrollToEnd({ animated: true });
+              }, 300);
+            }}
           />
         </View>
 

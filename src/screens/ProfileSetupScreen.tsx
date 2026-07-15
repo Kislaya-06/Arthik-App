@@ -16,7 +16,6 @@ import { RootStackParamList } from '../types';
 import { ArrowLeft, ArrowRight, Camera, User } from 'lucide-react-native';
 import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isMockMode } from '../config/supabase';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 
@@ -77,9 +76,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
       // TODO: Supabase Integration - updateProfile saves first_name/last_name to Supabase profiles table when real credentials are set
       await updateProfile(firstName.trim(), lastName.trim());
 
-      if (!isMockMode) {
-        await Promise.all([fetchCategories(), fetchExpenses()]);
-      }
+      await Promise.all([fetchCategories(), fetchExpenses()]);
 
       navigation.replace('AppTabs');
     } catch (e) {

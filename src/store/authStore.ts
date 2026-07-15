@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase, isMockMode } from '../config/supabase';
+import { supabase } from '../config/supabase';
 
 export interface Profile {
   id: string;
@@ -18,7 +18,6 @@ interface AuthState {
   setSession: (session: Session | null) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (firstName: string, lastName?: string) => Promise<void>;
-  mockLogin: (email: string, firstName: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -36,23 +35,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const user = session.user;
     set({ session, user, loading: true });
-
-    // TODO: Supabase Integration - Check isMockMode for environment-specific logic
-    if (isMockMode) {
-      // TODO: Supabase Integration - Fetch user profile from Supabase database when ready
-      // Mock mode profile
-      set({
-        profile: {
-          id: user.id,
-          first_name: user.user_metadata?.first_name || 'User',
-          last_name: user.user_metadata?.last_name || '',
-          email: user.email || '',
-        },
-        loading: false,
-        initialized: true,
-      });
-      return;
-    }
 
     try {
       const { data, error } = await supabase
@@ -76,10 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     set({ loading: true });
-    // TODO: Supabase Integration - Check isMockMode for environment-specific logic
-    if (!isMockMode) {
-      await supabase.auth.signOut();
-    }
+    await supabase.auth.signOut();
     set({ session: null, user: null, profile: null, loading: false });
   },
 
@@ -96,14 +75,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       email: user.email || profile?.email || '',
     };
 
-    // TODO: Supabase Integration - Check isMockMode for environment-specific logic
-    if (isMockMode) {
-      set({ profile: updatedProfile, loading: false });
-      return;
-    }
+
 
     try {
-      // TODO: Supabase Integration - Update user profile in Supabase database when ready
       const { error } = await supabase
         .from('profiles')
         .upsert(updatedProfile);
@@ -118,15 +92,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  mockLogin: (email, firstName) => {
-    // TODO: Supabase Integration - Remove this mock login once real authentication is implemented
-    const mockSession = {
-      user: {
-        id: 'mock-user-123',
-        email,
-        user_metadata: { first_name: firstName },
-      },
-    };
-    get().setSession(mockSession as any);
-  },
 }));

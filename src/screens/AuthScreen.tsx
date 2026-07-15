@@ -14,10 +14,15 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
-import { supabase, isMockMode } from '../config/supabase';
+import { AlertCircle, ArrowLeft, Eye, EyeOff, X } from 'lucide-react-native';
+import { supabase } from '../config/supabase';
 import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
@@ -49,13 +54,19 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, childre
 
 // --- Main Screen ---
 export const AuthScreen: React.FC<Props> = ({ navigation }) => {
-  const { mockLogin } = useAuthStore();
   const [mode, setMode] = useState<'signup' | 'login'>('signup');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const errorOpacity = useRef(new Animated.Value(0)).current;
+  const errorTranslateY = useRef(new Animated.Value(-12)).current;
 
   const opacityAnim = useRef(new Animated.Value(1)).current;
   const translateYAnim = useRef(new Animated.Value(0)).current;
@@ -63,6 +74,8 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
 
   const toggleMode = () => {
     const nextMode = mode === 'signup' ? 'login' : 'signup';
+    setErrorMessage(null);
+    errorOpacity.setValue(0);
 
     Animated.parallel([
       Animated.timing(opacityAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
@@ -77,45 +90,171 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
+  const showError = (msg: string) => {
+    setSuccessMessage(null);
+    setErrorMessage(msg);
+    errorTranslateY.setValue(-12);
+    Animated.parallel([
+      Animated.timing(errorOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(errorTranslateY, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const showSuccess = (msg: string) => {
+    setErrorMessage(null);
+    setSuccessMessage(msg);
+    errorTranslateY.setValue(-12);
+    Animated.parallel([
+      Animated.timing(errorOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(errorTranslateY, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const dismissError = () => {
+    Animated.timing(errorOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+      setErrorMessage(null);
+      setSuccessMessage(null);
+    });
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      showError('Please enter your email address first, then tap Forgot Password.');
+      return;
+    }
+    setForgotLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'arthik://reset-password',
+    });
+    setForgotLoading(false);
+    if (error) {
+      showError(error.message);
+    } else {
+      showSuccess(`Password reset link sent to ${email}. Check your inbox!`);
+    }
+  };
+
+  // Maps raw Supabase/API error messages to friendly, readable messages
+  const getFriendlyError = (message: string, currentMode: 'login' | 'signup'): string => {
+    const msg = message.toLowerCase();
+    if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+      return "No account found with this email, or the password is incorrect. Please check your details or sign up first.";
+    }
+    if (msg.includes('email not confirmed')) {
+      return "Please verify your email address before logging in. Check your inbox for a confirmation link.";
+    }
+    if (msg.includes('user already registered') || msg.includes('already been registered')) {
+      return "This email is already registered. Try logging in instead.";
+    }
+    if (msg.includes('password should be at least')) {
+      return "Password must be at least 6 characters long.";
+    }
+    if (msg.includes('unable to validate email address') || msg.includes('invalid email')) {
+      return "Please enter a valid email address.";
+    }
+    if (msg.includes('email rate limit') || msg.includes('too many requests')) {
+      return "Too many attempts. Please wait a moment before trying again.";
+    }
+    if (msg.includes('missing email or phone')) {
+      return "Please enter your email address.";
+    }
+    return message; // fallback to raw message
+  };
+
   const handleAuth = async () => {
-    if (isMockMode) {
-      // TODO: Supabase Integration - Remove mock login bypass when Supabase authentication is ready
-      mockLogin(email || 'user@example.com', fullName || 'Developer');
-      if (mode === 'signup') {
-        navigation.navigate('ProfileSetup');
-      } else {
-        navigation.replace('AppTabs');
-      }
+    // Client-side validation first
+    if (!email.trim()) {
+      showError("Please enter your email address.");
+      return;
+    }
+    if (!password.trim()) {
+      showError("Please enter your password.");
+      return;
+    }
+    if (mode === 'signup' && !fullName.trim()) {
+      showError("Please enter your full name.");
       return;
     }
 
+    setAuthLoading(true);
+    dismissError();
+
     if (mode === 'signup') {
-      // TODO: Supabase Integration - signUp flow active when real credentials are set
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { full_name: fullName } },
       });
       if (error) {
-        alert(error.message);
+        showError(getFriendlyError(error.message, 'signup'));
       } else {
         navigation.navigate('ProfileSetup');
       }
     } else {
-      // TODO: Supabase Integration - signInWithPassword flow active when real credentials are set
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        alert(error.message);
+        showError(getFriendlyError(error.message, 'login'));
       } else {
         navigation.replace('AppTabs');
       }
     }
+    setAuthLoading(false);
   };
 
+
   const handleGoogleAuth = async () => {
-    // TODO: Supabase Integration - Implement full Google OAuth flow via Supabase when ready
-    console.log('Google Auth pressed');
-  };
+    try {
+      const redirectTo = makeRedirectUri();
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+        if (result.type === 'success') {
+          // Supabase returns the token as a URL hash fragment, we convert it to query for easy parsing
+          const urlWithQuery = result.url.replace('#', '?');
+          const parsed = Linking.parse(urlWithQuery);
+
+          const accessToken = parsed.queryParams?.access_token as string;
+          const refreshToken = parsed.queryParams?.refresh_token as string;
+
+          if (accessToken && refreshToken) {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (sessionError) throw sessionError;
+
+            // Check if profile exists and has a first name
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user?.id)
+              .single();
+
+            if (!profile || !profile.first_name) {
+              navigation.navigate('ProfileSetup');
+            } else {
+              navigation.replace('AppTabs');
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+        showError(e.message || 'Error with Google Authentication');
+      }
+    };
 
   const isSignUp = mode === 'signup';
 
@@ -129,10 +268,30 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <Pressable style={[styles.backBtn, { marginTop: insets.top + 16 }]} onPress={() => navigation.goBack()}>
             <ArrowLeft size={26} color="#1A2B4C" />
           </Pressable>
+
+          {/* In-UI Message Banner (error or success) */}
+          {(errorMessage || successMessage) && (
+            <Animated.View
+              style={[
+                styles.errorBanner,
+                successMessage && styles.successBanner,
+                { opacity: errorOpacity, transform: [{ translateY: errorTranslateY }] },
+              ]}
+            >
+              <AlertCircle size={18} color={successMessage ? '#4CAF50' : '#E87070'} style={{ marginRight: 8, flexShrink: 0 }} />
+              <Text style={[styles.errorBannerText, successMessage && styles.successBannerText]} numberOfLines={4}>
+                {successMessage || errorMessage}
+              </Text>
+              <Pressable onPress={dismissError} style={styles.errorBannerClose}>
+                <X size={16} color={successMessage ? '#4CAF50' : '#E87070'} />
+              </Pressable>
+            </Animated.View>
+          )}
 
           <Animated.View
             style={{ opacity: opacityAnim, transform: [{ translateY: translateYAnim }] }}
@@ -224,8 +383,10 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               {!isSignUp && (
-                <Pressable onPress={() => console.log('Forgot Password pressed')}>
-                  <Text style={styles.forgotPassword}>Forgot Password?</Text>
+                <Pressable onPress={forgotLoading ? undefined : handleForgotPassword}>
+                  <Text style={styles.forgotPassword}>
+                    {forgotLoading ? 'Sending...' : 'Forgot Password?'}
+                  </Text>
                 </Pressable>
               )}
 
@@ -248,11 +409,11 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               </AnimatedButton>
 
               <AnimatedButton
-                style={[styles.btn, styles.primaryBtn]}
+                style={[styles.btn, styles.primaryBtn, authLoading && styles.primaryBtnLoading]}
                 onPress={handleAuth}
               >
                 <Text style={styles.primaryBtnText}>
-                  {isSignUp ? 'Sign Up' : 'Log In'}
+                  {authLoading ? 'Please wait...' : (isSignUp ? 'Sign Up' : 'Log In')}
                 </Text>
               </AnimatedButton>
             </View>
@@ -406,5 +567,39 @@ const styles = StyleSheet.create({
   toggleTextBold: {
     color: '#1A2B4C',
     fontFamily: 'Quicksand_700Bold',
+  },
+  // Error Banner
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#FACACAC',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 16,
+    gap: 4,
+  },
+  errorBannerText: {
+    flex: 1,
+    color: '#C0392B',
+    fontSize: 14,
+    fontFamily: 'Quicksand_500Medium',
+    lineHeight: 20,
+  },
+  errorBannerClose: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  successBanner: {
+    backgroundColor: '#F0FFF4',
+    borderColor: '#C3E6CB',
+  },
+  successBannerText: {
+    color: '#276749',
+  },
+  primaryBtnLoading: {
+    opacity: 0.6,
   },
 });

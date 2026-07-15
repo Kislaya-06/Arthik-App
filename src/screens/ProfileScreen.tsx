@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert,
+  Modal, TextInput, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -9,11 +10,10 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon,
-  Shield, FileText, CircleAlert, LogOut,
+  Shield, FileText, CircleAlert, LogOut, Pencil, Check, X,
 } from 'lucide-react-native';
 
 import { useAuthStore } from '../store/authStore';
-import { isMockMode } from '../config/supabase';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 
@@ -24,12 +24,18 @@ type Props = CompositeScreenProps<
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { profile, user, signOut } = useAuthStore();
+  const { profile, user, signOut, updateProfile } = useAuthStore();
   const handleScroll = useScrollDirection();
 
   // Local state for toggles
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+
+  // Edit Profile modal state
+  const [editVisible, setEditVisible] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -60,6 +66,25 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     return `${first}${last}` || 'U';
   };
 
+  const openEditProfile = () => {
+    setEditFirstName(profile?.first_name || '');
+    setEditLastName(profile?.last_name || '');
+    setEditVisible(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editFirstName.trim()) return;
+    setEditSaving(true);
+    try {
+      await updateProfile(editFirstName.trim(), editLastName.trim());
+      setEditVisible(false);
+    } catch {
+      Alert.alert('Error', 'Could not update profile. Please try again.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   let fullName = 'User';
   if (profile) {
     fullName = `${profile.first_name} ${profile.last_name || ''}`.trim();
@@ -68,6 +93,43 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
+
+      {/* Edit Profile Modal */}
+      <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setEditVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { fontFamily: 'Quicksand_700Bold' }]}>Edit Profile</Text>
+            <Text style={[styles.modalLabel, { fontFamily: 'Quicksand_500Medium' }]}>First Name</Text>
+            <TextInput
+              style={[styles.modalInput, { fontFamily: 'Quicksand_500Medium' }]}
+              value={editFirstName}
+              onChangeText={setEditFirstName}
+              placeholder="First name"
+              placeholderTextColor="#A8ADBD"
+              autoCapitalize="words"
+            />
+            <Text style={[styles.modalLabel, { fontFamily: 'Quicksand_500Medium' }]}>Last Name</Text>
+            <TextInput
+              style={[styles.modalInput, { fontFamily: 'Quicksand_500Medium' }]}
+              value={editLastName}
+              onChangeText={setEditLastName}
+              placeholder="Last name (optional)"
+              placeholderTextColor="#A8ADBD"
+              autoCapitalize="words"
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setEditVisible(false)}>
+                <X size={16} color="#8A8FA3" />
+                <Text style={[styles.modalCancelText, { fontFamily: 'Quicksand_700Bold' }]}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalSaveBtn} onPress={handleSaveProfile} disabled={editSaving}>
+                {editSaving ? <ActivityIndicator size="small" color="#1A2B4C" /> : <Check size={16} color="#1A2B4C" />}
+                <Text style={[styles.modalSaveText, { fontFamily: 'Quicksand_700Bold' }]}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
       
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
@@ -88,12 +150,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {getInitials()}
               </Text>
             </View>
-            <Pressable 
+            <Pressable
               style={styles.cameraBadge}
-              onPress={() => {
-                // TODO: Expo Image Picker integration
-                console.log('Open image picker');
-              }}
+              onPress={() => {}}
             >
               <Camera size={14} color="#FFFFFF" />
             </Pressable>
@@ -106,12 +165,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             {profile?.email || 'user@example.com'}
           </Text>
 
-          <Pressable 
+          <Pressable
             style={styles.editProfileBtn}
-            onPress={() => {
-              // TODO: Navigate to Edit Profile screen
-              console.log('Edit profile');
-            }}
+            onPress={openEditProfile}
           >
             <Text style={[styles.editProfileText, { fontFamily: 'Quicksand_700Bold' }]}>
               Edit Profile
@@ -172,11 +228,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* 4. Privacy Policy */}
-          <Pressable 
+          <Pressable
             style={styles.settingRow}
-            onPress={() => {
-              // TODO: Open Privacy Policy
-            }}
+            onPress={() => Alert.alert('Privacy Policy', 'Visit our website for full privacy policy details.')}
           >
             <View style={styles.iconContainer}>
               <Shield size={18} color="#1A2B4C" />
@@ -188,11 +242,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </Pressable>
 
           {/* 5. Terms of Service */}
-          <Pressable 
+          <Pressable
             style={styles.settingRow}
-            onPress={() => {
-              // TODO: Open Terms of Service
-            }}
+            onPress={() => Alert.alert('Terms of Service', 'Visit our website for full terms of service details.')}
           >
             <View style={styles.iconContainer}>
               <FileText size={18} color="#1A2B4C" />
@@ -374,5 +426,71 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     color: '#F4B8AE',
+  },
+  // Edit Profile Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    color: '#1A2B4C',
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 12,
+    color: '#8A8FA3',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  modalInput: {
+    backgroundColor: '#F1F2F5',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#1A2B4C',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F1F2F5',
+    borderRadius: 999,
+    paddingVertical: 14,
+  },
+  modalCancelText: {
+    color: '#8A8FA3',
+    fontSize: 15,
+  },
+  modalSaveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#B8E0C8',
+    borderRadius: 999,
+    paddingVertical: 14,
+  },
+  modalSaveText: {
+    color: '#1A2B4C',
+    fontSize: 15,
   },
 });
