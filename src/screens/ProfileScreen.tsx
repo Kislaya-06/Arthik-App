@@ -60,9 +60,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     return `${first}${last}` || 'U';
   };
 
-  const fullName = profile 
-    ? `${profile.first_name} ${profile.last_name || ''}`.trim() 
-    : 'User';
+  let fullName = 'User';
+  if (profile) {
+    fullName = `${profile.first_name} ${profile.last_name || ''}`.trim();
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
