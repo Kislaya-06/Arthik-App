@@ -4,6 +4,13 @@
     "slug": "arthik",
     "scheme": "arthik",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5760997d-33b7-48b5-995a-aedb1e29f1e2",
+      "checkAutomatically": "ON_LOAD"
+    },
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -25,7 +32,9 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font",
+      "expo-status-bar"
     ],
     "extra": {
       "supabaseUrl": "https://dapbkooakqiemgdkxonx.supabase.co",
