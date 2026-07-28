@@ -11,7 +11,7 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
-import { Search } from 'lucide-react-native';
+import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
@@ -232,10 +232,36 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, filteredAndGroupedExpenses.length === 0 && { flexGrow: 1 }]}
           stickySectionHeadersEnabled={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          ListEmptyComponent={() => {
+            let IconComponent = Receipt;
+            let title = 'No transactions yet';
+            let subtitle = 'Your expenses will appear here once you add them.';
+
+            if (searchQuery.trim()) {
+              IconComponent = SearchX;
+              title = 'No results found';
+              subtitle = 'Try adjusting your search to find what you are looking for.';
+            } else if (selectedCategoryId) {
+              const catName = categories.find(c => c.id === selectedCategoryId)?.name || 'this category';
+              IconComponent = FilterX;
+              title = 'No expenses found';
+              subtitle = `There are no expenses in the ${catName} category yet. They will appear here once you add them!`;
+            }
+
+            return (
+              <View style={styles.emptyContainer}>
+                <View style={styles.iconCircle}>
+                  <IconComponent size={32} color="#8A8FA3" />
+                </View>
+                <Text style={[styles.emptyTitle, { fontFamily: 'Quicksand_700Bold' }]}>{title}</Text>
+                <Text style={[styles.emptySubtitle, { fontFamily: 'Quicksand_500Medium' }]}>{subtitle}</Text>
+              </View>
+            );
+          }}
         />
 
       </View>
@@ -386,7 +412,35 @@ const styles = StyleSheet.create({
   },
   paymentModeText: {
     fontSize: 12,
-    color: '#B0B4C0',
+    color: '#8A8FA3',
     marginLeft: 4,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    marginTop: 64,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    color: '#1A2B4C',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#8A8FA3',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

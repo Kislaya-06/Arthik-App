@@ -91,17 +91,25 @@ ON public.expenses FOR DELETE
 USING (auth.uid() = user_id);
 
 
--- 4. Function to automatically create a profile and default categories on sign up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
     new_profile_id UUID;
+    extracted_name TEXT;
 BEGIN
+    -- Extract name from various possible fields (Google Auth uses name/full_name, our app uses full_name)
+    extracted_name := COALESCE(
+        new.raw_user_meta_data->>'first_name',
+        new.raw_user_meta_data->>'full_name',
+        new.raw_user_meta_data->>'name',
+        split_part(new.email, '@', 1)
+    );
+
     -- Create user profile
     INSERT INTO public.profiles (id, first_name, last_name, email)
     VALUES (
         new.id,
-        COALESCE(new.raw_user_meta_data->>'first_name', 'User'),
+        extracted_name,
         new.raw_user_meta_data->>'last_name',
         new.email
     );

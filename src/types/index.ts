@@ -10,6 +10,8 @@ export type RootStackParamList = {
   CategoryDetail: { categoryId: string };
   ManageCategories: undefined;
   AddEditCategory: { categoryId?: string } | undefined;
+  Notifications: undefined;
+  Profile: undefined;
 };
 
 export type TabParamList = {
@@ -17,5 +19,4 @@ export type TabParamList = {
   History: undefined;
   AddExpensePlaceholder: undefined;
   Insights: undefined;
-  Profile: undefined;
 };

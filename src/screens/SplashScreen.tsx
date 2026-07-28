@@ -94,14 +94,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         console.error('Session retrieval error:', e);
       }
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        await setSession(session);
-        if (session) {
-          await Promise.all([fetchCategories(), fetchExpenses()]);
-        }
-      });
-      authSubscription = subscription;
-
       // Transition to next screen after 1.8 seconds
       setTimeout(() => {
         navigation.replace(nextScreen as any);
@@ -109,12 +101,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     initAuthAndNavigate();
-
-    return () => {
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
-    };
   }, []);
 
   return (

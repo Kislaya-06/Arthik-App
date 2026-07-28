@@ -233,7 +233,6 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
   const homeRoute = state.routes.find((r) => r.name === 'Home');
   const historyRoute = state.routes.find((r) => r.name === 'History');
   const insightsRoute = state.routes.find((r) => r.name === 'Insights');
-  const profileRoute = state.routes.find((r) => r.name === 'Profile');
 
   const getRouteIndex = (name: string) => state.routes.findIndex((r) => r.name === name);
 
@@ -288,13 +287,12 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
               onPress={() => navigateTo('Insights', getRouteIndex('Insights'))}
             />
           )}
-          {profileRoute && (
-            <TabItem
-              icon={User}
-              active={state.index === getRouteIndex('Profile')}
-              onPress={() => navigateTo('Profile', getRouteIndex('Profile'))}
-            />
-          )}
+          {/* 4. Profile Button (Navigates to Stack Screen) */}
+          <TabItem
+            icon={User}
+            active={false} // Stack screen overlay, doesn't stay active in Tab bar
+            onPress={() => navigation.navigate('Profile' as any)}
+          />
         </View>
       </View>
 

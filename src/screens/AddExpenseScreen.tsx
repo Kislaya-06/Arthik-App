@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
+  LayoutAnimation,
 } from 'react-native';
+
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
@@ -34,6 +36,23 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
+  const [isKeypadVisible, setIsKeypadVisible] = useState(true);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setIsKeypadVisible(false);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setIsKeypadVisible(true);
+    });
+    
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     fetchCategories();
@@ -110,9 +129,18 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* 2. Fixed Amount Display */}
-      <View style={styles.amountContainer}>
+      <Pressable 
+        style={styles.amountContainer}
+        onPress={() => {
+          Keyboard.dismiss();
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setIsKeypadVisible(true);
+        }}
+      >
         <View style={styles.amountRow}>
-          <Text style={[styles.currencySymbol, { fontFamily: 'Quicksand_700Bold' }]}>₹</Text>
+          <Text style={[styles.currencySymbol, { fontFamily: 'Quicksand_700Bold' }]}>
+            ₹
+          </Text>
           <Text
             style={[
               styles.amountValue,
@@ -124,7 +152,7 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
         <View style={styles.amountUnderline} />
-      </View>
+      </Pressable>
 
       {/* 3. Scrollable Middle Section */}
       <ScrollView
@@ -179,10 +207,8 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
             onFocus={() => {
-              // Scroll down so the note field is visible above the keyboard
-              setTimeout(() => {
-                scrollRef.current?.scrollToEnd({ animated: true });
-              }, 300);
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setIsKeypadVisible(false);
             }}
           />
         </View>
@@ -268,28 +294,32 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* 4. Fixed Bottom Section */}
       <View style={styles.bottomSection}>
-        <View style={styles.keypadGrid}>
-          <View style={styles.keypadRow}>
-            <KeyButton item="1" onPress={handleKeyPress} />
-            <KeyButton item="2" onPress={handleKeyPress} />
-            <KeyButton item="3" onPress={handleKeyPress} />
+        {isKeypadVisible && (
+          <View style={styles.keypadContainer}>
+            <View style={styles.keypadGrid}>
+              <View style={styles.keypadRow}>
+                <KeyButton item="1" onPress={handleKeyPress} />
+                <KeyButton item="2" onPress={handleKeyPress} />
+                <KeyButton item="3" onPress={handleKeyPress} />
+              </View>
+              <View style={styles.keypadRow}>
+                <KeyButton item="4" onPress={handleKeyPress} />
+                <KeyButton item="5" onPress={handleKeyPress} />
+                <KeyButton item="6" onPress={handleKeyPress} />
+              </View>
+              <View style={styles.keypadRow}>
+                <KeyButton item="7" onPress={handleKeyPress} />
+                <KeyButton item="8" onPress={handleKeyPress} />
+                <KeyButton item="9" onPress={handleKeyPress} />
+              </View>
+              <View style={styles.keypadRow}>
+                <KeyButton item="." onPress={handleKeyPress} />
+                <KeyButton item="0" onPress={handleKeyPress} />
+                <KeyButton item="backspace" onPress={handleKeyPress} />
+              </View>
+            </View>
           </View>
-          <View style={styles.keypadRow}>
-            <KeyButton item="4" onPress={handleKeyPress} />
-            <KeyButton item="5" onPress={handleKeyPress} />
-            <KeyButton item="6" onPress={handleKeyPress} />
-          </View>
-          <View style={styles.keypadRow}>
-            <KeyButton item="7" onPress={handleKeyPress} />
-            <KeyButton item="8" onPress={handleKeyPress} />
-            <KeyButton item="9" onPress={handleKeyPress} />
-          </View>
-          <View style={styles.keypadRow}>
-            <KeyButton item="." onPress={handleKeyPress} />
-            <KeyButton item="0" onPress={handleKeyPress} />
-            <KeyButton item="backspace" onPress={handleKeyPress} />
-          </View>
-        </View>
+        )}
 
         <Pressable
           disabled={!isSaveEnabled}
@@ -341,7 +371,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   currencySymbol: {
-    fontSize: 24,
+    fontSize: 48,
     color: '#B0B4C0',
     marginRight: 4,
   },
@@ -467,10 +497,19 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     backgroundColor: '#FFFFFF',
   },
+  keypadContainer: {
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+    marginTop: 16,
+  },
   keypadGrid: {
     flexDirection: 'column',
     gap: 12,
-    marginTop: 8,
   },
   keypadRow: {
     flexDirection: 'row',

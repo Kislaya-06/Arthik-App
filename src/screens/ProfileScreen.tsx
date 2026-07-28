@@ -10,17 +10,14 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon,
-  Shield, FileText, CircleAlert, LogOut, Pencil, Check, X,
+  Shield, FileText, CircleAlert, LogOut, Pencil, Check, X, ArrowLeft
 } from 'lucide-react-native';
 
 import { useAuthStore } from '../store/authStore';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<TabParamList, 'Profile'>,
-  NativeStackScreenProps<RootStackParamList>
->;
+type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -137,9 +134,17 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
-          Profile
-        </Text>
+        <View style={styles.headerRow}>
+          <Pressable 
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+          >
+            <ArrowLeft size={28} color="#1A2B4C" strokeWidth={2.5} />
+          </Pressable>
+          <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+            Profile
+          </Text>
+        </View>
 
         {/* Profile Info Card */}
         <View style={styles.profileCard}>
@@ -227,33 +232,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          {/* 4. Privacy Policy */}
-          <Pressable
-            style={styles.settingRow}
-            onPress={() => Alert.alert('Privacy Policy', 'Visit our website for full privacy policy details.')}
-          >
-            <View style={styles.iconContainer}>
-              <Shield size={18} color="#1A2B4C" />
-            </View>
-            <Text style={[styles.settingLabel, { fontFamily: 'Quicksand_700Bold' }]}>
-              Privacy Policy
-            </Text>
-            <ChevronRight size={18} color="#8A8FA3" />
-          </Pressable>
 
-          {/* 5. Terms of Service */}
-          <Pressable
-            style={styles.settingRow}
-            onPress={() => Alert.alert('Terms of Service', 'Visit our website for full terms of service details.')}
-          >
-            <View style={styles.iconContainer}>
-              <FileText size={18} color="#1A2B4C" />
-            </View>
-            <Text style={[styles.settingLabel, { fontFamily: 'Quicksand_700Bold' }]}>
-              Terms of Service
-            </Text>
-            <ChevronRight size={18} color="#8A8FA3" />
-          </Pressable>
 
           {/* 6. App Version */}
           <View style={[styles.settingRow, styles.lastSettingRow]}>
@@ -290,7 +269,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 120, // Bottom spacing for tab bar
+    paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  backBtn: {
+    marginRight: 16,
+    marginTop: 4, // Nudge down to visually center with large text
   },
   headerTitle: {
     fontSize: 30,

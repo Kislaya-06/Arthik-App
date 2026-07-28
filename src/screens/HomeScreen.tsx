@@ -169,6 +169,7 @@ const filterExpenses = (expenses: Expense[], filter: Filter): Expense[] => {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
   const { expenses, fetchExpenses } = useExpenseStore();
   const categories = useCategoryStore((s) => s.categories);
@@ -212,7 +213,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [expenses]
   );
 
-  const firstName = profile?.first_name ?? 'there';
+  const nameFromMeta = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
+  const dbName = profile?.first_name === 'User' ? null : profile?.first_name;
+  const firstName = dbName || nameFromMeta?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
 
   return (
     <View style={styles.container}>
@@ -230,7 +233,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.helloText}>Hello,</Text>
             <Text style={styles.nameText}>{firstName}</Text>
           </View>
-          <Pressable style={styles.bellBtn}>
+          <Pressable style={styles.bellBtn} onPress={() => navigation.navigate('Notifications' as any)}>
             <Bell size={20} color="#1A2B4C" />
           </Pressable>
         </View>
