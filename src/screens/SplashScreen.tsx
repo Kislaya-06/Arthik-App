@@ -27,6 +27,11 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const taglineOpacity = useRef(new Animated.Value(0)).current;
   const dotsOpacity = useRef(new Animated.Value(0)).current;
 
+  // Wave animation values for the 3 dots
+  const dot1Anim = useRef(new Animated.Value(0)).current;
+  const dot2Anim = useRef(new Animated.Value(0)).current;
+  const dot3Anim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     // Staggered entrance animations
     Animated.parallel([
@@ -81,6 +86,40 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       ]),
     ]).start();
 
+    // Helper to pulse a single dot (0 -> 1 -> 0)
+    const createDotPulse = (anim: Animated.Value) =>
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration: 260,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]);
+
+    // Sequential wave animation: 1st green -> 2nd green -> 3rd green -> repeat
+    const dotWaveLoop = Animated.loop(
+      Animated.sequence([
+        Animated.stagger(180, [
+          createDotPulse(dot1Anim),
+          createDotPulse(dot2Anim),
+          createDotPulse(dot3Anim),
+        ]),
+        Animated.delay(250),
+      ])
+    );
+
+    // Start wave loop once dots fade in
+    const dotTimer = setTimeout(() => {
+      dotWaveLoop.start();
+    }, 550);
+
     const initAuthAndNavigate = async () => {
       try {
         // Check if the app was opened via a deep link (e.g. password recovery)
@@ -102,19 +141,24 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           nextScreen = 'AppTabs';
         }
 
-        // Transition to next screen after 1.8 seconds
+        // Transition to next screen after 2.4 seconds to allow smooth wave animation
         setTimeout(() => {
           navigation.replace(nextScreen as any);
-        }, 1800);
+        }, 2400);
       } catch (e) {
         console.error('Session retrieval error:', e);
         setTimeout(() => {
           navigation.replace('Onboarding');
-        }, 1800);
+        }, 2400);
       }
     };
 
     initAuthAndNavigate();
+
+    return () => {
+      clearTimeout(dotTimer);
+      dotWaveLoop.stop();
+    };
   }, []);
 
   return (
@@ -163,11 +207,41 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         Apna kharcha, apna hisaab
       </Animated.Text>
 
-      {/* Pagination Style Dots */}
+      {/* Animated Sequential Dots */}
       <Animated.View style={[styles.dotsContainer, { opacity: dotsOpacity }]}>
-        <View style={[styles.dot, { backgroundColor: colors.mint }]} />
-        <View style={[styles.dot, { backgroundColor: colors.mint }]} />
-        <View style={[styles.dot, { backgroundColor: colors.borderSubtle }]} />
+        {[dot1Anim, dot2Anim, dot3Anim].map((anim, index) => {
+          const scale = anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.35],
+          });
+
+          return (
+            <View key={index} style={styles.dotWrapper}>
+              {/* Inactive base dot */}
+              <View
+                style={[
+                  styles.dotBase,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255, 255, 255, 0.22)'
+                      : 'rgba(26, 43, 76, 0.18)',
+                  },
+                ]}
+              />
+              {/* Active green animated dot */}
+              <Animated.View
+                style={[
+                  styles.dotActive,
+                  {
+                    backgroundColor: colors.mint,
+                    opacity: anim,
+                    transform: [{ scale }],
+                  },
+                ]}
+              />
+            </View>
+          );
+        })}
       </Animated.View>
     </View>
   );
@@ -231,10 +305,23 @@ const styles = StyleSheet.create({
   dotsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 24,
+    gap: 8,
+    marginTop: 28,
   },
-  dot: {
+  dotWrapper: {
+    width: 14,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  dotBase: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dotActive: {
+    position: 'absolute',
     width: 8,
     height: 8,
     borderRadius: 4,
