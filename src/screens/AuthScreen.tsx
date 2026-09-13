@@ -308,13 +308,13 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               ]}
             >
               <AlertCircle size={18} color={successMessage ? (isDark ? '#81C784' : '#4CAF50') : (isDark ? '#FF8E8E' : '#E87070')} style={{ marginRight: 8, flexShrink: 0 }} />
-              <Text 
+              <Text
                 style={[
-                  styles.errorBannerText, 
+                  styles.errorBannerText,
                   isDark && { color: '#FF8E8E' },
                   successMessage && styles.successBannerText,
                   successMessage && isDark && { color: '#81C784' }
-                ]} 
+                ]}
                 numberOfLines={4}
               >
                 {successMessage || errorMessage}
@@ -451,7 +451,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
 
               <AnimatedButton
                 style={[
-                  styles.btn, 
+                  styles.btn,
                   styles.googleBtn,
                   {
                     backgroundColor: colors.card,

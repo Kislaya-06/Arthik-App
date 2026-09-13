@@ -4,13 +4,14 @@ import {
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
   LayoutAnimation,
 } from 'react-native';
+
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import {
   ArrowLeft, Calendar, ChevronRight, Wallet, CheckSquare, CreditCard,
 } from 'lucide-react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
 import { format } from 'date-fns';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -21,6 +22,19 @@ import { getCategoryIcon } from '../lib/iconUtils';
 import { useTheme } from '../store/themeStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
+
+const PAYMENT_OPTIONS = [
+  { mode: 'cash' as const, label: 'Cash', Icon: Wallet },
+  { mode: 'upi' as const, label: 'UPI', Icon: CheckSquare },
+  { mode: 'card' as const, label: 'Card', Icon: CreditCard },
+];
+
+const KEYPAD_ROWS = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['.', '0', 'backspace'],
+];
 
 export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
   const { expenseId } = route.params;
@@ -86,21 +100,11 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
     if (val === 'backspace') {
       setAmount(prev => prev.slice(0, -1));
     } else if (val === '.') {
-      setAmount(prev => {
-        if (!prev.includes('.')) {
-          return prev === '' ? '0.' : prev + '.';
-        }
-        return prev;
-      });
+      setAmount(prev => (!prev.includes('.') ? (prev === '' ? '0.' : prev + '.') : prev));
     } else {
       setAmount(prev => {
-        if (prev === '0') {
-          return val;
-        }
-        if (prev.includes('.')) {
-          const decimals = prev.split('.')[1];
-          if (decimals && decimals.length >= 2) return prev;
-        }
+        if (prev === '0') return val;
+        if (prev.includes('.') && prev.split('.')[1]?.length >= 2) return prev;
         if (prev.length > 9) return prev;
         return prev + val;
       });
@@ -122,15 +126,6 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    if (event.type === 'set' && date) {
-      setSelectedDate(date);
-    }
-  };
-
   const formattedDate = formatDate(selectedDate, true);
   const numAmount = parseFloat(amount || '0');
   const isSaveEnabled = numAmount > 0 && selectedCategoryId !== null;
@@ -143,7 +138,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* 1. Fixed Header */}
+      {/* 1. Header */}
       <View style={[styles.header, { marginTop: insets.top + 16 }]}>
         <Pressable
           style={styles.backButton}
@@ -157,14 +152,16 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
         </Text>
       </View>
 
-      {/* 2. Fixed Amount Display */}
+      {/* 2. Amount Display */}
       <Pressable 
         style={[styles.amountContainer, isKeyboardOpen && styles.amountContainerCompact]}
         onPress={() => {
           Keyboard.dismiss();
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           setIsKeypadVisible(true);
-          scrollRef.current?.scrollTo({ y: 0, animated: true });
+          requestAnimationFrame(() => {
+            scrollRef.current?.scrollTo({ y: 0, animated: true });
+          });
         }}
       >
         <View style={styles.amountRow}>
@@ -199,7 +196,6 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-
         {/* Category Selector */}
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
           CATEGORY
@@ -216,8 +212,8 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={[
                     styles.categoryChip,
                     isSelected
-                      ? [styles.categoryChipSelected, { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }]
-                      : [styles.categoryChipUnselected, { backgroundColor: colors.card, borderColor: colors.border }],
+                      ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
+                      : { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
                 >
                   <IconComp size={16} color={isSelected ? '#1A2B4C' : colors.textPrimary} />
@@ -287,136 +283,102 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <ChevronRight size={18} color={colors.textSecondary} />
         </Pressable>
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display="default"
-            themeVariant={isDark ? 'dark' : 'light'}
-            onChange={handleDateChange}
-          />
-        )}
+        <CustomDatePickerModal
+          visible={showDatePicker}
+          value={selectedDate}
+          onConfirm={(date) => setSelectedDate(date)}
+          onClose={() => setShowDatePicker(false)}
+        />
 
         {/* Paid Via Toggle */}
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
           PAID VIA
         </Text>
         <View style={[styles.paymentToggleContainer, { backgroundColor: colors.inputBg }]}>
-          <Pressable
-            onPress={() => setPaymentMode('cash')}
-            style={[
-              styles.paymentToggleSegment,
-              paymentMode === 'cash' && [styles.paymentToggleSegmentActive, { backgroundColor: colors.peachCoral }],
-            ]}
-          >
-            <Wallet size={16} color={paymentMode === 'cash' ? '#1A2B4C' : colors.textSecondary} />
-            <Text
-              style={[
-                styles.paymentToggleText,
-                { color: paymentMode === 'cash' ? '#1A2B4C' : colors.textSecondary },
-                { fontFamily: paymentMode === 'cash' ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
-              ]}
-            >
-              Cash
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setPaymentMode('upi')}
-            style={[
-              styles.paymentToggleSegment,
-              paymentMode === 'upi' && [styles.paymentToggleSegmentActive, { backgroundColor: colors.peachCoral }],
-            ]}
-          >
-            <CheckSquare size={16} color={paymentMode === 'upi' ? '#1A2B4C' : colors.textSecondary} />
-            <Text
-              style={[
-                styles.paymentToggleText,
-                { color: paymentMode === 'upi' ? '#1A2B4C' : colors.textSecondary },
-                { fontFamily: paymentMode === 'upi' ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
-              ]}
-            >
-              UPI
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setPaymentMode('card')}
-            style={[
-              styles.paymentToggleSegment,
-              paymentMode === 'card' && [styles.paymentToggleSegmentActive, { backgroundColor: colors.peachCoral }],
-            ]}
-          >
-            <CreditCard size={16} color={paymentMode === 'card' ? '#1A2B4C' : colors.textSecondary} />
-            <Text
-              style={[
-                styles.paymentToggleText,
-                { color: paymentMode === 'card' ? '#1A2B4C' : colors.textSecondary },
-                { fontFamily: paymentMode === 'card' ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
-              ]}
-            >
-              Card
-            </Text>
-          </Pressable>
+          {PAYMENT_OPTIONS.map(({ mode, label, Icon }) => {
+            const isActive = paymentMode === mode;
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => setPaymentMode(mode)}
+                style={[
+                  styles.paymentToggleSegment,
+                  isActive && { backgroundColor: colors.peachCoral },
+                ]}
+              >
+                <Icon size={16} color={isActive ? '#1A2B4C' : colors.textSecondary} />
+                <Text
+                  style={[
+                    styles.paymentToggleText,
+                    {
+                      color: isActive ? '#1A2B4C' : colors.textSecondary,
+                      fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium',
+                    },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
       </ScrollView>
 
-      {/* 4. Fixed Bottom Section */}
+      {/* 4. Unified Bottom Console (Keypad + Action Dock) */}
       <View
         style={[
           styles.bottomSection,
           {
-            backgroundColor: colors.background,
-            paddingBottom: isKeyboardOpen
-              ? 12
-              : Math.max(insets.bottom, 16) + 12,
+            backgroundColor: colors.card,
+            borderTopColor: colors.borderSubtle,
+            paddingBottom: isKeyboardOpen ? 12 : Math.max(insets.bottom, 14) + 8,
           },
         ]}
       >
         {isKeypadVisible && (
-          <View style={[styles.keypadContainer, { backgroundColor: colors.cardSubtle }]}>
-            <View style={styles.keypadGrid}>
-              <View style={styles.keypadRow}>
-                <KeyButton item="1" onPress={handleKeyPress} />
-                <KeyButton item="2" onPress={handleKeyPress} />
-                <KeyButton item="3" onPress={handleKeyPress} />
+          <View style={styles.keypadGrid}>
+            {KEYPAD_ROWS.map((row, rIdx) => (
+              <View key={rIdx} style={styles.keypadRow}>
+                {row.map((item) => (
+                  <KeyButton key={item} item={item} onPress={handleKeyPress} />
+                ))}
               </View>
-              <View style={styles.keypadRow}>
-                <KeyButton item="4" onPress={handleKeyPress} />
-                <KeyButton item="5" onPress={handleKeyPress} />
-                <KeyButton item="6" onPress={handleKeyPress} />
-              </View>
-              <View style={styles.keypadRow}>
-                <KeyButton item="7" onPress={handleKeyPress} />
-                <KeyButton item="8" onPress={handleKeyPress} />
-                <KeyButton item="9" onPress={handleKeyPress} />
-              </View>
-              <View style={styles.keypadRow}>
-                <KeyButton item="." onPress={handleKeyPress} />
-                <KeyButton item="0" onPress={handleKeyPress} />
-                <KeyButton item="backspace" onPress={handleKeyPress} />
-              </View>
-            </View>
+            ))}
           </View>
         )}
 
         <Pressable
           disabled={!isSaveEnabled}
           onPress={handleSave}
-          style={[
+          style={({ pressed }) => [
             styles.saveButton,
             isKeyboardOpen && styles.saveButtonKeyboard,
             isSaveEnabled
-              ? [styles.saveButtonEnabled, { backgroundColor: colors.mintGreen }]
-              : [styles.saveButtonDisabled, { backgroundColor: colors.cardSubtle }],
+              ? [
+                  styles.saveButtonEnabled,
+                  {
+                    backgroundColor: colors.mintGreen,
+                    opacity: pressed ? 0.9 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  },
+                ]
+              : [
+                  styles.saveButtonDisabled,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.inputBg,
+                    borderColor: colors.borderSubtle,
+                  },
+                ],
           ]}
         >
           <Text
             style={[
               styles.saveButtonText,
-              isSaveEnabled
-                ? [styles.saveButtonTextEnabled, { color: '#1A2B4C' }]
-                : [styles.saveButtonTextDisabled, { color: colors.textMuted }],
-              { fontFamily: 'Quicksand_700Bold' },
+              {
+                color: isSaveEnabled ? '#1A2B4C' : colors.textMuted,
+                fontFamily: 'Quicksand_700Bold',
+              },
             ]}
           >
             Update Expense
@@ -461,33 +423,10 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 60,
   },
-  amountActive: {},
-  amountInactive: {},
   amountUnderline: {
     height: 1,
     width: 80,
     marginTop: 8,
-  },
-  categoryContainer: {
-    paddingHorizontal: 24,
-    marginTop: 20,
-  },
-  categoryContainerCompact: {
-    marginTop: 8,
-  },
-  scrollSection: {
-    flex: 1,
-    paddingHorizontal: 24,
-    marginTop: 0,
-  },
-  scrollSectionCompact: {
-    marginTop: 0,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 12,
   },
   categoryScroll: {
     flexDirection: 'row',
@@ -507,17 +446,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
   },
-  categoryChipSelected: {},
-  categoryChipUnselected: {},
   categoryChipText: {
     fontSize: 14,
     marginLeft: 8,
   },
+  scrollSection: {
+    flex: 1,
+    paddingHorizontal: 24,
+    marginTop: 20,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
   inputContainer: {
-    borderRadius: 16,
+    borderRadius: 9999,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   inputText: {
     fontSize: 16,
@@ -527,10 +475,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 16,
+    borderRadius: 9999,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   datePickerLeft: {
     flexDirection: 'row',
@@ -552,35 +500,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-  },
-  paymentToggleSegmentActive: {
     borderRadius: 9999,
   },
   paymentToggleText: {
     fontSize: 14,
     marginLeft: 8,
   },
-  paymentToggleTextActive: {},
-  paymentToggleTextInactive: {},
   bottomSection: {
-    paddingHorizontal: 24,
-  },
-  keypadContainer: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginHorizontal: -24,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 8,
-    marginTop: 16,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   keypadGrid: {
     flexDirection: 'column',
-    gap: 12,
+    gap: 10,
   },
   keypadRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   amountContainerCompact: {
     marginTop: 8,
@@ -596,19 +546,33 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     borderRadius: 9999,
-    paddingVertical: 18,
-    marginTop: 18,
+    height: 60,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
   },
   saveButtonKeyboard: {
-    paddingVertical: 14,
-    marginTop: 10,
+    marginTop: 0,
+    height: 50,
   },
-  saveButtonEnabled: {},
-  saveButtonDisabled: {},
+  saveButtonEnabled: {
+    ...Platform.select({
+      ios: {
+        shadowColor: '#B8E0C8',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  saveButtonDisabled: {
+    borderWidth: 1,
+  },
   saveButtonText: {
     fontSize: 18,
+    letterSpacing: 0.3,
   },
-  saveButtonTextEnabled: {},
-  saveButtonTextDisabled: {},
 });

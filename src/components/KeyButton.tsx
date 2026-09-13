@@ -44,13 +44,13 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
           styles.keyButton,
           {
             borderColor: colors.borderSubtle,
-            backgroundColor: isBackspace ? colors.peachSoft : colors.card,
+            backgroundColor: isBackspace ? colors.peachSoft : colors.cardSubtle,
             transform: [{ scale }],
           },
         ]}
       >
         {isBackspace ? (
-          <Delete size={20} color={colors.peachCoral} />
+          <Delete size={22} color={colors.peachCoral} />
         ) : (
           <Text style={[styles.keyText, { color: colors.textPrimary }]}>{item}</Text>
         )}
@@ -66,14 +66,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   keyButton: {
-    borderRadius: 16,
+    borderRadius: 9999,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    height: 56,
+    height: 52,
   },
   keyText: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: 'Quicksand_700Bold',
   },
 });

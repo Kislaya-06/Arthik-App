@@ -31,14 +31,46 @@
 ## ✨ Features
 
 - **Secure Authentication** — Email/password signup & login, Google OAuth, and password reset via email
-- **Expense Management** — Add, edit, view, and delete expenses with an intuitive custom number keypad
+- **Custom In-App Number Keypad** — Fast, tactile expense entry with animated pill-shaped numeric keys and backspace
+- **Theme-Aware Custom Date Picker** — Fully custom in-app calendar modal with quick "Today" and "Yesterday" pill shortcuts, seamlessly integrated with Arthik's dark/light design system
+- **Expense Management** — Add, edit, view, and delete expenses with full real-time state synchronization
 - **Categories** — Pre-loaded default categories + create fully custom ones with your own icon and color
 - **Dashboard** — Snapshot of monthly spending with a donut chart and recent transactions
 - **History** — Full searchable and filterable expense history, grouped by date
 - **Insights** — Visual spending breakdowns by category with weekly, monthly, and yearly trends
-- **Payment Modes** — Track whether each expense was Cash, UPI, or Card
+- **Payment Modes** — Track whether each expense was Cash, UPI, or Card with streamlined pill toggles
 - **Profile** — Edit your name, manage categories, and logout securely
 - **Cloud Sync** — All data stored securely in Supabase — accessible across reinstalls
+
+---
+
+## 🎨 UI/UX & Design Modernization
+
+Recent major enhancements to elevate the app's visual consistency, user experience, and codebase architecture:
+
+### 1. Unified Pill Design Language
+All interactive touchpoints across the expense flow now share a cohesive pill/stadium aesthetic (`borderRadius: 9999`):
+- **Primary CTA Buttons:** "Save Expense" and "Update Expense" buttons enlarged to standard `height: 60px`, `borderRadius: 9999`, and `fontSize: 18px` (`Quicksand_700Bold`), perfectly matching primary actions across Auth, Onboarding, and Detail screens.
+- **Keypad Digit Tiles:** Replaced standard rectangular keys with modern pill-shaped tiles featuring spring animations and theme-aware borders.
+- **Input & Date Containers:** Note input field and Date selector container styled with matching pill borders for design uniformity.
+- **Category Chips & Payment Toggles:** Smooth pill chips with accent highlights (`#B8E0C8` Mint Green & `#F4B8AE` Peach Coral).
+
+### 2. Proportional Spacing & Layout Hierarchy
+- **Normalized Gap Ratios:** Adjusted the spacing between Category Selector, Note input, and Date picker to an exact, consistent `16px` rhythm.
+- **Screen Viewport Fit:** Freed up vertical real estate so that the Amount, Category list, Note input, Date selector, numeric keypad, and Save button remain 100% visible on screen without occluding one another.
+
+### 3. Custom DatePicker Modal (`CustomDatePickerModal`)
+- Replaced the stock Android dialog (generic teal header, white background, and system Roboto fonts) with a proprietary in-app calendar modal:
+  - **Surface & Elevation:** Uses Arthik's dark navy card background (`#131D2F`), subtle borders (`#182335`), and `28px` rounded corners.
+  - **Quick Shortcuts:** Dedicated **"Today"** and **"Yesterday"** pill buttons for one-tap date logging.
+  - **Month & Year Navigator:** Fluid chevron navigation (`<` and `>`) with header date preview.
+  - **Selected & Today Indicators:** Active selection highlighted with solid Mint Green (`#B8E0C8`) pill circle; current day marked with subtle accent outline.
+  - **Typography:** Fully integrated with Google Fonts `Quicksand` weights.
+
+### 4. Codebase Optimization & Component Refactoring
+- **Code Reduction:** Reduced `AddExpenseScreen.tsx` and `EditExpenseScreen.tsx` from **620+ lines down to ~400 lines** (~35% reduction) without any functional regressions.
+- **Declarative Loops:** Replaced verbose duplicate JSX blocks for Payment Modes and Keypad rows with concise `.map()` arrays (`PAYMENT_OPTIONS`, `KEYPAD_ROWS`).
+- **StyleSheet Sanitization:** Removed obsolete, empty style objects and duplicate inline styles.
 
 ---
 
