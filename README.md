@@ -50,16 +50,18 @@
 
 Recent major enhancements to elevate the app's visual consistency, user experience, and codebase architecture:
 
-### 1. Unified Pill Design Language
+### 1. Unified Pill Design Language & Form Ergonomics
 All interactive touchpoints across the expense flow now share a cohesive pill/stadium aesthetic (`borderRadius: 9999`):
+- **Form Controls Uniformity:** Standardized the Note input container, Date picker button, and Paid Via toggle to an exact, uniform `height: 56dp` with centered vertical alignment, providing clean visual symmetry across the form.
+- **Calibrated Bouncy Payment Toggle:** Fine-tuned spring animation physics (`tension: 70, friction: 8`) and clamped overshoot interpolation (`extrapolate: 'clamp'`) paired with `overflow: 'hidden'`, ensuring the active selection pill glides smoothly without extending outside container bounds across any screen size.
+- **Floating Capsule Bottom Navigation Bar (`BottomNavBar`):** Engineered a balanced 5-column navigation layout with spring-animated horizontal expanding capsule tabs and an elevated center quick-add button.
 - **Primary CTA Buttons:** "Save Expense" and "Update Expense" buttons enlarged to standard `height: 60px`, `borderRadius: 9999`, and `fontSize: 18px` (`Quicksand_700Bold`), perfectly matching primary actions across Auth, Onboarding, and Detail screens.
-- **Keypad Digit Tiles:** Replaced standard rectangular keys with modern pill-shaped tiles featuring spring animations and theme-aware borders.
-- **Input & Date Containers:** Note input field and Date selector container styled with matching pill borders for design uniformity.
-- **Category Chips & Payment Toggles:** Smooth pill chips with accent highlights (`#B8E0C8` Mint Green & `#F4B8AE` Peach Coral).
+- **Keypad Digit Tiles:** Modern pill-shaped numeric keys featuring responsive spring animations and theme-aware borders.
+- **Category Chips:** Smooth pill chips with accent highlights (`#B8E0C8` Mint Green & `#F4B8AE` Peach Coral).
 
 ### 2. Proportional Spacing & Layout Hierarchy
-- **Normalized Gap Ratios:** Adjusted the spacing between Category Selector, Note input, and Date picker to an exact, consistent `16px` rhythm.
-- **Screen Viewport Fit:** Freed up vertical real estate so that the Amount, Category list, Note input, Date selector, numeric keypad, and Save button remain 100% visible on screen without occluding one another.
+- **Normalized Gap Ratios:** Adjusted the spacing between Category Selector, Note input, Date picker, and Paid Via toggle to an exact, consistent `16px` rhythm.
+- **Screen Viewport Fit:** Freed up vertical real estate so that the Amount, Category list, Note input, Date selector, Paid Via toggle, numeric keypad, and Save button remain 100% visible on screen without occluding one another.
 
 ### 3. Custom DatePicker Modal (`CustomDatePickerModal`)
 - Replaced the stock Android dialog (generic teal header, white background, and system Roboto fonts) with a proprietary in-app calendar modal:
