@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   Animated,
-  useWindowDimensions,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
@@ -26,7 +25,7 @@ const AnimatedIcon = ({
 
   return (
     <View style={styles.iconWrapper}>
-      {/* Inactive Icon layer (Slate Muted) */}
+      {/* Inactive Icon layer */}
       <View style={StyleSheet.absoluteFill}>
         <Icon size={20} color={colors.textSecondary} />
       </View>
@@ -38,15 +37,15 @@ const AnimatedIcon = ({
   );
 };
 
-// ─── Expanding Active Capsule Tab Item (Image 1 Option A) ────────────────────
-interface CapsuleTabItemProps {
+// ─── Perfectly Balanced Tab Item (5-Column Grid) ────────────────────────────
+interface TabItemProps {
   icon: any;
   label: string;
   active: boolean;
   onPress: () => void;
 }
 
-const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
+const TabItem: React.FC<TabItemProps> = ({
   icon,
   label,
   active,
@@ -59,7 +58,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   useEffect(() => {
     Animated.spring(anim, {
       toValue: active ? 1 : 0,
-      tension: 50,
+      tension: 60,
       friction: 8,
       useNativeDriver: false,
     }).start();
@@ -80,43 +79,20 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
     }).start();
   };
 
-  // Interpolated Capsule Background
   const capsuleBg = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [
       'rgba(184, 224, 200, 0)',
-      isDark ? 'rgba(184, 224, 200, 0.16)' : 'rgba(184, 224, 200, 0.22)',
+      isDark ? 'rgba(184, 224, 200, 0.15)' : 'rgba(184, 224, 200, 0.22)',
     ],
   });
 
-  // Interpolated Capsule Border
   const capsuleBorder = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [
       'rgba(184, 224, 200, 0)',
-      isDark ? 'rgba(184, 224, 200, 0.32)' : 'rgba(184, 224, 200, 0.38)',
+      isDark ? 'rgba(184, 224, 200, 0.28)' : 'rgba(184, 224, 200, 0.35)',
     ],
-  });
-
-  // Interpolated Label Width & Opacity
-  const labelMaxWidth = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 60],
-  });
-
-  const labelOpacity = anim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0, 0, 1],
-  });
-
-  const labelMarginLeft = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 5],
-  });
-
-  const paddingHorizontal = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [8, 12],
   });
 
   return (
@@ -125,7 +101,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={styles.tabPressable}
-      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
     >
       <Animated.View style={{ transform: [{ scale: pressScale }] }}>
         <Animated.View
@@ -134,31 +110,22 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
             {
               backgroundColor: capsuleBg,
               borderColor: capsuleBorder,
-              paddingHorizontal,
             },
           ]}
         >
           <AnimatedIcon icon={icon} anim={anim} />
-
-          <Animated.View
-            style={{
-              maxWidth: labelMaxWidth,
-              opacity: labelOpacity,
-              marginLeft: labelMarginLeft,
-              overflow: 'hidden',
-              justifyContent: 'center',
-            }}
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.tabLabel,
+              {
+                color: active ? colors.mintGreen : colors.textSecondary,
+                fontFamily: active ? 'Quicksand_700Bold' : 'Quicksand_600SemiBold',
+              },
+            ]}
           >
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.tabLabel,
-                { color: '#FFFFFF' },
-              ]}
-            >
-              {label}
-            </Text>
-          </Animated.View>
+            {label}
+          </Text>
         </Animated.View>
       </Animated.View>
     </Pressable>
@@ -263,7 +230,15 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
       ]}
       pointerEvents="box-none"
     >
-      {/* Continuous Floating Capsule Pill */}
+      {/* 
+        Symmetric Floating Capsule Pill:
+        5 EQUAL COLUMNS (20% EACH) — 100% Mathematical Consistency:
+        - Slot 1: Home (10%)
+        - Slot 2: History (30%)
+        - Slot 3: Add (+) (50% Dead Center)
+        - Slot 4: Savings (70%)
+        - Slot 5: Insights (90%)
+      */}
       <View
         style={[
           styles.pillBar,
@@ -273,15 +248,19 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           },
         ]}
       >
-        {/* Left Wing: Home & History (flex: 1) */}
-        <View style={styles.tabWing}>
-          <CapsuleTabItem
+        {/* Slot 1: Home */}
+        <View style={styles.slot}>
+          <TabItem
             icon={Home}
             label="Home"
             active={state.index === getRouteIndex('Home')}
             onPress={() => navigateTo('Home', getRouteIndex('Home'))}
           />
-          <CapsuleTabItem
+        </View>
+
+        {/* Slot 2: History */}
+        <View style={styles.slot}>
+          <TabItem
             icon={Clock}
             label="History"
             active={state.index === getRouteIndex('History')}
@@ -289,18 +268,24 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           />
         </View>
 
-        {/* Center: Flush Add Expense (+) Button — Permanently Anchored in Dead Center */}
-        <CenterAddButton onPress={handleAddExpense} />
+        {/* Slot 3: Center Plus Action Button */}
+        <View style={styles.slot}>
+          <CenterAddButton onPress={handleAddExpense} />
+        </View>
 
-        {/* Right Wing: Savings & Insights (flex: 1) */}
-        <View style={styles.tabWing}>
-          <CapsuleTabItem
+        {/* Slot 4: Savings */}
+        <View style={styles.slot}>
+          <TabItem
             icon={PiggyBankCoinIcon}
             label="Savings"
             active={state.index === getRouteIndex('Savings')}
             onPress={() => navigateTo('Savings', getRouteIndex('Savings'))}
           />
-          <CapsuleTabItem
+        </View>
+
+        {/* Slot 5: Insights */}
+        <View style={styles.slot}>
+          <TabItem
             icon={BarChart2}
             label="Insights"
             active={state.index === getRouteIndex('Insights')}
@@ -315,19 +300,18 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    left: 18,
-    right: 18,
+    left: 16,
+    right: 16,
     alignItems: 'center',
     zIndex: 99,
   },
   pillBar: {
     width: '100%',
-    height: 64,
-    borderRadius: 32,
+    height: 66,
+    borderRadius: 33,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -335,37 +319,37 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
-  tabWing: {
+  slot: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
+    height: '100%',
   },
   tabPressable: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   capsule: {
-    height: 42,
-    borderRadius: 21,
-    flexDirection: 'row',
+    width: 56,
+    height: 48,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    paddingVertical: 3,
   },
   iconWrapper: {
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 3,
   },
   tabLabel: {
-    fontFamily: 'Quicksand_700Bold',
-    fontSize: 12,
+    fontSize: 10,
     letterSpacing: 0.2,
   },
   addButtonWrapper: {
-    width: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
