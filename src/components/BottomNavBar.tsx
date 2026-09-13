@@ -101,7 +101,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   // Interpolated Label Width & Opacity
   const labelMaxWidth = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 72],
+    outputRange: [0, 60],
   });
 
   const labelOpacity = anim.interpolate({
@@ -111,12 +111,12 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
 
   const labelMarginLeft = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 6],
+    outputRange: [0, 5],
   });
 
   const paddingHorizontal = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [10, 14],
+    outputRange: [8, 12],
   });
 
   return (
@@ -273,40 +273,40 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           },
         ]}
       >
-        {/* Tab 1: Home */}
-        <CapsuleTabItem
-          icon={Home}
-          label="Home"
-          active={state.index === getRouteIndex('Home')}
-          onPress={() => navigateTo('Home', getRouteIndex('Home'))}
-        />
+        {/* Left Wing: Home & History (flex: 1) */}
+        <View style={styles.tabWing}>
+          <CapsuleTabItem
+            icon={Home}
+            label="Home"
+            active={state.index === getRouteIndex('Home')}
+            onPress={() => navigateTo('Home', getRouteIndex('Home'))}
+          />
+          <CapsuleTabItem
+            icon={Clock}
+            label="History"
+            active={state.index === getRouteIndex('History')}
+            onPress={() => navigateTo('History', getRouteIndex('History'))}
+          />
+        </View>
 
-        {/* Tab 2: History */}
-        <CapsuleTabItem
-          icon={Clock}
-          label="History"
-          active={state.index === getRouteIndex('History')}
-          onPress={() => navigateTo('History', getRouteIndex('History'))}
-        />
-
-        {/* Center: Flush Add Expense (+) Button */}
+        {/* Center: Flush Add Expense (+) Button — Permanently Anchored in Dead Center */}
         <CenterAddButton onPress={handleAddExpense} />
 
-        {/* Tab 3: Savings */}
-        <CapsuleTabItem
-          icon={PiggyBankCoinIcon}
-          label="Savings"
-          active={state.index === getRouteIndex('Savings')}
-          onPress={() => navigateTo('Savings', getRouteIndex('Savings'))}
-        />
-
-        {/* Tab 4: Insights */}
-        <CapsuleTabItem
-          icon={BarChart2}
-          label="Insights"
-          active={state.index === getRouteIndex('Insights')}
-          onPress={() => navigateTo('Insights', getRouteIndex('Insights'))}
-        />
+        {/* Right Wing: Savings & Insights (flex: 1) */}
+        <View style={styles.tabWing}>
+          <CapsuleTabItem
+            icon={PiggyBankCoinIcon}
+            label="Savings"
+            active={state.index === getRouteIndex('Savings')}
+            onPress={() => navigateTo('Savings', getRouteIndex('Savings'))}
+          />
+          <CapsuleTabItem
+            icon={BarChart2}
+            label="Insights"
+            active={state.index === getRouteIndex('Insights')}
+            onPress={() => navigateTo('Insights', getRouteIndex('Insights'))}
+          />
+        </View>
       </View>
     </Animated.View>
   );
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 8,
     borderWidth: 1,
     shadowColor: '#000',
@@ -334,6 +334,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 16,
     elevation: 10,
+  },
+  tabWing: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
   },
   tabPressable: {
     alignItems: 'center',
@@ -355,10 +361,11 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: 'Quicksand_700Bold',
-    fontSize: 12.5,
+    fontSize: 12,
     letterSpacing: 0.2,
   },
   addButtonWrapper: {
+    width: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
