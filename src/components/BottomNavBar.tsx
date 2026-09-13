@@ -26,11 +26,11 @@ const AnimatedIcon = ({
   return (
     <View style={styles.iconWrapper}>
       {/* Inactive Icon layer */}
-      <View style={StyleSheet.absoluteFill}>
+      <View style={styles.iconLayer}>
         <Icon size={19} color={colors.textSecondary} />
       </View>
       {/* Active Icon layer (Mint Green) */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: anim }]}>
+      <Animated.View style={[styles.iconLayer, { opacity: anim }]}>
         <Icon size={19} color={colors.mintGreen} />
       </Animated.View>
     </View>
@@ -146,6 +146,8 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
               marginLeft: labelMarginLeft,
               overflow: 'hidden',
               justifyContent: 'center',
+              alignItems: 'center',
+              transform: [{ translateY: -1.5 }],
             }}
           >
             <Text
@@ -328,8 +330,8 @@ const styles = StyleSheet.create({
   },
   pillBar: {
     width: '100%',
-    height: 64,
-    borderRadius: 32,
+    height: 70,
+    borderRadius: 35,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -348,7 +350,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
   },
   centerContainer: {
-    width: 76,
+    width: 80,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -357,35 +359,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   capsule: {
-    height: 40,
-    borderRadius: 20,
+    height: 44,
+    borderRadius: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   iconWrapper: {
-    width: 20,
-    height: 20,
+    width: 21,
+    height: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabLabel: {
     fontFamily: 'Quicksand_700Bold',
-    fontSize: 11.5,
+    fontSize: 12,
     letterSpacing: 0.2,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   addButtonWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.45,
     shadowRadius: 8,
     elevation: 6,

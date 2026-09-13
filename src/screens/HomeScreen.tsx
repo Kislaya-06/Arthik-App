@@ -186,7 +186,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
 
-  const [activeFilter, setActiveFilter] = useState<Filter>('Monthly');
+  const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
 
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);

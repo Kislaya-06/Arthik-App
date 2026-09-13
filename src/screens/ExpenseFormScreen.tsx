@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  LayoutAnimation,
+  LayoutAnimation, Animated, Dimensions,
 } from 'react-native';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -32,6 +32,181 @@ const PAYMENT_OPTIONS = [
   { mode: 'upi' as const, label: 'UPI', Icon: CheckSquare },
   { mode: 'card' as const, label: 'Card', Icon: CreditCard },
 ];
+
+interface PaymentSegmentItemProps {
+  label: string;
+  Icon: any;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+const PaymentSegmentItem: React.FC<PaymentSegmentItemProps> = ({
+  label,
+  Icon,
+  isActive,
+  onPress,
+}) => {
+  const { colors } = useTheme();
+  const activeAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(activeAnim, {
+      toValue: isActive ? 1 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [isActive]);
+
+  const handlePressIn = () => {
+    Animated.spring(pressScale, {
+      toValue: 0.94,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressScale, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.paymentToggleSegment}
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+    >
+      <Animated.View
+        style={[
+          styles.paymentSegmentContent,
+          { transform: [{ scale: pressScale }] },
+        ]}
+      >
+        {/* Inactive Layer: secondary gray text & icon */}
+        <View style={styles.paymentLabelRow}>
+          <Icon size={16} color={colors.textSecondary} />
+          <Text
+            style={[
+              styles.paymentToggleText,
+              {
+                color: colors.textSecondary,
+                fontFamily: 'Quicksand_600SemiBold',
+              },
+            ]}
+          >
+            {label}
+          </Text>
+        </View>
+
+        {/* Active Layer: dark green text & icon with crossfade opacity */}
+        <Animated.View
+          style={[
+            styles.paymentLabelRow,
+            styles.paymentActiveOverlay,
+            { opacity: activeAnim },
+          ]}
+          pointerEvents="none"
+        >
+          <Icon size={16} color={colors.forestGreen} />
+          <Text
+            style={[
+              styles.paymentToggleText,
+              {
+                color: colors.forestGreen,
+                fontFamily: 'Quicksand_700Bold',
+              },
+            ]}
+          >
+            {label}
+          </Text>
+        </Animated.View>
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+interface BouncyPaymentToggleProps {
+  value: 'cash' | 'upi' | 'card';
+  onChange: (mode: 'cash' | 'upi' | 'card') => void;
+}
+
+const PAYMENT_PADDING = 5;
+
+const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({ value, onChange }) => {
+  const { colors } = useTheme();
+  const initialWidth = Dimensions.get('window').width - 40;
+  const [containerWidth, setContainerWidth] = useState(initialWidth);
+  const activeIndex = PAYMENT_OPTIONS.findIndex(opt => opt.mode === value);
+  const slideAnim = useRef(new Animated.Value(activeIndex >= 0 ? activeIndex : 1)).current;
+
+  useEffect(() => {
+    if (activeIndex >= 0) {
+      Animated.spring(slideAnim, {
+        toValue: activeIndex,
+        tension: 70,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [activeIndex]);
+
+  const innerWidth = containerWidth > 0 ? containerWidth - PAYMENT_PADDING * 2 : 0;
+  const segmentWidth = innerWidth > 0 ? innerWidth / 3 : 0;
+
+  const translateX = slideAnim.interpolate({
+    inputRange: [-0.2, 0, 1, 2, 2.2],
+    outputRange: [-2, 0, segmentWidth, segmentWidth * 2, segmentWidth * 2 + 2],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0 && Math.abs(w - containerWidth) > 1) {
+          setContainerWidth(w);
+        }
+      }}
+      style={[
+        styles.paymentToggleContainer,
+        { backgroundColor: colors.inputBg, padding: PAYMENT_PADDING },
+      ]}
+    >
+      {/* Sliding Bouncy Peach Coral Pill */}
+      {segmentWidth > 0 && (
+        <Animated.View
+          style={[
+            styles.paymentSlidingPill,
+            {
+              width: segmentWidth,
+              backgroundColor: colors.peachCoral,
+              transform: [{ translateX }],
+            },
+          ]}
+        />
+      )}
+
+      {/* 3 Segments: Cash, UPI, Card */}
+      {PAYMENT_OPTIONS.map(({ mode, label, Icon }) => {
+        const isActive = value === mode;
+        return (
+          <PaymentSegmentItem
+            key={mode}
+            label={label}
+            Icon={Icon}
+            isActive={isActive}
+            onPress={() => onChange(mode)}
+          />
+        );
+      })}
+    </View>
+  );
+};
 
 const KEYPAD_ROWS = [
   ['1', '2', '3'],
@@ -336,34 +511,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
           PAID VIA
         </Text>
-        <View style={[styles.paymentToggleContainer, { backgroundColor: colors.inputBg }]}>
-          {PAYMENT_OPTIONS.map(({ mode, label, Icon }) => {
-            const isActive = paymentMode === mode;
-            return (
-              <Pressable
-                key={mode}
-                onPress={() => setPaymentMode(mode)}
-                style={[
-                  styles.paymentToggleSegment,
-                  isActive && { backgroundColor: colors.peachCoral },
-                ]}
-              >
-                <Icon size={16} color={isActive ? colors.forestGreen : colors.textSecondary} />
-                <Text
-                  style={[
-                    styles.paymentToggleText,
-                    {
-                      color: isActive ? colors.forestGreen : colors.textSecondary,
-                      fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium',
-                    },
-                  ]}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <BouncyPaymentToggle
+          value={paymentMode}
+          onChange={(mode) => setPaymentMode(mode)}
+        />
       </ScrollView>
 
       {/* ── Bottom Console (Keypad + Save Button) ── */}
@@ -514,22 +665,26 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   inputContainer: {
+    height: 56,
     borderRadius: 9999,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    justifyContent: 'center',
     marginBottom: 16,
   },
   inputText: {
+    height: '100%',
     fontSize: 16,
     padding: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   datePickerButton: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: 9999,
     paddingHorizontal: 20,
-    paddingVertical: 16,
     marginBottom: 16,
   },
   datePickerLeft: {
@@ -539,24 +694,56 @@ const styles = StyleSheet.create({
   datePickerText: {
     marginLeft: 12,
     fontSize: 16,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   paymentToggleContainer: {
+    height: 56,
     flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 9999,
-    padding: 6,
+    position: 'relative',
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  paymentSlidingPill: {
+    position: 'absolute',
+    top: 5,
+    bottom: 5,
+    left: 5,
+    borderRadius: 9999,
   },
   paymentToggleSegment: {
     flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  paymentSegmentContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 9999,
+  },
+  paymentActiveOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   paymentToggleText: {
     fontSize: 14,
     marginLeft: 8,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    transform: [{ translateY: -0.5 }],
   },
   bottomSection: {
     borderTopLeftRadius: 30,

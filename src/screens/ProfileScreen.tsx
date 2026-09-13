@@ -24,7 +24,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { profile, signOut, updateProfile } = useAuthStore();
   const { colors, isDark, toggleTheme, setThemeMode } = useTheme();
   const handleScroll = useScrollDirection();
-  const appVersion = Constants.expoConfig?.version ? `v${Constants.expoConfig.version}` : 'v1.0.0';
+  const appVersion = 'v1.2.0';
 
   // Local state for toggles
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
