@@ -241,7 +241,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   <Text style={[
                     styles.segmentText,
                     isActive
-                      ? [styles.segmentTextActive, { color: '#1A2B4C' }]
+                      ? [styles.segmentTextActive, { color: colors.forestGreen }]
                       : [styles.segmentTextInactive, { color: colors.textSecondary }],
                     { fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
                   ]}>

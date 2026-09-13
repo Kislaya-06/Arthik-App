@@ -135,7 +135,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
                   borderColor: isDark ? colors.card : '#FFFFFF'
                 }
               ]}>
-                <Camera size={16} color="#1A2B4C" />
+                <Camera size={16} color={colors.forestGreen} />
               </View>
             </Pressable>
           </View>
