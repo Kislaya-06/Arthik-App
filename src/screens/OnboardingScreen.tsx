@@ -250,7 +250,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         bounces={false}
         keyExtractor={(_, index) => index.toString()}
         renderItem={({ item }) => (
-          <View style={[styles.content, { width, paddingBottom: insets.bottom + 110 }]}>
+          <View style={[styles.content, { width, paddingBottom: Math.max(insets.bottom, 16) + 140 }]}>
             <View style={styles.illustrationWrapper}>
               {item.illustration}
             </View>
@@ -260,27 +260,42 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         )}
       />
 
-      {/* Pagination indicators */}
-      <View style={[styles.paginationRow, { bottom: insets.bottom + 96 }]}>
-        {slides.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              index === currentIndex ? [styles.activeDot, { backgroundColor: colors.mint }] : [styles.inactiveDot, { borderColor: colors.borderSubtle }],
-            ]}
-          />
-        ))}
-      </View>
+      {/* Bottom Controls (Footer) */}
+      <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+        {/* Pagination indicators */}
+        <View style={styles.paginationRow}>
+          {slides.map((_, index) => {
+            const isActive = index === currentIndex;
+            return (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  isActive
+                    ? [styles.activeDot, { backgroundColor: colors.mint }]
+                    : [
+                        styles.inactiveDot,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(255, 255, 255, 0.35)'
+                            : 'rgba(26, 43, 76, 0.22)',
+                        },
+                      ],
+                ]}
+              />
+            );
+          })}
+        </View>
 
-      {/* CTA Action Button */}
-      <TouchableOpacity
-        style={[styles.button, { bottom: insets.bottom + 24, backgroundColor: colors.mint }]}
-        onPress={handlePressNext}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.buttonText, { color: colors.forestGreen }]}>{currentSlide.buttonLabel}</Text>
-      </TouchableOpacity>
+        {/* CTA Action Button */}
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: colors.mint }]}
+          onPress={handlePressNext}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.buttonText, { color: colors.forestGreen }]}>{currentSlide.buttonLabel}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -330,36 +345,39 @@ const styles = StyleSheet.create({
     marginTop: 12,
     lineHeight: 26,
   },
-  paginationRow: {
+  footerContainer: {
     position: 'absolute',
-    alignSelf: 'center',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
   },
   dot: {
-    marginHorizontal: 4,
+    marginHorizontal: 5,
   },
   activeDot: {
-    width: 32,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#B8E0C8',
+    width: 28,
+    height: 8,
+    borderRadius: 4,
   },
   inactiveDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#D8DCE3',
-    backgroundColor: 'transparent',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   button: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
+    width: '100%',
     borderRadius: 9999,
     backgroundColor: '#B8E0C8',
-    paddingVertical: 20,
+    paddingVertical: 18,
     alignItems: 'center',
     shadowColor: '#1A2B4C',
     shadowOffset: { width: 0, height: 4 },
