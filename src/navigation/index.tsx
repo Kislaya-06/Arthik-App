@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { RootStackParamList } from '../types';
 import { handleAuthDeepLink } from '../lib/authLinkHandler';
 import { navigationRef, navigateTo } from './navigationRef';
@@ -34,10 +34,12 @@ export { navigationRef, navigateTo };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
+const renderTabBar = (props: BottomTabBarProps) => <BottomNavBar {...props} />;
+
 function TabNavigator() {
   return (
     <Tab.Navigator
-      tabBar={(props) => <BottomNavBar {...props} />}
+      tabBar={renderTabBar}
       screenOptions={{
         headerShown: false,
       }}

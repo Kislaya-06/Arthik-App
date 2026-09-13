@@ -39,8 +39,10 @@ const CHART_COLORS = [
 ];
 
 export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
-  const { expenses, fetchExpenses } = useExpenseStore();
-  const { categories, fetchCategories } = useCategoryStore();
+  const expenses = useExpenseStore((s) => s.expenses);
+  const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
+  const categories = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();

@@ -43,7 +43,7 @@ const pastelBg = (hex: string) => hex + '30'; // 19% opacity overlay
 // ─── Donut chart ─────────────────────────────────────────────────────────────
 type DonutProps = { spent: number; total: number };
 
-const DonutChart: React.FC<DonutProps> = ({ spent, total }) => {
+const DonutChartBase: React.FC<DonutProps> = ({ spent, total }) => {
   const { colors } = useTheme();
   const size = 100;
   const strokeWidth = 14;
@@ -98,6 +98,8 @@ const DonutChart: React.FC<DonutProps> = ({ spent, total }) => {
     </Svg>
   );
 };
+
+const DonutChart = React.memo(DonutChartBase);
 
 // ─── Transaction Row ──────────────────────────────────────────────────────────
 type TxRowProps = {
@@ -174,7 +176,8 @@ const filterExpenses = (expenses: Expense[], filter: Filter): Expense[] => {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
-  const { expenses, fetchExpenses } = useExpenseStore();
+  const expenses = useExpenseStore((s) => s.expenses);
+  const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
   const categories = useCategoryStore((s) => s.categories);
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();

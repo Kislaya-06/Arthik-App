@@ -18,8 +18,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
 
 export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { expenseId } = route.params;
-  const { expenses, deleteExpense } = useExpenseStore();
-  const { categories, fetchCategories } = useCategoryStore();
+  const expenses = useExpenseStore((s) => s.expenses);
+  const deleteExpense = useExpenseStore((s) => s.deleteExpense);
+  const categories = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 

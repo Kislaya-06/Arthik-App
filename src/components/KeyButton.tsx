@@ -18,7 +18,7 @@ interface KeyButtonProps {
  * Includes a spring press-in/press-out animation.
  * Pass item="backspace" to render the delete icon.
  */
-export const KeyButton: React.FC<KeyButtonProps> = ({ item, onPress }) => {
+const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
   const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -58,6 +58,8 @@ export const KeyButton: React.FC<KeyButtonProps> = ({ item, onPress }) => {
     </Pressable>
   );
 };
+
+export const KeyButton = React.memo(KeyButtonBase);
 
 const styles = StyleSheet.create({
   keyPressable: {

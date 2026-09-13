@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
@@ -24,8 +24,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
 
 export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
   const { expenseId } = route.params;
-  const { expenses, updateExpense } = useExpenseStore();
-  const { categories, fetchCategories } = useCategoryStore();
+  const expenses = useExpenseStore((s) => s.expenses);
+  const updateExpense = useExpenseStore((s) => s.updateExpense);
+  const categories = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -80,26 +82,30 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [expenseId, expenses]);
 
-  const handleKeyPress = (val: string) => {
+  const handleKeyPress = useCallback((val: string) => {
     if (val === 'backspace') {
       setAmount(prev => prev.slice(0, -1));
     } else if (val === '.') {
-      if (!amount.includes('.')) {
-        setAmount(prev => (prev === '' ? '0.' : prev + '.'));
-      }
-    } else {
-      if (amount === '0') {
-        setAmount(val);
-      } else {
-        if (amount.includes('.')) {
-          const decimals = amount.split('.')[1];
-          if (decimals && decimals.length >= 2) return;
+      setAmount(prev => {
+        if (!prev.includes('.')) {
+          return prev === '' ? '0.' : prev + '.';
         }
-        if (amount.length > 9) return;
-        setAmount(prev => prev + val);
-      }
+        return prev;
+      });
+    } else {
+      setAmount(prev => {
+        if (prev === '0') {
+          return val;
+        }
+        if (prev.includes('.')) {
+          const decimals = prev.split('.')[1];
+          if (decimals && decimals.length >= 2) return prev;
+        }
+        if (prev.length > 9) return prev;
+        return prev + val;
+      });
     }
-  };
+  }, []);
 
   const handleSave = async () => {
     const numAmount = parseFloat(amount);

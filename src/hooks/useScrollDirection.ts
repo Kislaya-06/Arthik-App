@@ -4,14 +4,17 @@ import { useNavBarStore } from '../store/navBarStore';
 import { useFocusEffect } from '@react-navigation/native';
 
 export function useScrollDirection() {
-  const { showNavBar, hideNavBar } = useNavBarStore();
+  const showNavBar = useNavBarStore((s) => s.showNavBar);
+  const hideNavBar = useNavBarStore((s) => s.hideNavBar);
   const lastScrollY = useRef(0);
   const scrollThreshold = 15; // minimum scroll distance to trigger state change
 
   // Reset to visible when screen gains focus
   useFocusEffect(
     useCallback(() => {
-      showNavBar();
+      if (!useNavBarStore.getState().isVisible) {
+        showNavBar();
+      }
     }, [showNavBar])
   );
 
@@ -21,7 +24,9 @@ export function useScrollDirection() {
 
       // Always show at the very top
       if (currentScrollY <= 0) {
-        showNavBar();
+        if (!useNavBarStore.getState().isVisible) {
+          showNavBar();
+        }
         lastScrollY.current = currentScrollY;
         return;
       }
@@ -30,11 +35,15 @@ export function useScrollDirection() {
 
       if (delta > scrollThreshold) {
         // Scrolling down
-        hideNavBar();
+        if (useNavBarStore.getState().isVisible) {
+          hideNavBar();
+        }
         lastScrollY.current = currentScrollY;
       } else if (delta < -scrollThreshold) {
         // Scrolling up
-        showNavBar();
+        if (!useNavBarStore.getState().isVisible) {
+          showNavBar();
+        }
         lastScrollY.current = currentScrollY;
       }
     },
