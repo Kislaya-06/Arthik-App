@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
@@ -51,7 +51,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
   const renderItem = useCallback(({ item }: { item: Expense }) => {
     const PaymentIcon = getPaymentIcon(item.payment_mode);
     const paymentLabel = getPaymentLabel(item.payment_mode);
-    const dateStr = format(new Date(item.expense_date), 'd MMM yyyy');
+    const dateStr = format(parseISO(item.expense_date), 'd MMM yyyy');
 
     return (
       <Pressable

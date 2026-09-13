@@ -20,11 +20,16 @@ interface ExpenseState {
   addExpense: (amount: number, categoryId: string, note: string, paymentMode: 'cash' | 'upi' | 'card', date: string) => Promise<void>;
   updateExpense: (id: string, amount: number, categoryId: string, note: string, paymentMode: 'cash' | 'upi' | 'card', date: string) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  resetExpenses: () => void;
 }
 
 export const useExpenseStore = create<ExpenseState>((set, get) => ({
   expenses: [],
   loading: false,
+
+  resetExpenses: () => {
+    set({ expenses: [], loading: false });
+  },
 
   fetchExpenses: async () => {
     const user = useAuthStore.getState().user;
@@ -55,26 +60,25 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     if (!user) return;
 
     set({ loading: true });
-
-    const newExpense = {
-      id: undefined,
-      user_id: user.id,
-      category_id: categoryId,
-      amount,
-      note,
-      payment_mode: paymentMode,
-      expense_date: date,
-    };
-
-
-
     try {
-      const { error } = await supabase
+      // Use .select().single() so Supabase returns the full server record
+      // (real UUID, created_at, etc.) — no second fetchExpenses() needed.
+      const { data, error } = await supabase
         .from('expenses')
-        .insert(newExpense);
+        .insert({
+          user_id: user.id,
+          category_id: categoryId,
+          amount,
+          note,
+          payment_mode: paymentMode,
+          expense_date: date,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
-      await get().fetchExpenses();
+      // Prepend the confirmed server record — list stays sorted (newest first)
+      set(state => ({ expenses: [data, ...state.expenses] }));
     } catch (e) {
       console.error('Error adding expense:', e);
       throw e;
@@ -85,9 +89,6 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   updateExpense: async (id, amount, categoryId, note, paymentMode, date) => {
     set({ loading: true });
-
-
-
     try {
       const { error } = await supabase
         .from('expenses')
@@ -95,7 +96,14 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         .eq('id', id);
 
       if (error) throw error;
-      await get().fetchExpenses();
+      // Patch only the changed expense — no re-fetch needed
+      set(state => ({
+        expenses: state.expenses.map(e =>
+          e.id === id
+            ? { ...e, amount, category_id: categoryId, note, payment_mode: paymentMode, expense_date: date }
+            : e
+        ),
+      }));
     } catch (e) {
       console.error('Error updating expense:', e);
       throw e;
@@ -106,9 +114,6 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   deleteExpense: async (id) => {
     set({ loading: true });
-
-
-
     try {
       const { error } = await supabase
         .from('expenses')
@@ -116,7 +121,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         .eq('id', id);
 
       if (error) throw error;
-      await get().fetchExpenses();
+      // Remove the deleted expense locally — no re-fetch needed
+      set(state => ({ expenses: state.expenses.filter(e => e.id !== id) }));
     } catch (e) {
       console.error('Error deleting expense:', e);
       throw e;

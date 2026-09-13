@@ -17,8 +17,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { InsightsScreen } from '../screens/InsightsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { AddExpenseScreen } from '../screens/AddExpenseScreen';
-import { EditExpenseScreen } from '../screens/EditExpenseScreen';
+import { ExpenseFormScreen } from '../screens/ExpenseFormScreen';
 import { ExpenseDetailScreen } from '../screens/ExpenseDetailScreen';
 import { CategoryDetailScreen } from '../screens/CategoryDetailScreen';
 import { ManageCategoriesScreen } from '../screens/ManageCategoriesScreen';
@@ -122,8 +121,8 @@ export function AppNavigation() {
         <Stack.Screen name="AppTabs" component={TabNavigator} />
 
         {/* Sub pages stack */}
-        <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
-        <Stack.Screen name="EditExpense" component={EditExpenseScreen} />
+        <Stack.Screen name="AddExpense" component={ExpenseFormScreen as React.ComponentType<any>} />
+        <Stack.Screen name="EditExpense" component={ExpenseFormScreen as React.ComponentType<any>} />
         <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
         <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
         <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />

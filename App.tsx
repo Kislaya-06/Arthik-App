@@ -73,7 +73,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       await setSession(session);
       if (session) {
-        await Promise.all([fetchCategories(), fetchExpenses()]);
+        await Promise.all([fetchCategories(true), fetchExpenses()]);
       }
       if (event === 'PASSWORD_RECOVERY') {
         navigateTo('ResetPassword');

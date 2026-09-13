@@ -14,10 +14,12 @@ export interface Category {
 interface CategoryState {
   categories: Category[];
   loading: boolean;
-  fetchCategories: () => Promise<void>;
+  isFetched: boolean;
+  fetchCategories: (force?: boolean) => Promise<void>;
   addCategory: (name: string, icon: string, color: string) => Promise<void>;
   updateCategory: (id: string, name: string, icon: string, color: string) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  resetCategories: () => void;
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -33,15 +35,21 @@ const DEFAULT_CATEGORIES: Category[] = [
 export const useCategoryStore = create<CategoryState>((set, get) => ({
   categories: DEFAULT_CATEGORIES,
   loading: false,
+  isFetched: false,
 
-  fetchCategories: async () => {
+  resetCategories: () => {
+    set({ categories: DEFAULT_CATEGORIES, isFetched: false, loading: false });
+  },
+
+  fetchCategories: async (force = false) => {
+    // Skip network call if data is already loaded and caller didn't force a refresh.
+    // Mutations (addCategory, updateCategory, deleteCategory) always pass force=true.
+    if (get().isFetched && !force) return;
+
     const user = useAuthStore.getState().user;
     if (!user) return;
 
     set({ loading: true });
-
-
-
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -49,7 +57,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         .or(`user_id.is.null,user_id.eq.${user.id}`);
 
       if (error) throw error;
-      set({ categories: data || DEFAULT_CATEGORIES });
+      set({ categories: data || DEFAULT_CATEGORIES, isFetched: true });
     } catch (e) {
       console.error('Error fetching categories:', e);
     } finally {
@@ -64,7 +72,6 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     set({ loading: true });
 
     const newCategory = {
-      id: undefined,
       user_id: user.id,
       name,
       icon,
@@ -80,7 +87,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         .insert(newCategory);
 
       if (error) throw error;
-      await get().fetchCategories();
+      await get().fetchCategories(true);
     } catch (e) {
       console.error('Error adding category:', e);
       throw e;
@@ -101,7 +108,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         .eq('id', id);
 
       if (error) throw error;
-      await get().fetchCategories();
+      await get().fetchCategories(true);
     } catch (e) {
       console.error('Error updating category:', e);
       throw e;
@@ -122,7 +129,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         .eq('id', id);
 
       if (error) throw error;
-      await get().fetchCategories();
+      await get().fetchCategories(true);
     } catch (e) {
       console.error('Error deleting category:', e);
       throw e;

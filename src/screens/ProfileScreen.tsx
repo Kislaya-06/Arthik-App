@@ -116,11 +116,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               autoCapitalize="words"
             />
             <View style={styles.modalActions}>
-              <Pressable style={[styles.modalCancelBtn, { backgroundColor: colors.cardSubtle }]} onPress={() => setEditVisible(false)}>
+              <Pressable style={[styles.modalBtn, { backgroundColor: colors.cardSubtle }]} onPress={() => setEditVisible(false)}>
                 <X size={16} color={colors.textSecondary} />
                 <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>Cancel</Text>
               </Pressable>
-              <Pressable style={[styles.modalSaveBtn, { backgroundColor: colors.mintGreen }]} onPress={handleSaveProfile} disabled={editSaving}>
+              <Pressable style={[styles.modalBtn, { backgroundColor: colors.mintGreen }]} onPress={handleSaveProfile} disabled={editSaving}>
                 {editSaving ? <ActivityIndicator size="small" color={colors.forestGreen} /> : <Check size={16} color={colors.forestGreen} />}
                 <Text style={[styles.modalSaveText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>Save</Text>
               </Pressable>
@@ -161,7 +161,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <Pressable
               style={[styles.cameraBadge, { backgroundColor: colors.cardSubtle, borderColor: colors.card }]}
-              onPress={() => {}}
+              onPress={openEditProfile}
+              hitSlop={8}
             >
               <Camera size={14} color={colors.textPrimary} />
             </Pressable>
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 24,
   },
-  modalCancelBtn: {
+  modalBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,15 +446,6 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: 15,
-  },
-  modalSaveBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingVertical: 14,
   },
   modalSaveText: {
     color: '#1A2B4C',

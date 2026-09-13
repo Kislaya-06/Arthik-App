@@ -52,9 +52,9 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total }) => {
   const cx = size / 2;
   const cy = size / 2;
 
-  const safeTotal = total === 0 ? 1 : total;
-  const spentRatio = Math.min(spent / safeTotal, 1);
-  const incomeRatio = 1 - spentRatio;
+  const hasData = total > 0;
+  const spentRatio = hasData ? Math.min(spent / total, 1) : 0;
+  const incomeRatio = hasData ? Math.max(0, 1 - spentRatio) : 0;
 
   // Spent arc (peach) starts at -90° (top)
   const spentDash = spentRatio * circumference;
@@ -106,18 +106,19 @@ type TxRowProps = {
   expense: Expense;
   category: Category | undefined;
   isIncome: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
 };
 
-const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome }) => {
-  const { colors, isDark } = useTheme();
+const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome, colors, isDark }) => {
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : DollarSign;
   const catColor = category?.color ?? '#94A3B8';
   const bg = pastelBg(catColor);
 
-  const dateStr = (() => {
+  const dateStr = useMemo(() => {
     const d = new Date(expense.expense_date);
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  })();
+  }, [expense.expense_date]);
 
   const amountLabel = isIncome ? `+${formatCurrency(expense.amount)}` : `−${formatCurrency(expense.amount)}`;
   const amountColor = isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary;
@@ -339,6 +340,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 expense={e}
                 category={catMap[e.category_id]}
                 isIncome={isIncomeCategory(catMap[e.category_id])}
+                colors={colors}
+                isDark={isDark}
               />
             </TouchableOpacity>
           ))

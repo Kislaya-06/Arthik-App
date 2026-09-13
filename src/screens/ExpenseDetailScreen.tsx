@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryIcon } from '../lib/iconUtils';
@@ -75,7 +75,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const paymentLabel = getPaymentLabel(expense.payment_mode);
 
   const formattedDate = expense.expense_date
-    ? format(new Date(expense.expense_date), 'd MMM yyyy')
+    ? format(parseISO(expense.expense_date), 'd MMM yyyy')
     : '';
   const categoryColor = category?.color || '#F4B8AE';
   const categoryBgColor = categoryColor + '33';
@@ -128,7 +128,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={styles.amountRow}>
               <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>₹</Text>
               <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-                {expense.amount}
+                {expense.amount.toLocaleString('en-IN')}
               </Text>
             </View>
           </View>

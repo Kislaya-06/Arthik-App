@@ -58,6 +58,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     set({ loading: true });
+    try {
+      const { useCategoryStore } = await import('./categoryStore');
+      const { useExpenseStore } = await import('./expenseStore');
+      useCategoryStore.getState().resetCategories();
+      useExpenseStore.getState().resetExpenses();
+    } catch (e) {
+      console.error('Error resetting stores on sign out:', e);
+    }
     await supabase.auth.signOut();
     set({ session: null, user: null, profile: null, loading: false });
   },

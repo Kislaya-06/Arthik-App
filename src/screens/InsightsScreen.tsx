@@ -38,6 +38,21 @@ const CHART_COLORS = [
   '#94A3B8',
 ];
 
+// Returns the appropriate icon component for the "Most Spent On" insight card
+const getCategoryInsightIcon = (categoryName: string) => {
+  const name = categoryName.toLowerCase();
+  if (name.includes('food') || name.includes('eat')) return Wallet;
+  if (name.includes('card') || name.includes('credit')) return CreditCard;
+  return CheckSquare;
+};
+
+// Returns the appropriate icon component for the "Top Payment" insight card
+const getPaymentInsightIcon = (mode: string) => {
+  if (mode === 'card') return CreditCard;
+  if (mode === 'cash') return Wallet;
+  return CheckSquare;
+};
+
 export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const expenses = useExpenseStore((s) => s.expenses);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
@@ -187,6 +202,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [expenses, currentInterval]);
 
+  // Derive icon components once — avoids inline IIFEs in JSX
+  const CategoryInsightIcon = getCategoryInsightIcon(topCategory?.name || '');
+  const PaymentInsightIcon = getPaymentInsightIcon(topPaymentData.originalMode);
+
   const SVG_SIZE = 220;
   const STROKE_WIDTH = 28;
   const RADIUS = (SVG_SIZE - STROKE_WIDTH) / 2;
@@ -234,15 +253,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   key={p}
                   style={[
                     styles.segmentBtn,
-                    isActive && [styles.segmentBtnActive, { backgroundColor: colors.mintGreen }],
+                    isActive && { backgroundColor: colors.mintGreen },
                   ]}
                   onPress={() => setPeriod(p)}
                 >
                   <Text style={[
                     styles.segmentText,
-                    isActive
-                      ? [styles.segmentTextActive, { color: colors.forestGreen }]
-                      : [styles.segmentTextInactive, { color: colors.textSecondary }],
+                    { color: isActive ? colors.forestGreen : colors.textSecondary },
                     { fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
                   ]}>
                     {p}
@@ -396,14 +413,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.quickInsightsGrid}>
               {/* Card 1 - Most Spent On */}
               <View style={[styles.insightCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-                <View style={[styles.insightIconBadge1, { backgroundColor: colors.peachSoft }]}>
-                  {(() => {
-                    const name = topCategory?.name?.toLowerCase() || '';
-                    let PaymentIconComp = CheckSquare;
-                    if (name.includes('food') || name.includes('eat')) PaymentIconComp = Wallet;
-                    else if (name.includes('card') || name.includes('credit')) PaymentIconComp = CreditCard;
-                    return <PaymentIconComp size={20} color="#E8956A" />;
-                  })()}
+                <View style={[styles.insightIconBadge, { backgroundColor: colors.peachSoft }]}>
+                  <CategoryInsightIcon size={20} color="#E8956A" />
                 </View>
                 <Text style={[styles.insightLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Most Spent On</Text>
                 <Text style={[styles.insightValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{topCategory?.name || 'N/A'}</Text>
@@ -414,14 +425,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Card 2 - Top Payment */}
               <View style={[styles.insightCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-                <View style={[styles.insightIconBadge2, { backgroundColor: colors.mintGreenSoft }]}>
-                  {(() => {
-                    const mode = topPaymentData.originalMode.toLowerCase();
-                    let PaymentIconComp = CheckSquare;
-                    if (mode === 'card') PaymentIconComp = CreditCard;
-                    if (mode === 'cash') PaymentIconComp = Wallet;
-                    return <PaymentIconComp size={20} color="#4CAF7D" />;
-                  })()}
+                <View style={[styles.insightIconBadge, { backgroundColor: colors.mintGreenSoft }]}>
+                  <PaymentInsightIcon size={20} color="#4CAF7D" />
                 </View>
                 <Text style={[styles.insightLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Top Payment</Text>
                 <Text style={[styles.insightValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{topPaymentData.mode}</Text>
@@ -472,12 +477,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
-  segmentBtnActive: {},
   segmentText: {
     fontSize: 12,
   },
-  segmentTextActive: {},
-  segmentTextInactive: {},
   heroCard: {
     borderRadius: 28,
     padding: 24,
@@ -621,9 +623,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
   },
-  barLabelMax: {
-    color: '#E8956A',
-  },
+
   highestSpendCallout: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -652,15 +652,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
   },
-  insightIconBadge1: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  insightIconBadge2: {
+  insightIconBadge: {
     width: 44,
     height: 44,
     borderRadius: 22,

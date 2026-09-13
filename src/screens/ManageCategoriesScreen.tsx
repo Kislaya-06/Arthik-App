@@ -37,7 +37,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
     return counts;
   }, [expenses]);
 
-  const handleDelete = (categoryId: string) => {
+  const handleDelete = useCallback((categoryId: string) => {
     const count = categoryExpenseCounts[categoryId] || 0;
     if (count > 0) {
       Alert.alert(
@@ -63,7 +63,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         }
       ]
     );
-  };
+  }, [categoryExpenseCounts, deleteCategory, fetchCategories]);
 
   const renderItem = useCallback(({ item, index }: { item: Category; index: number }) => {
     const IconComponent = getCategoryIcon(item.icon);

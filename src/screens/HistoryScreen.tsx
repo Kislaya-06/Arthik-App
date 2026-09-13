@@ -232,58 +232,37 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {/* Filter Pills */}
+        {/* Filter Pills — unified: "All" + categories in one map */}
         <View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScroll}
           >
-            <Pressable
-              style={[
-                styles.filterPill,
-                selectedCategoryId === null
-                  ? [styles.filterPillActive, { backgroundColor: isDark ? colors.mintGreenSoft : '#B8E0C8', borderColor: colors.mintGreen }]
-                  : [styles.filterPillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
-              ]}
-              onPress={() => setSelectedCategoryId(null)}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  selectedCategoryId === null
-                    ? [styles.filterPillTextActive, { color: colors.textPrimary }]
-                    : [styles.filterPillTextInactive, { color: colors.textSecondary }],
-                  { fontFamily: selectedCategoryId === null ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
-                ]}
-              >
-                All
-              </Text>
-            </Pressable>
-
-            {categories.map(cat => {
-              const isActive = selectedCategoryId === cat.id;
+            {([{ id: null as string | null, name: 'All' }, ...categories]).map(item => {
+              const isActive = selectedCategoryId === item.id;
               return (
                 <Pressable
-                  key={cat.id}
+                  key={item.id ?? 'all'}
                   style={[
                     styles.filterPill,
-                    isActive
-                      ? [styles.filterPillActive, { backgroundColor: isDark ? colors.mintGreenSoft : '#B8E0C8', borderColor: colors.mintGreen }]
-                      : [styles.filterPillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
+                    {
+                      backgroundColor: isActive ? (isDark ? colors.mintGreenSoft : '#B8E0C8') : colors.card,
+                      borderColor: isActive ? colors.mintGreen : colors.border,
+                    },
                   ]}
-                  onPress={() => setSelectedCategoryId(cat.id)}
+                  onPress={() => setSelectedCategoryId(item.id)}
                 >
                   <Text
                     style={[
                       styles.filterPillText,
-                      isActive
-                        ? [styles.filterPillTextActive, { color: colors.textPrimary }]
-                        : [styles.filterPillTextInactive, { color: colors.textSecondary }],
-                      { fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
+                      {
+                        color: isActive ? colors.textPrimary : colors.textSecondary,
+                        fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium',
+                      },
                     ]}
                   >
-                    {cat.name}
+                    {item.name}
                   </Text>
                 </Pressable>
               );
@@ -299,7 +278,6 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           renderSectionHeader={renderSectionHeader}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
-            styles.listContent,
             { paddingBottom: insets.bottom + 100 },
             filteredAndGroupedExpenses.length === 0 && { flexGrow: 1 },
           ]}
@@ -373,19 +351,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     marginRight: 12,
-  },
-  filterPillActive: {
-    borderWidth: 1,
-  },
-  filterPillInactive: {
     borderWidth: 1,
   },
   filterPillText: {
     fontSize: 14,
-  },
-  filterPillTextActive: {},
-  filterPillTextInactive: {},
-  listContent: {
   },
   sectionHeader: {
     flexDirection: 'row',

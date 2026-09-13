@@ -12,7 +12,7 @@ import {
   ArrowLeft, Calendar, ChevronRight, Wallet, CheckSquare, CreditCard,
 } from 'lucide-react-native';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,10 @@ import { formatDate } from '../lib/formatters';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { useTheme } from '../store/themeStore';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
+// Both AddExpense and EditExpense routes use this single component.
+type Props =
+  | NativeStackScreenProps<RootStackParamList, 'AddExpense'>
+  | NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
 
 const PAYMENT_OPTIONS = [
   { mode: 'cash' as const, label: 'Cash', Icon: Wallet },
@@ -36,16 +39,24 @@ const KEYPAD_ROWS = [
   ['.', '0', 'backspace'],
 ];
 
-export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { expenseId } = route.params;
-  const expenses = useExpenseStore((s) => s.expenses);
+export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
+  const isEdit = route.name === 'EditExpense';
+  const expenseId = isEdit ? (route.params as { expenseId: string }).expenseId : undefined;
+
+  const addExpense = useExpenseStore((s) => s.addExpense);
   const updateExpense = useExpenseStore((s) => s.updateExpense);
+  // expenses is only read in edit mode to pre-fill the form
+  const expenses = useExpenseStore((s) => s.expenses);
   const categories = useCategoryStore((s) => s.categories);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+
   const scrollRef = useRef<ScrollView>(null);
   const noteInputRef = useRef<TextInput>(null);
+  // Tracks the Y offset of the Note section inside the ScrollView so the
+  // keyboard-show listener can scroll the note field into view (edit mode
+  // needs this because the category list adds extra height above the note).
   const noteSectionY = useRef(0);
 
   const [amount, setAmount] = useState('');
@@ -57,15 +68,22 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isKeypadVisible, setIsKeypadVisible] = useState(true);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
+  // ─── Keyboard listeners ───────────────────────────────────────────────────
+  // Using requestAnimationFrame so the scroll fires AFTER the layout has
+  // settled (matches EditExpenseScreen behaviour — more reliable on Android).
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setIsKeypadVisible(false);
       setIsKeyboardOpen(true);
       requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ y: Math.max(0, noteSectionY.current - 10), animated: true });
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, noteSectionY.current - 10),
+          animated: true,
+        });
       });
     });
+
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setIsKeypadVisible(true);
@@ -81,28 +99,34 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, []);
 
+  // ─── Fetch categories on mount ────────────────────────────────────────────
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
+  // ─── Pre-fill form when editing an existing expense ───────────────────────
   useEffect(() => {
+    if (!isEdit || !expenseId) return;
     const currentExpense = expenses.find((e) => e.id === expenseId);
     if (currentExpense) {
       setAmount(currentExpense.amount.toString());
       setSelectedCategoryId(currentExpense.category_id);
       setNote(currentExpense.note || '');
-      setSelectedDate(new Date(currentExpense.expense_date));
+      setSelectedDate(parseISO(currentExpense.expense_date));
       setPaymentMode(currentExpense.payment_mode);
     }
-  }, [expenseId, expenses]);
+  }, [isEdit, expenseId, expenses]);
 
+  // ─── Keypad handler ───────────────────────────────────────────────────────
   const handleKeyPress = useCallback((val: string) => {
     if (val === 'backspace') {
-      setAmount(prev => prev.slice(0, -1));
+      setAmount((prev) => prev.slice(0, -1));
     } else if (val === '.') {
-      setAmount(prev => (!prev.includes('.') ? (prev === '' ? '0.' : prev + '.') : prev));
+      setAmount((prev) =>
+        !prev.includes('.') ? (prev === '' ? '0.' : prev + '.') : prev
+      );
     } else {
-      setAmount(prev => {
+      setAmount((prev) => {
         if (prev === '0') return val;
         if (prev.includes('.') && prev.split('.')[1]?.length >= 2) return prev;
         if (prev.length > 9) return prev;
@@ -111,17 +135,16 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, []);
 
+  // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async () => {
     const numAmount = parseFloat(amount);
     if (numAmount > 0 && selectedCategoryId) {
-      await updateExpense(
-        expenseId,
-        numAmount,
-        selectedCategoryId,
-        note,
-        paymentMode,
-        format(selectedDate, 'yyyy-MM-dd'),
-      );
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      if (isEdit && expenseId) {
+        await updateExpense(expenseId, numAmount, selectedCategoryId, note, paymentMode, dateStr);
+      } else {
+        await addExpense(numAmount, selectedCategoryId, note, paymentMode, dateStr);
+      }
       navigation.goBack();
     }
   };
@@ -138,7 +161,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* 1. Header */}
+      {/* ── Header ── */}
       <View style={[styles.header, { marginTop: insets.top + 16 }]}>
         <Pressable
           style={styles.backButton}
@@ -148,12 +171,12 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-          Edit Expense
+          {isEdit ? 'Edit Expense' : 'Add Expense'}
         </Text>
       </View>
 
-      {/* 2. Amount Display */}
-      <Pressable 
+      {/* ── Amount Display ── */}
+      <Pressable
         style={[styles.amountContainer, isKeyboardOpen && styles.amountContainerCompact]}
         onPress={() => {
           Keyboard.dismiss();
@@ -186,10 +209,16 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
             {amount || '0'}
           </Text>
         </View>
-        <View style={[styles.amountUnderline, { backgroundColor: colors.border }, isKeyboardOpen && styles.amountUnderlineCompact]} />
+        <View
+          style={[
+            styles.amountUnderline,
+            { backgroundColor: colors.border },
+            isKeyboardOpen && styles.amountUnderlineCompact,
+          ]}
+        />
       </Pressable>
 
-      {/* 3. Scrollable Middle Section */}
+      {/* ── Scrollable Section (Category, Note, Date, Payment) ── */}
       <ScrollView
         ref={scrollRef}
         style={styles.scrollSection}
@@ -200,7 +229,12 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
           CATEGORY
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          style={styles.categoryScroll}
+        >
           <View style={styles.categoryList}>
             {categories.map((cat: Category) => {
               const isSelected = selectedCategoryId === cat.id;
@@ -232,7 +266,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </ScrollView>
 
-        {/* Note Input */}
+        {/* Note Input — onLayout tracks Y for keyboard-scroll */}
         <View
           onLayout={(e) => {
             noteSectionY.current = e.nativeEvent.layout.y;
@@ -241,7 +275,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
             NOTE (OPTIONAL)
           </Text>
-          <Pressable 
+          <Pressable
             style={[styles.inputContainer, { backgroundColor: colors.inputBg }]}
             onPress={() => noteInputRef.current?.focus()}
           >
@@ -260,7 +294,10 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
                 setIsKeypadVisible(false);
                 setIsKeyboardOpen(true);
                 requestAnimationFrame(() => {
-                  scrollRef.current?.scrollTo({ y: Math.max(0, noteSectionY.current - 10), animated: true });
+                  scrollRef.current?.scrollTo({
+                    y: Math.max(0, noteSectionY.current - 10),
+                    animated: true,
+                  });
                 });
               }}
             />
@@ -322,10 +359,9 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
             );
           })}
         </View>
-
       </ScrollView>
 
-      {/* 4. Unified Bottom Console (Keypad + Action Dock) */}
+      {/* ── Bottom Console (Keypad + Save Button) ── */}
       <View
         style={[
           styles.bottomSection,
@@ -381,11 +417,10 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
               },
             ]}
           >
-            Update Expense
+            {isEdit ? 'Update Expense' : 'Save Expense'}
           </Text>
         </Pressable>
       </View>
-
     </KeyboardAvoidingView>
   );
 };
@@ -412,6 +447,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 24,
   },
+  amountContainerCompact: {
+    marginTop: 8,
+  },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -420,13 +458,33 @@ const styles = StyleSheet.create({
     fontSize: 48,
     marginRight: 4,
   },
+  currencySymbolCompact: {
+    fontSize: 32,
+  },
   amountValue: {
     fontSize: 60,
+  },
+  amountValueCompact: {
+    fontSize: 40,
   },
   amountUnderline: {
     height: 1,
     width: 80,
     marginTop: 8,
+  },
+  amountUnderlineCompact: {
+    marginTop: 4,
+  },
+  scrollSection: {
+    flex: 1,
+    paddingHorizontal: 24,
+    marginTop: 20,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 12,
   },
   categoryScroll: {
     flexDirection: 'row',
@@ -449,17 +507,6 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: 14,
     marginLeft: 8,
-  },
-  scrollSection: {
-    flex: 1,
-    paddingHorizontal: 24,
-    marginTop: 20,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 12,
   },
   inputContainer: {
     borderRadius: 9999,
@@ -531,18 +578,6 @@ const styles = StyleSheet.create({
   keypadRow: {
     flexDirection: 'row',
     gap: 10,
-  },
-  amountContainerCompact: {
-    marginTop: 8,
-  },
-  currencySymbolCompact: {
-    fontSize: 32,
-  },
-  amountValueCompact: {
-    fontSize: 40,
-  },
-  amountUnderlineCompact: {
-    marginTop: 4,
   },
   saveButton: {
     borderRadius: 9999,

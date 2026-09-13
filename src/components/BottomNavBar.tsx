@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -83,25 +83,15 @@ interface TabItemProps {
 const TabItem: React.FC<TabItemProps> = ({ icon, active, onPress }) => {
   const scale = useRef(new Animated.Value(1)).current;
 
-  const handlePressIn = () => {
-    Animated.spring(scale, {
-      toValue: 0.85,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
+  const animateScale = (toValue: number) => {
+    Animated.spring(scale, { toValue, useNativeDriver: true }).start();
   };
 
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPressIn={() => animateScale(0.85)}
+      onPressOut={() => animateScale(1)}
       style={styles.tabButton}
     >
       <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
@@ -115,38 +105,41 @@ const TabItem: React.FC<TabItemProps> = ({ icon, active, onPress }) => {
 // ─── Custom Notched Translucent Background ──────────────────────────────────
 const NotchedBackground: React.FC<{ width: number; height: number }> = ({ width, height }) => {
   const { colors, isDark } = useTheme();
-  const r = 36;
-  const H = height;
-  const w = width;
-  const cx = w / 2;
-  
-  // Mathematically calculated tangent arcs for a perfectly smooth cutout
-  // R = 42 (radius of the main notch cutout, giving enough room for the pulsing glow ring)
-  // r_f = 12 (radius of the top corner fillets transitioning into the notch)
-  const p1x = cx - 52.65;
-  const p2x = cx - 40.95;
-  const p2y = 9.33;
-  const p3x = cx + 40.95;
-  const p3y = 9.33;
-  const p4x = cx + 52.65;
 
-  const d = `
-    M ${r} 0
-    L ${p1x} 0
-    A 12 12 0 0 1 ${p2x} ${p2y}
-    A 42 42 0 0 0 ${p3x} ${p3y}
-    A 12 12 0 0 1 ${p4x} 0
-    L ${w - r} 0
-    A ${r} ${r} 0 0 1 ${w} ${H / 2}
-    A ${r} ${r} 0 0 1 ${w - r} ${H}
-    L ${r} ${H}
-    A ${r} ${r} 0 0 1 0 ${H / 2}
-    A ${r} ${r} 0 0 1 ${r} 0
-    Z
-  `;
+  const d = useMemo(() => {
+    const r = 36;
+    const H = height;
+    const w = width;
+    const cx = w / 2;
+    
+    // Mathematically calculated tangent arcs for a perfectly smooth cutout
+    // R = 42 (radius of the main notch cutout, giving enough room for the pulsing glow ring)
+    // r_f = 12 (radius of the top corner fillets transitioning into the notch)
+    const p1x = cx - 52.65;
+    const p2x = cx - 40.95;
+    const p2y = 9.33;
+    const p3x = cx + 40.95;
+    const p3y = 9.33;
+    const p4x = cx + 52.65;
+
+    return `
+      M ${r} 0
+      L ${p1x} 0
+      A 12 12 0 0 1 ${p2x} ${p2y}
+      A 42 42 0 0 0 ${p3x} ${p3y}
+      A 12 12 0 0 1 ${p4x} 0
+      L ${w - r} 0
+      A ${r} ${r} 0 0 1 ${w} ${H / 2}
+      A ${r} ${r} 0 0 1 ${w - r} ${H}
+      L ${r} ${H}
+      A ${r} ${r} 0 0 1 0 ${H / 2}
+      A ${r} ${r} 0 0 1 ${r} 0
+      Z
+    `;
+  }, [width, height]);
 
   return (
-    <Svg width={w} height={H} style={StyleSheet.absoluteFill}>
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
       <Path
         d={d}
         fill={colors.navBarBg}

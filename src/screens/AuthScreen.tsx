@@ -92,19 +92,9 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
-  const showError = (msg: string) => {
-    setSuccessMessage(null);
-    setErrorMessage(msg);
-    errorTranslateY.setValue(-12);
-    Animated.parallel([
-      Animated.timing(errorOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-      Animated.timing(errorTranslateY, { toValue: 0, duration: 250, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const showSuccess = (msg: string) => {
-    setErrorMessage(null);
-    setSuccessMessage(msg);
+  const showBanner = (msg: string, type: 'error' | 'success') => {
+    setErrorMessage(type === 'error' ? msg : null);
+    setSuccessMessage(type === 'success' ? msg : null);
     errorTranslateY.setValue(-12);
     Animated.parallel([
       Animated.timing(errorOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -121,7 +111,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
-      showError('Please enter your email address first, then tap Forgot Password.');
+      showBanner('Please enter your email address first, then tap Forgot Password.', 'error');
       return;
     }
     setForgotLoading(true);
@@ -130,9 +120,9 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
     });
     setForgotLoading(false);
     if (error) {
-      showError(getFriendlyError(error.message, 'login'));
+      showBanner(getFriendlyError(error.message, 'login'), 'error');
     } else {
-      showSuccess(`Password reset link sent to ${email}. Check your inbox!`);
+      showBanner(`Password reset link sent to ${email}. Check your inbox!`, 'success');
     }
   };
 
@@ -166,15 +156,15 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   const handleAuth = async () => {
     // Client-side validation first
     if (!email.trim()) {
-      showError("Please enter your email address.");
+      showBanner("Please enter your email address.", 'error');
       return;
     }
     if (!password.trim()) {
-      showError("Please enter your password.");
+      showBanner("Please enter your password.", 'error');
       return;
     }
     if (mode === 'signup' && !fullName.trim()) {
-      showError("Please enter your full name.");
+      showBanner("Please enter your full name.", 'error');
       return;
     }
 
@@ -188,14 +178,14 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
         options: { data: { full_name: fullName } },
       });
       if (error) {
-        showError(getFriendlyError(error.message, 'signup'));
+        showBanner(getFriendlyError(error.message, 'signup'), 'error');
       } else {
         navigation.navigate('ProfileSetup');
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        showError(getFriendlyError(error.message, 'login'));
+        showBanner(getFriendlyError(error.message, 'login'), 'error');
       } else {
         navigation.replace('AppTabs');
       }
@@ -203,6 +193,22 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
     setAuthLoading(false);
   };
 
+
+  // Checks profile completeness after Google OAuth and navigates accordingly.
+  // Extracted to avoid repeating the same logic in token-present and PKCE fallback paths.
+  const navigateAfterGoogleAuth = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user?.id)
+      .single();
+    if (!profile || !profile.first_name) {
+      navigation.navigate('ProfileSetup');
+    } else {
+      navigation.replace('AppTabs');
+    }
+  };
 
   const handleGoogleAuth = async () => {
     try {
@@ -239,43 +245,17 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-
             if (sessionError) throw sessionError;
-
-            // Check if profile exists and has a first name
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', user?.id)
-              .single();
-
-            if (!profile || !profile.first_name) {
-              navigation.navigate('ProfileSetup');
-            } else {
-              navigation.replace('AppTabs');
-            }
+            await navigateAfterGoogleAuth();
           } else {
             // Fallback: tokens not in URL (e.g. PKCE flow), let the auth state listener handle it
             const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              const { data: { user } } = await supabase.auth.getUser();
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user?.id)
-                .single();
-              if (!profile || !profile.first_name) {
-                navigation.navigate('ProfileSetup');
-              } else {
-                navigation.replace('AppTabs');
-              }
-            }
+            if (session) await navigateAfterGoogleAuth();
           }
         }
       }
     } catch (e: any) {
-      showError(e.message || 'Error with Google Authentication');
+      showBanner(e.message || 'Error with Google Authentication', 'error');
     }
   };
 
@@ -293,9 +273,11 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable style={[styles.backBtn, { marginTop: 16 }]} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={26} color={colors.textPrimary} />
-          </Pressable>
+          {navigation.canGoBack() && (
+            <Pressable style={[styles.backBtn, { marginTop: 16 }]} onPress={() => navigation.goBack()}>
+              <ArrowLeft size={26} color={colors.textPrimary} />
+            </Pressable>
+          )}
 
           {/* In-UI Message Banner (error or success) */}
           {(errorMessage || successMessage) && (
@@ -533,9 +515,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     borderRadius: 18,
   },
-  inputFocused: {
-    borderColor: '#B8E0C8',
-  },
+
   inputContainer: {
     backgroundColor: '#F1F2F5',
     borderRadius: 16,
