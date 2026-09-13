@@ -147,7 +147,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
               >
                 <IconComponent 
                   size={22} 
-                  color={isSelected ? '#1A2B4C' : colors.textSecondary} 
+                  color={isSelected ? colors.forestGreen : colors.textSecondary} 
                 />
               </Pressable>
             );
@@ -160,7 +160,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
             styles.saveBtn,
             isSaveEnabled 
               ? [styles.saveBtnEnabled, { backgroundColor: colors.mint }] 
-              : [styles.saveBtnDisabled, { backgroundColor: isDark ? '#1A263B' : '#E5E7ED' }]
+              : [styles.saveBtnDisabled, { backgroundColor: colors.cardSubtle }]
           ]}
           onPress={handleSave}
           disabled={!isSaveEnabled}
@@ -168,7 +168,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
           <Text style={[
             styles.saveText,
             isSaveEnabled 
-              ? [styles.saveTextEnabled, { color: '#1A2B4C' }] 
+              ? [styles.saveTextEnabled, { color: colors.forestGreen }] 
               : [styles.saveTextDisabled, { color: colors.textTertiary }],
             { fontFamily: 'Quicksand_700Bold' }
           ]}>

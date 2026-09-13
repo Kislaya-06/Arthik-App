@@ -11,6 +11,7 @@ import {
   CircleAlert, LogOut, Check, X, ArrowLeft
 } from 'lucide-react-native';
 
+import Constants from 'expo-constants';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 import { RootStackParamList } from '../types';
@@ -23,6 +24,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { profile, signOut, updateProfile } = useAuthStore();
   const { colors, isDark, toggleTheme, setThemeMode } = useTheme();
   const handleScroll = useScrollDirection();
+  const appVersion = Constants.expoConfig?.version ? `v${Constants.expoConfig.version}` : 'v1.0.0';
 
   // Local state for toggles
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -119,8 +121,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>Cancel</Text>
               </Pressable>
               <Pressable style={[styles.modalSaveBtn, { backgroundColor: colors.mintGreen }]} onPress={handleSaveProfile} disabled={editSaving}>
-                {editSaving ? <ActivityIndicator size="small" color="#1A2B4C" /> : <Check size={16} color="#1A2B4C" />}
-                <Text style={[styles.modalSaveText, { fontFamily: 'Quicksand_700Bold' }]}>Save</Text>
+                {editSaving ? <ActivityIndicator size="small" color={colors.forestGreen} /> : <Check size={16} color={colors.forestGreen} />}
+                <Text style={[styles.modalSaveText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>Save</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -214,7 +216,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               value={notificationsEnabled}
               onValueChange={setNotificationsEnabled}
               trackColor={{ false: colors.border, true: colors.mintGreen }}
-              thumbColor="#FFFFFF"
+              thumbColor={colors.white}
             />
           </View>
 
@@ -232,7 +234,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 setThemeMode(val ? 'dark' : 'light');
               }}
               trackColor={{ false: colors.border, true: colors.mintGreen }}
-              thumbColor="#FFFFFF"
+              thumbColor={colors.white}
             />
           </View>
 
@@ -245,7 +247,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               App Version
             </Text>
             <Text style={[styles.versionText, { color: colors.textMuted, fontFamily: 'Quicksand_500Medium' }]}>
-              v1.0.0
+              {appVersion}
             </Text>
           </View>
         </View>

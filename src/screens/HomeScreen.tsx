@@ -74,7 +74,7 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total }) => {
       {/* Income arc (mint) */}
       <Circle
         cx={cx} cy={cy} r={r}
-        stroke="#B8E0C8"
+        stroke={colors.mintGreen}
         strokeWidth={strokeWidth}
         fill="none"
         strokeDasharray={`${incomeDash} ${circumference}`}
@@ -86,7 +86,7 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total }) => {
       {/* Spent arc (peach) */}
       <Circle
         cx={cx} cy={cy} r={r}
-        stroke="#F4B8AE"
+        stroke={colors.peachCoral}
         strokeWidth={strokeWidth}
         fill="none"
         strokeDasharray={`${spentDash} ${circumference}`}
@@ -109,7 +109,7 @@ type TxRowProps = {
 };
 
 const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome }) => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : DollarSign;
   const catColor = category?.color ?? '#94A3B8';
   const bg = pastelBg(catColor);
@@ -120,7 +120,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome 
   })();
 
   const amountLabel = isIncome ? `+${formatCurrency(expense.amount)}` : `−${formatCurrency(expense.amount)}`;
-  const amountColor = isIncome ? '#4CAF7D' : colors.textPrimary;
+  const amountColor = isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary;
 
   const modeLabel =
     expense.payment_mode === 'upi'
@@ -270,7 +270,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 style={[
                   styles.pill,
                   active
-                    ? [styles.pillActive, { backgroundColor: isDark ? colors.mintGreenSoft : '#F0FAF4', borderColor: colors.mintGreen }]
+                    ? [styles.pillActive, { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }]
                     : [styles.pillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
                 ]}
                 activeOpacity={0.75}

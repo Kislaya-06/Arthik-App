@@ -95,7 +95,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
             <SquarePen size={16} color={colors.textPrimary} />
           </Pressable>
           <Pressable 
-            style={[styles.deleteBtn, { backgroundColor: isDark ? 'rgba(244, 184, 174, 0.15)' : '#FDEEEC' }]}
+            style={[styles.deleteBtn, { backgroundColor: colors.peachSoft }]}
             onPress={() => handleDelete(item.id)}
           >
             <Trash2 size={16} color={colors.coral} />
@@ -146,7 +146,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: colors.mint }]}
         onPress={() => navigation.navigate('AddEditCategory')}
       >
-        <Plus size={24} color="#1A2B4C" />
+        <Plus size={24} color={colors.forestGreen} />
       </Pressable>
     </View>
   );

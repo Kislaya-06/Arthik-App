@@ -165,8 +165,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Decorative blurred background circles */}
-      <View style={[styles.bgCircleTop, { opacity: isDark ? 0.05 : 0.1 }]} />
-      <View style={[styles.bgCircleBottom, { opacity: isDark ? 0.05 : 0.1 }]} />
+      <View style={[styles.bgCircleTop, { backgroundColor: colors.mintGreen, opacity: isDark ? 0.05 : 0.1 }]} />
+      <View style={[styles.bgCircleBottom, { backgroundColor: colors.peachCoral, opacity: isDark ? 0.05 : 0.1 }]} />
 
       {/* Main Logo Container */}
       <Animated.View
@@ -260,8 +260,6 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     borderRadius: 125,
-    backgroundColor: '#B8E0C8',
-    opacity: 0.1,
     top: -50,
     left: -50,
   },
@@ -270,8 +268,6 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     borderRadius: 125,
-    backgroundColor: '#F4B8AE',
-    opacity: 0.1,
     bottom: -50,
     right: -50,
   },

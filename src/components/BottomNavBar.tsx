@@ -31,7 +31,7 @@ const AnimatedIcon = ({ icon: Icon, active }: { icon: any; active: boolean }) =>
     <View style={{ width: 22, height: 22 }}>
       {/* Inactive Icon layer */}
       <View style={StyleSheet.absoluteFill}>
-        <Icon size={22} color={isDark ? colors.textSecondary : '#6B7280'} />
+        <Icon size={22} color={colors.textSecondary} />
       </View>
       {/* Active Icon (Mint) layer stacked on top */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
@@ -42,6 +42,7 @@ const AnimatedIcon = ({ icon: Icon, active }: { icon: any; active: boolean }) =>
 };
 
 const AnimatedDot = ({ active }: { active: boolean }) => {
+  const { colors } = useTheme();
   const anim = useRef(new Animated.Value(active ? 1 : 0)).current;
 
   useEffect(() => {
@@ -64,6 +65,7 @@ const AnimatedDot = ({ active }: { active: boolean }) => {
       style={[
         styles.dot,
         {
+          backgroundColor: colors.mintGreen,
           transform: [{ scale: anim }],
           opacity: anim,
         },
@@ -157,6 +159,7 @@ const NotchedBackground: React.FC<{ width: number; height: number }> = ({ width,
 };
 
 export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
+  const { colors } = useTheme();
   const { isVisible } = useNavBarStore();
   const translateY = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
@@ -316,14 +319,24 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
             style={[
               styles.fabGlow,
               {
+                backgroundColor: colors.mintGreen,
                 transform: [{ scale: pulseAnim }],
                 opacity: fabGlowOpacity,
               },
             ]}
           />
           {/* Main button circle */}
-          <Animated.View style={[styles.fabButton, { transform: [{ scale: fabScale }] }]}>
-            <Plus size={26} color="#1A2B4C" strokeWidth={2.5} />
+          <Animated.View
+            style={[
+              styles.fabButton,
+              {
+                backgroundColor: colors.mintGreen,
+                shadowColor: colors.mintGreen,
+                transform: [{ scale: fabScale }],
+              },
+            ]}
+          >
+            <Plus size={26} color={colors.forestGreen} strokeWidth={2.5} />
           </Animated.View>
         </Pressable>
       </View>

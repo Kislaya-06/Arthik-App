@@ -100,7 +100,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           Category not found
         </Text>
         <Pressable onPress={() => navigation.goBack()} style={[styles.notFoundBack, { backgroundColor: colors.mint }]}>
-          <Text style={[styles.notFoundBackText, { color: '#1A2B4C', fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.notFoundBackText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
             Go Back
           </Text>
         </Pressable>

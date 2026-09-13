@@ -216,11 +216,11 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
                       : { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
                 >
-                  <IconComp size={16} color={isSelected ? '#1A2B4C' : colors.textPrimary} />
+                  <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
                   <Text
                     style={[
                       styles.categoryChipText,
-                      { color: isSelected ? '#1A2B4C' : colors.textPrimary },
+                      { color: isSelected ? colors.forestGreen : colors.textPrimary },
                       { fontFamily: 'Quicksand_700Bold' },
                     ]}
                   >
@@ -306,12 +306,12 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
                   isActive && { backgroundColor: colors.peachCoral },
                 ]}
               >
-                <Icon size={16} color={isActive ? '#1A2B4C' : colors.textSecondary} />
+                <Icon size={16} color={isActive ? colors.forestGreen : colors.textSecondary} />
                 <Text
                   style={[
                     styles.paymentToggleText,
                     {
-                      color: isActive ? '#1A2B4C' : colors.textSecondary,
+                      color: isActive ? colors.forestGreen : colors.textSecondary,
                       fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium',
                     },
                   ]}
@@ -366,7 +366,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
               : [
                   styles.saveButtonDisabled,
                   {
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.inputBg,
+                    backgroundColor: colors.cardSubtle,
                     borderColor: colors.borderSubtle,
                   },
                 ],
@@ -376,7 +376,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
             style={[
               styles.saveButtonText,
               {
-                color: isSaveEnabled ? '#1A2B4C' : colors.textMuted,
+                color: isSaveEnabled ? colors.forestGreen : colors.textMuted,
                 fontFamily: 'Quicksand_700Bold',
               },
             ]}

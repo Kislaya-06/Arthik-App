@@ -35,9 +35,14 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   if (!expense) {
     return (
       <View style={[styles.notFoundContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <Text style={[styles.notFoundText, { color: colors.textPrimary }]}>Expense not found</Text>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <Text style={[styles.notFoundText, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          Expense not found
+        </Text>
         <Pressable onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mint }]}>
-          <Text style={styles.backButtonText}>Go Back</Text>
+          <Text style={[styles.backButtonText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
+            Go Back
+          </Text>
         </Pressable>
       </View>
     );
@@ -130,8 +135,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
-            <View style={[styles.typeBadgePill, { backgroundColor: isDark ? 'rgba(232, 149, 106, 0.15)' : '#FDEEE4' }]}>
-              <Text style={[styles.typeBadgeText, { fontFamily: 'Quicksand_700Bold' }]}>
+            <View style={[styles.typeBadgePill, { backgroundColor: colors.peachSoft }]}>
+              <Text style={[styles.typeBadgeText, { color: isDark ? colors.peachCoral : '#D97757', fontFamily: 'Quicksand_700Bold' }]}>
                 EXPENSE
               </Text>
             </View>
@@ -211,21 +216,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8F9FB',
   },
   notFoundText: {
     fontSize: 18,
-    color: '#1A2B4C',
     marginBottom: 16,
   },
   backButtonFallback: {
-    padding: 12,
-    backgroundColor: '#B8E0C8',
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
   },
   backButtonText: {
     fontSize: 16,
-    color: '#1A2B4C',
   },
   header: {
     flexDirection: 'row',

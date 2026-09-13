@@ -220,12 +220,12 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
                 { opacity: errorOpacity, transform: [{ translateY: errorTranslateY }] },
               ]}
             >
-              <AlertCircle size={18} color={isDark ? '#FF8E8E' : '#E87070'} style={{ marginRight: 8, flexShrink: 0 }} />
-              <Text style={[styles.errorBannerText, isDark && { color: '#FF8E8E' }, { fontFamily: 'Quicksand_500Medium' }]}>
+              <AlertCircle size={18} color={colors.danger} style={{ marginRight: 8, flexShrink: 0 }} />
+              <Text style={[styles.errorBannerText, { color: colors.danger, fontFamily: 'Quicksand_500Medium' }]}>
                 {errorMessage}
               </Text>
               <Pressable onPress={dismissError} style={styles.errorBannerClose}>
-                <X size={16} color={isDark ? '#FF8E8E' : '#E87070'} />
+                <X size={16} color={colors.danger} />
               </Pressable>
             </Animated.View>
           )}
@@ -325,15 +325,15 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.matchIndicatorRow}>
                 {password === confirmPassword ? (
                   <>
-                    <Check size={14} color="#4CAF50" />
-                    <Text style={[styles.matchTextSuccess, { fontFamily: 'Quicksand_500Medium' }]}>
+                    <Check size={14} color={isDark ? colors.mintGreen : colors.mintDark} />
+                    <Text style={[styles.matchTextSuccess, { color: isDark ? colors.mintGreen : colors.mintDark, fontFamily: 'Quicksand_500Medium' }]}>
                       Passwords match
                     </Text>
                   </>
                 ) : (
                   <>
-                    <X size={14} color="#E87070" />
-                    <Text style={[styles.matchTextError, { fontFamily: 'Quicksand_500Medium' }]}>
+                    <X size={14} color={colors.danger} />
+                    <Text style={[styles.matchTextError, { color: colors.danger, fontFamily: 'Quicksand_500Medium' }]}>
                       Passwords do not match yet
                     </Text>
                   </>
@@ -345,14 +345,16 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
             <AnimatedButton
               style={[
                 styles.submitBtn,
-                passwordsMatch ? [styles.submitBtnActive, { backgroundColor: colors.mint }] : [styles.submitBtnDisabled, { backgroundColor: isDark ? '#1A263B' : '#E5E7ED' }],
+                passwordsMatch
+                  ? [styles.submitBtnActive, { backgroundColor: colors.mint }]
+                  : [styles.submitBtnDisabled, { backgroundColor: colors.cardSubtle }],
                 loading && styles.submitBtnLoading,
               ]}
               onPress={handleUpdatePassword}
               disabled={!passwordsMatch || loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#1A2B4C" />
+                <ActivityIndicator size="small" color={passwordsMatch ? colors.forestGreen : colors.textPrimary} />
               ) : (
                 <Text
                   style={[
