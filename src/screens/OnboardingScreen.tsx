@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,7 @@ import { Theme } from '../config/theme';
 import { useTheme } from '../store/themeStore';
 import { IndianRupee, Sparkles, Check } from 'lucide-react-native';
 import Svg, { Circle, G } from 'react-native-svg';
+import { setupNotifications } from '../lib/notificationService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 
@@ -209,6 +210,14 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     },
   ];
 
+  useEffect(() => {
+    // Proactively prompt for notification permission on initial install/onboarding
+    const timer = setTimeout(() => {
+      setupNotifications();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handlePressNext = () => {
     if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({
@@ -216,11 +225,13 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         animated: true,
       });
     } else {
+      setupNotifications();
       navigation.navigate('Auth');
     }
   };
 
   const handlePressSkip = () => {
+    setupNotifications();
     navigation.navigate('Auth');
   };
 

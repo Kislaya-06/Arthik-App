@@ -12,11 +12,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Bell, ChevronRight, DollarSign } from 'lucide-react-native';
+import { Bell, ChevronRight, DollarSign, User, Plus, Sparkles } from 'lucide-react-native';
+import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import Svg, { Circle } from 'react-native-svg';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { useNotificationStore } from '../store/notificationStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
@@ -185,15 +188,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const [activeFilter, setActiveFilter] = useState<Filter>('Monthly');
 
+  const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
+  const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
+  const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
+
+  const notifications = useNotificationStore((s) => s.notifications);
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchExpenses();
-    }, [fetchExpenses])
+      fetchExpenses().then(() => {
+        const cur = useExpenseStore.getState().expenses;
+        syncWithExpenses(cur);
+      });
+    }, [fetchExpenses, syncWithExpenses])
   );
 
   const catMap = useMemo(() => {
     const m: Record<string, Category> = {};
-    categories.forEach((c) => (m[c.id] = c));
+    for (let i = 0; i < categories.length; i++) {
+      m[categories[i].id] = categories[i];
+    }
     return m;
   }, [categories]);
 
@@ -205,10 +220,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { totalIncome, totalSpent } = useMemo(() => {
     let income = 0;
     let spent = 0;
-    filtered.forEach((e) => {
+    for (let i = 0; i < filtered.length; i++) {
+      const e = filtered[i];
       if (isIncomeCategory(catMap[e.category_id])) income += e.amount;
       else spent += e.amount;
-    });
+    }
     return { totalIncome: income, totalSpent: spent };
   }, [filtered, catMap]);
 
@@ -224,6 +240,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const nameFromMeta = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
   const dbName = profile?.first_name === 'User' ? null : profile?.first_name;
   const firstName = dbName || nameFromMeta?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
+
+  const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, expenses]);
+  const todayBudget = todayRecord.budget;
+  const todayRecordSpent = todayRecord.spent;
+  const todayRemaining = Math.max(0, todayBudget - todayRecordSpent);
+  const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
+  const budgetRatio = todayBudget > 0 ? Math.min(todayRecordSpent / todayBudget, 1) : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -244,15 +267,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         {/* ── Header ── */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={[styles.helloText, { color: colors.textSecondary }]}>Hello,</Text>
+            <Text style={[styles.helloText, { color: colors.textSecondary }]}>Hello</Text>
             <Text style={[styles.nameText, { color: colors.textPrimary }]}>{firstName}</Text>
           </View>
-          <Pressable
-            style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => navigation.navigate('Notifications' as any)}
-          >
-            <Bell size={20} color={colors.textPrimary} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => navigation.navigate('Notifications' as any)}
+            >
+              <Bell size={20} color={colors.textPrimary} />
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
+            </Pressable>
+            <Pressable
+              style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => navigation.navigate('Profile' as any)}
+            >
+              <User size={20} color={colors.textPrimary} />
+            </Pressable>
+          </View>
         </View>
 
         {/* ── Filter Pills ── */}
@@ -311,6 +343,72 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           {/* Donut */}
           <DonutChart spent={totalSpent} total={totalIncome + totalSpent} />
         </View>
+
+        {/* ── Compact Daily Allowance & Gullak Banner (Senior UI/UX Design) ── */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Savings' as any)}
+          style={[
+            styles.dailyCompactCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderWidth: isDark ? 1 : 0,
+            },
+          ]}
+        >
+          <View style={[styles.dailyCompactIconWrap, { backgroundColor: colors.mintGreenSoft }]}>
+            <PiggyBankCoinIcon size={22} color={colors.mintGreenDark} />
+          </View>
+
+          <View style={styles.dailyCompactContent}>
+            <View style={styles.dailyCompactTopRow}>
+              <View style={styles.dailyCompactTitleGroup}>
+                <Text style={[styles.dailyCompactTitle, { color: colors.textPrimary }]}>
+                  Daily Allowance
+                </Text>
+                {totalAccumulatedSavings > 0 && (
+                  <View style={[styles.dailyGullakPill, { backgroundColor: colors.mintGreenSoft }]}>
+                    <Text style={[styles.dailyGullakPillText, { color: colors.mintGreenDark }]}>
+                      ₹{Math.round(totalAccumulatedSavings).toLocaleString('en-IN')} Saved
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.currencyRow}>
+                <Text
+                  style={[
+                    styles.dailyCompactAmount,
+                    { color: isOverBudget ? colors.danger : colors.mintGreenDark },
+                  ]}
+                >
+                  {isOverBudget
+                    ? `+₹${Math.round(todayRecordSpent - todayBudget).toLocaleString('en-IN')} over`
+                    : `₹${Math.round(todayRemaining).toLocaleString('en-IN')} left`}
+                </Text>
+                <ChevronRight size={15} color={colors.textSecondary} style={{ marginLeft: 4 }} />
+              </View>
+            </View>
+
+            {/* Mini Progress Bar */}
+            <View style={[styles.dailyCompactProgressTrack, { backgroundColor: colors.chartTrack }]}>
+              <View
+                style={[
+                  styles.dailyCompactProgressFill,
+                  {
+                    width: `${Math.round(budgetRatio * 100)}%`,
+                    backgroundColor: isOverBudget
+                      ? colors.danger
+                      : budgetRatio >= 0.8
+                      ? '#F59E0B'
+                      : colors.mintGreen,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        </TouchableOpacity>
 
         {/* ── Recent Transactions ── */}
         <View style={styles.sectionHeader}>
@@ -378,6 +476,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Quicksand_700Bold',
     marginTop: -4,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   bellBtn: {
     width: 44,
     height: 44,
@@ -390,11 +493,88 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+  },
+
+  // Compact Daily Allowance Widget Banner
+  dailyCompactCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  dailyCompactIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  dailyCompactContent: {
+    flex: 1,
+  },
+  dailyCompactTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  dailyCompactTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dailyCompactTitle: {
+    fontSize: 13,
+    fontFamily: 'Quicksand_700Bold',
+  },
+  dailyGullakPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  dailyGullakPillText: {
+    fontSize: 10,
+    fontFamily: 'Quicksand_700Bold',
+  },
+  currencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dailyCompactAmount: {
+    fontSize: 13,
+    fontFamily: 'Quicksand_700Bold',
+  },
+  dailyCompactProgressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  dailyCompactProgressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
 
   // Filter pills
   pillsScroll: {
-    marginTop: 24,
+    marginTop: 18,
   },
   pillsContent: {
     paddingRight: 8,

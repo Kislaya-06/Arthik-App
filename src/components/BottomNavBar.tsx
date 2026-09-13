@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Home, Clock, BarChart2, User, Plus } from 'lucide-react-native';
+import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import Svg, { Path } from 'react-native-svg';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -107,45 +108,73 @@ const NotchedBackground: React.FC<{ width: number; height: number }> = ({ width,
   const { colors, isDark } = useTheme();
 
   const d = useMemo(() => {
-    const r = 36;
     const H = height;
     const w = width;
     const cx = w / 2;
-    
-    // Mathematically calculated tangent arcs for a perfectly smooth cutout
-    // R = 42 (radius of the main notch cutout, giving enough room for the pulsing glow ring)
-    // r_f = 12 (radius of the top corner fillets transitioning into the notch)
-    const p1x = cx - 52.65;
-    const p2x = cx - 40.95;
-    const p2y = 9.33;
-    const p3x = cx + 40.95;
-    const p3y = 9.33;
-    const p4x = cx + 52.65;
+
+    // Inset by 1px so the 1.2px border stroke is NEVER clipped by the SVG viewport boundary
+    const pad = 1;
+    const topY = pad;
+    const botY = H - pad;
+    const leftX = pad;
+    const rightX = w - pad;
+    const pillR = (H - 2 * pad) / 2; // (68 - 2) / 2 = 33
+
+    // Proportional G2 Cubic Bézier Notch for 56px FAB in 68px bar:
+    // Cradles the 28px-radius FAB with a consistent 4-5px margin and smooth horizontal exit
+    const s1Start = cx - 48;
+    const s1Cp1X = cx - 40;
+    const s1Cp2X = cx - 34;
+    const s1Cp2Y = topY + 13;
+    const s1EndX = cx - 29;
+    const s1EndY = topY + 18;
+
+    const s2Cp1X = cx - 24;
+    const s2Cp1Y = topY + 23;
+    const s2Cp2X = cx - 15;
+    const s2Cp2Y = topY + 36;
+    const s2EndX = cx;
+    const s2EndY = topY + 36;
+
+    const s3Cp1X = cx + 15;
+    const s3Cp1Y = topY + 36;
+    const s3Cp2X = cx + 24;
+    const s3Cp2Y = topY + 23;
+    const s3EndX = cx + 29;
+    const s3EndY = topY + 18;
+
+    const s4Cp1X = cx + 34;
+    const s4Cp1Y = topY + 13;
+    const s4Cp2X = cx + 40;
+    const s4EndX = cx + 48;
 
     return `
-      M ${r} 0
-      L ${p1x} 0
-      A 12 12 0 0 1 ${p2x} ${p2y}
-      A 42 42 0 0 0 ${p3x} ${p3y}
-      A 12 12 0 0 1 ${p4x} 0
-      L ${w - r} 0
-      A ${r} ${r} 0 0 1 ${w} ${H / 2}
-      A ${r} ${r} 0 0 1 ${w - r} ${H}
-      L ${r} ${H}
-      A ${r} ${r} 0 0 1 0 ${H / 2}
-      A ${r} ${r} 0 0 1 ${r} 0
+      M ${leftX + pillR} ${topY}
+      L ${s1Start} ${topY}
+      C ${s1Cp1X} ${topY}, ${s1Cp2X} ${s1Cp2Y}, ${s1EndX} ${s1EndY}
+      C ${s2Cp1X} ${s2Cp1Y}, ${s2Cp2X} ${s2Cp2Y}, ${s2EndX} ${s2EndY}
+      C ${s3Cp1X} ${s3Cp1Y}, ${s3Cp2X} ${s3Cp2Y}, ${s3EndX} ${s3EndY}
+      C ${s4Cp1X} ${s4Cp1Y}, ${s4Cp2X} ${topY}, ${s4EndX} ${topY}
+      L ${rightX - pillR} ${topY}
+      A ${pillR} ${pillR} 0 0 1 ${rightX} ${H / 2}
+      A ${pillR} ${pillR} 0 0 1 ${rightX - pillR} ${botY}
+      L ${leftX + pillR} ${botY}
+      A ${pillR} ${pillR} 0 0 1 ${leftX} ${H / 2}
+      A ${pillR} ${pillR} 0 0 1 ${leftX + pillR} ${topY}
       Z
     `;
   }, [width, height]);
 
   return (
-    <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={StyleSheet.absoluteFill}>
       <Path
         d={d}
         fill={colors.navBarBg}
         fillOpacity={0.96}
-        stroke={isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.15)"}
+        stroke={isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.18)'}
         strokeWidth={1.2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
       />
     </Svg>
   );
@@ -158,7 +187,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
   const insets = useSafeAreaInsets();
 
   const bottomOffset = insets.bottom > 0 ? insets.bottom + 8 : 24;
-  const fabBottom = bottomOffset + 36;
+  const fabBottom = bottomOffset + 38;
 
   // Center FAB Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -234,6 +263,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
   // Map state.routes to regular tabs
   const homeRoute = state.routes.find((r) => r.name === 'Home');
   const historyRoute = state.routes.find((r) => r.name === 'History');
+  const savingsRoute = state.routes.find((r) => r.name === 'Savings');
   const insightsRoute = state.routes.find((r) => r.name === 'Insights');
 
   const getRouteIndex = (name: string) => state.routes.findIndex((r) => r.name === name);
@@ -259,7 +289,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
       {/* Outer Pill Container (Shadow Wrapper) */}
       <View style={[styles.pillContainerShadowWrapper, { bottom: bottomOffset }]}>
         {/* Custom SVG Notched Background Layer */}
-        <NotchedBackground width={barWidth} height={72} />
+        <NotchedBackground width={barWidth} height={68} />
 
         {/* Inner row container for tab elements */}
         <View style={styles.tabsInnerRow}>
@@ -283,6 +313,13 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
           <View style={styles.fabSpacer} />
 
           {/* Regular Tabs: 2 on Right */}
+          {savingsRoute && (
+            <TabItem
+              icon={PiggyBankCoinIcon}
+              active={state.index === getRouteIndex('Savings')}
+              onPress={() => navigateTo('Savings', getRouteIndex('Savings'))}
+            />
+          )}
           {insightsRoute && (
             <TabItem
               icon={BarChart2}
@@ -290,12 +327,6 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
               onPress={() => navigateTo('Insights', getRouteIndex('Insights'))}
             />
           )}
-          {/* 4. Profile Button (Navigates to Stack Screen) */}
-          <TabItem
-            icon={User}
-            active={false} // Stack screen overlay, doesn't stay active in Tab bar
-            onPress={() => navigation.navigate('Profile' as any)}
-          />
         </View>
       </View>
 
@@ -329,7 +360,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
               },
             ]}
           >
-            <Plus size={26} color={colors.forestGreen} strokeWidth={2.5} />
+            <Plus size={24} color={colors.forestGreen} strokeWidth={2.6} />
           </Animated.View>
         </Pressable>
       </View>
@@ -352,13 +383,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    height: 72,
-    borderRadius: 36,
-    shadowColor: '#1A2B4C',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 10,
+    height: 68,
+    borderRadius: 34,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
     backgroundColor: 'transparent',
   },
 
@@ -371,8 +402,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   tabButton: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -381,38 +412,38 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: '#B8E0C8',
-    marginTop: 4,
+    marginTop: 3,
   },
   fabSpacer: {
-    width: 64,
-    height: 72,
+    width: 54,
+    height: 68,
   },
   fabContainer: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 72,
-    height: 72,
+    width: 56,
+    height: 56,
     zIndex: 11,
   },
   fabPressable: {
-    width: 72,
-    height: 72,
+    width: 56,
+    height: 56,
     position: 'relative',
   },
   fabGlow: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#B8E0C8',
     position: 'absolute',
     top: 0,
     left: 0,
   },
   fabButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#B8E0C8',
     position: 'absolute',
     top: 0,
@@ -420,9 +451,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#B8E0C8',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });

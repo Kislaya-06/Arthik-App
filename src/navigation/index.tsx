@@ -24,6 +24,7 @@ import { ManageCategoriesScreen } from '../screens/ManageCategoriesScreen';
 import { AddEditCategoryScreen } from '../screens/AddEditCategoryScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
+import { SavingsScreen } from '../screens/SavingsScreen';
 
 // Custom Tab Bar
 import { BottomNavBar } from '../components/BottomNavBar';
@@ -45,6 +46,7 @@ function TabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen as React.ComponentType<any>} />
       <Tab.Screen name="History" component={HistoryScreen as React.ComponentType<any>} />
+      <Tab.Screen name="Savings" component={SavingsScreen as React.ComponentType<any>} />
       <Tab.Screen name="Insights" component={InsightsScreen as React.ComponentType<any>} />
     </Tab.Navigator>
   );
@@ -128,6 +130,7 @@ export function AppNavigation() {
         <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />
         <Stack.Screen name="AddEditCategory" component={AddEditCategoryScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="Savings" component={SavingsScreen as React.ComponentType<any>} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>

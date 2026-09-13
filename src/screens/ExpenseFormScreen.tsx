@@ -15,6 +15,7 @@ import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
 import { format, parseISO } from 'date-fns';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
 import { formatDate } from '../lib/formatters';
@@ -145,6 +146,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       } else {
         await addExpense(numAmount, selectedCategoryId, note, paymentMode, dateStr);
       }
+      // Keep daily budget and smart notifications in sync
+      const currentExpenses = useExpenseStore.getState().expenses;
+      useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
+
       navigation.goBack();
     }
   };

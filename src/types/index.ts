@@ -12,6 +12,7 @@ export type RootStackParamList = {
   AddEditCategory: { categoryId?: string } | undefined;
   Notifications: undefined;
   Profile: undefined;
+  Savings: undefined;
   ResetPassword: { initialError?: string } | undefined;
 };
 
@@ -19,5 +20,6 @@ export type TabParamList = {
   Home: undefined;
   History: undefined;
   AddExpensePlaceholder: undefined;
+  Savings: undefined;
   Insights: undefined;
 };

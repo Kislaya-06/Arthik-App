@@ -12,6 +12,11 @@ import { supabase } from './src/config/supabase';
 import { useAuthStore } from './src/store/authStore';
 import { useCategoryStore } from './src/store/categoryStore';
 import { useExpenseStore } from './src/store/expenseStore';
+import {
+  setupNotifications,
+  scheduleDailyReminder,
+  registerNotificationResponseListener,
+} from './src/lib/notificationService';
 
 export default function App() {
   const { colors, isDark } = useTheme();
@@ -60,6 +65,29 @@ export default function App() {
       checkForUpdates();
     }
 
+    // Initialize notification channels and prompt for permission on app start
+    const notifTimer = setTimeout(() => {
+      setupNotifications().then((granted) => {
+        if (granted) {
+          scheduleDailyReminder(20, 0);
+        }
+      });
+    }, 1000);
+
+    // Handle user tapping on a device notification in notification shade
+    const unregisterNotif = registerNotificationResponseListener((data) => {
+      if (
+        data?.screen === 'Savings' ||
+        data?.type === 'budget_warning' ||
+        data?.type === 'budget_exceeded' ||
+        data?.type === 'savings_rollover'
+      ) {
+        navigateTo('Savings' as any);
+      } else {
+        navigateTo('Notifications' as any);
+      }
+    });
+
     // Listen for incoming deep links while the app is active / foregrounded
     const urlSub = Linking.addEventListener('url', (event) => {
       handleAuthDeepLink(event.url);
@@ -81,8 +109,10 @@ export default function App() {
     });
 
     return () => {
+      clearTimeout(notifTimer);
       subscription.unsubscribe();
       urlSub.remove();
+      unregisterNotif();
     };
   }, []);
 

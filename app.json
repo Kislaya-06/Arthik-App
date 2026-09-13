@@ -28,13 +28,19 @@
         "foregroundImage": "./assets/logo.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.kislaya_agarwal.arthik"
+      "package": "com.kislaya_agarwal.arthik",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "plugins": [
       "@react-native-community/datetimepicker",
       "expo-web-browser",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-notifications"
     ],
     "extra": {
       "supabaseUrl": "https://dapbkooakqiemgdkxonx.supabase.co",

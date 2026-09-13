@@ -7,6 +7,7 @@ import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
@@ -59,6 +60,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             await deleteExpense(expense.id);
+            useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
             navigation.pop(1);
           },
         },
