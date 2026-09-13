@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  ScrollView, SectionList,
+  ScrollView, SectionList, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +10,7 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useExpenseStore, Expense } from '../store/expenseStore';
-import { useCategoryStore } from '../store/categoryStore';
+import { useCategoryStore, Category } from '../store/categoryStore';
 import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
@@ -18,6 +18,7 @@ import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
+import { ThemeColors } from '../config/theme';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'History'>,
@@ -29,6 +30,55 @@ interface Section {
   total: number;
   data: Expense[];
 }
+
+interface TransactionRowItemProps {
+  item: Expense;
+  category?: Category;
+  onPress: (id: string) => void;
+  colors: ThemeColors;
+}
+
+const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
+  const categoryName = category?.name || 'Unknown';
+  const categoryColor = category?.color || '#F4B8AE';
+  const categoryBgColor = categoryColor + '33';
+  const IconComp = getCategoryIcon(category?.icon || '');
+  const PaymentIcon = getPaymentIcon(item.payment_mode);
+  const paymentLabel = getPaymentLabel(item.payment_mode);
+
+  return (
+    <Pressable
+      style={[styles.transactionRow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
+      onPress={() => onPress(item.id)}
+      android_ripple={{ color: colors.cardSubtle, borderless: false }}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: categoryBgColor }]}>
+        <IconComp size={20} color={categoryColor} />
+      </View>
+      <View style={styles.transactionMiddle}>
+        <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]} numberOfLines={1}>
+          {categoryName}
+        </Text>
+        {!!item.note && (
+          <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]} numberOfLines={1}>
+            {item.note}
+          </Text>
+        )}
+      </View>
+      <View style={styles.transactionRight}>
+        <Text style={[styles.transactionAmount, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          −₹{item.amount.toLocaleString('en-IN')}
+        </Text>
+        <View style={styles.paymentModeRow}>
+          <PaymentIcon size={12} color={colors.textSecondary} />
+          <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+            {paymentLabel}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+});
 
 export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
   const { expenses, fetchExpenses } = useExpenseStore();
@@ -48,6 +98,12 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     }, [fetchExpenses, fetchCategories]),
   );
 
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach(c => map.set(c.id, c));
+    return map;
+  }, [categories]);
+
   const filteredAndGroupedExpenses = useMemo<Section[]>(() => {
     let filtered = expenses;
 
@@ -58,7 +114,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     if (searchQuery.trim()) {
       const lowerQuery = searchQuery.toLowerCase();
       filtered = filtered.filter(e => {
-        const category = categories.find(c => c.id === e.category_id);
+        const category = categoryMap.get(e.category_id);
         const categoryName = category?.name?.toLowerCase() || '';
         const note = e.note?.toLowerCase() || '';
         return categoryName.includes(lowerQuery) || note.includes(lowerQuery);
@@ -88,7 +144,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
       return { title, total: totals[dateStr], data: grouped[dateStr] };
     });
-  }, [expenses, categories, selectedCategoryId, searchQuery]);
+  }, [expenses, categoryMap, selectedCategoryId, searchQuery]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => (
     <View style={styles.sectionHeader}>
@@ -101,47 +157,45 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   ), [colors]);
 
-  const renderItem = useCallback(({ item }: { item: Expense }) => {
-    const category = categories.find(c => c.id === item.category_id);
-    const categoryName = category?.name || 'Unknown';
-    const categoryColor = category?.color || '#F4B8AE';
-    const categoryBgColor = categoryColor + '33';
-    const IconComp = getCategoryIcon(category?.icon || '');
-    const PaymentIcon = getPaymentIcon(item.payment_mode);
-    const paymentLabel = getPaymentLabel(item.payment_mode);
+  const handleItemPress = useCallback((expenseId: string) => {
+    navigation.navigate('ExpenseDetail', { expenseId });
+  }, [navigation]);
+
+  const renderItem = useCallback(({ item }: { item: Expense }) => (
+    <TransactionRowItem
+      item={item}
+      category={categoryMap.get(item.category_id)}
+      onPress={handleItemPress}
+      colors={colors}
+    />
+  ), [categoryMap, handleItemPress, colors]);
+
+  const renderEmptyState = useCallback(() => {
+    let IconComponent = Receipt;
+    let title = 'No transactions yet';
+    let subtitle = 'Your expenses will appear here once you add them.';
+
+    if (searchQuery.trim()) {
+      IconComponent = SearchX;
+      title = 'No results found';
+      subtitle = 'Try adjusting your search to find what you are looking for.';
+    } else if (selectedCategoryId) {
+      const catName = categoryMap.get(selectedCategoryId)?.name || 'this category';
+      IconComponent = FilterX;
+      title = 'No expenses found';
+      subtitle = `There are no expenses in the ${catName} category yet. They will appear here once you add them!`;
+    }
 
     return (
-      <Pressable
-        style={[styles.transactionRow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
-        onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
-      >
-        <View style={[styles.iconContainer, { backgroundColor: categoryBgColor }]}>
-          <IconComp size={20} color={categoryColor} />
+      <View style={styles.emptyContainer}>
+        <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
+          <IconComponent size={32} color={colors.textSecondary} />
         </View>
-        <View style={styles.transactionMiddle}>
-          <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]} numberOfLines={1}>
-            {categoryName}
-          </Text>
-          {!!item.note && (
-            <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]} numberOfLines={1}>
-              {item.note}
-            </Text>
-          )}
-        </View>
-        <View style={styles.transactionRight}>
-          <Text style={[styles.transactionAmount, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-            −₹{item.amount.toLocaleString('en-IN')}
-          </Text>
-          <View style={styles.paymentModeRow}>
-            <PaymentIcon size={12} color={colors.textSecondary} />
-            <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
-              {paymentLabel}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
+        <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{title}</Text>
+        <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>{subtitle}</Text>
+      </View>
     );
-  }, [categories, navigation, colors]);
+  }, [searchQuery, selectedCategoryId, categoryMap, colors]);
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -250,32 +304,12 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           stickySectionHeadersEnabled={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          ListEmptyComponent={() => {
-            let IconComponent = Receipt;
-            let title = 'No transactions yet';
-            let subtitle = 'Your expenses will appear here once you add them.';
-
-            if (searchQuery.trim()) {
-              IconComponent = SearchX;
-              title = 'No results found';
-              subtitle = 'Try adjusting your search to find what you are looking for.';
-            } else if (selectedCategoryId) {
-              const catName = categories.find(c => c.id === selectedCategoryId)?.name || 'this category';
-              IconComponent = FilterX;
-              title = 'No expenses found';
-              subtitle = `There are no expenses in the ${catName} category yet. They will appear here once you add them!`;
-            }
-
-            return (
-              <View style={styles.emptyContainer}>
-                <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
-                  <IconComponent size={32} color={colors.textSecondary} />
-                </View>
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{title}</Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>{subtitle}</Text>
-              </View>
-            );
-          }}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={50}
+          ListEmptyComponent={renderEmptyState}
         />
 
       </View>
