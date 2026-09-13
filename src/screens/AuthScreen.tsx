@@ -21,6 +21,7 @@ import { useTheme } from '../store/themeStore';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
+import { GoogleIcon } from '../components/GoogleIcon';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -460,11 +461,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                 ]}
                 onPress={handleGoogleAuth}
               >
-                <Image
-                  source={require('../../assets/google.png')}
-                  style={{ width: 20, height: 20 }}
-                  resizeMode="contain"
-                />
+                <GoogleIcon size={20} />
                 <Text style={[styles.googleBtnText, { color: colors.textPrimary }]}>Continue with Google</Text>
               </AnimatedButton>
 
