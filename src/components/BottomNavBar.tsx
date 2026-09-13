@@ -1,205 +1,229 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   Pressable,
   Animated,
-  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Home, Clock, BarChart2, User, Plus } from 'lucide-react-native';
+import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
-import Svg, { Path } from 'react-native-svg';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 
-// Regular tab item components with individual animations
-const AnimatedIcon = ({ icon: Icon, active }: { icon: any; active: boolean }) => {
-  const { colors, isDark } = useTheme();
-  const opacityAnim = useRef(new Animated.Value(active ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(opacityAnim, {
-      toValue: active ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [active]);
+// ─── Dual-Layer Cross-Fading Icon ───────────────────────────────────────────
+const AnimatedIcon = ({
+  icon: Icon,
+  anim,
+}: {
+  icon: any;
+  anim: Animated.Value;
+}) => {
+  const { colors } = useTheme();
 
   return (
-    <View style={{ width: 22, height: 22 }}>
-      {/* Inactive Icon layer */}
+    <View style={styles.iconWrapper}>
+      {/* Inactive Icon layer (Slate Muted) */}
       <View style={StyleSheet.absoluteFill}>
-        <Icon size={22} color={colors.textSecondary} />
+        <Icon size={20} color={colors.textSecondary} />
       </View>
-      {/* Active Icon (Mint) layer stacked on top */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
-        <Icon size={22} color={colors.mintGreen} />
+      {/* Active Icon layer (Mint Green) */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: anim }]}>
+        <Icon size={20} color={colors.mintGreen} />
       </Animated.View>
     </View>
   );
 };
 
-const AnimatedDot = ({ active }: { active: boolean }) => {
-  const { colors } = useTheme();
-  const anim = useRef(new Animated.Value(active ? 1 : 0)).current;
-
-  useEffect(() => {
-    if (active) {
-      Animated.spring(anim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(anim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [active]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.dot,
-        {
-          backgroundColor: colors.mintGreen,
-          transform: [{ scale: anim }],
-          opacity: anim,
-        },
-      ]}
-    />
-  );
-};
-
-interface TabItemProps {
+// ─── Expanding Active Capsule Tab Item (Image 1 Option A) ────────────────────
+interface CapsuleTabItemProps {
   icon: any;
+  label: string;
   active: boolean;
   onPress: () => void;
 }
 
-const TabItem: React.FC<TabItemProps> = ({ icon, active, onPress }) => {
-  const scale = useRef(new Animated.Value(1)).current;
+const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
+  icon,
+  label,
+  active,
+  onPress,
+}) => {
+  const { colors, isDark } = useTheme();
+  const anim = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
 
-  const animateScale = (toValue: number) => {
-    Animated.spring(scale, { toValue, useNativeDriver: true }).start();
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: active ? 1 : 0,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: false,
+    }).start();
+  }, [active]);
+
+  const handlePressIn = () => {
+    Animated.spring(pressScale, {
+      toValue: 0.9,
+      useNativeDriver: true,
+    }).start();
   };
+
+  const handlePressOut = () => {
+    Animated.spring(pressScale, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Interpolated Capsule Background
+  const capsuleBg = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      'rgba(184, 224, 200, 0)',
+      isDark ? 'rgba(184, 224, 200, 0.16)' : 'rgba(184, 224, 200, 0.22)',
+    ],
+  });
+
+  // Interpolated Capsule Border
+  const capsuleBorder = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      'rgba(184, 224, 200, 0)',
+      isDark ? 'rgba(184, 224, 200, 0.32)' : 'rgba(184, 224, 200, 0.38)',
+    ],
+  });
+
+  // Interpolated Label Width & Opacity
+  const labelMaxWidth = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 72],
+  });
+
+  const labelOpacity = anim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, 0, 1],
+  });
+
+  const labelMarginLeft = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 6],
+  });
+
+  const paddingHorizontal = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, 14],
+  });
 
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={() => animateScale(0.85)}
-      onPressOut={() => animateScale(1)}
-      style={styles.tabButton}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.tabPressable}
+      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
     >
-      <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
-        <AnimatedIcon icon={icon} active={active} />
-        <AnimatedDot active={active} />
+      <Animated.View style={{ transform: [{ scale: pressScale }] }}>
+        <Animated.View
+          style={[
+            styles.capsule,
+            {
+              backgroundColor: capsuleBg,
+              borderColor: capsuleBorder,
+              paddingHorizontal,
+            },
+          ]}
+        >
+          <AnimatedIcon icon={icon} anim={anim} />
+
+          <Animated.View
+            style={{
+              maxWidth: labelMaxWidth,
+              opacity: labelOpacity,
+              marginLeft: labelMarginLeft,
+              overflow: 'hidden',
+              justifyContent: 'center',
+            }}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.tabLabel,
+                { color: '#FFFFFF' },
+              ]}
+            >
+              {label}
+            </Text>
+          </Animated.View>
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
 };
 
-// ─── Custom Notched Translucent Background ──────────────────────────────────
-const NotchedBackground: React.FC<{ width: number; height: number }> = ({ width, height }) => {
-  const { colors, isDark } = useTheme();
+// ─── Center Flush Action Button (+) ──────────────────────────────────────────
+const CenterAddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+  const { colors } = useTheme();
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const d = useMemo(() => {
-    const H = height;
-    const w = width;
-    const cx = w / 2;
+  const handlePressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.88,
+      useNativeDriver: true,
+    }).start();
+  };
 
-    // Inset by 1px so the 1.2px border stroke is NEVER clipped by the SVG viewport boundary
-    const pad = 1;
-    const topY = pad;
-    const botY = H - pad;
-    const leftX = pad;
-    const rightX = w - pad;
-    const pillR = (H - 2 * pad) / 2; // (68 - 2) / 2 = 33
-
-    // Proportional G2 Cubic Bézier Notch for 56px FAB in 68px bar:
-    // Cradles the 28px-radius FAB with a consistent 4-5px margin and smooth horizontal exit
-    const s1Start = cx - 48;
-    const s1Cp1X = cx - 40;
-    const s1Cp2X = cx - 34;
-    const s1Cp2Y = topY + 13;
-    const s1EndX = cx - 29;
-    const s1EndY = topY + 18;
-
-    const s2Cp1X = cx - 24;
-    const s2Cp1Y = topY + 23;
-    const s2Cp2X = cx - 15;
-    const s2Cp2Y = topY + 36;
-    const s2EndX = cx;
-    const s2EndY = topY + 36;
-
-    const s3Cp1X = cx + 15;
-    const s3Cp1Y = topY + 36;
-    const s3Cp2X = cx + 24;
-    const s3Cp2Y = topY + 23;
-    const s3EndX = cx + 29;
-    const s3EndY = topY + 18;
-
-    const s4Cp1X = cx + 34;
-    const s4Cp1Y = topY + 13;
-    const s4Cp2X = cx + 40;
-    const s4EndX = cx + 48;
-
-    return `
-      M ${leftX + pillR} ${topY}
-      L ${s1Start} ${topY}
-      C ${s1Cp1X} ${topY}, ${s1Cp2X} ${s1Cp2Y}, ${s1EndX} ${s1EndY}
-      C ${s2Cp1X} ${s2Cp1Y}, ${s2Cp2X} ${s2Cp2Y}, ${s2EndX} ${s2EndY}
-      C ${s3Cp1X} ${s3Cp1Y}, ${s3Cp2X} ${s3Cp2Y}, ${s3EndX} ${s3EndY}
-      C ${s4Cp1X} ${s4Cp1Y}, ${s4Cp2X} ${topY}, ${s4EndX} ${topY}
-      L ${rightX - pillR} ${topY}
-      A ${pillR} ${pillR} 0 0 1 ${rightX} ${H / 2}
-      A ${pillR} ${pillR} 0 0 1 ${rightX - pillR} ${botY}
-      L ${leftX + pillR} ${botY}
-      A ${pillR} ${pillR} 0 0 1 ${leftX} ${H / 2}
-      A ${pillR} ${pillR} 0 0 1 ${leftX + pillR} ${topY}
-      Z
-    `;
-  }, [width, height]);
+  const handlePressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
 
   return (
-    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={StyleSheet.absoluteFill}>
-      <Path
-        d={d}
-        fill={colors.navBarBg}
-        fillOpacity={0.96}
-        stroke={isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.18)'}
-        strokeWidth={1.2}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </Svg>
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.addButtonWrapper}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Animated.View
+        style={[
+          styles.addButton,
+          {
+            backgroundColor: colors.mintGreen,
+            shadowColor: colors.mintGreen,
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        <Plus size={22} color={colors.forestGreen} strokeWidth={2.8} />
+      </Animated.View>
+    </Pressable>
   );
 };
 
-export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
-  const { colors } = useTheme();
+// ─── Main Bottom Navigation Bar Component ───────────────────────────────────
+export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
+  const { colors, isDark } = useTheme();
   const { isVisible } = useNavBarStore();
-  const translateY = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  const translateY = useRef(new Animated.Value(0)).current;
 
-  const bottomOffset = insets.bottom > 0 ? insets.bottom + 8 : 24;
-  const fabBottom = bottomOffset + 38;
-
-  // Center FAB Animations
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const fabScale = useRef(new Animated.Value(1)).current;
-  const fabGlowOpacity = useRef(new Animated.Value(0.2)).current;
+  const bottomOffset = insets.bottom > 0 ? insets.bottom + 6 : 20;
 
   useEffect(() => {
     Animated.spring(translateY, {
-      toValue: isVisible ? 0 : 160 + insets.bottom, // slide fully off-screen
+      toValue: isVisible ? 0 : 160 + insets.bottom,
       useNativeDriver: true,
       bounciness: 0,
-      speed: 12,
+      speed: 14,
     }).start();
   }, [isVisible, translateY, insets.bottom]);
 
@@ -208,63 +232,6 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
-
-  // Center FAB pulse (subtle, continuous)
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const handleFabPressIn = () => {
-    Animated.parallel([
-      Animated.timing(fabScale, {
-        toValue: 0.9,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fabGlowOpacity, {
-        toValue: 0.35,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handleFabPressOut = () => {
-    Animated.parallel([
-      Animated.spring(fabScale, {
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fabGlowOpacity, {
-        toValue: 0.2,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handleFabPress = () => {
-    navigation.navigate('AddExpense');
-  };
-
-  // Map state.routes to regular tabs
-  const homeRoute = state.routes.find((r) => r.name === 'Home');
-  const historyRoute = state.routes.find((r) => r.name === 'History');
-  const savingsRoute = state.routes.find((r) => r.name === 'Savings');
-  const insightsRoute = state.routes.find((r) => r.name === 'Insights');
 
   const getRouteIndex = (name: string) => state.routes.findIndex((r) => r.name === name);
 
@@ -280,177 +247,127 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
     }
   };
 
-  // Calculate widths for the notched background dynamically based on window width
-  const { width: screenWidth } = useWindowDimensions();
-  const barWidth = screenWidth - 40;
+  const handleAddExpense = () => {
+    navigation.navigate('AddExpense');
+  };
 
   return (
-    <Animated.View style={[styles.container, { height: 140 + insets.bottom, transform: [{ translateY }], opacity }]} pointerEvents="box-none">
-      {/* Outer Pill Container (Shadow Wrapper) */}
-      <View style={[styles.pillContainerShadowWrapper, { bottom: bottomOffset }]}>
-        {/* Custom SVG Notched Background Layer */}
-        <NotchedBackground width={barWidth} height={68} />
+    <Animated.View
+      style={[
+        styles.outerContainer,
+        {
+          bottom: bottomOffset,
+          transform: [{ translateY }],
+          opacity,
+        },
+      ]}
+      pointerEvents="box-none"
+    >
+      {/* Continuous Floating Capsule Pill */}
+      <View
+        style={[
+          styles.pillBar,
+          {
+            backgroundColor: colors.navBarBg,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.18)',
+          },
+        ]}
+      >
+        {/* Tab 1: Home */}
+        <CapsuleTabItem
+          icon={Home}
+          label="Home"
+          active={state.index === getRouteIndex('Home')}
+          onPress={() => navigateTo('Home', getRouteIndex('Home'))}
+        />
 
-        {/* Inner row container for tab elements */}
-        <View style={styles.tabsInnerRow}>
-          {/* Regular Tabs: 2 on Left */}
-          {homeRoute && (
-            <TabItem
-              icon={Home}
-              active={state.index === getRouteIndex('Home')}
-              onPress={() => navigateTo('Home', getRouteIndex('Home'))}
-            />
-          )}
-          {historyRoute && (
-            <TabItem
-              icon={Clock}
-              active={state.index === getRouteIndex('History')}
-              onPress={() => navigateTo('History', getRouteIndex('History'))}
-            />
-          )}
+        {/* Tab 2: History */}
+        <CapsuleTabItem
+          icon={Clock}
+          label="History"
+          active={state.index === getRouteIndex('History')}
+          onPress={() => navigateTo('History', getRouteIndex('History'))}
+        />
 
-          {/* Center Space Placeholder for FAB */}
-          <View style={styles.fabSpacer} />
+        {/* Center: Flush Add Expense (+) Button */}
+        <CenterAddButton onPress={handleAddExpense} />
 
-          {/* Regular Tabs: 2 on Right */}
-          {savingsRoute && (
-            <TabItem
-              icon={PiggyBankCoinIcon}
-              active={state.index === getRouteIndex('Savings')}
-              onPress={() => navigateTo('Savings', getRouteIndex('Savings'))}
-            />
-          )}
-          {insightsRoute && (
-            <TabItem
-              icon={BarChart2}
-              active={state.index === getRouteIndex('Insights')}
-              onPress={() => navigateTo('Insights', getRouteIndex('Insights'))}
-            />
-          )}
-        </View>
-      </View>
+        {/* Tab 3: Savings */}
+        <CapsuleTabItem
+          icon={PiggyBankCoinIcon}
+          label="Savings"
+          active={state.index === getRouteIndex('Savings')}
+          onPress={() => navigateTo('Savings', getRouteIndex('Savings'))}
+        />
 
-      {/* Floating Center Action Button (FAB) */}
-      <View style={[styles.fabContainer, { bottom: fabBottom }]} pointerEvents="box-none">
-        <Pressable
-          onPress={handleFabPress}
-          onPressIn={handleFabPressIn}
-          onPressOut={handleFabPressOut}
-          style={styles.fabPressable}
-        >
-          {/* Outer glow ring */}
-          <Animated.View
-            style={[
-              styles.fabGlow,
-              {
-                backgroundColor: colors.mintGreen,
-                transform: [{ scale: pulseAnim }],
-                opacity: fabGlowOpacity,
-              },
-            ]}
-          />
-          {/* Main button circle */}
-          <Animated.View
-            style={[
-              styles.fabButton,
-              {
-                backgroundColor: colors.mintGreen,
-                shadowColor: colors.mintGreen,
-                transform: [{ scale: fabScale }],
-              },
-            ]}
-          >
-            <Plus size={24} color={colors.forestGreen} strokeWidth={2.6} />
-          </Animated.View>
-        </Pressable>
+        {/* Tab 4: Insights */}
+        <CapsuleTabItem
+          icon={BarChart2}
+          label="Insights"
+          active={state.index === getRouteIndex('Insights')}
+          onPress={() => navigateTo('Insights', getRouteIndex('Insights'))}
+        />
       </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 140, // Explicit height to prevent Android touch clipping on absolute children
-    justifyContent: 'flex-end',
-    backgroundColor: 'transparent',
+    left: 18,
+    right: 18,
     alignItems: 'center',
+    zIndex: 99,
   },
-  pillContainerShadowWrapper: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    height: 68,
-    borderRadius: 34,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 8,
-    backgroundColor: 'transparent',
-  },
-
-  tabsInnerRow: {
-    flex: 1,
+  pillBar: {
+    width: '100%',
+    height: 64,
+    borderRadius: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingHorizontal: 8,
-    zIndex: 2,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  tabButton: {
-    width: 46,
-    height: 46,
+  tabPressable: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#B8E0C8',
-    marginTop: 3,
-  },
-  fabSpacer: {
-    width: 54,
-    height: 68,
-  },
-  fabContainer: {
-    position: 'absolute',
+  capsule: {
+    height: 42,
+    borderRadius: 21,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 56,
-    height: 56,
-    zIndex: 11,
+    borderWidth: 1,
   },
-  fabPressable: {
-    width: 56,
-    height: 56,
-    position: 'relative',
-  },
-  fabGlow: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#B8E0C8',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  fabButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#B8E0C8',
-    position: 'absolute',
-    top: 0,
-    left: 0,
+  iconWrapper: {
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#B8E0C8',
+  },
+  tabLabel: {
+    fontFamily: 'Quicksand_700Bold',
+    fontSize: 12.5,
+    letterSpacing: 0.2,
+  },
+  addButtonWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.45,
     shadowRadius: 8,
