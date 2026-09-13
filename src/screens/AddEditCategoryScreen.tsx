@@ -10,6 +10,7 @@ import * as LucideIcons from 'lucide-react-native';
 
 import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
+import { useTheme } from '../store/themeStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditCategory'>;
 
@@ -28,6 +29,7 @@ const ICONS_GRID = [
 
 export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const { categories, addCategory, updateCategory } = useCategoryStore();
   
   const categoryId = route.params?.categoryId;
@@ -66,52 +68,59 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
   const PreviewIconComponent = selectedIcon ? (LucideIcons as any)[selectedIcon] || MoreHorizontal : MoreHorizontal;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       
       {/* Header */}
       <View style={styles.headerRow}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <ArrowLeft size={24} color="#1A2B4C" />
+          <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
           {isEditMode ? 'Edit Category' : 'Add Category'}
         </Text>
       </View>
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Live Preview */}
         <View style={styles.previewContainer}>
-          <View style={styles.previewCircle}>
+          <View style={[styles.previewCircle, { backgroundColor: colors.cardSubtle }]}>
             {selectedIcon ? (
-              <PreviewIconComponent size={32} color="#6B7280" />
+              <PreviewIconComponent size={32} color={colors.textPrimary} />
             ) : (
-              <MoreHorizontal size={24} color="#B0B4C0" />
+              <MoreHorizontal size={24} color={colors.textTertiary} />
             )}
           </View>
-          <Text style={[styles.previewLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.previewLabel, { color: colors.textTertiary, fontFamily: 'Quicksand_700Bold' }]}>
             PREVIEW
           </Text>
         </View>
 
         {/* Category Name Input */}
         <View style={styles.inputHeaderRow}>
-          <Text style={[styles.inputLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.inputLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
             CATEGORY NAME
           </Text>
-          <Text style={[styles.charCount, { fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.charCount, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium' }]}>
             {name.length}/24
           </Text>
         </View>
-        <View style={styles.inputContainer}>
+        <View style={[
+          styles.inputContainer,
+          {
+            backgroundColor: colors.inputBg,
+            borderWidth: isDark ? 1 : 0,
+            borderColor: colors.borderSubtle,
+          }
+        ]}>
           <TextInput
-            style={[styles.textInput, { fontFamily: 'Quicksand_500Medium' }]}
+            style={[styles.textInput, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium' }]}
             placeholder="e.g. Groceries, Travel, Rent"
-            placeholderTextColor="#A8ADBD"
+            placeholderTextColor={colors.textTertiary}
             value={name}
             onChangeText={setName}
             maxLength={24}
@@ -119,7 +128,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         </View>
 
         {/* Choose Icon Grid */}
-        <Text style={[styles.inputLabel, styles.chooseIconLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.inputLabel, styles.chooseIconLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
           CHOOSE ICON
         </Text>
         <View style={styles.iconGrid}>
@@ -132,13 +141,13 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
                 key={iconName}
                 style={[
                   styles.iconOption,
-                  isSelected ? styles.iconOptionSelected : styles.iconOptionUnselected
+                  isSelected ? [styles.iconOptionSelected, { backgroundColor: colors.mint, borderColor: colors.mint }] : [styles.iconOptionUnselected, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]
                 ]}
                 onPress={() => setSelectedIcon(iconName)}
               >
                 <IconComponent 
                   size={22} 
-                  color={isSelected ? '#1A2B4C' : '#8A8FA3'} 
+                  color={isSelected ? '#1A2B4C' : colors.textSecondary} 
                 />
               </Pressable>
             );
@@ -149,14 +158,18 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         <Pressable 
           style={[
             styles.saveBtn,
-            isSaveEnabled ? styles.saveBtnEnabled : styles.saveBtnDisabled
+            isSaveEnabled 
+              ? [styles.saveBtnEnabled, { backgroundColor: colors.mint }] 
+              : [styles.saveBtnDisabled, { backgroundColor: isDark ? '#1A263B' : '#E5E7ED' }]
           ]}
           onPress={handleSave}
           disabled={!isSaveEnabled}
         >
           <Text style={[
             styles.saveText,
-            isSaveEnabled ? styles.saveTextEnabled : styles.saveTextDisabled,
+            isSaveEnabled 
+              ? [styles.saveTextEnabled, { color: '#1A2B4C' }] 
+              : [styles.saveTextDisabled, { color: colors.textTertiary }],
             { fontFamily: 'Quicksand_700Bold' }
           ]}>
             {isEditMode ? 'Update Category' : 'Save Category'}

@@ -1,9 +1,12 @@
-import React from 'react';
-
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useMemo } from 'react';
+import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { RootStackParamList } from '../types';
+import { handleAuthDeepLink } from '../lib/authLinkHandler';
+import { navigationRef, navigateTo } from './navigationRef';
+import { useTheme } from '../store/themeStore';
 
 // Import Screens
 import { SplashScreen } from '../screens/SplashScreen';
@@ -21,9 +24,12 @@ import { CategoryDetailScreen } from '../screens/CategoryDetailScreen';
 import { ManageCategoriesScreen } from '../screens/ManageCategoriesScreen';
 import { AddEditCategoryScreen } from '../screens/AddEditCategoryScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 
 // Custom Tab Bar
 import { BottomNavBar } from '../components/BottomNavBar';
+
+export { navigationRef, navigateTo };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -38,15 +44,67 @@ function TabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen as React.ComponentType<any>} />
       <Tab.Screen name="History" component={HistoryScreen as React.ComponentType<any>} />
-
       <Tab.Screen name="Insights" component={InsightsScreen as React.ComponentType<any>} />
     </Tab.Navigator>
   );
 }
 
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['arthik://', 'https://arthik.app'],
+  config: {
+    screens: {
+      ResetPassword: 'reset-password',
+      Auth: 'auth',
+      AppTabs: 'tabs',
+    },
+  },
+  async getInitialURL() {
+    const url = await Linking.getInitialURL();
+    if (url) {
+      await handleAuthDeepLink(url);
+    }
+    return url;
+  },
+  subscribe(listener) {
+    const onReceiveURL = async ({ url }: { url: string }) => {
+      const handled = await handleAuthDeepLink(url);
+      if (!handled) {
+        listener(url);
+      }
+    };
+    const eventListener = Linking.addEventListener('url', onReceiveURL);
+    return () => {
+      eventListener.remove();
+    };
+  },
+  getStateFromPath: (path, options) => {
+    const lower = path.toLowerCase();
+    if (lower.includes('reset-password') || lower.includes('recovery')) {
+      return {
+        routes: [{ name: 'ResetPassword' }],
+      };
+    }
+    return getStateFromPath(path, options);
+  },
+};
+
 export function AppNavigation() {
+  const { isDark, colors } = useTheme();
+
+  const navTheme = useMemo(() => ({
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.background,
+      card: colors.card,
+      text: colors.textPrimary,
+      border: colors.border,
+      primary: colors.mintGreen,
+    },
+  }), [isDark, colors]);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -57,6 +115,7 @@ export function AppNavigation() {
         <Stack.Screen name="Splash" component={SplashScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="Auth" component={AuthScreen} options={{ animation: 'fade' }} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
         <Stack.Screen name="AppTabs" component={TabNavigator} />
 

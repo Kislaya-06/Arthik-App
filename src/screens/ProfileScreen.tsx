@@ -5,28 +5,27 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { CompositeScreenProps } from '@react-navigation/native';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon,
-  Shield, FileText, CircleAlert, LogOut, Pencil, Check, X, ArrowLeft
+  CircleAlert, LogOut, Check, X, ArrowLeft
 } from 'lucide-react-native';
 
 import { useAuthStore } from '../store/authStore';
-import { TabParamList, RootStackParamList } from '../types';
+import { useTheme } from '../store/themeStore';
+import { RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { profile, user, signOut, updateProfile } = useAuthStore();
+  const { profile, signOut, updateProfile } = useAuthStore();
+  const { colors, isDark, toggleTheme, setThemeMode } = useTheme();
   const handleScroll = useScrollDirection();
 
   // Local state for toggles
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
   // Edit Profile modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -88,38 +87,38 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Edit Profile Modal */}
       <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setEditVisible(false)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={[styles.modalTitle, { fontFamily: 'Quicksand_700Bold' }]}>Edit Profile</Text>
-            <Text style={[styles.modalLabel, { fontFamily: 'Quicksand_500Medium' }]}>First Name</Text>
+        <Pressable style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]} onPress={() => setEditVisible(false)}>
+          <Pressable style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>Edit Profile</Text>
+            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>First Name</Text>
             <TextInput
-              style={[styles.modalInput, { fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: 'Quicksand_500Medium' }]}
               value={editFirstName}
               onChangeText={setEditFirstName}
               placeholder="First name"
-              placeholderTextColor="#A8ADBD"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="words"
             />
-            <Text style={[styles.modalLabel, { fontFamily: 'Quicksand_500Medium' }]}>Last Name</Text>
+            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Last Name</Text>
             <TextInput
-              style={[styles.modalInput, { fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: 'Quicksand_500Medium' }]}
               value={editLastName}
               onChangeText={setEditLastName}
               placeholder="Last name (optional)"
-              placeholderTextColor="#A8ADBD"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="words"
             />
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setEditVisible(false)}>
-                <X size={16} color="#8A8FA3" />
-                <Text style={[styles.modalCancelText, { fontFamily: 'Quicksand_700Bold' }]}>Cancel</Text>
+              <Pressable style={[styles.modalCancelBtn, { backgroundColor: colors.cardSubtle }]} onPress={() => setEditVisible(false)}>
+                <X size={16} color={colors.textSecondary} />
+                <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.modalSaveBtn} onPress={handleSaveProfile} disabled={editSaving}>
+              <Pressable style={[styles.modalSaveBtn, { backgroundColor: colors.mintGreen }]} onPress={handleSaveProfile} disabled={editSaving}>
                 {editSaving ? <ActivityIndicator size="small" color="#1A2B4C" /> : <Check size={16} color="#1A2B4C" />}
                 <Text style={[styles.modalSaveText, { fontFamily: 'Quicksand_700Bold' }]}>Save</Text>
               </Pressable>
@@ -129,7 +128,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       </Modal>
       
       <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -139,119 +141,119 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.backBtn}
             onPress={() => navigation.goBack()}
           >
-            <ArrowLeft size={28} color="#1A2B4C" strokeWidth={2.5} />
+            <ArrowLeft size={28} color={colors.textPrimary} strokeWidth={2.5} />
           </Pressable>
-          <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             Profile
           </Text>
         </View>
 
         {/* Profile Info Card */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
           <View style={styles.avatarWrapper}>
-            <View style={styles.avatarCircle}>
+            <View style={[styles.avatarCircle, { backgroundColor: colors.mintGreen }]}>
               {/* TODO: Render Image here if user has uploaded an avatar_url */}
               <Text style={[styles.avatarText, { fontFamily: 'Quicksand_700Bold' }]}>
                 {getInitials()}
               </Text>
             </View>
             <Pressable
-              style={styles.cameraBadge}
+              style={[styles.cameraBadge, { backgroundColor: colors.cardSubtle, borderColor: colors.card }]}
               onPress={() => {}}
             >
-              <Camera size={14} color="#FFFFFF" />
+              <Camera size={14} color={colors.textPrimary} />
             </Pressable>
           </View>
 
-          <Text style={[styles.fullName, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.fullName, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             {fullName}
           </Text>
-          <Text style={[styles.email, { fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.email, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
             {profile?.email || 'user@example.com'}
           </Text>
 
           <Pressable
-            style={styles.editProfileBtn}
+            style={[styles.editProfileBtn, { borderColor: colors.mintGreenDark }]}
             onPress={openEditProfile}
           >
-            <Text style={[styles.editProfileText, { fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.editProfileText, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
               Edit Profile
             </Text>
           </Pressable>
         </View>
 
         {/* Account Settings Card */}
-        <View style={styles.settingsCard}>
-          <Text style={[styles.sectionLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+        <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
             ACCOUNT
           </Text>
 
           {/* 1. Manage Categories */}
           <Pressable 
-            style={styles.settingRow}
+            style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}
             onPress={() => navigation.navigate('ManageCategories')}
           >
-            <View style={styles.iconContainer}>
-              <Tag size={18} color="#1A2B4C" />
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <Tag size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
               Manage Categories
             </Text>
-            <ChevronRight size={18} color="#8A8FA3" />
+            <ChevronRight size={18} color={colors.textSecondary} />
           </Pressable>
 
           {/* 2. Notifications */}
-          <View style={styles.settingRow}>
-            <View style={styles.iconContainer}>
-              <Bell size={18} color="#1A2B4C" />
+          <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <Bell size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
               Notifications
             </Text>
             <Switch
               value={notificationsEnabled}
               onValueChange={setNotificationsEnabled}
-              trackColor={{ false: '#E0E2E8', true: '#B8E0C8' }}
+              trackColor={{ false: colors.border, true: colors.mintGreen }}
               thumbColor="#FFFFFF"
             />
           </View>
 
           {/* 3. Dark Mode */}
-          <View style={styles.settingRow}>
-            <View style={styles.iconContainer}>
-              <Moon size={18} color="#1A2B4C" />
+          <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <Moon size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
               Dark Mode
             </Text>
             <Switch
-              value={darkModeEnabled}
-              onValueChange={setDarkModeEnabled}
-              trackColor={{ false: '#E0E2E8', true: '#B8E0C8' }}
+              value={isDark}
+              onValueChange={(val) => {
+                setThemeMode(val ? 'dark' : 'light');
+              }}
+              trackColor={{ false: colors.border, true: colors.mintGreen }}
               thumbColor="#FFFFFF"
             />
           </View>
 
-
-
-          {/* 6. App Version */}
+          {/* 4. App Version */}
           <View style={[styles.settingRow, styles.lastSettingRow]}>
-            <View style={styles.iconContainer}>
-              <CircleAlert size={18} color="#1A2B4C" />
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <CircleAlert size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
               App Version
             </Text>
-            <Text style={[styles.versionText, { fontFamily: 'Quicksand_500Medium' }]}>
+            <Text style={[styles.versionText, { color: colors.textMuted, fontFamily: 'Quicksand_500Medium' }]}>
               v1.0.0
             </Text>
           </View>
         </View>
 
         {/* Log Out Button */}
-        <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-          <LogOut size={18} color="#F4B8AE" />
-          <Text style={[styles.logoutText, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Pressable style={[styles.logoutBtn, { backgroundColor: colors.peachSoft }]} onPress={handleLogout}>
+          <LogOut size={18} color={colors.peachCoral} />
+          <Text style={[styles.logoutText, { color: colors.peachCoral, fontFamily: 'Quicksand_700Bold' }]}>
             Log Out
           </Text>
         </Pressable>
@@ -264,12 +266,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FB',
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 40,
   },
   headerRow: {
     flexDirection: 'row',
@@ -278,16 +278,14 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     marginRight: 16,
-    marginTop: 4, // Nudge down to visually center with large text
+    marginTop: 4,
   },
   headerTitle: {
     fontSize: 30,
-    color: '#1A2B4C',
   },
 
   // Profile Card
   profileCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     marginTop: 24,
     padding: 24,
@@ -305,7 +303,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#B8E0C8',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -320,25 +317,20 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1A2B4C',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   fullName: {
     fontSize: 20,
-    color: '#1A2B4C',
     marginTop: 16,
   },
   email: {
     fontSize: 14,
-    color: '#8A8FA3',
     marginTop: 4,
   },
   editProfileBtn: {
     borderWidth: 1,
-    borderColor: '#B8E0C8',
     borderRadius: 999,
     paddingHorizontal: 24,
     paddingVertical: 10,
@@ -346,12 +338,10 @@ const styles = StyleSheet.create({
   },
   editProfileText: {
     fontSize: 14,
-    color: '#1A2B4C',
   },
 
   // Settings Card
   settingsCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     marginTop: 20,
     shadowColor: '#000',
@@ -363,7 +353,6 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 12,
-    color: '#8A8FA3',
     letterSpacing: 1,
     textTransform: 'uppercase',
     paddingHorizontal: 20,
@@ -376,7 +365,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F1F4',
   },
   lastSettingRow: {
     borderBottomWidth: 0,
@@ -385,7 +373,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#F1F2F5',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -393,11 +380,9 @@ const styles = StyleSheet.create({
   settingLabel: {
     flex: 1,
     fontSize: 16,
-    color: '#1A2B4C',
   },
   versionText: {
     fontSize: 14,
-    color: '#B0B4C0',
   },
 
   // Logout
@@ -405,7 +390,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FDEEEC',
     borderRadius: 999,
     paddingVertical: 20,
     marginTop: 24,
@@ -413,40 +397,35 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
-    color: '#F4B8AE',
   },
   // Edit Profile Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
+    borderWidth: 1,
   },
   modalTitle: {
     fontSize: 20,
-    color: '#1A2B4C',
     marginBottom: 20,
   },
   modalLabel: {
     fontSize: 12,
-    color: '#8A8FA3',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
     marginTop: 12,
   },
   modalInput: {
-    backgroundColor: '#F1F2F5',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1A2B4C',
+    borderWidth: 1,
   },
   modalActions: {
     flexDirection: 'row',
@@ -459,12 +438,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#F1F2F5',
     borderRadius: 999,
     paddingVertical: 14,
   },
   modalCancelText: {
-    color: '#8A8FA3',
     fontSize: 15,
   },
   modalSaveBtn: {
@@ -473,7 +450,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#B8E0C8',
     borderRadius: 999,
     paddingVertical: 14,
   },

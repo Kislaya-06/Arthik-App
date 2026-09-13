@@ -1,22 +1,22 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, FlatList } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, FlatList } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { Theme } from '../config/theme';
+import { useTheme } from '../store/themeStore';
 import { IndianRupee, Sparkles, Check } from 'lucide-react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 
-const { width } = Dimensions.get('window');
-
 // --- SLIDE 1 ILLUSTRATION ---
-const Slide1Illustration = () => (
+const Slide1Illustration = ({ isDark, colors }: { isDark: boolean; colors: any }) => (
   <View style={styles.illContainer}>
     {/* Concentric Circles */}
-    <View style={styles.circleOuter} />
-    <View style={styles.circleMiddle} />
+    <View style={[styles.circleOuter, { opacity: isDark ? 0.12 : 0.2 }]} />
+    <View style={[styles.circleMiddle, { opacity: isDark ? 0.25 : 0.4 }]} />
     <View style={styles.circleInner}>
       <IndianRupee size={32} color="#1A2B4C" />
     </View>
@@ -34,19 +34,19 @@ const Slide1Illustration = () => (
     <View style={[styles.dotAccent, { bottom: 40, left: 20, backgroundColor: '#B8E0C8' }]} />
 
     {/* Rupee Badges */}
-    <View style={[styles.rupeeBadge, { bottom: 45, left: -10 }]}>
-      <Text style={styles.rupeeBadgeText}>₹</Text>
+    <View style={[styles.rupeeBadge, { bottom: 45, left: -10, backgroundColor: colors.card }]}>
+      <Text style={[styles.rupeeBadgeText, { color: colors.textPrimary }]}>₹</Text>
     </View>
-    <View style={[styles.rupeeBadge, { bottom: 20, right: -10 }]}>
-      <Text style={styles.rupeeBadgeText}>₹</Text>
+    <View style={[styles.rupeeBadge, { bottom: 20, right: -10, backgroundColor: colors.card }]}>
+      <Text style={[styles.rupeeBadgeText, { color: colors.textPrimary }]}>₹</Text>
     </View>
   </View>
 );
 
 // --- SLIDE 2 ILLUSTRATION ---
-const Slide2Illustration = () => {
-  const size = 180;
-  const strokeWidth = 26;
+const Slide2Illustration = ({ colors }: { colors: any }) => {
+  const size = 150;
+  const strokeWidth = 20;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
@@ -61,7 +61,7 @@ const Slide2Illustration = () => {
   let accumulatedPercent = 0;
 
   return (
-    <View style={styles.illContainer}>
+    <View style={styles.donutWrapper}>
       <Svg width={size} height={size}>
         <G rotation="-90" origin={`${size / 2}, ${size / 2}`}>
           {segments.map((segment, index) => {
@@ -87,37 +87,75 @@ const Slide2Illustration = () => {
           })}
         </G>
       </Svg>
-      {/* Inner white circle with Rupee icon */}
-      <View style={styles.donutCenter}>
-        <IndianRupee size={24} color="#1A2B4C" />
+      {/* Inner circle with Rupee icon */}
+      <View style={[styles.donutCenter, { backgroundColor: colors.card }]}>
+        <IndianRupee size={22} color={colors.textPrimary} />
       </View>
     </View>
   );
 };
 
+// --- SLIDE 2 LEGEND ---
+const Slide2Legend = ({ colors }: { colors: any }) => (
+  <View style={styles.legendContainer}>
+    <View style={styles.legendCol}>
+      <View style={styles.legendRow}>
+        <View style={styles.legendLeft}>
+          <View style={[styles.legendDot, { backgroundColor: '#B8E0C8' }]} />
+          <Text style={[styles.legendText, { color: colors.textPrimary }]} numberOfLines={1}>Food</Text>
+        </View>
+        <Text style={[styles.legendPercent, { color: colors.textSecondary }]}>38%</Text>
+      </View>
+      <View style={styles.legendRow}>
+        <View style={styles.legendLeft}>
+          <View style={[styles.legendDot, { backgroundColor: '#F5D98B' }]} />
+          <Text style={[styles.legendText, { color: colors.textPrimary }]} numberOfLines={1}>Shopping</Text>
+        </View>
+        <Text style={[styles.legendPercent, { color: colors.textSecondary }]}>20%</Text>
+      </View>
+    </View>
+    <View style={styles.legendCol}>
+      <View style={styles.legendRow}>
+        <View style={styles.legendLeft}>
+          <View style={[styles.legendDot, { backgroundColor: '#F4B8AE' }]} />
+          <Text style={[styles.legendText, { color: colors.textPrimary }]} numberOfLines={1}>Travel</Text>
+        </View>
+        <Text style={[styles.legendPercent, { color: colors.textSecondary }]}>27%</Text>
+      </View>
+      <View style={styles.legendRow}>
+        <View style={styles.legendLeft}>
+          <View style={[styles.legendDot, { backgroundColor: '#C9B8E8' }]} />
+          <Text style={[styles.legendText, { color: colors.textPrimary }]} numberOfLines={1}>Other</Text>
+        </View>
+        <Text style={[styles.legendPercent, { color: colors.textSecondary }]}>15%</Text>
+      </View>
+    </View>
+  </View>
+);
+
 // --- SLIDE 3 ILLUSTRATION ---
-const Slide3Illustration = () => (
+const Slide3Illustration = ({ isDark, colors }: { isDark: boolean; colors: any }) => (
   <View style={styles.illContainer}>
     {/* Concentric Circles */}
-    <View style={styles.circleOuterSlide3} />
+    <View style={[styles.circleOuterSlide3, { opacity: isDark ? 0.15 : 0.25 }]} />
     <View style={styles.circleInnerSlide3}>
       <Check size={48} color="#1A2B4C" strokeWidth={3} />
     </View>
 
     {/* Bubble shapes */}
-    <View style={[styles.bubbleCard, { top: 30, left: -10 }]}>
+    <View style={[styles.bubbleCard, { top: 30, left: -10, backgroundColor: colors.card }]}>
       <View style={[styles.bubbleLine, { width: 24, backgroundColor: '#EF4444' }]} />
-      <View style={styles.bubbleLine} />
+      <View style={[styles.bubbleLine, { backgroundColor: colors.borderSubtle }]} />
     </View>
 
-    <View style={[styles.bubbleCard, { top: 25, right: -10, width: 40 }]}>
+    <View style={[styles.bubbleCard, { top: 25, right: -10, width: 40, backgroundColor: colors.card }]}>
       <View style={[styles.bubbleLine, { width: 20, backgroundColor: '#10B981' }]} />
-      <View style={styles.bubbleLine} />
+      <View style={[styles.bubbleLine, { backgroundColor: colors.borderSubtle }]} />
     </View>
 
-    <View style={[styles.bubbleCard, { bottom: 35, left: -5 }]}>
+    <View style={[styles.bubbleCard, { bottom: 35, left: -5, backgroundColor: colors.card }]}>
       <View style={[styles.bubbleLine, { width: 16, backgroundColor: '#FCD34D' }]} />
-      <View style={styles.bubbleLine} />
+      <View style={[styles.bubbleLine, { backgroundColor: colors.borderSubtle }]} />
     </View>
 
     {/* Sparkle & Dot */}
@@ -128,67 +166,16 @@ const Slide3Illustration = () => (
   </View>
 );
 
-// --- MODULE-LEVEL SLIDES DATA ---
-// Defined outside the component since this is static data that never changes.
-// Note: Slide 2 legend uses inline styles to avoid a forward-reference to `styles`.
-const SLIDES = [
-  {
-    title: 'Track Every Rupee',
-    subtitle: 'Log your daily expenses in seconds',
-    illustration: <Slide1Illustration />,
-    showSkip: true,
-    buttonLabel: 'Next',
-  },
-  {
-    title: 'See Where It Goes',
-    subtitle: 'Understand your spending with clear insights',
-    illustration: (
-      <View style={{ alignItems: 'center' }}>
-        <Slide2Illustration />
-        {/* Legend Grid */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: width - 64, marginTop: 20 }}>
-          <View style={{ flex: 1, paddingHorizontal: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 8, backgroundColor: '#B8E0C8' }} />
-              <Text style={{ fontSize: 14, color: '#1A2B4C', fontFamily: 'Quicksand_600SemiBold', flex: 1 }}>Food</Text>
-              <Text style={{ fontSize: 14, color: '#8A8FA3', fontFamily: 'Quicksand_500Medium' }}>38%</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 8, backgroundColor: '#F5D98B' }} />
-              <Text style={{ fontSize: 14, color: '#1A2B4C', fontFamily: 'Quicksand_600SemiBold', flex: 1 }}>Shopping</Text>
-              <Text style={{ fontSize: 14, color: '#8A8FA3', fontFamily: 'Quicksand_500Medium' }}>20%</Text>
-            </View>
-          </View>
-          <View style={{ flex: 1, paddingHorizontal: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 8, backgroundColor: '#F4B8AE' }} />
-              <Text style={{ fontSize: 14, color: '#1A2B4C', fontFamily: 'Quicksand_600SemiBold', flex: 1 }}>Travel</Text>
-              <Text style={{ fontSize: 14, color: '#8A8FA3', fontFamily: 'Quicksand_500Medium' }}>27%</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 8, backgroundColor: '#C9B8E8' }} />
-              <Text style={{ fontSize: 14, color: '#1A2B4C', fontFamily: 'Quicksand_600SemiBold', flex: 1 }}>Other</Text>
-              <Text style={{ fontSize: 14, color: '#8A8FA3', fontFamily: 'Quicksand_500Medium' }}>15%</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    ),
-    showSkip: true,
-    buttonLabel: 'Next',
-  },
-  {
-    title: 'Simple. Fast. Yours.',
-    subtitle: 'Start your journey to smarter spending',
-    illustration: <Slide3Illustration />,
-    showSkip: false,
-    buttonLabel: 'Get Started',
-  },
-];
-
+const Slide2Combined = ({ colors }: { colors: any }) => (
+  <View style={styles.slide2Wrapper}>
+    <Slide2Illustration colors={colors} />
+    <Slide2Legend colors={colors} />
+  </View>
+);
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { colors, isDark } = useTheme();
 
   const flatListRef = useRef<FlatList>(null);
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
@@ -198,8 +185,32 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   }).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
+  const slides = [
+    {
+      title: 'Track Every Rupee',
+      subtitle: 'Log your daily expenses in seconds',
+      illustration: <Slide1Illustration isDark={isDark} colors={colors} />,
+      showSkip: true,
+      buttonLabel: 'Next',
+    },
+    {
+      title: 'See Where It Goes',
+      subtitle: 'Understand your spending with clear insights',
+      illustration: <Slide2Combined colors={colors} />,
+      showSkip: true,
+      buttonLabel: 'Next',
+    },
+    {
+      title: 'Simple. Fast. Yours.',
+      subtitle: 'Start your journey to smarter spending',
+      illustration: <Slide3Illustration isDark={isDark} colors={colors} />,
+      showSkip: false,
+      buttonLabel: 'Get Started',
+    },
+  ];
+
   const handlePressNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
+    if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({
         index: currentIndex + 1,
         animated: true,
@@ -213,21 +224,24 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate('Auth');
   };
 
-  const currentSlide = SLIDES[currentIndex];
+  const currentSlide = slides[currentIndex];
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Skip Button */}
       {currentSlide.showSkip && (
-        <TouchableOpacity style={styles.skipButton} onPress={handlePressSkip} activeOpacity={0.7}>
-          <Text style={styles.skipText}>Skip</Text>
+        <TouchableOpacity style={[styles.skipButton, { top: insets.top + 16 }]} onPress={handlePressSkip} activeOpacity={0.7}>
+          <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip</Text>
         </TouchableOpacity>
       )}
 
       {/* Main content Area (FlatList Swipe) */}
       <FlatList
         ref={flatListRef}
-        data={SLIDES}
+        data={slides}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -236,24 +250,24 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         bounces={false}
         keyExtractor={(_, index) => index.toString()}
         renderItem={({ item }) => (
-          <View style={[styles.content, { width }]}>
+          <View style={[styles.content, { width, paddingBottom: insets.bottom + 110 }]}>
             <View style={styles.illustrationWrapper}>
               {item.illustration}
             </View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>{item.subtitle}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{item.title}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{item.subtitle}</Text>
           </View>
         )}
       />
 
       {/* Pagination indicators */}
-      <View style={styles.paginationRow}>
-        {SLIDES.map((_, index) => (
+      <View style={[styles.paginationRow, { bottom: insets.bottom + 96 }]}>
+        {slides.map((_, index) => (
           <View
             key={index}
             style={[
               styles.dot,
-              index === currentIndex ? styles.activeDot : styles.inactiveDot,
+              index === currentIndex ? [styles.activeDot, { backgroundColor: colors.mint }] : [styles.inactiveDot, { borderColor: colors.borderSubtle }],
             ]}
           />
         ))}
@@ -261,11 +275,11 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* CTA Action Button */}
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, { bottom: insets.bottom + 24, backgroundColor: colors.mint }]}
         onPress={handlePressNext}
         activeOpacity={0.8}
       >
-        <Text style={styles.buttonText}>{currentSlide.buttonLabel}</Text>
+        <Text style={[styles.buttonText, { color: colors.forestGreen }]}>{currentSlide.buttonLabel}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -280,7 +294,6 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     position: 'absolute',
-    top: 56,
     right: 24,
     zIndex: 10,
   },
@@ -293,14 +306,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    marginBottom: 100, // leave space for absolute elements below
   },
   illustrationWrapper: {
-    width: 220,
-    height: 220,
+    width: '100%',
+    height: 230,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 80,
+    marginTop: 40,
   },
   title: {
     fontSize: 30,
@@ -320,7 +332,6 @@ const styles = StyleSheet.create({
   },
   paginationRow: {
     position: 'absolute',
-    bottom: 128,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
@@ -344,7 +355,6 @@ const styles = StyleSheet.create({
   },
   button: {
     position: 'absolute',
-    bottom: 32,
     left: 24,
     right: 24,
     borderRadius: 9999,
@@ -424,38 +434,59 @@ const styles = StyleSheet.create({
     fontFamily: 'Quicksand_700Bold',
   },
   // Slide 2 Specifics
+  slide2Wrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  donutWrapper: {
+    width: 150,
+    height: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
   donutCenter: {
     position: 'absolute',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#1A2B4C',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
   legendContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: width - 64,
-    marginTop: 20,
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 290,
+    marginTop: 16,
+    paddingHorizontal: 8,
   },
   legendCol: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginVertical: 4,
   },
+  legendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
+  },
   legendDot: {
-    width: 10,
-    height: 10,
+    width: 9,
+    height: 9,
     borderRadius: 5,
     marginRight: 8,
   },
@@ -463,7 +494,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1A2B4C',
     fontFamily: 'Quicksand_600SemiBold',
-    flex: 1,
   },
   legendPercent: {
     fontSize: 14,

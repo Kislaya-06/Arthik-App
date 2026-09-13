@@ -22,6 +22,7 @@ import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { formatCurrency } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { useTheme } from '../store/themeStore';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
@@ -43,6 +44,7 @@ const pastelBg = (hex: string) => hex + '30'; // 19% opacity overlay
 type DonutProps = { spent: number; total: number };
 
 const DonutChart: React.FC<DonutProps> = ({ spent, total }) => {
+  const { colors } = useTheme();
   const size = 100;
   const strokeWidth = 14;
   const r = (size - strokeWidth) / 2;
@@ -65,7 +67,7 @@ const DonutChart: React.FC<DonutProps> = ({ spent, total }) => {
       {/* Track (grey bg) */}
       <Circle
         cx={cx} cy={cy} r={r}
-        stroke="#E8E9EE"
+        stroke={colors.chartTrack}
         strokeWidth={strokeWidth}
         fill="none"
       />
@@ -105,6 +107,7 @@ type TxRowProps = {
 };
 
 const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome }) => {
+  const { colors } = useTheme();
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : DollarSign;
   const catColor = category?.color ?? '#94A3B8';
   const bg = pastelBg(catColor);
@@ -115,7 +118,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome 
   })();
 
   const amountLabel = isIncome ? `+${formatCurrency(expense.amount)}` : `−${formatCurrency(expense.amount)}`;
-  const amountColor = isIncome ? '#4CAF7D' : '#1A2B4C';
+  const amountColor = isIncome ? '#4CAF7D' : colors.textPrimary;
 
   const modeLabel =
     expense.payment_mode === 'upi'
@@ -130,16 +133,16 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome 
         <IconComp size={22} color={catColor} />
       </View>
       <View style={styles.txMiddle}>
-        <Text style={styles.txTitle} numberOfLines={1}>
+        <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
           {category?.name ?? 'Other'}
         </Text>
-        <Text style={styles.txSubtitle} numberOfLines={1}>
+        <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
           {expense.note ? `${expense.note} · ${modeLabel}` : modeLabel}
         </Text>
       </View>
       <View style={styles.txRight}>
         <Text style={[styles.txAmount, { color: amountColor }]}>{amountLabel}</Text>
-        <Text style={styles.txDate}>{dateStr}</Text>
+        <Text style={[styles.txDate, { color: colors.textSecondary }]}>{dateStr}</Text>
       </View>
     </View>
   );
@@ -213,16 +216,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [expenses]
   );
 
+  const { colors, isDark } = useTheme();
   const nameFromMeta = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
   const dbName = profile?.first_name === 'User' ? null : profile?.first_name;
   const firstName = dbName || nameFromMeta?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: insets.top + 16,
+            paddingBottom: insets.bottom + 100,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -230,11 +240,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         {/* ── Header ── */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.helloText}>Hello,</Text>
-            <Text style={styles.nameText}>{firstName}</Text>
+            <Text style={[styles.helloText, { color: colors.textSecondary }]}>Hello,</Text>
+            <Text style={[styles.nameText, { color: colors.textPrimary }]}>{firstName}</Text>
           </View>
-          <Pressable style={styles.bellBtn} onPress={() => navigation.navigate('Notifications' as any)}>
-            <Bell size={20} color="#1A2B4C" />
+          <Pressable
+            style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('Notifications' as any)}
+          >
+            <Bell size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
 
@@ -251,10 +264,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <TouchableOpacity
                 key={f}
                 onPress={() => setActiveFilter(f)}
-                style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}
+                style={[
+                  styles.pill,
+                  active
+                    ? [styles.pillActive, { backgroundColor: isDark ? colors.mintGreenSoft : '#F0FAF4', borderColor: colors.mintGreen }]
+                    : [styles.pillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
+                ]}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextInactive]}>
+                <Text
+                  style={[
+                    styles.pillText,
+                    active
+                      ? [styles.pillTextActive, { color: colors.textPrimary }]
+                      : [styles.pillTextInactive, { color: colors.textSecondary }],
+                  ]}
+                >
                   {f}
                 </Text>
               </TouchableOpacity>
@@ -263,20 +288,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </ScrollView>
 
         {/* ── Summary Card ── */}
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
           {/* Left column */}
           <View style={styles.summaryLeft}>
             <View style={styles.summaryLabelRow}>
-              <View style={[styles.summaryBar, { backgroundColor: '#B8E0C8' }]} />
-              <Text style={styles.summaryLabel}>Income</Text>
+              <View style={[styles.summaryBar, { backgroundColor: colors.mintGreen }]} />
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Income</Text>
             </View>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalIncome)}</Text>
+            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(totalIncome)}</Text>
 
             <View style={[styles.summaryLabelRow, { marginTop: 20 }]}>
-              <View style={[styles.summaryBar, { backgroundColor: '#F4B8AE' }]} />
-              <Text style={styles.summaryLabel}>Spent</Text>
+              <View style={[styles.summaryBar, { backgroundColor: colors.peachCoral }]} />
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Spent</Text>
             </View>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalSpent)}</Text>
+            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(totalSpent)}</Text>
           </View>
 
           {/* Donut */}
@@ -285,20 +310,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         {/* ── Recent Transactions ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent transactions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent transactions</Text>
           <TouchableOpacity
-            style={styles.seeAllBtn}
+            style={[styles.seeAllBtn, { borderColor: colors.border }]}
             onPress={() => navigation.navigate('History')}
             activeOpacity={0.75}
           >
-            <Text style={styles.seeAllText}>See All</Text>
-            <ChevronRight size={14} color="#8A8FA3" />
+            <Text style={[styles.seeAllText, { color: colors.textSecondary }]}>See All</Text>
+            <ChevronRight size={14} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         {recentTx.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No transactions yet — tap + to add one!</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
           </View>
         ) : (
           recentTx.map((e) => (
@@ -315,9 +340,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </TouchableOpacity>
           ))
         )}
-
-        {/* Bottom padding so FAB / tab bar don't overlap */}
-        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
@@ -327,7 +349,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scroll: {
     flex: 1,
@@ -344,12 +365,10 @@ const styles = StyleSheet.create({
   },
   helloText: {
     fontSize: 22,
-    color: '#1A2B4C',
     fontFamily: 'Quicksand_500Medium',
   },
   nameText: {
     fontSize: 36,
-    color: '#1A2B4C',
     fontFamily: 'Quicksand_700Bold',
     marginTop: -4,
   },
@@ -357,9 +376,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E8E9ED',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -384,29 +401,22 @@ const styles = StyleSheet.create({
   },
   pillActive: {
     borderWidth: 2,
-    borderColor: '#B8E0C8',
-    backgroundColor: '#F0FAF4',
   },
   pillInactive: {
     borderWidth: 1,
-    borderColor: '#E0E2E8',
-    backgroundColor: '#FFFFFF',
   },
   pillText: {
     fontSize: 14,
   },
   pillTextActive: {
-    color: '#1A2B4C',
     fontFamily: 'Quicksand_700Bold',
   },
   pillTextInactive: {
-    color: '#8A8FA3',
     fontFamily: 'Quicksand_500Medium',
   },
 
   // Summary Card
   summaryCard: {
-    backgroundColor: '#F5F6F9',
     borderRadius: 28,
     marginTop: 24,
     padding: 20,
@@ -429,13 +439,11 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#8A8FA3',
     fontFamily: 'Quicksand_500Medium',
     marginLeft: 8,
   },
   summaryAmount: {
     fontSize: 24,
-    color: '#1A2B4C',
     fontFamily: 'Quicksand_700Bold',
     marginTop: 4,
   },
@@ -449,21 +457,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    color: '#1A2B4C',
     fontFamily: 'Quicksand_700Bold',
   },
   seeAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E0E2E8',
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   seeAllText: {
     fontSize: 14,
-    color: '#8A8FA3',
     fontFamily: 'Quicksand_500Medium',
     marginRight: 4,
   },
@@ -487,12 +492,10 @@ const styles = StyleSheet.create({
   },
   txTitle: {
     fontSize: 16,
-    color: '#1A2B4C',
     fontFamily: 'Quicksand_700Bold',
   },
   txSubtitle: {
     fontSize: 14,
-    color: '#8A8FA3',
     fontFamily: 'Quicksand_500Medium',
     marginTop: 2,
   },
@@ -505,7 +508,6 @@ const styles = StyleSheet.create({
   },
   txDate: {
     fontSize: 12,
-    color: '#8A8FA3',
     fontFamily: 'Quicksand_500Medium',
     marginTop: 2,
   },
@@ -518,7 +520,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: '#B0B4C0',
     fontFamily: 'Quicksand_500Medium',
     textAlign: 'center',
   },

@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
+import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { formatCurrency } from '../lib/formatters';
 import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
@@ -21,6 +22,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
 export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { categoryId } = route.params;
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const { categories, fetchCategories } = useCategoryStore();
   const { expenses, fetchExpenses } = useExpenseStore();
 
@@ -53,16 +55,22 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
 
     return (
       <Pressable
-        style={styles.expenseRow}
+        style={[
+          styles.expenseRow,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.borderSubtle,
+          }
+        ]}
         onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
       >
         <View style={styles.expenseLeft}>
-          <Text style={[styles.expenseAmount, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.expenseAmount, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             {formatCurrency(item.amount)}
           </Text>
           {!!item.note && (
             <Text
-              style={[styles.expenseNote, { fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.expenseNote, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}
               numberOfLines={1}
             >
               {item.note}
@@ -70,29 +78,29 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           )}
         </View>
         <View style={styles.expenseRight}>
-          <Text style={[styles.expenseDate, { fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.expenseDate, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
             {dateStr}
           </Text>
           <View style={styles.paymentRow}>
-            <PaymentIcon size={12} color="#B0B4C0" />
-            <Text style={[styles.paymentLabel, { fontFamily: 'Quicksand_500Medium' }]}>
+            <PaymentIcon size={12} color={colors.textTertiary} />
+            <Text style={[styles.paymentLabel, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium' }]}>
               {paymentLabel}
             </Text>
           </View>
         </View>
       </Pressable>
     );
-  }, [navigation]);
+  }, [navigation, colors]);
 
   if (!category) {
     return (
-      <View style={[styles.notFound, { paddingTop: insets.top }]}>
-        <StatusBar style="dark" />
-        <Text style={[styles.notFoundText, { fontFamily: 'Quicksand_500Medium' }]}>
+      <View style={[styles.notFound, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <Text style={[styles.notFoundText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
           Category not found
         </Text>
-        <Pressable onPress={() => navigation.goBack()} style={styles.notFoundBack}>
-          <Text style={[styles.notFoundBackText, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Pressable onPress={() => navigation.goBack()} style={[styles.notFoundBack, { backgroundColor: colors.mint }]}>
+          <Text style={[styles.notFoundBackText, { color: '#1A2B4C', fontFamily: 'Quicksand_700Bold' }]}>
             Go Back
           </Text>
         </Pressable>
@@ -101,19 +109,19 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <ArrowLeft size={24} color="#1A2B4C" />
+          <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerCenter}>
           <View style={[styles.headerIconBadge, { backgroundColor: categoryBgColor }]}>
             <CategoryIcon size={20} color={categoryColor} />
           </View>
-          <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             {category.name}
           </Text>
         </View>
@@ -122,7 +130,14 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
       </View>
 
       {/* Summary Card */}
-      <View style={styles.summaryCard}>
+      <View style={[
+        styles.summaryCard,
+        isDark && {
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.borderSubtle,
+        }
+      ]}>
         {/* Decorative circles */}
         <View style={styles.summaryCircle1} />
         <View style={styles.summaryCircle2} />
@@ -143,14 +158,14 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
       </View>
 
       {/* Transactions Section Header */}
-      <Text style={[styles.sectionTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
         Transactions
       </Text>
 
       {/* List */}
       {categoryExpenses.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium' }]}>
             No transactions in this category yet.
           </Text>
         </View>
@@ -160,7 +175,10 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+          ]}
         />
       )}
     </View>
@@ -282,7 +300,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   listContent: {
-    paddingBottom: 40,
   },
 
   // Expense Row

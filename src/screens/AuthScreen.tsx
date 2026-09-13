@@ -16,8 +16,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { AlertCircle, ArrowLeft, Eye, EyeOff, X } from 'lucide-react-native';
 import { supabase } from '../config/supabase';
-import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../store/themeStore';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -71,6 +71,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   const opacityAnim = useRef(new Animated.Value(1)).current;
   const translateYAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
 
   const toggleMode = () => {
     const nextMode = mode === 'signup' ? 'login' : 'signup';
@@ -128,7 +129,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
     });
     setForgotLoading(false);
     if (error) {
-      showError(error.message);
+      showError(getFriendlyError(error.message, 'login'));
     } else {
       showSuccess(`Password reset link sent to ${email}. Check your inbox!`);
     }
@@ -152,8 +153,8 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
     if (msg.includes('unable to validate email address') || msg.includes('invalid email')) {
       return "Please enter a valid email address.";
     }
-    if (msg.includes('email rate limit') || msg.includes('too many requests')) {
-      return "Too many attempts. Please wait a moment before trying again.";
+    if (msg.includes('email rate limit') || msg.includes('too many requests') || msg.includes('rate limit') || msg.includes('over_email_send_rate_limit')) {
+      return "Too many attempts. Please wait a little while before requesting a new reset link.";
     }
     if (msg.includes('missing email or phone')) {
       return "Please enter your email address.";
@@ -204,7 +205,12 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleGoogleAuth = async () => {
     try {
-      const redirectTo = makeRedirectUri();
+      // Use native scheme so the APK can intercept the OAuth callback correctly.
+      // In production APK, this generates: arthik://
+      const redirectTo = makeRedirectUri({
+        scheme: 'arthik',
+        path: 'auth/callback',
+      });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -248,30 +254,46 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
             } else {
               navigation.replace('AppTabs');
             }
+          } else {
+            // Fallback: tokens not in URL (e.g. PKCE flow), let the auth state listener handle it
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              const { data: { user } } = await supabase.auth.getUser();
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user?.id)
+                .single();
+              if (!profile || !profile.first_name) {
+                navigation.navigate('ProfileSetup');
+              } else {
+                navigation.replace('AppTabs');
+              }
+            }
           }
         }
       }
     } catch (e: any) {
-        showError(e.message || 'Error with Google Authentication');
-      }
-    };
+      showError(e.message || 'Error with Google Authentication');
+    }
+  };
 
   const isSignUp = mode === 'signup';
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable style={[styles.backBtn, { marginTop: insets.top + 16 }]} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={26} color="#1A2B4C" />
+          <Pressable style={[styles.backBtn, { marginTop: 16 }]} onPress={() => navigation.goBack()}>
+            <ArrowLeft size={26} color={colors.textPrimary} />
           </Pressable>
 
           {/* In-UI Message Banner (error or success) */}
@@ -279,16 +301,26 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
             <Animated.View
               style={[
                 styles.errorBanner,
+                isDark && { backgroundColor: 'rgba(232, 112, 112, 0.15)', borderColor: 'rgba(232, 112, 112, 0.3)' },
                 successMessage && styles.successBanner,
+                successMessage && isDark && { backgroundColor: 'rgba(76, 175, 80, 0.15)', borderColor: 'rgba(76, 175, 80, 0.3)' },
                 { opacity: errorOpacity, transform: [{ translateY: errorTranslateY }] },
               ]}
             >
-              <AlertCircle size={18} color={successMessage ? '#4CAF50' : '#E87070'} style={{ marginRight: 8, flexShrink: 0 }} />
-              <Text style={[styles.errorBannerText, successMessage && styles.successBannerText]} numberOfLines={4}>
+              <AlertCircle size={18} color={successMessage ? (isDark ? '#81C784' : '#4CAF50') : (isDark ? '#FF8E8E' : '#E87070')} style={{ marginRight: 8, flexShrink: 0 }} />
+              <Text 
+                style={[
+                  styles.errorBannerText, 
+                  isDark && { color: '#FF8E8E' },
+                  successMessage && styles.successBannerText,
+                  successMessage && isDark && { color: '#81C784' }
+                ]} 
+                numberOfLines={4}
+              >
                 {successMessage || errorMessage}
               </Text>
               <Pressable onPress={dismissError} style={styles.errorBannerClose}>
-                <X size={16} color={successMessage ? '#4CAF50' : '#E87070'} />
+                <X size={16} color={successMessage ? (isDark ? '#81C784' : '#4CAF50') : (isDark ? '#FF8E8E' : '#E87070')} />
               </Pressable>
             </Animated.View>
           )}
@@ -296,28 +328,35 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           <Animated.View
             style={{ opacity: opacityAnim, transform: [{ translateY: translateYAnim }] }}
           >
-            <Text style={styles.heading}>
+            <Text style={[styles.heading, { color: colors.textPrimary }]}>
               {isSignUp ? 'Create Account' : 'Welcome Back'}
             </Text>
-            <Text style={styles.subtext}>
+            <Text style={[styles.subtext, { color: colors.textSecondary }]}>
               {isSignUp ? 'Start your expense journey' : 'Log in to continue tracking'}
             </Text>
 
             <View style={styles.formContainer}>
               {isSignUp && (
                 <>
-                  <Text style={styles.label}>FULL NAME</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>FULL NAME</Text>
                   <View
                     style={[
                       styles.inputWrapper,
-                      focusedField === 'name' && styles.inputFocused,
+                      focusedField === 'name' && { borderColor: colors.mint },
                     ]}
                   >
-                    <View style={styles.inputContainer}>
+                    <View style={[
+                      styles.inputContainer,
+                      {
+                        backgroundColor: colors.inputBg,
+                        borderWidth: isDark ? 1 : 0,
+                        borderColor: colors.borderSubtle,
+                      }
+                    ]}>
                       <TextInput
-                        style={styles.input}
+                        style={[styles.input, { color: colors.textPrimary }]}
                         placeholder="Your name"
-                        placeholderTextColor="#A8ADBD"
+                        placeholderTextColor={colors.textTertiary}
                         value={fullName}
                         onChangeText={setFullName}
                         onFocus={() => setFocusedField('name')}
@@ -329,18 +368,25 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                 </>
               )}
 
-              <Text style={styles.label}>EMAIL</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
               <View
                 style={[
                   styles.inputWrapper,
-                  focusedField === 'email' && styles.inputFocused,
+                  focusedField === 'email' && { borderColor: colors.mint },
                 ]}
               >
-                <View style={styles.inputContainer}>
+                <View style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderWidth: isDark ? 1 : 0,
+                    borderColor: colors.borderSubtle,
+                  }
+                ]}>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { color: colors.textPrimary }]}
                     placeholder="you@example.com"
-                    placeholderTextColor="#A8ADBD"
+                    placeholderTextColor={colors.textTertiary}
                     value={email}
                     onChangeText={setEmail}
                     onFocus={() => setFocusedField('email')}
@@ -351,18 +397,25 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
               </View>
 
-              <Text style={styles.label}>PASSWORD</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>PASSWORD</Text>
               <View
                 style={[
                   styles.inputWrapper,
-                  focusedField === 'password' && styles.inputFocused,
+                  focusedField === 'password' && { borderColor: colors.mint },
                 ]}
               >
-                <View style={styles.inputContainer}>
+                <View style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderWidth: isDark ? 1 : 0,
+                    borderColor: colors.borderSubtle,
+                  }
+                ]}>
                   <TextInput
-                    style={[styles.input, { paddingRight: 44 }]}
+                    style={[styles.input, { color: colors.textPrimary, paddingRight: 44 }]}
                     placeholder={isSignUp ? 'Create a password' : 'Enter password'}
-                    placeholderTextColor="#A8ADBD"
+                    placeholderTextColor={colors.textTertiary}
                     value={password}
                     onChangeText={setPassword}
                     onFocus={() => setFocusedField('password')}
@@ -374,9 +427,9 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                     onPress={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff size={20} color="#8A8FA3" />
+                      <EyeOff size={20} color={colors.textSecondary} />
                     ) : (
-                      <Eye size={20} color="#8A8FA3" />
+                      <Eye size={20} color={colors.textSecondary} />
                     )}
                   </Pressable>
                 </View>
@@ -391,13 +444,20 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               )}
 
               <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
+                <View style={[styles.dividerLine, { backgroundColor: colors.borderSubtle }]} />
+                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>or</Text>
+                <View style={[styles.dividerLine, { backgroundColor: colors.borderSubtle }]} />
               </View>
 
               <AnimatedButton
-                style={[styles.btn, styles.googleBtn]}
+                style={[
+                  styles.btn, 
+                  styles.googleBtn,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.borderSubtle,
+                  }
+                ]}
                 onPress={handleGoogleAuth}
               >
                 <Image
@@ -405,14 +465,14 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                   style={{ width: 20, height: 20 }}
                   resizeMode="contain"
                 />
-                <Text style={styles.googleBtnText}>Continue with Google</Text>
+                <Text style={[styles.googleBtnText, { color: colors.textPrimary }]}>Continue with Google</Text>
               </AnimatedButton>
 
               <AnimatedButton
-                style={[styles.btn, styles.primaryBtn, authLoading && styles.primaryBtnLoading]}
+                style={[styles.btn, styles.primaryBtn, { backgroundColor: colors.mint }, authLoading && styles.primaryBtnLoading]}
                 onPress={handleAuth}
               >
-                <Text style={styles.primaryBtnText}>
+                <Text style={[styles.primaryBtnText, { color: colors.forestGreen }]}>
                   {authLoading ? 'Please wait...' : (isSignUp ? 'Sign Up' : 'Log In')}
                 </Text>
               </AnimatedButton>
@@ -420,9 +480,9 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           </Animated.View>
 
           <Pressable onPress={toggleMode} style={styles.toggleBtn}>
-            <Text style={styles.toggleText}>
+            <Text style={[styles.toggleText, { color: colors.textSecondary }]}>
               {isSignUp ? 'Already have an account? ' : 'New here? '}
-              <Text style={styles.toggleTextBold}>
+              <Text style={[styles.toggleTextBold, { color: colors.textPrimary }]}>
                 {isSignUp ? 'Log in' : 'Sign up'}
               </Text>
             </Text>
@@ -441,7 +501,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
   },
   backBtn: {
     width: 40,
@@ -574,7 +633,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF5F5',
     borderWidth: 1,
-    borderColor: '#FACACAC',
+    borderColor: '#FACACA',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,

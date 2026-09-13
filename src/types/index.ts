@@ -12,6 +12,7 @@ export type RootStackParamList = {
   AddEditCategory: { categoryId?: string } | undefined;
   Notifications: undefined;
   Profile: undefined;
+  ResetPassword: { initialError?: string } | undefined;
 };
 
 export type TabParamList = {

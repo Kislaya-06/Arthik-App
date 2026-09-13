@@ -1,17 +1,21 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Image } from 'react-native';
+import * as Linking from 'expo-linking';
+import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { Theme } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
+import { useTheme } from '../store/themeStore';
 import { supabase } from '../config/supabase';
+import { handleAuthDeepLink } from '../lib/authLinkHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
 export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const { setSession } = useAuthStore();
+  const { colors, isDark } = useTheme();
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
 
@@ -77,12 +81,19 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       ]),
     ]).start();
 
-    let authSubscription: any = null;
-
     const initAuthAndNavigate = async () => {
-      let nextScreen: keyof RootStackParamList = 'Onboarding';
-
       try {
+        // Check if the app was opened via a deep link (e.g. password recovery)
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl && (initialUrl.includes('reset-password') || initialUrl.includes('recovery'))) {
+          await handleAuthDeepLink(initialUrl);
+          setTimeout(() => {
+            navigation.replace('ResetPassword');
+          }, 1200);
+          return;
+        }
+
+        let nextScreen: keyof RootStackParamList = 'Onboarding';
         const { data: { session } } = await supabase.auth.getSession();
         await setSession(session);
 
@@ -90,30 +101,37 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           await Promise.all([fetchCategories(), fetchExpenses()]);
           nextScreen = 'AppTabs';
         }
+
+        // Transition to next screen after 1.8 seconds
+        setTimeout(() => {
+          navigation.replace(nextScreen as any);
+        }, 1800);
       } catch (e) {
         console.error('Session retrieval error:', e);
+        setTimeout(() => {
+          navigation.replace('Onboarding');
+        }, 1800);
       }
-
-      // Transition to next screen after 1.8 seconds
-      setTimeout(() => {
-        navigation.replace(nextScreen as any);
-      }, 1800);
     };
 
     initAuthAndNavigate();
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Decorative blurred background circles */}
-      <View style={styles.bgCircleTop} />
-      <View style={styles.bgCircleBottom} />
+      <View style={[styles.bgCircleTop, { opacity: isDark ? 0.05 : 0.1 }]} />
+      <View style={[styles.bgCircleBottom, { opacity: isDark ? 0.05 : 0.1 }]} />
 
       {/* Main Logo Container */}
       <Animated.View
         style={[
           styles.logoImageContainer,
           {
+            backgroundColor: colors.card,
+            borderWidth: isDark ? 1 : 0,
+            borderColor: colors.borderSubtle,
             opacity: logoOpacity,
             transform: [{ scale: logoScale }],
           },
@@ -131,6 +149,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         style={[
           styles.appName,
           {
+            color: colors.textPrimary,
             opacity: wordmarkOpacity,
             transform: [{ translateY: wordmarkTranslateY }],
           },
@@ -140,15 +159,15 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       </Animated.Text>
 
       {/* Tagline */}
-      <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
+      <Animated.Text style={[styles.tagline, { color: colors.textSecondary, opacity: taglineOpacity }]}>
         Apna kharcha, apna hisaab
       </Animated.Text>
 
       {/* Pagination Style Dots */}
       <Animated.View style={[styles.dotsContainer, { opacity: dotsOpacity }]}>
-        <View style={[styles.dot, { backgroundColor: '#B8E0C8' }]} />
-        <View style={[styles.dot, { backgroundColor: '#B8E0C8' }]} />
-        <View style={[styles.dot, { backgroundColor: '#D8DCE3' }]} />
+        <View style={[styles.dot, { backgroundColor: colors.mint }]} />
+        <View style={[styles.dot, { backgroundColor: colors.mint }]} />
+        <View style={[styles.dot, { backgroundColor: colors.borderSubtle }]} />
       </Animated.View>
     </View>
   );

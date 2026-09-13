@@ -7,6 +7,7 @@ import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
+import { useTheme } from '../store/themeStore';
 import { format } from 'date-fns';
 import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { expenseId } = route.params;
   const { expenses, deleteExpense } = useExpenseStore();
   const { categories, fetchCategories } = useCategoryStore();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -30,9 +32,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   if (!expense) {
     return (
-      <View style={[styles.notFoundContainer, { paddingTop: insets.top }]}>
-        <Text style={styles.notFoundText}>Expense not found</Text>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButtonFallback}>
+      <View style={[styles.notFoundContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <Text style={[styles.notFoundText, { color: colors.textPrimary }]}>Expense not found</Text>
+        <Pressable onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mint }]}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </Pressable>
       </View>
@@ -72,38 +74,44 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const categoryBgColor = categoryColor + '33';
 
   return (
-    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.safeArea, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.container}>
 
         {/* Header Row */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-              <ArrowLeft size={24} color="#1A2B4C" />
+              <ArrowLeft size={24} color={colors.textPrimary} />
             </Pressable>
-            <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
               Expense Detail
             </Text>
           </View>
           <View style={styles.headerRight}>
             <Pressable onPress={handleEdit} hitSlop={10}>
-              <SquarePen size={20} color="#1A2B4C" />
+              <SquarePen size={20} color={colors.textPrimary} />
             </Pressable>
             <Pressable onPress={handleDelete} hitSlop={10} style={{ marginLeft: 16 }}>
-              <Trash2 size={20} color="#F4B8AE" />
+              <Trash2 size={20} color={colors.coral} />
             </Pressable>
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+          ]}
+        >
 
           {/* Category Icon Badge */}
           <View style={styles.badgeContainer}>
             <View style={[styles.badgeOuter, { backgroundColor: categoryBgColor }]}>
               <CategoryIcon size={44} color={categoryColor} />
             </View>
-            <Text style={[styles.badgeText, { fontFamily: 'Quicksand_500Medium' }]}>
+            <Text style={[styles.badgeText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
               {category?.name || 'Unknown'}
             </Text>
           </View>
@@ -111,8 +119,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Amount Display */}
           <View style={styles.amountContainer}>
             <View style={styles.amountRow}>
-              <Text style={[styles.currencySymbol, { fontFamily: 'Quicksand_700Bold' }]}>₹</Text>
-              <Text style={[styles.amountValue, { fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>₹</Text>
+              <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
                 {expense.amount}
               </Text>
             </View>
@@ -120,7 +128,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
-            <View style={styles.typeBadgePill}>
+            <View style={[styles.typeBadgePill, { backgroundColor: isDark ? 'rgba(232, 149, 106, 0.15)' : '#FDEEE4' }]}>
               <Text style={[styles.typeBadgeText, { fontFamily: 'Quicksand_700Bold' }]}>
                 EXPENSE
               </Text>
@@ -128,19 +136,26 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* Details Card */}
-          <View style={styles.card}>
+          <View style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderWidth: isDark ? 1 : 0,
+              borderColor: colors.borderSubtle,
+            }
+          ]}>
             {/* Date Row */}
-            <View style={styles.cardRow}>
-              <Text style={[styles.cardLabel, { fontFamily: 'Quicksand_500Medium' }]}>Date</Text>
-              <Text style={[styles.cardValue, { fontFamily: 'Quicksand_700Bold' }]}>{formattedDate}</Text>
+            <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Date</Text>
+              <Text style={[styles.cardValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{formattedDate}</Text>
             </View>
 
             {/* Paid Via Row */}
-            <View style={styles.cardRow}>
-              <Text style={[styles.cardLabel, { fontFamily: 'Quicksand_500Medium' }]}>Paid via</Text>
+            <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Paid via</Text>
               <View style={styles.paidViaContainer}>
-                <PaymentIcon size={14} color="#1A2B4C" />
-                <Text style={[styles.cardValue, { marginLeft: 6, fontFamily: 'Quicksand_700Bold' }]}>
+                <PaymentIcon size={14} color={colors.textPrimary} />
+                <Text style={[styles.cardValue, { color: colors.textPrimary, marginLeft: 6, fontFamily: 'Quicksand_700Bold' }]}>
                   {paymentLabel.toUpperCase()}
                 </Text>
               </View>
@@ -148,13 +163,13 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
             {/* Note Row */}
             <View style={[styles.cardRow, styles.cardRowLast, styles.noteRow]}>
-              <Text style={[styles.cardLabel, { fontFamily: 'Quicksand_500Medium' }]}>Note</Text>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Note</Text>
               {expense.note ? (
-                <Text style={[styles.noteValue, { fontFamily: 'Quicksand_700Bold' }]}>
+                <Text style={[styles.noteValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
                   {expense.note}
                 </Text>
               ) : (
-                <Text style={[styles.notePlaceholder, { fontFamily: 'Quicksand_500Medium', fontStyle: 'italic' }]}>
+                <Text style={[styles.notePlaceholder, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium', fontStyle: 'italic' }]}>
                   No note added
                 </Text>
               )}
@@ -163,13 +178,13 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Bottom Actions */}
           <View style={styles.actionsContainer}>
-            <Pressable onPress={handleEdit} style={styles.editButton}>
-              <Text style={[styles.editButtonText, { fontFamily: 'Quicksand_700Bold' }]}>
+            <Pressable onPress={handleEdit} style={[styles.editButton, { backgroundColor: colors.mint }]}>
+              <Text style={[styles.editButtonText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
                 Edit Expense
               </Text>
             </Pressable>
             <Pressable onPress={handleDelete} style={styles.deleteLink}>
-              <Text style={[styles.deleteLinkText, { fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.deleteLinkText, { color: colors.coral, fontFamily: 'Quicksand_700Bold' }]}>
                 Delete Expense
               </Text>
             </Pressable>
@@ -231,7 +246,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: {
-    paddingBottom: 40,
   },
   badgeContainer: {
     alignItems: 'center',

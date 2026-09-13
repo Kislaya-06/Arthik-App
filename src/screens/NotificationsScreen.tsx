@@ -5,39 +5,41 @@ import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, BellOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../store/themeStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
 export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16, backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View style={[styles.header, { marginTop: insets.top + 16 }]}>
+      <View style={styles.header}>
         <Pressable
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           hitSlop={10}
         >
-          <ArrowLeft size={24} color="#1A2B4C" />
+          <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
           Notifications
         </Text>
       </View>
 
       {/* Empty State */}
       <View style={styles.emptyContainer}>
-        <View style={styles.iconCircle}>
-          <BellOff size={32} color="#8A8FA3" />
+        <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
+          <BellOff size={32} color={colors.textSecondary} />
         </View>
-        <Text style={[styles.emptyTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
           No new notifications
         </Text>
-        <Text style={[styles.emptySubtitle, { fontFamily: 'Quicksand_500Medium' }]}>
+        <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
           You're all caught up! We'll let you know when something new arrives.
         </Text>
       </View>
@@ -71,7 +73,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
-    marginTop: -80, // slightly lift it up visually
+    paddingBottom: 40,
   },
   iconCircle: {
     width: 80,

@@ -5,17 +5,18 @@ import {
   Pressable,
   Animated,
   Platform,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Home, Clock, BarChart2, User, Plus } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavBarStore } from '../store/navBarStore';
-
-const { width: screenWidth } = Dimensions.get('window');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../store/themeStore';
 
 // Regular tab item components with individual animations
 const AnimatedIcon = ({ icon: Icon, active }: { icon: any; active: boolean }) => {
+  const { colors, isDark } = useTheme();
   const opacityAnim = useRef(new Animated.Value(active ? 1 : 0)).current;
 
   useEffect(() => {
@@ -30,11 +31,11 @@ const AnimatedIcon = ({ icon: Icon, active }: { icon: any; active: boolean }) =>
     <View style={{ width: 22, height: 22 }}>
       {/* Inactive Icon layer */}
       <View style={StyleSheet.absoluteFill}>
-        <Icon size={22} color="#6B7280" />
+        <Icon size={22} color={isDark ? colors.textSecondary : '#6B7280'} />
       </View>
       {/* Active Icon (Mint) layer stacked on top */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
-        <Icon size={22} color="#B8E0C8" />
+        <Icon size={22} color={colors.mintGreen} />
       </Animated.View>
     </View>
   );
@@ -111,6 +112,7 @@ const TabItem: React.FC<TabItemProps> = ({ icon, active, onPress }) => {
 
 // ─── Custom Notched Translucent Background ──────────────────────────────────
 const NotchedBackground: React.FC<{ width: number; height: number }> = ({ width, height }) => {
+  const { colors, isDark } = useTheme();
   const r = 36;
   const H = height;
   const w = width;
@@ -145,9 +147,9 @@ const NotchedBackground: React.FC<{ width: number; height: number }> = ({ width,
     <Svg width={w} height={H} style={StyleSheet.absoluteFill}>
       <Path
         d={d}
-        fill="#1A2B4C"
+        fill={colors.navBarBg}
         fillOpacity={0.96}
-        stroke="rgba(255, 255, 255, 0.15)"
+        stroke={isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.15)"}
         strokeWidth={1.2}
       />
     </Svg>
@@ -157,6 +159,10 @@ const NotchedBackground: React.FC<{ width: number; height: number }> = ({ width,
 export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const { isVisible } = useNavBarStore();
   const translateY = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
+
+  const bottomOffset = insets.bottom > 0 ? insets.bottom + 8 : 24;
+  const fabBottom = bottomOffset + 36;
 
   // Center FAB Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -165,12 +171,12 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
 
   useEffect(() => {
     Animated.spring(translateY, {
-      toValue: isVisible ? 0 : 150, // 150px is enough to slide fully off-screen
+      toValue: isVisible ? 0 : 160 + insets.bottom, // slide fully off-screen
       useNativeDriver: true,
       bounciness: 0,
       speed: 12,
     }).start();
-  }, [isVisible, translateY]);
+  }, [isVisible, translateY, insets.bottom]);
 
   const opacity = translateY.interpolate({
     inputRange: [0, 150],
@@ -248,13 +254,14 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
     }
   };
 
-  // Calculate widths for the notched background
+  // Calculate widths for the notched background dynamically based on window width
+  const { width: screenWidth } = useWindowDimensions();
   const barWidth = screenWidth - 40;
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ translateY }], opacity }]} pointerEvents="box-none">
+    <Animated.View style={[styles.container, { height: 140 + insets.bottom, transform: [{ translateY }], opacity }]} pointerEvents="box-none">
       {/* Outer Pill Container (Shadow Wrapper) */}
-      <View style={styles.pillContainerShadowWrapper}>
+      <View style={[styles.pillContainerShadowWrapper, { bottom: bottomOffset }]}>
         {/* Custom SVG Notched Background Layer */}
         <NotchedBackground width={barWidth} height={72} />
 
@@ -297,7 +304,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
       </View>
 
       {/* Floating Center Action Button (FAB) */}
-      <View style={styles.fabContainer} pointerEvents="box-none">
+      <View style={[styles.fabContainer, { bottom: fabBottom }]} pointerEvents="box-none">
         <Pressable
           onPress={handleFabPress}
           onPressIn={handleFabPressIn}
@@ -337,7 +344,6 @@ const styles = StyleSheet.create({
   },
   pillContainerShadowWrapper: {
     position: 'absolute',
-    bottom: 24,
     left: 20,
     right: 20,
     height: 72,
@@ -377,7 +383,6 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 60, // Mathematically nested perfectly in the notch (FAB center at top boundary line)
     alignItems: 'center',
     justifyContent: 'center',
     width: 72,

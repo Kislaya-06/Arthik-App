@@ -11,12 +11,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
+import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
 
 export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const { categories, fetchCategories, deleteCategory } = useCategoryStore();
   const { expenses, fetchExpenses } = useExpenseStore();
 
@@ -69,68 +71,79 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
     const isLast = index === categories.length - 1;
 
     return (
-      <View style={[styles.categoryRow, isLast && styles.lastCategoryRow]}>
+      <View style={[
+        styles.categoryRow, 
+        { borderBottomColor: colors.borderSubtle },
+        isLast && styles.lastCategoryRow
+      ]}>
         <View style={[styles.iconContainer, { backgroundColor: item.color + '33' }]}>
           <IconComponent size={20} color={item.color} />
         </View>
         <View style={styles.categoryMiddle}>
-          <Text style={[styles.categoryName, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.categoryName, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             {item.name}
           </Text>
-          <Text style={[styles.categorySubtitle, { fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.categorySubtitle, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
             {count} {count === 1 ? 'expense' : 'expenses'}
           </Text>
         </View>
         <View style={styles.categoryActions}>
           <Pressable 
-            style={styles.editBtn}
+            style={[styles.editBtn, { backgroundColor: colors.cardSubtle }]}
             onPress={() => navigation.navigate('AddEditCategory', { categoryId: item.id })}
           >
-            <SquarePen size={16} color="#1A2B4C" />
+            <SquarePen size={16} color={colors.textPrimary} />
           </Pressable>
           <Pressable 
-            style={styles.deleteBtn}
+            style={[styles.deleteBtn, { backgroundColor: isDark ? 'rgba(244, 184, 174, 0.15)' : '#FDEEEC' }]}
             onPress={() => handleDelete(item.id)}
           >
-            <Trash2 size={16} color="#F4B8AE" />
+            <Trash2 size={16} color={colors.coral} />
           </Pressable>
         </View>
       </View>
     );
-  }, [categories, navigation, categoryExpenseCounts, handleDelete]);
+  }, [categories, navigation, categoryExpenseCounts, handleDelete, colors, isDark]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       
       {/* Header */}
       <View style={styles.headerRow}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <ArrowLeft size={24} color="#1A2B4C" />
+          <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
           Manage Categories
         </Text>
       </View>
 
-      <Text style={[styles.categoryCount, { fontFamily: 'Quicksand_500Medium' }]}>
+      <Text style={[styles.categoryCount, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
         {categories.length} {categories.length === 1 ? 'category' : 'categories'}
       </Text>
 
       {/* List Card */}
-      <View style={styles.listCard}>
+      <View style={[
+        styles.listCard, 
+        { 
+          backgroundColor: colors.card,
+          borderWidth: isDark ? 1 : 0,
+          borderColor: colors.borderSubtle,
+        }
+      ]}>
         <FlatList
           data={categories}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 80 }]}
         />
       </View>
 
       {/* Floating Add Button */}
       <Pressable 
-        style={[styles.fab, { bottom: insets.bottom + 24 }]}
+        style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: colors.mint }]}
         onPress={() => navigation.navigate('AddEditCategory')}
       >
         <Plus size={24} color="#1A2B4C" />
@@ -174,7 +187,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   listContent: {
-    paddingBottom: 100,
   },
   categoryRow: {
     flexDirection: 'row',

@@ -18,6 +18,7 @@ import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
+import { useTheme } from '../store/themeStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProfileSetup'>;
 
@@ -50,6 +51,7 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, childre
 export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
   const { updateProfile } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
 
@@ -87,62 +89,79 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* Back arrow */}
-          <Pressable style={[styles.backBtn, { marginTop: insets.top + 16 }]} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={26} color="#1A2B4C" />
+          <Pressable style={[styles.backBtn, { marginTop: 16 }]} onPress={() => navigation.goBack()}>
+            <ArrowLeft size={26} color={colors.textPrimary} />
           </Pressable>
 
           {/* Progress Row */}
           <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>PROFILE SETUP</Text>
-            <Text style={styles.progressStep}>Step 1 of 1</Text>
+            <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>PROFILE SETUP</Text>
+            <Text style={[styles.progressStep, { color: colors.mintDark }]}>Step 1 of 1</Text>
           </View>
 
           {/* Progress Bar */}
-          <View style={styles.progressBarBg}>
-            <View style={styles.progressBarFill} />
+          <View style={[styles.progressBarBg, { backgroundColor: colors.borderSubtle }]}>
+            <View style={[styles.progressBarFill, { backgroundColor: colors.mint }]} />
           </View>
 
           {/* Avatar */}
           <View style={styles.avatarSection}>
             <Pressable onPress={handleAvatarPress} style={styles.avatarWrapper}>
-              <View style={styles.avatarOuter}>
-                <User size={48} color="#B0B4C0" />
+              <View style={[
+                styles.avatarOuter, 
+                { 
+                  backgroundColor: colors.cardSubtle,
+                  borderColor: isDark ? colors.card : '#FFFFFF'
+                }
+              ]}>
+                <User size={48} color={colors.textTertiary} />
               </View>
-              <View style={styles.cameraBadge}>
+              <View style={[
+                styles.cameraBadge, 
+                { 
+                  backgroundColor: colors.mint,
+                  borderColor: isDark ? colors.card : '#FFFFFF'
+                }
+              ]}>
                 <Camera size={16} color="#1A2B4C" />
               </View>
             </Pressable>
           </View>
 
           {/* Heading */}
-          <Text style={styles.heading}>Tell us about you</Text>
-          <Text style={styles.subtext}>This helps personalise your experience</Text>
+          <Text style={[styles.heading, { color: colors.textPrimary }]}>Tell us about you</Text>
+          <Text style={[styles.subtext, { color: colors.textSecondary }]}>This helps personalise your experience</Text>
 
           {/* First Name */}
-          <Text style={styles.label}>FIRST NAME</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>FIRST NAME</Text>
           <View
             style={[
               styles.inputWrapper,
-              focusedField === 'firstName' && styles.inputFocused,
-              firstNameError && styles.inputError,
+              {
+                backgroundColor: colors.inputBg,
+                borderWidth: isDark ? 1 : 2,
+                borderColor: isDark ? colors.borderSubtle : 'transparent',
+              },
+              focusedField === 'firstName' && { borderColor: colors.mint },
+              firstNameError && [styles.inputError, { borderColor: colors.coral, backgroundColor: isDark ? 'rgba(244, 184, 174, 0.15)' : '#FFF8F7' }],
             ]}
           >
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary }]}
               placeholder="First Name"
-              placeholderTextColor="#A8ADBD"
+              placeholderTextColor={colors.textTertiary}
               value={firstName}
               onChangeText={(t) => {
                 setFirstName(t);
@@ -155,26 +174,31 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
           {firstNameError && (
-            <Text style={styles.errorText}>First name is required</Text>
+            <Text style={[styles.errorText, { color: colors.coral }]}>First name is required</Text>
           )}
 
           {/* Last Name */}
           <View style={styles.lastNameLabelRow}>
-            <Text style={styles.rowLabelText}>LAST NAME</Text>
-            <View style={styles.optionalBadge}>
-              <Text style={styles.optionalBadgeText}>Optional</Text>
+            <Text style={[styles.rowLabelText, { color: colors.textSecondary }]}>LAST NAME</Text>
+            <View style={[styles.optionalBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : '#E8F5EC' }]}>
+              <Text style={[styles.optionalBadgeText, { color: colors.mintDark }]}>Optional</Text>
             </View>
           </View>
           <View
             style={[
               styles.inputWrapper,
-              focusedField === 'lastName' && styles.inputFocused,
+              {
+                backgroundColor: colors.inputBg,
+                borderWidth: isDark ? 1 : 2,
+                borderColor: isDark ? colors.borderSubtle : 'transparent',
+              },
+              focusedField === 'lastName' && { borderColor: colors.mint },
             ]}
           >
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary }]}
               placeholder="Last Name (optional)"
-              placeholderTextColor="#A8ADBD"
+              placeholderTextColor={colors.textTertiary}
               value={lastName}
               onChangeText={setLastName}
               onFocus={() => setFocusedField('lastName')}
@@ -187,11 +211,11 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* CTA Button */}
           <View style={styles.ctaContainer}>
-            <AnimatedButton style={styles.ctaBtn} onPress={handleSubmit}>
-              <Text style={styles.ctaBtnText}>
+            <AnimatedButton style={[styles.ctaBtn, { backgroundColor: colors.mint }]} onPress={handleSubmit}>
+              <Text style={[styles.ctaBtnText, { color: colors.forestGreen }]}>
                 {loading ? 'Saving...' : "Let's Go"}
               </Text>
-              {!loading && <ArrowRight size={20} color="#1A2B4C" style={{ marginLeft: 8 }} />}
+              {!loading && <ArrowRight size={20} color={colors.forestGreen} style={{ marginLeft: 8 }} />}
             </AnimatedButton>
           </View>
         </ScrollView>
@@ -208,7 +232,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
   },
   backBtn: {
     width: 40,
@@ -373,7 +396,6 @@ const styles = StyleSheet.create({
   ctaContainer: {
     marginTop: 'auto',
     paddingTop: 32,
-    paddingBottom: 24,
   },
   ctaBtn: {
     borderRadius: 9999,

@@ -17,6 +17,7 @@ import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { useTheme } from '../store/themeStore';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'History'>,
@@ -32,6 +33,7 @@ interface Section {
 export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
   const { expenses, fetchExpenses } = useExpenseStore();
   const { categories, fetchCategories } = useCategoryStore();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
 
@@ -90,14 +92,14 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => (
     <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textMuted, fontFamily: 'Quicksand_700Bold' }]}>
         {section.title}
       </Text>
-      <Text style={[styles.sectionTotal, { fontFamily: 'Quicksand_700Bold' }]}>
+      <Text style={[styles.sectionTotal, { color: colors.textMuted, fontFamily: 'Quicksand_700Bold' }]}>
         −₹{section.total.toLocaleString('en-IN')}
       </Text>
     </View>
-  ), []);
+  ), [colors]);
 
   const renderItem = useCallback(({ item }: { item: Expense }) => {
     const category = categories.find(c => c.id === item.category_id);
@@ -110,63 +112,63 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
     return (
       <Pressable
-        style={styles.transactionRow}
+        style={[styles.transactionRow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
         onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
       >
         <View style={[styles.iconContainer, { backgroundColor: categoryBgColor }]}>
           <IconComp size={20} color={categoryColor} />
         </View>
         <View style={styles.transactionMiddle}>
-          <Text style={[styles.transactionTitle, { fontFamily: 'Quicksand_700Bold' }]} numberOfLines={1}>
+          <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]} numberOfLines={1}>
             {categoryName}
           </Text>
           {!!item.note && (
-            <Text style={[styles.transactionNote, { fontFamily: 'Quicksand_500Medium' }]} numberOfLines={1}>
+            <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]} numberOfLines={1}>
               {item.note}
             </Text>
           )}
         </View>
         <View style={styles.transactionRight}>
-          <Text style={[styles.transactionAmount, { color: '#1A2B4C', fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.transactionAmount, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             −₹{item.amount.toLocaleString('en-IN')}
           </Text>
           <View style={styles.paymentModeRow}>
-            <PaymentIcon size={12} color="#B0B4C0" />
-            <Text style={[styles.paymentModeText, { fontFamily: 'Quicksand_500Medium' }]}>
+            <PaymentIcon size={12} color={colors.textSecondary} />
+            <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
               {paymentLabel}
             </Text>
           </View>
         </View>
       </Pressable>
     );
-  }, [categories, navigation]);
+  }, [categories, navigation, colors]);
 
   return (
-    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.container}>
 
         {/* Header Row */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             History
           </Text>
           <Pressable
-            style={styles.searchButton}
+            style={[styles.searchButton, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => setIsSearchVisible(!isSearchVisible)}
           >
-            <Search size={20} color="#1A2B4C" />
+            <Search size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
 
         {/* Search Bar */}
         {isSearchVisible && (
-          <View style={styles.searchContainer}>
-            <Search size={16} color="#8A8FA3" />
+          <View style={[styles.searchContainer, { backgroundColor: colors.inputBg }]}>
+            <Search size={16} color={colors.textSecondary} />
             <TextInput
-              style={[styles.searchInput, { fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.searchInput, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium' }]}
               placeholder="Search transactions..."
-              placeholderTextColor="#8A8FA3"
+              placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -184,14 +186,18 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
             <Pressable
               style={[
                 styles.filterPill,
-                selectedCategoryId === null ? styles.filterPillActive : styles.filterPillInactive,
+                selectedCategoryId === null
+                  ? [styles.filterPillActive, { backgroundColor: isDark ? colors.mintGreenSoft : '#B8E0C8', borderColor: colors.mintGreen }]
+                  : [styles.filterPillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
               ]}
               onPress={() => setSelectedCategoryId(null)}
             >
               <Text
                 style={[
                   styles.filterPillText,
-                  selectedCategoryId === null ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                  selectedCategoryId === null
+                    ? [styles.filterPillTextActive, { color: colors.textPrimary }]
+                    : [styles.filterPillTextInactive, { color: colors.textSecondary }],
                   { fontFamily: selectedCategoryId === null ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
                 ]}
               >
@@ -206,14 +212,18 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
                   key={cat.id}
                   style={[
                     styles.filterPill,
-                    isActive ? styles.filterPillActive : styles.filterPillInactive,
+                    isActive
+                      ? [styles.filterPillActive, { backgroundColor: isDark ? colors.mintGreenSoft : '#B8E0C8', borderColor: colors.mintGreen }]
+                      : [styles.filterPillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
                   ]}
                   onPress={() => setSelectedCategoryId(cat.id)}
                 >
                   <Text
                     style={[
                       styles.filterPillText,
-                      isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                      isActive
+                        ? [styles.filterPillTextActive, { color: colors.textPrimary }]
+                        : [styles.filterPillTextInactive, { color: colors.textSecondary }],
                       { fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
                     ]}
                   >
@@ -232,7 +242,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.listContent, filteredAndGroupedExpenses.length === 0 && { flexGrow: 1 }]}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 100 },
+            filteredAndGroupedExpenses.length === 0 && { flexGrow: 1 },
+          ]}
           stickySectionHeadersEnabled={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -254,11 +268,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
             return (
               <View style={styles.emptyContainer}>
-                <View style={styles.iconCircle}>
-                  <IconComponent size={32} color="#8A8FA3" />
+                <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
+                  <IconComponent size={32} color={colors.textSecondary} />
                 </View>
-                <Text style={[styles.emptyTitle, { fontFamily: 'Quicksand_700Bold' }]}>{title}</Text>
-                <Text style={[styles.emptySubtitle, { fontFamily: 'Quicksand_500Medium' }]}>{subtitle}</Text>
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{title}</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>{subtitle}</Text>
               </View>
             );
           }}
@@ -272,7 +286,6 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
@@ -286,15 +299,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 36,
-    color: '#1A2B4C',
   },
   searchButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E8E9ED',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -306,7 +316,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F2F5',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -317,7 +326,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: '#1A2B4C',
     padding: 0,
   },
   filterScroll: {
@@ -331,26 +339,17 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   filterPillActive: {
-    backgroundColor: '#B8E0C8',
     borderWidth: 1,
-    borderColor: '#B8E0C8',
   },
   filterPillInactive: {
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E2E8',
   },
   filterPillText: {
     fontSize: 14,
   },
-  filterPillTextActive: {
-    color: '#1A2B4C',
-  },
-  filterPillTextInactive: {
-    color: '#8A8FA3',
-  },
+  filterPillTextActive: {},
+  filterPillTextInactive: {},
   listContent: {
-    paddingBottom: 120,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -361,20 +360,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 12,
-    color: '#B0B4C0',
     letterSpacing: 1,
   },
   sectionTotal: {
     fontSize: 12,
-    color: '#B0B4C0',
   },
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F0F1F4',
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
@@ -392,11 +387,9 @@ const styles = StyleSheet.create({
   },
   transactionTitle: {
     fontSize: 16,
-    color: '#1A2B4C',
   },
   transactionNote: {
     fontSize: 14,
-    color: '#8A8FA3',
     marginTop: 2,
   },
   transactionRight: {
@@ -412,7 +405,6 @@ const styles = StyleSheet.create({
   },
   paymentModeText: {
     fontSize: 12,
-    color: '#8A8FA3',
     marginLeft: 4,
   },
   emptyContainer: {
@@ -426,20 +418,17 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
   emptyTitle: {
     fontSize: 20,
-    color: '#1A2B4C',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#8A8FA3',
     textAlign: 'center',
     lineHeight: 22,
   },

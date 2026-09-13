@@ -4,17 +4,9 @@ import {
   Animated,
   Text,
   StyleSheet,
-  Dimensions,
 } from 'react-native';
 import { Delete } from 'lucide-react-native';
-
-const { width: screenWidth } = Dimensions.get('window');
-
-/**
- * The pixel width of each keypad button.
- * (screenWidth − horizontal padding 48 − gaps 24) / 3 columns
- */
-export const KEY_WIDTH = (screenWidth - 48 - 24) / 3;
+import { useTheme } from '../store/themeStore';
 
 interface KeyButtonProps {
   item: string;
@@ -27,6 +19,7 @@ interface KeyButtonProps {
  * Pass item="backspace" to render the delete icon.
  */
 export const KeyButton: React.FC<KeyButtonProps> = ({ item, onPress }) => {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -41,6 +34,7 @@ export const KeyButton: React.FC<KeyButtonProps> = ({ item, onPress }) => {
 
   return (
     <Pressable
+      style={styles.keyPressable}
       onPress={() => onPress(item)}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -48,14 +42,17 @@ export const KeyButton: React.FC<KeyButtonProps> = ({ item, onPress }) => {
       <Animated.View
         style={[
           styles.keyButton,
-          { transform: [{ scale }] },
-          isBackspace ? styles.keyButtonBackspace : styles.keyButtonNormal,
+          {
+            borderColor: colors.borderSubtle,
+            backgroundColor: isBackspace ? colors.peachSoft : colors.card,
+            transform: [{ scale }],
+          },
         ]}
       >
         {isBackspace ? (
-          <Delete size={20} color="#F4B8AE" />
+          <Delete size={20} color={colors.peachCoral} />
         ) : (
-          <Text style={styles.keyText}>{item}</Text>
+          <Text style={[styles.keyText, { color: colors.textPrimary }]}>{item}</Text>
         )}
       </Animated.View>
     </Pressable>
@@ -63,24 +60,18 @@ export const KeyButton: React.FC<KeyButtonProps> = ({ item, onPress }) => {
 };
 
 const styles = StyleSheet.create({
+  keyPressable: {
+    flex: 1,
+  },
   keyButton: {
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#F0F1F4',
-    width: KEY_WIDTH,
     height: 56,
-  },
-  keyButtonNormal: {
-    backgroundColor: '#FFFFFF',
-  },
-  keyButtonBackspace: {
-    backgroundColor: '#FDEEEC',
   },
   keyText: {
     fontSize: 24,
-    color: '#1A2B4C',
     fontFamily: 'Quicksand_700Bold',
   },
 });

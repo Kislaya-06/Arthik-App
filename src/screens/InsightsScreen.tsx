@@ -19,6 +19,7 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { useTheme } from '../store/themeStore';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -40,6 +41,7 @@ const CHART_COLORS = [
 export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const { expenses, fetchExpenses } = useExpenseStore();
   const { categories, fetchCategories } = useCategoryStore();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
 
@@ -205,32 +207,40 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 100 },
+        ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
         {/* Header Row */}
         <View style={styles.headerRow}>
-          <Text style={[styles.headerTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
             Insights
           </Text>
-          <View style={styles.segmentedControl}>
+          <View style={[styles.segmentedControl, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {(['Weekly', 'Monthly', 'Yearly'] as Period[]).map((p) => {
               const isActive = period === p;
               return (
                 <Pressable
                   key={p}
-                  style={[styles.segmentBtn, isActive && styles.segmentBtnActive]}
+                  style={[
+                    styles.segmentBtn,
+                    isActive && [styles.segmentBtnActive, { backgroundColor: colors.mintGreen }],
+                  ]}
                   onPress={() => setPeriod(p)}
                 >
                   <Text style={[
                     styles.segmentText,
-                    isActive ? styles.segmentTextActive : styles.segmentTextInactive,
+                    isActive
+                      ? [styles.segmentTextActive, { color: '#1A2B4C' }]
+                      : [styles.segmentTextInactive, { color: colors.textSecondary }],
                     { fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
                   ]}>
                     {p}
@@ -242,9 +252,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Total Spend Hero Card */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroCircle1} />
-          <View style={styles.heroCircle2} />
+        <View style={[styles.heroCard, { backgroundColor: isDark ? colors.card : '#1A2B4C', borderWidth: isDark ? 1 : 0, borderColor: colors.border }]}>
+          <View style={[styles.heroCircle1, { backgroundColor: isDark ? '#1A263B' : '#2A3C64' }]} />
+          <View style={[styles.heroCircle2, { backgroundColor: isDark ? '#1A263B' : '#2A3C64' }]} />
 
           <Text style={[styles.heroLabel, { fontFamily: 'Quicksand_700Bold' }]}>
             TOTAL SPENT {periodLabel}
@@ -288,7 +298,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* By Category Section */}
-        <Text style={[styles.sectionTitle, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
           By Category
         </Text>
 
@@ -313,9 +323,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 ))}
               </Svg>
               <View style={styles.chartCenterContent}>
-                <Text style={[styles.chartCenterLabel, { fontFamily: 'Quicksand_500Medium' }]}>Top spend</Text>
-                <Text style={[styles.chartCenterTitle, { fontFamily: 'Quicksand_700Bold' }]}>{topCategory?.name}</Text>
-                <Text style={[styles.chartCenterValue, { fontFamily: 'Quicksand_500Medium' }]}>{topCategory?.percentage}%</Text>
+                <Text style={[styles.chartCenterLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Top spend</Text>
+                <Text style={[styles.chartCenterTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{topCategory?.name}</Text>
+                <Text style={[styles.chartCenterValue, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>{topCategory?.percentage}%</Text>
               </View>
             </View>
 
@@ -328,8 +338,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 >
                   <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
                   <View>
-                    <Text style={[styles.legendName, { fontFamily: 'Quicksand_700Bold' }]}>{segment.name}</Text>
-                    <Text style={[styles.legendSubtext, { fontFamily: 'Quicksand_500Medium' }]}>
+                    <Text style={[styles.legendName, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{segment.name}</Text>
+                    <Text style={[styles.legendSubtext, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
                       ₹{segment.amount.toLocaleString('en-IN')} · {segment.percentage}%
                     </Text>
                   </View>
@@ -338,7 +348,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {/* This Week Bar Chart Section */}
-            <Text style={[styles.sectionTitle, { fontFamily: 'Quicksand_700Bold', marginTop: 40 }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold', marginTop: 40 }]}>
               This Week
             </Text>
 
@@ -354,7 +364,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={[styles.bar, { height, backgroundColor: isMax ? '#F4B8AE' : '#B8E0C8' }]} />
                     <Text style={[
                       styles.barLabel,
-                      isMax && styles.barLabelMax,
+                      { color: isMax ? '#E8956A' : colors.textSecondary },
                       { fontFamily: isMax ? 'Quicksand_700Bold' : 'Quicksand_500Medium' },
                     ]}>
                       {d.day}
@@ -365,11 +375,11 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {maxWeekDay && maxWeekDay.amount > 0 && (
-              <View style={styles.highestSpendCallout}>
+              <View style={[styles.highestSpendCallout, { backgroundColor: isDark ? colors.cardSubtle : '#FDEEE4' }]}>
                 <View style={styles.highestSpendDot} />
-                <Text style={[styles.highestSpendText, { fontFamily: 'Quicksand_500Medium' }]}>
+                <Text style={[styles.highestSpendText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
                   Highest spend:{' '}
-                  <Text style={{ fontFamily: 'Quicksand_700Bold', color: '#1A2B4C' }}>
+                  <Text style={{ fontFamily: 'Quicksand_700Bold', color: colors.textPrimary }}>
                     {maxWeekDay.day} — ₹{maxWeekDay.amount.toLocaleString('en-IN')}
                   </Text>
                 </Text>
@@ -377,14 +387,14 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             )}
 
             {/* Quick Insights Section */}
-            <Text style={[styles.sectionTitle, { fontFamily: 'Quicksand_700Bold', marginTop: 40 }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold', marginTop: 40 }]}>
               Quick Insights
             </Text>
 
             <View style={styles.quickInsightsGrid}>
               {/* Card 1 - Most Spent On */}
-              <View style={styles.insightCard}>
-                <View style={styles.insightIconBadge1}>
+              <View style={[styles.insightCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                <View style={[styles.insightIconBadge1, { backgroundColor: colors.peachSoft }]}>
                   {(() => {
                     const name = topCategory?.name?.toLowerCase() || '';
                     let PaymentIconComp = CheckSquare;
@@ -393,16 +403,16 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     return <PaymentIconComp size={20} color="#E8956A" />;
                   })()}
                 </View>
-                <Text style={[styles.insightLabel, { fontFamily: 'Quicksand_500Medium' }]}>Most Spent On</Text>
-                <Text style={[styles.insightValue, { fontFamily: 'Quicksand_700Bold' }]}>{topCategory?.name || 'N/A'}</Text>
-                <Text style={[styles.insightAmount, { fontFamily: 'Quicksand_500Medium' }]}>
+                <Text style={[styles.insightLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Most Spent On</Text>
+                <Text style={[styles.insightValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{topCategory?.name || 'N/A'}</Text>
+                <Text style={[styles.insightAmount, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
                   {topCategory ? `₹${topCategory.amount.toLocaleString('en-IN')}` : '-'}
                 </Text>
               </View>
 
               {/* Card 2 - Top Payment */}
-              <View style={styles.insightCard}>
-                <View style={styles.insightIconBadge2}>
+              <View style={[styles.insightCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                <View style={[styles.insightIconBadge2, { backgroundColor: colors.mintGreenSoft }]}>
                   {(() => {
                     const mode = topPaymentData.originalMode.toLowerCase();
                     let PaymentIconComp = CheckSquare;
@@ -411,9 +421,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     return <PaymentIconComp size={20} color="#4CAF7D" />;
                   })()}
                 </View>
-                <Text style={[styles.insightLabel, { fontFamily: 'Quicksand_500Medium' }]}>Top Payment</Text>
-                <Text style={[styles.insightValue, { fontFamily: 'Quicksand_700Bold' }]}>{topPaymentData.mode}</Text>
-                <Text style={[styles.insightAmount, { fontFamily: 'Quicksand_500Medium' }]}>
+                <Text style={[styles.insightLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Top Payment</Text>
+                <Text style={[styles.insightValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{topPaymentData.mode}</Text>
+                <Text style={[styles.insightAmount, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
                   {topPaymentData.percentage}% of txns
                 </Text>
               </View>
@@ -421,7 +431,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </>
         ) : (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyStateText, { fontFamily: 'Quicksand_500Medium' }]}>
+            <Text style={[styles.emptyStateText, { color: colors.textMuted, fontFamily: 'Quicksand_500Medium' }]}>
               No expenses found for this period.
             </Text>
           </View>
@@ -435,12 +445,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 120,
   },
   headerRow: {
     flexDirection: 'row',
@@ -450,13 +458,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 30,
-    color: '#1A2B4C',
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E2E8',
     borderRadius: 999,
     padding: 4,
   },
@@ -465,20 +470,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
-  segmentBtnActive: {
-    backgroundColor: '#B8E0C8',
-  },
+  segmentBtnActive: {},
   segmentText: {
     fontSize: 12,
   },
-  segmentTextActive: {
-    color: '#1A2B4C',
-  },
-  segmentTextInactive: {
-    color: '#8A8FA3',
-  },
+  segmentTextActive: {},
+  segmentTextInactive: {},
   heroCard: {
-    backgroundColor: '#1A2B4C',
     borderRadius: 28,
     padding: 24,
     overflow: 'hidden',
@@ -491,7 +489,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#2A3C64',
     opacity: 0.5,
   },
   heroCircle2: {
@@ -501,7 +498,6 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: '#2A3C64',
     opacity: 0.3,
   },
   heroLabel: {
@@ -548,7 +544,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    color: '#1A2B4C',
     marginTop: 32,
     marginBottom: 24,
   },
@@ -564,16 +559,13 @@ const styles = StyleSheet.create({
   },
   chartCenterLabel: {
     fontSize: 14,
-    color: '#8A8FA3',
   },
   chartCenterTitle: {
     fontSize: 20,
-    color: '#1A2B4C',
     marginTop: 4,
   },
   chartCenterValue: {
     fontSize: 16,
-    color: '#8A8FA3',
     marginTop: 2,
   },
   legendGrid: {
@@ -596,11 +588,9 @@ const styles = StyleSheet.create({
   },
   legendName: {
     fontSize: 16,
-    color: '#1A2B4C',
   },
   legendSubtext: {
     fontSize: 14,
-    color: '#8A8FA3',
     marginTop: 2,
   },
   emptyState: {
@@ -609,7 +599,6 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#8A8FA3',
   },
   barChartContainer: {
     flexDirection: 'row',
@@ -629,7 +618,6 @@ const styles = StyleSheet.create({
   barLabel: {
     marginTop: 8,
     fontSize: 12,
-    color: '#8A8FA3',
   },
   barLabelMax: {
     color: '#E8956A',
@@ -637,7 +625,6 @@ const styles = StyleSheet.create({
   highestSpendCallout: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FDEEE4',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -652,7 +639,6 @@ const styles = StyleSheet.create({
   },
   highestSpendText: {
     fontSize: 14,
-    color: '#8A8FA3',
   },
   quickInsightsGrid: {
     flexDirection: 'row',
@@ -660,17 +646,14 @@ const styles = StyleSheet.create({
   },
   insightCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#F0F1F4',
   },
   insightIconBadge1: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FDEEE4',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -679,23 +662,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E3F2E8',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   insightLabel: {
     fontSize: 12,
-    color: '#8A8FA3',
   },
   insightValue: {
     fontSize: 18,
-    color: '#1A2B4C',
     marginTop: 4,
   },
   insightAmount: {
     fontSize: 14,
-    color: '#8A8FA3',
     marginTop: 2,
   },
 });
