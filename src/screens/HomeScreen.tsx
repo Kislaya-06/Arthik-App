@@ -15,6 +15,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, ChevronRight, DollarSign, User, Plus, Sparkles } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import Svg, { Circle } from 'react-native-svg';
+import { format, parseISO, differenceInCalendarDays, isSameMonth, isSameYear } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -163,16 +164,28 @@ type Filter = (typeof FILTERS)[number];
 const filterExpenses = (expenses: Expense[], filter: Filter): Expense[] => {
   if (filter === 'All') return expenses;
   const now = new Date();
+  const todayStr = format(now, 'yyyy-MM-dd');
+
   return expenses.filter((e) => {
-    const d = new Date(e.expense_date);
+    if (!e.expense_date) return false;
+
     if (filter === 'Daily') {
-      return d.toDateString() === now.toDateString();
-    } else if (filter === 'Weekly') {
-      const diff = (now.getTime() - d.getTime()) / 86400000;
-      return diff >= 0 && diff < 7;
-    } else {
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      return e.expense_date === todayStr;
     }
+
+    try {
+      const expenseDate = parseISO(e.expense_date);
+      if (filter === 'Weekly') {
+        const diffDays = differenceInCalendarDays(now, expenseDate);
+        return diffDays >= 0 && diffDays < 7;
+      }
+      if (filter === 'Monthly') {
+        return isSameMonth(expenseDate, now) && isSameYear(expenseDate, now);
+      }
+    } catch {
+      return false;
+    }
+    return true;
   });
 };
 
@@ -188,6 +201,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
 
+  const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
@@ -241,12 +255,68 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const dbName = profile?.first_name === 'User' ? null : profile?.first_name;
   const firstName = dbName || nameFromMeta?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
 
+  const nameFontSize = useMemo(() => {
+    const len = firstName.length;
+    if (len <= 8) return 36;
+    if (len <= 11) return 30;
+    if (len <= 14) return 26;
+    if (len <= 18) return 22;
+    return 19;
+  }, [firstName]);
+
   const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, expenses]);
   const todayBudget = todayRecord.budget;
   const todayRecordSpent = todayRecord.spent;
   const todayRemaining = Math.max(0, todayBudget - todayRecordSpent);
   const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
   const budgetRatio = todayBudget > 0 ? Math.min(todayRecordSpent / todayBudget, 1) : 0;
+
+  // Calculate effective budget / income based on daily allowance if no explicit income transaction is recorded
+  const { displayIncome, displaySpent, incomeLabel } = useMemo(() => {
+    const activeDailyBudget = todayBudget > 0 ? todayBudget : (dailyBudgetAmount || 500);
+
+    if (activeFilter === 'Daily') {
+      const budget = activeDailyBudget;
+      const income = totalIncome > 0 ? totalIncome : budget;
+      const spent = todayRecordSpent > 0 ? todayRecordSpent : totalSpent;
+      return {
+        displayIncome: income,
+        displaySpent: spent,
+        incomeLabel: totalIncome > 0 ? 'Income' : 'Daily Budget',
+      };
+    }
+
+    if (activeFilter === 'Weekly') {
+      const budget = activeDailyBudget * 7;
+      const income = totalIncome > 0 ? totalIncome : budget;
+      return {
+        displayIncome: income,
+        displaySpent: totalSpent,
+        incomeLabel: totalIncome > 0 ? 'Income' : 'Weekly Budget',
+      };
+    }
+
+    if (activeFilter === 'Monthly') {
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const budget = activeDailyBudget * daysInMonth;
+      const income = totalIncome > 0 ? totalIncome : budget;
+      return {
+        displayIncome: income,
+        displaySpent: totalSpent,
+        incomeLabel: totalIncome > 0 ? 'Income' : 'Monthly Budget',
+      };
+    }
+
+    // 'All' filter
+    const budget = activeDailyBudget * 30;
+    const income = totalIncome > 0 ? totalIncome : budget;
+    return {
+      displayIncome: income,
+      displaySpent: totalSpent,
+      incomeLabel: totalIncome > 0 ? 'Income' : 'Total Budget',
+    };
+  }, [activeFilter, todayBudget, dailyBudgetAmount, totalIncome, todayRecordSpent, totalSpent]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -266,9 +336,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       >
         {/* ── Header ── */}
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerGreeting}>
             <Text style={[styles.helloText, { color: colors.textSecondary }]}>Hello</Text>
-            <Text style={[styles.nameText, { color: colors.textPrimary }]}>{firstName}</Text>
+            <Text
+              style={[
+                styles.nameText,
+                { color: colors.textPrimary, fontSize: nameFontSize },
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {firstName}
+            </Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable
@@ -329,19 +409,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <View style={styles.summaryLeft}>
             <View style={styles.summaryLabelRow}>
               <View style={[styles.summaryBar, { backgroundColor: colors.mintGreen }]} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Income</Text>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{incomeLabel}</Text>
             </View>
-            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(totalIncome)}</Text>
+            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(displayIncome)}</Text>
 
             <View style={[styles.summaryLabelRow, { marginTop: 20 }]}>
               <View style={[styles.summaryBar, { backgroundColor: colors.peachCoral }]} />
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Spent</Text>
             </View>
-            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(totalSpent)}</Text>
+            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(displaySpent)}</Text>
           </View>
 
           {/* Donut */}
-          <DonutChart spent={totalSpent} total={totalIncome + totalSpent} />
+          <DonutChart spent={displaySpent} total={Math.max(displayIncome, displaySpent)} />
         </View>
 
         {/* ── Compact Daily Allowance & Gullak Banner (Senior UI/UX Design) ── */}
@@ -465,7 +545,12 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+  },
+  headerGreeting: {
+    flex: 1,
+    marginRight: 14,
+    justifyContent: 'center',
   },
   helloText: {
     fontSize: 22,
@@ -475,11 +560,13 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontFamily: 'Quicksand_700Bold',
     marginTop: -4,
+    includeFontPadding: false,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
   },
   bellBtn: {
     width: 44,
