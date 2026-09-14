@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
-import { useAuthStore } from './authStore';
+import { useAuthStore, registerStoreResetCallback } from './authStore';
 
 export interface Category {
   id: string;
@@ -138,3 +138,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     }
   },
 }));
+
+registerStoreResetCallback(() => {
+  useCategoryStore.getState().resetCategories();
+});

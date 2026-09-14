@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
-import { useAuthStore } from './authStore';
+import { useAuthStore, registerStoreResetCallback } from './authStore';
 
 export interface Expense {
   id: string;
@@ -131,3 +131,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     }
   },
 }));
+
+registerStoreResetCallback(() => {
+  useExpenseStore.getState().resetExpenses();
+});

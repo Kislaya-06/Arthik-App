@@ -20,6 +20,14 @@ interface AuthState {
   updateProfile: (firstName: string, lastName?: string) => Promise<void>;
 }
 
+type ResetCallback = () => void;
+const resetCallbacks = new Set<ResetCallback>();
+
+export const registerStoreResetCallback = (callback: ResetCallback) => {
+  resetCallbacks.add(callback);
+  return () => resetCallbacks.delete(callback);
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
@@ -59,10 +67,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     set({ loading: true });
     try {
-      const { useCategoryStore } = await import('./categoryStore');
-      const { useExpenseStore } = await import('./expenseStore');
-      useCategoryStore.getState().resetCategories();
-      useExpenseStore.getState().resetExpenses();
+      resetCallbacks.forEach((cb) => {
+        try {
+          cb();
+        } catch (err) {
+          console.error('Error running store reset callback:', err);
+        }
+      });
     } catch (e) {
       console.error('Error resetting stores on sign out:', e);
     }
