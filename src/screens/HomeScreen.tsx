@@ -57,7 +57,7 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total }) => {
   const cy = size / 2;
 
   const hasData = total > 0;
-  const spentRatio = hasData ? Math.min(spent / total, 1) : 0;
+  const spentRatio = hasData ? Math.max(0, Math.min(spent / total, 1)) : 0;
   const incomeRatio = hasData ? Math.max(0, 1 - spentRatio) : 0;
 
   // Spent arc (peach) starts at -90° (top)
@@ -76,29 +76,33 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total }) => {
         fill="none"
       />
       {/* Income arc (mint) */}
-      <Circle
-        cx={cx} cy={cy} r={r}
-        stroke={colors.mintGreen}
-        strokeWidth={strokeWidth}
-        fill="none"
-        strokeDasharray={`${incomeDash} ${circumference}`}
-        strokeDashoffset={incomeOffset}
-        rotation={-90}
-        origin={`${cx},${cy}`}
-        strokeLinecap="round"
-      />
+      {incomeRatio > 0 && (
+        <Circle
+          cx={cx} cy={cy} r={r}
+          stroke={colors.mintGreen}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${incomeDash} ${circumference}`}
+          strokeDashoffset={incomeOffset}
+          rotation={-90}
+          origin={`${cx},${cy}`}
+          strokeLinecap={incomeRatio >= 0.999 ? 'butt' : 'round'}
+        />
+      )}
       {/* Spent arc (peach) */}
-      <Circle
-        cx={cx} cy={cy} r={r}
-        stroke={colors.peachCoral}
-        strokeWidth={strokeWidth}
-        fill="none"
-        strokeDasharray={`${spentDash} ${circumference}`}
-        strokeDashoffset={0}
-        rotation={-90}
-        origin={`${cx},${cy}`}
-        strokeLinecap="round"
-      />
+      {spentRatio > 0 && (
+        <Circle
+          cx={cx} cy={cy} r={r}
+          stroke={colors.peachCoral}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${spentDash} ${circumference}`}
+          strokeDashoffset={0}
+          rotation={-90}
+          origin={`${cx},${cy}`}
+          strokeLinecap={spentRatio >= 0.999 ? 'butt' : 'round'}
+        />
+      )}
     </Svg>
   );
 };

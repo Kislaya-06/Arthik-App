@@ -58,15 +58,15 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   useEffect(() => {
     Animated.spring(anim, {
       toValue: active ? 1 : 0,
-      tension: 50,
-      friction: 8,
+      tension: 60,
+      friction: 10,
       useNativeDriver: false,
     }).start();
   }, [active]);
 
   const handlePressIn = () => {
     Animated.spring(pressScale, {
-      toValue: 0.9,
+      toValue: 0.92,
       useNativeDriver: true,
     }).start();
   };
@@ -74,7 +74,8 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   const handlePressOut = () => {
     Animated.spring(pressScale, {
       toValue: 1,
-      friction: 4,
+      friction: 6,
+      tension: 40,
       useNativeDriver: true,
     }).start();
   };
@@ -86,6 +87,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
       'rgba(184, 224, 200, 0)',
       isDark ? 'rgba(184, 224, 200, 0.16)' : 'rgba(184, 224, 200, 0.22)',
     ],
+    extrapolate: 'clamp',
   });
 
   // Interpolated Capsule Border
@@ -95,27 +97,32 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
       'rgba(184, 224, 200, 0)',
       isDark ? 'rgba(184, 224, 200, 0.3)' : 'rgba(184, 224, 200, 0.35)',
     ],
+    extrapolate: 'clamp',
   });
 
   // Interpolated Label Width & Opacity (calibrated to prevent overflowing wings)
   const labelMaxWidth = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 58],
+    outputRange: [0, 50],
+    extrapolate: 'clamp',
   });
 
   const labelOpacity = anim.interpolate({
     inputRange: [0, 0.35, 1],
     outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
   });
 
   const labelMarginLeft = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 5],
+    outputRange: [0, 4],
+    extrapolate: 'clamp',
   });
 
   const paddingHorizontal = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [6, 10],
+    outputRange: [6, 8],
+    extrapolate: 'clamp',
   });
 
   return (
@@ -279,7 +286,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           },
         ]}
       >
-        {/* Left Wing: Home & History (flex: 1) */}
+        {/* Left Wing: Home & History (flex: 1, space-around) */}
         <View style={styles.tabWing}>
           <CapsuleTabItem
             icon={Home}
@@ -300,7 +307,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           <CenterAddButton onPress={handleAddExpense} />
         </View>
 
-        {/* Right Wing: Savings & Insights (flex: 1) */}
+        {/* Right Wing: Savings & Insights (flex: 1, space-around) */}
         <View style={styles.tabWing}>
           <CapsuleTabItem
             icon={PiggyBankCoinIcon}
@@ -330,8 +337,8 @@ const styles = StyleSheet.create({
   },
   pillBar: {
     width: '100%',
-    height: 70,
-    borderRadius: 35,
+    height: 68,
+    borderRadius: 34,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -348,9 +355,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
+    paddingHorizontal: 2,
   },
   centerContainer: {
-    width: 80,
+    width: 68,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -359,16 +367,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   capsule: {
-    height: 44,
-    borderRadius: 22,
+    height: 42,
+    borderRadius: 21,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   iconWrapper: {
-    width: 21,
-    height: 21,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -383,8 +391,8 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: 'Quicksand_700Bold',
-    fontSize: 12,
-    letterSpacing: 0.2,
+    fontSize: 11.5,
+    letterSpacing: 0.1,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
