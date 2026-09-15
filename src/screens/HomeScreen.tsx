@@ -608,13 +608,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <Text style={[styles.dailyCompactTitle, { color: colors.textPrimary }]}>
                   Daily Allowance
                 </Text>
-                {totalAccumulatedSavings > 0 && (
-                  <View style={[styles.dailyGullakPill, { backgroundColor: colors.mintGreenSoft }]}>
-                    <Text style={[styles.dailyGullakPillText, { color: colors.mintGreenDark }]}>
-                      ₹{Math.round(totalAccumulatedSavings).toLocaleString('en-IN')} Saved
-                    </Text>
-                  </View>
-                )}
               </View>
 
               <View style={styles.currencyRow}>
