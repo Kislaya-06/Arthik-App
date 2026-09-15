@@ -323,8 +323,10 @@ export const SavingsScreen: React.FC = () => {
                 {Math.round(totalAccumulatedSavings).toLocaleString('en-IN')}
               </Text>
             </View>
-            <Text style={[styles.heroHelperText, { color: colors.textSecondary }]}>
-              Auto-saved from unspent daily allowance
+            <Text style={[styles.heroHelperText, { color: isOverBudget ? colors.danger : colors.textSecondary }]}>
+              {isOverBudget
+                ? `🚨 -₹${Math.round(overAmount).toLocaleString('en-IN')} deducted today from Gullak`
+                : 'Auto-saved from unspent daily allowance'}
             </Text>
           </View>
 
@@ -491,9 +493,9 @@ export const SavingsScreen: React.FC = () => {
           </View>
 
           {/* Single Meaningful Status Hint */}
-          <Text style={[styles.progressHint, { color: colors.textSecondary }]}>
+          <Text style={[styles.progressHint, { color: isOverBudget ? colors.danger : colors.textSecondary }]}>
             {isOverBudget
-              ? '🚨 Daily budget exceeded for today'
+              ? `🚨 ₹${Math.round(overAmount)} deducted from your Gullak`
               : todayBudget > 0
               ? `✨ Save ₹${Math.round(todayRemaining)} if unspent today`
               : 'Set a daily budget to start saving'}

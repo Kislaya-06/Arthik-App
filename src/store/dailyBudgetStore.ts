@@ -31,9 +31,28 @@ export interface DailyRecord {
 }
 
 export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, todayStr: string) => {
-  const totalSaved = Object.values(records)
-    .filter((r) => r.isFinalized)
-    .reduce((sum, r) => sum + (r.saved || 0), 0);
+  let totalSaved = 0;
+  let totalOverspent = 0;
+
+  Object.values(records).forEach((r) => {
+    // Check confirmed finalized past days
+    if (r.isFinalized && r.date < todayStr) {
+      if (r.budget > 0 && r.spent > r.budget) {
+        totalOverspent += (r.spent - r.budget);
+      } else if ((r.saved || 0) > 0) {
+        totalSaved += (r.saved || 0);
+      }
+    }
+  });
+
+  // Include today's live overspend if user spent more than today's budget
+  const todayRec = records[todayStr];
+  if (todayRec && todayRec.budget > 0 && todayRec.spent > todayRec.budget) {
+    totalOverspent += (todayRec.spent - todayRec.budget);
+  }
+
+  // Net accumulated savings cannot drop below 0
+  const netSavings = Math.max(0, totalSaved - totalOverspent);
 
   const confirmedSavedDays = Object.values(records).filter(
     (r) => r.isFinalized && r.date < todayStr && (r.saved || 0) > 0
@@ -86,7 +105,7 @@ export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, to
   const bestStreak = confirmedSavedDays === 0 ? 0 : Math.max(maxStreak, streak);
 
   return {
-    totalAccumulatedSavings: totalSaved,
+    totalAccumulatedSavings: netSavings,
     savingsStreak: streak,
     bestStreak,
   };
@@ -306,7 +325,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         currentToday.status = currentToday.spent > cleanAmount ? 'exceeded' : 'active';
         records[todayStr] = currentToday;
 
-        set({ dailyRecords: records });
+        const metrics = calculateSavingsMetrics(records, todayStr);
+        set({ dailyRecords: records, ...metrics });
       },
 
       addToTodayBudget: (extraAmount: number) => {
@@ -330,7 +350,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         currentToday.status = currentToday.spent > newBudget ? 'exceeded' : 'active';
         records[todayStr] = currentToday;
 
-        set({ dailyRecords: records });
+        const metrics = calculateSavingsMetrics(records, todayStr);
+        set({ dailyRecords: records, ...metrics });
       },
 
       syncWithExpenses: (expenses: Expense[]) => {
