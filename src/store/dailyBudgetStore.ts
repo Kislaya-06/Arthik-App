@@ -343,7 +343,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         for (let i = 0; i < expenses.length; i++) {
           const e = expenses[i];
           const isIncome = e.type === 'income' || (e.category_id ? incomeIds.has(e.category_id) : false);
-          if (e.expense_date === todayStr && !isIncome) {
+          const cleanDate = e.expense_date?.split('T')[0]?.trim();
+          if (cleanDate === todayStr && !isIncome) {
             todaySpent += Number(e.amount) || 0;
           }
         }
@@ -451,8 +452,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         for (let i = 0; i < expenses.length; i++) {
           const e = expenses[i];
           const isIncome = e.type === 'income' || (e.category_id ? incomeIds.has(e.category_id) : false);
-          if (!isIncome && e.expense_date) {
-            spentByDate[e.expense_date] = (spentByDate[e.expense_date] || 0) + (Number(e.amount) || 0);
+          const cleanDate = e.expense_date?.split('T')[0]?.trim();
+          if (!isIncome && cleanDate) {
+            spentByDate[cleanDate] = (spentByDate[cleanDate] || 0) + (Number(e.amount) || 0);
           }
         }
 

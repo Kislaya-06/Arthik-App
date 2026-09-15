@@ -193,12 +193,15 @@ const filterExpenses = (expenses: Expense[], filter: Filter): Expense[] => {
   return expenses.filter((e) => {
     if (!e.expense_date) return false;
 
+    const cleanDate = e.expense_date.split('T')[0]?.trim();
+    if (!cleanDate) return false;
+
     if (filter === 'Daily') {
-      return e.expense_date === todayStr;
+      return cleanDate === todayStr;
     }
 
     try {
-      const expenseDate = parseISO(e.expense_date);
+      const expenseDate = parseISO(cleanDate);
       if (filter === 'Weekly') {
         return isSameWeek(expenseDate, now, { weekStartsOn: 1 });
       }
@@ -294,16 +297,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return 19;
   }, [firstName]);
 
-  const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, expenses]);
+  const todayRecord = useMemo(
+    () => getTodayRecord(),
+    [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses]
+  );
   const todayBudget = todayRecord.budget;
-  const todayRecordSpent = todayRecord.spent;
+  // Calculate today's spent directly from expenses for today to guarantee 0-lag live reactivity
+  const todayLiveSpent = useMemo(() => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    let spent = 0;
+    for (let i = 0; i < expenses.length; i++) {
+      const e = expenses[i];
+      const cleanDate = e.expense_date?.split('T')[0]?.trim();
+      const cat = e.category_id ? catMap[e.category_id] : undefined;
+      const isIncome = e.type === 'income' || isIncomeCategory(cat);
+      if (cleanDate === todayStr && !isIncome) {
+        spent += Number(e.amount) || 0;
+      }
+    }
+    return spent;
+  }, [expenses, catMap]);
+
+  const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
   const todayRemaining = Math.max(0, todayBudget - todayRecordSpent);
   const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
   const budgetRatio = todayBudget > 0 ? Math.min(todayRecordSpent / todayBudget, 1) : 0;
 
-  // Comprehensive financial aggregation for the Hero Summary Card:
-  // Combines allocated allowance/budget and explicit income for actual elapsed/tracked days only.
-  const { displayIncome, displaySpent, incomeLabel, incomeSubtext } = useMemo(() => {
+  // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
+  // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
+  const {
+    primaryAmount,
+    primaryLabel,
+    primarySubtext,
+    displaySpent,
+    totalAvailable,
+    isOverBudgetPeriod,
+  } = useMemo(() => {
     const activeDailyBudget = todayBudget > 0 ? todayBudget : (dailyBudgetAmount || 500);
     const now = new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
@@ -312,23 +341,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     const trackedDates = new Set<string>();
 
     for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].expense_date && filtered[i].expense_date <= todayStr) {
-        trackedDates.add(filtered[i].expense_date);
+      const d = filtered[i].expense_date?.split('T')[0]?.trim();
+      if (d && d <= todayStr) {
+        trackedDates.add(d);
       }
     }
 
     Object.keys(dailyRecords).forEach((d) => {
       try {
-        if (d > todayStr) return; // Disallow future dates
-        const dateObj = parseISO(d);
-        if (activeFilter === 'Daily' && d === todayStr) {
-          trackedDates.add(d);
+        const cleanD = d.split('T')[0].trim();
+        if (cleanD > todayStr) return; // Disallow future dates
+        const dateObj = parseISO(cleanD);
+        if (activeFilter === 'Daily' && cleanD === todayStr) {
+          trackedDates.add(cleanD);
         } else if (activeFilter === 'Weekly' && isSameWeek(dateObj, now, { weekStartsOn: 1 })) {
-          trackedDates.add(d);
+          trackedDates.add(cleanD);
         } else if (activeFilter === 'Monthly' && isSameMonth(dateObj, now) && isSameYear(dateObj, now)) {
-          trackedDates.add(d);
+          trackedDates.add(cleanD);
         } else if (activeFilter === 'All') {
-          trackedDates.add(d);
+          trackedDates.add(cleanD);
         }
       } catch {}
     });
@@ -349,123 +380,89 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     const daysCount = trackedDates.size;
     const income = totalIncome;
+    const spent = totalSpent;
+
+    let budgetPool = activeDailyBudget;
+    if (activeFilter === 'Weekly' || activeFilter === 'Monthly' || activeFilter === 'All') {
+      budgetPool = periodBudget > 0 ? periodBudget : activeDailyBudget;
+    }
+
+    const available = budgetPool + income;
+    const isOver = spent > available && available > 0;
+    const remaining = Math.max(0, available - spent);
+    const overAmount = isOver ? spent - available : 0;
+
+    let label = 'Remaining to Spend';
+    let subtext: string | null = null;
 
     if (activeFilter === 'Daily') {
-      const budget = activeDailyBudget;
-      const spent = todayRecordSpent > 0 ? todayRecordSpent : totalSpent;
-
-      if (budget > 0 && income > 0) {
-        return {
-          displayIncome: budget + income,
-          displaySpent: spent,
-          incomeLabel: 'Daily Budget & Income',
-          incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} allowance + ₹${Math.round(income).toLocaleString('en-IN')} income`,
-        };
+      if (isOver) {
+        label = 'Daily Budget Exceeded';
+        subtext = `Exceeded daily limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+      } else {
+        label = 'Remaining to Spend';
+        if (budgetPool > 0 && income > 0) {
+          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+        } else if (income > 0) {
+          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+        } else {
+          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} daily allowance`;
+        }
       }
-
-      if (income > 0) {
-        return {
-          displayIncome: income,
-          displaySpent: spent,
-          incomeLabel: 'Income',
-          incomeSubtext: null,
-        };
+    } else if (activeFilter === 'Weekly') {
+      if (isOver) {
+        label = 'Weekly Budget Exceeded';
+        subtext = `Exceeded weekly limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+      } else {
+        label = 'Weekly Remaining';
+        if (budgetPool > 0 && income > 0) {
+          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+        } else if (income > 0) {
+          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+        } else {
+          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
+        }
       }
-
-      return {
-        displayIncome: budget,
-        displaySpent: spent,
-        incomeLabel: 'Daily Budget',
-        incomeSubtext: null,
-      };
-    }
-
-    if (activeFilter === 'Weekly') {
-      const budget = periodBudget > 0 ? periodBudget : activeDailyBudget;
-
-      if (budget > 0 && income > 0) {
-        return {
-          displayIncome: budget + income,
-          displaySpent: totalSpent,
-          incomeLabel: 'Weekly Budget & Income',
-          incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`,
-        };
+    } else if (activeFilter === 'Monthly') {
+      if (isOver) {
+        label = 'Monthly Budget Exceeded';
+        subtext = `Exceeded monthly limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+      } else {
+        label = 'Monthly Remaining';
+        if (budgetPool > 0 && income > 0) {
+          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+        } else if (income > 0) {
+          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+        } else {
+          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
+        }
       }
-
-      if (income > 0) {
-        return {
-          displayIncome: income,
-          displaySpent: totalSpent,
-          incomeLabel: 'Weekly Income',
-          incomeSubtext: null,
-        };
+    } else {
+      // 'All' filter
+      if (isOver) {
+        label = 'Total Budget Exceeded';
+        subtext = `Exceeded total limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+      } else {
+        label = 'Total Remaining';
+        if (budgetPool > 0 && income > 0) {
+          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+        } else if (income > 0) {
+          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+        } else {
+          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} total budget`;
+        }
       }
-
-      return {
-        displayIncome: budget,
-        displaySpent: totalSpent,
-        incomeLabel: 'Weekly Budget',
-        incomeSubtext: `${daysCount} ${daysCount === 1 ? 'day' : 'days'} so far`,
-      };
-    }
-
-    if (activeFilter === 'Monthly') {
-      const budget = periodBudget > 0 ? periodBudget : activeDailyBudget;
-
-      if (budget > 0 && income > 0) {
-        return {
-          displayIncome: budget + income,
-          displaySpent: totalSpent,
-          incomeLabel: 'Monthly Budget & Income',
-          incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`,
-        };
-      }
-
-      if (income > 0) {
-        return {
-          displayIncome: income,
-          displaySpent: totalSpent,
-          incomeLabel: 'Monthly Income',
-          incomeSubtext: null,
-        };
-      }
-
-      return {
-        displayIncome: budget,
-        displaySpent: totalSpent,
-        incomeLabel: 'Monthly Budget',
-        incomeSubtext: `${daysCount} ${daysCount === 1 ? 'day' : 'days'} so far`,
-      };
-    }
-
-    // 'All' filter
-    const budget = periodBudget > 0 ? periodBudget : activeDailyBudget;
-
-    if (budget > 0 && income > 0) {
-      return {
-        displayIncome: budget + income,
-        displaySpent: totalSpent,
-        incomeLabel: 'Total Budget & Income',
-        incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`,
-      };
-    }
-
-    if (income > 0) {
-      return {
-        displayIncome: income,
-        displaySpent: totalSpent,
-        incomeLabel: 'Total Income',
-        incomeSubtext: null,
-      };
     }
 
     return {
-      displayIncome: budget,
-      displaySpent: totalSpent,
-      incomeLabel: 'Total Budget',
-      incomeSubtext: `${daysCount} ${daysCount === 1 ? 'day' : 'days'} so far`,
+      primaryAmount: isOver ? overAmount : remaining,
+      primaryLabel: label,
+      primarySubtext: subtext,
+      displaySpent: spent,
+      totalAvailable: available,
+      isOverBudgetPeriod: isOver,
     };
-  }, [activeFilter, todayBudget, dailyBudgetAmount, dailyRecords, totalIncome, todayRecordSpent, totalSpent, filtered]);
+  }, [activeFilter, todayBudget, dailyBudgetAmount, dailyRecords, totalIncome, totalSpent, filtered]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -557,15 +554,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           {/* Left column */}
           <View style={styles.summaryLeft}>
             <View style={styles.summaryLabelRow}>
-              <View style={[styles.summaryBar, { backgroundColor: colors.mintGreen }]} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{incomeLabel}</Text>
+              <View
+                style={[
+                  styles.summaryBar,
+                  { backgroundColor: isOverBudgetPeriod ? colors.danger : colors.mintGreen },
+                ]}
+              />
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{primaryLabel}</Text>
             </View>
-            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(displayIncome)}</Text>
-            {incomeSubtext ? (
-              <Text style={[styles.summarySubtext, { color: colors.textSecondary }]}>{incomeSubtext}</Text>
+            <Text
+              style={[
+                styles.summaryAmount,
+                { color: isOverBudgetPeriod ? colors.danger : colors.textPrimary },
+              ]}
+            >
+              {formatCurrency(primaryAmount)}
+            </Text>
+            {primarySubtext ? (
+              <Text style={[styles.summarySubtext, { color: colors.textSecondary }]}>{primarySubtext}</Text>
             ) : null}
 
-            <View style={[styles.summaryLabelRow, { marginTop: incomeSubtext ? 14 : 20 }]}>
+            <View style={[styles.summaryLabelRow, { marginTop: primarySubtext ? 14 : 20 }]}>
               <View style={[styles.summaryBar, { backgroundColor: colors.peachCoral }]} />
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Spent</Text>
             </View>
@@ -573,7 +582,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
 
           {/* Donut */}
-          <DonutChart spent={displaySpent} total={Math.max(displayIncome, displaySpent)} />
+          <DonutChart spent={displaySpent} total={Math.max(totalAvailable, displaySpent)} />
         </View>
 
         {/* ── Compact Daily Allowance & Gullak Banner (Senior UI/UX Design) ── */}
