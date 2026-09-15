@@ -12,10 +12,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Bell, ChevronRight, DollarSign, User, Plus, Sparkles } from 'lucide-react-native';
+import { Bell, ChevronRight, DollarSign, User, Wallet } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import Svg, { Circle } from 'react-native-svg';
-import { format, parseISO, differenceInCalendarDays, isSameMonth, isSameYear } from 'date-fns';
+import { format, parseISO, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -119,8 +119,8 @@ type TxRowProps = {
 };
 
 const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome, colors, isDark }) => {
-  const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : DollarSign;
-  const catColor = category?.color ?? '#94A3B8';
+  const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : (isIncome ? Wallet : DollarSign);
+  const catColor = category?.color ?? (isIncome ? colors.mintGreen : '#94A3B8');
   const bg = pastelBg(catColor);
 
   const dateStr = useMemo(() => {
@@ -145,11 +145,31 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
       </View>
       <View style={styles.txMiddle}>
         <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-          {category?.name ?? 'Other'}
+          {category?.name ?? (isIncome ? 'Money Added' : 'Other')}
         </Text>
-        <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-          {expense.note ? `${expense.note} · ${modeLabel}` : modeLabel}
-        </Text>
+        <View style={styles.txSubtitleRow}>
+          {expense.note ? (
+            <>
+              <Text
+                style={[styles.txSubtitle, styles.txNoteText, { color: colors.textSecondary }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {expense.note}
+              </Text>
+              <Text
+                style={[styles.txSubtitle, styles.txModeText, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {` · ${modeLabel}`}
+              </Text>
+            </>
+          ) : (
+            <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+              {modeLabel}
+            </Text>
+          )}
+        </View>
       </View>
       <View style={styles.txRight}>
         <Text style={[styles.txAmount, { color: amountColor }]}>{amountLabel}</Text>
@@ -180,8 +200,7 @@ const filterExpenses = (expenses: Expense[], filter: Filter): Expense[] => {
     try {
       const expenseDate = parseISO(e.expense_date);
       if (filter === 'Weekly') {
-        const diffDays = differenceInCalendarDays(now, expenseDate);
-        return diffDays >= 0 && diffDays < 7;
+        return isSameWeek(expenseDate, now, { weekStartsOn: 1 });
       }
       if (filter === 'Monthly') {
         return isSameMonth(expenseDate, now) && isSameYear(expenseDate, now);
@@ -208,6 +227,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
+  const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
 
   const notifications = useNotificationStore((s) => s.notifications);
@@ -240,8 +260,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     let spent = 0;
     for (let i = 0; i < filtered.length; i++) {
       const e = filtered[i];
-      if (isIncomeCategory(catMap[e.category_id])) income += e.amount;
-      else spent += e.amount;
+      const cat = e.category_id ? catMap[e.category_id] : undefined;
+      const isIncome = e.type === 'income' || isIncomeCategory(cat);
+      if (isIncome) income += Number(e.amount) || 0;
+      else spent += Number(e.amount) || 0;
     }
     return { totalIncome: income, totalSpent: spent };
   }, [filtered, catMap]);
@@ -249,7 +271,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const recentTx = useMemo(
     () =>
       [...expenses]
-        .sort((a, b) => b.expense_date.localeCompare(a.expense_date))
+        .sort((a, b) => {
+          const dateCmp = b.expense_date.localeCompare(a.expense_date);
+          if (dateCmp !== 0) return dateCmp;
+          return (b.created_at || '').localeCompare(a.created_at || '');
+        })
         .slice(0, 4),
     [expenses]
   );
@@ -275,52 +301,171 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
   const budgetRatio = todayBudget > 0 ? Math.min(todayRecordSpent / todayBudget, 1) : 0;
 
-  // Calculate effective budget / income based on daily allowance if no explicit income transaction is recorded
-  const { displayIncome, displaySpent, incomeLabel } = useMemo(() => {
+  // Comprehensive financial aggregation for the Hero Summary Card:
+  // Combines allocated allowance/budget and explicit income for actual elapsed/tracked days only.
+  const { displayIncome, displaySpent, incomeLabel, incomeSubtext } = useMemo(() => {
     const activeDailyBudget = todayBudget > 0 ? todayBudget : (dailyBudgetAmount || 500);
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+
+    // Collect all unique tracked dates within the active filter period (strictly elapsed days up to today)
+    const trackedDates = new Set<string>();
+
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].expense_date && filtered[i].expense_date <= todayStr) {
+        trackedDates.add(filtered[i].expense_date);
+      }
+    }
+
+    Object.keys(dailyRecords).forEach((d) => {
+      try {
+        if (d > todayStr) return; // Disallow future dates
+        const dateObj = parseISO(d);
+        if (activeFilter === 'Daily' && d === todayStr) {
+          trackedDates.add(d);
+        } else if (activeFilter === 'Weekly' && isSameWeek(dateObj, now, { weekStartsOn: 1 })) {
+          trackedDates.add(d);
+        } else if (activeFilter === 'Monthly' && isSameMonth(dateObj, now) && isSameYear(dateObj, now)) {
+          trackedDates.add(d);
+        } else if (activeFilter === 'All') {
+          trackedDates.add(d);
+        }
+      } catch {}
+    });
+
+    // Always include today for current period views
+    trackedDates.add(todayStr);
+
+    let periodBudget = 0;
+    trackedDates.forEach((d) => {
+      if (d === todayStr && todayBudget > 0) {
+        periodBudget += todayBudget;
+      } else if (dailyRecords[d]?.budget) {
+        periodBudget += dailyRecords[d].budget;
+      } else {
+        periodBudget += activeDailyBudget;
+      }
+    });
+
+    const daysCount = trackedDates.size;
+    const income = totalIncome;
 
     if (activeFilter === 'Daily') {
       const budget = activeDailyBudget;
-      const income = totalIncome > 0 ? totalIncome : budget;
       const spent = todayRecordSpent > 0 ? todayRecordSpent : totalSpent;
+
+      if (budget > 0 && income > 0) {
+        return {
+          displayIncome: budget + income,
+          displaySpent: spent,
+          incomeLabel: 'Daily Budget & Income',
+          incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} allowance + ₹${Math.round(income).toLocaleString('en-IN')} income`,
+        };
+      }
+
+      if (income > 0) {
+        return {
+          displayIncome: income,
+          displaySpent: spent,
+          incomeLabel: 'Income',
+          incomeSubtext: null,
+        };
+      }
+
       return {
-        displayIncome: income,
+        displayIncome: budget,
         displaySpent: spent,
-        incomeLabel: totalIncome > 0 ? 'Income' : 'Daily Budget',
+        incomeLabel: 'Daily Budget',
+        incomeSubtext: null,
       };
     }
 
     if (activeFilter === 'Weekly') {
-      const budget = activeDailyBudget * 7;
-      const income = totalIncome > 0 ? totalIncome : budget;
+      const budget = periodBudget > 0 ? periodBudget : activeDailyBudget;
+
+      if (budget > 0 && income > 0) {
+        return {
+          displayIncome: budget + income,
+          displaySpent: totalSpent,
+          incomeLabel: 'Weekly Budget & Income',
+          incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`,
+        };
+      }
+
+      if (income > 0) {
+        return {
+          displayIncome: income,
+          displaySpent: totalSpent,
+          incomeLabel: 'Weekly Income',
+          incomeSubtext: null,
+        };
+      }
+
       return {
-        displayIncome: income,
+        displayIncome: budget,
         displaySpent: totalSpent,
-        incomeLabel: totalIncome > 0 ? 'Income' : 'Weekly Budget',
+        incomeLabel: 'Weekly Budget',
+        incomeSubtext: `${daysCount} ${daysCount === 1 ? 'day' : 'days'} so far`,
       };
     }
 
     if (activeFilter === 'Monthly') {
-      const now = new Date();
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const budget = activeDailyBudget * daysInMonth;
-      const income = totalIncome > 0 ? totalIncome : budget;
+      const budget = periodBudget > 0 ? periodBudget : activeDailyBudget;
+
+      if (budget > 0 && income > 0) {
+        return {
+          displayIncome: budget + income,
+          displaySpent: totalSpent,
+          incomeLabel: 'Monthly Budget & Income',
+          incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`,
+        };
+      }
+
+      if (income > 0) {
+        return {
+          displayIncome: income,
+          displaySpent: totalSpent,
+          incomeLabel: 'Monthly Income',
+          incomeSubtext: null,
+        };
+      }
+
       return {
-        displayIncome: income,
+        displayIncome: budget,
         displaySpent: totalSpent,
-        incomeLabel: totalIncome > 0 ? 'Income' : 'Monthly Budget',
+        incomeLabel: 'Monthly Budget',
+        incomeSubtext: `${daysCount} ${daysCount === 1 ? 'day' : 'days'} so far`,
       };
     }
 
     // 'All' filter
-    const budget = activeDailyBudget * 30;
-    const income = totalIncome > 0 ? totalIncome : budget;
+    const budget = periodBudget > 0 ? periodBudget : activeDailyBudget;
+
+    if (budget > 0 && income > 0) {
+      return {
+        displayIncome: budget + income,
+        displaySpent: totalSpent,
+        incomeLabel: 'Total Budget & Income',
+        incomeSubtext: `₹${Math.round(budget).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`,
+      };
+    }
+
+    if (income > 0) {
+      return {
+        displayIncome: income,
+        displaySpent: totalSpent,
+        incomeLabel: 'Total Income',
+        incomeSubtext: null,
+      };
+    }
+
     return {
-      displayIncome: income,
+      displayIncome: budget,
       displaySpent: totalSpent,
-      incomeLabel: totalIncome > 0 ? 'Income' : 'Total Budget',
+      incomeLabel: 'Total Budget',
+      incomeSubtext: `${daysCount} ${daysCount === 1 ? 'day' : 'days'} so far`,
     };
-  }, [activeFilter, todayBudget, dailyBudgetAmount, totalIncome, todayRecordSpent, totalSpent]);
+  }, [activeFilter, todayBudget, dailyBudgetAmount, dailyRecords, totalIncome, todayRecordSpent, totalSpent, filtered]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -416,8 +561,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{incomeLabel}</Text>
             </View>
             <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(displayIncome)}</Text>
+            {incomeSubtext ? (
+              <Text style={[styles.summarySubtext, { color: colors.textSecondary }]}>{incomeSubtext}</Text>
+            ) : null}
 
-            <View style={[styles.summaryLabelRow, { marginTop: 20 }]}>
+            <View style={[styles.summaryLabelRow, { marginTop: incomeSubtext ? 14 : 20 }]}>
               <View style={[styles.summaryBar, { backgroundColor: colors.peachCoral }]} />
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Spent</Text>
             </View>
@@ -512,21 +660,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
           </View>
         ) : (
-          recentTx.map((e) => (
-            <TouchableOpacity
-              key={e.id}
-              activeOpacity={0.75}
-              onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
-            >
-              <TransactionRow
-                expense={e}
-                category={catMap[e.category_id]}
-                isIncome={isIncomeCategory(catMap[e.category_id])}
-                colors={colors}
-                isDark={isDark}
-              />
-            </TouchableOpacity>
-          ))
+          recentTx.map((e) => {
+            const cat = e.category_id ? catMap[e.category_id] : undefined;
+            const isIncome = e.type === 'income' || isIncomeCategory(cat);
+            return (
+              <TouchableOpacity
+                key={e.id}
+                activeOpacity={0.75}
+                onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
+              >
+                <TransactionRow
+                  expense={e}
+                  category={cat}
+                  isIncome={isIncome}
+                  colors={colors}
+                  isDark={isDark}
+                />
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -724,6 +876,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Quicksand_700Bold',
     marginTop: 4,
   },
+  summarySubtext: {
+    fontSize: 11,
+    fontFamily: 'Quicksand_600SemiBold',
+    marginTop: 2,
+    opacity: 0.75,
+  },
 
   // Section header
   sectionHeader: {
@@ -771,10 +929,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Quicksand_700Bold',
   },
+  txSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
   txSubtitle: {
     fontSize: 14,
     fontFamily: 'Quicksand_500Medium',
-    marginTop: 2,
+  },
+  txNoteText: {
+    flexShrink: 1,
+  },
+  txModeText: {
+    flexShrink: 0,
   },
   txRight: {
     alignItems: 'flex-end',

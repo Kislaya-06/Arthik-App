@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     first_name TEXT NOT NULL,
     last_name TEXT,
     email TEXT NOT NULL,
+    daily_budget NUMERIC(12, 2) DEFAULT 500,
+    is_auto_renew BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -63,8 +65,9 @@ USING (auth.uid() = user_id);
 CREATE TABLE IF NOT EXISTS public.expenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
     amount NUMERIC(12, 2) NOT NULL,
+    type TEXT NOT NULL DEFAULT 'expense' CHECK (type IN ('expense', 'income')),
     note TEXT,
     payment_mode TEXT NOT NULL CHECK (payment_mode IN ('cash', 'upi', 'card')),
     expense_date DATE NOT NULL,
@@ -132,3 +135,45 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Migration for existing databases:
+-- Run this in your Supabase SQL Editor to support the unified Add Transaction / Add Money feature:
+-- ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'expense' CHECK (type IN ('expense', 'income'));
+-- ALTER TABLE public.expenses ALTER COLUMN category_id DROP NOT NULL;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS daily_budget NUMERIC(12, 2) DEFAULT 500;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_auto_renew BOOLEAN DEFAULT TRUE;
+
+-- 4. Create daily_savings_log table for streak tracking and historical savings calendar
+CREATE TABLE IF NOT EXISTS public.daily_savings_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    amount_saved NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN ('saved', 'missed', 'even')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_user_daily_savings UNIQUE (user_id, date)
+);
+
+-- Enable RLS on daily_savings_log
+ALTER TABLE public.daily_savings_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own daily savings log" 
+ON public.daily_savings_log FOR SELECT 
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own daily savings log" 
+ON public.daily_savings_log FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own daily savings log" 
+ON public.daily_savings_log FOR UPDATE 
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own daily savings log" 
+ON public.daily_savings_log FOR DELETE 
+USING (auth.uid() = user_id);
+
+-- Index for fast date range lookup per user
+CREATE INDEX IF NOT EXISTS idx_daily_savings_log_user_date 
+ON public.daily_savings_log (user_id, date);
+

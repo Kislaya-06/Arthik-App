@@ -25,13 +25,14 @@ import {
   SquarePen,
 } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
-import { format, isYesterday, parseISO } from 'date-fns';
+import { format, isYesterday, parseISO, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
 
 import { useDailyBudgetStore, DailyRecord } from '../store/dailyBudgetStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
-import { formatCurrency } from '../lib/formatters';
+import { formatCurrency, formatAmountWithCommas, cleanAmountString } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { StreakCalendarModal } from '../components/StreakCalendarModal';
 
 const FILTERS = ['All', 'This Week', 'This Month'] as const;
 type Filter = (typeof FILTERS)[number];
@@ -161,11 +162,13 @@ export const SavingsScreen: React.FC = () => {
   const setTodayBudget = useDailyBudgetStore((s) => s.setTodayBudget);
   const addToTodayBudget = useDailyBudgetStore((s) => s.addToTodayBudget);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
+  const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
   const getPastRecordsList = useDailyBudgetStore((s) => s.getPastRecordsList);
 
   // Modal states
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
   const [inputBudget, setInputBudget] = useState('');
   const [modalMode, setModalMode] = useState<'recurring' | 'today'>('recurring');
   const [activeFilter, setActiveFilter] = useState<Filter>('All');
@@ -178,10 +181,10 @@ export const SavingsScreen: React.FC = () => {
     }, [fetchExpenses, syncWithExpenses])
   );
 
-  const todayRecord = getTodayRecord();
-  const pastRecords = getPastRecordsList();
+  const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, dailyRecords]);
+  const pastRecords = useMemo(() => getPastRecordsList(), [getPastRecordsList, dailyRecords]);
 
-  // Filter past records with memoization
+  // Filter past records with memoization (Week strictly starts Monday, Month strictly starts on 1st)
   const filteredRecords = useMemo(() => {
     if (activeFilter === 'All') return pastRecords;
     const now = new Date();
@@ -190,22 +193,22 @@ export const SavingsScreen: React.FC = () => {
       try {
         const d = parseISO(rec.date);
         if (activeFilter === 'This Week') {
-          const diffDays = (now.getTime() - d.getTime()) / 86400000;
-          return diffDays >= 0 && diffDays <= 7;
+          return isSameWeek(d, now, { weekStartsOn: 1 });
         } else if (activeFilter === 'This Month') {
-          return (
-            d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-          );
+          return isSameMonth(d, now) && isSameYear(d, now);
         }
       } catch {
-        return true;
+        return false;
       }
       return true;
     });
   }, [pastRecords, activeFilter]);
 
   // Today calculations
-  const savedDaysCount = pastRecords.filter((r) => r.saved > 0).length;
+  const savedDaysCount = pastRecords.filter((r) => r.isFinalized && r.saved > 0).length;
+  // Guard: if savedDaysCount === 0, streak and bestStreak must be 0
+  const effectiveStreak = savedDaysCount === 0 ? 0 : savingsStreak;
+  const effectiveBestStreak = savedDaysCount === 0 ? 0 : bestStreak;
   const todayBudget = todayRecord.budget;
   const todaySpent = todayRecord.spent;
   const todayRemaining = Math.max(0, todayBudget - todaySpent);
@@ -215,16 +218,16 @@ export const SavingsScreen: React.FC = () => {
 
   const handleOpenBudgetModal = useCallback((mode: 'recurring' | 'today') => {
     setModalMode(mode);
-    setInputBudget(
+    const rawVal =
       mode === 'recurring'
         ? String(dailyBudgetAmount)
-        : String(todayBudget > 0 ? todayBudget : dailyBudgetAmount)
-    );
+        : String(todayBudget > 0 ? todayBudget : dailyBudgetAmount);
+    setInputBudget(formatAmountWithCommas(rawVal));
     setBudgetModalVisible(true);
   }, [dailyBudgetAmount, todayBudget]);
 
   const handleSaveBudget = useCallback(() => {
-    const num = parseFloat(inputBudget);
+    const num = parseFloat(cleanAmountString(inputBudget));
     if (!isNaN(num) && num >= 0) {
       if (modalMode === 'recurring') {
         setDailyBudget(num);
@@ -267,8 +270,10 @@ export const SavingsScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* Streak Badge (Bonus Feature #2) */}
-          <View
+          {/* Streak Badge (Bonus Feature #2 - Tappable for Calendar) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setStreakCalendarVisible(true)}
             style={[
               styles.streakBadge,
               {
@@ -279,9 +284,9 @@ export const SavingsScreen: React.FC = () => {
           >
             <Flame size={18} color="#E05638" />
             <Text style={[styles.streakBadgeText, { color: '#E05638' }]}>
-              {savingsStreak} Day Streak
+              {effectiveStreak} Day Streak
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* ── Hero Card: Total Accumulated Savings ── */}
@@ -342,7 +347,7 @@ export const SavingsScreen: React.FC = () => {
                   Best Streak
                 </Text>
                 <Text style={[styles.heroStatValue, { color: colors.textPrimary }]}>
-                  {bestStreak} {bestStreak === 1 ? 'Day' : 'Days'}
+                  {effectiveBestStreak} {effectiveBestStreak === 1 ? 'Day' : 'Days'}
                 </Text>
               </View>
             </View>
@@ -691,7 +696,7 @@ export const SavingsScreen: React.FC = () => {
                 style={[styles.modalTextInput, { color: colors.textPrimary }]}
                 keyboardType="numeric"
                 value={inputBudget}
-                onChangeText={setInputBudget}
+                onChangeText={(val) => setInputBudget(formatAmountWithCommas(val))}
                 placeholder="500"
                 placeholderTextColor={colors.textSecondary}
                 autoFocus
@@ -721,6 +726,12 @@ export const SavingsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* ── Interactive Streak Calendar Modal ── */}
+      <StreakCalendarModal
+        visible={streakCalendarVisible}
+        onClose={() => setStreakCalendarVisible(false)}
+      />
     </View>
   );
 };

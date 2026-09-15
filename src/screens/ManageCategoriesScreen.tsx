@@ -32,7 +32,9 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
   const categoryExpenseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     expenses.forEach(exp => {
-      counts[exp.category_id] = (counts[exp.category_id] || 0) + 1;
+      if (exp.category_id) {
+        counts[exp.category_id] = (counts[exp.category_id] || 0) + 1;
+      }
     });
     return counts;
   }, [expenses]);

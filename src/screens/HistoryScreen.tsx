@@ -39,10 +39,11 @@ interface TransactionRowItemProps {
 }
 
 const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
-  const categoryName = category?.name || 'Unknown';
-  const categoryColor = category?.color || '#F4B8AE';
+  const isIncome = item.type === 'income' || (category ? ['salary', 'income', 'freelance', 'business'].some(k => category.name.toLowerCase().includes(k)) : false);
+  const categoryName = category?.name || (isIncome ? 'Money Added' : 'Unknown');
+  const categoryColor = category?.color || (isIncome ? colors.mintGreen : '#F4B8AE');
   const categoryBgColor = categoryColor + '33';
-  const IconComp = getCategoryIcon(category?.icon || '');
+  const IconComp = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
   const PaymentIcon = getPaymentIcon(item.payment_mode);
   const paymentLabel = getPaymentLabel(item.payment_mode);
 
@@ -66,8 +67,8 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
         )}
       </View>
       <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-          −₹{item.amount.toLocaleString('en-IN')}
+        <Text style={[styles.transactionAmount, { color: isIncome ? (colors.isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          {isIncome ? `+₹${item.amount.toLocaleString('en-IN')}` : `−₹${item.amount.toLocaleString('en-IN')}`}
         </Text>
         <View style={styles.paymentModeRow}>
           <PaymentIcon size={12} color={colors.textSecondary} />
@@ -116,8 +117,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     if (searchQuery.trim()) {
       const lowerQuery = searchQuery.toLowerCase();
       filtered = filtered.filter(e => {
-        const category = categoryMap.get(e.category_id);
-        const categoryName = category?.name?.toLowerCase() || '';
+        const category = e.category_id ? categoryMap.get(e.category_id) : undefined;
+        const categoryName = category?.name?.toLowerCase() || (e.type === 'income' ? 'money added' : '');
         const note = e.note?.toLowerCase() || '';
         return categoryName.includes(lowerQuery) || note.includes(lowerQuery);
       });
@@ -144,7 +145,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
       if (isToday(dateObj)) title = 'TODAY';
       else if (isYesterday(dateObj)) title = 'YESTERDAY';
 
-      return { title, total: totals[dateStr], data: grouped[dateStr] };
+      const sortedData = [...grouped[dateStr]].sort((a, b) =>
+        (b.created_at || '').localeCompare(a.created_at || '')
+      );
+
+      return { title, total: totals[dateStr], data: sortedData };
     });
   }, [expenses, categoryMap, selectedCategoryId, searchQuery]);
 
@@ -166,7 +171,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
   const renderItem = useCallback(({ item }: { item: Expense }) => (
     <TransactionRowItem
       item={item}
-      category={categoryMap.get(item.category_id)}
+      category={item.category_id ? categoryMap.get(item.category_id) : undefined}
       onPress={handleItemPress}
       colors={colors}
     />

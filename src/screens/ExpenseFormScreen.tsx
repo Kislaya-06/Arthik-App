@@ -18,7 +18,7 @@ import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
-import { formatDate } from '../lib/formatters';
+import { formatDate, formatAmountWithCommas } from '../lib/formatters';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { useTheme } from '../store/themeStore';
 
@@ -27,11 +27,207 @@ type Props =
   | NativeStackScreenProps<RootStackParamList, 'AddExpense'>
   | NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
 
-const PAYMENT_OPTIONS = [
+const PAYMENT_PADDING = 5;
+
+const EXPENSE_PAYMENT_OPTIONS = [
   { mode: 'cash' as const, label: 'Cash', Icon: Wallet },
   { mode: 'upi' as const, label: 'UPI', Icon: CheckSquare },
   { mode: 'card' as const, label: 'Card', Icon: CreditCard },
 ];
+
+const INCOME_PAYMENT_OPTIONS = [
+  { mode: 'cash' as const, label: 'Cash', Icon: Wallet },
+  { mode: 'upi' as const, label: 'UPI', Icon: CheckSquare },
+];
+
+const MAX_NOTE_WORDS = 50;
+const MAX_NOTE_CHARS = 250;
+
+const countWords = (text: string) => {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+};
+
+interface TypeSegmentItemProps {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+const TypeSegmentItem: React.FC<TypeSegmentItemProps> = ({
+  label,
+  isActive,
+  onPress,
+}) => {
+  const { colors } = useTheme();
+  const activeAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(activeAnim, {
+      toValue: isActive ? 1 : 0,
+      duration: 180,
+      useNativeDriver: false,
+    }).start();
+  }, [isActive]);
+
+  const handlePressIn = () => {
+    Animated.spring(pressScale, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressScale, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const textColor = activeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.textSecondary, colors.forestGreen],
+  });
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.typeToggleSegment}
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+    >
+      <Animated.View
+        style={[
+          styles.typeSegmentContent,
+          { transform: [{ scale: pressScale }] },
+        ]}
+      >
+        <Animated.Text
+          numberOfLines={1}
+          style={[
+            styles.typeToggleText,
+            {
+              color: textColor,
+              fontFamily: 'Quicksand_700Bold',
+            },
+          ]}
+        >
+          {label}
+        </Animated.Text>
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+interface BouncyTypeToggleProps {
+  value: 'expense' | 'income';
+  onChange: (type: 'expense' | 'income') => void;
+}
+
+const TYPE_OPTIONS: { type: 'expense' | 'income'; label: string }[] = [
+  { type: 'expense', label: 'Expense' },
+  { type: 'income', label: 'Add Money' },
+];
+
+const BouncyTypeToggle: React.FC<BouncyTypeToggleProps> = ({ value, onChange }) => {
+  const { colors } = useTheme();
+  const initialWidth = Dimensions.get('window').width - 48;
+  const [containerWidth, setContainerWidth] = useState(initialWidth);
+  const activeIndex = value === 'expense' ? 0 : 1;
+  const slideAnim = useRef(new Animated.Value(activeIndex)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: activeIndex,
+      tension: 70,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [activeIndex]);
+
+  const innerWidth = containerWidth > 0 ? containerWidth - PAYMENT_PADDING * 2 : 0;
+  const segmentWidth = innerWidth > 0 ? innerWidth / 2 : 0;
+
+  const translateX = slideAnim.interpolate({
+    inputRange: [-0.2, 0, 1, 1.2],
+    outputRange: [-2, 0, segmentWidth, segmentWidth + 2],
+    extrapolate: 'clamp',
+  });
+
+  const expensePillOpacity = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const incomePillOpacity = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0 && Math.abs(w - containerWidth) > 1) {
+          setContainerWidth(w);
+        }
+      }}
+      style={[
+        styles.typeToggleContainer,
+        { backgroundColor: colors.inputBg, padding: PAYMENT_PADDING },
+      ]}
+    >
+      {/* Gliding Pill with Peach-Coral (Expense) and Mint-Green (Add Money) crossfade */}
+      {segmentWidth > 0 && (
+        <Animated.View
+          style={[
+            styles.paymentSlidingPill,
+            {
+              width: segmentWidth,
+              transform: [{ translateX }],
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                borderRadius: 9999,
+                backgroundColor: colors.peachCoral,
+                opacity: expensePillOpacity,
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                borderRadius: 9999,
+                backgroundColor: colors.mintGreen,
+                opacity: incomePillOpacity,
+              },
+            ]}
+          />
+        </Animated.View>
+      )}
+
+      {/* Segments: Expense and Add Money */}
+      {TYPE_OPTIONS.map((opt) => (
+        <TypeSegmentItem
+          key={opt.type}
+          label={opt.label}
+          isActive={value === opt.type}
+          onPress={() => onChange(opt.type)}
+        />
+      ))}
+    </View>
+  );
+};
 
 interface PaymentSegmentItemProps {
   label: string;
@@ -91,11 +287,12 @@ const PaymentSegmentItem: React.FC<PaymentSegmentItemProps> = ({
         <View style={styles.paymentLabelRow}>
           <Icon size={16} color={colors.textSecondary} />
           <Text
+            numberOfLines={1}
             style={[
               styles.paymentToggleText,
               {
                 color: colors.textSecondary,
-                fontFamily: 'Quicksand_600SemiBold',
+                fontFamily: 'Quicksand_700Bold',
               },
             ]}
           >
@@ -103,7 +300,7 @@ const PaymentSegmentItem: React.FC<PaymentSegmentItemProps> = ({
           </Text>
         </View>
 
-        {/* Active Layer: dark green text & icon with crossfade opacity */}
+        {/* Active Layer: dark navy text & icon with crossfade opacity */}
         <Animated.View
           style={[
             styles.paymentLabelRow,
@@ -114,6 +311,7 @@ const PaymentSegmentItem: React.FC<PaymentSegmentItemProps> = ({
         >
           <Icon size={16} color={colors.forestGreen} />
           <Text
+            numberOfLines={1}
             style={[
               styles.paymentToggleText,
               {
@@ -133,16 +331,22 @@ const PaymentSegmentItem: React.FC<PaymentSegmentItemProps> = ({
 interface BouncyPaymentToggleProps {
   value: 'cash' | 'upi' | 'card';
   onChange: (mode: 'cash' | 'upi' | 'card') => void;
+  options: { mode: 'cash' | 'upi' | 'card'; label: string; Icon: any }[];
+  activeColor: string;
 }
 
-const PAYMENT_PADDING = 5;
-
-const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({ value, onChange }) => {
+const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({
+  value,
+  onChange,
+  options,
+  activeColor,
+}) => {
   const { colors } = useTheme();
-  const initialWidth = Dimensions.get('window').width - 40;
+  const initialWidth = Dimensions.get('window').width - 48;
   const [containerWidth, setContainerWidth] = useState(initialWidth);
-  const activeIndex = PAYMENT_OPTIONS.findIndex(opt => opt.mode === value);
-  const slideAnim = useRef(new Animated.Value(activeIndex >= 0 ? activeIndex : 1)).current;
+  const count = options.length;
+  const activeIndex = options.findIndex((opt) => opt.mode === value);
+  const slideAnim = useRef(new Animated.Value(activeIndex >= 0 ? activeIndex : 0)).current;
 
   useEffect(() => {
     if (activeIndex >= 0) {
@@ -156,11 +360,14 @@ const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({ value, onChan
   }, [activeIndex]);
 
   const innerWidth = containerWidth > 0 ? containerWidth - PAYMENT_PADDING * 2 : 0;
-  const segmentWidth = innerWidth > 0 ? innerWidth / 3 : 0;
+  const segmentWidth = innerWidth > 0 && count > 0 ? innerWidth / count : 0;
+
+  const inputRange = [-0.2, ...options.map((_, i) => i), count - 1 + 0.2];
+  const outputRange = [-2, ...options.map((_, i) => i * segmentWidth), (count - 1) * segmentWidth + 2];
 
   const translateX = slideAnim.interpolate({
-    inputRange: [-0.2, 0, 1, 2, 2.2],
-    outputRange: [-2, 0, segmentWidth, segmentWidth * 2, segmentWidth * 2 + 2],
+    inputRange,
+    outputRange,
     extrapolate: 'clamp',
   });
 
@@ -177,22 +384,22 @@ const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({ value, onChan
         { backgroundColor: colors.inputBg, padding: PAYMENT_PADDING },
       ]}
     >
-      {/* Sliding Bouncy Peach Coral Pill */}
+      {/* Sliding Bouncy Pill */}
       {segmentWidth > 0 && (
         <Animated.View
           style={[
             styles.paymentSlidingPill,
             {
               width: segmentWidth,
-              backgroundColor: colors.peachCoral,
+              backgroundColor: activeColor,
               transform: [{ translateX }],
             },
           ]}
         />
       )}
 
-      {/* 3 Segments: Cash, UPI, Card */}
-      {PAYMENT_OPTIONS.map(({ mode, label, Icon }) => {
+      {/* Segments */}
+      {options.map(({ mode, label, Icon }) => {
         const isActive = value === mode;
         return (
           <PaymentSegmentItem
@@ -221,6 +428,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const addExpense = useExpenseStore((s) => s.addExpense);
   const updateExpense = useExpenseStore((s) => s.updateExpense);
+  const transactionType = useExpenseStore((s) => s.transactionType);
+  const setTransactionType = useExpenseStore((s) => s.setTransactionType);
   // expenses is only read in edit mode to pre-fill the form
   const expenses = useExpenseStore((s) => s.expenses);
   const categories = useCategoryStore((s) => s.categories);
@@ -243,6 +452,16 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
   const [isKeypadVisible, setIsKeypadVisible] = useState(true);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  const handleNoteChange = (text: string) => {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length > MAX_NOTE_WORDS) {
+      const clamped = text.split(/\s+/).slice(0, MAX_NOTE_WORDS).join(' ');
+      setNote(clamped);
+    } else {
+      setNote(text);
+    }
+  };
 
   // ─── Keyboard listeners ───────────────────────────────────────────────────
   // Using requestAnimationFrame so the scroll fires AFTER the layout has
@@ -282,16 +501,42 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // ─── Pre-fill form when editing an existing expense ───────────────────────
   useEffect(() => {
-    if (!isEdit || !expenseId) return;
+    if (!isEdit || !expenseId) {
+      setTransactionType('expense');
+      return;
+    }
     const currentExpense = expenses.find((e) => e.id === expenseId);
     if (currentExpense) {
       setAmount(currentExpense.amount.toString());
-      setSelectedCategoryId(currentExpense.category_id);
+      setSelectedCategoryId(currentExpense.category_id || null);
       setNote(currentExpense.note || '');
       setSelectedDate(parseISO(currentExpense.expense_date));
       setPaymentMode(currentExpense.payment_mode);
+      if (currentExpense.type) {
+        setTransactionType(currentExpense.type);
+      } else {
+        const cat = categories.find((c) => c.id === currentExpense.category_id);
+        const isIncome = cat
+          ? ['salary', 'income', 'freelance', 'business'].some((k) =>
+              cat.name.toLowerCase().includes(k)
+            )
+          : false;
+        setTransactionType(isIncome ? 'income' : 'expense');
+      }
     }
-  }, [isEdit, expenseId, expenses]);
+  }, [isEdit, expenseId, expenses, categories, setTransactionType]);
+
+  // ─── Toggle transaction type handler ──────────────────────────────────────
+  const handleTypeChange = useCallback(
+    (type: 'expense' | 'income') => {
+      setTransactionType(type);
+      // Auto-fallback: Card is excluded in Add Money mode
+      if (type === 'income' && paymentMode === 'card') {
+        setPaymentMode('upi');
+      }
+    },
+    [setTransactionType, paymentMode]
+  );
 
   // ─── Keypad handler ───────────────────────────────────────────────────────
   const handleKeyPress = useCallback((val: string) => {
@@ -314,24 +559,55 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async () => {
     const numAmount = parseFloat(amount);
-    if (numAmount > 0 && selectedCategoryId) {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      if (isEdit && expenseId) {
-        await updateExpense(expenseId, numAmount, selectedCategoryId, note, paymentMode, dateStr);
-      } else {
-        await addExpense(numAmount, selectedCategoryId, note, paymentMode, dateStr);
-      }
-      // Keep daily budget and smart notifications in sync
-      const currentExpenses = useExpenseStore.getState().expenses;
-      useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
+    const isValid =
+      numAmount > 0 && (transactionType === 'income' || selectedCategoryId !== null);
+    if (!isValid) return;
 
-      navigation.goBack();
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const incomeCat = categories.find((c) =>
+      ['salary', 'income', 'freelance', 'business'].some((k) =>
+        c.name.toLowerCase().includes(k)
+      )
+    );
+    const categoryIdToSave =
+      transactionType === 'income' ? (incomeCat?.id || null) : selectedCategoryId;
+
+    const trimmedNote = note.trim();
+    const clampedNote = trimmedNote
+      ? trimmedNote.split(/\s+/).slice(0, MAX_NOTE_WORDS).join(' ').slice(0, MAX_NOTE_CHARS)
+      : '';
+
+    if (isEdit && expenseId) {
+      await updateExpense(
+        expenseId,
+        numAmount,
+        categoryIdToSave,
+        clampedNote,
+        paymentMode,
+        dateStr,
+        transactionType
+      );
+    } else {
+      await addExpense(
+        numAmount,
+        categoryIdToSave,
+        clampedNote,
+        paymentMode,
+        dateStr,
+        transactionType
+      );
     }
+    // Keep daily budget and smart notifications in sync
+    const currentExpenses = useExpenseStore.getState().expenses;
+    useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
+
+    navigation.goBack();
   };
 
   const formattedDate = formatDate(selectedDate, true);
   const numAmount = parseFloat(amount || '0');
-  const isSaveEnabled = numAmount > 0 && selectedCategoryId !== null;
+  const isSaveEnabled =
+    numAmount > 0 && (transactionType === 'income' || selectedCategoryId !== null);
 
   return (
     <KeyboardAvoidingView
@@ -351,8 +627,16 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-          {isEdit ? 'Edit Expense' : 'Add Expense'}
+          {isEdit ? 'Edit Expense' : 'Add Transaction'}
         </Text>
+      </View>
+
+      {/* ── Transaction Type Segmented Toggle ── */}
+      <View style={[styles.typeToggleWrapper, isKeyboardOpen && styles.typeToggleWrapperCompact]}>
+        <BouncyTypeToggle
+          value={transactionType}
+          onChange={handleTypeChange}
+        />
       </View>
 
       {/* ── Amount Display ── */}
@@ -379,6 +663,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             ₹
           </Text>
           <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
             style={[
               styles.amountValue,
               isKeyboardOpen && styles.amountValueCompact,
@@ -386,7 +672,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               { fontFamily: 'Quicksand_700Bold' },
             ]}
           >
-            {amount || '0'}
+            {formatAmountWithCommas(amount) || '0'}
           </Text>
         </View>
         <View
@@ -405,46 +691,50 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Category Selector */}
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
-          CATEGORY
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
-          style={styles.categoryScroll}
-        >
-          <View style={styles.categoryList}>
-            {categories.map((cat: Category) => {
-              const isSelected = selectedCategoryId === cat.id;
-              const IconComp = getCategoryIcon(cat.icon);
-              return (
-                <Pressable
-                  key={cat.id}
-                  onPress={() => setSelectedCategoryId(cat.id)}
-                  style={[
-                    styles.categoryChip,
-                    isSelected
-                      ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
-                      : { backgroundColor: colors.card, borderColor: colors.border },
-                  ]}
-                >
-                  <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      { color: isSelected ? colors.forestGreen : colors.textPrimary },
-                      { fontFamily: 'Quicksand_700Bold' },
-                    ]}
-                  >
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </ScrollView>
+        {/* Category Selector (Expense mode only) */}
+        {transactionType === 'expense' && (
+          <>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+              CATEGORY
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="always"
+              style={styles.categoryScroll}
+            >
+              <View style={styles.categoryList}>
+                {categories.map((cat: Category) => {
+                  const isSelected = selectedCategoryId === cat.id;
+                  const IconComp = getCategoryIcon(cat.icon);
+                  return (
+                    <Pressable
+                      key={cat.id}
+                      onPress={() => setSelectedCategoryId(cat.id)}
+                      style={[
+                        styles.categoryChip,
+                        isSelected
+                          ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
+                          : { backgroundColor: colors.card, borderColor: colors.border },
+                      ]}
+                    >
+                      <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          { color: isSelected ? colors.forestGreen : colors.textPrimary },
+                          { fontFamily: 'Quicksand_700Bold' },
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </>
+        )}
 
         {/* Note Input — onLayout tracks Y for keyboard-scroll */}
         <View
@@ -452,9 +742,31 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             noteSectionY.current = e.nativeEvent.layout.y;
           }}
         >
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
-            NOTE (OPTIONAL)
-          </Text>
+          <View style={styles.sectionLabelRow}>
+            <Text
+              style={[
+                styles.sectionLabel,
+                styles.sectionLabelNoMargin,
+                { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' },
+              ]}
+            >
+              NOTE (OPTIONAL)
+            </Text>
+            <Text
+              style={[
+                styles.noteCounterText,
+                {
+                  color:
+                    countWords(note) >= MAX_NOTE_WORDS || note.length >= MAX_NOTE_CHARS
+                      ? colors.peachCoral
+                      : colors.textMuted,
+                  fontFamily: 'Quicksand_600SemiBold',
+                },
+              ]}
+            >
+              {countWords(note)}/{MAX_NOTE_WORDS} words
+            </Text>
+          </View>
           <Pressable
             style={[styles.inputContainer, { backgroundColor: colors.inputBg }]}
             onPress={() => noteInputRef.current?.focus()}
@@ -462,7 +774,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             <TextInput
               ref={noteInputRef}
               value={note}
-              onChangeText={setNote}
+              onChangeText={handleNoteChange}
+              maxLength={MAX_NOTE_CHARS}
               placeholder="Add a note..."
               placeholderTextColor={colors.textMuted}
               keyboardAppearance={isDark ? 'dark' : 'light'}
@@ -507,13 +820,15 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           onClose={() => setShowDatePicker(false)}
         />
 
-        {/* Paid Via Toggle */}
+        {/* Paid Via / Added Via Toggle */}
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
-          PAID VIA
+          {transactionType === 'income' ? 'MONEY ADDED VIA' : 'PAID VIA'}
         </Text>
         <BouncyPaymentToggle
           value={paymentMode}
           onChange={(mode) => setPaymentMode(mode)}
+          options={transactionType === 'income' ? INCOME_PAYMENT_OPTIONS : EXPENSE_PAYMENT_OPTIONS}
+          activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
         />
       </ScrollView>
 
@@ -573,7 +888,9 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               },
             ]}
           >
-            {isEdit ? 'Update Expense' : 'Save Expense'}
+            {isEdit
+              ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
+              : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
           </Text>
         </Pressable>
       </View>
@@ -598,6 +915,39 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
+  },
+  typeToggleWrapper: {
+    paddingHorizontal: 24,
+    marginTop: 18,
+  },
+  typeToggleWrapperCompact: {
+    marginTop: 8,
+  },
+  typeToggleContainer: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 9999,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  typeToggleSegment: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  typeSegmentContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  typeToggleText: {
+    fontSize: 16,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    letterSpacing: 0.2,
   },
   amountContainer: {
     alignItems: 'center',
@@ -641,6 +991,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: 12,
+  },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionLabelNoMargin: {
+    marginBottom: 0,
+  },
+  noteCounterText: {
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
   categoryScroll: {
     flexDirection: 'row',

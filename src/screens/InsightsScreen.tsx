@@ -106,10 +106,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     const catTotals: Record<string, number> = {};
 
     expenses.forEach(exp => {
+      if (exp.type === 'income') return;
       const expDate = parseISO(exp.expense_date);
       if (isWithinInterval(expDate, currentInterval)) {
         currTotal += exp.amount;
-        catTotals[exp.category_id] = (catTotals[exp.category_id] || 0) + exp.amount;
+        if (exp.category_id) {
+          catTotals[exp.category_id] = (catTotals[exp.category_id] || 0) + exp.amount;
+        }
       } else if (isWithinInterval(expDate, previousInterval)) {
         prevTotal += exp.amount;
       }

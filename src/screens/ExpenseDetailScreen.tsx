@@ -72,14 +72,15 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     navigation.navigate('EditExpense', { expenseId: expense.id });
   };
 
-  const CategoryIcon = getCategoryIcon(category?.icon || '');
+  const isIncome = expense.type === 'income' || (category ? ['salary', 'income', 'freelance', 'business'].some(k => category.name.toLowerCase().includes(k)) : false);
+  const CategoryIcon = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
   const PaymentIcon = getPaymentIcon(expense.payment_mode);
   const paymentLabel = getPaymentLabel(expense.payment_mode);
 
   const formattedDate = expense.expense_date
     ? format(parseISO(expense.expense_date), 'd MMM yyyy')
     : '';
-  const categoryColor = category?.color || '#F4B8AE';
+  const categoryColor = category?.color || (isIncome ? colors.mintGreen : '#F4B8AE');
   const categoryBgColor = categoryColor + '33';
 
   return (
@@ -94,7 +95,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <ArrowLeft size={24} color={colors.textPrimary} />
             </Pressable>
             <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-              Expense Detail
+              {isIncome ? 'Transaction Detail' : 'Expense Detail'}
             </Text>
           </View>
           <View style={styles.headerRight}>
@@ -121,7 +122,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <CategoryIcon size={44} color={categoryColor} />
             </View>
             <Text style={[styles.badgeText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
-              {category?.name || 'Unknown'}
+              {category?.name || (isIncome ? 'Money Added' : 'Unknown')}
             </Text>
           </View>
 
@@ -137,9 +138,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
-            <View style={[styles.typeBadgePill, { backgroundColor: colors.peachSoft }]}>
-              <Text style={[styles.typeBadgeText, { color: isDark ? colors.peachCoral : '#D97757', fontFamily: 'Quicksand_700Bold' }]}>
-                EXPENSE
+            <View style={[styles.typeBadgePill, { backgroundColor: isIncome ? colors.mintGreenSoft : colors.peachSoft }]}>
+              <Text style={[styles.typeBadgeText, { color: isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : (isDark ? colors.peachCoral : '#D97757'), fontFamily: 'Quicksand_700Bold' }]}>
+                {isIncome ? 'INCOME' : 'EXPENSE'}
               </Text>
             </View>
           </View>
@@ -161,7 +162,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
             {/* Paid Via Row */}
             <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
-              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Paid via</Text>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+                {isIncome ? 'Added via' : 'Paid via'}
+              </Text>
               <View style={styles.paidViaContainer}>
                 <PaymentIcon size={14} color={colors.textPrimary} />
                 <Text style={[styles.cardValue, { color: colors.textPrimary, marginLeft: 6, fontFamily: 'Quicksand_700Bold' }]}>
@@ -174,7 +177,11 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={[styles.cardRow, styles.cardRowLast, styles.noteRow]}>
               <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Note</Text>
               {expense.note ? (
-                <Text style={[styles.noteValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+                <Text
+                  style={[styles.noteValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}
+                  numberOfLines={4}
+                  ellipsizeMode="tail"
+                >
                   {expense.note}
                 </Text>
               ) : (

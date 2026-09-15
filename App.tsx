@@ -12,6 +12,7 @@ import { supabase } from './src/config/supabase';
 import { useAuthStore } from './src/store/authStore';
 import { useCategoryStore } from './src/store/categoryStore';
 import { useExpenseStore } from './src/store/expenseStore';
+import { useDailyBudgetStore } from './src/store/dailyBudgetStore';
 import {
   setupNotifications,
   scheduleDailyReminder,
@@ -96,12 +97,19 @@ export default function App() {
     // Global Auth Listener
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user?.id) {
+        useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       await setSession(session);
-      if (session) {
-        await Promise.all([fetchCategories(true), fetchExpenses()]);
+      if (session?.user?.id) {
+        await Promise.all([
+          fetchCategories(true),
+          fetchExpenses(),
+          useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id),
+        ]);
       }
       if (event === 'PASSWORD_RECOVERY') {
         navigateTo('ResetPassword');

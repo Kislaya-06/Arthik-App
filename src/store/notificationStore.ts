@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { registerStoreResetCallback } from './authStore';
 
 export type NotificationType =
   | 'budget_warning'
@@ -86,3 +87,9 @@ export const useNotificationStore = create<NotificationState>()(
     }
   )
 );
+
+registerStoreResetCallback(() => {
+  useNotificationStore.getState().clearNotifications();
+  AsyncStorage.removeItem('arthik-notifications-storage-v2').catch(() => {});
+});
+

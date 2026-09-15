@@ -7,6 +7,8 @@ export interface Profile {
   first_name: string;
   last_name?: string;
   email: string;
+  daily_budget?: number;
+  is_auto_renew?: boolean;
 }
 
 interface AuthState {
@@ -17,7 +19,11 @@ interface AuthState {
   initialized: boolean;
   setSession: (session: Session | null) => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (firstName: string, lastName?: string) => Promise<void>;
+  updateProfile: (
+    firstName?: string,
+    lastName?: string,
+    settings?: { daily_budget?: number; is_auto_renew?: boolean }
+  ) => Promise<void>;
 }
 
 type ResetCallback = () => void;
@@ -37,6 +43,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setSession: async (session) => {
     if (!session) {
+      if (get().user) {
+        resetCallbacks.forEach((cb) => {
+          try {
+            cb();
+          } catch (err) {
+            console.error('Error running store reset callback:', err);
+          }
+        });
+      }
       set({ session: null, user: null, profile: null, loading: false, initialized: true });
       return;
     }
@@ -81,7 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ session: null, user: null, profile: null, loading: false });
   },
 
-  updateProfile: async (firstName: string, lastName?: string) => {
+  updateProfile: async (firstName?: string, lastName?: string, settings?: { daily_budget?: number; is_auto_renew?: boolean }) => {
     const { user, profile } = get();
     if (!user) return;
 
@@ -89,9 +104,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const updatedProfile: Profile = {
       id: user.id,
-      first_name: firstName,
-      last_name: lastName || '',
+      first_name: firstName ?? profile?.first_name ?? '',
+      last_name: lastName !== undefined ? lastName : (profile?.last_name || ''),
       email: user.email || profile?.email || '',
+      daily_budget: settings?.daily_budget !== undefined ? settings.daily_budget : profile?.daily_budget,
+      is_auto_renew: settings?.is_auto_renew !== undefined ? settings.is_auto_renew : profile?.is_auto_renew,
     };
 
 
