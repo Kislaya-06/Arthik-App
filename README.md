@@ -1,11 +1,12 @@
 # Arthik
 
-> A premium personal expense tracker built with React Native & Supabase
+> A premium, offline-first personal expense tracker built with React Native, Expo & Supabase
 
 [![React Native](https://img.shields.io/badge/React_Native-0.86-blue.svg)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
+[![Version](https://img.shields.io/badge/Version-1.2.1-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -15,8 +16,8 @@
 **Arthik is distributed as a direct APK — no Play Store needed.**
 
 1. Go to the [**Releases**](../../releases) section of this repository
-2. Open the **latest release**
-3. Under **Assets**, tap/click `arthik-v1.0.0.apk` to download
+2. Open the **latest release** (e.g. `v1.2.1`)
+3. Under **Assets**, tap/click `arthik-v1.2.1.apk` to download
 4. On your Android phone:
    - Open the downloaded file
    - If prompted, tap **"Install anyway"** (since it's not from the Play Store)
@@ -30,58 +31,55 @@
 
 ## ✨ Features
 
-- **Secure Authentication** — Email/password signup & login, Google OAuth, and password reset via email
-- **Unified Expense Form (`ExpenseFormScreen`)** — Single consolidated, adaptive component handling both expense creation and modification with seamless auto-focus and state hydration
-- **Custom In-App Number Keypad** — Fast, tactile expense entry with animated pill-shaped numeric keys and backspace
-- **Theme-Aware Custom Date Picker** — Fully custom in-app calendar modal with quick "Today" and "Yesterday" pill shortcuts, seamlessly integrated with Arthik's dark/light design system
-- **Expense Management** — Add, edit, view, and delete expenses with full real-time state synchronization
-- **Categories** — Pre-loaded default categories + create fully custom ones with your own icon and color
-- **Dashboard** — Snapshot of monthly spending with zero-state aware donut chart and recent transactions
-- **History** — Full searchable and filterable expense history, grouped by date
-- **Insights** — Visual spending breakdowns by category with weekly, monthly, and yearly trends
-- **Payment Modes** — Track whether each expense was Cash, UPI, or Card with streamlined pill toggles
-- **Profile** — Edit your name, manage categories, toggle dark mode, and logout securely
-- **Timezone-Safe Date Storage** — Strict ISO parsing eliminating off-by-one date shifts
-- **Cloud Sync & Clean Cache** — Stored securely in Supabase with memory lifecycle management across sessions
+- **📶 Offline-First Architecture** — Full offline capability; log, edit, or delete expenses with zero network latency. Pending changes are queued in `AsyncStorage` and automatically synced to Supabase upon reconnect.
+- **🛡️ App-Wide Error Boundary** — Catches unexpected React rendering crashes gracefully, presenting a modern recovery UI with instant restart/retry controls.
+- **🐷 Smart Gullak (Daily Budget & Savings)** — Daily allowance budgeting, automated savings rollover, streak calendar tracking, and real-time overspending deduction from accumulated savings.
+- **🔒 Secure Authentication** — Email/password signup & login, Google OAuth, session persistence, and password reset via email deep links.
+- **📝 Unified Expense Form (`ExpenseFormScreen`)** — Single consolidated, adaptive component handling both expense creation and modification with auto-focus and state hydration.
+- **🔢 Custom In-App Number Keypad** — Fast, tactile expense entry with spring-animated pill-shaped numeric keys and backspace.
+- **📅 Theme-Aware Custom Date Picker** — Proprietary in-app calendar modal with quick "Today" and "Yesterday" pill shortcuts, seamlessly integrated with Arthik's dark/light design system.
+- **📊 Real-Time Dashboard** — Instant spending overview with dynamic greeting typography, zero-state aware donut chart, remaining allowance tracking, and recent transactions.
+- **🏷️ Flexible Categories** — Pre-loaded default categories + create fully custom categories with custom icons and curated hex colors.
+- **📜 Searchable History** — Full searchable and filterable expense history, categorized and grouped chronologically.
+- **📈 Visual Spending Insights** — Breakdown of spending habits by category with weekly, monthly, and yearly analytical trends.
+- **💳 Payment Modes** — Track whether each transaction was Cash, UPI, or Card with spring-calibrated pill toggles.
+- **🔔 Smart Reminders** — Daily evening reminder notifications with contextual deep linking directly to Savings and Notification hubs.
+- **🌐 Strict Timezone-Safe Storage** — Direct ISO string date parsing eliminating off-by-one date shifts across timezones.
+
+---
+
+## ⚡ Architecture & Optimization Highlights
+
+Recent deep engineering updates ensuring robust performance, offline resilience, and clean multi-user isolation:
+
+### 1. Offline Engine & Dual-Endpoint Heartbeat (`networkStore.ts`)
+- **Zero-Byte Connectivity Heartbeat:** Avoids unreliable OS-level connection flags by dispatching lightweight GET requests to `https://clients3.google.com/generate_204` with a 3.5s timeout, falling back to `https://www.cloudflare.com/cdn-cgi/trace`.
+- **Local Mutation Queue:** When offline, expense creations, edits, and deletions update Zustand state immediately (optimistic UI) and append actions to an `AsyncStorage` persistent queue.
+- **Auto-Flush Reconnection Listener:** Re-establishing internet triggers an automated background queue sync with Supabase and dismisses the status banner.
+- **Animated Offline Banner (`OfflineBanner.tsx`):** A slide-down top indicator informing users of offline status and real-time syncing progress with a manual "Retry" action.
+
+### 2. Comprehensive Error Boundary (`ErrorBoundary.tsx`)
+- High-level React Error Boundary wrapping `SafeAreaProvider` and navigation root.
+- Replaces generic white-screen crashes with a themed recovery card showing actionable error details, copy-to-clipboard trace, and a clean reset button to restore normal app state.
+
+### 3. Smart Gullak & Savings Engine (`dailyBudgetStore.ts`)
+- **Daily Budget Allowance:** Users configure a daily spending target (e.g. ₹500/day).
+- **Rollover & Savings Deduction:** At midnight, unspent allowance rolls over into the "Gullak" (piggy bank). If daily spending exceeds the daily budget, the deficit is automatically deducted from accumulated savings.
+- **Streak Calendar (`StreakCalendarModal.tsx`):** Visual calendar displaying daily streak dots, allowing users to track consecutive days within budget.
+
+### 4. Memory Hygiene & Multi-User Cache Isolation
+- **Store Reset Callback Registry:** Replaced dynamic runtime module imports in `signOut()` with a synchronous callback registry across `authStore`, `expenseStore`, `categoryStore`, and `dailyBudgetStore`.
+- Prevents cross-account cache leakage and completely eliminates `TypeError: Cannot read property 'reload' of undefined` during sign-out.
 
 ---
 
 ## 🎨 UI/UX & Design Modernization
 
-Recent major enhancements to elevate the app's visual consistency, user experience, and codebase architecture:
-
-### 1. Unified Pill Design Language & Form Ergonomics
-All interactive touchpoints across the expense flow now share a cohesive pill/stadium aesthetic (`borderRadius: 9999`):
-- **Form Controls Uniformity:** Standardized the Note input container, Date picker button, and Paid Via toggle to an exact, uniform `height: 56dp` with centered vertical alignment, providing clean visual symmetry across the form.
-- **Calibrated Bouncy Payment Toggle:** Fine-tuned spring animation physics (`tension: 70, friction: 8`) and clamped overshoot interpolation (`extrapolate: 'clamp'`) paired with `overflow: 'hidden'`, ensuring the active selection pill glides smoothly without extending outside container bounds across any screen size.
-- **Floating Capsule Bottom Navigation Bar (`BottomNavBar`):** Engineered a balanced 5-column navigation layout with spring-animated horizontal expanding capsule tabs and an elevated center quick-add button.
-- **Primary CTA Buttons:** "Save Expense" and "Update Expense" buttons enlarged to standard `height: 60px`, `borderRadius: 9999`, and `fontSize: 18px` (`Quicksand_700Bold`), perfectly matching primary actions across Auth, Onboarding, and Detail screens.
-- **Keypad Digit Tiles:** Modern pill-shaped numeric keys featuring responsive spring animations and theme-aware borders.
-- **Category Chips:** Smooth pill chips with accent highlights (`#B8E0C8` Mint Green & `#F4B8AE` Peach Coral).
-
-### 2. Proportional Spacing & Layout Hierarchy
-- **Normalized Gap Ratios:** Adjusted the spacing between Category Selector, Note input, Date picker, and Paid Via toggle to an exact, consistent `16px` rhythm.
-- **Screen Viewport Fit:** Freed up vertical real estate so that the Amount, Category list, Note input, Date selector, Paid Via toggle, numeric keypad, and Save button remain 100% visible on screen without occluding one another.
-
-### 3. Custom DatePicker Modal (`CustomDatePickerModal`)
-- Replaced the stock Android dialog (generic teal header, white background, and system Roboto fonts) with a proprietary in-app calendar modal:
-  - **Surface & Elevation:** Uses Arthik's dark navy card background (`#131D2F`), subtle borders (`#182335`), and `28px` rounded corners.
-  - **Quick Shortcuts:** Dedicated **"Today"** and **"Yesterday"** pill buttons for one-tap date logging.
-  - **Month & Year Navigator:** Fluid chevron navigation (`<` and `>`) with header date preview.
-  - **Selected & Today Indicators:** Active selection highlighted with solid Mint Green (`#B8E0C8`) pill circle; current day marked with subtle accent outline.
-  - **Typography:** Fully integrated with Google Fonts `Quicksand` weights.
-
-### 4. Codebase Optimization & Screen Consolidation
-- **Single Component Architecture:** Unified duplicate `AddExpenseScreen.tsx` and `EditExpenseScreen.tsx` (over 1,200 lines combined) into a single, high-performance `ExpenseFormScreen.tsx` (~600 lines) — cutting redundant code by **over 50%**.
-- **Declarative Loops:** Replaced verbose duplicate JSX blocks for Payment Modes and Keypad rows with concise `.map()` arrays (`PAYMENT_OPTIONS`, `KEYPAD_ROWS`).
-- **StyleSheet Sanitization:** Removed obsolete, empty style objects and duplicate inline styles.
-
-### 5. App-Wide Audit & Architecture Hardening
-- **Zero-State Donut Chart:** Guarded `HomeScreen` donut calculations when `total === 0` to render a clean, neutral track instead of an erroneous 100% green circle for zero-income states.
-- **Timezone-Safe ISO Dates:** Switched all date instantiation to `parseISO` across form, detail, and history views, eliminating calendar date shifts caused by UTC midnight parsing.
-- **Store Lifecycle & Cache Clearing:** Implemented `resetCategories()` and `resetExpenses()` called on user sign-out, eliminating data leaks and stale cache reuse across accounts.
-- **Consistent Currency Formatting:** Enforced Indian Rupee symbol alignment and numeric comma grouping (`.toLocaleString('en-IN')`) across all screens.
-- **Defensive Navigation:** Guarded back button rendering on `AuthScreen` with `navigation.canGoBack()` and connected inactive badges.
+- **Unified Pill Design Language:** All form inputs (Notes, Date picker button, Payment mode toggles, and Primary CTAs) adhere to an exact, uniform `56dp` / `60dp` stadium-pill height (`borderRadius: 9999`).
+- **Calibrated Bouncy Payment Toggle:** Spring animation physics (`tension: 70, friction: 8`) with boundary clamping (`extrapolate: 'clamp'`) and `overflow: 'hidden'`.
+- **Floating Capsule Bottom Navigation Bar (`BottomNavBar`):** Balanced 5-column navigation layout with spring-animated horizontal expanding capsule tabs and an elevated center quick-add button.
+- **Dynamic Header Typography Scaling:** Header greeting name auto-scales between `36px` and `19px` with `numberOfLines={1}` and `adjustsFontSizeToFit`, preventing overflow on long names.
+- **Safe Area Insets:** Fully compliant with notch, dynamic island, and gesture bars using `react-native-safe-area-context` without hardcoded margins.
 
 ---
 
@@ -89,14 +87,16 @@ All interactive touchpoints across the expense flow now share a cohesive pill/st
 
 | Layer | Technology |
 |---|---|
-| Framework | React Native + Expo SDK 57 |
-| Language | TypeScript |
-| Navigation | React Navigation (Native Stack + Bottom Tabs) |
-| State Management | Zustand |
-| Backend & Auth | Supabase (PostgreSQL + Auth) |
-| Icons | lucide-react-native |
-| Fonts | Quicksand (Google Fonts via Expo) |
-| Charts | react-native-svg |
+| **Framework** | React Native (0.86.0) + Expo SDK 57 |
+| **Language** | TypeScript |
+| **Navigation** | React Navigation (Native Stack + Bottom Tabs) |
+| **State Management** | Zustand (with AsyncStorage persistence) |
+| **Backend & Auth** | Supabase (PostgreSQL + GoTrue Auth) |
+| **Network & Sync** | Custom Offline Queue + Fetch Ping Heartbeat |
+| **Icons** | lucide-react-native |
+| **Typography** | Quicksand (Google Fonts via Expo) |
+| **Vector Graphics** | react-native-svg |
+| **Build System** | Expo EAS Build & Expo Updates (OTA) |
 
 ---
 
@@ -104,94 +104,118 @@ All interactive touchpoints across the expense flow now share a cohesive pill/st
 
 ```
 src/
-├── components/   # Reusable UI components
-├── config/       # Supabase client & environment config
-├── hooks/        # Custom React hooks (scroll direction, etc.)
-├── lib/          # Utility functions (formatters, icon utils)
-├── navigation/   # App routing (Root Stack + Bottom Tabs)
-├── screens/      # All full-screen views
-├── store/        # Zustand stores (auth, expenses, categories)
-└── types/        # TypeScript type definitions
+├── components/
+│   ├── BottomNavBar.tsx          # Spring-animated floating pill tab bar
+│   ├── CustomDatePickerModal.tsx # Proprietary in-app calendar modal
+│   ├── ErrorBoundary.tsx         # App-level crash catcher & recovery view
+│   ├── OfflineBanner.tsx         # Animated slide-in network status alert
+│   ├── StreakCalendarModal.tsx   # Visual monthly streak calendar
+│   └── ...                       # Other UI cards and components
+├── config/                       # Supabase client, theme tokens & constants
+├── hooks/                        # Custom React hooks (scroll direction, etc.)
+├── lib/                          # Utility functions (notifications, dates, UPI utils)
+├── navigation/                   # App routing (Root Stack + Bottom Tabs)
+├── screens/                      # All full-screen views (Home, History, Form, etc.)
+├── store/
+│   ├── authStore.ts              # Authentication state & reset registry
+│   ├── categoryStore.ts          # Category CRUD & local cache
+│   ├── dailyBudgetStore.ts       # Gullak, daily budget & streak tracking
+│   ├── expenseStore.ts           # Expense state, offline mutation queue & sync
+│   ├── networkStore.ts           # Ping connectivity heartbeat & offline listeners
+│   └── themeStore.ts             # Dark/Light theme switching
+└── types/                        # TypeScript type definitions
 ```
 
 ---
 
 ## 🧑‍💻 Developer Setup
 
-Want to run this locally or contribute?
-
 ### Prerequisites
 - [Node.js](https://nodejs.org/) v18+
 - [Expo CLI](https://docs.expo.dev/get-started/installation/)
-- A [Supabase](https://supabase.com/) project (free tier works)
+- [Android Studio & SDK](https://developer.android.com/studio) (for Android emulator/device testing)
+- A [Supabase](https://supabase.com/) project
 
-### Steps
+### Quickstart
 
-1. **Clone the repo**
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/Kislaya-06/Arthik-App.git
    cd Arthik-App
    ```
 
-2. **Install dependencies**
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Set up environment**  
-   Create a `.env` file in the root:
+3. **Set up environment variables:**  
+   Create a `.env` file in the root directory:
    ```env
    EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-4. **Run the database schema**  
-   In Supabase SQL Editor, paste and run the contents of `schema.sql`
+4. **Initialize database schema:**  
+   Run [`schema.sql`](./schema.sql) in your Supabase SQL Editor.
 
-5. **Start the dev server**
+5. **Start the development server:**
    ```bash
    npx expo start
    ```
-   Press `a` to open on Android emulator, or scan the QR code with [Expo Go](https://expo.dev/client)
+
+6. **Running on Android Emulator / Dev Client:**
+   ```bash
+   # Port forward Metro to Android emulator
+   adb reverse tcp:8081 tcp:8081
+
+   # Launch app directly into local Metro
+   adb shell am start -a android.intent.action.VIEW -d "arthik://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081" com.kislaya_agarwal.arthik
+   ```
+
+---
+
+## 🚀 Deployment & OTA Updates
+
+Arthik leverages **Expo EAS Build** for native binaries and **Expo Updates** for instant Over-The-Air code patches:
+
+- **Generate Android APK (Preview Profile):**
+  ```bash
+  eas build -p android --profile preview
+  ```
+- **Publish Instant OTA Update:**
+  ```bash
+  eas update --branch preview --message "Your update description"
+  ```
 
 ---
 
 ## 🗄 Database Schema
 
-Three core tables in Supabase:
+Core tables in Supabase PostgreSQL:
 
-**`profiles`** — User profile info linked to Supabase Auth  
-**`categories`** — Expense categories (global defaults + user-created)  
-**`expenses`** — All expense records with amount, category, date, mode, and note
+- **`profiles`** — User profile metadata, monthly income, and auth linkage
+- **`categories`** — Expense categories (global defaults + user-created custom categories)
+- **`expenses`** — Individual expense transactions with amount, category, date, payment mode, and notes
+- **`daily_budgets`** — Daily target limits, rollover savings (Gullak), and consecutive streak metrics
 
-See [`schema.sql`](./schema.sql) for the full DDL.
-
----
-
-## 🚧 Roadmap
-
-- [ ] Avatar / profile picture upload via `expo-image-picker`
-- [ ] Budget limits per category with alerts
-- [ ] Export expenses to CSV
-- [ ] Income tracking alongside expenses
-- [ ] iOS support
+See [`schema.sql`](./schema.sql) for full table definitions and Row Level Security (RLS) policies.
 
 ---
 
 ## 🤝 Contributing
 
-This is a personal project, but PRs, bug reports, and suggestions are welcome!
-
-1. Fork the repo
-2. Create your feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m 'Add your feature'`
-4. Push and open a Pull Request
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-[MIT License](./LICENSE)
+Distributed under the [MIT License](./LICENSE).
 
 ---
 
