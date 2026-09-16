@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [OPTIMISED CODE] - 2026-09-16
+
+### 🔒 Security Hardening & Compliance
+- **Full Account & Data Deletion (Fix #1):** Built and deployed dedicated Supabase Edge Function `delete-user-account` executing under service-role privileges to permanently delete user auth accounts (`auth.users`) along with complete database CASCADE deletes across all user tables (`profiles`, `categories`, `expenses`, `daily_savings_log`). Added client fallback and UI confirmation alerts.
+- **End-to-End RLS Security Hardening (Fix #7):** Systematic security audit across all 4 database tables. Added `WITH CHECK` constraints to all UPDATE policies (`profiles`, `categories`, `expenses`, `daily_savings_log`) preventing identity and ownership spoofing. Hardened `categories` against modifying system defaults, secured trigger `search_path`, and restricted `delete_user_account` RPC execution strictly to authenticated users.
+
+### ⚡ Reliability, Data Integrity & Offline Sync
+- **Optimistic Rollback on API Failures (Fix #2):** Hardened `updateExpense` and `deleteExpense` in `expenseStore.ts` to snapshot previous state and automatically rollback local Zustand state if genuine non-network API calls fail, preventing permanent desync between local state and database.
+- **Category ID Sanitization & Queue Drop Protection (Fix #3 & #4):** Replaced non-UUID placeholder IDs ('1'-'7') with disabled selection state in form UI until real categories load. Added UUID validation guard in `expenseStore.ts`, capped offline retry queue attempts to 5 with automatic poison-pill drop, and implemented persistent error handling with animated `SyncFailedBanner` to notify users.
+- **Native OS Network Connectivity (Fix #6):** Replaced 45-second manual ping polling (`generate_204`/Cloudflare) with native `@react-native-community/netinfo` (v12.0.1) event listener (`NetInfo.addEventListener`). Uses `isConnected && isInternetReachable` as single source of truth to instantly detect real internet access without false positives on captive portals and without battery drain.
+
+### 💰 Budget, Savings & Streak Accuracy
+- **Budget-at-the-Time Persistence & Historical Fix (Fix #5):** Added `budget_amount` column to `daily_savings_log` so historical days are locked to the budget actually active then, rather than retroactively recomputing against today's setting.
+- **Untracked Historical Dates & Streak Protection:** Untracked historical days finalized without prior records are marked `'unknown'` rather than using today's current budget. Excluded `'unknown'` days from streak and bestStreak calculations so they neither extend nor break streaks.
+- **Neutral Streak Calendar Rendering:** Updated `StreakCalendarModal.tsx` and `SavingsScreen.tsx` to render `'unknown'` status days as neutral without green or red miss indicators.
+
+---
+
 ## [1.2.2] - 2026-09-16
 
 ### 🚀 Added & Improved
