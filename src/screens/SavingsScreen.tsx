@@ -242,11 +242,13 @@ export const SavingsScreen: React.FC = () => {
 
   const handleOpenBudgetModal = useCallback((mode: 'recurring' | 'today') => {
     setModalMode(mode);
-    const rawVal =
-      mode === 'recurring'
-        ? String(dailyBudgetAmount)
-        : String(todayBudget > 0 ? todayBudget : dailyBudgetAmount);
-    setInputBudget(formatAmountWithCommas(rawVal));
+    let rawVal = '';
+    if (mode === 'recurring') {
+      rawVal = dailyBudgetAmount > 0 ? String(dailyBudgetAmount) : '';
+    } else {
+      rawVal = todayBudget > 0 ? String(todayBudget) : (dailyBudgetAmount > 0 ? String(dailyBudgetAmount) : '');
+    }
+    setInputBudget(rawVal ? formatAmountWithCommas(rawVal) : '');
     setBudgetModalVisible(true);
   }, [dailyBudgetAmount, todayBudget]);
 
@@ -264,7 +266,16 @@ export const SavingsScreen: React.FC = () => {
 
   const handleTopUp100 = useCallback(() => addToTodayBudget(100), [addToTodayBudget]);
   const handleTopUp200 = useCallback(() => addToTodayBudget(200), [addToTodayBudget]);
-  const handleToggleAutoRenew = useCallback((val: boolean) => toggleAutoRenew(val), [toggleAutoRenew]);
+  const handleToggleAutoRenew = useCallback(
+    (val: boolean) => {
+      if (val && dailyBudgetAmount === 0) {
+        handleOpenBudgetModal('recurring');
+        return;
+      }
+      toggleAutoRenew(val);
+    },
+    [toggleAutoRenew, dailyBudgetAmount, handleOpenBudgetModal]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -435,15 +446,20 @@ export const SavingsScreen: React.FC = () => {
               style={[
                 styles.statusBadge,
                 {
-                  backgroundColor: isOverBudget
-                    ? isDark
-                      ? 'rgba(239, 68, 68, 0.2)'
-                      : '#FEE2E2'
-                    : progressRatio >= 0.8
-                    ? isDark
-                      ? 'rgba(245, 158, 11, 0.2)'
-                      : '#FEF3C7'
-                    : colors.mintGreenSoft,
+                  backgroundColor:
+                    todayBudget === 0
+                      ? isDark
+                        ? 'rgba(156, 163, 175, 0.2)'
+                        : '#F3F4F6'
+                      : isOverBudget
+                      ? isDark
+                        ? 'rgba(239, 68, 68, 0.2)'
+                        : '#FEE2E2'
+                      : progressRatio >= 0.8
+                      ? isDark
+                        ? 'rgba(245, 158, 11, 0.2)'
+                        : '#FEF3C7'
+                      : colors.mintGreenSoft,
                 },
               ]}
             >
@@ -451,15 +467,20 @@ export const SavingsScreen: React.FC = () => {
                 style={[
                   styles.statusBadgeText,
                   {
-                    color: isOverBudget
-                      ? '#DC2626'
-                      : progressRatio >= 0.8
-                      ? '#D97706'
-                      : colors.mintGreenDark,
+                    color:
+                      todayBudget === 0
+                        ? colors.textSecondary
+                        : isOverBudget
+                        ? '#DC2626'
+                        : progressRatio >= 0.8
+                        ? '#D97706'
+                        : colors.mintGreenDark,
                   },
                 ]}
               >
-                {isOverBudget
+                {todayBudget === 0
+                  ? 'Feature Off'
+                  : isOverBudget
                   ? 'Over Budget 🚨'
                   : progressRatio >= 0.8
                   ? 'Almost Full ⚠️'
@@ -529,7 +550,7 @@ export const SavingsScreen: React.FC = () => {
               ? `🚨 ₹${Math.round(overAmount)} deducted from your Gullak`
               : todayBudget > 0
               ? `✨ Save ₹${Math.round(todayRemaining)} if unspent today`
-              : 'Set a daily budget to start saving'}
+              : 'Set a daily budget to start saving in Gullak'}
           </Text>
 
           {/* Balanced 3-Tile Action Row */}
@@ -598,10 +619,12 @@ export const SavingsScreen: React.FC = () => {
           </View>
 
           <Text style={[styles.settingsDesc, { color: colors.textSecondary }]}>
-            {isAutoRenew
+            {isAutoRenew && dailyBudgetAmount > 0
               ? 'Auto-Add is ON: Every day at midnight, ₹' +
                 dailyBudgetAmount +
                 ' is added automatically. Whatever you do not spend rolls over into your Daily Savings Gullak.'
+              : isAutoRenew
+              ? 'Auto-Add is ON: Set your default allowance below to start automatic daily budgeting.'
               : 'Manual Mode: Auto-add is turned off. You can set or top-up your budget manually for each day whenever you want.'}
           </Text>
 
@@ -621,14 +644,24 @@ export const SavingsScreen: React.FC = () => {
                 Default Daily Allowance
               </Text>
               <View style={styles.currencyRow}>
-                <Text style={[styles.smallCurrencySymbol, { color: colors.textPrimary }]}>₹</Text>
-                <Text style={[styles.changeAmountText, { color: colors.textPrimary }]}>
-                  {dailyBudgetAmount.toLocaleString('en-IN')}
-                </Text>
+                {dailyBudgetAmount > 0 ? (
+                  <>
+                    <Text style={[styles.smallCurrencySymbol, { color: colors.textPrimary }]}>₹</Text>
+                    <Text style={[styles.changeAmountText, { color: colors.textPrimary }]}>
+                      {dailyBudgetAmount.toLocaleString('en-IN')}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={[styles.changeAmountText, { color: colors.textSecondary, fontSize: 16 }]}>
+                    Not Set
+                  </Text>
+                )}
               </View>
             </View>
             <View style={[styles.editPill, { backgroundColor: colors.mintGreenSoft }]}>
-              <Text style={[styles.editPillText, { color: colors.mintGreenDark }]}>Change</Text>
+              <Text style={[styles.editPillText, { color: colors.mintGreenDark }]}>
+                {dailyBudgetAmount > 0 ? 'Change' : 'Set Limit'}
+              </Text>
             </View>
           </TouchableOpacity>
         </View>

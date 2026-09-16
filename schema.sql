@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     first_name TEXT NOT NULL,
     last_name TEXT,
     email TEXT NOT NULL,
-    daily_budget NUMERIC(12, 2) DEFAULT 500,
-    is_auto_renew BOOLEAN DEFAULT TRUE,
+    daily_budget NUMERIC(12, 2) DEFAULT 0,
+    is_auto_renew BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -201,12 +201,14 @@ BEGIN
         split_part(new.email, '@', 1)
     );
 
-    INSERT INTO public.profiles (id, first_name, last_name, email)
+    INSERT INTO public.profiles (id, first_name, last_name, email, daily_budget, is_auto_renew)
     VALUES (
         new.id,
         extracted_name,
         new.raw_user_meta_data->>'last_name',
-        new.email
+        new.email,
+        0,
+        false
     );
 
     INSERT INTO public.categories (user_id, name, icon, color, is_default) VALUES
@@ -253,3 +255,7 @@ DROP INDEX IF EXISTS public.idx_daily_savings_log_user_date; -- unique(user_id,d
 
 -- A3. Clean up Legacy/Dead RPC Functions
 DROP FUNCTION IF EXISTS public.delete_user_account();
+
+-- A4. Default daily limit feature to OFF for new user profiles
+ALTER TABLE public.profiles ALTER COLUMN daily_budget SET DEFAULT 0;
+ALTER TABLE public.profiles ALTER COLUMN is_auto_renew SET DEFAULT false;

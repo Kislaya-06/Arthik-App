@@ -236,6 +236,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
+  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
@@ -360,7 +361,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     totalAvailable,
     isOverBudgetPeriod,
   } = useMemo(() => {
-    const activeDailyBudget = todayBudget > 0 ? todayBudget : (dailyBudgetAmount || 500);
+    const isBudgetConfigured = isAutoRenew && dailyBudgetAmount > 0;
+    const activeDailyBudget = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
     const now = new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
 
@@ -450,8 +452,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget + ₹${Math.round(income).toLocaleString('en-IN')} income`;
         } else if (income > 0) {
           subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
-        } else {
+        } else if (budgetPool > 0) {
           subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} daily allowance`;
+        } else {
+          subtext = null;
         }
       }
     } else if (activeFilter === 'Weekly') {
@@ -464,8 +468,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`;
         } else if (income > 0) {
           subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
-        } else {
+        } else if (budgetPool > 0) {
           subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
+        } else {
+          subtext = null;
         }
       }
     } else if (activeFilter === 'Monthly') {
@@ -478,8 +484,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`;
         } else if (income > 0) {
           subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
-        } else {
+        } else if (budgetPool > 0) {
           subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
+        } else {
+          subtext = null;
         }
       }
     } else {
@@ -493,8 +501,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget + ₹${Math.round(income).toLocaleString('en-IN')} income`;
         } else if (income > 0) {
           subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
-        } else {
+        } else if (budgetPool > 0) {
           subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} total budget`;
+        } else {
+          subtext = null;
         }
       }
     }
@@ -507,7 +517,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       totalAvailable: available,
       isOverBudgetPeriod: isOver,
     };
-  }, [activeFilter, todayBudget, dailyBudgetAmount, dailyRecords, totalIncome, totalSpent, filtered]);
+  }, [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -666,10 +676,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <Text
                   style={[
                     styles.dailyCompactAmount,
-                    { color: isOverBudget ? colors.danger : colors.mintGreenDark },
+                    {
+                      color:
+                        todayBudget === 0
+                          ? colors.textSecondary
+                          : isOverBudget
+                          ? colors.danger
+                          : colors.mintGreenDark,
+                    },
                   ]}
                 >
-                  {isOverBudget
+                  {todayBudget === 0
+                    ? 'Off • Tap to set'
+                    : isOverBudget
                     ? `+₹${Math.round(todayRecordSpent - todayBudget).toLocaleString('en-IN')} over`
                     : `₹${Math.round(todayRemaining).toLocaleString('en-IN')} left`}
                 </Text>

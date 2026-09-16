@@ -233,8 +233,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
     (set, get) => ({
       ownerUserId: null,
       hydratedForUserId: null,
-      dailyBudgetAmount: 500,
-      isAutoRenew: true,
+      dailyBudgetAmount: 0,
+      isAutoRenew: false,
       dailyRecords: {},
       totalAccumulatedSavings: 0,
       savingsStreak: 0,
@@ -273,8 +273,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const cleanAmount = Math.max(0, Math.round(amount));
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
+        const willAutoRenew = cleanAmount > 0 ? true : get().isAutoRenew;
 
-        if (get().isAutoRenew) {
+        if (willAutoRenew) {
           const currentToday = records[todayStr] || {
             date: todayStr,
             budget: cleanAmount,
@@ -294,6 +295,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         set({
           dailyBudgetAmount: cleanAmount,
+          isAutoRenew: willAutoRenew,
           dailyRecords: records,
           ...metrics,
         });
@@ -302,15 +304,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         try {
           const currentUser = useAuthStore.getState().user;
           if (currentUser) {
-            savePendingSettingsOffline(currentUser.id, { daily_budget: cleanAmount });
+            savePendingSettingsOffline(currentUser.id, { daily_budget: cleanAmount, is_auto_renew: willAutoRenew });
             supabase
               .from('profiles')
-              .update({ daily_budget: cleanAmount })
+              .update({ daily_budget: cleanAmount, is_auto_renew: willAutoRenew })
               .eq('id', currentUser.id)
               .then(
                 ({ error }) => {
                   if (!error) {
-                    clearPendingSettingsOffline(currentUser.id, ['daily_budget']);
+                    clearPendingSettingsOffline(currentUser.id, ['daily_budget', 'is_auto_renew']);
                   } else if (__DEV__) {
                     console.error('Error syncing daily_budget to Supabase:', error);
                   }
@@ -328,7 +330,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const records = { ...get().dailyRecords };
         const currentToday = records[todayStr];
 
-        if (enabled && (!currentToday || currentToday.budget === 0)) {
+        if (enabled && get().dailyBudgetAmount > 0 && (!currentToday || currentToday.budget === 0)) {
           const budget = get().dailyBudgetAmount;
           const spent = currentToday?.spent || 0;
           records[todayStr] = {
@@ -341,9 +343,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           };
         }
 
+        const metrics = calculateSavingsMetrics(records, todayStr);
+
         set({
           isAutoRenew: enabled,
           dailyRecords: records,
+          ...metrics,
         });
 
         // Sync to Supabase profiles with offline queue (P0.13)
@@ -438,7 +443,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         let hasTodayChanged = false;
 
         if (!todayRecord) {
-          const budget = get().isAutoRenew ? get().dailyBudgetAmount : 0;
+          const budget = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0;
           todayRecord = {
             date: todayStr,
             budget,
@@ -569,7 +574,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         // Fill in missing elapsed days since registration (capped to last 30 days) when auto-renew is on,
         // ensuring zero-spend days when the user didn't open the app are credited as saved days to preserve their streak!
-        if (get().isAutoRenew) {
+        if (get().isAutoRenew && get().dailyBudgetAmount > 0) {
           const earliestDateStr = userCreatedAtStr || format(subDays(new Date(), 30), 'yyyy-MM-dd');
           let fillCursor = subDays(new Date(), 1);
           let safetyCount = 0;
@@ -613,8 +618,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
           } else if (!existing) {
             // Past date being finalized for the very first time with no prior record:
-            // P1.3 (Option A): If auto-renew is active, use daily budget so streak & savings are preserved
-            if (get().isAutoRenew) {
+            // P1.3 (Option A): If auto-renew is active and budget > 0, use daily budget so streak & savings are preserved
+            if (get().isAutoRenew && get().dailyBudgetAmount > 0) {
               budget = get().dailyBudgetAmount;
               saved = Math.max(0, budget - spent);
               status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
@@ -628,7 +633,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             }
           } else {
             // Existing record with 0 budget (e.g. manual mode)
-            if (get().isAutoRenew && existing.budget === 0) {
+            if (get().isAutoRenew && get().dailyBudgetAmount > 0 && existing.budget === 0) {
               budget = get().dailyBudgetAmount;
               saved = Math.max(0, budget - spent);
               status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
@@ -844,13 +849,26 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           if (pendingSettings.daily_budget !== undefined) {
             resolvedBudget = pendingSettings.daily_budget;
           } else if (profileData && profileData.daily_budget !== null && profileData.daily_budget !== undefined) {
-            resolvedBudget = Math.max(0, Math.round(Number(profileData.daily_budget)));
+            const remoteBudget = Math.max(0, Math.round(Number(profileData.daily_budget)));
+            // Guard: If remote is the migration default 500, but local store already has a valid custom non-500 budget, preserve local!
+            if (remoteBudget === 500 && get().dailyBudgetAmount > 0 && get().dailyBudgetAmount !== 500) {
+              resolvedBudget = get().dailyBudgetAmount;
+              supabase.from('profiles').update({ daily_budget: resolvedBudget }).eq('id', userId).then(() => {});
+            } else {
+              resolvedBudget = remoteBudget;
+            }
+          } else {
+            // New user without daily_budget: default to 0 (disabled)
+            resolvedBudget = 0;
           }
 
           if (pendingSettings.is_auto_renew !== undefined) {
             resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
           } else if (profileData && profileData.is_auto_renew !== null && profileData.is_auto_renew !== undefined) {
             resolvedAutoRenew = Boolean(profileData.is_auto_renew);
+          } else {
+            // New user without is_auto_renew: default to false (disabled)
+            resolvedAutoRenew = false;
           }
 
           // 2. Fetch past daily savings logs from Supabase
@@ -865,8 +883,78 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const currentUser = useAuthStore.getState().user;
           const userCreatedAtStr = currentUser?.created_at?.split('T')[0]?.trim();
 
+          // ------------------------------------------------------------------------------------
+          // SELF-HEALING RECOVERY (Fix for OTA Update Bug where user budget was reset to 500)
+          // ------------------------------------------------------------------------------------
+          // If the user's resolved budget is 500 (the default migration/reset value), inspect their
+          // historical savings logs & real expenses to detect if their original budget was different.
+          const currentExpenses = getCurrentExpenses();
+          const incomeIds = getIncomeCategoryIds();
+          const spentByDate: Record<string, number> = {};
+          for (let i = 0; i < currentExpenses.length; i++) {
+            const e = currentExpenses[i];
+            const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
+            const cleanDate = e.expense_date?.split('T')[0]?.trim();
+            if (!isIncome && cleanDate) {
+              spentByDate[cleanDate] = (spentByDate[cleanDate] || 0) + (Number(e.amount) || 0);
+            }
+          }
+
+          let wasRepairedFromHistory = false;
+          if (resolvedBudget === 500 && logsData && logsData.length > 0) {
+            const budgetCandidates: Record<number, number> = {};
+            for (let i = 0; i < logsData.length; i++) {
+              const logEntry: any = logsData[i];
+              const d = logEntry.date;
+              if (userCreatedAtStr && d < userCreatedAtStr) continue;
+              const amountSaved = Number(logEntry.amount_saved) || 0;
+              const spent = spentByDate[d] || 0;
+
+              // Check if past log had an explicit non-500 budget_amount saved
+              if (logEntry.budget_amount !== null && logEntry.budget_amount !== undefined) {
+                const b = Math.round(Number(logEntry.budget_amount));
+                if (b > 0 && b !== 500) {
+                  budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
+                }
+              }
+
+              // Check if local record for that day has a non-500 budget
+              if (records[d]?.budget && records[d].budget > 0 && records[d].budget !== 500) {
+                const b = Math.round(records[d].budget);
+                budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
+              }
+
+              // On confirmed saved days, amount_saved + spent reveals the original day budget
+              if (logEntry.status === 'saved' && amountSaved > 0) {
+                const inferred = Math.round(amountSaved + spent);
+                if (inferred > 0 && inferred !== 500) {
+                  budgetCandidates[inferred] = (budgetCandidates[inferred] || 0) + 1;
+                }
+              }
+            }
+
+            let bestCandidate = 0;
+            let maxCount = 0;
+            for (const [candidateStr, count] of Object.entries(budgetCandidates)) {
+              const candidate = Number(candidateStr);
+              if (count > maxCount) {
+                maxCount = count;
+                bestCandidate = candidate;
+              }
+            }
+
+            // If we detected a consistent original non-500 budget, restore it!
+            if (bestCandidate > 0 && bestCandidate !== 500) {
+              resolvedBudget = bestCandidate;
+              resolvedAutoRenew = true;
+              wasRepairedFromHistory = true;
+              supabase.from('profiles').update({ daily_budget: resolvedBudget, is_auto_renew: true }).eq('id', userId).then(() => {});
+            }
+          }
+
           if (logsData && logsData.length > 0) {
-            for (const log of logsData) {
+            for (let i = 0; i < logsData.length; i++) {
+              const log: any = logsData[i];
               const d = log.date;
               if (userCreatedAtStr && d < userCreatedAtStr) {
                 continue; // Ignore any erroneous pre-registration logs
@@ -881,19 +969,40 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   ? 'unknown'
                   : 'exceeded';
 
-              // P1.1: treat budget_amount as nullable without legacy 500 repair hack
               let dayBudget: number;
-              if (log.budget_amount !== null && log.budget_amount !== undefined) {
+              if (wasRepairedFromHistory) {
+                if (log.budget_amount !== null && log.budget_amount !== undefined && Number(log.budget_amount) !== 500) {
+                  dayBudget = Number(log.budget_amount);
+                } else if (records[d]?.budget && records[d].budget > 0 && records[d].budget !== 500) {
+                  dayBudget = records[d].budget;
+                } else {
+                  dayBudget = resolvedBudget;
+                }
+              } else if (log.budget_amount !== null && log.budget_amount !== undefined) {
                 dayBudget = Number(log.budget_amount);
               } else {
                 dayBudget = records[d]?.budget || resolvedBudget;
               }
 
-              // P1.2: read real spent_amount column if available
               const daySpent =
                 log.spent_amount !== null && log.spent_amount !== undefined
                   ? Number(log.spent_amount)
+                  : spentByDate[d] !== undefined
+                  ? spentByDate[d]
                   : Math.max(0, dayBudget - amountSaved);
+
+              const daySaved = wasRepairedFromHistory && dayBudget > 0
+                ? Math.max(0, dayBudget - daySpent)
+                : amountSaved;
+
+              const evaluatedStatus: 'saved' | 'exceeded' | 'even' | 'unknown' =
+                wasRepairedFromHistory && dayBudget > 0
+                  ? daySpent > dayBudget
+                    ? 'exceeded'
+                    : daySaved > 0
+                    ? 'saved'
+                    : 'even'
+                  : logStatus;
 
               if (logStatus === 'unknown') {
                 records[d] = {
@@ -910,9 +1019,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   date: d,
                   budget: dayBudget,
                   spent: daySpent,
-                  saved: amountSaved,
+                  saved: daySaved,
                   isFinalized: true,
-                  status: logStatus,
+                  status: evaluatedStatus,
                   needsUpload: false,
                 };
               } else {
@@ -920,18 +1029,36 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   ...records[d],
                   budget: dayBudget,
                   spent: records[d].spent !== undefined ? records[d].spent : daySpent,
-                  saved: amountSaved > 0 ? amountSaved : records[d].saved,
+                  saved: daySaved > 0 ? daySaved : records[d].saved,
                   isFinalized: true,
-                  status: logStatus,
+                  status: evaluatedStatus,
                   needsUpload: false,
                 };
+              }
+
+              // If repaired, sync the corrected record to Supabase
+              if (wasRepairedFromHistory && dayBudget > 0) {
+                supabase
+                  .from('daily_savings_log')
+                  .upsert(
+                    {
+                      user_id: userId,
+                      date: d,
+                      amount_saved: daySaved,
+                      spent_amount: daySpent,
+                      budget_amount: dayBudget,
+                      status: evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : 'missed',
+                    },
+                    { onConflict: 'user_id,date' }
+                  )
+                  .then(() => {});
               }
             }
           }
 
           // Ensure today's record exists if not present
           if (!records[todayStr]) {
-            const todayBudget = resolvedAutoRenew ? resolvedBudget : 0;
+            const todayBudget = resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
             records[todayStr] = {
               date: todayStr,
               budget: todayBudget,
@@ -940,13 +1067,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               isFinalized: false,
               status: 'active',
             };
-          } else if (!records[todayStr].isFinalized && records[todayStr].budget === 0 && resolvedAutoRenew) {
+          } else if (!records[todayStr].isFinalized && records[todayStr].budget === 0 && resolvedAutoRenew && resolvedBudget > 0) {
             records[todayStr].budget = resolvedBudget;
             records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
           }
 
           // 3. Recalculate metrics from combined records
-          const metrics = calculateSavingsMetrics(records, todayStr);
+          const metrics = calculateSavingsMetrics(records, todayStr, userCreatedAtStr);
 
           set({
             dailyBudgetAmount: resolvedBudget,
@@ -958,7 +1085,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           });
 
           // P0.1: Trigger checkAndRollover once after successful hydration
-          const currentExpenses = getCurrentExpenses();
           get().checkAndRollover(currentExpenses);
 
           // P0.14: Also upload any records that need upload
@@ -972,8 +1098,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         set({
           ownerUserId: null,
           hydratedForUserId: null,
-          dailyBudgetAmount: 500,
-          isAutoRenew: true,
+          dailyBudgetAmount: 0,
+          isAutoRenew: false,
           dailyRecords: {},
           totalAccumulatedSavings: 0,
           savingsStreak: 0,
