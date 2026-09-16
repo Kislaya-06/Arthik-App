@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Image } from 'react-native';
-import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -9,7 +9,6 @@ import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { supabase } from '../config/supabase';
-import { handleAuthDeepLink } from '../lib/authLinkHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
@@ -122,16 +121,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
     const initAuthAndNavigate = async () => {
       try {
-        // Check if the app was opened via a deep link (e.g. password recovery)
-        const initialUrl = await Linking.getInitialURL();
-        if (initialUrl && (initialUrl.includes('reset-password') || initialUrl.includes('recovery'))) {
-          await handleAuthDeepLink(initialUrl);
-          setTimeout(() => {
-            navigation.replace('ResetPassword');
-          }, 1200);
-          return;
-        }
-
         let nextScreen: keyof RootStackParamList = 'Onboarding';
         const { data: { session } } = await supabase.auth.getSession();
         await setSession(session);
@@ -139,6 +128,11 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         if (session) {
           await Promise.all([fetchCategories(), fetchExpenses()]);
           nextScreen = 'AppTabs';
+        } else {
+          const hasSeen = await AsyncStorage.getItem('@arthik_has_seen_onboarding');
+          if (hasSeen === 'true') {
+            nextScreen = 'Auth';
+          }
         }
 
         // Transition to next screen after 2.4 seconds to allow smooth wave animation
@@ -146,7 +140,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           navigation.replace(nextScreen as any);
         }, 2400);
       } catch (e) {
-        console.error('Session retrieval error:', e);
+        if (__DEV__) console.error('Session retrieval error:', e);
         setTimeout(() => {
           navigation.replace('Onboarding');
         }, 2400);

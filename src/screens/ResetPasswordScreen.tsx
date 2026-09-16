@@ -88,12 +88,12 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleUpdatePassword = async () => {
     if (loading) return;
-    if (!password.trim()) {
+    if (!password) {
       showError('Please enter a new password.');
       return;
     }
-    if (password.length < 6) {
-      showError('Password must be at least 6 characters long.');
+    if (password.length < 8) {
+      showError('Password must be at least 8 characters long.');
       return;
     }
     if (password !== confirmPassword) {
@@ -105,7 +105,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.updateUser({
-        password: password.trim(),
+        password: password,
       });
 
       if (error) {
@@ -209,7 +209,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
             Set New Password
           </Text>
           <Text style={[styles.subtext, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
-            Choose a strong password with at least 6 characters to secure your account.
+            Choose a strong password with at least 8 characters to secure your account.
           </Text>
 
           {/* In-UI Error Banner */}
@@ -251,7 +251,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
               ]}>
                 <TextInput
                   style={[styles.input, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium', paddingRight: 44 }]}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   placeholderTextColor={colors.textTertiary}
                   value={password}
                   onChangeText={(val) => {

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const CHANNEL_ID = 'daily-budget-alerts';
 
@@ -21,10 +22,12 @@ try {
     isNativeModuleAvailable = true;
   }
 } catch (error) {
-  console.log(
-    '[NotificationService] Native module not found in currently installed binary. ' +
-    'Run "eas build -p android --profile preview" to compile new native modules into APK.'
-  );
+  if (__DEV__) {
+    console.log(
+      '[NotificationService] Native module not found in currently installed binary. ' +
+      'Run "eas build -p android --profile preview" to compile new native modules into APK.'
+    );
+  }
   isNativeModuleAvailable = false;
 }
 
@@ -68,7 +71,7 @@ export async function setupNotifications(): Promise<boolean> {
 
     return finalStatus === 'granted';
   } catch (error) {
-    console.log('Error initializing notifications:', error);
+    if (__DEV__) console.log('Error initializing notifications:', error);
     return false;
   }
 }
@@ -81,8 +84,17 @@ export async function triggerDeviceNotification(
   body: string,
   data?: Record<string, any>
 ): Promise<string | null> {
+  try {
+    const enabled = await AsyncStorage.getItem('@arthik_notifications_enabled');
+    if (enabled === 'false') {
+      return null;
+    }
+  } catch {
+    // proceed if read fails
+  }
+
   if (!isDeviceNotificationSupported() || !Notifications) {
-    console.log('[NotificationService] Device notification skipped: native binary missing expo-notifications.');
+    if (__DEV__) console.log('[NotificationService] Device notification skipped: native binary missing expo-notifications.');
     return null;
   }
 
@@ -114,7 +126,7 @@ export async function triggerDeviceNotification(
     });
     return id;
   } catch (error) {
-    console.log('Error triggering device notification:', error);
+    if (__DEV__) console.log('Error triggering device notification:', error);
     return null;
   }
 }
@@ -123,6 +135,15 @@ export async function triggerDeviceNotification(
  * Schedule a daily evening reminder to check remaining budget and savings.
  */
 export async function scheduleDailyReminder(hour = 20, minute = 0): Promise<void> {
+  try {
+    const enabled = await AsyncStorage.getItem('@arthik_notifications_enabled');
+    if (enabled === 'false') {
+      return;
+    }
+  } catch {
+    // proceed
+  }
+
   if (!isDeviceNotificationSupported() || !Notifications) {
     return;
   }
@@ -152,7 +173,7 @@ export async function scheduleDailyReminder(hour = 20, minute = 0): Promise<void
       },
     });
   } catch (error) {
-    console.log('Error scheduling daily reminder:', error);
+    if (__DEV__) console.log('Error scheduling daily reminder:', error);
   }
 }
 
@@ -171,7 +192,7 @@ export async function cancelDailyReminder(): Promise<void> {
       }
     }
   } catch (error) {
-    console.log('Error cancelling daily reminder:', error);
+    if (__DEV__) console.log('Error cancelling daily reminder:', error);
   }
 }
 

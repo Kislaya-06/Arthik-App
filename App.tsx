@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
-import { ActivityIndicator, StyleSheet, View, StatusBar, Alert } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, StatusBar, Alert, AppState } from 'react-native';
 import * as Updates from 'expo-updates';
-import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppNavigation, navigationRef, navigateTo } from './src/navigation';
-import { handleAuthDeepLink } from './src/lib/authLinkHandler';
 import { Theme } from './src/config/theme';
 import { useTheme } from './src/store/themeStore';
 import { supabase } from './src/config/supabase';
@@ -14,9 +13,9 @@ import { useCategoryStore } from './src/store/categoryStore';
 import { useExpenseStore } from './src/store/expenseStore';
 import { useDailyBudgetStore } from './src/store/dailyBudgetStore';
 import {
-  setupNotifications,
   scheduleDailyReminder,
   registerNotificationResponseListener,
+  setupNotifications,
 } from './src/lib/notificationService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -62,7 +61,7 @@ export default function App() {
         }
       } catch (e) {
         // Silently fail in case of network issues so it doesn't block the app
-        console.log('Update check failed:', e);
+        if (__DEV__) console.log('Update check failed:', e);
       }
     }
 
@@ -70,14 +69,12 @@ export default function App() {
       checkForUpdates();
     }
 
-    // Initialize notification channels and prompt for permission on app start
-    const notifTimer = setTimeout(() => {
-      setupNotifications().then((granted) => {
-        if (granted) {
-          scheduleDailyReminder(20, 0);
-        }
-      });
-    }, 1000);
+    // P1.5: Only schedule daily reminder if notifications toggle is enabled
+    AsyncStorage.getItem('@arthik_notifications_enabled').then((val) => {
+      if (val !== 'false') {
+        scheduleDailyReminder(20, 0);
+      }
+    });
 
     // Handle user tapping on a device notification in notification shade
     const unregisterNotif = registerNotificationResponseListener((data) => {
@@ -93,48 +90,68 @@ export default function App() {
       }
     });
 
-    // Handle cold launch deep link (when app is launched directly from a link click)
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleAuthDeepLink(url);
+    // P0.9 & P0.10: Global Auth Listener without deadlock
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Wrap in setTimeout(0) to avoid deadlocking Supabase internal auth lock
+      setTimeout(async () => {
+        if (event === 'SIGNED_OUT') {
+          await setSession(null);
+          navigationRef.reset({
+            index: 0,
+            routes: [{ name: 'Auth' }],
+          });
+          return;
+        }
+
+        if (event === 'PASSWORD_RECOVERY') {
+          navigateTo('ResetPassword');
+          return;
+        }
+
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+          await setSession(session);
+          if (session?.user?.id) {
+            // P0.3: load pending expenses after user is restored
+            await useExpenseStore.getState().loadPendingExpenses();
+            await Promise.all([
+              fetchCategories(true),
+              fetchExpenses(),
+              useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id),
+            ]);
+
+            // Flush offline queue if online
+            const isOffline = useNetworkStore.getState().isOffline;
+            if (!isOffline) {
+              useExpenseStore.getState().syncPendingExpenses();
+            }
+
+            // P1.5: Ask permission after login, not on cold app start
+            if (event === 'SIGNED_IN') {
+              setupNotifications();
+            }
+          }
+        }
+      }, 0);
+    });
+
+    // AppState listener for auto-syncing when returning to foreground (P0.3)
+    const appStateSub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        const isOffline = useNetworkStore.getState().isOffline;
+        const currentUser = useAuthStore.getState().user;
+        if (!isOffline && currentUser) {
+          useExpenseStore.getState().syncPendingExpenses();
+          useDailyBudgetStore.getState().uploadPendingDailyRecords();
+        }
       }
     });
 
-    // Listen for incoming deep links while the app is active / foregrounded
-    const urlSub = Linking.addEventListener('url', (event) => {
-      handleAuthDeepLink(event.url);
-    });
-
-    // Global Auth Listener
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user?.id) {
-        useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      await setSession(session);
-      if (session?.user?.id) {
-        await Promise.all([
-          fetchCategories(true),
-          fetchExpenses(),
-          useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id),
-        ]);
-      }
-      if (event === 'PASSWORD_RECOVERY') {
-        navigateTo('ResetPassword');
-      }
-    });
-
-    // Start network listener & load any queued offline expenses
+    // Start network listener
     const cleanupNetwork = useNetworkStore.getState().initNetworkListener();
-    useExpenseStore.getState().loadPendingExpenses();
 
     return () => {
-      clearTimeout(notifTimer);
       subscription.unsubscribe();
-      urlSub.remove();
+      appStateSub.remove();
       unregisterNotif();
       cleanupNetwork();
     };

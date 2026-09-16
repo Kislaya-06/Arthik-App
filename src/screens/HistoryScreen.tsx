@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  ScrollView, SectionList, Platform,
+  ScrollView, SectionList, Platform, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -95,12 +95,29 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
+  const lastFetchTime = useRef<number>(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchTime.current < 60_000) {
+      return;
+    }
+    lastFetchTime.current = now;
+    await Promise.all([fetchExpenses(), fetchCategories()]);
+  }, [fetchExpenses, fetchCategories]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchExpenses();
-      fetchCategories();
-    }, [fetchExpenses, fetchCategories]),
+      loadData(false);
+    }, [loadData]),
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData(true);
+    setRefreshing(false);
+  }, [loadData]);
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, Category>();
@@ -324,6 +341,13 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.mintGreen}
+            />
+          }
           contentContainerStyle={[
             { paddingBottom: insets.bottom + 100 },
             filteredAndGroupedExpenses.length === 0 && { flexGrow: 1 },

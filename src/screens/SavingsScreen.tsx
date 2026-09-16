@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   Switch,
   TextInput,
   Modal,
@@ -178,13 +179,31 @@ export const SavingsScreen: React.FC = () => {
   const [modalMode, setModalMode] = useState<'recurring' | 'today'>('recurring');
   const [activeFilter, setActiveFilter] = useState<Filter>('All');
 
+  const lastFetchTime = useRef<number>(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchTime.current < 60_000) {
+      syncWithExpenses(useExpenseStore.getState().expenses);
+      return;
+    }
+    lastFetchTime.current = now;
+    await fetchExpenses();
+    syncWithExpenses(useExpenseStore.getState().expenses);
+  }, [fetchExpenses, syncWithExpenses]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchExpenses().then(() => {
-        syncWithExpenses(useExpenseStore.getState().expenses);
-      });
-    }, [fetchExpenses, syncWithExpenses])
+      loadData(false);
+    }, [loadData])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData(true);
+    setRefreshing(false);
+  }, [loadData]);
 
   const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, dailyRecords]);
   const pastRecords = useMemo(() => getPastRecordsList(), [getPastRecordsList, dailyRecords]);
@@ -261,6 +280,13 @@ export const SavingsScreen: React.FC = () => {
           },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.mintGreen}
+          />
+        }
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >

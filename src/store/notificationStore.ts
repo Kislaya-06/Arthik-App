@@ -27,7 +27,9 @@ export interface AppNotification {
 }
 
 interface NotificationState {
+  ownerUserId: string | null;
   notifications: AppNotification[];
+  setOwnerUserId: (userId: string | null) => void;
   addNotification: (
     notif: Omit<AppNotification, 'id' | 'createdAt' | 'read'> & { id?: string }
   ) => void;
@@ -40,7 +42,16 @@ interface NotificationState {
 export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
+      ownerUserId: null,
       notifications: [],
+
+      setOwnerUserId: (userId: string | null) => {
+        if (userId && get().ownerUserId && get().ownerUserId !== userId) {
+          set({ notifications: [], ownerUserId: userId });
+        } else {
+          set({ ownerUserId: userId });
+        }
+      },
 
       addNotification: (notif) => {
         const id = notif.id || `notif_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -90,6 +101,8 @@ export const useNotificationStore = create<NotificationState>()(
 
 registerStoreResetCallback(() => {
   useNotificationStore.getState().clearNotifications();
+  useNotificationStore.setState({ ownerUserId: null });
   AsyncStorage.removeItem('arthik-notifications-storage-v2').catch(() => {});
 });
+
 

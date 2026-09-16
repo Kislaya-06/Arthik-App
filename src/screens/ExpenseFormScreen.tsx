@@ -429,8 +429,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const addExpense = useExpenseStore((s) => s.addExpense);
   const updateExpense = useExpenseStore((s) => s.updateExpense);
-  const transactionType = useExpenseStore((s) => s.transactionType);
-  const setTransactionType = useExpenseStore((s) => s.setTransactionType);
+  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   // expenses is only read in edit mode to pre-fill the form
   const expenses = useExpenseStore((s) => s.expenses);
   const categories = useCategoryStore((s) => s.categories);
@@ -444,6 +443,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   // keyboard-show listener can scroll the note field into view (edit mode
   // needs this because the category list adds extra height above the note).
   const noteSectionY = useRef(0);
+  const hasPrefilled = useRef(false);
 
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -496,17 +496,28 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, []);
 
-  // ─── Fetch categories on mount ────────────────────────────────────────────
+  // ─── Fetch categories on mount & on focus (e.g. returning from AddEditCategory) ───
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  // ─── Pre-fill form when editing an existing expense ───────────────────────
   useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchCategories(true);
+    });
+    return unsubscribe;
+  }, [navigation, fetchCategories]);
+
+  // ─── Pre-fill form when editing an existing expense (P1.7: once only via ref) ───
+  useEffect(() => {
+    if (hasPrefilled.current) return;
+
     if (!isEdit || !expenseId) {
       setTransactionType('expense');
+      hasPrefilled.current = true;
       return;
     }
+
     const currentExpense = expenses.find((e) => e.id === expenseId);
     if (currentExpense) {
       setAmount(currentExpense.amount.toString());
@@ -514,11 +525,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       setNote(currentExpense.note || '');
       setSelectedDate(parseISO(currentExpense.expense_date));
       setPaymentMode(currentExpense.payment_mode);
-      const cat = categories.find((c) => c.id === currentExpense.category_id);
-      const isIncome = isIncomeTransaction(currentExpense, cat);
-      setTransactionType(isIncome ? 'income' : 'expense');
+      setTransactionType(currentExpense.type === 'income' ? 'income' : 'expense');
+      hasPrefilled.current = true;
     }
-  }, [isEdit, expenseId, expenses, categories, setTransactionType]);
+  }, [isEdit, expenseId, expenses]);
 
   // ─── Toggle transaction type handler ──────────────────────────────────────
   const handleTypeChange = useCallback(
@@ -529,7 +539,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         setPaymentMode('upi');
       }
     },
-    [setTransactionType, paymentMode]
+    [paymentMode]
   );
 
   // ─── Keypad handler ───────────────────────────────────────────────────────
@@ -551,7 +561,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   }, []);
 
   const isCategoriesLoading = useCategoryStore((s) => s.loading);
-  const areCategoriesPlaceholder = categories.length === 0 || categories.some((c) => c.isPlaceholder);
+  const isCategoriesFetched = useCategoryStore((s) => s.isFetched);
+  const areCategoriesPlaceholder = !isCategoriesFetched || categories.some((c) => c.isPlaceholder);
 
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -565,8 +576,12 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
     const isValid = numAmount > 0 && isCategorySelectedAndReal;
     if (!isValid) {
-      if (transactionType === 'expense' && areCategoriesPlaceholder) {
-        Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
+      if (transactionType === 'expense') {
+        if (areCategoriesPlaceholder) {
+          Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
+        } else if (categories.length === 0) {
+          Alert.alert('No Category', 'Please create a category first to add an expense.');
+        }
       }
       return;
     }
@@ -574,9 +589,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     setIsSubmitting(true);
 
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const incomeCat = categories.find((c) => isIncomeTransaction({ type: 'income' }, c));
-    const categoryIdToSave =
-      transactionType === 'income' ? (selectedCategoryId || incomeCat?.id || null) : selectedCategoryId;
+    // P1.6: Income saves with category_id = null (no keyword guessing)
+    const categoryIdToSave = transactionType === 'income' ? null : selectedCategoryId;
 
     const trimmedNote = note.trim();
     const clampedNote = trimmedNote
@@ -723,49 +737,65 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 </View>
               )}
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="always"
-              style={styles.categoryScroll}
-            >
-              <View style={styles.categoryList}>
-                {categories.map((cat: Category) => {
-                  const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
-                  const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
-                  const IconComp = getCategoryIcon(cat.icon);
-                  return (
-                    <Pressable
-                      key={cat.id}
-                      disabled={isPlaceholder}
-                      onPress={() => {
-                        if (!isPlaceholder) {
-                          setSelectedCategoryId(cat.id);
-                        }
-                      }}
-                      style={[
-                        styles.categoryChip,
-                        isSelected
-                          ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
-                          : { backgroundColor: colors.card, borderColor: colors.border },
-                        isPlaceholder && { opacity: 0.45 },
-                      ]}
-                    >
-                      <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
-                      <Text
+            {isCategoriesFetched && categories.length === 0 ? (
+              <View style={[styles.emptyCategoriesContainer, { backgroundColor: colors.inputBg }]}>
+                <Text style={[styles.emptyCategoriesText, { color: colors.textMuted, fontFamily: 'Quicksand_500Medium' }]}>
+                  No categories found. Create one to add an expense.
+                </Text>
+                <Pressable
+                  style={[styles.createCategoryBtn, { backgroundColor: colors.mintGreen }]}
+                  onPress={() => (navigation as any).navigate('AddEditCategory')}
+                >
+                  <Text style={[styles.createCategoryBtnText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
+                    + Create Category
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="always"
+                style={styles.categoryScroll}
+              >
+                <View style={styles.categoryList}>
+                  {categories.map((cat: Category) => {
+                    const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
+                    const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
+                    const IconComp = getCategoryIcon(cat.icon);
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        disabled={isPlaceholder}
+                        onPress={() => {
+                          if (!isPlaceholder) {
+                            setSelectedCategoryId(cat.id);
+                          }
+                        }}
                         style={[
-                          styles.categoryChipText,
-                          { color: isSelected ? colors.forestGreen : colors.textPrimary },
-                          { fontFamily: 'Quicksand_700Bold' },
+                          styles.categoryChip,
+                          isSelected
+                            ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
+                            : { backgroundColor: colors.card, borderColor: colors.border },
+                          isPlaceholder && { opacity: 0.45 },
                         ]}
                       >
-                        {cat.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </ScrollView>
+                        <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
+                        <Text
+                          style={[
+                            styles.categoryChipText,
+                            { color: isSelected ? colors.forestGreen : colors.textPrimary },
+                            { fontFamily: 'Quicksand_700Bold' },
+                          ]}
+                        >
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            )}
           </>
         )}
 
@@ -849,6 +879,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         <CustomDatePickerModal
           visible={showDatePicker}
           value={selectedDate}
+          maxDate={new Date()}
           onConfirm={(date) => setSelectedDate(date)}
           onClose={() => setShowDatePicker(false)}
         />
@@ -1063,6 +1094,27 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: 14,
     marginLeft: 8,
+  },
+  emptyCategoriesContainer: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  emptyCategoriesText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  createCategoryBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 9999,
+  },
+  createCategoryBtnText: {
+    fontSize: 14,
   },
   inputContainer: {
     height: 56,

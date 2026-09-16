@@ -73,7 +73,7 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
     if (isRecovery) {
       // Check if Supabase returned an error (e.g. otp_expired, access_denied)
       if (errorCode || errorDescription) {
-        console.warn('[AuthDeepLink] Recovery link error:', errorCode, errorDescription);
+        if (__DEV__) console.warn('[AuthDeepLink] Recovery link error:', errorCode, errorDescription);
         let friendlyMessage = 'Your password reset link is invalid or has expired. Please request a new link from the login screen.';
         if (errorCode === 'otp_expired' || errorDescription.toLowerCase().includes('expired')) {
           friendlyMessage = 'This password reset link has expired or has already been used. Please request a fresh link.';
@@ -91,7 +91,7 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
         });
 
         if (error) {
-          console.error('[AuthDeepLink] Failed to set recovery session:', error.message);
+          if (__DEV__) console.error('[AuthDeepLink] Failed to set recovery session:', error.message);
           navigateTo('ResetPassword', {
             initialError: 'Could not restore password reset session. Please request a new link.',
           });
@@ -102,7 +102,7 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
       } else if (code) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          console.error('[AuthDeepLink] Failed to exchange recovery code:', error.message);
+          if (__DEV__) console.error('[AuthDeepLink] Failed to exchange recovery code:', error.message);
           navigateTo('ResetPassword', {
             initialError: 'Password reset code is invalid or expired. Please request a new link.',
           });
@@ -119,7 +119,7 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
 
     // Case 2: OAuth or General Errors
     if (errorCode || errorDescription) {
-      console.warn('[AuthDeepLink] Auth deep link returned error:', errorCode, errorDescription);
+      if (__DEV__) console.warn('[AuthDeepLink] Auth deep link returned error:', errorCode, errorDescription);
       return false;
     }
 
@@ -144,7 +144,7 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
 
     return false;
   } catch (err) {
-    console.error('[AuthDeepLink] Unexpected error handling deep link:', err);
+    if (__DEV__) console.error('[AuthDeepLink] Unexpected error handling deep link:', err);
     return false;
   }
 }

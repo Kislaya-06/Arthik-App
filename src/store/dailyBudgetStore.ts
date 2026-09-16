@@ -4,6 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, subDays } from 'date-fns';
 import { Expense } from './expenseStore';
 import { useNotificationStore } from './notificationStore';
+
+let expenseGetter: (() => Expense[]) | null = null;
+export const registerExpenseGetter = (getter: () => Expense[]) => {
+  expenseGetter = getter;
+};
+export const getCurrentExpenses = (): Expense[] => {
+  return expenseGetter ? expenseGetter() : [];
+};
 import { useCategoryStore } from './categoryStore';
 import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
@@ -29,6 +37,7 @@ export interface DailyRecord {
   saved: number;
   isFinalized: boolean;
   status: 'saved' | 'exceeded' | 'even' | 'active' | 'unknown';
+  needsUpload?: boolean;
 }
 
 export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, todayStr: string, userCreatedAtStr?: string) => {
@@ -147,7 +156,50 @@ export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, to
   };
 };
 
+export const getPendingSettingsKey = (userId: string) => `@arthik_pending_settings_${userId}`;
+
+export const savePendingSettingsOffline = async (
+  userId: string,
+  patch: { daily_budget?: number; is_auto_renew?: boolean }
+) => {
+  try {
+    const key = getPendingSettingsKey(userId);
+    const existing = await AsyncStorage.getItem(key);
+    const data = existing ? JSON.parse(existing) : {};
+    const updated = { ...data, ...patch };
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
+  } catch (e) {
+    if (__DEV__) console.log('Error saving pending settings offline:', e);
+  }
+};
+
+export const clearPendingSettingsOffline = async (
+  userId: string,
+  keysToClear?: ('daily_budget' | 'is_auto_renew')[]
+) => {
+  try {
+    const key = getPendingSettingsKey(userId);
+    if (!keysToClear) {
+      await AsyncStorage.removeItem(key);
+      return;
+    }
+    const existing = await AsyncStorage.getItem(key);
+    if (!existing) return;
+    const data = JSON.parse(existing);
+    keysToClear.forEach((k) => delete data[k]);
+    if (Object.keys(data).length === 0) {
+      await AsyncStorage.removeItem(key);
+    } else {
+      await AsyncStorage.setItem(key, JSON.stringify(data));
+    }
+  } catch (e) {
+    if (__DEV__) console.log('Error clearing pending settings offline:', e);
+  }
+};
+
 interface DailyBudgetState {
+  ownerUserId: string | null;
+  hydratedForUserId: string | null;
   dailyBudgetAmount: number; // default daily recurring amount
   isAutoRenew: boolean; // toggle ON: auto-add daily budget; OFF: manual add
   dailyRecords: Record<string, DailyRecord>;
@@ -167,6 +219,7 @@ interface DailyBudgetState {
   addToTodayBudget: (amount: number) => void;
   syncWithExpenses: (expenses: Expense[]) => void;
   checkAndRollover: (expenses: Expense[]) => void;
+  uploadPendingDailyRecords: () => Promise<void>;
   hydrateFromSupabase: (userId: string) => Promise<void>;
   resetDailyBudget: () => void;
   getTodayRecord: () => DailyRecord;
@@ -178,6 +231,8 @@ const getTodayDateStr = () => format(new Date(), 'yyyy-MM-dd');
 export const useDailyBudgetStore = create<DailyBudgetState>()(
   persist(
     (set, get) => ({
+      ownerUserId: null,
+      hydratedForUserId: null,
       dailyBudgetAmount: 500,
       isAutoRenew: true,
       dailyRecords: {},
@@ -243,19 +298,25 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           ...metrics,
         });
 
-        // Sync to Supabase profiles (fire-and-forget)
+        // Sync to Supabase profiles with offline queue (P0.13)
         try {
           const currentUser = useAuthStore.getState().user;
           if (currentUser) {
+            savePendingSettingsOffline(currentUser.id, { daily_budget: cleanAmount });
             supabase
               .from('profiles')
               .update({ daily_budget: cleanAmount })
               .eq('id', currentUser.id)
-              .then(({ error }) => {
-                if (error) {
-                  console.error('Error syncing daily_budget to Supabase:', error);
-                }
-              });
+              .then(
+                ({ error }) => {
+                  if (!error) {
+                    clearPendingSettingsOffline(currentUser.id, ['daily_budget']);
+                  } else if (__DEV__) {
+                    console.error('Error syncing daily_budget to Supabase:', error);
+                  }
+                },
+                () => {}
+              );
           }
         } catch (e) {
           // Ignore offline / auth errors
@@ -285,19 +346,25 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           dailyRecords: records,
         });
 
-        // Sync to Supabase profiles (fire-and-forget)
+        // Sync to Supabase profiles with offline queue (P0.13)
         try {
           const currentUser = useAuthStore.getState().user;
           if (currentUser) {
+            savePendingSettingsOffline(currentUser.id, { is_auto_renew: enabled });
             supabase
               .from('profiles')
               .update({ is_auto_renew: enabled })
               .eq('id', currentUser.id)
-              .then(({ error }) => {
-                if (error) {
-                  console.error('Error syncing is_auto_renew to Supabase:', error);
-                }
-              });
+              .then(
+                ({ error }) => {
+                  if (!error) {
+                    clearPendingSettingsOffline(currentUser.id, ['is_auto_renew']);
+                  } else if (__DEV__) {
+                    console.error('Error syncing is_auto_renew to Supabase:', error);
+                  }
+                },
+                () => {}
+              );
           }
         } catch (e) {
           // Ignore offline / auth errors
@@ -460,6 +527,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       checkAndRollover: (expenses: Expense[]) => {
+        const currentUser = useAuthStore.getState().user;
+        // P0.1: Must not run or finalize before hydrateFromSupabase has completed for this user!
+        if (!currentUser || get().hydratedForUserId !== currentUser.id) {
+          return;
+        }
+
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
         const incomeIds = getIncomeCategoryIds();
@@ -491,7 +564,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
         }
 
-        const currentUser = useAuthStore.getState().user;
         const userCreatedAtStr = currentUser?.created_at?.split('T')[0]?.trim();
         const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
@@ -541,16 +613,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
           } else if (!existing) {
             // Past date being finalized for the very first time with no prior record:
-            // Do NOT silently assume today's budget applied. Mark as 'unknown' if expenses exist.
-            if (spent > 0) {
+            // P1.3 (Option A): If auto-renew is active, use daily budget so streak & savings are preserved
+            if (get().isAutoRenew) {
+              budget = get().dailyBudgetAmount;
+              saved = Math.max(0, budget - spent);
+              status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
+            } else if (spent > 0) {
               status = 'unknown';
               budget = 0;
               saved = 0;
-            } else if (get().isAutoRenew) {
-              // Auto-renew zero-spend day for elapsed days
-              budget = get().dailyBudgetAmount;
-              saved = budget;
-              status = 'saved';
             } else {
               // No prior record, 0 budget, 0 spent: skip
               continue;
@@ -585,42 +656,56 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               saved,
               isFinalized: true,
               status,
+              needsUpload: true,
             };
             updated = true;
 
-            // Sync updated past day to Supabase daily_savings_log (async fire-and-forget)
+            // Sync updated past day to Supabase daily_savings_log (async fire-and-forget with offline fallback)
             try {
-              const currentUser = useAuthStore.getState().user;
-              if (currentUser) {
-                const supabaseStatus =
-                  status === 'unknown'
-                    ? 'unknown'
-                    : saved > 0
-                    ? 'saved'
-                    : status === 'even'
-                    ? 'even'
-                    : 'missed';
+              const supabaseStatus =
+                status === 'unknown'
+                  ? 'unknown'
+                  : saved > 0
+                  ? 'saved'
+                  : status === 'even'
+                  ? 'even'
+                  : 'missed';
 
-                supabase
-                  .from('daily_savings_log')
-                  .upsert(
-                    {
-                      user_id: currentUser.id,
-                      date: d,
-                      amount_saved: saved,
-                      status: supabaseStatus,
-                      budget_amount: budget,
-                    },
-                    { onConflict: 'user_id,date' }
-                  )
-                  .then(({ error }) => {
-                    if (error) {
+              const isInsertOnly = status === 'unknown' || wasUnfinalized;
+
+              supabase
+                .from('daily_savings_log')
+                .upsert(
+                  {
+                    user_id: currentUser.id,
+                    date: d,
+                    amount_saved: saved,
+                    spent_amount: spent,
+                    status: supabaseStatus,
+                    budget_amount: budget,
+                  },
+                  { onConflict: 'user_id,date', ignoreDuplicates: isInsertOnly }
+                )
+                .then(
+                  ({ error }) => {
+                    if (!error) {
+                      const cur = get().dailyRecords;
+                      if (cur[d]) {
+                        set({
+                          dailyRecords: {
+                            ...cur,
+                            [d]: { ...cur[d], needsUpload: false },
+                          },
+                        });
+                      }
+                    } else if (__DEV__) {
                       console.error('Error syncing updated daily_savings_log to Supabase:', error);
                     }
-                  });
-              }
+                  },
+                  () => {}
+                );
             } catch {
-              // Ignore offline/auth errors
+              // Ignore offline/auth errors; needsUpload remains true
             }
 
             // Trigger notification for yesterday's savings rollover on initial rollover only
@@ -663,10 +748,88 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
       },
 
+      uploadPendingDailyRecords: async () => {
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser) return;
+        if (get().hydratedForUserId !== currentUser.id) return;
+
+        const records = { ...get().dailyRecords };
+        const dates = Object.keys(records);
+        let hasUpdates = false;
+
+        for (const d of dates) {
+          const rec = records[d];
+          if (rec && rec.isFinalized && rec.needsUpload) {
+            const supabaseStatus =
+              rec.status === 'unknown'
+                ? 'unknown'
+                : rec.saved > 0
+                ? 'saved'
+                : rec.status === 'even'
+                ? 'even'
+                : 'missed';
+
+            const isInsertOnly = rec.status === 'unknown';
+            try {
+              const { error } = await supabase
+                .from('daily_savings_log')
+                .upsert(
+                  {
+                    user_id: currentUser.id,
+                    date: d,
+                    amount_saved: rec.saved,
+                    spent_amount: rec.spent,
+                    status: supabaseStatus,
+                    budget_amount: rec.budget,
+                  },
+                  { onConflict: 'user_id,date', ignoreDuplicates: isInsertOnly }
+                );
+
+              if (!error) {
+                records[d] = { ...rec, needsUpload: false };
+                hasUpdates = true;
+              }
+            } catch {
+              // Still offline
+            }
+          }
+        }
+
+        if (hasUpdates) {
+          set({ dailyRecords: records });
+        }
+      },
+
       hydrateFromSupabase: async (userId: string) => {
         if (!userId) return;
         try {
+          // P0.1: Wait for zustand persist rehydration if not already done
+          if (!useDailyBudgetStore.persist.hasHydrated()) {
+            await new Promise<void>((resolve) => {
+              const unsub = useDailyBudgetStore.persist.onFinishHydration(() => {
+                unsub();
+                resolve();
+              });
+            });
+          }
+
+          // P0.2: Reset state if owner changed
+          if (get().ownerUserId && get().ownerUserId !== userId) {
+            get().resetDailyBudget();
+          }
+          set({ ownerUserId: userId });
+
+          // Also set owner on notificationStore
+          useNotificationStore.getState().setOwnerUserId(userId);
+
           const todayStr = getTodayDateStr();
+
+          // Check pending settings key (P0.13)
+          let pendingSettings: { daily_budget?: number; is_auto_renew?: boolean } = {};
+          try {
+            const stored = await AsyncStorage.getItem(getPendingSettingsKey(userId));
+            if (stored) pendingSettings = JSON.parse(stored);
+          } catch {}
 
           // 1. Fetch user's profile settings (daily_budget, is_auto_renew)
           const { data: profileData } = await supabase
@@ -678,26 +841,22 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           let resolvedBudget = get().dailyBudgetAmount;
           let resolvedAutoRenew = get().isAutoRenew;
 
-          if (profileData) {
-            if (profileData.daily_budget !== null && profileData.daily_budget !== undefined) {
-              const remoteBudget = Math.max(0, Math.round(Number(profileData.daily_budget)));
-              // If remote is the migration default 500 but local has a custom budget, preserve local and sync to remote!
-              if (remoteBudget === 500 && get().dailyBudgetAmount !== 500) {
-                resolvedBudget = get().dailyBudgetAmount;
-                supabase.from('profiles').update({ daily_budget: resolvedBudget }).eq('id', userId).then(() => {});
-              } else {
-                resolvedBudget = remoteBudget;
-              }
-            }
-            if (profileData.is_auto_renew !== null && profileData.is_auto_renew !== undefined) {
-              resolvedAutoRenew = Boolean(profileData.is_auto_renew);
-            }
+          if (pendingSettings.daily_budget !== undefined) {
+            resolvedBudget = pendingSettings.daily_budget;
+          } else if (profileData && profileData.daily_budget !== null && profileData.daily_budget !== undefined) {
+            resolvedBudget = Math.max(0, Math.round(Number(profileData.daily_budget)));
+          }
+
+          if (pendingSettings.is_auto_renew !== undefined) {
+            resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
+          } else if (profileData && profileData.is_auto_renew !== null && profileData.is_auto_renew !== undefined) {
+            resolvedAutoRenew = Boolean(profileData.is_auto_renew);
           }
 
           // 2. Fetch past daily savings logs from Supabase
           const { data: logsData } = await supabase
             .from('daily_savings_log')
-            .select('date, amount_saved, status, budget_amount')
+            .select('date, amount_saved, spent_amount, status, budget_amount')
             .eq('user_id', userId)
             .order('date', { ascending: true });
 
@@ -722,49 +881,49 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   ? 'unknown'
                   : 'exceeded';
 
-              // Lock to budget-at-the-time persisted in daily_savings_log if available
+              // P1.1: treat budget_amount as nullable without legacy 500 repair hack
               let dayBudget: number;
               if (log.budget_amount !== null && log.budget_amount !== undefined) {
                 dayBudget = Number(log.budget_amount);
               } else {
-                // -------------------------------------------------------------------
-                // ONE-TIME LEGACY-DATA MIGRATION CONCERN:
-                // For historical rows saved before budget_amount was added to schema,
-                // check local records. If local was corrupted to 500 by previous bug
-                // and user daily allowance is different, repair it.
-                // -------------------------------------------------------------------
-                let currentBudget = records[d]?.budget;
-                if (currentBudget === 500 && resolvedBudget !== 500) {
-                  currentBudget = resolvedBudget;
-                }
-                dayBudget = currentBudget || resolvedBudget;
+                dayBudget = records[d]?.budget || resolvedBudget;
               }
+
+              // P1.2: read real spent_amount column if available
+              const daySpent =
+                log.spent_amount !== null && log.spent_amount !== undefined
+                  ? Number(log.spent_amount)
+                  : Math.max(0, dayBudget - amountSaved);
 
               if (logStatus === 'unknown') {
                 records[d] = {
                   date: d,
                   budget: dayBudget || 0,
-                  spent: records[d]?.spent || 0,
+                  spent: records[d]?.spent || daySpent || 0,
                   saved: 0,
                   isFinalized: true,
                   status: 'unknown',
+                  needsUpload: false,
                 };
               } else if (!records[d]) {
                 records[d] = {
                   date: d,
                   budget: dayBudget,
-                  spent: Math.max(0, dayBudget - amountSaved),
+                  spent: daySpent,
                   saved: amountSaved,
                   isFinalized: true,
                   status: logStatus,
+                  needsUpload: false,
                 };
               } else {
                 records[d] = {
                   ...records[d],
                   budget: dayBudget,
+                  spent: records[d].spent !== undefined ? records[d].spent : daySpent,
                   saved: amountSaved > 0 ? amountSaved : records[d].saved,
                   isFinalized: true,
                   status: logStatus,
+                  needsUpload: false,
                 };
               }
             }
@@ -793,15 +952,26 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             dailyBudgetAmount: resolvedBudget,
             isAutoRenew: resolvedAutoRenew,
             dailyRecords: records,
+            ownerUserId: userId,
+            hydratedForUserId: userId,
             ...metrics,
           });
+
+          // P0.1: Trigger checkAndRollover once after successful hydration
+          const currentExpenses = getCurrentExpenses();
+          get().checkAndRollover(currentExpenses);
+
+          // P0.14: Also upload any records that need upload
+          get().uploadPendingDailyRecords();
         } catch (e) {
-          console.error('Error hydrating daily budget from Supabase:', e);
+          if (__DEV__) console.error('Error hydrating daily budget from Supabase:', e);
         }
       },
 
       resetDailyBudget: () => {
         set({
+          ownerUserId: null,
+          hydratedForUserId: null,
           dailyBudgetAmount: 500,
           isAutoRenew: true,
           dailyRecords: {},

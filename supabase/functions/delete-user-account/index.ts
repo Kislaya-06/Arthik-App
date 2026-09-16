@@ -1,16 +1,15 @@
-// @ts-nocheck
-// Supabase Edge Function: delete-user-account
-// Permanently deletes an authenticated user's data and auth.users record using the service role key.
+// Supabase Edge Function: delete-user-account (v1.2.3)
+// Permanently deletes an authenticated user's record using the service role key.
+// Foreign key CASCADE constraints handle dependent tables (profiles, expenses, categories, daily_savings_log).
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -32,13 +31,12 @@ serve(async (req: Request) => {
     if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
       console.error("[delete-user-account] Missing required Supabase environment variables");
       return new Response(
-        JSON.stringify({ error: "Server misconfiguration: Missing environment variables" }),
+        JSON.stringify({ error: "Server misconfiguration" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // 1. Verify caller's JWT to authenticate user and extract user id
-    // DO NOT trust any user_id passed in request body!
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
@@ -58,9 +56,9 @@ serve(async (req: Request) => {
     }
 
     const userId = user.id;
-    console.log(`[delete-user-account] Initiating account deletion for verified user: ${userId}`);
+    console.log(`[delete-user-account] Deleting user: ${userId}`);
 
-    // 2. Initialize admin client with service_role key to bypass RLS and perform deletions
+    // 2. Initialize admin client with service_role key to delete auth user
     const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
@@ -68,62 +66,20 @@ serve(async (req: Request) => {
       },
     });
 
-    // 3. Safety-net deletions across application tables (even with ON DELETE CASCADE configured)
-    // Delete expenses
-    const { error: expError } = await adminClient
-      .from("expenses")
-      .delete()
-      .eq("user_id", userId);
-
-    if (expError) {
-      console.error(`[delete-user-account] Failed to delete expenses for user ${userId}:`, expError);
-      throw new Error(`Failed to delete user expenses: ${expError.message}`);
-    }
-
-    // Delete daily savings logs
-    const { error: savingsError } = await adminClient
-      .from("daily_savings_log")
-      .delete()
-      .eq("user_id", userId);
-
-    if (savingsError) {
-      console.error(`[delete-user-account] Failed to delete daily_savings_log for user ${userId}:`, savingsError);
-      throw new Error(`Failed to delete user daily savings log: ${savingsError.message}`);
-    }
-
-    // Delete custom categories
-    const { error: catError } = await adminClient
-      .from("categories")
-      .delete()
-      .eq("user_id", userId);
-
-    if (catError) {
-      console.error(`[delete-user-account] Failed to delete categories for user ${userId}:`, catError);
-      throw new Error(`Failed to delete user categories: ${catError.message}`);
-    }
-
-    // Delete user profile
-    const { error: profileError } = await adminClient
-      .from("profiles")
-      .delete()
-      .eq("id", userId);
-
-    if (profileError) {
-      console.error(`[delete-user-account] Failed to delete profile for user ${userId}:`, profileError);
-      throw new Error(`Failed to delete user profile: ${profileError.message}`);
-    }
-
-    // 4. Finally delete the user from auth.users via Supabase Auth Admin API
+    // 3. Delete only via auth.admin.deleteUser(userId) - FK cascades handle tables
     const { error: authAdminError } = await adminClient.auth.admin.deleteUser(userId);
     if (authAdminError) {
-      console.error(
-        `[delete-user-account] CRITICAL: Tables cleared but failed to delete auth.users record for ${userId}:`,
-        authAdminError
+      console.error("[delete-user-account] Failed to delete auth user:", authAdminError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Failed to delete account. Please try again later.",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-      throw new Error(`Failed to delete authentication account: ${authAdminError.message}`);
     }
 
-    console.log(`[delete-user-account] Successfully deleted user account and all data for: ${userId}`);
+    console.log(`[delete-user-account] Successfully deleted user: ${userId}`);
 
     return new Response(
       JSON.stringify({
@@ -133,11 +89,11 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    console.error("[delete-user-account] Error occurred during account deletion:", error);
+    console.error("[delete-user-account] Unexpected error:", error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || "Failed to delete account. Please try again later.",
+        error: "Failed to delete account. Please try again later.",
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

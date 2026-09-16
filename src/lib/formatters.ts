@@ -1,4 +1,4 @@
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday, parseISO } from 'date-fns';
 
 /**
  * Formats a number as Indian Rupee currency string (rounded to whole number).
@@ -16,7 +16,7 @@ export const formatDate = (
   date: Date | string,
   showRelative = false,
 ): string => {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = typeof date === 'string' ? parseISO(date) : date;
   if (showRelative) {
     if (isToday(d)) return `Today, ${format(d, 'd MMM')}`;
     if (isYesterday(d)) return `Yesterday, ${format(d, 'd MMM')}`;

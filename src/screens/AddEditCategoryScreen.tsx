@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator
+  View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import * as LucideIcons from 'lucide-react-native';
 import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
+import { useNetworkStore } from '../store/networkStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditCategory'>;
 
@@ -31,6 +32,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { categories, addCategory, updateCategory } = useCategoryStore();
+  const isOffline = useNetworkStore((s) => s.isOffline);
   
   const categoryId = route.params?.categoryId;
   const isEditMode = !!categoryId;
@@ -53,6 +55,16 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
 
   const handleSave = async () => {
     if (isSaving || !name.trim() || !selectedIcon) return;
+
+    if (isOffline) {
+      Alert.alert(
+        'Offline',
+        'Category banane/badalne ke liye internet chahiye.',
+        [{ text: 'Theek hai' }]
+      );
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -65,7 +77,9 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
       }
       
       navigation.goBack();
-    } catch {
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Category save nahi ho saki. Please dobara try karein.');
+    } finally {
       setIsSaving(false);
     }
   };

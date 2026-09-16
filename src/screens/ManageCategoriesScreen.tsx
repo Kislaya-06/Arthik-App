@@ -12,6 +12,7 @@ import { RootStackParamList } from '../types';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
+import { useNetworkStore } from '../store/networkStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
@@ -21,6 +22,8 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
   const { categories, fetchCategories, deleteCategory } = useCategoryStore();
   const { expenses, fetchExpenses } = useExpenseStore();
+  const isOffline = useNetworkStore((s) => s.isOffline);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -40,6 +43,17 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
   }, [expenses]);
 
   const handleDelete = useCallback((categoryId: string) => {
+    if (isDeleting) return;
+
+    if (isOffline) {
+      Alert.alert(
+        'Offline',
+        'Category delete karne ke liye internet chahiye.',
+        [{ text: 'Theek hai' }]
+      );
+      return;
+    }
+
     const count = categoryExpenseCounts[categoryId] || 0;
     if (count > 0) {
       Alert.alert(
@@ -59,13 +73,20 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
           text: "Delete", 
           style: "destructive", 
           onPress: async () => {
-            await deleteCategory(categoryId);
-            fetchCategories();
+            setIsDeleting(true);
+            try {
+              await deleteCategory(categoryId);
+              await fetchCategories();
+            } catch (e: any) {
+              Alert.alert('Error', e?.message || 'Category delete nahi ho saki. Please try again.');
+            } finally {
+              setIsDeleting(false);
+            }
           } 
         }
       ]
     );
-  }, [categoryExpenseCounts, deleteCategory, fetchCategories]);
+  }, [isDeleting, isOffline, categoryExpenseCounts, deleteCategory, fetchCategories]);
 
   const renderItem = useCallback(({ item, index }: { item: Category; index: number }) => {
     const IconComponent = getCategoryIcon(item.icon);

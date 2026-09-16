@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView,
+  View, Text, StyleSheet, Pressable, ScrollView, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -64,14 +64,33 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const handleScroll = useScrollDirection();
 
   const [period, setPeriod] = useState<Period>('Monthly');
+  const [focusTime, setFocusTime] = useState<number>(Date.now());
+  const [refreshing, setRefreshing] = useState(false);
+  const lastFetchTime = useRef<number>(0);
+
+  const loadData = useCallback(async (force = false) => {
+    const now = Date.now();
+    setFocusTime(now);
+    if (!force && now - lastFetchTime.current < 60_000) {
+      return;
+    }
+    lastFetchTime.current = now;
+    await Promise.all([fetchExpenses(), fetchCategories()]);
+  }, [fetchExpenses, fetchCategories]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchExpenses();
-      fetchCategories();
-    }, [fetchExpenses, fetchCategories]),
+      loadData(false);
+    }, [loadData]),
   );
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData(true);
+    setRefreshing(false);
+  }, [loadData]);
+
+  // P2.1: Recompute intervals when period OR focusTime changes (no stale midnight/month rollover)
   const { currentInterval, previousInterval, periodLabel } = useMemo(() => {
     const now = new Date();
     let current, previous, label;
@@ -99,7 +118,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       label = 'THIS YEAR';
     }
     return { currentInterval: current, previousInterval: previous, periodLabel: label };
-  }, [period]);
+  }, [period, focusTime]);
 
   const { currentTotal, previousTotal, categoryTotals } = useMemo(() => {
     let currTotal = 0;
@@ -242,6 +261,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           styles.scrollContent,
           { paddingBottom: insets.bottom + 100 },
         ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.mintGreen}
+          />
+        }
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >

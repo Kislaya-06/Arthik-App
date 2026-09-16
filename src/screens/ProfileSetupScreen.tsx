@@ -65,7 +65,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleAvatarPress = () => {
     // TODO: Supabase Integration - Integrate expo-image-picker here to allow avatar upload to Supabase Storage
-    console.log('Avatar picker pressed');
+    if (__DEV__) console.log('Avatar picker pressed');
   };
 
   const handleSubmit = async () => {
@@ -83,9 +83,12 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
 
       await Promise.all([fetchCategories(), fetchExpenses()]);
 
-      navigation.replace('AppTabs');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AppTabs' }],
+      });
     } catch (e) {
-      console.error('Profile update error:', e);
+      if (__DEV__) console.error('Profile update error:', e);
     } finally {
       setLoading(false);
     }

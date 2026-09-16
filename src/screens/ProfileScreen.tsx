@@ -15,6 +15,8 @@ import {
 import Constants from 'expo-constants';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
+import { useExpenseStore, getPendingSyncCount } from '../store/expenseStore';
+import { useNetworkStore } from '../store/networkStore';
 import { RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { scheduleDailyReminder, cancelDailyReminder } from '../lib/notificationService';
@@ -23,11 +25,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { profile, signOut, updateProfile, deleteAccount } = useAuthStore();
+  const { user, profile, signOut, updateProfile, deleteAccount } = useAuthStore();
+  const syncPendingExpenses = useExpenseStore((s) => s.syncPendingExpenses);
+  const isOffline = useNetworkStore((s) => s.isOffline);
   const [isDeleting, setIsDeleting] = useState(false);
   const { colors, isDark, toggleTheme, setThemeMode } = useTheme();
   const handleScroll = useScrollDirection();
-  const appVersion = 'v1.2.1';
+  const appVersion = Constants.expoConfig?.version ? `v${Constants.expoConfig.version}` : 'v1.2.3';
 
   // Local state for toggles with AsyncStorage persistence
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -56,7 +60,58 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [editLastName, setEditLastName] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const userId = user?.id;
+    const pendingCount = userId ? await getPendingSyncCount(userId) : 0;
+
+    const performSignOut = async () => {
+      await signOut();
+      (navigation as any).reset({
+        index: 0,
+        routes: [{ name: 'Auth' }],
+      });
+    };
+
+    if (pendingCount > 0) {
+      if (!isOffline) {
+        Alert.alert(
+          'Unsynced Data',
+          `${pendingCount} entries abhi sync nahi hui hain. Logout karne par ye tab tak sync nahi hongi jab tak aap wapas login nahi karte.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sync Now',
+              onPress: async () => {
+                await syncPendingExpenses();
+                Alert.alert('Synced', 'Aapka data sync ho gaya hai.', [
+                  { text: 'OK' }
+                ]);
+              },
+            },
+            {
+              text: 'Logout Anyway',
+              style: 'destructive',
+              onPress: performSignOut,
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Unsynced Data',
+          `${pendingCount} entries abhi sync nahi hui hain. Aap abhi offline hain. Logout karne par ye tab tak sync nahi hongi jab tak aap wapas login nahi karte.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Logout Anyway',
+              style: 'destructive',
+              onPress: performSignOut,
+            },
+          ]
+        );
+      }
+      return;
+    }
+
     Alert.alert(
       "Log Out",
       "Are you sure you want to log out?",
@@ -65,14 +120,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         { 
           text: "Log Out", 
           style: "destructive",
-          onPress: async () => {
-            await signOut();
-            // Reset nav stack and go to Auth (parent stack route)
-            (navigation as any).reset({
-              index: 0,
-              routes: [{ name: 'Auth' }],
-            });
-          }
+          onPress: performSignOut,
         }
       ]
     );

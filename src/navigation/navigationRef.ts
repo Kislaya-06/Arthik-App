@@ -24,7 +24,7 @@ export function navigateTo<RouteName extends keyof RootStackParamList>(
       navigationRef.dispatch(CommonActions.navigate({ name, params }));
     } else if (attempts >= 30) {
       clearInterval(interval);
-      console.warn('[Navigation] Could not navigate to', name, '- navigationRef never became ready');
+      if (__DEV__) console.warn('[Navigation] Could not navigate to', name, '- navigationRef never became ready');
     }
   }, 100);
 }

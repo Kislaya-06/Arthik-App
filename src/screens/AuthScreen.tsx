@@ -113,19 +113,20 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleForgotPassword = async () => {
-    if (!email.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
       showBanner('Please enter your email address first, then tap Forgot Password.', 'error');
       return;
     }
     setForgotLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
       redirectTo: 'arthik://reset-password',
     });
     setForgotLoading(false);
     if (error) {
       showBanner(getFriendlyError(error.message, 'login'), 'error');
     } else {
-      showBanner(`Password reset link sent to ${email}. Check your inbox!`, 'success');
+      showBanner(`Password reset link sent to ${cleanEmail}. Check your inbox!`, 'success');
     }
   };
 
@@ -142,7 +143,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
       return "This email is already registered. Try logging in instead.";
     }
     if (msg.includes('password should be at least')) {
-      return "Password must be at least 6 characters long.";
+      return "Password must be at least 8 characters long.";
     }
     if (msg.includes('unable to validate email address') || msg.includes('invalid email')) {
       return "Please enter a valid email address.";
@@ -158,40 +159,56 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleAuth = async () => {
     if (authLoading || googleLoading || forgotLoading) return;
+    const cleanEmail = email.trim().toLowerCase();
     // Client-side validation first
-    if (!email.trim()) {
+    if (!cleanEmail) {
       showBanner("Please enter your email address.", 'error');
       return;
     }
-    if (!password.trim()) {
+    if (!password) {
       showBanner("Please enter your password.", 'error');
       return;
     }
-    if (mode === 'signup' && !fullName.trim()) {
-      showBanner("Please enter your full name.", 'error');
-      return;
+    if (mode === 'signup') {
+      if (!fullName.trim()) {
+        showBanner("Please enter your full name.", 'error');
+        return;
+      }
+      if (password.length < 8) {
+        showBanner("Password must be at least 8 characters long.", 'error');
+        return;
+      }
     }
 
     setAuthLoading(true);
     dismissError();
 
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
-        email,
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
         password,
-        options: { data: { full_name: fullName } },
+        options: {
+          data: { full_name: fullName.trim() },
+          emailRedirectTo: 'arthik://auth/callback',
+        },
       });
       if (error) {
         showBanner(getFriendlyError(error.message, 'signup'), 'error');
+      } else if (!data.session) {
+        showBanner('Please check your email to verify your account before logging in.', 'success');
+        setMode('login');
       } else {
         navigation.navigate('ProfileSetup');
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (error) {
         showBanner(getFriendlyError(error.message, 'login'), 'error');
       } else {
-        navigation.replace('AppTabs');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AppTabs' }],
+        });
       }
     }
     setAuthLoading(false);
@@ -210,7 +227,10 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
     if (!profile || !profile.first_name) {
       navigation.navigate('ProfileSetup');
     } else {
-      navigation.replace('AppTabs');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AppTabs' }],
+      });
     }
   };
 
@@ -405,7 +425,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                 ]}>
                   <TextInput
                     style={[styles.input, { color: colors.textPrimary, paddingRight: 44 }]}
-                    placeholder={isSignUp ? 'Create a password' : 'Enter password'}
+                    placeholder={isSignUp ? 'Create a password (min 8 chars)' : 'Enter password'}
                     placeholderTextColor={colors.textTertiary}
                     value={password}
                     onChangeText={setPassword}

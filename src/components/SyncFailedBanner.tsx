@@ -18,7 +18,8 @@ export const SyncFailedBanner: React.FC = () => {
 
   const failedSyncItems = useExpenseStore((s) => s.failedSyncItems);
   const clearAllFailedSyncItems = useExpenseStore((s) => s.clearAllFailedSyncItems);
-  const syncPendingExpenses = useExpenseStore((s) => s.syncPendingExpenses);
+  const discardFailedSyncItem = useExpenseStore((s) => s.discardFailedSyncItem);
+  const retryFailedSyncItems = useExpenseStore((s) => s.retryFailedSyncItems);
 
   const isVisible = failedSyncItems.length > 0;
   const [shouldRender, setShouldRender] = useState(isVisible);
@@ -64,7 +65,66 @@ export const SyncFailedBanner: React.FC = () => {
   const count = failedSyncItems.length;
   const message = `${count} transaction${count > 1 ? 's' : ''} couldn't be saved — tap to review`;
 
+  const showItemReview = (index: number) => {
+    const item = failedSyncItems[index];
+    if (!item) return;
+    const desc = item.expense?.note || 'Transaction';
+    const amt = item.expense?.amount ? ` (₹${item.expense.amount})` : '';
+    const hasMore = index + 1 < failedSyncItems.length;
+
+    Alert.alert(
+      `Transaction ${index + 1} of ${failedSyncItems.length}`,
+      `${desc}${amt}\n\nError: ${item.errorReason}`,
+      [
+        { text: 'Close', style: 'cancel' },
+        {
+          text: 'Discard Item',
+          style: 'destructive',
+          onPress: async () => {
+            await discardFailedSyncItem(item.id);
+          },
+        },
+        ...(hasMore
+          ? [
+              {
+                text: 'Next',
+                onPress: () => showItemReview(index + 1),
+              },
+            ]
+          : []),
+      ]
+    );
+  };
+
   const handlePress = () => {
+    if (count === 1) {
+      const item = failedSyncItems[0];
+      const desc = item.expense?.note || 'Transaction';
+      const amt = item.expense?.amount ? ` (₹${item.expense.amount})` : '';
+
+      Alert.alert(
+        'Transaction Not Saved',
+        `${desc}${amt}\n\nReason: ${item.errorReason}`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: async () => {
+              await discardFailedSyncItem(item.id);
+            },
+          },
+          {
+            text: 'Retry Sync',
+            onPress: async () => {
+              await retryFailedSyncItems();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     const summaryList = failedSyncItems
       .slice(0, 3)
       .map((item, idx) => {
@@ -80,7 +140,10 @@ export const SyncFailedBanner: React.FC = () => {
       'Transactions Not Saved',
       `These transactions could not be saved to your account:\n\n${summaryList}${extra}`,
       [
-        { text: 'Dismiss', style: 'cancel' },
+        {
+          text: 'Review & Discard One',
+          onPress: () => showItemReview(0),
+        },
         {
           text: 'Discard All',
           style: 'destructive',
@@ -89,9 +152,9 @@ export const SyncFailedBanner: React.FC = () => {
           },
         },
         {
-          text: 'Retry Sync',
+          text: 'Retry All',
           onPress: async () => {
-            await syncPendingExpenses();
+            await retryFailedSyncItems();
           },
         },
       ]

@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   Pressable,
 } from 'react-native';
@@ -243,14 +244,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
+  const lastFetchTime = useRef<number>(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchTime.current < 60_000) {
+      const cur = useExpenseStore.getState().expenses;
+      syncWithExpenses(cur);
+      return;
+    }
+    lastFetchTime.current = now;
+    await fetchExpenses();
+    const cur = useExpenseStore.getState().expenses;
+    syncWithExpenses(cur);
+  }, [fetchExpenses, syncWithExpenses]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchExpenses().then(() => {
-        const cur = useExpenseStore.getState().expenses;
-        syncWithExpenses(cur);
-      });
-    }, [fetchExpenses, syncWithExpenses])
+      loadData(false);
+    }, [loadData])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData(true);
+    setRefreshing(false);
+  }, [loadData]);
 
   const catMap = useMemo(() => {
     const m: Record<string, Category> = {};
@@ -502,6 +522,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.mintGreen}
+          />
+        }
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >

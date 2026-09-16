@@ -59,12 +59,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             set({ categories: parsed, isFetched: true });
           }
         }
       } catch (cacheErr) {
-        console.log('Error reading cached categories:', cacheErr);
+        if (__DEV__) console.log('Error reading cached categories:', cacheErr);
       }
     }
 
@@ -76,12 +76,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         .or(`user_id.is.null,user_id.eq.${user.id}`);
 
       if (error) throw error;
-      if (data && data.length > 0) {
+      if (data) {
         set({ categories: data, isFetched: true });
         await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
       }
     } catch (e) {
-      console.error('Error fetching categories:', e);
+      if (__DEV__) console.error('Error fetching categories:', e);
     } finally {
       set({ loading: false });
     }
@@ -111,7 +111,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       if (error) throw error;
       await get().fetchCategories(true);
     } catch (e) {
-      console.error('Error adding category:', e);
+      if (__DEV__) console.error('Error adding category:', e);
       throw e;
     } finally {
       set({ loading: false });
@@ -132,7 +132,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       if (error) throw error;
       await get().fetchCategories(true);
     } catch (e) {
-      console.error('Error updating category:', e);
+      if (__DEV__) console.error('Error updating category:', e);
       throw e;
     } finally {
       set({ loading: false });
@@ -163,10 +163,10 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
           }));
         }
       } catch (err) {
-        console.log('Error syncing deleted category with expense store:', err);
+        if (__DEV__) console.log('Error syncing deleted category with expense store:', err);
       }
     } catch (e) {
-      console.error('Error deleting category:', e);
+      if (__DEV__) console.error('Error deleting category:', e);
       throw e;
     } finally {
       set({ loading: false });

@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Arthik App - Database Schema & Security Definition
+-- Arthik App - Database Schema & Security Definition (v1.2.3)
 -- ==============================================================================
 
 -- Enable UUID extension if not enabled
@@ -20,22 +20,30 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 CREATE POLICY "Users can view their own profile" 
 ON public.profiles FOR SELECT 
-USING (auth.uid() = id);
+TO authenticated
+USING ((select auth.uid()) = id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 CREATE POLICY "Users can insert their own profile" 
 ON public.profiles FOR INSERT 
-WITH CHECK (auth.uid() = id);
+TO authenticated
+WITH CHECK ((select auth.uid()) = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile" 
 ON public.profiles FOR UPDATE 
-USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
+TO authenticated
+USING ((select auth.uid()) = id)
+WITH CHECK ((select auth.uid()) = id);
 
+DROP POLICY IF EXISTS "Users can delete their own profile" ON public.profiles;
 CREATE POLICY "Users can delete their own profile" 
 ON public.profiles FOR DELETE 
-USING (auth.uid() = id);
+TO authenticated
+USING ((select auth.uid()) = id);
 
 -- ------------------------------------------------------------------------------
 -- 2. Categories Table
@@ -50,24 +58,37 @@ CREATE TABLE IF NOT EXISTS public.categories (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_name_len;
+ALTER TABLE public.categories ADD CONSTRAINT categories_name_len CHECK (char_length(btrim(name)) BETWEEN 1 AND 24);
+
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view default categories and their own" ON public.categories;
 CREATE POLICY "Users can view default categories and their own" 
 ON public.categories FOR SELECT 
-USING (user_id IS NULL OR auth.uid() = user_id);
+TO authenticated
+USING (user_id IS NULL OR (select auth.uid()) = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own categories" ON public.categories;
 CREATE POLICY "Users can insert their own categories" 
 ON public.categories FOR INSERT 
-WITH CHECK (auth.uid() = user_id AND user_id IS NOT NULL);
+TO authenticated
+WITH CHECK ((select auth.uid()) = user_id AND user_id IS NOT NULL);
 
+DROP POLICY IF EXISTS "Users can update their own categories" ON public.categories;
 CREATE POLICY "Users can update their own categories" 
 ON public.categories FOR UPDATE 
-USING (auth.uid() = user_id AND user_id IS NOT NULL)
-WITH CHECK (auth.uid() = user_id AND user_id IS NOT NULL);
+TO authenticated
+USING ((select auth.uid()) = user_id AND user_id IS NOT NULL)
+WITH CHECK ((select auth.uid()) = user_id AND user_id IS NOT NULL);
 
+DROP POLICY IF EXISTS "Users can delete their own categories" ON public.categories;
 CREATE POLICY "Users can delete their own categories" 
 ON public.categories FOR DELETE 
-USING (auth.uid() = user_id AND user_id IS NOT NULL);
+TO authenticated
+USING ((select auth.uid()) = user_id AND user_id IS NOT NULL);
+
+CREATE INDEX IF NOT EXISTS idx_categories_user ON public.categories (user_id);
 
 -- ------------------------------------------------------------------------------
 -- 3. Expenses Table
@@ -84,27 +105,41 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_note_len;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_note_len CHECK (note IS NULL OR char_length(note) <= 250);
+
 ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own expenses" ON public.expenses;
 CREATE POLICY "Users can view their own expenses" 
 ON public.expenses FOR SELECT 
-USING (auth.uid() = user_id);
+TO authenticated
+USING ((select auth.uid()) = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own expenses" ON public.expenses;
 CREATE POLICY "Users can insert their own expenses" 
 ON public.expenses FOR INSERT 
-WITH CHECK (auth.uid() = user_id);
+TO authenticated
+WITH CHECK ((select auth.uid()) = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own expenses" ON public.expenses;
 CREATE POLICY "Users can update their own expenses" 
 ON public.expenses FOR UPDATE 
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+TO authenticated
+USING ((select auth.uid()) = user_id)
+WITH CHECK ((select auth.uid()) = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own expenses" ON public.expenses;
 CREATE POLICY "Users can delete their own expenses" 
 ON public.expenses FOR DELETE 
-USING (auth.uid() = user_id);
+TO authenticated
+USING ((select auth.uid()) = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date 
 ON public.expenses (user_id, expense_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_expenses_category 
+ON public.expenses (category_id);
 
 -- ------------------------------------------------------------------------------
 -- 4. Daily Savings Log Table
@@ -115,32 +150,38 @@ CREATE TABLE IF NOT EXISTS public.daily_savings_log (
     date DATE NOT NULL,
     amount_saved NUMERIC(12, 2) NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN ('saved', 'missed', 'even', 'unknown')),
-    budget_amount NUMERIC(12, 2) DEFAULT 500,
+    budget_amount NUMERIC(12, 2), -- Nullable, NO default (P1.1)
+    spent_amount NUMERIC(12, 2),  -- Real spent tracked (P1.2)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_user_daily_savings UNIQUE (user_id, date)
 );
 
 ALTER TABLE public.daily_savings_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own daily savings log" ON public.daily_savings_log;
 CREATE POLICY "Users can view their own daily savings log" 
 ON public.daily_savings_log FOR SELECT 
-USING (auth.uid() = user_id);
+TO authenticated
+USING ((select auth.uid()) = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own daily savings log" ON public.daily_savings_log;
 CREATE POLICY "Users can insert their own daily savings log" 
 ON public.daily_savings_log FOR INSERT 
-WITH CHECK (auth.uid() = user_id);
+TO authenticated
+WITH CHECK ((select auth.uid()) = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own daily savings log" ON public.daily_savings_log;
 CREATE POLICY "Users can update their own daily savings log" 
 ON public.daily_savings_log FOR UPDATE 
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+TO authenticated
+USING ((select auth.uid()) = user_id)
+WITH CHECK ((select auth.uid()) = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own daily savings log" ON public.daily_savings_log;
 CREATE POLICY "Users can delete their own daily savings log" 
 ON public.daily_savings_log FOR DELETE 
-USING (auth.uid() = user_id);
-
-CREATE INDEX IF NOT EXISTS idx_daily_savings_log_user_date 
-ON public.daily_savings_log (user_id, date);
+TO authenticated
+USING ((select auth.uid()) = user_id);
 
 -- ------------------------------------------------------------------------------
 -- 5. Functions & Triggers
@@ -185,6 +226,9 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Revoke direct execution from public/authenticated users (security advisor fix)
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
 
 -- ==============================================================================
 -- MIGRATIONS (For existing databases only)
@@ -192,84 +236,20 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 -- database without affecting existing user data.
 -- ==============================================================================
 
--- 1. Schema Upgrades for Existing Databases
-ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'expense' CHECK (type IN ('expense', 'income'));
-ALTER TABLE public.expenses ALTER COLUMN category_id DROP NOT NULL;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS daily_budget NUMERIC(12, 2) DEFAULT 500;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_auto_renew BOOLEAN DEFAULT TRUE;
-ALTER TABLE public.daily_savings_log ADD COLUMN IF NOT EXISTS budget_amount NUMERIC(12, 2) DEFAULT 500;
+-- A1. Stop future rows defaulting to 500; add real spent column
+ALTER TABLE public.daily_savings_log ALTER COLUMN budget_amount DROP DEFAULT;
+ALTER TABLE public.daily_savings_log ADD COLUMN IF NOT EXISTS spent_amount NUMERIC(12, 2);
 
--- Ensure status check constraint allows 'unknown'
-DO $$
-BEGIN
-  ALTER TABLE public.daily_savings_log DROP CONSTRAINT IF EXISTS daily_savings_log_status_check;
-  ALTER TABLE public.daily_savings_log ADD CONSTRAINT daily_savings_log_status_check CHECK (status IN ('saved', 'missed', 'even', 'unknown'));
-EXCEPTION
-  WHEN OTHERS THEN NULL;
-END $$;
+-- A2. Fix Constraints and Indexes
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_note_len;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_note_len CHECK (note IS NULL OR char_length(note) <= 250);
 
--- 2. Verify / Enforce ON DELETE CASCADE Constraints
-ALTER TABLE public.profiles
-  DROP CONSTRAINT IF EXISTS profiles_id_fkey,
-  ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_name_len;
+ALTER TABLE public.categories ADD CONSTRAINT categories_name_len CHECK (char_length(btrim(name)) BETWEEN 1 AND 24);
 
-ALTER TABLE public.categories
-  DROP CONSTRAINT IF EXISTS categories_user_id_fkey,
-  ADD CONSTRAINT categories_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON public.expenses (category_id);
+CREATE INDEX IF NOT EXISTS idx_categories_user ON public.categories (user_id);
+DROP INDEX IF EXISTS public.idx_daily_savings_log_user_date; -- unique(user_id,date) already covers it
 
-ALTER TABLE public.expenses
-  DROP CONSTRAINT IF EXISTS expenses_user_id_fkey,
-  ADD CONSTRAINT expenses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE public.daily_savings_log
-  DROP CONSTRAINT IF EXISTS daily_savings_log_user_id_fkey,
-  ADD CONSTRAINT daily_savings_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
--- 3. Policy Upgrades & Security Hardening
--- Profiles
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
-CREATE POLICY "Users can update their own profile" 
-ON public.profiles FOR UPDATE 
-USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Users can delete their own profile" ON public.profiles;
-CREATE POLICY "Users can delete their own profile" 
-ON public.profiles FOR DELETE 
-USING (auth.uid() = id);
-
--- Categories
-DROP POLICY IF EXISTS "Users can insert their own categories" ON public.categories;
-CREATE POLICY "Users can insert their own categories" 
-ON public.categories FOR INSERT 
-WITH CHECK (auth.uid() = user_id AND user_id IS NOT NULL);
-
-DROP POLICY IF EXISTS "Users can update their own categories" ON public.categories;
-CREATE POLICY "Users can update their own categories" 
-ON public.categories FOR UPDATE 
-USING (auth.uid() = user_id AND user_id IS NOT NULL)
-WITH CHECK (auth.uid() = user_id AND user_id IS NOT NULL);
-
-DROP POLICY IF EXISTS "Users can delete their own categories" ON public.categories;
-CREATE POLICY "Users can delete their own categories" 
-ON public.categories FOR DELETE 
-USING (auth.uid() = user_id AND user_id IS NOT NULL);
-
--- Expenses
-DROP POLICY IF EXISTS "Users can update their own expenses" ON public.expenses;
-CREATE POLICY "Users can update their own expenses" 
-ON public.expenses FOR UPDATE 
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
-
--- Daily Savings Log
-DROP POLICY IF EXISTS "Users can update their own daily savings log" ON public.daily_savings_log;
-CREATE POLICY "Users can update their own daily savings log" 
-ON public.daily_savings_log FOR UPDATE 
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
-
--- 4. Clean up Legacy/Dead RPC Functions
--- The delete-user-account Edge Function (using auth.admin.deleteUser) has fully superseded this SQL RPC
+-- A3. Clean up Legacy/Dead RPC Functions
 DROP FUNCTION IF EXISTS public.delete_user_account();
-

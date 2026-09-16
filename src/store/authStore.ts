@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { User, Session } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { supabase } from '../config/supabase';
 
 export interface Profile {
@@ -49,7 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           try {
             cb();
           } catch (err) {
-            console.error('Error running store reset callback:', err);
+            if (__DEV__) console.error('Error running store reset callback:', err);
           }
         });
       }
@@ -74,7 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ profile: data });
       }
     } catch (e) {
-      console.error('Error fetching profile:', e);
+      if (__DEV__) console.error('Error fetching profile:', e);
     } finally {
       set({ loading: false, initialized: true });
     }
@@ -87,11 +89,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           cb();
         } catch (err) {
-          console.error('Error running store reset callback:', err);
+          if (__DEV__) console.error('Error running store reset callback:', err);
         }
       });
     } catch (e) {
-      console.error('Error resetting stores on sign out:', e);
+      if (__DEV__) console.error('Error resetting stores on sign out:', e);
     }
     await supabase.auth.signOut();
     set({ session: null, user: null, profile: null, loading: false });
@@ -112,8 +114,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       is_auto_renew: settings?.is_auto_renew !== undefined ? settings.is_auto_renew : profile?.is_auto_renew,
     };
 
-
-
     try {
       const { error } = await supabase
         .from('profiles')
@@ -122,7 +122,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
       set({ profile: updatedProfile });
     } catch (e) {
-      console.error('Error updating profile:', e);
+      if (__DEV__) console.error('Error updating profile:', e);
       throw e;
     } finally {
       set({ loading: false });
@@ -132,6 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   deleteAccount: async () => {
     const user = get().user;
     if (!user) throw new Error('No authenticated user session found');
+    const userId = user.id;
 
     set({ loading: true });
     try {
@@ -150,14 +151,44 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error((data as any).error || 'Failed to delete user account');
       }
 
-      // 2. Account permanently deleted on server. Trigger local store cleanup and sign out
-      await get().signOut();
+      // 2. Account permanently deleted on server.
+      // Cancel all scheduled notifications
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      } catch (err) {
+        if (__DEV__) console.error('Error cancelling notifications on delete:', err);
+      }
+
+      // Clean up all AsyncStorage keys for this user (pending, cache, failed, etc.)
+      try {
+        const allKeys = await AsyncStorage.getAllKeys();
+        const userKeys = allKeys.filter((k) => k.includes(userId));
+        if (userKeys.length > 0) {
+          await AsyncStorage.multiRemove(userKeys);
+        }
+      } catch (err) {
+        if (__DEV__) console.error('Error removing user AsyncStorage keys:', err);
+      }
+
+      // Trigger local store cleanup and sign out locally
+      try {
+        resetCallbacks.forEach((cb) => {
+          try {
+            cb();
+          } catch (err) {
+            if (__DEV__) console.error('Error running store reset callback:', err);
+          }
+        });
+      } catch (e) {
+        if (__DEV__) console.error('Error resetting stores on delete account:', e);
+      }
+      await supabase.auth.signOut({ scope: 'local' });
+      set({ session: null, user: null, profile: null, loading: false });
     } catch (e) {
-      console.error('Error deleting user account:', e);
+      if (__DEV__) console.error('Error deleting user account:', e);
       throw e;
     } finally {
       set({ loading: false });
     }
   },
-
 }));

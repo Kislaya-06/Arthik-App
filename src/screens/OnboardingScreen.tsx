@@ -8,7 +8,7 @@ import { Theme } from '../config/theme';
 import { useTheme } from '../store/themeStore';
 import { IndianRupee, Sparkles, Check } from 'lucide-react-native';
 import Svg, { Circle, G } from 'react-native-svg';
-import { setupNotifications } from '../lib/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 
@@ -210,13 +210,12 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     },
   ];
 
-  useEffect(() => {
-    // Proactively prompt for notification permission on initial install/onboarding
-    const timer = setTimeout(() => {
-      setupNotifications();
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+  const finishOnboarding = async () => {
+    try {
+      await AsyncStorage.setItem('@arthik_has_seen_onboarding', 'true');
+    } catch {}
+    navigation.replace('Auth');
+  };
 
   const handlePressNext = () => {
     if (currentIndex < slides.length - 1) {
@@ -225,14 +224,12 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         animated: true,
       });
     } else {
-      setupNotifications();
-      navigation.navigate('Auth');
+      finishOnboarding();
     }
   };
 
   const handlePressSkip = () => {
-    setupNotifications();
-    navigation.navigate('Auth');
+    finishOnboarding();
   };
 
   const currentSlide = slides[currentIndex];

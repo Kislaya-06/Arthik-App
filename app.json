@@ -3,7 +3,7 @@
     "name": "Arthik",
     "slug": "arthik",
     "scheme": "arthik",
-    "version": "1.0.0",
+    "version": "1.2.3",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -13,7 +13,7 @@
     },
     "orientation": "portrait",
     "icon": "./assets/logo.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
@@ -29,7 +29,6 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.kislaya_agarwal.arthik",
-      "versionCode": 1,
       "permissions": [
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",

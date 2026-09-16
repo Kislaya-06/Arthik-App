@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Unhandled error caught by ErrorBoundary:', error, errorInfo);
+    if (__DEV__) console.error('Unhandled error caught by ErrorBoundary:', error, errorInfo);
   }
 
   handleReload = async () => {

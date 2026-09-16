@@ -64,7 +64,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
         if (syncPendingCallback) {
           syncPendingCallback()
-            .catch((e) => console.log('Auto-sync error:', e))
+            .catch((e) => {
+              if (__DEV__) console.log('Auto-sync error:', e);
+            })
             .finally(() => {
               set({ isSyncing: false });
               toastTimeout = setTimeout(() => {
