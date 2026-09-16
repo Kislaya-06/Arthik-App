@@ -6,26 +6,36 @@
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
-[![Version](https://img.shields.io/badge/Version-1.2.2-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.3-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
 ## 📲 Download & Install
 
-**Arthik is distributed as a direct APK — no Play Store needed.**
+**Arthik is distributed as a standalone Android APK — no Google Play Store account required.**
 
-1. Go to the [**Releases**](../../releases) section of this repository
-2. Open the **latest release** (e.g. `v1.2.2`)
-3. Under **Assets**, tap/click `arthik-v1.2.2.apk` to download
-4. On your Android phone:
-   - Open the downloaded file
-   - If prompted, tap **"Install anyway"** (since it's not from the Play Store)
-   - You may need to enable **"Install from unknown sources"** in your phone settings:
-     `Settings → Security → Install unknown apps → Allow`
-5. Done! Open **Arthik** from your home screen
+### 📥 Step-by-Step Installation:
 
-> **Minimum Android version:** Android 8.0 (Oreo) and above
+1. **Download the Latest APK:**
+   - Head over to the [**GitHub Releases**](https://github.com/Kislaya-06/Arthik-App/releases/latest) page.
+   - Under **Assets**, click or tap **`Arthik-v1.2.3.apk`** to begin downloading.
+
+2. **Allow Installation from Browser:**
+   - When downloading via Chrome or your mobile browser, you may see a prompt: *"File might be harmful"*. Tap **"Download anyway"** (this standard warning appears for all direct APK downloads outside Google Play).
+
+3. **Install the APK:**
+   - Open your browser's **Downloads** or your phone's **Files / File Manager** app and tap `Arthik-v1.2.3.apk`.
+   - If prompted with *"For your security, your phone is not allowed to install unknown apps from this source"*:
+     - Tap **Settings**.
+     - Toggle on **"Allow from this source"** (or enable *Install unknown apps* for your browser/file manager).
+     - Tap **Back** and tap **Install**.
+   - If Google Play Protect shows a confirmation prompt, tap **"More details"** → **"Install anyway"**.
+
+4. **Launch & Enjoy:**
+   - Tap **Open** or launch **Arthik** directly from your app drawer/home screen!
+
+> 💡 **Compatibility:** Android 8.0 (Oreo) and above.
 
 ---
 
@@ -52,9 +62,10 @@
 
 Recent deep engineering updates ensuring robust performance, offline resilience, and clean multi-user isolation:
 
-### 1. Offline Engine & Dual-Endpoint Heartbeat (`networkStore.ts`)
-- **Zero-Byte Connectivity Heartbeat:** Avoids unreliable OS-level connection flags by dispatching lightweight GET requests to `https://clients3.google.com/generate_204` with a 3.5s timeout, falling back to `https://www.cloudflare.com/cdn-cgi/trace`.
+### 1. Offline Engine & Native Connectivity (`networkStore.ts`)
+- **Native OS Network Event Listener:** Replaced manual polling with native `@react-native-community/netinfo` (v12.0.1) event-driven connectivity monitoring (`isConnected && isInternetReachable`), eliminating false positives on captive portals and saving battery.
 - **Local Mutation Queue:** When offline, expense creations, edits, and deletions update Zustand state immediately (optimistic UI) and append actions to an `AsyncStorage` persistent queue.
+- **Poison-Pill Queue Protection & Rollback:** Automatically drops corrupted queue payloads after 5 failed attempts with a user-facing `SyncFailedBanner`. In-memory mutations rollback automatically on unexpected server errors.
 - **Auto-Flush Reconnection Listener:** Re-establishing internet triggers an automated background queue sync with Supabase and dismisses the status banner.
 - **Animated Offline Banner (`OfflineBanner.tsx`):** A slide-down top indicator informing users of offline status and real-time syncing progress with a manual "Retry" action.
 
@@ -92,7 +103,7 @@ Recent deep engineering updates ensuring robust performance, offline resilience,
 | **Navigation** | React Navigation (Native Stack + Bottom Tabs) |
 | **State Management** | Zustand (with AsyncStorage persistence) |
 | **Backend & Auth** | Supabase (PostgreSQL + GoTrue Auth) |
-| **Network & Sync** | Custom Offline Queue + Fetch Ping Heartbeat |
+| **Network & Sync** | Custom Offline Queue + Native NetInfo (v12.0.1) |
 | **Icons** | lucide-react-native |
 | **Typography** | Quicksand (Google Fonts via Expo) |
 | **Vector Graphics** | react-native-svg |
