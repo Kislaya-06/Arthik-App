@@ -8,13 +8,14 @@ import { useCategoryStore } from './categoryStore';
 import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
+import { DEFAULT_INCOME_KEYWORDS } from '../lib/paymentUtils';
 
 const getIncomeCategoryIds = (): Set<string> => {
   const cats = useCategoryStore.getState().categories;
   const incomeIds = new Set<string>();
   for (let i = 0; i < cats.length; i++) {
     const name = cats[i].name.toLowerCase();
-    if (name.includes('salary') || name.includes('income') || name.includes('freelance') || name.includes('business')) {
+    if (DEFAULT_INCOME_KEYWORDS.some((kw) => name.includes(kw))) {
       incomeIds.add(cats[i].id);
     }
   }
@@ -30,13 +31,18 @@ export interface DailyRecord {
   status: 'saved' | 'exceeded' | 'even' | 'active';
 }
 
-export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, todayStr: string) => {
+export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, todayStr: string, userCreatedAtStr?: string) => {
   let totalSaved = 0;
   let totalOverspent = 0;
+  const userCreatedAt = userCreatedAtStr || useAuthStore.getState().user?.created_at?.split('T')[0]?.trim();
 
   Object.values(records).forEach((r) => {
-    // Check confirmed finalized past days
+    // Check confirmed finalized past days that are on or after the user registered
     if (r.isFinalized && r.date < todayStr) {
+      if (userCreatedAt && r.date < userCreatedAt) {
+        // Pre-registration backdated days do not affect Gullak savings or penalty
+        return;
+      }
       if (r.budget > 0 && r.spent > r.budget) {
         totalOverspent += (r.spent - r.budget);
       } else if ((r.saved || 0) > 0) {
@@ -55,7 +61,7 @@ export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, to
   const netSavings = Math.max(0, totalSaved - totalOverspent);
 
   const confirmedSavedDays = Object.values(records).filter(
-    (r) => r.isFinalized && r.date < todayStr && (r.saved || 0) > 0
+    (r) => r.isFinalized && r.date < todayStr && (r.saved || 0) > 0 && (!userCreatedAt || r.date >= userCreatedAt)
   ).length;
 
   let streak = 0;
@@ -199,45 +205,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           records[todayStr] = currentToday;
         }
 
-        // Repair any past records that were accidentally corrupted to 500
-        const pastKeys = Object.keys(records);
-        for (let i = 0; i < pastKeys.length; i++) {
-          const d = pastKeys[i];
-          if (d < todayStr) {
-            const r = records[d];
-            if (r.budget === 500 && cleanAmount !== 500) {
-              const newSaved = Math.max(0, cleanAmount - r.spent);
-              const newStatus: 'saved' | 'exceeded' | 'even' =
-                r.spent > cleanAmount ? 'exceeded' : newSaved > 0 ? 'saved' : 'even';
-              records[d] = {
-                ...r,
-                budget: cleanAmount,
-                saved: newSaved,
-                status: newStatus,
-              };
-
-              // Sync repaired past day to Supabase (async fire-and-forget)
-              try {
-                const currentUser = useAuthStore.getState().user;
-                if (currentUser) {
-                  supabase
-                    .from('daily_savings_log')
-                    .upsert(
-                      {
-                        user_id: currentUser.id,
-                        date: d,
-                        amount_saved: newSaved,
-                        status: newSaved > 0 ? 'saved' : 'missed',
-                      },
-                      { onConflict: 'user_id,date' }
-                    )
-                    .then(() => {});
-                }
-              } catch {}
-            }
-          }
-        }
-
         const metrics = calculateSavingsMetrics(records, todayStr);
 
         set({
@@ -363,7 +330,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         let todaySpent = 0;
         for (let i = 0; i < expenses.length; i++) {
           const e = expenses[i];
-          const isIncome = e.type === 'income' || (e.category_id ? incomeIds.has(e.category_id) : false);
+          const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
           const cleanDate = e.expense_date?.split('T')[0]?.trim();
           if (cleanDate === todayStr && !isIncome) {
             todaySpent += Number(e.amount) || 0;
@@ -472,7 +439,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const spentByDate: Record<string, number> = {};
         for (let i = 0; i < expenses.length; i++) {
           const e = expenses[i];
-          const isIncome = e.type === 'income' || (e.category_id ? incomeIds.has(e.category_id) : false);
+          const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
           const cleanDate = e.expense_date?.split('T')[0]?.trim();
           if (!isIncome && cleanDate) {
             spentByDate[cleanDate] = (spentByDate[cleanDate] || 0) + (Number(e.amount) || 0);
@@ -494,21 +461,43 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
         }
 
+        const currentUser = useAuthStore.getState().user;
+        const userCreatedAtStr = currentUser?.created_at?.split('T')[0]?.trim();
         const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+        // Fill in missing elapsed days since registration (capped to last 30 days) when auto-renew is on,
+        // ensuring zero-spend days when the user didn't open the app are credited as saved days to preserve their streak!
+        if (get().isAutoRenew) {
+          const earliestDateStr = userCreatedAtStr || format(subDays(new Date(), 30), 'yyyy-MM-dd');
+          let fillCursor = subDays(new Date(), 1);
+          let safetyCount = 0;
+          while (safetyCount < 35) {
+            const dStr = format(fillCursor, 'yyyy-MM-dd');
+            if (dStr < earliestDateStr) break;
+            pastDates.add(dStr);
+            fillCursor = subDays(fillCursor, 1);
+            safetyCount++;
+          }
+        }
 
         // 3. For every past date, verify if spent or saved or status changed (e.g. after edit/delete)
         for (const d of pastDates) {
+          const isPreAccount = Boolean(userCreatedAtStr && d < userCreatedAtStr);
+          if (isPreAccount) {
+            // Backdated entry from before user account creation: do not create auto-renew daily record
+            if (records[d]) {
+              delete records[d];
+              updated = true;
+            }
+            continue;
+          }
+
           const existing = records[d];
           const spent = spentByDate[d] || 0;
           const userDailyAllowance = get().dailyBudgetAmount;
           let budget = userDailyAllowance;
           if (existing && existing.budget > 0) {
-            // If it was corrupted to 500 by the previous bug, repair it to the user's actual daily allowance
-            if (existing.budget === 500 && userDailyAllowance !== 500) {
-              budget = userDailyAllowance;
-            } else {
-              budget = existing.budget;
-            }
+            budget = existing.budget;
           } else {
             budget = get().isAutoRenew ? userDailyAllowance : 0;
           }
@@ -647,9 +636,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
           const records = { ...get().dailyRecords };
 
+          const currentUser = useAuthStore.getState().user;
+          const userCreatedAtStr = currentUser?.created_at?.split('T')[0]?.trim();
+
           if (logsData && logsData.length > 0) {
             for (const log of logsData) {
               const d = log.date;
+              if (userCreatedAtStr && d < userCreatedAtStr) {
+                continue; // Ignore any erroneous pre-registration logs
+              }
               const amountSaved = Number(log.amount_saved) || 0;
               const logStatus: 'saved' | 'exceeded' | 'even' =
                 log.status === 'saved' ? 'saved' : log.status === 'even' ? 'even' : 'exceeded';
@@ -664,11 +659,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   status: logStatus,
                 };
               } else {
-                let currentBudget = records[d].budget;
-                // If corrupted to 500 by previous bug and user daily allowance is different, repair it
-                if (currentBudget === 500 && resolvedBudget !== 500) {
-                  currentBudget = resolvedBudget;
-                }
+                const currentBudget = records[d].budget;
                 records[d] = {
                   ...records[d],
                   budget: currentBudget || resolvedBudget,

@@ -13,7 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryIcon } from '../lib/iconUtils';
-import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
+import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
 
@@ -72,7 +72,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     navigation.navigate('EditExpense', { expenseId: expense.id });
   };
 
-  const isIncome = expense.type === 'income' || (category ? ['salary', 'income', 'freelance', 'business'].some(k => category.name.toLowerCase().includes(k)) : false);
+  const isIncome = isIncomeTransaction(expense, category);
   const CategoryIcon = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
   const PaymentIcon = getPaymentIcon(expense.payment_mode);
   const paymentLabel = getPaymentLabel(expense.payment_mode);

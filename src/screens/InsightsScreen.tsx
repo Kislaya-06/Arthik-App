@@ -17,6 +17,7 @@ import {
 
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
+import { isIncomeTransaction } from '../lib/paymentUtils';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
@@ -76,21 +77,21 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     let current, previous, label;
 
     if (period === 'Weekly') {
-      current = { start: startOfWeek(now, { weekStartsOn: 1 }), end: now };
+      current = { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
       previous = {
         start: startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 }),
         end: endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 }),
       };
       label = 'THIS WEEK';
     } else if (period === 'Monthly') {
-      current = { start: startOfMonth(now), end: now };
+      current = { start: startOfMonth(now), end: endOfMonth(now) };
       previous = {
         start: startOfMonth(subMonths(now, 1)),
         end: endOfMonth(subMonths(now, 1)),
       };
       label = 'THIS MONTH';
     } else {
-      current = { start: startOfYear(now), end: now };
+      current = { start: startOfYear(now), end: endOfYear(now) };
       previous = {
         start: startOfYear(subYears(now, 1)),
         end: endOfYear(subYears(now, 1)),
@@ -106,20 +107,21 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     const catTotals: Record<string, number> = {};
 
     expenses.forEach(exp => {
-      if (exp.type === 'income') return;
+      const cat = exp.category_id ? categories.find(c => c.id === exp.category_id) : undefined;
+      if (isIncomeTransaction(exp, cat)) return;
+
       const expDate = parseISO(exp.expense_date);
       if (isWithinInterval(expDate, currentInterval)) {
         currTotal += exp.amount;
-        if (exp.category_id) {
-          catTotals[exp.category_id] = (catTotals[exp.category_id] || 0) + exp.amount;
-        }
+        const catKey = exp.category_id || 'others';
+        catTotals[catKey] = (catTotals[catKey] || 0) + exp.amount;
       } else if (isWithinInterval(expDate, previousInterval)) {
         prevTotal += exp.amount;
       }
     });
 
     return { currentTotal: currTotal, previousTotal: prevTotal, categoryTotals: catTotals };
-  }, [expenses, currentInterval, previousInterval]);
+  }, [expenses, categories, currentInterval, previousInterval]);
 
   const { percentageChange, isIncrease } = useMemo(() => {
     if (previousTotal === 0) {
@@ -135,7 +137,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       const cat = categories.find(c => c.id === catId);
       return {
         id: catId,
-        name: cat?.name || 'Unknown',
+        name: cat?.name || (catId === 'others' ? 'Others' : 'Unknown'),
         amount: categoryTotals[catId],
         percentage: currentTotal > 0 ? Math.round((categoryTotals[catId] / currentTotal) * 100) : 0,
       };

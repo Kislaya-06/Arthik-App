@@ -31,13 +31,15 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 type AnimatedButtonProps = {
   onPress: () => void;
   style: any;
+  disabled?: boolean;
   children: React.ReactNode;
 };
 
-const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, children }) => {
+const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disabled, children }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
+      disabled={disabled}
       onPress={onPress}
       onPressIn={() =>
         Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start()
@@ -64,6 +66,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
 
   const errorOpacity = useRef(new Animated.Value(0)).current;
@@ -154,6 +157,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleAuth = async () => {
+    if (authLoading || googleLoading || forgotLoading) return;
     // Client-side validation first
     if (!email.trim()) {
       showBanner("Please enter your email address.", 'error');
@@ -211,6 +215,8 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleGoogleAuth = async () => {
+    if (googleLoading || authLoading || forgotLoading) return;
+    setGoogleLoading(true);
     try {
       // Use native scheme so the APK can intercept the OAuth callback correctly.
       // In production APK, this generates: arthik://
@@ -256,6 +262,8 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (e: any) {
       showBanner(e.message || 'Error with Google Authentication', 'error');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -433,22 +441,32 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               <AnimatedButton
+                disabled={authLoading || googleLoading}
                 style={[
                   styles.btn,
                   styles.googleBtn,
                   {
                     backgroundColor: colors.card,
                     borderColor: colors.borderSubtle,
+                    opacity: (authLoading || googleLoading) ? 0.6 : 1,
                   }
                 ]}
                 onPress={handleGoogleAuth}
               >
                 <GoogleIcon size={20} />
-                <Text style={[styles.googleBtnText, { color: colors.textPrimary }]}>Continue with Google</Text>
+                <Text style={[styles.googleBtnText, { color: colors.textPrimary }]}>
+                  {googleLoading ? 'Connecting...' : 'Continue with Google'}
+                </Text>
               </AnimatedButton>
 
               <AnimatedButton
-                style={[styles.btn, styles.primaryBtn, { backgroundColor: colors.mint }, authLoading && styles.primaryBtnLoading]}
+                disabled={authLoading || googleLoading}
+                style={[
+                  styles.btn,
+                  styles.primaryBtn,
+                  { backgroundColor: colors.mint, opacity: (authLoading || googleLoading) ? 0.7 : 1 },
+                  authLoading && styles.primaryBtnLoading
+                ]}
                 onPress={handleAuth}
               >
                 <Text style={[styles.primaryBtnText, { color: colors.forestGreen }]}>

@@ -29,6 +29,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.kislaya_agarwal.arthik",
+      "versionCode": 1,
       "permissions": [
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",

@@ -15,7 +15,7 @@ import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
-import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
+import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { ThemeColors } from '../config/theme';
@@ -27,7 +27,8 @@ type Props = CompositeScreenProps<
 
 interface Section {
   title: string;
-  total: number;
+  totalSpent: number;
+  totalIncome: number;
   data: Expense[];
 }
 
@@ -39,7 +40,7 @@ interface TransactionRowItemProps {
 }
 
 const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
-  const isIncome = item.type === 'income' || (category ? ['salary', 'income', 'freelance', 'business'].some(k => category.name.toLowerCase().includes(k)) : false);
+  const isIncome = isIncomeTransaction(item, category);
   const categoryName = category?.name || (isIncome ? 'Money Added' : 'Unknown');
   const categoryColor = category?.color || (isIncome ? colors.mintGreen : '#F4B8AE');
   const categoryBgColor = categoryColor + '33';
@@ -120,21 +121,32 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
         const category = e.category_id ? categoryMap.get(e.category_id) : undefined;
         const categoryName = category?.name?.toLowerCase() || (e.type === 'income' ? 'money added' : '');
         const note = e.note?.toLowerCase() || '';
-        return categoryName.includes(lowerQuery) || note.includes(lowerQuery);
+        const amountStr = e.amount?.toString() || '';
+        const payment = e.payment_mode?.toLowerCase() || '';
+        return categoryName.includes(lowerQuery) || note.includes(lowerQuery) || amountStr.includes(lowerQuery) || payment.includes(lowerQuery);
       });
     }
 
     const grouped: Record<string, Expense[]> = {};
-    const totals: Record<string, number> = {};
+    const spentTotals: Record<string, number> = {};
+    const incomeTotals: Record<string, number> = {};
 
     filtered.forEach(expense => {
       const dateKey = expense.expense_date;
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
-        totals[dateKey] = 0;
+        spentTotals[dateKey] = 0;
+        incomeTotals[dateKey] = 0;
       }
       grouped[dateKey].push(expense);
-      totals[dateKey] += expense.amount;
+
+      const category = expense.category_id ? categoryMap.get(expense.category_id) : undefined;
+      const isIncome = isIncomeTransaction(expense, category);
+      if (isIncome) {
+        incomeTotals[dateKey] += expense.amount;
+      } else {
+        spentTotals[dateKey] += expense.amount;
+      }
     });
 
     const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
@@ -149,20 +161,50 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
         (b.created_at || '').localeCompare(a.created_at || '')
       );
 
-      return { title, total: totals[dateStr], data: sortedData };
+      return {
+        title,
+        totalSpent: spentTotals[dateStr] || 0,
+        totalIncome: incomeTotals[dateStr] || 0,
+        data: sortedData,
+      };
     });
   }, [expenses, categoryMap, selectedCategoryId, searchQuery]);
 
-  const renderSectionHeader = useCallback(({ section }: { section: Section }) => (
-    <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, { color: colors.textMuted, fontFamily: 'Quicksand_700Bold' }]}>
-        {section.title}
-      </Text>
-      <Text style={[styles.sectionTotal, { color: colors.textMuted, fontFamily: 'Quicksand_700Bold' }]}>
-        −₹{section.total.toLocaleString('en-IN')}
-      </Text>
-    </View>
-  ), [colors]);
+  const renderSectionHeader = useCallback(({ section }: { section: Section }) => {
+    let text = '';
+    let isIncomeOnly = false;
+    if (section.totalSpent > 0 && section.totalIncome > 0) {
+      text = `−₹${section.totalSpent.toLocaleString('en-IN')}  •  +₹${section.totalIncome.toLocaleString('en-IN')}`;
+    } else if (section.totalSpent > 0) {
+      text = `−₹${section.totalSpent.toLocaleString('en-IN')}`;
+    } else if (section.totalIncome > 0) {
+      text = `+₹${section.totalIncome.toLocaleString('en-IN')}`;
+      isIncomeOnly = true;
+    } else {
+      text = `₹0`;
+    }
+
+    return (
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textMuted, fontFamily: 'Quicksand_700Bold' }]}>
+          {section.title}
+        </Text>
+        <Text
+          style={[
+            styles.sectionTotal,
+            {
+              color: isIncomeOnly
+                ? (isDark ? colors.mintGreen : colors.mintGreenDark)
+                : colors.textMuted,
+              fontFamily: 'Quicksand_700Bold',
+            },
+          ]}
+        >
+          {text}
+        </Text>
+      </View>
+    );
+  }, [colors, isDark]);
 
   const handleItemPress = useCallback((expenseId: string) => {
     navigation.navigate('ExpenseDetail', { expenseId });

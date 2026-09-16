@@ -24,6 +24,7 @@ interface AuthState {
     lastName?: string,
     settings?: { daily_budget?: number; is_auto_renew?: boolean }
   ) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 type ResetCallback = () => void;
@@ -122,6 +123,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ profile: updatedProfile });
     } catch (e) {
       console.error('Error updating profile:', e);
+      throw e;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  deleteAccount: async () => {
+    const user = get().user;
+    if (!user) return;
+
+    set({ loading: true });
+    try {
+      // 1. Try invoking delete_user_account RPC if present
+      const { error: rpcError } = await supabase.rpc('delete_user_account');
+      if (rpcError) {
+        // Fallback: Delete all user's data from public tables directly
+        await Promise.allSettled([
+          supabase.from('expenses').delete().eq('user_id', user.id),
+          supabase.from('daily_savings_log').delete().eq('user_id', user.id),
+          supabase.from('categories').delete().eq('user_id', user.id),
+          supabase.from('profiles').delete().eq('id', user.id),
+        ]);
+      }
+      // 2. Sign out and trigger all store cleanups
+      await get().signOut();
+    } catch (e) {
+      console.error('Error deleting user account:', e);
       throw e;
     } finally {
       set({ loading: false });

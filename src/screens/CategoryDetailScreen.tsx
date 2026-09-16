@@ -15,7 +15,7 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { formatCurrency } from '../lib/formatters';
-import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
+import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
 
@@ -45,13 +45,18 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
   [expenses, categoryId]);
 
   const totalSpent = useMemo(() =>
-    categoryExpenses.reduce((sum, e) => sum + e.amount, 0),
-  [categoryExpenses]);
+    categoryExpenses.reduce((sum, e) => {
+      return isIncomeTransaction(e, category) ? sum : sum + e.amount;
+    }, 0),
+  [categoryExpenses, category]);
 
   const renderItem = useCallback(({ item }: { item: Expense }) => {
+    const isIncome = isIncomeTransaction(item, category);
     const PaymentIcon = getPaymentIcon(item.payment_mode);
     const paymentLabel = getPaymentLabel(item.payment_mode);
     const dateStr = format(parseISO(item.expense_date), 'd MMM yyyy');
+    const amountLabel = isIncome ? `+${formatCurrency(item.amount)}` : formatCurrency(item.amount);
+    const amountColor = isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary;
 
     return (
       <Pressable
@@ -65,8 +70,8 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
         onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
       >
         <View style={styles.expenseLeft}>
-          <Text style={[styles.expenseAmount, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-            {formatCurrency(item.amount)}
+          <Text style={[styles.expenseAmount, { color: amountColor, fontFamily: 'Quicksand_700Bold' }]}>
+            {amountLabel}
           </Text>
           {!!item.note && (
             <Text

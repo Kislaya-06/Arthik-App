@@ -59,6 +59,9 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   const viewingMonth = viewingDate.getMonth();
   const monthKey = `${viewingYear}-${String(viewingMonth + 1).padStart(2, '0')}`;
 
+  const now = new Date();
+  const isCurrentMonth = viewingYear > now.getFullYear() || (viewingYear === now.getFullYear() && viewingMonth >= now.getMonth());
+
   // Month navigation handlers
   const handlePrevMonth = () => {
     setActiveTooltip(null);
@@ -66,6 +69,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   };
 
   const handleNextMonth = () => {
+    if (isCurrentMonth) return;
     setActiveTooltip(null);
     setViewingDate(new Date(viewingYear, viewingMonth + 1, 1));
   };
@@ -345,6 +349,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                 </View>
 
                 <Pressable
+                  disabled={isCurrentMonth}
                   onPress={handleNextMonth}
                   hitSlop={8}
                   style={({ pressed }) => [
@@ -352,11 +357,11 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     {
                       backgroundColor: colors.cardSubtle,
                       borderColor: colors.borderSubtle,
-                      opacity: pressed ? 0.7 : 1,
+                      opacity: isCurrentMonth ? 0.3 : pressed ? 0.7 : 1,
                     },
                   ]}
                 >
-                  <ChevronRight size={18} color={colors.textPrimary} />
+                  <ChevronRight size={18} color={isCurrentMonth ? colors.textMuted : colors.textPrimary} />
                 </Pressable>
               </View>
 

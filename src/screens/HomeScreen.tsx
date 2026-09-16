@@ -15,7 +15,18 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, ChevronRight, DollarSign, User, Wallet } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import Svg, { Circle } from 'react-native-svg';
-import { format, parseISO, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
+import {
+  format,
+  parseISO,
+  isSameWeek,
+  isSameMonth,
+  isSameYear,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  startOfMonth,
+  endOfMonth,
+} from 'date-fns';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -25,6 +36,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { formatCurrency } from '../lib/formatters';
+import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 
@@ -32,14 +44,6 @@ type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
   NativeStackScreenProps<RootStackParamList>
 >;
-
-// TODO: Supabase Integration - When Supabase is connected, income vs expense distinction
-// should be driven by a dedicated `type` column ('income' | 'expense') on the expenses table.
-// For now we use a hardcoded income category name match ('salary', 'income') as a temporary heuristic.
-const INCOME_CATEGORY_NAMES = ['salary', 'income', 'freelance', 'business'];
-
-const isIncomeCategory = (cat: Category | undefined) =>
-  cat ? INCOME_CATEGORY_NAMES.some((k) => cat.name.toLowerCase().includes(k)) : false;
 
 // ─── Pastel BG per category color ────────────────────────────────────────────
 const pastelBg = (hex: string) => hex + '30'; // 19% opacity overlay
@@ -124,8 +128,11 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
   const bg = pastelBg(catColor);
 
   const dateStr = useMemo(() => {
-    const d = new Date(expense.expense_date);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    try {
+      return format(parseISO(expense.expense_date), 'd MMM');
+    } catch {
+      return expense.expense_date;
+    }
   }, [expense.expense_date]);
 
   const amountLabel = isIncome ? `+${formatCurrency(expense.amount)}` : `−${formatCurrency(expense.amount)}`;
@@ -264,7 +271,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     for (let i = 0; i < filtered.length; i++) {
       const e = filtered[i];
       const cat = e.category_id ? catMap[e.category_id] : undefined;
-      const isIncome = e.type === 'income' || isIncomeCategory(cat);
+      const isIncome = isIncomeTransaction(e, cat);
       if (isIncome) income += Number(e.amount) || 0;
       else spent += Number(e.amount) || 0;
     }
@@ -310,7 +317,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       const e = expenses[i];
       const cleanDate = e.expense_date?.split('T')[0]?.trim();
       const cat = e.category_id ? catMap[e.category_id] : undefined;
-      const isIncome = e.type === 'income' || isIncomeCategory(cat);
+      const isIncome = isIncomeTransaction(e, cat);
       if (cleanDate === todayStr && !isIncome) {
         spent += Number(e.amount) || 0;
       }
@@ -337,38 +344,56 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     const now = new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
 
-    // Collect all unique tracked dates within the active filter period (strictly elapsed days up to today)
-    const trackedDates = new Set<string>();
+    const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
 
-    for (let i = 0; i < filtered.length; i++) {
-      const d = filtered[i].expense_date?.split('T')[0]?.trim();
-      if (d && d <= todayStr) {
-        trackedDates.add(d);
+    // Determine the complete calendar days belonging to the active period
+    const periodDates: string[] = [];
+
+    if (activeFilter === 'Daily') {
+      periodDates.push(todayStr);
+    } else if (activeFilter === 'Weekly') {
+      // Current full week (Monday through Sunday)
+      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+      const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+      days.forEach((d) => {
+        const dStr = format(d, 'yyyy-MM-dd');
+        if (!userCreatedAtStr || dStr >= userCreatedAtStr) {
+          periodDates.push(dStr);
+        }
+      });
+    } else if (activeFilter === 'Monthly') {
+      // Current full month (1st through end of month)
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
+      const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+      days.forEach((d) => {
+        const dStr = format(d, 'yyyy-MM-dd');
+        if (!userCreatedAtStr || dStr >= userCreatedAtStr) {
+          periodDates.push(dStr);
+        }
+      });
+    } else {
+      // 'All' filter: all past dates tracked up to today
+      const allDates = new Set<string>();
+      allDates.add(todayStr);
+      for (let i = 0; i < filtered.length; i++) {
+        const d = filtered[i].expense_date?.split('T')[0]?.trim();
+        if (d && d <= todayStr && (!userCreatedAtStr || d >= userCreatedAtStr)) {
+          allDates.add(d);
+        }
       }
+      Object.keys(dailyRecords).forEach((d) => {
+        const cleanD = d.split('T')[0]?.trim();
+        if (cleanD && cleanD <= todayStr && (!userCreatedAtStr || cleanD >= userCreatedAtStr)) {
+          allDates.add(cleanD);
+        }
+      });
+      allDates.forEach((d) => periodDates.push(d));
     }
 
-    Object.keys(dailyRecords).forEach((d) => {
-      try {
-        const cleanD = d.split('T')[0].trim();
-        if (cleanD > todayStr) return; // Disallow future dates
-        const dateObj = parseISO(cleanD);
-        if (activeFilter === 'Daily' && cleanD === todayStr) {
-          trackedDates.add(cleanD);
-        } else if (activeFilter === 'Weekly' && isSameWeek(dateObj, now, { weekStartsOn: 1 })) {
-          trackedDates.add(cleanD);
-        } else if (activeFilter === 'Monthly' && isSameMonth(dateObj, now) && isSameYear(dateObj, now)) {
-          trackedDates.add(cleanD);
-        } else if (activeFilter === 'All') {
-          trackedDates.add(cleanD);
-        }
-      } catch {}
-    });
-
-    // Always include today for current period views
-    trackedDates.add(todayStr);
-
     let periodBudget = 0;
-    trackedDates.forEach((d) => {
+    periodDates.forEach((d) => {
       if (d === todayStr && todayBudget > 0) {
         periodBudget += todayBudget;
       } else if (dailyRecords[d]?.budget) {
@@ -378,7 +403,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }
     });
 
-    const daysCount = trackedDates.size;
+    const daysCount = periodDates.length;
     const income = totalIncome;
     const spent = totalSpent;
 
@@ -664,7 +689,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         ) : (
           recentTx.map((e) => {
             const cat = e.category_id ? catMap[e.category_id] : undefined;
-            const isIncome = e.type === 'income' || isIncomeCategory(cat);
+            const isIncome = isIncomeTransaction(e, cat);
             return (
               <TouchableOpacity
                 key={e.id}

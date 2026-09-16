@@ -130,6 +130,19 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
 
       if (error) throw error;
       await get().fetchCategories(true);
+
+      // Clean up client expenses store so no expense retains the deleted category_id
+      try {
+        const { useExpenseStore } = require('./expenseStore');
+        const expStore = useExpenseStore.getState();
+        if (expStore.expenses.some((e: any) => e.category_id === id)) {
+          useExpenseStore.setState((s: any) => ({
+            expenses: s.expenses.map((e: any) => (e.category_id === id ? { ...e, category_id: null } : e)),
+          }));
+        }
+      } catch (err) {
+        console.log('Error syncing deleted category with expense store:', err);
+      }
     } catch (e) {
       console.error('Error deleting category:', e);
       throw e;

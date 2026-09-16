@@ -59,7 +59,6 @@ export async function setupNotifications(): Promise<boolean> {
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#B8E0C8',
-        sound: 'default',
         enableVibrate: true,
         showBadge: true,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -95,7 +94,6 @@ export async function triggerDeviceNotification(
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#B8E0C8',
-        sound: 'default',
         enableVibrate: true,
         showBadge: true,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -108,7 +106,7 @@ export async function triggerDeviceNotification(
         title,
         body,
         data: data || {},
-        sound: 'default',
+        sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
@@ -142,7 +140,7 @@ export async function scheduleDailyReminder(hour = 20, minute = 0): Promise<void
         title: '🌙 Daily Budget Check-in',
         body: 'Check your spending today and see how much you saved in your Gullak!',
         data: { type: 'daily_reminder', screen: 'Savings' },
-        sound: 'default',
+        sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
@@ -155,6 +153,25 @@ export async function scheduleDailyReminder(hour = 20, minute = 0): Promise<void
     });
   } catch (error) {
     console.log('Error scheduling daily reminder:', error);
+  }
+}
+
+/**
+ * Cancel the scheduled daily reminder.
+ */
+export async function cancelDailyReminder(): Promise<void> {
+  if (!isDeviceNotificationSupported() || !Notifications) {
+    return;
+  }
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notif of scheduled) {
+      if (notif.content.data?.type === 'daily_reminder') {
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+      }
+    }
+  } catch (error) {
+    console.log('Error cancelling daily reminder:', error);
   }
 }
 

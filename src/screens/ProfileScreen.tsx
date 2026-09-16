@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert,
   Modal, TextInput, ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon,
-  CircleAlert, LogOut, Check, X, ArrowLeft
+  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
@@ -16,18 +17,38 @@ import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 import { RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { scheduleDailyReminder, cancelDailyReminder } from '../lib/notificationService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { profile, signOut, updateProfile } = useAuthStore();
+  const { profile, signOut, updateProfile, deleteAccount } = useAuthStore();
+  const [isDeleting, setIsDeleting] = useState(false);
   const { colors, isDark, toggleTheme, setThemeMode } = useTheme();
   const handleScroll = useScrollDirection();
   const appVersion = 'v1.2.1';
 
-  // Local state for toggles
+  // Local state for toggles with AsyncStorage persistence
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@arthik_notifications_enabled').then((val) => {
+      if (val !== null) {
+        setNotificationsEnabled(val === 'true');
+      }
+    });
+  }, []);
+
+  const handleToggleNotifications = async (val: boolean) => {
+    setNotificationsEnabled(val);
+    await AsyncStorage.setItem('@arthik_notifications_enabled', val ? 'true' : 'false');
+    if (val) {
+      scheduleDailyReminder(20, 0);
+    } else {
+      cancelDailyReminder();
+    }
+  };
 
   // Edit Profile modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -51,6 +72,34 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               index: 0,
               routes: [{ name: 'Auth' }],
             });
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? All your recorded expenses, daily allowance logs, and custom categories will be completely erased. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete Permanently", 
+          style: "destructive",
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deleteAccount();
+              (navigation as any).reset({
+                index: 0,
+                routes: [{ name: 'Auth' }],
+              });
+            } catch {
+              Alert.alert('Error', 'Could not delete account. Please check your network and try again.');
+            } finally {
+              setIsDeleting(false);
+            }
           }
         }
       ]
@@ -215,7 +264,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
             <Switch
               value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
+              onValueChange={handleToggleNotifications}
               trackColor={{ false: colors.border, true: colors.mintGreen }}
               thumbColor={colors.white}
             />
@@ -259,6 +308,24 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.logoutText, { color: colors.peachCoral, fontFamily: 'Quicksand_700Bold' }]}>
             Log Out
           </Text>
+        </Pressable>
+
+        {/* Delete Account Button (Required for Play Store / App Store compliance) */}
+        <Pressable
+          style={[styles.deleteAccountBtn, { borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FEE2E2', backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : '#FEF2F2' }]}
+          onPress={handleDeleteAccount}
+          disabled={isDeleting}
+        >
+          {isDeleting ? (
+            <ActivityIndicator size="small" color="#DC2626" />
+          ) : (
+            <>
+              <Trash2 size={16} color="#DC2626" />
+              <Text style={[styles.deleteAccountText, { color: '#DC2626', fontFamily: 'Quicksand_700Bold' }]}>
+                Delete Account
+              </Text>
+            </>
+          )}
         </Pressable>
 
       </ScrollView>
@@ -449,6 +516,20 @@ const styles = StyleSheet.create({
   },
   modalSaveText: {
     color: '#1A2B4C',
+    fontSize: 15,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 14,
+    marginBottom: 40,
+    gap: 8,
+  },
+  deleteAccountText: {
     fontSize: 15,
   },
 });

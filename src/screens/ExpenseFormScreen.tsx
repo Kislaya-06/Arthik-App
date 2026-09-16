@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  LayoutAnimation, Animated, Dimensions,
+  LayoutAnimation, Animated, Dimensions, Alert, ActivityIndicator,
 } from 'react-native';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
 import { formatDate, formatAmountWithCommas } from '../lib/formatters';
 import { getCategoryIcon } from '../lib/iconUtils';
+import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useTheme } from '../store/themeStore';
 
 // Both AddExpense and EditExpense routes use this single component.
@@ -452,6 +453,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
   const [isKeypadVisible, setIsKeypadVisible] = useState(true);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleNoteChange = (text: string) => {
     const words = text.trim().split(/\s+/).filter(Boolean);
@@ -512,17 +514,9 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       setNote(currentExpense.note || '');
       setSelectedDate(parseISO(currentExpense.expense_date));
       setPaymentMode(currentExpense.payment_mode);
-      if (currentExpense.type) {
-        setTransactionType(currentExpense.type);
-      } else {
-        const cat = categories.find((c) => c.id === currentExpense.category_id);
-        const isIncome = cat
-          ? ['salary', 'income', 'freelance', 'business'].some((k) =>
-              cat.name.toLowerCase().includes(k)
-            )
-          : false;
-        setTransactionType(isIncome ? 'income' : 'expense');
-      }
+      const cat = categories.find((c) => c.id === currentExpense.category_id);
+      const isIncome = isIncomeTransaction(currentExpense, cat);
+      setTransactionType(isIncome ? 'income' : 'expense');
     }
   }, [isEdit, expenseId, expenses, categories, setTransactionType]);
 
@@ -558,50 +552,55 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async () => {
+    if (isSubmitting) return;
+
     const numAmount = parseFloat(amount);
     const isValid =
       numAmount > 0 && (transactionType === 'income' || selectedCategoryId !== null);
     if (!isValid) return;
 
+    setIsSubmitting(true);
+
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const incomeCat = categories.find((c) =>
-      ['salary', 'income', 'freelance', 'business'].some((k) =>
-        c.name.toLowerCase().includes(k)
-      )
-    );
+    const incomeCat = categories.find((c) => isIncomeTransaction({ type: 'income' }, c));
     const categoryIdToSave =
-      transactionType === 'income' ? (incomeCat?.id || null) : selectedCategoryId;
+      transactionType === 'income' ? (selectedCategoryId || incomeCat?.id || null) : selectedCategoryId;
 
     const trimmedNote = note.trim();
     const clampedNote = trimmedNote
       ? trimmedNote.split(/\s+/).slice(0, MAX_NOTE_WORDS).join(' ').slice(0, MAX_NOTE_CHARS)
       : '';
 
-    if (isEdit && expenseId) {
-      await updateExpense(
-        expenseId,
-        numAmount,
-        categoryIdToSave,
-        clampedNote,
-        paymentMode,
-        dateStr,
-        transactionType
-      );
-    } else {
-      await addExpense(
-        numAmount,
-        categoryIdToSave,
-        clampedNote,
-        paymentMode,
-        dateStr,
-        transactionType
-      );
-    }
-    // Keep daily budget and smart notifications in sync
-    const currentExpenses = useExpenseStore.getState().expenses;
-    useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
+    try {
+      if (isEdit && expenseId) {
+        await updateExpense(
+          expenseId,
+          numAmount,
+          categoryIdToSave,
+          clampedNote,
+          paymentMode,
+          dateStr,
+          transactionType
+        );
+      } else {
+        await addExpense(
+          numAmount,
+          categoryIdToSave,
+          clampedNote,
+          paymentMode,
+          dateStr,
+          transactionType
+        );
+      }
+      // Keep daily budget and smart notifications in sync
+      const currentExpenses = useExpenseStore.getState().expenses;
+      useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
 
-    navigation.goBack();
+      navigation.goBack();
+    } catch (e: any) {
+      setIsSubmitting(false);
+      Alert.alert('Error', e?.message || 'Could not save transaction. Please try again.');
+    }
   };
 
   const formattedDate = formatDate(selectedDate, true);
@@ -856,12 +855,12 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
 
         <Pressable
-          disabled={!isSaveEnabled}
+          disabled={!isSaveEnabled || isSubmitting}
           onPress={handleSave}
           style={({ pressed }) => [
             styles.saveButton,
             isKeyboardOpen && styles.saveButtonKeyboard,
-            isSaveEnabled
+            isSaveEnabled && !isSubmitting
               ? [
                   styles.saveButtonEnabled,
                   {
@@ -879,19 +878,23 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 ],
           ]}
         >
-          <Text
-            style={[
-              styles.saveButtonText,
-              {
-                color: isSaveEnabled ? colors.forestGreen : colors.textMuted,
-                fontFamily: 'Quicksand_700Bold',
-              },
-            ]}
-          >
-            {isEdit
-              ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
-              : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color={colors.forestGreen} />
+          ) : (
+            <Text
+              style={[
+                styles.saveButtonText,
+                {
+                  color: isSaveEnabled ? colors.forestGreen : colors.textMuted,
+                  fontFamily: 'Quicksand_700Bold',
+                },
+              ]}
+            >
+              {isEdit
+                ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
+                : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
+            </Text>
+          )}
         </Pressable>
       </View>
     </KeyboardAvoidingView>

@@ -87,6 +87,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handleUpdatePassword = async () => {
+    if (loading) return;
     if (!password.trim()) {
       showError('Please enter a new password.');
       return;

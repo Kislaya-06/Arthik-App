@@ -18,6 +18,9 @@ import {
   scheduleDailyReminder,
   registerNotificationResponseListener,
 } from './src/lib/notificationService';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { OfflineBanner } from './src/components/OfflineBanner';
+import { useNetworkStore } from './src/store/networkStore';
 
 export default function App() {
   const { colors, isDark } = useTheme();
@@ -89,6 +92,13 @@ export default function App() {
       }
     });
 
+    // Handle cold launch deep link (when app is launched directly from a link click)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleAuthDeepLink(url);
+      }
+    });
+
     // Listen for incoming deep links while the app is active / foregrounded
     const urlSub = Linking.addEventListener('url', (event) => {
       handleAuthDeepLink(event.url);
@@ -116,11 +126,16 @@ export default function App() {
       }
     });
 
+    // Start network listener & load any queued offline expenses
+    const cleanupNetwork = useNetworkStore.getState().initNetworkListener();
+    useExpenseStore.getState().loadPendingExpenses();
+
     return () => {
       clearTimeout(notifTimer);
       subscription.unsubscribe();
       urlSub.remove();
       unregisterNotif();
+      cleanupNetwork();
     };
   }, []);
 
@@ -134,14 +149,17 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <AppNavigation />
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          translucent={true}
-          backgroundColor="transparent"
-        />
-      </View>
+      <ErrorBoundary>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <OfflineBanner />
+          <AppNavigation />
+          <StatusBar
+            barStyle={isDark ? 'light-content' : 'dark-content'}
+            translucent={true}
+            backgroundColor="transparent"
+          />
+        </View>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

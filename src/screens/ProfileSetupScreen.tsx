@@ -26,14 +26,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ProfileSetup'>;
 type AnimatedButtonProps = {
   onPress: () => void;
   style?: any;
+  disabled?: boolean;
   children: React.ReactNode;
 };
 
-const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, children }) => {
+const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disabled, children }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       onPressIn={() =>
         Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start()
       }
@@ -67,6 +69,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleSubmit = async () => {
+    if (loading) return;
     if (!firstName.trim()) {
       setFirstNameError(true);
       return;
@@ -211,7 +214,14 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* CTA Button */}
           <View style={styles.ctaContainer}>
-            <AnimatedButton style={[styles.ctaBtn, { backgroundColor: colors.mint }]} onPress={handleSubmit}>
+            <AnimatedButton
+              disabled={loading}
+              style={[
+                styles.ctaBtn,
+                { backgroundColor: colors.mint, opacity: loading ? 0.7 : 1 }
+              ]}
+              onPress={handleSubmit}
+            >
               <Text style={[styles.ctaBtnText, { color: colors.forestGreen }]}>
                 {loading ? 'Saving...' : "Let's Go"}
               </Text>

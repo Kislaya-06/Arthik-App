@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
-    amount NUMERIC(12, 2) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     type TEXT NOT NULL DEFAULT 'expense' CHECK (type IN ('expense', 'income')),
     note TEXT,
     payment_mode TEXT NOT NULL CHECK (payment_mode IN ('cash', 'upi', 'card')),
@@ -176,4 +176,16 @@ USING (auth.uid() = user_id);
 -- Index for fast date range lookup per user
 CREATE INDEX IF NOT EXISTS idx_daily_savings_log_user_date 
 ON public.daily_savings_log (user_id, date);
+
+-- Index for fast expense queries sorted by date per user
+CREATE INDEX IF NOT EXISTS idx_expenses_user_date 
+ON public.expenses (user_id, expense_date DESC);
+
+-- 5. RPC function to allow users to permanently delete their own account and cascading data
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 

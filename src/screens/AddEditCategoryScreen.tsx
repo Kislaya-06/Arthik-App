@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, Pressable, TextInput, ScrollView
+  View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -38,6 +38,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [existingColor, setExistingColor] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isEditMode && categoryId) {
@@ -51,17 +52,22 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
   }, [isEditMode, categoryId, categories]);
 
   const handleSave = async () => {
-    if (!name.trim() || !selectedIcon) return;
+    if (isSaving || !name.trim() || !selectedIcon) return;
+    setIsSaving(true);
 
-    const colorToUse = existingColor || PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
+    try {
+      const colorToUse = existingColor || PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
 
-    if (isEditMode && categoryId) {
-      await updateCategory(categoryId, name.trim(), selectedIcon, colorToUse);
-    } else {
-      await addCategory(name.trim(), selectedIcon, colorToUse);
+      if (isEditMode && categoryId) {
+        await updateCategory(categoryId, name.trim(), selectedIcon, colorToUse);
+      } else {
+        await addCategory(name.trim(), selectedIcon, colorToUse);
+      }
+      
+      navigation.goBack();
+    } catch {
+      setIsSaving(false);
     }
-    
-    navigation.goBack();
   };
 
   const isSaveEnabled = name.trim().length > 0 && selectedIcon !== null;
@@ -158,22 +164,26 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         <Pressable 
           style={[
             styles.saveBtn,
-            isSaveEnabled 
+            isSaveEnabled && !isSaving
               ? [styles.saveBtnEnabled, { backgroundColor: colors.mint }] 
               : [styles.saveBtnDisabled, { backgroundColor: colors.cardSubtle }]
           ]}
           onPress={handleSave}
-          disabled={!isSaveEnabled}
+          disabled={!isSaveEnabled || isSaving}
         >
-          <Text style={[
-            styles.saveText,
-            isSaveEnabled 
-              ? [styles.saveTextEnabled, { color: colors.forestGreen }] 
-              : [styles.saveTextDisabled, { color: colors.textTertiary }],
-            { fontFamily: 'Quicksand_700Bold' }
-          ]}>
-            {isEditMode ? 'Update Category' : 'Save Category'}
-          </Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={colors.forestGreen} />
+          ) : (
+            <Text style={[
+              styles.saveText,
+              isSaveEnabled 
+                ? [styles.saveTextEnabled, { color: colors.forestGreen }] 
+                : [styles.saveTextDisabled, { color: colors.textTertiary }],
+              { fontFamily: 'Quicksand_700Bold' }
+            ]}>
+              {isEditMode ? 'Update Category' : 'Save Category'}
+            </Text>
+          )}
         </Pressable>
 
       </ScrollView>
