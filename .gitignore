@@ -47,3 +47,6 @@ yarn-error.*
 
 # Supabase CLI temp files
 supabase/.temp/
+
+# IDE
+.vscode/
