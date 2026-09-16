@@ -6,7 +6,7 @@
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
-[![Version](https://img.shields.io/badge/Version-1.2.1-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.2-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -16,8 +16,8 @@
 **Arthik is distributed as a direct APK — no Play Store needed.**
 
 1. Go to the [**Releases**](../../releases) section of this repository
-2. Open the **latest release** (e.g. `v1.2.1`)
-3. Under **Assets**, tap/click `arthik-v1.2.1.apk` to download
+2. Open the **latest release** (e.g. `v1.2.2`)
+3. Under **Assets**, tap/click `arthik-v1.2.2.apk` to download
 4. On your Android phone:
    - Open the downloaded file
    - If prompted, tap **"Install anyway"** (since it's not from the Play Store)
