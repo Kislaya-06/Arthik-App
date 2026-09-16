@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [OPTIMISED CODE] - 2026-09-16
+## [1.2.3] - 2026-09-16
 
 ### 🔒 Security Hardening & Compliance
 - **Full Account & Data Deletion (Fix #1):** Built and deployed dedicated Supabase Edge Function `delete-user-account` executing under service-role privileges to permanently delete user auth accounts (`auth.users`) along with complete database CASCADE deletes across all user tables (`profiles`, `categories`, `expenses`, `daily_savings_log`). Added client fallback and UI confirmation alerts.
