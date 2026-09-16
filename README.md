@@ -13,7 +13,8 @@
 
 ## 📲 Download & Install
 
-**Arthik is distributed as a standalone Android APK — no Google Play Store account required.**
+**Arthik is distributed directly as a standalone Android APK — no Play Store download needed.**
+*(Sign in quickly inside the app using your Google Account or Email).*
 
 ### 📥 Step-by-Step Installation:
 
