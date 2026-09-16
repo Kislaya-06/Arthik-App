@@ -28,7 +28,7 @@ export interface DailyRecord {
   spent: number;
   saved: number;
   isFinalized: boolean;
-  status: 'saved' | 'exceeded' | 'even' | 'active';
+  status: 'saved' | 'exceeded' | 'even' | 'active' | 'unknown';
 }
 
 export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, todayStr: string, userCreatedAtStr?: string) => {
@@ -41,6 +41,10 @@ export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, to
     if (r.isFinalized && r.date < todayStr) {
       if (userCreatedAt && r.date < userCreatedAt) {
         // Pre-registration backdated days do not affect Gullak savings or penalty
+        return;
+      }
+      // 'unknown' days do not affect Gullak savings or penalties
+      if (r.status === 'unknown') {
         return;
       }
       if (r.budget > 0 && r.spent > r.budget) {
@@ -61,20 +65,31 @@ export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, to
   const netSavings = Math.max(0, totalSaved - totalOverspent);
 
   const confirmedSavedDays = Object.values(records).filter(
-    (r) => r.isFinalized && r.date < todayStr && (r.saved || 0) > 0 && (!userCreatedAt || r.date >= userCreatedAt)
+    (r) => r.isFinalized && r.date < todayStr && r.status === 'saved' && (r.saved || 0) > 0 && (!userCreatedAt || r.date >= userCreatedAt)
   ).length;
 
   let streak = 0;
   let dayCheck = subDays(new Date(), 1);
   while (true) {
     const dStr = format(dayCheck, 'yyyy-MM-dd');
-    const rec = records[dStr];
-    if (rec && rec.isFinalized && rec.status === 'saved' && (rec.saved || 0) > 0) {
-      streak++;
-      dayCheck = subDays(dayCheck, 1);
-    } else {
+    if (userCreatedAt && dStr < userCreatedAt) {
       break;
     }
+    const rec = records[dStr];
+    if (rec && rec.isFinalized) {
+      // 'unknown' days neither extend nor break the streak: skip and continue checking earlier days
+      if (rec.status === 'unknown') {
+        dayCheck = subDays(dayCheck, 1);
+        continue;
+      }
+      if (rec.status === 'saved' && (rec.saved || 0) > 0) {
+        streak++;
+        dayCheck = subDays(dayCheck, 1);
+        continue;
+      }
+    }
+    // Any other status (exceeded, even, active, or missing unfinalized day) breaks the streak
+    break;
   }
 
   let maxStreak = 0;
@@ -94,7 +109,22 @@ export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, to
       if (diffDays === 1) {
         currentRun++;
       } else {
-        currentRun = 1;
+        // Check if all days in between are 'unknown' — an unknown day should neither extend nor break a streak
+        let allIntermediateUnknown = true;
+        for (let step = 1; step < diffDays; step++) {
+          const intermediateDate = new Date(prevDate);
+          intermediateDate.setDate(prevDate.getDate() + step);
+          const intermediateStr = format(intermediateDate, 'yyyy-MM-dd');
+          if (records[intermediateStr]?.status !== 'unknown') {
+            allIntermediateUnknown = false;
+            break;
+          }
+        }
+        if (allIntermediateUnknown) {
+          currentRun++;
+        } else {
+          currentRun = 1;
+        }
       }
     }
     if (currentRun > maxStreak) {
@@ -494,22 +524,49 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
           const existing = records[d];
           const spent = spentByDate[d] || 0;
-          const userDailyAllowance = get().dailyBudgetAmount;
-          let budget = userDailyAllowance;
-          if (existing && existing.budget > 0) {
+
+          let budget = 0;
+          let saved = 0;
+          let status: 'saved' | 'exceeded' | 'even' | 'unknown' = 'unknown';
+
+          if (existing && existing.status === 'unknown') {
+            // Preserved untracked historical day
+            status = 'unknown';
+            budget = 0;
+            saved = 0;
+          } else if (existing && (existing.budget > 0 || existing.isFinalized)) {
+            // Lock to budget-at-the-time persisted in existing record
             budget = existing.budget;
+            saved = Math.max(0, budget - spent);
+            status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
+          } else if (!existing) {
+            // Past date being finalized for the very first time with no prior record:
+            // Do NOT silently assume today's budget applied. Mark as 'unknown' if expenses exist.
+            if (spent > 0) {
+              status = 'unknown';
+              budget = 0;
+              saved = 0;
+            } else if (get().isAutoRenew) {
+              // Auto-renew zero-spend day for elapsed days
+              budget = get().dailyBudgetAmount;
+              saved = budget;
+              status = 'saved';
+            } else {
+              // No prior record, 0 budget, 0 spent: skip
+              continue;
+            }
           } else {
-            budget = get().isAutoRenew ? userDailyAllowance : 0;
+            // Existing record with 0 budget (e.g. manual mode)
+            if (get().isAutoRenew && existing.budget === 0) {
+              budget = get().dailyBudgetAmount;
+              saved = Math.max(0, budget - spent);
+              status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
+            } else {
+              status = 'unknown';
+              budget = 0;
+              saved = 0;
+            }
           }
-
-          // Skip past dates that had no prior record, 0 budget, and 0 spent
-          if (!existing && budget === 0 && spent === 0) {
-            continue;
-          }
-
-          const saved = Math.max(0, budget - spent);
-          const status: 'saved' | 'exceeded' | 'even' =
-            spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
 
           const hasChanged =
             !existing ||
@@ -535,6 +592,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             try {
               const currentUser = useAuthStore.getState().user;
               if (currentUser) {
+                const supabaseStatus =
+                  status === 'unknown'
+                    ? 'unknown'
+                    : saved > 0
+                    ? 'saved'
+                    : status === 'even'
+                    ? 'even'
+                    : 'missed';
+
                 supabase
                   .from('daily_savings_log')
                   .upsert(
@@ -542,7 +608,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                       user_id: currentUser.id,
                       date: d,
                       amount_saved: saved,
-                      status: saved > 0 ? 'saved' : 'missed',
+                      status: supabaseStatus,
+                      budget_amount: budget,
                     },
                     { onConflict: 'user_id,date' }
                   )
@@ -630,7 +697,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           // 2. Fetch past daily savings logs from Supabase
           const { data: logsData } = await supabase
             .from('daily_savings_log')
-            .select('date, amount_saved, status')
+            .select('date, amount_saved, status, budget_amount')
             .eq('user_id', userId)
             .order('date', { ascending: true });
 
@@ -646,23 +713,55 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 continue; // Ignore any erroneous pre-registration logs
               }
               const amountSaved = Number(log.amount_saved) || 0;
-              const logStatus: 'saved' | 'exceeded' | 'even' =
-                log.status === 'saved' ? 'saved' : log.status === 'even' ? 'even' : 'exceeded';
+              const logStatus: 'saved' | 'exceeded' | 'even' | 'unknown' =
+                log.status === 'saved'
+                  ? 'saved'
+                  : log.status === 'even'
+                  ? 'even'
+                  : log.status === 'unknown'
+                  ? 'unknown'
+                  : 'exceeded';
 
-              if (!records[d]) {
+              // Lock to budget-at-the-time persisted in daily_savings_log if available
+              let dayBudget: number;
+              if (log.budget_amount !== null && log.budget_amount !== undefined) {
+                dayBudget = Number(log.budget_amount);
+              } else {
+                // -------------------------------------------------------------------
+                // ONE-TIME LEGACY-DATA MIGRATION CONCERN:
+                // For historical rows saved before budget_amount was added to schema,
+                // check local records. If local was corrupted to 500 by previous bug
+                // and user daily allowance is different, repair it.
+                // -------------------------------------------------------------------
+                let currentBudget = records[d]?.budget;
+                if (currentBudget === 500 && resolvedBudget !== 500) {
+                  currentBudget = resolvedBudget;
+                }
+                dayBudget = currentBudget || resolvedBudget;
+              }
+
+              if (logStatus === 'unknown') {
                 records[d] = {
                   date: d,
-                  budget: resolvedBudget,
-                  spent: Math.max(0, resolvedBudget - amountSaved),
+                  budget: dayBudget || 0,
+                  spent: records[d]?.spent || 0,
+                  saved: 0,
+                  isFinalized: true,
+                  status: 'unknown',
+                };
+              } else if (!records[d]) {
+                records[d] = {
+                  date: d,
+                  budget: dayBudget,
+                  spent: Math.max(0, dayBudget - amountSaved),
                   saved: amountSaved,
                   isFinalized: true,
                   status: logStatus,
                 };
               } else {
-                const currentBudget = records[d].budget;
                 records[d] = {
                   ...records[d],
-                  budget: currentBudget || resolvedBudget,
+                  budget: dayBudget,
                   saved: amountSaved > 0 ? amountSaved : records[d].saved,
                   isFinalized: true,
                   status: logStatus,

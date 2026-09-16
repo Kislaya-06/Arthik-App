@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, AppStateStatus } from 'react-native';
+import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 
 interface NetworkState {
   isOffline: boolean;
@@ -14,36 +14,6 @@ interface NetworkState {
 }
 
 const DEFAULT_OFFLINE_MSG = 'You are offline, changes will sync when connected';
-
-export const checkOnlineStatus = async (): Promise<boolean> => {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    // GET on generate_204 returns HTTP 204 with 0-byte body across all mobile networks
-    const response = await fetch('https://clients3.google.com/generate_204', {
-      method: 'GET',
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    return response.status >= 200 && response.status < 400;
-  } catch {
-    // Fallback ping if google_204 is unreachable
-    try {
-      const fallbackController = new AbortController();
-      const fallbackTimeout = setTimeout(() => fallbackController.abort(), 3000);
-      const fallbackRes = await fetch('https://www.cloudflare.com/cdn-cgi/trace', {
-        method: 'GET',
-        signal: fallbackController.signal,
-      });
-      clearTimeout(fallbackTimeout);
-      return fallbackRes.status >= 200 && fallbackRes.status < 400;
-    } catch {
-      return false;
-    }
-  }
-};
 
 let syncPendingCallback: (() => Promise<void>) | null = null;
 export const registerSyncCallback = (callback: () => Promise<void>) => {
@@ -132,32 +102,30 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   checkConnectivity: async () => {
-    const online = await checkOnlineStatus();
-    get().setOffline(!online);
-    return online;
+    const state = await NetInfo.fetch();
+    const isOnline = Boolean(state.isConnected && state.isInternetReachable);
+    get().setOffline(!isOnline);
+    return isOnline;
   },
 
   initNetworkListener: () => {
-    // Initial check
-    get().checkConnectivity();
-
-    // Periodic heartbeat every 45 seconds while active to conserve mobile battery
-    const interval = setInterval(() => {
-      if (AppState.currentState === 'active') {
-        get().checkConnectivity();
+    const handleNetworkChange = (state: NetInfoState) => {
+      // If connected but reachability is still undetermined (null), wait for reachability test to avoid false offline flash
+      if (state.isInternetReachable === null && state.isConnected) {
+        return;
       }
-    }, 45000);
+      const isOnline = Boolean(state.isConnected && state.isInternetReachable);
+      get().setOffline(!isOnline);
+    };
 
-    // App state listener (check when app comes to foreground)
-    const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active') {
-        get().checkConnectivity();
-      }
-    });
+    // Initial state check
+    NetInfo.fetch().then(handleNetworkChange);
+
+    // Subscribe to native OS-level network state changes
+    const unsubscribe = NetInfo.addEventListener(handleNetworkChange);
 
     return () => {
-      clearInterval(interval);
-      subscription.remove();
+      unsubscribe();
       if (toastTimeout) clearTimeout(toastTimeout);
     };
   },

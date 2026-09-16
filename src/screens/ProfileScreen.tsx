@@ -95,8 +95,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 index: 0,
                 routes: [{ name: 'Auth' }],
               });
-            } catch {
-              Alert.alert('Error', 'Could not delete account. Please check your network and try again.');
+            } catch (err: any) {
+              Alert.alert(
+                'Delete Account Failed',
+                err?.message || 'Could not delete your account. Please check your network connection and try again or contact support.'
+              );
             } finally {
               setIsDeleting(false);
             }

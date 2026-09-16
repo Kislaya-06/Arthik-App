@@ -131,22 +131,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   deleteAccount: async () => {
     const user = get().user;
-    if (!user) return;
+    if (!user) throw new Error('No authenticated user session found');
 
     set({ loading: true });
     try {
-      // 1. Try invoking delete_user_account RPC if present
-      const { error: rpcError } = await supabase.rpc('delete_user_account');
-      if (rpcError) {
-        // Fallback: Delete all user's data from public tables directly
-        await Promise.allSettled([
-          supabase.from('expenses').delete().eq('user_id', user.id),
-          supabase.from('daily_savings_log').delete().eq('user_id', user.id),
-          supabase.from('categories').delete().eq('user_id', user.id),
-          supabase.from('profiles').delete().eq('id', user.id),
-        ]);
+      // 1. Invoke server-side Edge Function to delete user data & auth.users record securely
+      const { data, error } = await supabase.functions.invoke('delete-user-account');
+
+      if (error) {
+        let errorMsg = error.message;
+        if (data && typeof data === 'object' && (data as any).error) {
+          errorMsg = (data as any).error;
+        }
+        throw new Error(errorMsg || 'Failed to delete account on server');
       }
-      // 2. Sign out and trigger all store cleanups
+
+      if (data && (data as any).success === false) {
+        throw new Error((data as any).error || 'Failed to delete user account');
+      }
+
+      // 2. Account permanently deleted on server. Trigger local store cleanup and sign out
       await get().signOut();
     } catch (e) {
       console.error('Error deleting user account:', e);

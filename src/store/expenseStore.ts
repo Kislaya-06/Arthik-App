@@ -15,15 +15,28 @@ export interface Expense {
   payment_mode: 'cash' | 'upi' | 'card';
   expense_date: string; // YYYY-MM-DD
   created_at?: string;
+  retryCount?: number;
+}
+
+export interface FailedSyncItem {
+  id: string;
+  type: 'add' | 'update' | 'delete';
+  expense?: Partial<Expense>;
+  errorReason: string;
+  failedAt: string;
 }
 
 interface ExpenseState {
   expenses: Expense[];
   loading: boolean;
   transactionType: 'expense' | 'income';
+  failedSyncItems: FailedSyncItem[];
   setTransactionType: (type: 'expense' | 'income') => void;
   fetchExpenses: () => Promise<void>;
   loadPendingExpenses: () => Promise<void>;
+  loadFailedSyncItems: () => Promise<void>;
+  discardFailedSyncItem: (id: string) => Promise<void>;
+  clearAllFailedSyncItems: () => Promise<void>;
   savePendingOffline: (expense: Expense) => Promise<void>;
   syncPendingExpenses: () => Promise<void>;
   addExpense: (
@@ -51,11 +64,40 @@ const getPendingStorageKey = (userId: string) => `@arthik_pending_expenses_${use
 const getPendingUpdatesKey = (userId: string) => `@arthik_pending_updates_${userId}`;
 const getPendingDeletesKey = (userId: string) => `@arthik_pending_deletes_${userId}`;
 const getCachedStorageKey = (userId: string) => `@arthik_cached_expenses_${userId}`;
+const getFailedSyncStorageKey = (userId: string) => `@arthik_failed_sync_${userId}`;
+
+const MAX_SYNC_RETRIES = 5;
+
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isValidUUID = (id?: string | null): boolean => {
+  if (!id) return true;
+  return UUID_REGEX.test(id);
+};
 
 interface PendingUpdate {
   id: string;
   payload: any;
+  retryCount?: number;
 }
+
+interface PendingDelete {
+  id: string;
+  retryCount?: number;
+}
+
+const saveFailedSyncItem = async (userId: string, item: FailedSyncItem) => {
+  try {
+    const key = getFailedSyncStorageKey(userId);
+    const stored = await AsyncStorage.getItem(key);
+    const list: FailedSyncItem[] = stored ? JSON.parse(stored) : [];
+    const filtered = list.filter((f) => f.id !== item.id);
+    filtered.unshift(item);
+    await AsyncStorage.setItem(key, JSON.stringify(filtered));
+    useExpenseStore.setState({ failedSyncItems: filtered });
+  } catch (e) {
+    console.log('Error saving failed sync item:', e);
+  }
+};
 
 const savePendingUpdateOffline = async (userId: string, id: string, payload: any) => {
   try {
@@ -148,19 +190,60 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   expenses: [],
   loading: false,
   transactionType: 'expense',
+  failedSyncItems: [],
 
   setTransactionType: (transactionType: 'expense' | 'income') => {
     set({ transactionType });
   },
 
   resetExpenses: () => {
-    set({ expenses: [], loading: false, transactionType: 'expense' });
+    set({ expenses: [], loading: false, transactionType: 'expense', failedSyncItems: [] });
+  },
+
+  loadFailedSyncItems: async () => {
+    try {
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+      const stored = await AsyncStorage.getItem(getFailedSyncStorageKey(user.id));
+      if (stored) {
+        set({ failedSyncItems: JSON.parse(stored) });
+      }
+    } catch (e) {
+      console.log('Error loading failed sync items:', e);
+    }
+  },
+
+  discardFailedSyncItem: async (id: string) => {
+    try {
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+      const key = getFailedSyncStorageKey(user.id);
+      const updated = get().failedSyncItems.filter((item) => item.id !== id);
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
+      set({ failedSyncItems: updated });
+    } catch (e) {
+      console.log('Error discarding failed sync item:', e);
+    }
+  },
+
+  clearAllFailedSyncItems: async () => {
+    try {
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+      const key = getFailedSyncStorageKey(user.id);
+      await AsyncStorage.removeItem(key);
+      set({ failedSyncItems: [] });
+    } catch (e) {
+      console.log('Error clearing failed sync items:', e);
+    }
   },
 
   loadPendingExpenses: async () => {
     try {
       const user = useAuthStore.getState().user;
       if (!user) return;
+
+      await get().loadFailedSyncItems();
 
       const stored = await AsyncStorage.getItem(getPendingStorageKey(user.id));
       if (stored) {
@@ -207,14 +290,59 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       const deleteKey = getPendingDeletesKey(user.id);
       const storedDeletes = await AsyncStorage.getItem(deleteKey);
       if (storedDeletes) {
-        const deleteList: string[] = JSON.parse(storedDeletes);
-        const remainingDeletes: string[] = [];
-        for (const delId of deleteList) {
+        const rawList: any[] = JSON.parse(storedDeletes);
+        const deleteList: PendingDelete[] = rawList.map((item) =>
+          typeof item === 'string' ? { id: item, retryCount: 0 } : { id: item.id, retryCount: item.retryCount || 0 }
+        );
+        const remainingDeletes: PendingDelete[] = [];
+
+        for (const item of deleteList) {
           try {
-            const { error } = await supabase.from('expenses').delete().eq('id', delId);
-            if (error) remainingDeletes.push(delId);
-          } catch {
-            remainingDeletes.push(delId);
+            const { error } = await supabase.from('expenses').delete().eq('id', item.id);
+            if (error) {
+              if (isNetworkFailure(error)) {
+                const nextRetries = (item.retryCount || 0) + 1;
+                if (nextRetries >= MAX_SYNC_RETRIES) {
+                  await saveFailedSyncItem(user.id, {
+                    id: item.id,
+                    type: 'delete',
+                    errorReason: 'Deletion failed after 5 network attempts',
+                    failedAt: new Date().toISOString(),
+                  });
+                } else {
+                  remainingDeletes.push({ id: item.id, retryCount: nextRetries });
+                }
+              } else {
+                console.error(`[sync] Permanent failure deleting expense ${item.id}:`, error);
+                await saveFailedSyncItem(user.id, {
+                  id: item.id,
+                  type: 'delete',
+                  errorReason: error.message || 'Database rejected delete',
+                  failedAt: new Date().toISOString(),
+                });
+              }
+            }
+          } catch (e: any) {
+            if (isNetworkFailure(e)) {
+              const nextRetries = (item.retryCount || 0) + 1;
+              if (nextRetries >= MAX_SYNC_RETRIES) {
+                await saveFailedSyncItem(user.id, {
+                  id: item.id,
+                  type: 'delete',
+                  errorReason: 'Deletion failed after 5 attempts',
+                  failedAt: new Date().toISOString(),
+                });
+              } else {
+                remainingDeletes.push({ id: item.id, retryCount: nextRetries });
+              }
+            } else {
+              await saveFailedSyncItem(user.id, {
+                id: item.id,
+                type: 'delete',
+                errorReason: e?.message || 'Unexpected delete failure',
+                failedAt: new Date().toISOString(),
+              });
+            }
           }
         }
         await AsyncStorage.setItem(deleteKey, JSON.stringify(remainingDeletes));
@@ -224,10 +352,27 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       const addKey = getPendingStorageKey(user.id);
       const storedAdds = await AsyncStorage.getItem(addKey);
       if (storedAdds) {
-        const pendingList: Expense[] = JSON.parse(storedAdds);
-        const remainingPending: Expense[] = [];
+        const pendingList: (Expense & { retryCount?: number })[] = JSON.parse(storedAdds);
+        const remainingPending: (Expense & { retryCount?: number })[] = [];
 
         for (const item of pendingList) {
+          const currentRetries = item.retryCount || 0;
+
+          // Check for invalid fake category IDs (e.g. '1' through '7') sitting in existing queues
+          if (item.category_id && !isValidUUID(item.category_id)) {
+            console.warn(`[sync] Purging pending expense with invalid fake category_id: ${item.category_id}`);
+            // Remove the corrupted optimistic item from UI state
+            set((state) => ({ expenses: state.expenses.filter((e) => e.id !== item.id) }));
+            await saveFailedSyncItem(user.id, {
+              id: item.id,
+              type: 'add',
+              expense: item,
+              errorReason: 'Invalid category format (legacy placeholder category)',
+              failedAt: new Date().toISOString(),
+            });
+            continue; // Drop from queue, do not retry!
+          }
+
           try {
             const payload: any = {
               user_id: user.id,
@@ -246,15 +391,64 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
               .single();
 
             if (error) {
-              remainingPending.push(item);
+              if (isNetworkFailure(error)) {
+                const nextRetries = currentRetries + 1;
+                if (nextRetries >= MAX_SYNC_RETRIES) {
+                  // Hit retry threshold: remove from silent queue & surface in failed list
+                  set((state) => ({ expenses: state.expenses.filter((e) => e.id !== item.id) }));
+                  await saveFailedSyncItem(user.id, {
+                    id: item.id,
+                    type: 'add',
+                    expense: item,
+                    errorReason: 'Sync failed after 5 network attempts',
+                    failedAt: new Date().toISOString(),
+                  });
+                } else {
+                  remainingPending.push({ ...item, retryCount: nextRetries });
+                }
+              } else {
+                // Permanent schema/DB rejection (e.g. FK constraint, RLS): drop immediately
+                console.error(`[sync] Permanent failure saving expense ${item.id}:`, error);
+                set((state) => ({ expenses: state.expenses.filter((e) => e.id !== item.id) }));
+                await saveFailedSyncItem(user.id, {
+                  id: item.id,
+                  type: 'add',
+                  expense: item,
+                  errorReason: error.message || 'Database rejected transaction',
+                  failedAt: new Date().toISOString(),
+                });
+              }
             } else if (data) {
-              // Replace the temp ID in state with the confirmed server record
+              // Replace temp ID in state with confirmed server record
               set((state) => ({
                 expenses: state.expenses.map((e) => (e.id === item.id ? data : e)),
               }));
             }
-          } catch {
-            remainingPending.push(item);
+          } catch (e: any) {
+            if (isNetworkFailure(e)) {
+              const nextRetries = currentRetries + 1;
+              if (nextRetries >= MAX_SYNC_RETRIES) {
+                set((state) => ({ expenses: state.expenses.filter((e) => e.id !== item.id) }));
+                await saveFailedSyncItem(user.id, {
+                  id: item.id,
+                  type: 'add',
+                  expense: item,
+                  errorReason: 'Sync failed after 5 network attempts',
+                  failedAt: new Date().toISOString(),
+                });
+              } else {
+                remainingPending.push({ ...item, retryCount: nextRetries });
+              }
+            } else {
+              set((state) => ({ expenses: state.expenses.filter((e) => e.id !== item.id) }));
+              await saveFailedSyncItem(user.id, {
+                id: item.id,
+                type: 'add',
+                expense: item,
+                errorReason: e?.message || 'Unexpected sync failure',
+                failedAt: new Date().toISOString(),
+              });
+            }
           }
         }
 
@@ -269,15 +463,70 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         const remainingUpdates: PendingUpdate[] = [];
 
         for (const upd of updateList) {
+          const currentRetries = upd.retryCount || 0;
+
+          // Check if payload contains invalid category_id
+          if (upd.payload?.category_id && !isValidUUID(upd.payload.category_id)) {
+            console.warn(`[sync] Dropping pending update with invalid category_id: ${upd.payload.category_id}`);
+            await saveFailedSyncItem(user.id, {
+              id: upd.id,
+              type: 'update',
+              errorReason: 'Invalid category identifier format',
+              failedAt: new Date().toISOString(),
+            });
+            continue;
+          }
+
           try {
             const { error } = await supabase
               .from('expenses')
               .update(upd.payload)
               .eq('id', upd.id);
 
-            if (error) remainingUpdates.push(upd);
-          } catch {
-            remainingUpdates.push(upd);
+            if (error) {
+              if (isNetworkFailure(error)) {
+                const nextRetries = currentRetries + 1;
+                if (nextRetries >= MAX_SYNC_RETRIES) {
+                  await saveFailedSyncItem(user.id, {
+                    id: upd.id,
+                    type: 'update',
+                    errorReason: 'Update sync failed after 5 network attempts',
+                    failedAt: new Date().toISOString(),
+                  });
+                } else {
+                  remainingUpdates.push({ ...upd, retryCount: nextRetries });
+                }
+              } else {
+                console.error(`[sync] Permanent failure updating expense ${upd.id}:`, error);
+                await saveFailedSyncItem(user.id, {
+                  id: upd.id,
+                  type: 'update',
+                  errorReason: error.message || 'Database rejected update',
+                  failedAt: new Date().toISOString(),
+                });
+              }
+            }
+          } catch (e: any) {
+            if (isNetworkFailure(e)) {
+              const nextRetries = currentRetries + 1;
+              if (nextRetries >= MAX_SYNC_RETRIES) {
+                await saveFailedSyncItem(user.id, {
+                  id: upd.id,
+                  type: 'update',
+                  errorReason: 'Update sync failed after 5 attempts',
+                  failedAt: new Date().toISOString(),
+                });
+              } else {
+                remainingUpdates.push({ ...upd, retryCount: nextRetries });
+              }
+            } else {
+              await saveFailedSyncItem(user.id, {
+                id: upd.id,
+                type: 'update',
+                errorReason: e?.message || 'Unexpected update sync failure',
+                failedAt: new Date().toISOString(),
+              });
+            }
           }
         }
 
@@ -342,6 +591,11 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   addExpense: async (amount, categoryId, note, paymentMode, date, type = 'expense') => {
     const user = useAuthStore.getState().user;
     if (!user) return;
+
+    // Defense-in-depth: validate categoryId format if provided
+    if (categoryId && !isValidUUID(categoryId)) {
+      throw new Error(`Invalid category selected (${categoryId}). Please select a valid category.`);
+    }
 
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const nowIso = new Date().toISOString();
@@ -430,6 +684,25 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const user = useAuthStore.getState().user;
     if (!user) return;
 
+    // Defense-in-depth: validate categoryId format if provided
+    if (categoryId && !isValidUUID(categoryId)) {
+      throw new Error(`Invalid category selected (${categoryId}). Please select a valid category.`);
+    }
+
+    // Snapshot previous expense state before applying optimistic update
+    const previousExpense = get().expenses.find((e) => e.id === id);
+    if (!previousExpense) return;
+
+    let isRolledBack = false;
+    const rollbackUpdate = () => {
+      if (isRolledBack) return;
+      isRolledBack = true;
+      set((state) => ({
+        expenses: state.expenses.map((e) => (e.id === id ? previousExpense : e)),
+      }));
+      useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
+    };
+
     const payload: any = {
       amount,
       note: sanitizeNote(note),
@@ -477,6 +750,9 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
           useNetworkStore.getState().triggerOfflineAlert('You are offline, changes will sync when connected');
           return;
         }
+
+        // Real schema/DB validation error: rollback optimistic update
+        rollbackUpdate();
         throw error;
       }
     } catch (e: any) {
@@ -486,6 +762,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         useNetworkStore.getState().triggerOfflineAlert('You are offline, changes will sync when connected');
         return;
       }
+
+      rollbackUpdate();
       console.error('Error updating expense:', e);
       throw e;
     } finally {
@@ -496,6 +774,34 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   deleteExpense: async (id) => {
     const user = useAuthStore.getState().user;
     if (!user) return;
+
+    // Snapshot previous expense state and its position before optimistic deletion
+    const previousExpense = get().expenses.find((e) => e.id === id);
+    const previousIndex = get().expenses.findIndex((e) => e.id === id);
+    if (!previousExpense) return;
+
+    let isRolledBack = false;
+    const rollbackDelete = () => {
+      if (isRolledBack) return;
+      isRolledBack = true;
+      set((state) => {
+        if (state.expenses.some((e) => e.id === id)) return state;
+        const restored = [...state.expenses];
+        if (previousIndex >= 0 && previousIndex <= restored.length) {
+          restored.splice(previousIndex, 0, previousExpense);
+        } else {
+          restored.unshift(previousExpense);
+        }
+        // Maintain consistent ordering (expense_date DESC, created_at DESC) matching fetchExpenses
+        restored.sort((a, b) => {
+          const dateCompare = (b.expense_date || '').localeCompare(a.expense_date || '');
+          if (dateCompare !== 0) return dateCompare;
+          return (b.created_at || '').localeCompare(a.created_at || '');
+        });
+        return { expenses: restored };
+      });
+      useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
+    };
 
     // 1. Optimistic local delete
     set((state) => ({ expenses: state.expenses.filter((e) => e.id !== id) }));
@@ -529,6 +835,9 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
           useNetworkStore.getState().triggerOfflineAlert('You are offline, changes will sync when connected');
           return;
         }
+
+        // Real schema/DB validation error: rollback optimistic deletion
+        rollbackDelete();
         throw error;
       }
     } catch (e: any) {
@@ -538,6 +847,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         useNetworkStore.getState().triggerOfflineAlert('You are offline, changes will sync when connected');
         return;
       }
+
+      rollbackDelete();
       console.error('Error deleting expense:', e);
       throw e;
     } finally {
@@ -553,4 +864,5 @@ registerSyncCallback(async () => {
 
 registerStoreResetCallback(() => {
   useExpenseStore.getState().resetExpenses();
+  useExpenseStore.setState({ failedSyncItems: [] });
 });

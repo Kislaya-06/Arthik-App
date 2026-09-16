@@ -45,8 +45,9 @@ interface SavingsRecordRowProps {
 }
 
 const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({ rec, colors, isDark }) => {
-  const isSaved = rec.saved > 0;
+  const isSaved = rec.saved > 0 && rec.status !== 'unknown';
   const isExceeded = rec.status === 'exceeded';
+  const isUnknown = rec.status === 'unknown';
 
   const dateLabel = useMemo(() => {
     try {
@@ -98,7 +99,9 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({ rec, colors, is
             {dateLabel}
           </Text>
           <Text style={[styles.recordSubText, { color: colors.textSecondary }]}>
-            Spent {formatCurrency(rec.spent)} of {formatCurrency(rec.budget)}
+            {isUnknown
+              ? `Spent ${formatCurrency(rec.spent)} (Budget untracked)`
+              : `Spent ${formatCurrency(rec.spent)} of ${formatCurrency(rec.budget)}`}
           </Text>
         </View>
       </View>
@@ -134,6 +137,8 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({ rec, colors, is
             ? `+${formatCurrency(rec.saved)} Saved 🎉`
             : isExceeded
             ? `Over by ${formatCurrency(rec.spent - rec.budget)}`
+            : isUnknown
+            ? `Untracked`
             : `Exact Budget (₹0)`}
         </Text>
       </View>

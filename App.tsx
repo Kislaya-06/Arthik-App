@@ -20,6 +20,7 @@ import {
 } from './src/lib/notificationService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
+import { SyncFailedBanner } from './src/components/SyncFailedBanner';
 import { useNetworkStore } from './src/store/networkStore';
 
 export default function App() {
@@ -152,6 +153,7 @@ export default function App() {
       <ErrorBoundary>
         <View style={[styles.container, { backgroundColor: colors.background }]}>
           <OfflineBanner />
+          <SyncFailedBanner />
           <AppNavigation />
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}

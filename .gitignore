@@ -44,3 +44,6 @@ yarn-error.*
 # Build outputs
 *.apk
 *.aab
+
+# Supabase CLI temp files
+supabase/.temp/

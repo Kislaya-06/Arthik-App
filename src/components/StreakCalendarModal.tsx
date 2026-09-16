@@ -23,7 +23,7 @@ interface StreakCalendarModalProps {
 
 interface DayLogData {
   date: string;
-  status: 'saved' | 'missed';
+  status: 'saved' | 'missed' | 'unknown';
   amount: number;
 }
 
@@ -83,7 +83,13 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
     Object.values(dailyRecords).forEach((rec) => {
       if (rec.date.startsWith(monthKey)) {
         if (rec.isFinalized && rec.date < todayStr) {
-          if (rec.status === 'saved' && rec.saved > 0) {
+          if (rec.status === 'unknown') {
+            localMap[rec.date] = {
+              date: rec.date,
+              status: 'unknown',
+              amount: 0,
+            };
+          } else if (rec.status === 'saved' && rec.saved > 0) {
             localMap[rec.date] = {
               date: rec.date,
               status: 'saved',
@@ -128,12 +134,20 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
         if (!error && data && data.length > 0) {
           const remoteMap: Record<string, DayLogData> = {};
           data.forEach((row: any) => {
-            const isSaved = row.status === 'saved' && Number(row.amount_saved) > 0;
-            remoteMap[row.date] = {
-              date: row.date,
-              status: isSaved ? 'saved' : 'missed',
-              amount: Number(row.amount_saved) || 0,
-            };
+            if (row.status === 'unknown') {
+              remoteMap[row.date] = {
+                date: row.date,
+                status: 'unknown',
+                amount: 0,
+              };
+            } else {
+              const isSaved = row.status === 'saved' && Number(row.amount_saved) > 0;
+              remoteMap[row.date] = {
+                date: row.date,
+                status: isSaved ? 'saved' : 'missed',
+                amount: Number(row.amount_saved) || 0,
+              };
+            }
           });
 
           // Merge remote over local
@@ -195,13 +209,21 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
       let amount = 0;
 
       if (log) {
-        status = log.status;
-        amount = log.amount;
+        if (log.status === 'unknown') {
+          status = 'neutral';
+          amount = 0;
+        } else {
+          status = log.status;
+          amount = log.amount;
+        }
       } else if (dateStr < todayStr) {
         // Check if there was any recorded activity in dailyRecords
         const rec = dailyRecords[dateStr];
         if (rec && rec.isFinalized) {
-          if (rec.status === 'saved' && rec.saved > 0) {
+          if (rec.status === 'unknown') {
+            status = 'neutral';
+            amount = 0;
+          } else if (rec.status === 'saved' && rec.saved > 0) {
             status = 'saved';
             amount = rec.saved;
           } else {

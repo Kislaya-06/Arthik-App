@@ -550,14 +550,26 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, []);
 
+  const isCategoriesLoading = useCategoryStore((s) => s.loading);
+  const areCategoriesPlaceholder = categories.length === 0 || categories.some((c) => c.isPlaceholder);
+
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (isSubmitting) return;
 
     const numAmount = parseFloat(amount);
-    const isValid =
-      numAmount > 0 && (transactionType === 'income' || selectedCategoryId !== null);
-    if (!isValid) return;
+    const selectedCat = categories.find((c) => c.id === selectedCategoryId);
+    const isCategorySelectedAndReal =
+      transactionType === 'income' ||
+      (selectedCategoryId !== null && selectedCat && !selectedCat.isPlaceholder);
+
+    const isValid = numAmount > 0 && isCategorySelectedAndReal;
+    if (!isValid) {
+      if (transactionType === 'expense' && areCategoriesPlaceholder) {
+        Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
+      }
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -605,8 +617,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const formattedDate = formatDate(selectedDate, true);
   const numAmount = parseFloat(amount || '0');
+  const selectedCat = categories.find((c) => c.id === selectedCategoryId);
+  const isCategorySelectedAndReal =
+    transactionType === 'income' ||
+    (selectedCategoryId !== null && selectedCat && !selectedCat.isPlaceholder);
+
   const isSaveEnabled =
-    numAmount > 0 && (transactionType === 'income' || selectedCategoryId !== null);
+    numAmount > 0 && isCategorySelectedAndReal && !isSubmitting;
 
   return (
     <KeyboardAvoidingView
@@ -693,9 +710,19 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Category Selector (Expense mode only) */}
         {transactionType === 'expense' && (
           <>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
-              CATEGORY
-            </Text>
+            <View style={styles.sectionLabelRow}>
+              <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+                CATEGORY
+              </Text>
+              {(areCategoriesPlaceholder || isCategoriesLoading) && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <ActivityIndicator size="small" color={colors.textMuted} />
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontFamily: 'Quicksand_500Medium' }}>
+                    Loading categories...
+                  </Text>
+                </View>
+              )}
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -704,17 +731,24 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             >
               <View style={styles.categoryList}>
                 {categories.map((cat: Category) => {
-                  const isSelected = selectedCategoryId === cat.id;
+                  const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
+                  const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
                   const IconComp = getCategoryIcon(cat.icon);
                   return (
                     <Pressable
                       key={cat.id}
-                      onPress={() => setSelectedCategoryId(cat.id)}
+                      disabled={isPlaceholder}
+                      onPress={() => {
+                        if (!isPlaceholder) {
+                          setSelectedCategoryId(cat.id);
+                        }
+                      }}
                       style={[
                         styles.categoryChip,
                         isSelected
                           ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
                           : { backgroundColor: colors.card, borderColor: colors.border },
+                        isPlaceholder && { opacity: 0.45 },
                       ]}
                     >
                       <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
