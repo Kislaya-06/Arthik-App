@@ -52,4 +52,4 @@ supabase/.temp/
 .vscode/
 
 # Prompt fix files
-ARTHIK_FIX*.md
+ARTHIK_FIX_PROMPT_V2.md

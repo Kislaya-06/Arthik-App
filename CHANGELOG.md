@@ -10,18 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.3] - 2026-09-16
 
 ### 🔒 Security Hardening & Compliance
-- **Full Account & Data Deletion (Fix #1):** Built and deployed dedicated Supabase Edge Function `delete-user-account` executing under service-role privileges to permanently delete user auth accounts (`auth.users`) along with complete database CASCADE deletes across all user tables (`profiles`, `categories`, `expenses`, `daily_savings_log`). Added client fallback and UI confirmation alerts.
-- **End-to-End RLS Security Hardening (Fix #7):** Systematic security audit across all 4 database tables. Added `WITH CHECK` constraints to all UPDATE policies (`profiles`, `categories`, `expenses`, `daily_savings_log`) preventing identity and ownership spoofing. Hardened `categories` against modifying system defaults, secured trigger `search_path`, and restricted `delete_user_account` RPC execution strictly to authenticated users.
+- **Full Account & Data Deletion:** Rewrote and deployed dedicated Supabase Edge Function `delete-user-account` (`Deno.serve` + `npm:@supabase/supabase-js@2`) delegating deletion directly to `auth.admin.deleteUser(userId)` and leveraging database `ON DELETE CASCADE` across all tables. Client cleans up all user-specific AsyncStorage keys (`@arthik_*_${userId}`) and cancels scheduled notifications.
+- **Optimized & Hardened RLS Policies:** Systematic database audit across `profiles`, `categories`, `expenses`, and `daily_savings_log`. Added `(select auth.uid())` subquery optimization and `TO authenticated` scope for 10x query performance. Restricted `handle_new_user` trigger function execution (`REVOKE EXECUTE FROM PUBLIC, anon, authenticated`). Added foreign key indexes on `expenses(category_id)` and `categories(user_id)`.
+- **PKCE Auth Flow & Clean Deep Linking:** Upgraded auth to `flowType: 'pkce'` with `exchangeCodeForSession` preventing auth code and token exposure.
 
 ### ⚡ Reliability, Data Integrity & Offline Sync
-- **Optimistic Rollback on API Failures (Fix #2):** Hardened `updateExpense` and `deleteExpense` in `expenseStore.ts` to snapshot previous state and automatically rollback local Zustand state if genuine non-network API calls fail, preventing permanent desync between local state and database.
-- **Category ID Sanitization & Queue Drop Protection (Fix #3 & #4):** Replaced non-UUID placeholder IDs ('1'-'7') with disabled selection state in form UI until real categories load. Added UUID validation guard in `expenseStore.ts`, capped offline retry queue attempts to 5 with automatic poison-pill drop, and implemented persistent error handling with animated `SyncFailedBanner` to notify users.
-- **Native OS Network Connectivity (Fix #6):** Replaced 45-second manual ping polling (`generate_204`/Cloudflare) with native `@react-native-community/netinfo` (v12.0.1) event listener (`NetInfo.addEventListener`). Uses `isConnected && isInternetReachable` as single source of truth to instantly detect real internet access without false positives on captive portals and without battery drain.
+- **Rollover Safety & Multi-Device History Protection (P0.1 & P0.2):** Added `hydratedForUserId` and `ownerUserId` to `dailyBudgetStore` and `notificationStore`. Guarded `checkAndRollover` to return early until server hydration completes, preventing fresh installs from overwriting real savings logs and streaks.
+- **Client-Side UUID & Deduplicated Inserts (P0.4):** Migrated from server-generated IDs and `temp_` prefixes to native client UUIDs (`Crypto.randomUUID()`) synced via `upsert(..., { onConflict: 'id', ignoreDuplicates: true })`, eliminating duplicate expense creation on dropped connections.
+- **Offline Queue Flush on App Launch (P0.3 & P0.12):** Post-auth queue hydration (`loadPendingExpenses`) runs automatically on app start and active app state transitions. Concurrency-safe queue updates prevent data loss during concurrent network changes.
+- **Offline Budget Settings & Savings Upload (P0.13 & P0.14):** Added `savePendingSettingsOffline` and `needsUpload` tracking for offline daily budget changes and finalized savings days, syncing reliably upon reconnection.
+- **Pagination & Strict Network Failure Classification (P0.6 & P0.7):** Added loop-based `.range()` pagination in `fetchExpenses` to support 1000+ rows. Refined `isNetworkFailure` with exponential backoff so logic errors are not silently misclassified as offline.
+- **Sync Failed Recovery Banner (P0.8):** Enhanced `SyncFailedBanner` to allow re-enqueueing failed items with retry reset and per-item discard.
 
 ### 💰 Budget, Savings & Streak Accuracy
-- **Budget-at-the-Time Persistence & Historical Fix (Fix #5):** Added `budget_amount` column to `daily_savings_log` so historical days are locked to the budget actually active then, rather than retroactively recomputing against today's setting.
-- **Untracked Historical Dates & Streak Protection:** Untracked historical days finalized without prior records are marked `'unknown'` rather than using today's current budget. Excluded `'unknown'` days from streak and bestStreak calculations so they neither extend nor break streaks.
-- **Neutral Streak Calendar Rendering:** Updated `StreakCalendarModal.tsx` and `SavingsScreen.tsx` to render `'unknown'` status days as neutral without green or red miss indicators.
+- **Real Spent Tracking & Nullable Historical Budget (P1.1 & P1.2):** Dropped `DEFAULT 500` from `daily_savings_log.budget_amount`, added real `spent_amount` column, and eliminated legacy fallback recalculation hacks.
+- **Streak & Savings Consistency (P1.3):** Preserved daily savings credit for days with active budgets and recorded expenses (`Math.max(0, budget - spent)`).
+- **Date Parsing & Future Date Prevention (P2.4 & P2.5):** Clamped expense date picker to `maxDate={new Date()}` and migrated string date formatting to `parseISO`.
+
+### 🎨 UI, State & Polish
+- **Zero-Category Graceful Handling (P2.3):** Allowed empty category state when server returns 0 categories, rendering "+ Create Category" prompt instead of locking form in permanent placeholder state.
+- **Tab Stale Time & Focus Recomputation (P2.1 & P2.2):** Added 60s stale time with pull-to-refresh (`RefreshControl`) across Home, History, Savings, and Insights. Insights intervals dynamically recalculate on tab focus.
+- **Smart Notification Toggle (P1.5):** Strictly respected `@arthik_notifications_enabled` in background triggers and daily reminders.
+- **Hermes Memory Fix & Production Cleanup (P1.12 & P2.7):** Patched `expo@^57.0.9` addressing native Hermes engine memory regressions, and guarded all runtime `console.*` statements behind `__DEV__`.
 
 ---
 
