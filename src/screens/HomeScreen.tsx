@@ -136,7 +136,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
     }
   }, [expense.expense_date]);
 
-  const amountLabel = isIncome ? `+${formatCurrency(expense.amount)}` : `−${formatCurrency(expense.amount)}`;
+  const amountLabel = isIncome ? `+${formatCurrency(Math.abs(expense.amount))}` : `−${formatCurrency(Math.abs(expense.amount))}`;
   const amountColor = isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary;
 
   const modeLabel =
@@ -193,8 +193,14 @@ const TransactionRow = React.memo(TransactionRowBase);
 const FILTERS = ['All', 'Daily', 'Weekly', 'Monthly'] as const;
 type Filter = (typeof FILTERS)[number];
 
-const filterExpenses = (expenses: Expense[], filter: Filter): Expense[] => {
-  if (filter === 'All') return expenses;
+const filterExpenses = (expenses: Expense[], filter: Filter, userCreatedAtStr?: string): Expense[] => {
+  if (filter === 'All') {
+    if (!userCreatedAtStr) return expenses;
+    return expenses.filter((e) => {
+      const cleanDate = e.expense_date?.split('T')[0]?.trim();
+      return !cleanDate || cleanDate >= userCreatedAtStr;
+    });
+  }
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
 
@@ -203,6 +209,11 @@ const filterExpenses = (expenses: Expense[], filter: Filter): Expense[] => {
 
     const cleanDate = e.expense_date.split('T')[0]?.trim();
     if (!cleanDate) return false;
+
+    // Do not count expenses from before user created their account
+    if (userCreatedAtStr && cleanDate < userCreatedAtStr) {
+      return false;
+    }
 
     if (filter === 'Daily') {
       return cleanDate === todayStr;
@@ -250,6 +261,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const loadData = useCallback(async (force = false) => {
     const now = Date.now();
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser && useDailyBudgetStore.getState().hydratedForUserId !== currentUser.id) {
+      await useDailyBudgetStore.getState().hydrateFromSupabase(currentUser.id);
+    }
     if (!force && now - lastFetchTime.current < 60_000) {
       const cur = useExpenseStore.getState().expenses;
       syncWithExpenses(cur);
@@ -269,6 +284,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser) {
+      await useDailyBudgetStore.getState().hydrateFromSupabase(currentUser.id);
+    }
     await loadData(true);
     setRefreshing(false);
   }, [loadData]);
@@ -281,9 +300,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return m;
   }, [categories]);
 
+  const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
+
   const filtered = useMemo(
-    () => filterExpenses(expenses, activeFilter),
-    [expenses, activeFilter]
+    () => filterExpenses(expenses, activeFilter, userCreatedAtStr),
+    [expenses, activeFilter, userCreatedAtStr]
   );
 
   const { totalIncome, totalSpent } = useMemo(() => {
@@ -368,32 +389,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
 
-    // Determine the complete calendar days belonging to the active period
+    // Determine the calendar days belonging to the active period up to today
     const periodDates: string[] = [];
 
     if (activeFilter === 'Daily') {
       periodDates.push(todayStr);
     } else if (activeFilter === 'Weekly') {
-      // Current full week (Monday through Sunday)
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-      const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+      // Week starts Monday, counts days elapsed so far this week up to TODAY
+      const monday = startOfWeek(now, { weekStartsOn: 1 });
+      const mondayStr = format(monday, 'yyyy-MM-dd');
+      // If user joined after Monday (e.g. Wednesday), start from registration day
+      const startDateStr = (userCreatedAtStr && userCreatedAtStr > mondayStr) ? userCreatedAtStr : mondayStr;
+      const startDate = parseISO(startDateStr);
+      const days = eachDayOfInterval({ start: startDate <= now ? startDate : now, end: now });
       days.forEach((d) => {
-        const dStr = format(d, 'yyyy-MM-dd');
-        if (!userCreatedAtStr || dStr >= userCreatedAtStr) {
-          periodDates.push(dStr);
-        }
+        periodDates.push(format(d, 'yyyy-MM-dd'));
       });
     } else if (activeFilter === 'Monthly') {
-      // Current full month (1st through end of month)
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
-      const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+      // Month starts 1st of month, counts days elapsed so far this month up to TODAY
+      const firstOfMonth = startOfMonth(now);
+      const firstOfMonthStr = format(firstOfMonth, 'yyyy-MM-dd');
+      // If user joined after 1st of month, start from registration day
+      const startDateStr = (userCreatedAtStr && userCreatedAtStr > firstOfMonthStr) ? userCreatedAtStr : firstOfMonthStr;
+      const startDate = parseISO(startDateStr);
+      const days = eachDayOfInterval({ start: startDate <= now ? startDate : now, end: now });
       days.forEach((d) => {
-        const dStr = format(d, 'yyyy-MM-dd');
-        if (!userCreatedAtStr || dStr >= userCreatedAtStr) {
-          periodDates.push(dStr);
-        }
+        periodDates.push(format(d, 'yyyy-MM-dd'));
       });
     } else {
       // 'All' filter: all past dates tracked up to today
@@ -407,6 +428,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }
       Object.keys(dailyRecords).forEach((d) => {
         const cleanD = d.split('T')[0]?.trim();
+        // Skip phantom zero-spend 500 days from periodDates
+        if (dailyRecords[d]?.spent === 0 && dailyRecords[d]?.budget === 500 && dailyRecords[d]?.saved === 500) {
+          return;
+        }
         if (cleanD && cleanD <= todayStr && (!userCreatedAtStr || cleanD >= userCreatedAtStr)) {
           allDates.add(cleanD);
         }
@@ -416,12 +441,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     let periodBudget = 0;
     periodDates.forEach((d) => {
-      if (d === todayStr && todayBudget > 0) {
-        periodBudget += todayBudget;
-      } else if (dailyRecords[d]?.budget) {
-        periodBudget += dailyRecords[d].budget;
+      if (d === todayStr) {
+        // Today: include today's allowance + any top-up added (+₹100, +₹200, Edit)
+        const todayVal = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
+        periodBudget += todayVal;
+      } else if (dailyRecords[d]) {
+        if (dailyRecords[d].status === 'unknown') {
+          // Untracked day where user had no budget
+          periodBudget += 0;
+        } else {
+          let b = Number(dailyRecords[d].budget) || 0;
+          if (b === 500 && dailyBudgetAmount !== 500) {
+            b = isBudgetConfigured ? dailyBudgetAmount : 0;
+          }
+          periodBudget += b;
+        }
       } else {
-        periodBudget += activeDailyBudget;
+        // Past day in the period where no record was stored
+        periodBudget += isBudgetConfigured ? dailyBudgetAmount : 0;
       }
     });
 
@@ -431,7 +468,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     let budgetPool = activeDailyBudget;
     if (activeFilter === 'Weekly' || activeFilter === 'Monthly' || activeFilter === 'All') {
-      budgetPool = periodBudget > 0 ? periodBudget : activeDailyBudget;
+      budgetPool = periodBudget;
     }
 
     const available = budgetPool + income;
@@ -445,15 +482,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (activeFilter === 'Daily') {
       if (isOver) {
         label = 'Daily Budget Exceeded';
-        subtext = `Exceeded daily limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+        subtext = `Exceeded daily limit by ${formatCurrency(overAmount)}`;
       } else {
         label = 'Remaining to Spend';
         if (budgetPool > 0 && income > 0) {
-          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+          subtext = `${formatCurrency(budgetPool)} budget + ${formatCurrency(income)} income`;
         } else if (income > 0) {
-          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+          subtext = `of ${formatCurrency(income)} total income`;
         } else if (budgetPool > 0) {
-          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} daily allowance`;
+          subtext = `of ${formatCurrency(budgetPool)} daily allowance`;
         } else {
           subtext = null;
         }
@@ -461,15 +498,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     } else if (activeFilter === 'Weekly') {
       if (isOver) {
         label = 'Weekly Budget Exceeded';
-        subtext = `Exceeded weekly limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+        subtext = `Exceeded weekly limit by ${formatCurrency(overAmount)}`;
       } else {
         label = 'Weekly Remaining';
         if (budgetPool > 0 && income > 0) {
-          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+          subtext = `${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ${formatCurrency(income)} income`;
         } else if (income > 0) {
-          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+          subtext = `of ${formatCurrency(income)} total income`;
         } else if (budgetPool > 0) {
-          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
+          subtext = `of ${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
         } else {
           subtext = null;
         }
@@ -477,15 +514,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     } else if (activeFilter === 'Monthly') {
       if (isOver) {
         label = 'Monthly Budget Exceeded';
-        subtext = `Exceeded monthly limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+        subtext = `Exceeded monthly limit by ${formatCurrency(overAmount)}`;
       } else {
         label = 'Monthly Remaining';
         if (budgetPool > 0 && income > 0) {
-          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+          subtext = `${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ${formatCurrency(income)} income`;
         } else if (income > 0) {
-          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+          subtext = `of ${formatCurrency(income)} total income`;
         } else if (budgetPool > 0) {
-          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
+          subtext = `of ${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
         } else {
           subtext = null;
         }
@@ -494,15 +531,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       // 'All' filter
       if (isOver) {
         label = 'Total Budget Exceeded';
-        subtext = `Exceeded total limit by ₹${Math.round(overAmount).toLocaleString('en-IN')}`;
+        subtext = `Exceeded total limit by ${formatCurrency(overAmount)}`;
       } else {
         label = 'Total Remaining';
         if (budgetPool > 0 && income > 0) {
-          subtext = `₹${Math.round(budgetPool).toLocaleString('en-IN')} budget + ₹${Math.round(income).toLocaleString('en-IN')} income`;
+          subtext = `${formatCurrency(budgetPool)} budget + ${formatCurrency(income)} income`;
         } else if (income > 0) {
-          subtext = `of ₹${Math.round(income).toLocaleString('en-IN')} total income`;
+          subtext = `of ${formatCurrency(income)} total income`;
         } else if (budgetPool > 0) {
-          subtext = `of ₹${Math.round(budgetPool).toLocaleString('en-IN')} total budget`;
+          subtext = `of ${formatCurrency(budgetPool)} total budget`;
         } else {
           subtext = null;
         }
@@ -689,8 +726,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   {todayBudget === 0
                     ? 'Off • Tap to set'
                     : isOverBudget
-                    ? `+₹${Math.round(todayRecordSpent - todayBudget).toLocaleString('en-IN')} over`
-                    : `₹${Math.round(todayRemaining).toLocaleString('en-IN')} left`}
+                    ? `+${formatCurrency(todayRecordSpent - todayBudget)} over`
+                    : `${formatCurrency(todayRemaining)} left`}
                 </Text>
                 <ChevronRight size={15} color={colors.textSecondary} style={{ marginLeft: 4 }} />
               </View>

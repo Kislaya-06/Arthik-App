@@ -1,11 +1,17 @@
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 
 /**
- * Formats a number as Indian Rupee currency string (rounded to whole number).
- * e.g. 52000.75 → "₹52,001"
+ * Formats a number as Indian Rupee currency string.
+ * Preserves decimals if present (up to 2 decimal places), otherwise formats as whole number.
+ * e.g. 52000.75 → "₹52,000.75", 52000 → "₹52,000"
  */
-export const formatCurrency = (n: number): string =>
-  '₹' + Math.round(n).toLocaleString('en-IN');
+export const formatCurrency = (n: number): string => {
+  const val = Number(n) || 0;
+  const isNeg = val < 0;
+  const absVal = Math.abs(val);
+  const formatted = absVal.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  return (isNeg ? '-₹' : '₹') + formatted;
+};
 
 /**
  * Formats a date for display with optional relative labels.

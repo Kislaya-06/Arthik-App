@@ -153,7 +153,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
         <View style={styles.summaryAmountRow}>
           <Text style={[styles.summaryCurrency, { fontFamily: 'Quicksand_700Bold' }]}>₹</Text>
           <Text style={[styles.summaryAmount, { fontFamily: 'Quicksand_700Bold' }]}>
-            {Math.round(totalSpent).toLocaleString('en-IN')}
+            {totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </Text>
         </View>
         <Text style={[styles.summaryCount, { fontFamily: 'Quicksand_500Medium' }]}>

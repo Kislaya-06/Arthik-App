@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🛠️ Fixes & New User Defaults (OTA Patch)
 - **New User Daily Limit Default OFF:** New user profiles now default to daily limit feature OFF (`daily_budget: 0`, `is_auto_renew: false`). Users can turn it ON and configure custom limits anytime in Savings screen.
 - **Corrupted User Budget Self-Healing:** Added automatic detection and recovery for users whose daily budget was corrupted to ₹500 by the previous migration default. Accurately infers original budget from historical savings logs & expenses, restores real budget, and repairs Gullak accumulated savings and streaks.
+- **Phantom Day Purge & Server Cleanup:** Auto-purges phantom zero-spend days with fake ₹500 defaults from both local store and Supabase `daily_savings_log`.
+- **True Budget Self-Healing in Database:** Heals corrupted historical server log rows to the user's actual daily budget (e.g. ₹100), recalculating exact saved amount, spent amount, and status (`saved`, `exceeded`, `even`) and auto-upserting corrected rows.
 - **UI & Banner Improvements:** Removed hardcoded 500 fallback in HomeScreen hero card, updated Daily Allowance banner to show "Off • Tap to set" when inactive, and added prompt to configure amount upon toggling auto-renew in Savings screen.
 
 ### 🔒 Security Hardening & Compliance
@@ -29,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 💰 Budget, Savings & Streak Accuracy
 - **Real Spent Tracking & Nullable Historical Budget (P1.1 & P1.2):** Dropped `DEFAULT 500` from `daily_savings_log.budget_amount`, added real `spent_amount` column, and eliminated legacy fallback recalculation hacks.
+- **Registration-Aware Period Boundaries:** Clamped HomeScreen period filters (Weekly, Monthly, All) to user registration date (`created_at`). Pre-registration days and expenses are cleanly excluded, keeping mid-week signup budgets and totals 100% accurate.
+- **Paise & Decimal Currency Precision:** Upgraded `formatCurrency` across HomeScreen, HistoryScreen, and CategoryDetailScreen to retain decimal paise values (up to 2 fraction digits) without aggressive whole-rupee truncation, and fixed negative currency display (`-₹`).
 - **Streak & Savings Consistency (P1.3):** Preserved daily savings credit for days with active budgets and recorded expenses (`Math.max(0, budget - spent)`).
 - **Date Parsing & Future Date Prevention (P2.4 & P2.5):** Clamped expense date picker to `maxDate={new Date()}` and migrated string date formatting to `parseISO`.
 
@@ -37,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tab Stale Time & Focus Recomputation (P2.1 & P2.2):** Added 60s stale time with pull-to-refresh (`RefreshControl`) across Home, History, Savings, and Insights. Insights intervals dynamically recalculate on tab focus.
 - **Smart Notification Toggle (P1.5):** Strictly respected `@arthik_notifications_enabled` in background triggers and daily reminders.
 - **Hermes Memory Fix & Production Cleanup (P1.12 & P2.7):** Patched `expo@^57.0.9` addressing native Hermes engine memory regressions, and guarded all runtime `console.*` statements behind `__DEV__`.
+- **Automated Rollover & Healing Test Suite:** Added comprehensive self-check assertions in `test_rollover_safety.ts` covering multi-user isolation, phantom day purge, fake ₹500 healing, mid-week boundary clamp, and decimal paise formatting.
 
 ---
 

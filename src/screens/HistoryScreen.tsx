@@ -16,6 +16,7 @@ import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
+import { formatCurrency } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { ThemeColors } from '../config/theme';
@@ -69,7 +70,7 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
       </View>
       <View style={styles.transactionRight}>
         <Text style={[styles.transactionAmount, { color: isIncome ? (colors.isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
-          {isIncome ? `+₹${item.amount.toLocaleString('en-IN')}` : `−₹${item.amount.toLocaleString('en-IN')}`}
+          {isIncome ? `+${formatCurrency(Math.abs(item.amount))}` : `−${formatCurrency(Math.abs(item.amount))}`}
         </Text>
         <View style={styles.paymentModeRow}>
           <PaymentIcon size={12} color={colors.textSecondary} />
@@ -191,11 +192,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     let text = '';
     let isIncomeOnly = false;
     if (section.totalSpent > 0 && section.totalIncome > 0) {
-      text = `−₹${section.totalSpent.toLocaleString('en-IN')}  •  +₹${section.totalIncome.toLocaleString('en-IN')}`;
+      text = `−${formatCurrency(section.totalSpent)}  •  +${formatCurrency(section.totalIncome)}`;
     } else if (section.totalSpent > 0) {
-      text = `−₹${section.totalSpent.toLocaleString('en-IN')}`;
+      text = `−${formatCurrency(section.totalSpent)}`;
     } else if (section.totalIncome > 0) {
-      text = `+₹${section.totalIncome.toLocaleString('en-IN')}`;
+      text = `+${formatCurrency(section.totalIncome)}`;
       isIncomeOnly = true;
     } else {
       text = `₹0`;

@@ -48,8 +48,12 @@ yarn-error.*
 # Supabase CLI temp files
 supabase/.temp/
 
+# Logs
+*.log
+
 # IDE
 .vscode/
+.idea/
 
 # Prompt fix files
 ARTHIK_FIX_PROMPT_V2.md

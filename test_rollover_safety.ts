@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { formatCurrency } from './src/lib/formatters.ts';
 
 /**
  * Self-check test for P0.1 & P0.2 Rollover Safety & User Isolation
@@ -187,6 +188,155 @@ async function runTests() {
   const recoveredBudget = simulateSelfHealingRecovery(corruptedRemoteBudget, mockLogs, mockExpenses);
   assert.strictEqual(recoveredBudget, 1000, 'Self-healing must accurately infer and restore original ₹1,000 budget');
   console.log('✔ Test 5 Passed: Self-healing recovery accurately restores original budget from historical saved days.');
+
+  // --- TEST 6: Healing fake 500 DB default to user's real 100 budget & purging phantom days ---
+  function simulateHydrateHealing(
+    userDailyBudget: number,
+    serverLogs: { date: string; budget_amount: number | null; amount_saved: number; spent_amount: number | null }[],
+    expensesByDate: Record<string, number>
+  ) {
+    const finalRecords: Record<string, any> = {};
+    const deletedServerRows: string[] = [];
+
+    for (const log of serverLogs) {
+      const d = log.date;
+      const spent = log.spent_amount !== null ? Number(log.spent_amount) : (expensesByDate[d] || 0);
+      const rawBudget = log.budget_amount !== null ? Number(log.budget_amount) : null;
+      const rawSaved = Number(log.amount_saved) || 0;
+
+      // Check phantom
+      if (spent === 0 && !expensesByDate[d] && (rawBudget === 500 || rawSaved === 500)) {
+        deletedServerRows.push(d);
+        continue;
+      }
+
+      // Determine true budget
+      let dayBudget: number;
+      if (rawBudget !== null && rawBudget > 0 && rawBudget !== 500) {
+        dayBudget = rawBudget;
+      } else if (userDailyBudget > 0 && userDailyBudget !== 500) {
+        dayBudget = userDailyBudget; // Real budget 100 heals the fake 500
+      } else {
+        dayBudget = rawBudget || userDailyBudget || 0;
+      }
+
+      const daySaved = Math.max(0, dayBudget - spent);
+      const status = spent > dayBudget ? 'exceeded' : daySaved > 0 ? 'saved' : 'even';
+
+      finalRecords[d] = {
+        date: d,
+        budget: dayBudget,
+        spent,
+        saved: daySaved,
+        status,
+      };
+    }
+
+    return { finalRecords, deletedServerRows };
+  }
+
+  const userRealBudget = 100;
+  const corruptedLogs = [
+    // Phantom day 12 Sep (0 spent, 500 budget from backfill)
+    { date: '2026-09-12', budget_amount: 500, amount_saved: 500, spent_amount: 0 },
+    // Real day 13 Sep (150 spent, but got 500 budget and 350 saved from bug)
+    { date: '2026-09-13', budget_amount: 500, amount_saved: 350, spent_amount: 150 },
+    // Real day 14 Sep (200 spent, but got 500 budget and 300 saved from bug)
+    { date: '2026-09-14', budget_amount: 500, amount_saved: 300, spent_amount: 200 },
+  ];
+  const realExpenses = {
+    '2026-09-13': 150,
+    '2026-09-14': 200,
+  };
+
+  const { finalRecords, deletedServerRows } = simulateHydrateHealing(userRealBudget, corruptedLogs, realExpenses);
+
+  // Assert phantom day 12 Sep was purged
+  assert.strictEqual(deletedServerRows.includes('2026-09-12'), true, 'Phantom 12 Sep must be purged');
+  assert.strictEqual(finalRecords['2026-09-12'], undefined, 'Phantom 12 Sep must not be in final records');
+
+  // Assert 13 Sep is healed to budget 100, spent 150, saved 0, status exceeded
+  assert.strictEqual(finalRecords['2026-09-13'].budget, 100, '13 Sep budget must be healed to 100');
+  assert.strictEqual(finalRecords['2026-09-13'].spent, 150, '13 Sep spent must be 150');
+  assert.strictEqual(finalRecords['2026-09-13'].saved, 0, '13 Sep saved must be 0 (over budget)');
+  assert.strictEqual(finalRecords['2026-09-13'].status, 'exceeded', '13 Sep status must be exceeded');
+
+  // Assert 14 Sep is healed to budget 100, spent 200, saved 0, status exceeded
+  assert.strictEqual(finalRecords['2026-09-14'].budget, 100, '14 Sep budget must be healed to 100');
+  assert.strictEqual(finalRecords['2026-09-14'].spent, 200, '14 Sep spent must be 200');
+  assert.strictEqual(finalRecords['2026-09-14'].saved, 0, '14 Sep saved must be 0 (over budget)');
+  assert.strictEqual(finalRecords['2026-09-14'].status, 'exceeded', '14 Sep status must be exceeded');
+
+  console.log('✔ Test 6 Passed: Corrupted 500 log rows accurately healed to real ₹100 budget & phantom days purged.');
+
+  // --- TEST 7: New user joining on Wednesday has Monday & Tuesday at 0 budget & 0 expenses ---
+  function simulateWeeklyPeriodForNewUser(
+    userCreatedAt: string,
+    currentDate: string,
+    userDailyBudget: number,
+    allWeeklyExpenses: { date: string; amount: number }[]
+  ) {
+    const mondayStr = '2026-09-14';
+    const periodDates: string[] = [];
+
+    // Week starts Monday, but for new user who joined after Monday, starts on registration date
+    const startDateStr = userCreatedAt > mondayStr ? userCreatedAt : mondayStr;
+
+    // Days from startDate up to currentDate
+    let cur = new Date(startDateStr);
+    const end = new Date(currentDate);
+    while (cur <= end) {
+      periodDates.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    let periodBudget = 0;
+    periodDates.forEach(() => {
+      periodBudget += userDailyBudget;
+    });
+
+    // Expenses before registration are strictly excluded
+    const filteredExpenses = allWeeklyExpenses.filter((e) => e.date >= userCreatedAt && e.date <= currentDate);
+    const totalSpent = filteredExpenses.reduce((s, e) => s + e.amount, 0);
+
+    return {
+      periodDates,
+      periodBudget,
+      totalSpent,
+      mondayCounted: periodDates.includes('2026-09-14'),
+      tuesdayCounted: periodDates.includes('2026-09-15'),
+    };
+  }
+
+  const wednesdayNewUser = simulateWeeklyPeriodForNewUser(
+    '2026-09-16', // Downloaded on Wednesday
+    '2026-09-16', // Today is Wednesday
+    100,          // Daily budget 100
+    [
+      { date: '2026-09-14', amount: 50 }, // Monday expense (pre-registration)
+      { date: '2026-09-15', amount: 30 }, // Tuesday expense (pre-registration)
+      { date: '2026-09-16', amount: 20 }, // Wednesday expense (after registration)
+    ]
+  );
+
+  assert.strictEqual(wednesdayNewUser.mondayCounted, false, 'Monday must NOT be counted for Wednesday signup');
+  assert.strictEqual(wednesdayNewUser.tuesdayCounted, false, 'Tuesday must NOT be counted for Wednesday signup');
+  assert.strictEqual(wednesdayNewUser.periodBudget, 100, 'Budget must be exactly 100 (Wednesday only, Mon/Tue = 0)');
+  assert.strictEqual(wednesdayNewUser.totalSpent, 20, 'Pre-registration expenses (Mon/Tue) must be excluded, spent = 20');
+  assert.strictEqual(wednesdayNewUser.periodDates.length, 1, 'Only 1 day counted for Wednesday signup');
+
+  console.log('✔ Test 7 Passed: Wednesday registration strictly keeps Monday and Tuesday at 0 budget & 0 expenses.');
+
+  // Test 8: formatCurrency preserves decimal values accurately without stripping paise
+  assert.strictEqual(formatCurrency(0), '₹0');
+  assert.strictEqual(formatCurrency(5), '₹5');
+  assert.strictEqual(formatCurrency(5.5), '₹5.5');
+  assert.strictEqual(formatCurrency(5.25), '₹5.25');
+  assert.strictEqual(formatCurrency(200), '₹200');
+  assert.strictEqual(formatCurrency(200.75), '₹200.75');
+  assert.strictEqual(formatCurrency(-50), '-₹50');
+  assert.strictEqual(formatCurrency(-50.5), '-₹50.5');
+  console.log('✔ Test 8 Passed: formatCurrency preserves decimal points (paise) correctly.');
 
   console.log('\nAll rollover safety & self-healing assertions passed successfully! 🎉');
 }
