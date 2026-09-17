@@ -218,7 +218,7 @@ interface DailyBudgetState {
   setTodayBudget: (amount: number) => void;
   addToTodayBudget: (amount: number) => void;
   syncWithExpenses: (expenses: Expense[]) => void;
-  checkAndRollover: (expenses: Expense[]) => void;
+  checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
   uploadPendingDailyRecords: () => Promise<void>;
   hydrateFromSupabase: (userId: string) => Promise<void>;
   resetDailyBudget: () => void;
@@ -531,7 +531,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         get().checkAndRollover(expenses);
       },
 
-      checkAndRollover: (expenses: Expense[]) => {
+      checkAndRollover: (expenses: Expense[], skipRolloverNotification = false) => {
         const currentUser = useAuthStore.getState().user;
         // P0.1: Must not run or finalize before hydrateFromSupabase has completed for this user!
         if (!currentUser || get().hydratedForUserId !== currentUser.id) {
@@ -706,8 +706,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               // Ignore offline/auth errors; needsUpload remains true
             }
 
-            // Trigger notification for yesterday's savings rollover on initial rollover only
-            if (d === yesterdayStr && saved > 0 && wasUnfinalized && get().lastRolloverNotifiedDate !== d) {
+            // Trigger notification for yesterday's savings rollover on initial rollover only.
+            // skipRolloverNotification=true when called from hydrateFromSupabase (stale local expenses)
+            // so notification only fires after fresh expenses are loaded via syncWithExpenses.
+            if (d === yesterdayStr && saved > 0 && wasUnfinalized && !skipRolloverNotification && get().lastRolloverNotifiedDate !== d) {
               const title = '🎉 Daily Savings Rollover!';
               const body = `Superb! You saved ₹${Math.round(saved)} yesterday. It has been deposited into your Savings Gullak!`;
 
@@ -1098,8 +1100,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             ...metrics,
           });
 
-          // P0.1: Trigger checkAndRollover once after successful hydration
-          get().checkAndRollover(currentExpenses);
+          // P0.1: Trigger checkAndRollover once after successful hydration.
+          // Skip rollover notification here — expenses may be stale local cache.
+          // Notification will fire correctly from syncWithExpenses after fresh fetch.
+          get().checkAndRollover(currentExpenses, true);
 
           // P0.14: Also upload any records that need upload
           get().uploadPendingDailyRecords();
