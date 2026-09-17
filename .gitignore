@@ -51,9 +51,10 @@ supabase/.temp/
 # Logs
 *.log
 
-# IDE
+# IDE & Agent tooling
 .vscode/
 .idea/
+.agent/
 
 # Prompt fix files
 ARTHIK_FIX_PROMPT_V2.md
