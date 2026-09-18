@@ -1,6 +1,11 @@
 # bestStreak is not clamped by confirmedSavedDays while streak is
 
-Status: needs-triage
+Status: closed
+
+## Resolution
+
+Resolved in `src/lib/budgetCalculations.ts` (lines 96–107).
+Added the registration boundary `(!userCreatedAt || r.date >= userCreatedAt)` to the `finalizedSavedRecords` filter, matching the Gullak total accumulation, `confirmedSavedDays`, and `savingsStreak` filters. Pre-registration days are now completely excluded from historical best-streak evaluation. Because both `maxStreak` and `confirmedSavedDays` are calculated over the exact same set of post-registration days, `maxStreak <= confirmedSavedDays` holds by definition without needing an artificial clamp. Verified by characterization tests in `tests/budgetCalculations.test.ts`.
 
 ## Description
 

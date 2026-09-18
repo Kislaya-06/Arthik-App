@@ -350,6 +350,97 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
     });
   });
 
+  describe('Ticket 06 - bestStreak vs confirmedSavedDays characterization', () => {
+    it('pre-registration run longer than confirmedSavedDays does not inflate bestStreak beyond post-registration days', () => {
+      // 5 backdated pre-registration saved days (Sept 01 - Sept 05).
+      // User created on Sept 10.
+      // 1 post-registration saved day on Sept 10.
+      // Today is Sept 11.
+      // confirmedSavedDays = 1 (only Sept 10 counts).
+      // savingsStreak = 1 (Sept 10, stopped at userCreatedAt).
+      // finalizedSavedRecords excludes records before userCreatedAt, so only Sept 10 is evaluated.
+      // maxStreak = 1, bestStreak = 1.
+      const refDate = new Date(2026, 8, 11, 12, 0, 0);
+      const records: Record<string, DailyRecord> = {
+        '2026-09-01': { date: '2026-09-01', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-02': { date: '2026-09-02', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-03': { date: '2026-09-03', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-04': { date: '2026-09-04', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-05': { date: '2026-09-05', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-10': { date: '2026-09-10', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+      };
+
+      const metrics = calculateSavingsMetrics(records, '2026-09-11', '2026-09-10', refDate);
+      expect(metrics.savingsStreak).toBe(1);
+      expect(metrics.bestStreak).toBe(1);
+    });
+
+    it('confirmedSavedDays === 0 with a non-zero maxStreak collapses bestStreak to 0', () => {
+      // User registered on 2026-09-06.
+      // 3 pre-registration saved days (Sept 01 - Sept 03).
+      // 0 post-registration saved days.
+      // Today is Sept 07.
+      // confirmedSavedDays = 0.
+      // Today's code explicitly checks: if (confirmedSavedDays === 0) { maxStreak = 0; }
+      // So bestStreak evaluates to 0 despite 3 pre-registration saved records.
+      const refDate = new Date(2026, 8, 7, 12, 0, 0);
+      const records: Record<string, DailyRecord> = {
+        '2026-09-01': { date: '2026-09-01', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-02': { date: '2026-09-02', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-03': { date: '2026-09-03', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+      };
+
+      const metrics = calculateSavingsMetrics(records, '2026-09-07', '2026-09-06', refDate);
+      expect(metrics.savingsStreak).toBe(0);
+      expect(metrics.bestStreak).toBe(0);
+    });
+
+    it('a normal case where maxStreak is legitimately larger than current streak (all post-registration)', () => {
+      // User registered on 2026-09-01.
+      // Run 1: 4 consecutive saved days (Sept 01 - Sept 04).
+      // Break: Sept 05 exceeded.
+      // Run 2: 2 consecutive saved days (Sept 06 - Sept 07).
+      // Today is Sept 08.
+      // confirmedSavedDays = 6.
+      // savingsStreak = 2 (Sept 06, Sept 07).
+      // bestStreak = 4 (Run 1).
+      // This is the core functionality of bestStreak and must always work.
+      const refDate = new Date(2026, 8, 8, 12, 0, 0);
+      const records: Record<string, DailyRecord> = {
+        '2026-09-01': { date: '2026-09-01', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-02': { date: '2026-09-02', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-03': { date: '2026-09-03', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-04': { date: '2026-09-04', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-05': { date: '2026-09-05', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-09-06': { date: '2026-09-06', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-07': { date: '2026-09-07', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+      };
+
+      const metrics = calculateSavingsMetrics(records, '2026-09-08', '2026-09-01', refDate);
+      expect(metrics.savingsStreak).toBe(2);
+      expect(metrics.bestStreak).toBe(4);
+    });
+
+    it('streak exactly equal to confirmedSavedDays', () => {
+      // User registered on 2026-09-01.
+      // 3 consecutive saved days (Sept 01 - Sept 03).
+      // Today is Sept 04.
+      // confirmedSavedDays = 3.
+      // savingsStreak = 3.
+      // bestStreak = 3.
+      const refDate = new Date(2026, 8, 4, 12, 0, 0);
+      const records: Record<string, DailyRecord> = {
+        '2026-09-01': { date: '2026-09-01', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-02': { date: '2026-09-02', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-09-03': { date: '2026-09-03', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+      };
+
+      const metrics = calculateSavingsMetrics(records, '2026-09-04', '2026-09-01', refDate);
+      expect(metrics.savingsStreak).toBe(3);
+      expect(metrics.bestStreak).toBe(3);
+    });
+  });
+
   describe('Full 10-day mixed-status scenario', () => {
     it('accurately computes Gullak savings, current streak, and best streak in one go', () => {
       const scenarioToday = '2026-09-11';
