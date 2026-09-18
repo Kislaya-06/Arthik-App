@@ -88,18 +88,78 @@ export const DarkColors: ThemeColors = {
   isDark: true,
 };
 
+/**
+ * Spacing tokens (in pixels)
+ * Role-based semantic scale derived from recurring layout conventions.
+ */
+export const Spacing = {
+  micro: 4,      // Tightest gap: subtitle top margins, micro badge offsets
+  element: 8,    // Adjacent related elements: icon-to-label gaps, input label margins, compact row gaps
+  group: 12,     // Grouped items: modal action button gaps, card icon margins
+  block: 16,     // Standard rhythm between form blocks (AGENTS.md 9.2), default card padding
+  surface: 20,   // Inner surface padding, prominent CTA vertical padding
+  gutter: 24,    // Screen horizontal padding / gutters (paddingHorizontal: 24), large card padding
+  section: 32,   // Major section separation, hero top spacing, bottom scroll buffer
+} as const;
+
+/**
+ * Border radius tokens (in pixels)
+ * Strictly conservative: only dominant recurring conventions.
+ * Note: Circle radii (e.g. 40 for 80x80 avatars) are width/2 geometry, not radius tokens.
+ */
+export const BorderRadius = {
+  input: 16,     // Text inputs, modal inputs, compact containers
+  card: 24,      // Major surface cards (ProfileCard, SettingsCard, ModalCard)
+  pill: 9999,    // Full stadium/pill for interactive buttons, chips, tags (AGENTS.md 9.2)
+} as const;
+
+/**
+ * Font size tokens (in pixels)
+ * Role-based typography scale covering dominant conventions.
+ */
+export const FontSize = {
+  caption: 12,     // Section uppercase labels, timestamps, compact tags
+  bodySmall: 14,   // Secondary body text, subtitles, helper notes, version text
+  body: 16,        // Regular body text, input text, row labels, standard button text
+  screenTitle: 30, // Major screen top header titles (Profile, History)
+} as const;
+
+/**
+ * Font family tokens
+ * All four Quicksand font weights supported by the app (AGENTS.md 9.2).
+ */
+export const FontFamily = {
+  regular: 'Quicksand_400Regular',
+  medium: 'Quicksand_500Medium',
+  semibold: 'Quicksand_600SemiBold',
+  bold: 'Quicksand_700Bold',
+} as const;
+
+/**
+ * Interactive control dimension tokens (in pixels)
+ * Fixed heights for interactive form controls and primary CTAs.
+ */
+export const ControlHeight = {
+  row: 56, // Standard form row height, input containers, date picker trigger (AGENTS.md 9.2)
+  cta: 60, // Primary action button height (AGENTS.md 9.2)
+} as const;
+
 export const Theme = {
   colors: LightColors,
+  /**
+   * @deprecated Legacy border radius keys. Kept for backwards compatibility until ticket 02 is resolved.
+   * Do not use in new code — use `BorderRadius` (or `Theme.radius`) instead.
+   */
   borderRadius: {
     card: 24,
     button: 28,
     pill: 20,
     input: 16,
   },
-  fonts: {
-    regular: 'Quicksand_400Regular',
-    medium: 'Quicksand_500Medium',
-    semibold: 'Quicksand_600SemiBold',
-    bold: 'Quicksand_700Bold',
-  },
+  radius: BorderRadius,
+  spacing: Spacing,
+  fontSize: FontSize,
+  fonts: FontFamily,
+  controls: ControlHeight,
 };
+

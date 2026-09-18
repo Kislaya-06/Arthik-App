@@ -13,6 +13,7 @@ import {
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 import { useExpenseStore, getPendingSyncCount } from '../store/expenseStore';
@@ -196,19 +197,19 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
         <Pressable style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]} onPress={() => setEditVisible(false)}>
           <Pressable style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => {}}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>Edit Profile</Text>
-            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>First Name</Text>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>Edit Profile</Text>
+            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>First Name</Text>
             <TextInput
-              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: FontFamily.medium }]}
               value={editFirstName}
               onChangeText={setEditFirstName}
               placeholder="First name"
               placeholderTextColor={colors.textMuted}
               autoCapitalize="words"
             />
-            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Last Name</Text>
+            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>Last Name</Text>
             <TextInput
-              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: FontFamily.medium }]}
               value={editLastName}
               onChangeText={setEditLastName}
               placeholder="Last name (optional)"
@@ -218,11 +219,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, { backgroundColor: colors.cardSubtle }]} onPress={() => setEditVisible(false)}>
                 <X size={16} color={colors.textSecondary} />
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>Cancel</Text>
               </Pressable>
               <Pressable style={[styles.modalBtn, { backgroundColor: colors.mintGreen }]} onPress={handleSaveProfile} disabled={editSaving}>
                 {editSaving ? <ActivityIndicator size="small" color={colors.forestGreen} /> : <Check size={16} color={colors.forestGreen} />}
-                <Text style={[styles.modalSaveText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>Save</Text>
+                <Text style={[styles.modalSaveText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>Save</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -232,7 +233,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+          { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section },
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
@@ -245,7 +246,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           >
             <ArrowLeft size={28} color={colors.textPrimary} strokeWidth={2.5} />
           </Pressable>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             Profile
           </Text>
         </View>
@@ -255,7 +256,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.avatarWrapper}>
             <View style={[styles.avatarCircle, { backgroundColor: colors.mintGreen }]}>
               {/* TODO: Render Image here if user has uploaded an avatar_url */}
-              <Text style={[styles.avatarText, { fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.avatarText, { fontFamily: FontFamily.bold }]}>
                 {getInitials()}
               </Text>
             </View>
@@ -268,10 +269,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </Pressable>
           </View>
 
-          <Text style={[styles.fullName, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.fullName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             {fullName}
           </Text>
-          <Text style={[styles.email, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.email, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
             {profile?.email || 'user@example.com'}
           </Text>
 
@@ -279,7 +280,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             style={[styles.editProfileBtn, { borderColor: colors.mintGreenDark }]}
             onPress={openEditProfile}
           >
-            <Text style={[styles.editProfileText, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.editProfileText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Edit Profile
             </Text>
           </Pressable>
@@ -287,7 +288,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Account Settings Card */}
         <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
             ACCOUNT
           </Text>
 
@@ -299,7 +300,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <Tag size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Manage Categories
             </Text>
             <ChevronRight size={18} color={colors.textSecondary} />
@@ -310,7 +311,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <Bell size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Notifications
             </Text>
             <Switch
@@ -326,7 +327,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <Moon size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Dark Mode
             </Text>
             <Switch
@@ -344,10 +345,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <CircleAlert size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               App Version
             </Text>
-            <Text style={[styles.versionText, { color: colors.textMuted, fontFamily: 'Quicksand_500Medium' }]}>
+            <Text style={[styles.versionText, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
               {appVersion}
             </Text>
           </View>
@@ -356,7 +357,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         {/* Log Out Button */}
         <Pressable style={[styles.logoutBtn, { backgroundColor: colors.peachSoft }]} onPress={handleLogout}>
           <LogOut size={18} color={colors.peachCoral} />
-          <Text style={[styles.logoutText, { color: colors.peachCoral, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.logoutText, { color: colors.peachCoral, fontFamily: FontFamily.bold }]}>
             Log Out
           </Text>
         </Pressable>
@@ -372,7 +373,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           ) : (
             <>
               <Trash2 size={16} color="#DC2626" />
-              <Text style={[styles.deleteAccountText, { color: '#DC2626', fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.deleteAccountText, { color: '#DC2626', fontFamily: FontFamily.bold }]}>
                 Delete Account
               </Text>
             </>
@@ -389,27 +390,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: Spacing.gutter,
+    paddingTop: Spacing.block,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.element,
   },
   backBtn: {
-    marginRight: 16,
-    marginTop: 4,
+    marginRight: Spacing.block,
+    marginTop: Spacing.micro,
   },
   headerTitle: {
-    fontSize: 30,
+    fontSize: FontSize.screenTitle,
   },
 
   // Profile Card
   profileCard: {
-    borderRadius: 24,
-    marginTop: 24,
-    padding: 24,
+    borderRadius: BorderRadius.card,
+    marginTop: Spacing.gutter,
+    padding: Spacing.gutter,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -423,7 +424,7 @@ const styles = StyleSheet.create({
   avatarCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: 40, // Circle geometry: width / 2
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -437,34 +438,34 @@ const styles = StyleSheet.create({
     right: 0,
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 16, // Circle geometry: width / 2
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
   },
   fullName: {
     fontSize: 20,
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   email: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: FontSize.bodySmall,
+    marginTop: Spacing.micro,
   },
   editProfileBtn: {
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 24,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.gutter,
     paddingVertical: 10,
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   editProfileText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
   },
 
   // Settings Card
   settingsCard: {
-    borderRadius: 24,
-    marginTop: 20,
+    borderRadius: BorderRadius.card,
+    marginTop: Spacing.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -473,18 +474,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingHorizontal: Spacing.surface,
+    paddingTop: Spacing.surface,
+    paddingBottom: Spacing.element,
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.block,
     borderBottomWidth: 1,
   },
   lastSettingRow: {
@@ -496,14 +497,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: Spacing.group,
   },
   settingLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
   versionText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
   },
 
   // Logout
@@ -511,47 +512,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 999,
-    paddingVertical: 20,
-    marginTop: 24,
-    gap: 8,
+    borderRadius: BorderRadius.pill,
+    paddingVertical: Spacing.surface,
+    marginTop: Spacing.gutter,
+    gap: Spacing.element,
   },
   logoutText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
   // Edit Profile Modal
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   modalCard: {
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: BorderRadius.card,
+    padding: Spacing.gutter,
     borderWidth: 1,
   },
   modalTitle: {
     fontSize: 20,
-    marginBottom: 20,
+    marginBottom: Spacing.surface,
   },
   modalLabel: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 12,
+    marginBottom: Spacing.element,
+    marginTop: Spacing.group,
   },
   modalInput: {
     borderRadius: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.block,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: FontSize.body,
     borderWidth: 1,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
+    gap: Spacing.group,
+    marginTop: Spacing.gutter,
   },
   modalBtn: {
     flex: 1,
@@ -559,7 +560,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderRadius: 999,
+    borderRadius: BorderRadius.pill,
     paddingVertical: 14,
   },
   modalCancelText: {
@@ -574,11 +575,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
     marginTop: 14,
     marginBottom: 40,
-    gap: 8,
+    gap: Spacing.element,
   },
   deleteAccountText: {
     fontSize: 15,
