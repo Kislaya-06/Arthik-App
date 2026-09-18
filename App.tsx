@@ -113,8 +113,8 @@ export default function App() {
           if (session?.user?.id) {
             // P0.3: load pending expenses after user is restored
             await useExpenseStore.getState().loadPendingExpenses();
+            await fetchCategories(true);
             await Promise.all([
-              fetchCategories(true),
               fetchExpenses(),
               useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id),
             ]);
