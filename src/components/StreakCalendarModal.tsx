@@ -15,6 +15,7 @@ import { useTheme } from '../store/themeStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../config/supabase';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 interface StreakCalendarModalProps {
   visible: boolean;
@@ -458,8 +459,8 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                             {
                               color: textColor,
                               fontFamily: isSaved || isMissed || isToday
-                                ? 'Quicksand_700Bold'
-                                : 'Quicksand_600SemiBold',
+                                ? FontFamily.bold
+                                : FontFamily.semibold,
                             },
                           ]}
                         >
@@ -493,7 +494,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     {activeTooltip.status === 'saved' ? (
                       <Text style={[styles.tooltipTitle, { color: colors.textPrimary }]}>
                         You saved{' '}
-                        <Text style={{ color: colors.mintGreenDark, fontFamily: 'Quicksand_700Bold' }}>
+                        <Text style={{ color: colors.mintGreenDark, fontFamily: FontFamily.bold }}>
                           ₹{Math.round(activeTooltip.amount)}
                         </Text>{' '}
                         on {activeTooltip.formattedDate}
@@ -560,14 +561,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.block,
   },
   card: {
     width: '100%',
     maxWidth: 360,
     borderRadius: 28,
     borderWidth: 1,
-    padding: 20,
+    padding: Spacing.surface,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -584,7 +585,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   headerLeft: {
     flex: 1,
@@ -592,36 +593,36 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 10,
     letterSpacing: 1,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.element,
   },
   streakPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.micro,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
   },
   streakPillText: {
-    fontFamily: 'Quicksand_700Bold',
-    fontSize: 12,
+    fontFamily: FontFamily.bold,
+    fontSize: FontSize.caption,
   },
   closeButton: {
     width: 32,
     height: 32,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -631,7 +632,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.micro,
   },
   monthLabelWrap: {
     flexDirection: 'row',
@@ -639,34 +640,34 @@ const styles = StyleSheet.create({
   },
   monthLabel: {
     fontSize: 15,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   navArrow: {
     width: 32,
     height: 32,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   daysOfWeekRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: Spacing.element,
   },
   dayOfWeekCell: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: Spacing.micro,
   },
   dayOfWeekText: {
-    fontSize: 12,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: Spacing.group,
   },
   dayCellWrapper: {
     width: '14.28%',
@@ -677,7 +678,7 @@ const styles = StyleSheet.create({
   dayCircle: {
     width: 36,
     height: 36,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -690,9 +691,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.group,
     marginBottom: 14,
-    gap: 8,
+    gap: Spacing.element,
   },
   tooltipIconWrap: {
     marginTop: 1,
@@ -701,9 +702,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tooltipTitle: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     lineHeight: 17,
-    fontFamily: 'Quicksand_600SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   tooltipClose: {
     padding: 2,
@@ -714,7 +715,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 14,
     borderTopWidth: 1,
-    gap: 12,
+    gap: Spacing.group,
   },
   legendItem: {
     flexDirection: 'row',
@@ -724,22 +725,22 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
   },
   legendRing: {
     width: 9,
     height: 9,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1.5,
   },
   legendText: {
     fontSize: 11,
-    fontFamily: 'Quicksand_600SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   legendDivider: {
     width: 3,
     height: 3,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     backgroundColor: 'rgba(148, 163, 184, 0.4)',
   },
 });

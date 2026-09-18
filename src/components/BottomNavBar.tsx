@@ -12,6 +12,7 @@ import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
+import { Spacing, FontFamily } from '../config/theme';
 
 // ─── Dual-Layer Cross-Fading Icon ───────────────────────────────────────────
 const AnimatedIcon = ({
@@ -330,8 +331,8 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: Spacing.block,
+    right: Spacing.block,
     alignItems: 'center',
     zIndex: 99,
   },
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabLabel: {
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     fontSize: 11.5,
     letterSpacing: 0.1,
     includeFontPadding: false,
