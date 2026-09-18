@@ -15,6 +15,9 @@ import {
   buildDefaultTodayRecord,
   filterPastRecords,
   shouldIgnoreDuplicates,
+  calculateTodayMetrics,
+  filterSavingsRecords,
+  SavingsFilter,
 } from '../src/lib/budgetCalculations';
 import { isIncomeTransaction } from '../src/lib/paymentUtils';
 
@@ -711,5 +714,193 @@ describe('shouldIgnoreDuplicates - Unit Tests (Ticket 02)', () => {
   });
 });
 
+describe('calculateTodayMetrics - Unit Tests', () => {
+  it('computes metrics when spending is strictly within budget', () => {
+    const record: DailyRecord = {
+      date: '2026-09-18',
+      budget: 500,
+      spent: 200,
+      saved: 300,
+      isFinalized: false,
+      status: 'active',
+    };
 
+    const metrics = calculateTodayMetrics(record);
+    expect(metrics.budget).toBe(500);
+    expect(metrics.spent).toBe(200);
+    expect(metrics.remaining).toBe(300);
+    expect(metrics.progressRatio).toBe(0.4);
+    expect(metrics.isOverBudget).toBe(false);
+    expect(metrics.overAmount).toBe(0);
+  });
 
+  it('computes metrics when spend exactly equals budget', () => {
+    const record: DailyRecord = {
+      date: '2026-09-18',
+      budget: 500,
+      spent: 500,
+      saved: 0,
+      isFinalized: false,
+      status: 'active',
+    };
+
+    const metrics = calculateTodayMetrics(record);
+    expect(metrics.budget).toBe(500);
+    expect(metrics.spent).toBe(500);
+    expect(metrics.remaining).toBe(0);
+    expect(metrics.progressRatio).toBe(1);
+    expect(metrics.isOverBudget).toBe(false);
+    expect(metrics.overAmount).toBe(0);
+  });
+
+  it('computes metrics when over budget (exceeded)', () => {
+    const record: DailyRecord = {
+      date: '2026-09-18',
+      budget: 500,
+      spent: 650,
+      saved: 0,
+      isFinalized: false,
+      status: 'exceeded',
+    };
+
+    const metrics = calculateTodayMetrics(record);
+    expect(metrics.budget).toBe(500);
+    expect(metrics.spent).toBe(650);
+    expect(metrics.remaining).toBe(0); // Clamped to 0, never negative
+    expect(metrics.progressRatio).toBe(1); // Clamped to max 1
+    expect(metrics.isOverBudget).toBe(true);
+    expect(metrics.overAmount).toBe(150);
+  });
+
+  it('computes metrics when budget is 0 (feature off / unconfigured)', () => {
+    const record: DailyRecord = {
+      date: '2026-09-18',
+      budget: 0,
+      spent: 0,
+      saved: 0,
+      isFinalized: false,
+      status: 'active',
+    };
+
+    const metrics = calculateTodayMetrics(record);
+    expect(metrics.budget).toBe(0);
+    expect(metrics.spent).toBe(0);
+    expect(metrics.remaining).toBe(0);
+    expect(metrics.progressRatio).toBe(0);
+    expect(metrics.isOverBudget).toBe(false);
+    expect(metrics.overAmount).toBe(0);
+  });
+
+  it('computes metrics when budget is 0 but expenses exist (budget > 0 check fails)', () => {
+    const record: DailyRecord = {
+      date: '2026-09-18',
+      budget: 0,
+      spent: 120,
+      saved: 0,
+      isFinalized: false,
+      status: 'active',
+    };
+
+    const metrics = calculateTodayMetrics(record);
+    expect(metrics.budget).toBe(0);
+    expect(metrics.spent).toBe(120);
+    expect(metrics.remaining).toBe(0);
+    expect(metrics.progressRatio).toBe(0);
+    expect(metrics.isOverBudget).toBe(false); // isOverBudget requires budget > 0
+    expect(metrics.overAmount).toBe(0);
+  });
+});
+
+describe('filterSavingsRecords - Characterization & Boundary Tests', () => {
+  // Reference date: Friday, 18 September 2026
+  // This Week starts Monday 2026-09-14 and ends Sunday 2026-09-20
+  // This Month starts 2026-09-01 and ends 2026-09-30
+  const REF_FRIDAY = new Date(2026, 8, 18, 15, 30, 0); // 2026-09-18
+
+  const sampleRecords: DailyRecord[] = [
+    { date: '2026-09-21', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' }, // Next Monday
+    { date: '2026-09-20', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' }, // Sunday (end of week)
+    { date: '2026-09-18', budget: 500, spent: 150, saved: 350, isFinalized: true, status: 'saved' }, // Friday (ref date)
+    { date: '2026-09-16', budget: 500, spent: 250, saved: 250, isFinalized: true, status: 'saved' }, // Wednesday
+    { date: '2026-09-14', budget: 500, spent: 300, saved: 200, isFinalized: true, status: 'saved' }, // Monday (start of week)
+    { date: '2026-09-13', budget: 500, spent: 500, saved: 0, isFinalized: true, status: 'even' },   // Previous Sunday
+    { date: '2026-09-01', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' }, // 1st of Sept
+    { date: '2026-08-31', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' }, // Last day of Aug
+    { date: '2025-09-18', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' }, // Sept in previous year
+    { date: 'invalid-date', budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' }, // Malformed
+  ];
+
+  it("returns all records unchanged when filter is 'All'", () => {
+    const result = filterSavingsRecords(sampleRecords, 'All', REF_FRIDAY);
+    expect(result).toEqual(sampleRecords);
+  });
+
+  describe("filter: 'This Week' (Week strictly starts Monday)", () => {
+    it('includes Monday through Sunday of the reference week, excluding previous Sunday and next Monday', () => {
+      const result = filterSavingsRecords(sampleRecords, 'This Week', REF_FRIDAY);
+      const dates = result.map((r) => r.date);
+
+      // Included: Monday 14, Wednesday 16, Friday 18, Sunday 20
+      expect(dates).toContain('2026-09-14');
+      expect(dates).toContain('2026-09-16');
+      expect(dates).toContain('2026-09-18');
+      expect(dates).toContain('2026-09-20');
+
+      // Excluded: Previous Sunday (13th) and Next Monday (21st)
+      expect(dates).not.toContain('2026-09-13');
+      expect(dates).not.toContain('2026-09-21');
+      expect(dates).not.toContain('2026-09-01');
+      expect(dates).not.toContain('2026-08-31');
+      expect(dates).not.toContain('invalid-date');
+    });
+
+    it('handles reference date on Monday boundary (2026-09-14)', () => {
+      const mondayRef = new Date(2026, 8, 14, 8, 0, 0);
+      const result = filterSavingsRecords(sampleRecords, 'This Week', mondayRef);
+      const dates = result.map((r) => r.date);
+
+      expect(dates).toContain('2026-09-14');
+      expect(dates).toContain('2026-09-20');
+      expect(dates).not.toContain('2026-09-13'); // Day before Monday is excluded
+    });
+
+    it('handles reference date on Sunday boundary (2026-09-20)', () => {
+      const sundayRef = new Date(2026, 8, 20, 23, 59, 59);
+      const result = filterSavingsRecords(sampleRecords, 'This Week', sundayRef);
+      const dates = result.map((r) => r.date);
+
+      expect(dates).toContain('2026-09-14');
+      expect(dates).toContain('2026-09-20');
+      expect(dates).not.toContain('2026-09-21'); // Day after Sunday is excluded
+    });
+  });
+
+  describe("filter: 'This Month'", () => {
+    it('includes all days in the reference month and year, excluding other months and previous years', () => {
+      const result = filterSavingsRecords(sampleRecords, 'This Month', REF_FRIDAY);
+      const dates = result.map((r) => r.date);
+
+      // Included: All September 2026 dates
+      expect(dates).toContain('2026-09-01');
+      expect(dates).toContain('2026-09-14');
+      expect(dates).toContain('2026-09-16');
+      expect(dates).toContain('2026-09-18');
+      expect(dates).toContain('2026-09-20');
+      expect(dates).toContain('2026-09-21');
+
+      // Excluded: August 2026 and September 2025 (year mismatch)
+      expect(dates).not.toContain('2026-08-31');
+      expect(dates).not.toContain('2025-09-18');
+      expect(dates).not.toContain('invalid-date');
+    });
+  });
+
+  it('safely filters out records with invalid dates without crashing', () => {
+    const corrupted: DailyRecord[] = [
+      { date: '', budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' },
+      { date: 'garbage', budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' },
+    ];
+    expect(filterSavingsRecords(corrupted, 'This Week', REF_FRIDAY)).toEqual([]);
+    expect(filterSavingsRecords(corrupted, 'This Month', REF_FRIDAY)).toEqual([]);
+  });
+});

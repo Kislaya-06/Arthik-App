@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,12 @@ import {
   ScrollView,
   RefreshControl,
   Switch,
-  TextInput,
-  Modal,
   TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import {
   Flame,
-  Check,
-  X,
   Trophy,
   Calendar,
   Sparkles,
@@ -24,15 +19,15 @@ import {
   SquarePen,
 } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
-import { format, parseISO, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
+import { format } from 'date-fns';
 
-import { useDailyBudgetStore } from '../store/dailyBudgetStore';
-import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
-import { formatCurrency, formatAmountWithCommas, cleanAmountString } from '../lib/formatters';
+import { formatCurrency } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
+import { BudgetEditModal } from '../components/BudgetEditModal';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month'] as const;
@@ -44,127 +39,38 @@ export const SavingsScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const handleScroll = useScrollDirection();
 
-  const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
+  const {
+    totalAccumulatedSavings,
+    dailyBudgetAmount,
+    isAutoRenew,
+    effectiveStreak,
+    effectiveBestStreak,
+    savedDaysCount,
+    todayMetrics,
+    filteredRecords,
+    activeFilter,
+    setActiveFilter,
+    refreshing,
+    onRefresh,
+    handleTopUp100,
+    handleTopUp200,
+    handleToggleAutoRenew,
+    budgetModal,
+    openBudgetModal,
+    closeBudgetModal,
+  } = useSavingsDashboard();
 
-  // Granular Zustand selectors to prevent unnecessary re-renders
-  const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
-  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
-  const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
-  const savingsStreak = useDailyBudgetStore((s) => s.savingsStreak);
-  const bestStreak = useDailyBudgetStore((s) => s.bestStreak);
-  const setDailyBudget = useDailyBudgetStore((s) => s.setDailyBudget);
-  const toggleAutoRenew = useDailyBudgetStore((s) => s.toggleAutoRenew);
-  const setTodayBudget = useDailyBudgetStore((s) => s.setTodayBudget);
-  const addToTodayBudget = useDailyBudgetStore((s) => s.addToTodayBudget);
-  const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
-  const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
-  const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
-  const getPastRecordsList = useDailyBudgetStore((s) => s.getPastRecordsList);
-
-  // Modal states
-  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
-  const [inputBudget, setInputBudget] = useState('');
-  const [modalMode, setModalMode] = useState<'recurring' | 'today'>('recurring');
-  const [activeFilter, setActiveFilter] = useState<Filter>('All');
 
-  const lastFetchTime = useRef<number>(0);
-  const [refreshing, setRefreshing] = useState(false);
+  const {
+    budget: todayBudget,
+    spent: todaySpent,
+    remaining: todayRemaining,
+    progressRatio,
+    isOverBudget,
+    overAmount,
+  } = todayMetrics;
 
-  const loadData = useCallback(async (force = false) => {
-    const now = Date.now();
-    if (!force && now - lastFetchTime.current < 60_000) {
-      syncWithExpenses(useExpenseStore.getState().expenses);
-      return;
-    }
-    lastFetchTime.current = now;
-    await fetchExpenses();
-    syncWithExpenses(useExpenseStore.getState().expenses);
-  }, [fetchExpenses, syncWithExpenses]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData(false);
-    }, [loadData])
-  );
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData(true);
-    setRefreshing(false);
-  }, [loadData]);
-
-  const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, dailyRecords]);
-  const pastRecords = useMemo(() => getPastRecordsList(), [getPastRecordsList, dailyRecords]);
-
-  // Filter past records with memoization (Week strictly starts Monday, Month strictly starts on 1st)
-  const filteredRecords = useMemo(() => {
-    if (activeFilter === 'All') return pastRecords;
-    const now = new Date();
-
-    return pastRecords.filter((rec) => {
-      try {
-        const d = parseISO(rec.date);
-        if (activeFilter === 'This Week') {
-          return isSameWeek(d, now, { weekStartsOn: 1 });
-        } else if (activeFilter === 'This Month') {
-          return isSameMonth(d, now) && isSameYear(d, now);
-        }
-      } catch {
-        return false;
-      }
-      return true;
-    });
-  }, [pastRecords, activeFilter]);
-
-  // Today calculations
-  const savedDaysCount = pastRecords.filter((r) => r.isFinalized && r.saved > 0).length;
-  // Guard: if savedDaysCount === 0, streak and bestStreak must be 0
-  const effectiveStreak = savedDaysCount === 0 ? 0 : savingsStreak;
-  const effectiveBestStreak = savedDaysCount === 0 ? 0 : bestStreak;
-  const todayBudget = todayRecord.budget;
-  const todaySpent = todayRecord.spent;
-  const todayRemaining = Math.max(0, todayBudget - todaySpent);
-  const progressRatio = todayBudget > 0 ? Math.min(todaySpent / todayBudget, 1) : 0;
-  const isOverBudget = todayBudget > 0 && todaySpent > todayBudget;
-  const overAmount = isOverBudget ? todaySpent - todayBudget : 0;
-
-  const handleOpenBudgetModal = useCallback((mode: 'recurring' | 'today') => {
-    setModalMode(mode);
-    let rawVal = '';
-    if (mode === 'recurring') {
-      rawVal = dailyBudgetAmount > 0 ? String(dailyBudgetAmount) : '';
-    } else {
-      rawVal = todayBudget > 0 ? String(todayBudget) : (dailyBudgetAmount > 0 ? String(dailyBudgetAmount) : '');
-    }
-    setInputBudget(rawVal ? formatAmountWithCommas(rawVal) : '');
-    setBudgetModalVisible(true);
-  }, [dailyBudgetAmount, todayBudget]);
-
-  const handleSaveBudget = useCallback(() => {
-    const num = parseFloat(cleanAmountString(inputBudget));
-    if (!isNaN(num) && num >= 0) {
-      if (modalMode === 'recurring') {
-        setDailyBudget(num);
-      } else {
-        setTodayBudget(num);
-      }
-    }
-    setBudgetModalVisible(false);
-  }, [inputBudget, modalMode, setDailyBudget, setTodayBudget]);
-
-  const handleTopUp100 = useCallback(() => addToTodayBudget(100), [addToTodayBudget]);
-  const handleTopUp200 = useCallback(() => addToTodayBudget(200), [addToTodayBudget]);
-  const handleToggleAutoRenew = useCallback(
-    (val: boolean) => {
-      if (val && dailyBudgetAmount === 0) {
-        handleOpenBudgetModal('recurring');
-        return;
-      }
-      toggleAutoRenew(val);
-    },
-    [toggleAutoRenew, dailyBudgetAmount, handleOpenBudgetModal]
-  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -471,7 +377,7 @@ export const SavingsScreen: React.FC = () => {
                 styles.topUpBtn,
                 { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle },
               ]}
-              onPress={() => handleOpenBudgetModal('today')}
+              onPress={() => openBudgetModal('today')}
               activeOpacity={0.7}
             >
               <SquarePen size={12} color={colors.textSecondary} style={{ marginRight: Spacing.micro }} />
@@ -525,7 +431,7 @@ export const SavingsScreen: React.FC = () => {
                 borderColor: colors.border,
               },
             ]}
-            onPress={() => handleOpenBudgetModal('recurring')}
+            onPress={() => openBudgetModal('recurring')}
             activeOpacity={0.75}
           >
             <View>
@@ -617,70 +523,12 @@ export const SavingsScreen: React.FC = () => {
       </ScrollView>
 
       {/* ── Edit Budget Modal ── */}
-      <Modal
-        visible={budgetModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setBudgetModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                {modalMode === 'recurring'
-                  ? 'Set Default Daily Allowance'
-                  : "Set Today's Budget"}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setBudgetModalVisible(false)}
-                hitSlop={10}
-              >
-                <X size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-              {modalMode === 'recurring'
-                ? 'Kitne rupaye roz kharch ke liye budget banana chahte hain?'
-                : "Sirf aaj ke liye kitna spending limit set karna chahte hain?"}
-            </Text>
-
-            <View style={[styles.modalInputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-              <Text style={[styles.modalCurrencySign, { color: colors.textPrimary }]}>₹</Text>
-              <TextInput
-                style={[styles.modalTextInput, { color: colors.textPrimary }]}
-                keyboardType="numeric"
-                value={inputBudget}
-                onChangeText={(val) => setInputBudget(formatAmountWithCommas(val))}
-                placeholder="500"
-                placeholderTextColor={colors.textSecondary}
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
-                onPress={() => setBudgetModalVisible(false)}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalSaveBtn, { backgroundColor: colors.mintGreen }]}
-                onPress={handleSaveBudget}
-              >
-                <Check size={18} color={colors.forestGreen} style={{ marginRight: 6 }} />
-                <Text style={[styles.modalSaveText, { color: colors.forestGreen }]}>
-                  Save Budget
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <BudgetEditModal
+        visible={budgetModal.visible}
+        mode={budgetModal.mode}
+        initialAmount={budgetModal.initialAmount}
+        onClose={closeBudgetModal}
+      />
 
       {/* ── Interactive Streak Calendar Modal ── */}
       <StreakCalendarModal
@@ -1046,81 +894,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.gutter,
-  },
-  modalContent: {
-    width: '100%',
-    borderRadius: BorderRadius.card,
-    padding: 22,
-    borderWidth: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.element,
-  },
-  modalTitle: {
-    fontSize: FontSize.cta,
-    fontFamily: FontFamily.bold,
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-    marginBottom: 18,
-    lineHeight: 18,
-  },
-  modalInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.group,
-    marginBottom: Spacing.surface,
-  },
-  modalCurrencySign: {
-    fontSize: 22,
-    fontFamily: FontFamily.bold,
-    marginRight: 6,
-  },
-  modalTextInput: {
-    flex: 1,
-    fontSize: 22,
-    fontFamily: FontFamily.bold,
-  },
-  modalActionRow: {
-    flexDirection: 'row',
-    gap: Spacing.group,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    paddingVertical: Spacing.group,
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-  },
-  modalSaveBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.group,
-    borderRadius: BorderRadius.input,
-  },
-  modalSaveText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-  },
+
 });

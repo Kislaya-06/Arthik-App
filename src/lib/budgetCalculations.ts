@@ -1,4 +1,4 @@
-import { format, subDays } from 'date-fns';
+import { format, subDays, parseISO, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
 
 export interface DailyRecord {
   date: string; // 'yyyy-MM-dd'
@@ -283,5 +283,64 @@ export const filterPastRecords = (
  */
 export const shouldIgnoreDuplicates = (status: DayStatus): boolean => {
   return status === 'unknown';
+};
+
+export type SavingsFilter = 'All' | 'This Week' | 'This Month';
+
+export interface TodayMetrics {
+  budget: number;
+  spent: number;
+  remaining: number;
+  progressRatio: number;
+  isOverBudget: boolean;
+  overAmount: number;
+}
+
+/**
+ * Derives live allowance display metrics for today from the given today record.
+ */
+export const calculateTodayMetrics = (todayRecord: DailyRecord): TodayMetrics => {
+  const budget = todayRecord.budget;
+  const spent = todayRecord.spent;
+  const remaining = Math.max(0, budget - spent);
+  const progressRatio = budget > 0 ? Math.min(spent / budget, 1) : 0;
+  const isOverBudget = budget > 0 && spent > budget;
+  const overAmount = isOverBudget ? spent - budget : 0;
+
+  return {
+    budget,
+    spent,
+    remaining,
+    progressRatio,
+    isOverBudget,
+    overAmount,
+  };
+};
+
+/**
+ * Pure filter for past savings records based on an explicit reference date.
+ * Week boundary strictly starts on Monday ({ weekStartsOn: 1 }).
+ * Month boundary strictly checks same month and same year.
+ */
+export const filterSavingsRecords = (
+  records: DailyRecord[],
+  filter: SavingsFilter,
+  referenceDate: Date
+): DailyRecord[] => {
+  if (filter === 'All') return records;
+
+  return records.filter((rec) => {
+    try {
+      const d = parseISO(rec.date);
+      if (filter === 'This Week') {
+        return isSameWeek(d, referenceDate, { weekStartsOn: 1 });
+      } else if (filter === 'This Month') {
+        return isSameMonth(d, referenceDate) && isSameYear(d, referenceDate);
+      }
+    } catch {
+      return false;
+    }
+    return true;
+  });
 };
 
