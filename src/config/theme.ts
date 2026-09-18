@@ -150,21 +150,11 @@ export const ControlHeight = {
 } as const;
 
 export const Theme = {
-  colors: LightColors,
-  /**
-   * @deprecated Legacy border radius keys. Kept for backwards compatibility until ticket 02 is resolved.
-   * Do not use in new code — use `BorderRadius` (or `Theme.radius`) instead.
-   */
-  borderRadius: {
-    card: 24,
-    button: 28,
-    pill: 20,
-    input: 16,
-  },
   radius: BorderRadius,
   spacing: Spacing,
   fontSize: FontSize,
   fonts: FontFamily,
   controls: ControlHeight,
 };
+
 

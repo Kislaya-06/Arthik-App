@@ -165,7 +165,7 @@ This is the most fragile part of the app. Treat it as load-bearing.
 
 - Pill/stadium shapes (`borderRadius: 9999`) for interactive controls; form rows at `height: 56`, primary CTAs at `height: 60`, `fontSize: 18`, `Quicksand_700Bold`.
 - Spacing rhythm between form blocks is `16`.
-- Typography is Quicksand only (`Quicksand_400Regular/500Medium/600SemiBold/700Bold`). No system fonts.
+- Typography is Quicksand only (`Quicksand_400Regular/500Medium/600SemiBold/700Bold`). No system fonts (monospace is permitted for developer-facing diagnostic output rendered under `__DEV__`, such as the stack trace in `ErrorBoundary`).
 - Reuse existing components and animation physics (spring `tension: 70, friction: 8`, `extrapolate: 'clamp'` with `overflow: 'hidden'`).
 - Keep layouts responsive on small screens; the expense form must stay fully visible without scroll-jank.
 
