@@ -14,6 +14,7 @@ import {
   computeSpentForDate,
   buildDefaultTodayRecord,
   filterPastRecords,
+  shouldIgnoreDuplicates,
 } from '../src/lib/budgetCalculations';
 import { isIncomeTransaction } from '../src/lib/paymentUtils';
 
@@ -668,6 +669,45 @@ describe('Income classification unification (type-first, category fallback)', ()
 
     const spent = computeSpentByDate([legacyIncomeTx, legacyExpenseTx], isIncome);
     expect(spent['2026-09-18']).toBe(300);
+  });
+});
+
+describe('shouldIgnoreDuplicates - Unit Tests (Ticket 02)', () => {
+  it('returns true for unknown status (untracked day with no budget/spend)', () => {
+    expect(shouldIgnoreDuplicates('unknown')).toBe(true);
+  });
+
+  it('returns false for saved status (must overwrite server row)', () => {
+    expect(shouldIgnoreDuplicates('saved')).toBe(false);
+  });
+
+  it('returns false for exceeded status (must overwrite server row)', () => {
+    expect(shouldIgnoreDuplicates('exceeded')).toBe(false);
+  });
+
+  it('returns false for even status (must overwrite server row)', () => {
+    expect(shouldIgnoreDuplicates('even')).toBe(false);
+  });
+
+  it('returns false for active status', () => {
+    expect(shouldIgnoreDuplicates('active')).toBe(false);
+  });
+
+  it('proves Ticket 02 fix: first-time finalization of tracked days does not ignore duplicates', () => {
+    // In old code: const isInsertOnly = status === 'unknown' || wasUnfinalized;
+    // When wasUnfinalized = true, old code evaluated to true for every status.
+    const oldBuggyLogic = (status: any, wasUnfinalized: boolean) => status === 'unknown' || wasUnfinalized;
+
+    // Old buggy behavior:
+    expect(oldBuggyLogic('saved', true)).toBe(true); // BUG: ignored duplicates on first rollover!
+    expect(oldBuggyLogic('exceeded', true)).toBe(true); // BUG: ignored duplicates on first rollover!
+    expect(oldBuggyLogic('even', true)).toBe(true); // BUG: ignored duplicates on first rollover!
+
+    // Fixed behavior via shouldIgnoreDuplicates:
+    expect(shouldIgnoreDuplicates('saved')).toBe(false);
+    expect(shouldIgnoreDuplicates('exceeded')).toBe(false);
+    expect(shouldIgnoreDuplicates('even')).toBe(false);
+    expect(shouldIgnoreDuplicates('unknown')).toBe(true);
   });
 });
 
