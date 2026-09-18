@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.block,
   },
   primaryBtnText: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
   },
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     borderColor: '#FACACA',
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.block,
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
     marginTop: Spacing.block,
     gap: Spacing.micro,
   },

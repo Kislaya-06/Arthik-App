@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     left: Spacing.gutter,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
   },
   headerRightActions: {
     position: 'absolute',

@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: 28,
+    borderRadius: BorderRadius.cardLarge,
     borderWidth: 1,
     padding: 22,
     ...Platform.select({
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.micro,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
   },
   iconBadge: {
     width: 42,

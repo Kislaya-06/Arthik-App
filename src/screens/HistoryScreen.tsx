@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.input,
     borderWidth: 1,
     paddingHorizontal: Spacing.block,
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
     marginBottom: Spacing.group,
   },
   iconContainer: {
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   },
   transactionNote: {
     fontSize: FontSize.bodySmall,
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   transactionRight: {
     alignItems: 'flex-end',
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
   paymentModeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   paymentModeText: {
     fontSize: FontSize.caption,

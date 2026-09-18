@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     marginLeft: Spacing.block,
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     color: '#1A2B4C',
   },
   categoryCount: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   categorySubtitle: {
     fontSize: FontSize.bodySmall,
     color: '#8A8FA3',
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   categoryActions: {
     flexDirection: 'row',

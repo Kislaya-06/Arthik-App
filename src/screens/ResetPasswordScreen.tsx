@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     color: '#1A2B4C',
   },
   iconContainer: {
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitBtnText: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
     color: '#1A2B4C',
   },
   submitBtnTextDisabled: {
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     borderColor: '#FACACA',
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.block,
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
     marginTop: Spacing.block,
     gap: Spacing.micro,
   },

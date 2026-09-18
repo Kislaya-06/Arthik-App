@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   ctaBtnText: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
   },

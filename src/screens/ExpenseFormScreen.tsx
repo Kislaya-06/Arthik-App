@@ -983,7 +983,7 @@ const styles = StyleSheet.create({
     left: Spacing.gutter,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
   },
   typeToggleWrapper: {
     paddingHorizontal: Spacing.gutter,
@@ -1252,7 +1252,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   saveButtonText: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
     letterSpacing: 0.3,
   },
 });

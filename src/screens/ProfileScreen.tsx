@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     marginBottom: Spacing.surface,
   },
   modalLabel: {
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderRadius: 14,
     paddingHorizontal: Spacing.block,
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
     fontSize: FontSize.body,
     borderWidth: 1,
   },
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderRadius: BorderRadius.pill,
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
   },
   modalCancelText: {
     fontSize: 15,
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
     borderRadius: BorderRadius.input,
     borderWidth: 1,
     marginTop: 14,
