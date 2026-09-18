@@ -17,6 +17,7 @@ import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { DEFAULT_INCOME_KEYWORDS } from '../lib/paymentUtils';
+import { resolveHydratedDayBudget } from '../lib/budgetUtils';
 
 const getIncomeCategoryIds = (): Set<string> => {
   const cats = useCategoryStore.getState().categories;
@@ -953,8 +954,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
 
           if (logsData && logsData.length > 0) {
-            const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-
             for (let i = 0; i < logsData.length; i++) {
               const log: any = logsData[i];
               const d = log.date;
@@ -971,42 +970,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   ? spentByDate[d]
                   : 0;
 
-              // --- 1. CLEANUP PHANTOM DAYS ---
-              // Zero-spend days with fake 500 budget/saved created by the 35-day backfill bug
-              const isPhantom500Day =
-                daySpent === 0 &&
-                !spentByDate[d] &&
-                (rawLogBudget === 500 || rawLogSaved === 500) &&
-                (!records[d] || records[d].budget === 500 || records[d].budget === 0) &&
-                (d !== yesterdayStr || !resolvedAutoRenew || resolvedBudget <= 0);
+              // --- 1. DETERMINE TRUE DAY BUDGET ---
+              const dayBudget = resolveHydratedDayBudget({
+                rawLogBudget,
+                localRecordBudget: records[d]?.budget,
+                resolvedBudget,
+              });
 
-              if (isPhantom500Day) {
-                // Delete phantom row from Supabase and purge from local records
-                supabase.from('daily_savings_log').delete().eq('user_id', userId).eq('date', d).then(() => {});
-                if (records[d]) {
-                  delete records[d];
-                }
-                continue;
-              }
-
-              // --- 2. DETERMINE TRUE DAY BUDGET ---
-              let dayBudget: number;
-              if (rawLogBudget !== null && rawLogBudget > 0 && rawLogBudget !== 500) {
-                // Explicit custom budget saved for this day
-                dayBudget = rawLogBudget;
-              } else if (records[d]?.budget && records[d].budget > 0 && records[d].budget !== 500) {
-                // Local store has the real custom budget
-                dayBudget = records[d].budget;
-              } else if (resolvedBudget > 0 && resolvedBudget !== 500) {
-                // User's daily budget is non-500 (e.g. 100) -> The 500 in the log was the fake DB default!
-                dayBudget = resolvedBudget;
-              } else if (resolvedBudget === 500) {
-                dayBudget = 500;
-              } else {
-                dayBudget = 0;
-              }
-
-              // --- 3. RECALCULATE SAVED & STATUS ---
+              // --- 2. RECALCULATE SAVED & STATUS ---
               let daySaved: number;
               let evaluatedStatus: 'saved' | 'exceeded' | 'even' | 'unknown';
 
@@ -1028,7 +999,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 needsUpload: false,
               };
 
-              // --- 4. SELF-HEAL SUPABASE CORRUPTED ROW ---
+              // --- 3. SELF-HEAL SUPABASE CORRUPTED ROW ---
               // If the row in Supabase had the fake 500 budget or wrong saved amount/status, fix it!
               const wasCorrupted =
                 (rawLogBudget === 500 && dayBudget !== 500) ||
@@ -1055,22 +1026,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             }
           }
 
-          // Clean up any remaining phantom 500 records from local store that weren't in logs
-          const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-          Object.keys(records).forEach((d) => {
-            if (d < todayStr && records[d]) {
-              const r = records[d];
-              if (
-                r.spent === 0 &&
-                !spentByDate[d] &&
-                r.budget === 500 &&
-                r.saved === 500 &&
-                (d !== yesterdayStr || !resolvedAutoRenew || resolvedBudget <= 0)
-              ) {
-                delete records[d];
-              }
-            }
-          });
+
 
           // Ensure today's record exists if not present
           if (!records[todayStr]) {
