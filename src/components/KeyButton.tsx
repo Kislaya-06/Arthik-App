@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { Delete } from 'lucide-react-native';
 import { useTheme } from '../store/themeStore';
+import { BorderRadius, FontFamily } from '../config/theme';
 
 interface KeyButtonProps {
   item: string;
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   keyButton: {
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -74,6 +75,6 @@ const styles = StyleSheet.create({
   },
   keyText: {
     fontSize: 22,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
 });

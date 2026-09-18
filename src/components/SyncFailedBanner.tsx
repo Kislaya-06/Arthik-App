@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertCircle } from 'lucide-react-native';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
+import { Spacing, BorderRadius, FontFamily } from '../config/theme';
 
 export const SyncFailedBanner: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -193,7 +194,7 @@ export const SyncFailedBanner: React.FC = () => {
           numberOfLines={1}
           style={[
             styles.text,
-            { color: textColor, fontFamily: 'Quicksand_600SemiBold' },
+            { color: textColor, fontFamily: FontFamily.semibold },
           ]}
         >
           {message}
@@ -206,18 +207,18 @@ export const SyncFailedBanner: React.FC = () => {
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: Spacing.block,
+    right: Spacing.block,
     zIndex: 9998,
     alignItems: 'center',
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: Spacing.element,
+    paddingHorizontal: Spacing.block,
     paddingVertical: 10,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },

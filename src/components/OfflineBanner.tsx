@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WifiOff, Wifi, X, RefreshCw } from 'lucide-react-native';
 import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
+import { Spacing, BorderRadius, FontFamily } from '../config/theme';
 
 export const OfflineBanner: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -115,7 +116,7 @@ export const OfflineBanner: React.FC = () => {
             numberOfLines={2}
             style={[
               styles.text,
-              { color: textColor, fontFamily: 'Quicksand_600SemiBold' },
+              { color: textColor, fontFamily: FontFamily.semibold },
             ]}
           >
             {bannerMessage}
@@ -137,8 +138,8 @@ export const OfflineBanner: React.FC = () => {
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: Spacing.block,
+    right: Spacing.block,
     zIndex: 99999,
     alignItems: 'center',
   },
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   closeBtn: {
-    padding: 4,
+    padding: Spacing.micro,
     justifyContent: 'center',
     alignItems: 'center',
   },
