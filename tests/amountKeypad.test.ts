@@ -50,27 +50,70 @@ describe('amountKeypad', () => {
     });
   });
 
-  describe('ceiling and character length limits (characterizing current quirks)', () => {
-    it('allows appending up to 10 characters due to > 9 check', () => {
-      // 9 characters long
+  describe('ceiling and character length limits (decoupled integer and decimal limits)', () => {
+    it('enforces max integer limit of 9 digits and blocks a 10th digit', () => {
       const nineDigits = '123456789';
-      // > 9 check is false when length is 9, so 10th character is accepted
-      const tenDigits = applyKeypadPress(nineDigits, '0');
-      expect(tenDigits).toBe('1234567890');
-      expect(tenDigits.length).toBe(10);
-
-      // Once length is 10, > 9 check is true, blocking further digits
-      expect(applyKeypadPress(tenDigits, '5')).toBe('1234567890');
+      // Attempting to append a 10th integer digit is blocked
+      expect(applyKeypadPress(nineDigits, '0')).toBe('123456789');
     });
 
-    it('blocks adding decimals if total string length including dot already exceeds 9', () => {
-      // Quirk: key === '.' does not check current.length > 9, so dot is appended
-      const tenDigits = '1234567890';
-      const withDot = applyKeypadPress(tenDigits, '.');
-      expect(withDot).toBe('1234567890.');
+    it('allows adding paise even on maximum integer digits', () => {
+      const nineDigits = '123456789';
+      const withDot = applyKeypadPress(nineDigits, '.');
+      expect(withDot).toBe('123456789.');
 
-      // But next digit press sees withDot.length (11) > 9, so it blocks adding any decimal digit!
-      expect(applyKeypadPress(withDot, '5')).toBe('1234567890.');
+      const withFirstPaise = applyKeypadPress(withDot, '5');
+      expect(withFirstPaise).toBe('123456789.5');
+
+      const withSecondPaise = applyKeypadPress(withFirstPaise, '0');
+      expect(withSecondPaise).toBe('123456789.50');
+
+      // Third decimal digit is blocked by 2-decimal limit
+      expect(applyKeypadPress(withSecondPaise, '7')).toBe('123456789.50');
+    });
+
+    it('allows typing the largest allowed integer of 9 digits', () => {
+      let val = '';
+      for (let i = 0; i < 9; i++) {
+        val = applyKeypadPress(val, '9');
+      }
+      expect(val).toBe('999999999');
+      expect(val.length).toBe(9);
+    });
+
+    it('blocks any digit beyond the 9-digit integer limit', () => {
+      const maxInt = '999999999';
+      expect(applyKeypadPress(maxInt, '1')).toBe('999999999');
+      expect(applyKeypadPress(maxInt, '9')).toBe('999999999');
+    });
+
+    it('permits entering full paise on the maximum allowed amount', () => {
+      const maxInt = '999999999';
+      const withDot = applyKeypadPress(maxInt, '.');
+      expect(withDot).toBe('999999999.');
+      const withPaise = applyKeypadPress(applyKeypadPress(withDot, '9'), '9');
+      expect(withPaise).toBe('999999999.99');
+    });
+
+    it('allows entering a decimal point at the 9-digit boundary', () => {
+      const boundary = '123456789';
+      expect(applyKeypadPress(boundary, '.')).toBe('123456789.');
+      // Cannot add a second dot
+      expect(applyKeypadPress('123456789.', '.')).toBe('123456789.');
+    });
+
+    it('handles prefilled legacy amounts exceeding 9 digits gracefully', () => {
+      // Legacy 10-digit amount prefilled in edit mode
+      const legacy10Digits = '1234567890';
+      // Additional integer digits are blocked
+      expect(applyKeypadPress(legacy10Digits, '5')).toBe('1234567890');
+      // Backspace deletes the trailing digit back to 9 digits
+      expect(applyKeypadPress(legacy10Digits, 'backspace')).toBe('123456789');
+      // Adding a decimal point still works
+      const withDot = applyKeypadPress(legacy10Digits, '.');
+      expect(withDot).toBe('1234567890.');
+      // Adding paise on prefilled legacy amount works
+      expect(applyKeypadPress(withDot, '5')).toBe('1234567890.5');
     });
   });
 

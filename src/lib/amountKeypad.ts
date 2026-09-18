@@ -12,32 +12,73 @@ export type KeypadKey =
   | '.'
   | 'backspace';
 
+export interface KeypadRules {
+  /** Maximum number of integer digits allowed before the decimal point (default: 9) */
+  maxIntegerDigits?: number;
+  /** Maximum number of decimal digits allowed after the decimal point (default: 2) */
+  maxDecimals?: number;
+}
+
+export const DEFAULT_KEYPAD_RULES: Required<KeypadRules> = {
+  maxIntegerDigits: 9,
+  maxDecimals: 2,
+};
+
 /**
- * Applies a keypad key press to the current raw amount string.
+ * Applies a keypad key press to the current raw amount string using decoupled limits.
  *
- * Preserves the exact behavior from ExpenseFormScreen:
- * - 'backspace': drops the trailing character (or stays empty if already empty)
- * - '.': appends '.' if no decimal exists; prepends '0' if currently empty ('0.')
+ * Rules:
+ * - 'backspace': drops trailing character (or stays empty if already empty)
+ * - '.':
+ *   - appends '.' if no decimal exists; prepends '0' if empty ('0.')
+ *   - reaching the integer limit never blocks adding a decimal point (Ticket 01 fix)
  * - '0'..'9':
  *   - if current is exactly '0', replaces it with the pressed digit
- *   - if decimal part already has 2 or more digits, blocks additional digits
- *   - if current length is strictly greater than 9, blocks additional digits
- *     (Note: allows up to 10 characters before blocking further digits)
- *   - otherwise appends the digit
+ *   - if current contains '.', enforces decimal precision only (maxDecimals);
+ *     having reached or exceeded the integer limit never blocks entering paise digits (Ticket 01 fix)
+ *   - if current has no '.', enforces integer digit capacity only (maxIntegerDigits)
  */
-export function applyKeypadPress(current: string, key: KeypadKey | string): string {
+export function applyKeypadPress(
+  current: string,
+  key: KeypadKey | string,
+  rules: KeypadRules = DEFAULT_KEYPAD_RULES
+): string {
+  const maxIntegerDigits = rules.maxIntegerDigits ?? DEFAULT_KEYPAD_RULES.maxIntegerDigits;
+  const maxDecimals = rules.maxDecimals ?? DEFAULT_KEYPAD_RULES.maxDecimals;
+
   if (key === 'backspace') {
     return current.slice(0, -1);
   }
 
   if (key === '.') {
+    // Decoupled rule: reaching the integer digit limit must NEVER block typing a decimal point.
+    // A user who entered the maximum integer digits (e.g. '999999999') can still type '.' to add paise.
+    // This fixes Ticket 01 where string-length counting conflated integer digits and punctuation.
     return !current.includes('.') ? (current === '' ? '0.' : current + '.') : current;
   }
 
-  // Digit keys
+  // Digit keys ('0'..'9')
   if (current === '0') return key;
-  if (current.includes('.') && (current.split('.')[1]?.length ?? 0) >= 2) return current;
-  if (current.length > 9) return current;
+
+  if (current.includes('.')) {
+    // Decimal branch: once a dot exists, the integer part is sealed.
+    // Enforce decimal scale limit only.
+    // Decoupled rule: having a large integer part must never eat into the paise space.
+    // Fixes Ticket 01 where a total length check (length > 9) blocked entering paise
+    // on large amounts like '1234567890.'.
+    const [_, decimalPart = ''] = current.split('.');
+    if (decimalPart.length >= maxDecimals) {
+      return current;
+    }
+    return current + key;
+  }
+
+  // Integer branch: no dot exists yet.
+  // Enforce maximum integer digits.
+  if (current.length >= maxIntegerDigits) {
+    return current;
+  }
+
   return current + key;
 }
 
