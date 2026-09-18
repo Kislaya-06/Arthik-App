@@ -155,29 +155,78 @@ This is the most fragile part of the app. Treat it as load-bearing.
 
 # 9. UI Styling Rules
 
-## 9.1 Theme
+## 9.1 Theme & Colours
 
 - All colours come from `src/config/theme.ts` (`LightColors` / `DarkColors`) via `themeStore`. No new hardcoded hex in screens — if a shade is missing, add it to `ThemeColors` so both themes stay in sync.
 - Brand accents: mint green `#B8E0C8` (primary/positive), peach coral `#F4B8AE` (secondary/spending), navy `#1A2B4C` / `#0B111E` surfaces.
 - Verify **both light and dark** whenever a screen changes.
 
-## 9.2 Design Language
+## 9.2 Design Tokens (Source of Truth)
 
-- Pill/stadium shapes (`borderRadius: 9999`) for interactive controls; form rows at `height: 56`, primary CTAs at `height: 60`, `fontSize: 18`, `Quicksand_700Bold`.
-- Spacing rhythm between form blocks is `16`.
-- Typography is Quicksand only (`Quicksand_400Regular/500Medium/600SemiBold/700Bold`). No system fonts (monospace is permitted for developer-facing diagnostic output rendered under `__DEV__`, such as the stack trace in `ErrorBoundary`).
-- Reuse existing components and animation physics (spring `tension: 70, friction: 8`, `extrapolate: 'clamp'` with `overflow: 'hidden'`).
-- Keep layouts responsive on small screens; the expense form must stay fully visible without scroll-jank.
+All layout dimensions, radii, typography, and control heights use the design tokens exported from `src/config/theme.ts`. Reach for tokens by their **stated role**, not by numeric value:
 
-## 9.3 Currency Symbol Alignment
+### Spacing
+- `Spacing.nano`: Subtitle/subtext optical leading gap (`marginTop` or `marginBottom`).
+- `Spacing.micro`: Tightest gap between tightly coupled elements (subtitle top margins, micro badge offsets).
+- `Spacing.element`: Spacing between adjacent related elements (icon-to-label gaps, input label margins, compact row gaps).
+- `Spacing.group`: Spacing between grouped elements (modal action button gaps, card icon margins).
+- `Spacing.row`: Vertical rhythm for list rows and dialog buttons (`paddingVertical`).
+- `Spacing.block`: Standard rhythm between form blocks, default inner card padding.
+- `Spacing.surface`: Inner surface padding, prominent CTA vertical padding.
+- `Spacing.gutter`: Screen horizontal padding and screen gutters (`paddingHorizontal`), large card padding.
+- `Spacing.section`: Major section separation, hero top spacing, bottom scroll buffer.
+
+### BorderRadius
+- `BorderRadius.input`: Text inputs, modal inputs, compact containers.
+- `BorderRadius.card`: Standard surface cards (ProfileCard, SettingsCard, ModalCard).
+- `BorderRadius.cardLarge`: Prominent hero and summary cards, bottom sheet modal containers.
+- `BorderRadius.pill`: Full stadium/pill for interactive buttons, chips, tags (`9999`).
+
+### FontSize
+- `FontSize.caption`: Section uppercase labels, timestamps, compact tags.
+- `FontSize.bodySmall`: Secondary body text, subtitles, helper notes, version text.
+- `FontSize.body`: Regular body text, input text, row labels, standard button text.
+- `FontSize.cta`: Primary CTA labels and modal sheet titles (`FontFamily.bold`).
+- `FontSize.sectionTitle`: Level-2 headers and section titles.
+- `FontSize.screenTitle`: Major top-level screen header titles (Profile, History).
+
+### FontFamily
+- Typography is Quicksand only (`FontFamily.regular`, `FontFamily.medium`, `FontFamily.semibold`, `FontFamily.bold` mapping to `Quicksand_400Regular/500Medium/600SemiBold/700Bold`). No system fonts (monospace is permitted for developer-facing diagnostic output rendered under `__DEV__`, such as the stack trace in `ErrorBoundary`).
+
+### ControlHeight
+- `ControlHeight.row`: Standard form row height, input containers, date picker trigger.
+- `ControlHeight.cta`: Primary action button height.
+
+## 9.3 Deliberately Non-Tokenised Values
+
+When a value does not match an established token role, **use the literal and leave it**. Never round a literal to the nearest token.
+
+The following categories are deliberately NOT tokenised:
+- **Circle geometry**: Avatars, circular badges, and round action buttons use `borderRadius: width / 2` (e.g. 16 for 32x32, 24 for 48x48, 28 for 56x56, 40 for 80x80). These are mathematical circle geometries, not corner radius tokens.
+- **Icon-button dimensions**: Floating and inline icon button sizes (`32`, `36`, `40`, `44`, `48`) represent an unsettled spread across screens; leave them literal.
+- **Unsettled font sizes**: Font sizes `11` (badge counts, hints, tab labels), `13` (card subtext, tertiary metadata), and `15` (intermediate descriptions, subtitles) carry fragmented roles across screens and have no single distinct role yet; keep them as literals.
+- **Intermediate spacing fillers**: Offsets like `6`, `10`, `18`, and `40` are local component-specific tweaks or bottom scroll buffers (`insets.bottom + 40`); do not force them into the spacing scale.
+
+## 9.4 Role Matching & The Numeric Trap
+
+A literal matching a token's number does **not** mean the token applies. A token may only be used when the element's role matches the token's semantic definition:
+- **Header spacer trap**: An empty `<View style={{ width: 24 }} />` that balances an `ArrowLeft size={24}` back button must remain literal `24`. Using `Spacing.gutter` simply because both equal 24 is a role violation — a structural layout width tracking an icon size is not screen gutter padding.
+- **Icon box trap**: A 56x56 square container (`txIconContainer`) with `borderRadius: 16` must remain literal `16`. Using `BorderRadius.input` simply because both equal 16 is a role violation — a square icon box is not an input container.
+
+## 9.5 Currency Symbol Alignment
 
 When a large amount sits next to a smaller `₹`, use `alignItems: 'center'` on the wrapping `flexDirection: 'row'` container. Do **not** use `alignItems: 'flex-end'` or bottom margins on the symbol — it sinks and looks misaligned.
 
-## 9.4 Safe Area Insets
+## 9.6 Safe Area Insets
 
 Always use `useSafeAreaInsets` from `react-native-safe-area-context` (e.g. `paddingTop: insets.top`). Never hardcode `marginTop: 56` and never use `SafeAreaView` from `react-native`.
 
-## 9.5 Navigation
+## 9.7 Component Architecture & Animation Physics
+
+- Reuse existing components and animation physics (spring `tension: 70, friction: 8`, `extrapolate: 'clamp'` with `overflow: 'hidden'`).
+- Keep layouts responsive on small screens; the expense form must stay fully visible without scroll-jank.
+
+## 9.8 Navigation
 
 - Every route is typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`). A new screen means a new entry there — no untyped `navigate('X' as any)`.
 - Imperative navigation goes through `navigationRef`.

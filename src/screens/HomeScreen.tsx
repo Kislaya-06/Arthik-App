@@ -1028,7 +1028,7 @@ const styles = StyleSheet.create({
   txIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: BorderRadius.input,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
