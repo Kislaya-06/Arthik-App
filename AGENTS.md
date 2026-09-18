@@ -380,3 +380,19 @@ Non-trivial logic leaves ONE runnable check behind — the smallest thing that f
 # 20. Scope of This File
 
 This file applies to every agent working in this repository, including work on the agent tooling and on this file itself.
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as local markdown files in `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical 5-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo layout (`CONTEXT.md` and `docs/adr/` at repo root). See `docs/agents/domain.md`.
