@@ -1,4 +1,5 @@
-import { format, subDays, parseISO, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
+import { isDateInPeriod, FilterPeriod } from './dateFilters';
 
 export interface DailyRecord {
   date: string; // 'yyyy-MM-dd'
@@ -329,18 +330,7 @@ export const filterSavingsRecords = (
 ): DailyRecord[] => {
   if (filter === 'All') return records;
 
-  return records.filter((rec) => {
-    try {
-      const d = parseISO(rec.date);
-      if (filter === 'This Week') {
-        return isSameWeek(d, referenceDate, { weekStartsOn: 1 });
-      } else if (filter === 'This Month') {
-        return isSameMonth(d, referenceDate) && isSameYear(d, referenceDate);
-      }
-    } catch {
-      return false;
-    }
-    return true;
-  });
+  const period: FilterPeriod = filter === 'This Week' ? 'week' : 'month';
+  return records.filter((rec) => isDateInPeriod(rec.date, period, referenceDate));
 };
 

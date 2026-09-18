@@ -66,8 +66,10 @@ src/
 npm install                      # install
 npm run dev                      # adb reverse + expo start (dev client)
 npm run android                  # adb reverse + expo start --android
-npx tsc --noEmit                 # THE type check — run after every change
+npx tsc --noEmit                 # THE type check — covers both src/ and tests/ (via tsconfig.json) — run after every change
 ```
+
+`npx tsc --noEmit` covers `tests/` as well as `src/` via `tsconfig.json`.
 
 There is **no ESLint, no Prettier, no test runner** in this repo. Do not invent `npm run lint` or `npm test` and do not claim you ran them. `npx tsc --noEmit` plus a manual trace is the check.
 

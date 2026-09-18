@@ -17,18 +17,9 @@ import { Bell, ChevronRight, User } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { TransactionRow } from '../components/TransactionRow';
 import { DonutChart } from '../components/DonutChart';
-import {
-  format,
-  parseISO,
-  isSameWeek,
-  isSameMonth,
-  isSameYear,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  startOfMonth,
-  endOfMonth,
-} from 'date-fns';
+import { format } from 'date-fns';
+import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
+import { calculatePeriodSummary } from '../lib/homeCalculations';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -50,50 +41,7 @@ type HomeScreenProps = CompositeScreenProps<
 
 
 
-// ─── Filter pills ─────────────────────────────────────────────────────────────
-const FILTERS = ['All', 'Daily', 'Weekly', 'Monthly'] as const;
-type Filter = (typeof FILTERS)[number];
 
-const filterExpenses = (expenses: Expense[], filter: Filter, userCreatedAtStr?: string): Expense[] => {
-  if (filter === 'All') {
-    if (!userCreatedAtStr) return expenses;
-    return expenses.filter((e) => {
-      const cleanDate = e.expense_date?.split('T')[0]?.trim();
-      return !cleanDate || cleanDate >= userCreatedAtStr;
-    });
-  }
-  const now = new Date();
-  const todayStr = format(now, 'yyyy-MM-dd');
-
-  return expenses.filter((e) => {
-    if (!e.expense_date) return false;
-
-    const cleanDate = e.expense_date.split('T')[0]?.trim();
-    if (!cleanDate) return false;
-
-    // Do not count expenses from before user created their account
-    if (userCreatedAtStr && cleanDate < userCreatedAtStr) {
-      return false;
-    }
-
-    if (filter === 'Daily') {
-      return cleanDate === todayStr;
-    }
-
-    try {
-      const expenseDate = parseISO(cleanDate);
-      if (filter === 'Weekly') {
-        return isSameWeek(expenseDate, now, { weekStartsOn: 1 });
-      }
-      if (filter === 'Monthly') {
-        return isSameMonth(expenseDate, now) && isSameYear(expenseDate, now);
-      }
-    } catch {
-      return false;
-    }
-    return true;
-  });
-};
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
@@ -164,7 +112,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
 
   const filtered = useMemo(
-    () => filterExpenses(expenses, activeFilter, userCreatedAtStr),
+    () => filterExpenses(expenses, activeFilter, new Date(), userCreatedAtStr),
     [expenses, activeFilter, userCreatedAtStr]
   );
 
@@ -242,180 +190,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     displaySpent,
     totalAvailable,
     isOverBudgetPeriod,
-  } = useMemo(() => {
-    const isBudgetConfigured = isAutoRenew && dailyBudgetAmount > 0;
-    const activeDailyBudget = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-
-    const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
-
-    // Determine the calendar days belonging to the active period up to today
-    const periodDates: string[] = [];
-
-    if (activeFilter === 'Daily') {
-      periodDates.push(todayStr);
-    } else if (activeFilter === 'Weekly') {
-      // Week starts Monday, counts days elapsed so far this week up to TODAY
-      const monday = startOfWeek(now, { weekStartsOn: 1 });
-      const mondayStr = format(monday, 'yyyy-MM-dd');
-      // If user joined after Monday (e.g. Wednesday), start from registration day
-      const startDateStr = (userCreatedAtStr && userCreatedAtStr > mondayStr) ? userCreatedAtStr : mondayStr;
-      const startDate = parseISO(startDateStr);
-      const days = eachDayOfInterval({ start: startDate <= now ? startDate : now, end: now });
-      days.forEach((d) => {
-        periodDates.push(format(d, 'yyyy-MM-dd'));
-      });
-    } else if (activeFilter === 'Monthly') {
-      // Month starts 1st of month, counts days elapsed so far this month up to TODAY
-      const firstOfMonth = startOfMonth(now);
-      const firstOfMonthStr = format(firstOfMonth, 'yyyy-MM-dd');
-      // If user joined after 1st of month, start from registration day
-      const startDateStr = (userCreatedAtStr && userCreatedAtStr > firstOfMonthStr) ? userCreatedAtStr : firstOfMonthStr;
-      const startDate = parseISO(startDateStr);
-      const days = eachDayOfInterval({ start: startDate <= now ? startDate : now, end: now });
-      days.forEach((d) => {
-        periodDates.push(format(d, 'yyyy-MM-dd'));
-      });
-    } else {
-      // 'All' filter: all past dates tracked up to today
-      const allDates = new Set<string>();
-      allDates.add(todayStr);
-      for (let i = 0; i < filtered.length; i++) {
-        const d = filtered[i].expense_date?.split('T')[0]?.trim();
-        if (d && d <= todayStr && (!userCreatedAtStr || d >= userCreatedAtStr)) {
-          allDates.add(d);
-        }
-      }
-      Object.keys(dailyRecords).forEach((d) => {
-        const cleanD = d.split('T')[0]?.trim();
-        // Skip phantom zero-spend 500 days from periodDates
-        if (dailyRecords[d]?.spent === 0 && dailyRecords[d]?.budget === 500 && dailyRecords[d]?.saved === 500) {
-          return;
-        }
-        if (cleanD && cleanD <= todayStr && (!userCreatedAtStr || cleanD >= userCreatedAtStr)) {
-          allDates.add(cleanD);
-        }
-      });
-      allDates.forEach((d) => periodDates.push(d));
-    }
-
-    let periodBudget = 0;
-    periodDates.forEach((d) => {
-      if (d === todayStr) {
-        // Today: include today's allowance + any top-up added (+₹100, +₹200, Edit)
-        const todayVal = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
-        periodBudget += todayVal;
-      } else if (dailyRecords[d]) {
-        if (dailyRecords[d].status === 'unknown') {
-          // Untracked day where user had no budget
-          periodBudget += 0;
-        } else {
-          let b = Number(dailyRecords[d].budget) || 0;
-          if (b === 500 && dailyBudgetAmount !== 500) {
-            b = isBudgetConfigured ? dailyBudgetAmount : 0;
-          }
-          periodBudget += b;
-        }
-      } else {
-        // Past day in the period where no record was stored
-        periodBudget += isBudgetConfigured ? dailyBudgetAmount : 0;
-      }
-    });
-
-    const daysCount = periodDates.length;
-    const income = totalIncome;
-    const spent = totalSpent;
-
-    let budgetPool = activeDailyBudget;
-    if (activeFilter === 'Weekly' || activeFilter === 'Monthly' || activeFilter === 'All') {
-      budgetPool = periodBudget;
-    }
-
-    const available = budgetPool + income;
-    const isOver = spent > available && available > 0;
-    const remaining = Math.max(0, available - spent);
-    const overAmount = isOver ? spent - available : 0;
-
-    let label = 'Remaining to Spend';
-    let subtext: string | null = null;
-
-    if (activeFilter === 'Daily') {
-      if (isOver) {
-        label = 'Daily Budget Exceeded';
-        subtext = `Exceeded daily limit by ${formatCurrency(overAmount)}`;
-      } else {
-        label = 'Remaining to Spend';
-        if (budgetPool > 0 && income > 0) {
-          subtext = `${formatCurrency(budgetPool)} budget + ${formatCurrency(income)} income`;
-        } else if (income > 0) {
-          subtext = `of ${formatCurrency(income)} total income`;
-        } else if (budgetPool > 0) {
-          subtext = `of ${formatCurrency(budgetPool)} daily allowance`;
-        } else {
-          subtext = null;
-        }
-      }
-    } else if (activeFilter === 'Weekly') {
-      if (isOver) {
-        label = 'Weekly Budget Exceeded';
-        subtext = `Exceeded weekly limit by ${formatCurrency(overAmount)}`;
-      } else {
-        label = 'Weekly Remaining';
-        if (budgetPool > 0 && income > 0) {
-          subtext = `${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ${formatCurrency(income)} income`;
-        } else if (income > 0) {
-          subtext = `of ${formatCurrency(income)} total income`;
-        } else if (budgetPool > 0) {
-          subtext = `of ${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
-        } else {
-          subtext = null;
-        }
-      }
-    } else if (activeFilter === 'Monthly') {
-      if (isOver) {
-        label = 'Monthly Budget Exceeded';
-        subtext = `Exceeded monthly limit by ${formatCurrency(overAmount)}`;
-      } else {
-        label = 'Monthly Remaining';
-        if (budgetPool > 0 && income > 0) {
-          subtext = `${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ${formatCurrency(income)} income`;
-        } else if (income > 0) {
-          subtext = `of ${formatCurrency(income)} total income`;
-        } else if (budgetPool > 0) {
-          subtext = `of ${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
-        } else {
-          subtext = null;
-        }
-      }
-    } else {
-      // 'All' filter
-      if (isOver) {
-        label = 'Total Budget Exceeded';
-        subtext = `Exceeded total limit by ${formatCurrency(overAmount)}`;
-      } else {
-        label = 'Total Remaining';
-        if (budgetPool > 0 && income > 0) {
-          subtext = `${formatCurrency(budgetPool)} budget + ${formatCurrency(income)} income`;
-        } else if (income > 0) {
-          subtext = `of ${formatCurrency(income)} total income`;
-        } else if (budgetPool > 0) {
-          subtext = `of ${formatCurrency(budgetPool)} total budget`;
-        } else {
-          subtext = null;
-        }
-      }
-    }
-
-    return {
-      primaryAmount: isOver ? overAmount : remaining,
-      primaryLabel: label,
-      primarySubtext: subtext,
-      displaySpent: spent,
-      totalAvailable: available,
-      isOverBudgetPeriod: isOver,
-    };
-  }, [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered]);
+  } = useMemo(
+    () =>
+      calculatePeriodSummary({
+        activeFilter,
+        dailyBudgetAmount,
+        isAutoRenew,
+        todayBudget,
+        dailyRecords,
+        totalIncome,
+        totalSpent,
+        filtered,
+        userCreatedAtStr,
+        referenceDate: new Date(),
+      }),
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
