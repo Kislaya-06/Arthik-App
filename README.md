@@ -1,10 +1,10 @@
 # Arthik
 
-> A premium, offline-first personal expense tracker built with React Native, Expo & Supabase
+> A premium, offline-first personal expense and daily-savings tracker built with React Native, Expo & Supabase.
 
 [![React Native](https://img.shields.io/badge/React_Native-0.86-blue.svg)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![Version](https://img.shields.io/badge/Version-1.2.3-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -13,85 +13,29 @@
 
 ## 📲 Download & Install
 
-**Arthik is distributed directly as a standalone Android APK — no Play Store download needed.**
+**Arthik is distributed directly as a standalone Android APK — no Play Store download required.**  
 *(Sign in quickly inside the app using your Google Account or Email).*
 
-### 📥 Step-by-Step Installation:
+1. Head to [**GitHub Releases**](https://github.com/Kislaya-06/Arthik-App/releases/latest).
+2. Under **Assets**, download **`Arthik-v1.2.3.apk`**.
+3. Open your phone's Downloads folder and tap the APK to install (enable *"Install unknown apps"* if prompted).
+4. Launch **Arthik** from your app drawer!
 
-1. **Download the Latest APK:**
-   - Head over to the [**GitHub Releases**](https://github.com/Kislaya-06/Arthik-App/releases/latest) page.
-   - Under **Assets**, click or tap **`Arthik-v1.2.3.apk`** to begin downloading.
-
-2. **Allow Installation from Browser:**
-   - When downloading via Chrome or your mobile browser, you may see a prompt: *"File might be harmful"*. Tap **"Download anyway"** (this standard warning appears for all direct APK downloads outside Google Play).
-
-3. **Install the APK:**
-   - Open your browser's **Downloads** or your phone's **Files / File Manager** app and tap `Arthik-v1.2.3.apk`.
-   - If prompted with *"For your security, your phone is not allowed to install unknown apps from this source"*:
-     - Tap **Settings**.
-     - Toggle on **"Allow from this source"** (or enable *Install unknown apps* for your browser/file manager).
-     - Tap **Back** and tap **Install**.
-   - If Google Play Protect shows a confirmation prompt, tap **"More details"** → **"Install anyway"**.
-
-4. **Launch & Enjoy:**
-   - Tap **Open** or launch **Arthik** directly from your app drawer/home screen!
-
-> 💡 **Compatibility:** Android 8.0 (Oreo) and above.
+> 💡 **Compatibility:** Android 8.0 (Oreo) and above. Android is the primary supported platform today (`com.kislaya_agarwal.arthik`).
 
 ---
 
 ## ✨ Features
 
-- **📶 Offline-First Architecture** — Full offline capability; log, edit, or delete expenses with zero network latency. Pending changes are queued in `AsyncStorage` and automatically synced to Supabase upon reconnect.
-- **🛡️ App-Wide Error Boundary** — Catches unexpected React rendering crashes gracefully, presenting a modern recovery UI with instant restart/retry controls.
-- **🐷 Smart Gullak (Daily Budget & Savings)** — Daily allowance budgeting, automated savings rollover, streak calendar tracking, and real-time overspending deduction from accumulated savings.
-- **🔒 Secure Authentication** — Email/password signup & login, Google OAuth, session persistence, and password reset via email deep links.
-- **📝 Unified Expense Form (`ExpenseFormScreen`)** — Single consolidated, adaptive component handling both expense creation and modification with auto-focus and state hydration.
-- **🔢 Custom In-App Number Keypad** — Fast, tactile expense entry with spring-animated pill-shaped numeric keys and backspace.
-- **📅 Theme-Aware Custom Date Picker** — Proprietary in-app calendar modal with quick "Today" and "Yesterday" pill shortcuts, seamlessly integrated with Arthik's dark/light design system.
-- **📊 Real-Time Dashboard** — Instant spending overview with dynamic greeting typography, zero-state aware donut chart, remaining allowance tracking, and recent transactions.
-- **🏷️ Flexible Categories** — Pre-loaded default categories + create fully custom categories with custom icons and curated hex colors.
-- **📜 Searchable History** — Full searchable and filterable expense history, categorized and grouped chronologically.
-- **📈 Visual Spending Insights** — Breakdown of spending habits by category with weekly, monthly, and yearly analytical trends.
-- **💳 Payment Modes** — Track whether each transaction was Cash, UPI, or Card with spring-calibrated pill toggles.
-- **🔔 Smart Reminders** — Daily evening reminder notifications with contextual deep linking directly to Savings and Notification hubs.
-- **🌐 Strict Timezone-Safe Storage** — Direct ISO string date parsing eliminating off-by-one date shifts across timezones.
-
----
-
-## ⚡ Architecture & Optimization Highlights
-
-Recent deep engineering updates ensuring robust performance, offline resilience, and clean multi-user isolation:
-
-### 1. Offline Engine & Native Connectivity (`networkStore.ts`)
-- **Native OS Network Event Listener:** Replaced manual polling with native `@react-native-community/netinfo` (v12.0.1) event-driven connectivity monitoring (`isConnected && isInternetReachable`), eliminating false positives on captive portals and saving battery.
-- **Local Mutation Queue:** When offline, expense creations, edits, and deletions update Zustand state immediately (optimistic UI) and append actions to an `AsyncStorage` persistent queue.
-- **Poison-Pill Queue Protection & Rollback:** Automatically drops corrupted queue payloads after 5 failed attempts with a user-facing `SyncFailedBanner`. In-memory mutations rollback automatically on unexpected server errors.
-- **Auto-Flush Reconnection Listener:** Re-establishing internet triggers an automated background queue sync with Supabase and dismisses the status banner.
-- **Animated Offline Banner (`OfflineBanner.tsx`):** A slide-down top indicator informing users of offline status and real-time syncing progress with a manual "Retry" action.
-
-### 2. Comprehensive Error Boundary (`ErrorBoundary.tsx`)
-- High-level React Error Boundary wrapping `SafeAreaProvider` and navigation root.
-- Replaces generic white-screen crashes with a themed recovery card showing actionable error details, copy-to-clipboard trace, and a clean reset button to restore normal app state.
-
-### 3. Smart Gullak & Savings Engine (`dailyBudgetStore.ts`)
-- **Daily Budget Allowance:** Users configure a daily spending target (e.g. ₹500/day).
-- **Rollover & Savings Deduction:** At midnight, unspent allowance rolls over into the "Gullak" (piggy bank). If daily spending exceeds the daily budget, the deficit is automatically deducted from accumulated savings.
-- **Streak Calendar (`StreakCalendarModal.tsx`):** Visual calendar displaying daily streak dots, allowing users to track consecutive days within budget.
-
-### 4. Memory Hygiene & Multi-User Cache Isolation
-- **Store Reset Callback Registry:** Replaced dynamic runtime module imports in `signOut()` with a synchronous callback registry across `authStore`, `expenseStore`, `categoryStore`, and `dailyBudgetStore`.
-- Prevents cross-account cache leakage and completely eliminates `TypeError: Cannot read property 'reload' of undefined` during sign-out.
-
----
-
-## 🎨 UI/UX & Design Modernization
-
-- **Unified Pill Design Language:** All form inputs (Notes, Date picker button, Payment mode toggles, and Primary CTAs) adhere to an exact, uniform `56dp` / `60dp` stadium-pill height (`borderRadius: 9999`).
-- **Calibrated Bouncy Payment Toggle:** Spring animation physics (`tension: 70, friction: 8`) with boundary clamping (`extrapolate: 'clamp'`) and `overflow: 'hidden'`.
-- **Floating Capsule Bottom Navigation Bar (`BottomNavBar`):** Balanced 5-column navigation layout with spring-animated horizontal expanding capsule tabs and an elevated center quick-add button.
-- **Dynamic Header Typography Scaling:** Header greeting name auto-scales between `36px` and `19px` with `numberOfLines={1}` and `adjustsFontSizeToFit`, preventing overflow on long names.
-- **Safe Area Insets:** Fully compliant with notch, dynamic island, and gesture bars using `react-native-safe-area-context` without hardcoded margins.
+- 🐷 **Daily Budget & Smart Gullak (`SavingsScreen`)** — Configure a daily spending allowance. At midnight, unspent allowance automatically rolls over into your digital **Gullak** (savings reserve). If daily spending exceeds your budget, the deficit is deducted from accumulated savings, keeping net totals 100% truthful.
+- 🔥 **Savings Streaks & Visual Calendar** — Track consecutive days stayed within budget with active streak counters and all-time best streak tracking. Includes a monthly streak calendar modal (`StreakCalendarModal`). Untracked days act as neutral bridges so taking a break never unfairly breaks your streak.
+- 📶 **Offline-First Resilience** — Log, edit, and delete transactions with zero latency even without internet connectivity. Changes are queued in `AsyncStorage` and automatically synced to Supabase when reconnected, with status banners (`OfflineBanner` and `SyncFailedBanner`) keeping you informed.
+- 🎨 **Adaptive Dark & Light Themes** — Full system-wide theme support using Arthik's curated palette: mint green (`#B8E0C8`), peach coral (`#F4B8AE`), and deep navy surfaces (`#1A2B4C` / `#0B111E`).
+- 📊 **Real-Time Financial Dashboard** — Home screen overview featuring dynamic greeting typography, remaining allowance tracking, zero-state-aware donut charts, and instant period filters (Today, Week, Month, All).
+- 📝 **Tactile Expense & Income Logging** — Quick transaction entry with custom spring-animated numeric keypad (with decoupled integer and decimal paise limits), payment mode tags (Cash, UPI, Card), and category assignment.
+- 📈 **Visual Insights & History** — Searchable, chronologically grouped transaction history and analytical spending breakdowns across weekly, monthly, and all-time intervals.
+- 🔔 **Smart Daily Reminders** — Local notifications scheduled via `expo-notifications` to remind you to log expenses and check your daily savings rollover.
+- 🔒 **Secure Authentication** — Email/password signup, Google OAuth, session persistence via Supabase Auth (PKCE flow), and complete account deletion compliance.
 
 ---
 
@@ -99,70 +43,76 @@ Recent deep engineering updates ensuring robust performance, offline resilience,
 
 | Layer | Technology |
 |---|---|
-| **Framework** | React Native (0.86.0) + Expo SDK 57 |
-| **Language** | TypeScript |
-| **Navigation** | React Navigation (Native Stack + Bottom Tabs) |
-| **State Management** | Zustand (with AsyncStorage persistence) |
-| **Backend & Auth** | Supabase (PostgreSQL + GoTrue Auth) |
-| **Network & Sync** | Custom Offline Queue + Native NetInfo (v12.0.1) |
-| **Icons** | lucide-react-native |
-| **Typography** | Quicksand (Google Fonts via Expo) |
-| **Vector Graphics** | react-native-svg |
-| **Build System** | Expo EAS Build & Expo Updates (OTA) |
+| **Framework** | React Native 0.86.3 + Expo SDK 57 (`expo-dev-client`) |
+| **Language** | TypeScript (`strict: true`) |
+| **State Management** | Zustand (`^5.0.14`, with `persist` + AsyncStorage queues) |
+| **Backend & Auth** | Supabase (PostgreSQL, GoTrue Auth, Row Level Security) |
+| **Navigation** | React Navigation (Native Stack + Custom Floating Bottom Tabs) |
+| **Dates & Formatting** | `date-fns` (`^3.6.0`, strict `yyyy-MM-dd` ISO parsing) + Indian numbering (`₹`) |
+| **Icons & Typography** | `lucide-react-native` & Quicksand (Google Fonts via Expo) |
+| **Graphics** | `react-native-svg` |
+| **Build & Updates** | Expo EAS Build (Preview APK) & Expo EAS Update (OTA) |
 
 ---
 
 ## 📁 Project Structure
 
-```
+```text
 src/
-├── components/
-│   ├── BottomNavBar.tsx          # Spring-animated floating pill tab bar
-│   ├── CustomDatePickerModal.tsx # Proprietary in-app calendar modal
-│   ├── ErrorBoundary.tsx         # App-level crash catcher & recovery view
-│   ├── OfflineBanner.tsx         # Animated slide-in network status alert
-│   ├── StreakCalendarModal.tsx   # Visual monthly streak calendar
-│   └── ...                       # Other UI cards and components
-├── config/                       # Supabase client, theme tokens & constants
-├── hooks/                        # Custom React hooks (scroll direction, etc.)
-├── lib/                          # Utility functions (notifications, dates, UPI utils)
-├── navigation/                   # App routing (Root Stack + Bottom Tabs)
-├── screens/                      # All full-screen views (Home, History, Form, etc.)
-├── store/
-│   ├── authStore.ts              # Authentication state & reset registry
-│   ├── categoryStore.ts          # Category CRUD & local cache
-│   ├── dailyBudgetStore.ts       # Gullak, daily budget & streak tracking
-│   ├── expenseStore.ts           # Expense state, offline mutation queue & sync
-│   ├── networkStore.ts           # Ping connectivity heartbeat & offline listeners
-│   └── themeStore.ts             # Dark/Light theme switching
-└── types/                        # TypeScript type definitions
+├── components/   # Floating BottomNavBar, CustomDatePickerModal, DonutChart,
+│                 # TransactionRow, ErrorBoundary, OfflineBanner, SyncFailedBanner
+├── config/       # Supabase client & environment, Theme tokens (LightColors / DarkColors)
+├── hooks/        # UI & presentation hooks (useExpenseForm, useScrollDirection, etc.)
+├── lib/          # Pure domain logic (budgetCalculations, homeCalculations, dateFilters,
+│                 # expenseFilters, amountKeypad, formatters, notificationService)
+├── navigation/   # Root stack, Tab navigator, navigationRef
+├── screens/      # Home, Savings, History, Insights, ExpenseForm, ManageCategories,
+│                 # Profile, Notifications, Auth, Splash, Onboarding
+├── store/        # Zustand stores (dailyBudgetStore, expenseStore, categoryStore,
+│                 # authStore, networkStore, themeStore, notificationStore)
+└── types/        # TypeScript route navigation & entity interfaces
+tests/            # Vitest characterization & unit test suites (7 test files, 170 tests)
 ```
+
+---
+
+## 📚 Documentation & Architecture
+
+This repository follows documented coding standards and domain models:
+
+- [`AGENTS.md`](./AGENTS.md) — Operational guidelines, coding standards, design tokens, and safety invariants for developers and AI pair programmers.
+- [`CONTEXT.md`](./CONTEXT.md) — Single-context domain model, business rules, entity relationships, and core architectural invariants.
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records capturing the rationale behind key architectural and design choices.
 
 ---
 
 ## 🧑‍💻 Developer Setup
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) v18+
-- [Expo CLI](https://docs.expo.dev/get-started/installation/)
-- [Android Studio & SDK](https://developer.android.com/studio) (for Android emulator/device testing)
+- [Node.js](https://nodejs.org/) v20+ (React Native 0.86 requires `>= 20.19.4`)
+- [Android Studio & SDK](https://developer.android.com/studio) with an Android Virtual Device (AVD)
 - A [Supabase](https://supabase.com/) project
+
+> ⚠️ **Important:** **Expo Go is NOT supported.** Arthik uses custom native modules (`expo-dev-client`). You must run with a development client build or an Android emulator with the dev APK installed.
 
 ### Quickstart
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/Kislaya-06/Arthik-App.git
    cd Arthik-App
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
-3. **Set up environment variables:**  
-   Create a `.env` file in the root directory:
+3. **Configure environment variables:**  
+   Create a `.env` file in the project root:
+
    ```env
    EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -171,57 +121,63 @@ src/
 4. **Initialize database schema:**  
    Run [`schema.sql`](./schema.sql) in your Supabase SQL Editor.
 
-5. **Start the development server:**
+5. **Start development server:**
+
    ```bash
-   npx expo start
+   npm run dev
+   ```
+   *(This automatically executes `adb reverse tcp:8081 tcp:8081` and starts the Expo Metro bundler).*
+
+6. **Run on Android:**
+
+   ```bash
+   npm run android
    ```
 
-6. **Running on Android Emulator / Dev Client:**
+7. **Run tests & type checking:**
+
    ```bash
-   # Port forward Metro to Android emulator
-   adb reverse tcp:8081 tcp:8081
-
-   # Launch app directly into local Metro
-   adb shell am start -a android.intent.action.VIEW -d "arthik://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081" com.kislaya_agarwal.arthik
+   npm test             # Runs Vitest unit tests across domain logic, keypad & formatters
+   npx tsc --noEmit     # Validates full TypeScript type safety across src/ and tests/
    ```
-
----
-
-## 🚀 Deployment & OTA Updates
-
-Arthik leverages **Expo EAS Build** for native binaries and **Expo Updates** for instant Over-The-Air code patches:
-
-- **Generate Android APK (Preview Profile):**
-  ```bash
-  eas build -p android --profile preview
-  ```
-- **Publish Instant OTA Update:**
-  ```bash
-  eas update --branch preview --message "Your update description"
-  ```
 
 ---
 
 ## 🗄 Database Schema
 
-Core tables in Supabase PostgreSQL:
+Core tables in Supabase PostgreSQL (all protected by Row Level Security scoped to `auth.uid()`):
 
-- **`profiles`** — User profile metadata, monthly income, and auth linkage
-- **`categories`** — Expense categories (global defaults + user-created custom categories)
-- **`expenses`** — Individual expense transactions with amount, category, date, payment mode, and notes
-- **`daily_budgets`** — Daily target limits, rollover savings (Gullak), and consecutive streak metrics
+- **`profiles`** — User profile metadata, daily budget configuration (`daily_budget`, `is_auto_renew`), and registration timestamp.
+- **`categories`** — Expense categories (global defaults + user-created custom categories with icons and colors).
+- **`expenses`** — Individual transaction records (amount, category, payment mode, date, type, note).
+- **`daily_savings_log`** — Finalized daily records (amount saved, amount spent, budget allocated, settlement status).
 
-See [`schema.sql`](./schema.sql) for full table definitions and Row Level Security (RLS) policies.
+See [`schema.sql`](./schema.sql) for full table definitions, constraints, triggers, and RLS policies.
 
 ---
 
-## 🤝 Contributing
+## 🚀 Deployment & OTA Updates
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Arthik ships as an Android APK via **EAS Build** and is updated instantly via **EAS Update**:
+
+- **Build Dev Client APK (for emulator debugging):**
+
+  ```bash
+  eas build -p android --profile development
+  ```
+
+- **Build Release Preview APK:**
+
+  ```bash
+  eas build -p android --profile preview
+  ```
+
+- **Publish Instant Over-The-Air (OTA) Update:**
+
+  ```bash
+  eas update --branch preview --message "Your update description"
+  ```
+  *(Note: OTA updates only reach devices running the same `expo.version` declared in `app.json`).*
 
 ---
 
@@ -233,5 +189,5 @@ Distributed under the [MIT License](./LICENSE).
 
 ## 👤 Author
 
-**Kislaya**  
+**Kislaya Agarwal**  
 - GitHub: [@Kislaya-06](https://github.com/Kislaya-06)

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### 🐛 Fixed
+- **Changing Daily Budget No Longer Rewrites Past Days:** If you had a ₹500 daily budget and changed it to another amount, your past days are no longer rewritten to the new allowance, preserving your genuine savings history and Gullak balance.
+- **Zero-Spend Days No Longer Deleted on Cloud Sync:** If your daily budget was ₹500 and you spent ₹0 on a day, those days are no longer mistakenly treated as test data and removed from your cloud history when the app syncs.
+- **Pre-Registration Streak Boundary:** Best savings streak no longer counts days from before your account was created, ensuring streak records only reflect your actual activity on Arthik.
+- **Entering Paise on Large Amounts:** You can now enter paise on large amounts without the keypad blocking, with whole rupees capped at 9 digits so numbers stay within bounds.
+- **Untracked Day Neutrality:** Days with no budget tracking or expense activity are now treated as neutral days rather than breaking your savings streak.
+- **Unified Income Handling in Budgets:** Income transactions are now consistently recognized across all budget calculations and will never be misclassified as spending.
+- **Startup Period Budget Accuracy:** Fixed an issue where weekly and monthly totals could briefly show more budget than you actually had right after opening the app.
+- **First-Day Savings Sync:** Finalized savings metrics on a day's first rollover are now reliably preserved in the cloud even if a placeholder record was already present.
+- **Midnight Boundary Refresh:** Date-dependent calculations, live spending, and filters on the home screen now update immediately upon returning to the app after midnight.
+
+### ⚙️ Internal
+- Code reorganization, architectural decomposition, and comprehensive test coverage across budget calculations, home calculations, and expense form modules.
+
+---
+
 ## [1.2.3] - 2026-09-16
 
 ### 🛠️ Fixes & New User Defaults (OTA Patch)
