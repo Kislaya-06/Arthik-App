@@ -14,6 +14,7 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import { getCategoryIcon } from '../lib/iconUtils';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
 
@@ -103,10 +104,10 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
           <IconComponent size={20} color={item.color} />
         </View>
         <View style={styles.categoryMiddle}>
-          <Text style={[styles.categoryName, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.categoryName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             {item.name}
           </Text>
-          <Text style={[styles.categorySubtitle, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.categorySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
             {count} {count === 1 ? 'expense' : 'expenses'}
           </Text>
         </View>
@@ -137,12 +138,12 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
           Manage Categories
         </Text>
       </View>
 
-      <Text style={[styles.categoryCount, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+      <Text style={[styles.categoryCount, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
         {categories.length} {categories.length === 1 ? 'category' : 'categories'}
       </Text>
 
@@ -166,7 +167,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Floating Add Button */}
       <Pressable 
-        style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: colors.mint }]}
+        style={[styles.fab, { bottom: insets.bottom + Spacing.gutter, backgroundColor: colors.mint }]}
         onPress={() => navigation.navigate('AddEditCategory')}
       >
         <Plus size={24} color={colors.forestGreen} />
@@ -179,34 +180,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   headerTitle: {
-    marginLeft: 16,
+    marginLeft: Spacing.block,
     fontSize: 20,
     color: '#1A2B4C',
   },
   categoryCount: {
-    marginTop: 16,
-    marginBottom: 16,
-    fontSize: 14,
+    marginTop: Spacing.block,
+    marginBottom: Spacing.block,
+    fontSize: FontSize.bodySmall,
     color: '#8A8FA3',
   },
   listCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: BorderRadius.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
     flexShrink: 1,
-    marginBottom: 24,
+    marginBottom: Spacing.gutter,
     overflow: 'hidden',
   },
   listContent: {
@@ -214,8 +215,8 @@ const styles = StyleSheet.create({
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.block,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F1F4',
   },
@@ -228,24 +229,24 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: Spacing.group,
   },
   categoryMiddle: {
     flex: 1,
-    marginLeft: 4,
+    marginLeft: Spacing.micro,
   },
   categoryName: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
   },
   categorySubtitle: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#8A8FA3',
     marginTop: 2,
   },
   categoryActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.element,
   },
   editBtn: {
     width: 36,
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    right: 24,
+    right: Spacing.gutter,
     width: 56,
     height: 56,
     borderRadius: 28,

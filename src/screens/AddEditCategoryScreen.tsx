@@ -12,6 +12,7 @@ import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditCategory'>;
 
@@ -96,7 +97,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
           {isEditMode ? 'Edit Category' : 'Add Category'}
         </Text>
       </View>
@@ -115,17 +116,17 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
               <MoreHorizontal size={24} color={colors.textTertiary} />
             )}
           </View>
-          <Text style={[styles.previewLabel, { color: colors.textTertiary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.previewLabel, { color: colors.textTertiary, fontFamily: FontFamily.bold }]}>
             PREVIEW
           </Text>
         </View>
 
         {/* Category Name Input */}
         <View style={styles.inputHeaderRow}>
-          <Text style={[styles.inputLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.inputLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
             CATEGORY NAME
           </Text>
-          <Text style={[styles.charCount, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.charCount, { color: colors.textTertiary, fontFamily: FontFamily.medium }]}>
             {name.length}/24
           </Text>
         </View>
@@ -138,7 +139,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
           }
         ]}>
           <TextInput
-            style={[styles.textInput, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium' }]}
+            style={[styles.textInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
             placeholder="e.g. Groceries, Travel, Rent"
             placeholderTextColor={colors.textTertiary}
             value={name}
@@ -148,7 +149,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         </View>
 
         {/* Choose Icon Grid */}
-        <Text style={[styles.inputLabel, styles.chooseIconLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.inputLabel, styles.chooseIconLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
           CHOOSE ICON
         </Text>
         <View style={styles.iconGrid}>
@@ -193,7 +194,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
               isSaveEnabled 
                 ? [styles.saveTextEnabled, { color: colors.forestGreen }] 
                 : [styles.saveTextDisabled, { color: colors.textTertiary }],
-              { fontFamily: 'Quicksand_700Bold' }
+              { fontFamily: FontFamily.bold }
             ]}>
               {isEditMode ? 'Update Category' : 'Save Category'}
             </Text>
@@ -209,15 +210,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   headerTitle: {
-    marginLeft: 16,
+    marginLeft: Spacing.block,
     fontSize: 24,
     color: '#1A2B4C',
   },
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
   // Preview
   previewContainer: {
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: Spacing.section,
   },
   previewCircle: {
     width: 80,
@@ -239,8 +240,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewLabel: {
-    marginTop: 12,
-    fontSize: 12,
+    marginTop: Spacing.group,
+    fontSize: FontSize.caption,
     color: '#B0B4C0',
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -251,39 +252,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 8,
+    marginTop: Spacing.section,
+    marginBottom: Spacing.element,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#8A8FA3',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   charCount: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#B0B4C0',
   },
   inputContainer: {
     backgroundColor: '#F1F2F5',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.block,
   },
   textInput: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
   },
 
   // Icon Grid
   chooseIconLabel: {
-    marginTop: 32,
-    marginBottom: 16,
+    marginTop: Spacing.section,
+    marginBottom: Spacing.block,
   },
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: Spacing.block,
   },
   iconOption: {
     width: 56,
@@ -304,9 +305,9 @@ const styles = StyleSheet.create({
 
   // Save Button
   saveBtn: {
-    borderRadius: 999,
-    paddingVertical: 20,
-    marginTop: 32,
+    borderRadius: BorderRadius.pill,
+    paddingVertical: Spacing.surface,
+    marginTop: Spacing.section,
     alignItems: 'center',
   },
   saveBtnEnabled: {

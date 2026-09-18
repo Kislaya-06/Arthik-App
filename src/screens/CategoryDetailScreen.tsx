@@ -16,6 +16,7 @@ import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { formatCurrency } from '../lib/formatters';
 import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
 
@@ -70,12 +71,12 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
         onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
       >
         <View style={styles.expenseLeft}>
-          <Text style={[styles.expenseAmount, { color: amountColor, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.expenseAmount, { color: amountColor, fontFamily: FontFamily.bold }]}>
             {amountLabel}
           </Text>
           {!!item.note && (
             <Text
-              style={[styles.expenseNote, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.expenseNote, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
               numberOfLines={1}
             >
               {item.note}
@@ -83,12 +84,12 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           )}
         </View>
         <View style={styles.expenseRight}>
-          <Text style={[styles.expenseDate, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.expenseDate, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
             {dateStr}
           </Text>
           <View style={styles.paymentRow}>
             <PaymentIcon size={12} color={colors.textTertiary} />
-            <Text style={[styles.paymentLabel, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium' }]}>
+            <Text style={[styles.paymentLabel, { color: colors.textTertiary, fontFamily: FontFamily.medium }]}>
               {paymentLabel}
             </Text>
           </View>
@@ -101,11 +102,11 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
     return (
       <View style={[styles.notFound, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
-        <Text style={[styles.notFoundText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+        <Text style={[styles.notFoundText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
           Category not found
         </Text>
         <Pressable onPress={() => navigation.goBack()} style={[styles.notFoundBack, { backgroundColor: colors.mint }]}>
-          <Text style={[styles.notFoundBackText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.notFoundBackText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
             Go Back
           </Text>
         </Pressable>
@@ -126,12 +127,12 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           <View style={[styles.headerIconBadge, { backgroundColor: categoryBgColor }]}>
             <CategoryIcon size={20} color={categoryColor} />
           </View>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             {category.name}
           </Text>
         </View>
         {/* Spacer to balance the back button */}
-        <View style={{ width: 24 }} />
+        <View style={{ width: Spacing.gutter }} />
       </View>
 
       {/* Summary Card */}
@@ -147,30 +148,30 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
         <View style={styles.summaryCircle1} />
         <View style={styles.summaryCircle2} />
 
-        <Text style={[styles.summaryLabel, { fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.summaryLabel, { fontFamily: FontFamily.bold }]}>
           TOTAL SPENT
         </Text>
         <View style={styles.summaryAmountRow}>
-          <Text style={[styles.summaryCurrency, { fontFamily: 'Quicksand_700Bold' }]}>₹</Text>
-          <Text style={[styles.summaryAmount, { fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.summaryCurrency, { fontFamily: FontFamily.bold }]}>₹</Text>
+          <Text style={[styles.summaryAmount, { fontFamily: FontFamily.bold }]}>
             {totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </Text>
         </View>
-        <Text style={[styles.summaryCount, { fontFamily: 'Quicksand_500Medium' }]}>
+        <Text style={[styles.summaryCount, { fontFamily: FontFamily.medium }]}>
           {categoryExpenses.length}{' '}
           {categoryExpenses.length === 1 ? 'transaction' : 'transactions'}
         </Text>
       </View>
 
       {/* Transactions Section Header */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
         Transactions
       </Text>
 
       {/* List */}
       {categoryExpenses.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: FontFamily.medium }]}>
             No transactions in this category yet.
           </Text>
         </View>
@@ -182,7 +183,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+            { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section },
           ]}
         />
       )}
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   notFound: {
     flex: 1,
@@ -203,18 +204,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notFoundText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#8A8FA3',
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   notFoundBack: {
     backgroundColor: '#B8E0C8',
-    borderRadius: 999,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.gutter,
+    paddingVertical: Spacing.group,
   },
   notFoundBackText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
   },
 
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   headerCenter: {
     flexDirection: 'row',
@@ -246,8 +247,8 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: '#1A2B4C',
     borderRadius: 28,
-    padding: 24,
-    marginTop: 24,
+    padding: Spacing.gutter,
+    marginTop: Spacing.gutter,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#8A93AB',
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -280,29 +281,29 @@ const styles = StyleSheet.create({
   summaryAmountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: Spacing.element,
   },
   summaryCurrency: {
     fontSize: 20,
     color: '#FFFFFF',
-    marginRight: 4,
+    marginRight: Spacing.micro,
   },
   summaryAmount: {
     fontSize: 40,
     color: '#FFFFFF',
   },
   summaryCount: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#8A93AB',
-    marginTop: 8,
+    marginTop: Spacing.element,
   },
 
   // Section
   sectionTitle: {
     fontSize: 20,
     color: '#1A2B4C',
-    marginTop: 32,
-    marginBottom: 16,
+    marginTop: Spacing.section,
+    marginBottom: Spacing.block,
   },
   listContent: {
   },
@@ -313,19 +314,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
     borderColor: '#F0F1F4',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.block,
     paddingVertical: 14,
-    marginBottom: 12,
+    marginBottom: Spacing.group,
   },
   expenseLeft: {
     flex: 1,
-    marginRight: 12,
+    marginRight: Spacing.group,
   },
   expenseAmount: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
   },
   expenseNote: {
@@ -343,11 +344,11 @@ const styles = StyleSheet.create({
   paymentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
-    gap: 4,
+    marginTop: Spacing.micro,
+    gap: Spacing.micro,
   },
   paymentLabel: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#B0B4C0',
   },
 
