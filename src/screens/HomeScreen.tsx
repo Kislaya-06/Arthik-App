@@ -40,6 +40,7 @@ import { formatCurrency } from '../lib/formatters';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
@@ -673,7 +674,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <Text style={[styles.summarySubtext, { color: colors.textSecondary }]}>{primarySubtext}</Text>
             ) : null}
 
-            <View style={[styles.summaryLabelRow, { marginTop: primarySubtext ? 14 : 20 }]}>
+            <View style={[styles.summaryLabelRow, { marginTop: primarySubtext ? 14 : Spacing.surface }]}>
               <View style={[styles.summaryBar, { backgroundColor: colors.peachCoral }]} />
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Spent</Text>
             </View>
@@ -729,7 +730,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     ? `+${formatCurrency(todayRecordSpent - todayBudget)} over`
                     : `${formatCurrency(todayRemaining)} left`}
                 </Text>
-                <ChevronRight size={15} color={colors.textSecondary} style={{ marginLeft: 4 }} />
+                <ChevronRight size={15} color={colors.textSecondary} style={{ marginLeft: Spacing.micro }} />
               </View>
             </View>
 
@@ -804,7 +805,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
 
   // Header
@@ -820,11 +821,11 @@ const styles = StyleSheet.create({
   },
   helloText: {
     fontSize: 22,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
   nameText: {
     fontSize: 36,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     marginTop: -4,
     includeFontPadding: false,
   },
@@ -863,7 +864,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 18,
-    paddingVertical: 12,
+    paddingVertical: Spacing.group,
     paddingHorizontal: 14,
     marginTop: 14,
     shadowColor: '#000',
@@ -878,7 +879,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: Spacing.group,
   },
   dailyCompactContent: {
     flex: 1,
@@ -896,7 +897,7 @@ const styles = StyleSheet.create({
   },
   dailyCompactTitle: {
     fontSize: 13,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   dailyGullakPill: {
     paddingHorizontal: 6,
@@ -905,7 +906,7 @@ const styles = StyleSheet.create({
   },
   dailyGullakPillText: {
     fontSize: 10,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   currencyRow: {
     flexDirection: 'row',
@@ -913,7 +914,7 @@ const styles = StyleSheet.create({
   },
   dailyCompactAmount: {
     fontSize: 13,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   dailyCompactProgressTrack: {
     height: 4,
@@ -930,13 +931,13 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   pillsContent: {
-    paddingRight: 8,
+    paddingRight: Spacing.element,
   },
   pill: {
-    borderRadius: 999,
-    paddingHorizontal: 20,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.surface,
     paddingVertical: 10,
-    marginRight: 12,
+    marginRight: Spacing.group,
   },
   pillActive: {
     borderWidth: 2,
@@ -945,20 +946,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pillText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
   },
   pillTextActive: {
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   pillTextInactive: {
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
 
   // Summary Card
   summaryCard: {
     borderRadius: 28,
-    marginTop: 24,
-    padding: 20,
+    marginTop: Spacing.gutter,
+    padding: Spacing.surface,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -969,7 +970,7 @@ const styles = StyleSheet.create({
   summaryLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.element,
   },
   summaryBar: {
     width: 4,
@@ -977,18 +978,18 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   summaryLabel: {
-    fontSize: 14,
-    fontFamily: 'Quicksand_500Medium',
-    marginLeft: 8,
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
+    marginLeft: Spacing.element,
   },
   summaryAmount: {
     fontSize: 24,
-    fontFamily: 'Quicksand_700Bold',
-    marginTop: 4,
+    fontFamily: FontFamily.bold,
+    marginTop: Spacing.micro,
   },
   summarySubtext: {
     fontSize: 11,
-    fontFamily: 'Quicksand_600SemiBold',
+    fontFamily: FontFamily.semibold,
     marginTop: 2,
     opacity: 0.75,
   },
@@ -998,46 +999,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: Spacing.section,
   },
   sectionTitle: {
     fontSize: 20,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   seeAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.block,
+    paddingVertical: Spacing.element,
   },
   seeAllText: {
-    fontSize: 14,
-    fontFamily: 'Quicksand_500Medium',
-    marginRight: 4,
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
+    marginRight: Spacing.micro,
   },
 
   // Transaction rows
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: Spacing.surface,
   },
   txIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     alignItems: 'center',
     justifyContent: 'center',
   },
   txMiddle: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: Spacing.block,
   },
   txTitle: {
-    fontSize: 16,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
   },
   txSubtitleRow: {
     flexDirection: 'row',
@@ -1045,8 +1046,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   txSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Quicksand_500Medium',
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
   },
   txNoteText: {
     flexShrink: 1,
@@ -1058,12 +1059,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   txAmount: {
-    fontSize: 16,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
   },
   txDate: {
-    fontSize: 12,
-    fontFamily: 'Quicksand_500Medium',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
     marginTop: 2,
   },
 
@@ -1071,11 +1072,11 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     marginTop: 40,
-    paddingBottom: 20,
+    paddingBottom: Spacing.surface,
   },
   emptyText: {
     fontSize: 15,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
   },
 });
