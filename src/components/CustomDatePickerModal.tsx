@@ -11,6 +11,7 @@ import {
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
 import { format, isToday as checkIsToday, isYesterday as checkIsYesterday, isSameDay } from 'date-fns';
 import { useTheme } from '../store/themeStore';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 interface CustomDatePickerModalProps {
   visible: boolean;
@@ -146,7 +147,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               <Text
                 style={[
                   styles.headerSubtitle,
-                  { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' },
+                  { color: colors.textSecondary, fontFamily: FontFamily.bold },
                 ]}
               >
                 SELECT DATE
@@ -154,7 +155,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               <Text
                 style={[
                   styles.headerTitle,
-                  { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' },
+                  { color: colors.textPrimary, fontFamily: FontFamily.bold },
                 ]}
               >
                 {format(tempDate, 'EEE, d MMM yyyy')}
@@ -186,7 +187,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                   styles.shortcutChipText,
                   {
                     color: isCurrentSelectionToday ? '#1A2B4C' : colors.textPrimary,
-                    fontFamily: isCurrentSelectionToday ? 'Quicksand_700Bold' : 'Quicksand_600SemiBold',
+                    fontFamily: isCurrentSelectionToday ? FontFamily.bold : FontFamily.semibold,
                   },
                 ]}
               >
@@ -208,7 +209,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                   styles.shortcutChipText,
                   {
                     color: isCurrentSelectionYesterday ? '#1A2B4C' : colors.textPrimary,
-                    fontFamily: isCurrentSelectionYesterday ? 'Quicksand_700Bold' : 'Quicksand_600SemiBold',
+                    fontFamily: isCurrentSelectionYesterday ? FontFamily.bold : FontFamily.semibold,
                   },
                 ]}
               >
@@ -236,7 +237,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
             <Text
               style={[
                 styles.monthLabel,
-                { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' },
+                { color: colors.textPrimary, fontFamily: FontFamily.bold },
               ]}
             >
               {format(viewingDate, 'MMMM yyyy')}
@@ -264,7 +265,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                 <Text
                   style={[
                     styles.dayOfWeekText,
-                    { color: colors.textMuted, fontFamily: 'Quicksand_700Bold' },
+                    { color: colors.textMuted, fontFamily: FontFamily.bold },
                   ]}
                 >
                   {d}
@@ -312,8 +313,8 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                             ? colors.mintGreen
                             : colors.textPrimary,
                           fontFamily: cell.isSelected || cell.isTodayDate
-                            ? 'Quicksand_700Bold'
-                            : 'Quicksand_600SemiBold',
+                            ? FontFamily.bold
+                            : FontFamily.semibold,
                         },
                       ]}
                     >
@@ -340,7 +341,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               <Text
                 style={[
                   styles.cancelButtonText,
-                  { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' },
+                  { color: colors.textSecondary, fontFamily: FontFamily.bold },
                 ]}
               >
                 Cancel
@@ -361,7 +362,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               <Text
                 style={[
                   styles.confirmButtonText,
-                  { color: '#1A2B4C', fontFamily: 'Quicksand_700Bold' },
+                  { color: '#1A2B4C', fontFamily: FontFamily.bold },
                 ]}
               >
                 Done
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.surface,
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   headerLeft: {
     flex: 1,
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: Spacing.micro,
   },
   headerTitle: {
     fontSize: 18,
@@ -424,10 +425,10 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: 42,
     height: 42,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
+    marginLeft: Spacing.group,
   },
   shortcutsRow: {
     flexDirection: 'row',
@@ -435,9 +436,9 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   shortcutChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 9999,
+    paddingHorizontal: Spacing.block,
+    paddingVertical: Spacing.element,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
   },
   shortcutChipText: {
@@ -448,36 +449,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.micro,
   },
   navArrow: {
     width: 36,
     height: 36,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthLabel: {
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
   daysOfWeekRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: Spacing.element,
   },
   dayOfWeekCell: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: Spacing.micro,
   },
   dayOfWeekText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
+    marginBottom: Spacing.surface,
   },
   dayCell: {
     width: `${100 / 7}%`,
@@ -489,22 +490,22 @@ const styles = StyleSheet.create({
   dayButton: {
     width: 36,
     height: 36,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.group,
     alignItems: 'center',
   },
   cancelButton: {
     flex: 1,
     height: 48,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -515,7 +516,7 @@ const styles = StyleSheet.create({
   confirmButton: {
     flex: 1.4,
     height: 48,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
