@@ -273,3 +273,15 @@ export const filterPastRecords = (
     .sort((a, b) => b.date.localeCompare(a.date));
 };
 
+/**
+ * Determines whether a Supabase upsert to daily_savings_log should ignore duplicates
+ * (ON CONFLICT DO NOTHING).
+ *
+ * Ticket 02: Real finalized days ('saved', 'exceeded', 'even') must always overwrite/update
+ * the remote record. Only untracked days ('unknown') are insert-only to prevent blank gap fills
+ * from overwriting existing server records.
+ */
+export const shouldIgnoreDuplicates = (status: DayStatus): boolean => {
+  return status === 'unknown';
+};
+

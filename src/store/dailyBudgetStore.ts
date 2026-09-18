@@ -43,6 +43,7 @@ import {
   computeSpentForDate,
   buildDefaultTodayRecord,
   filterPastRecords,
+  shouldIgnoreDuplicates,
 } from '../lib/budgetCalculations';
 export type { DailyRecord, SavingsMetrics, DayStatus, DayEvaluation };
 export {
@@ -52,6 +53,7 @@ export {
   computeSpentForDate,
   buildDefaultTodayRecord,
   filterPastRecords,
+  shouldIgnoreDuplicates,
 };
 
 const getUserCreatedAtStr = (): string | undefined =>
@@ -544,7 +546,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   ? 'even'
                   : 'missed';
 
-              const isInsertOnly = status === 'unknown' || wasUnfinalized;
+              const isInsertOnly = shouldIgnoreDuplicates(status);
 
               supabase
                 .from('daily_savings_log')
@@ -644,7 +646,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 ? 'even'
                 : 'missed';
 
-            const isInsertOnly = rec.status === 'unknown';
+            const isInsertOnly = shouldIgnoreDuplicates(rec.status);
             try {
               const { error } = await supabase
                 .from('daily_savings_log')
@@ -865,6 +867,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 log.status !== (evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : evaluatedStatus === 'unknown' ? 'unknown' : 'missed');
 
               if (wasCorrupted && dayBudget > 0) {
+                // Self-healing deliberately omits ignoreDuplicates to unconditionally overwrite confirmed corrupted server rows.
                 supabase
                   .from('daily_savings_log')
                   .upsert(
