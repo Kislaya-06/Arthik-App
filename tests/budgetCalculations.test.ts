@@ -18,6 +18,7 @@ import {
   calculateTodayMetrics,
   filterSavingsRecords,
   SavingsFilter,
+  shouldSendRolloverNotification,
 } from '../src/lib/budgetCalculations';
 import { isIncomeTransaction } from '../src/lib/paymentUtils';
 
@@ -995,3 +996,106 @@ describe('filterSavingsRecords - Characterization & Boundary Tests', () => {
     expect(filterSavingsRecords(corrupted, 'This Month', REF_FRIDAY)).toEqual([]);
   });
 });
+
+describe('shouldSendRolloverNotification - Pure Unit Tests', () => {
+  const YESTERDAY = '2026-09-18';
+  const TODAY = '2026-09-19';
+  const TWO_DAYS_AGO = '2026-09-17';
+
+  it('blocks notification when expenses have not been loaded yet (cold start bug)', () => {
+    const shouldNotify = shouldSendRolloverNotification({
+      date: YESTERDAY,
+      yesterdayStr: YESTERDAY,
+      saved: 100, // full budget computed because expenses array was empty []
+      isExpensesLoaded: false, // expenses have NOT arrived from Supabase/cache yet
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotify).toBe(false);
+  });
+
+  it('allows notification when expenses are confirmed loaded and user legitimately saved full budget (genuine ₹0-spend)', () => {
+    const shouldNotify = shouldSendRolloverNotification({
+      date: YESTERDAY,
+      yesterdayStr: YESTERDAY,
+      saved: 100, // user spent ₹0 out of ₹100 daily budget
+      isExpensesLoaded: true, // confirmed loaded with 0 expenses
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotify).toBe(true);
+  });
+
+  it('allows notification when expenses are confirmed loaded and user saved partial budget', () => {
+    const shouldNotify = shouldSendRolloverNotification({
+      date: YESTERDAY,
+      yesterdayStr: YESTERDAY,
+      saved: 60, // user spent ₹40 out of ₹100 daily budget
+      isExpensesLoaded: true,
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotify).toBe(true);
+  });
+
+  it('strictly blocks notification if user was already notified for yesterday (prevents sending twice)', () => {
+    const shouldNotify = shouldSendRolloverNotification({
+      date: YESTERDAY,
+      yesterdayStr: YESTERDAY,
+      saved: 60,
+      isExpensesLoaded: true,
+      lastRolloverNotifiedDate: YESTERDAY, // already notified today
+    });
+    expect(shouldNotify).toBe(false);
+  });
+
+  it('strictly blocks notification if caller requested skip (e.g. hydrateFromSupabase)', () => {
+    const shouldNotify = shouldSendRolloverNotification({
+      date: YESTERDAY,
+      yesterdayStr: YESTERDAY,
+      saved: 60,
+      isExpensesLoaded: true,
+      skipRolloverNotification: true,
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotify).toBe(false);
+  });
+
+  it('strictly blocks notification for dates other than yesterday', () => {
+    const shouldNotifyOlder = shouldSendRolloverNotification({
+      date: TWO_DAYS_AGO,
+      yesterdayStr: YESTERDAY,
+      saved: 100,
+      isExpensesLoaded: true,
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotifyOlder).toBe(false);
+
+    const shouldNotifyToday = shouldSendRolloverNotification({
+      date: TODAY,
+      yesterdayStr: YESTERDAY,
+      saved: 100,
+      isExpensesLoaded: true,
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotifyToday).toBe(false);
+  });
+
+  it('strictly blocks notification if user had zero or negative savings (exceeded budget)', () => {
+    const shouldNotifyZero = shouldSendRolloverNotification({
+      date: YESTERDAY,
+      yesterdayStr: YESTERDAY,
+      saved: 0,
+      isExpensesLoaded: true,
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotifyZero).toBe(false);
+
+    const shouldNotifyNegative = shouldSendRolloverNotification({
+      date: YESTERDAY,
+      yesterdayStr: YESTERDAY,
+      saved: -50,
+      isExpensesLoaded: true,
+      lastRolloverNotifiedDate: null,
+    });
+    expect(shouldNotifyNegative).toBe(false);
+  });
+});
+

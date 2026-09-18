@@ -346,3 +346,32 @@ export const filterSavingsRecords = (
   return records.filter((rec) => isDateInPeriod(rec.date, period, referenceDate));
 };
 
+export interface RolloverNotificationParams {
+  date: string;
+  yesterdayStr: string;
+  saved: number;
+  isExpensesLoaded: boolean;
+  skipRolloverNotification?: boolean;
+  lastRolloverNotifiedDate: string | null;
+}
+
+/**
+ * Evaluates whether a daily savings rollover notification should be sent for a given past date.
+ *
+ * Invariants:
+ * 1. Only evaluates for yesterday (date === yesterdayStr).
+ * 2. Only notifies if savings were actually positive (saved > 0).
+ * 3. Never notifies before expenses are confirmed loaded from Supabase or cache (isExpensesLoaded).
+ * 4. Strictly respects caller opt-out (skipRolloverNotification).
+ * 5. Strictly enforces once-per-day guarantee (lastRolloverNotifiedDate !== date).
+ */
+export const shouldSendRolloverNotification = (params: RolloverNotificationParams): boolean => {
+  if (params.date !== params.yesterdayStr) return false;
+  if (params.saved <= 0) return false;
+  if (!params.isExpensesLoaded) return false;
+  if (params.skipRolloverNotification) return false;
+  if (params.lastRolloverNotifiedDate === params.date) return false;
+  return true;
+};
+
+
