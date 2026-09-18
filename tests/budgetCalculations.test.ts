@@ -1,4 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('lucide-react-native', () => ({
+  Wallet: () => null,
+  CheckSquare: () => null,
+  CreditCard: () => null,
+}));
+
 import {
   calculateSavingsMetrics,
   DailyRecord,
@@ -8,6 +15,7 @@ import {
   buildDefaultTodayRecord,
   filterPastRecords,
 } from '../src/lib/budgetCalculations';
+import { isIncomeTransaction } from '../src/lib/paymentUtils';
 
 describe('calculateSavingsMetrics - Unit Tests', () => {
   // We pass a fixed reference date to avoid any dependency on wall-clock time
@@ -601,4 +609,74 @@ describe('filterPastRecords', () => {
     expect(result.map((r) => r.date)).toEqual(['2026-09-19', '2026-09-16']);
   });
 });
+
+describe('Income classification unification (type-first, category fallback)', () => {
+  const categories: Record<string, { id: string; name: string }> = {
+    cat_salary: { id: 'cat_salary', name: 'Monthly Salary' },
+    cat_food: { id: 'cat_food', name: 'Food & Dining' },
+  };
+
+  const isIncome = (e: { type?: 'expense' | 'income'; category_id?: string | null }) => {
+    const cat = e.category_id ? categories[e.category_id] : undefined;
+    return isIncomeTransaction(e, cat);
+  };
+
+  it('transaction with type income whose category is NOT an income-keyword category is excluded from spending by the budget engine', () => {
+    const tx = {
+      id: 'tx1',
+      amount: 500,
+      type: 'income' as const,
+      category_id: 'cat_food',
+      expense_date: '2026-09-18',
+    };
+    const category = categories['cat_food'];
+
+    // Budget engine (via unified isIncome) excludes it from spending
+    const spent = computeSpentByDate([tx], isIncome);
+    expect(spent['2026-09-18'] ?? 0).toBe(0);
+
+    // isIncomeTransaction classifies it as income
+    expect(isIncomeTransaction(tx, category)).toBe(true);
+  });
+
+  it('transaction with type expense whose category IS an income-keyword category is counted as spending by the budget engine', () => {
+    const tx = {
+      id: 'tx2',
+      amount: 1000,
+      type: 'expense' as const,
+      category_id: 'cat_salary',
+      expense_date: '2026-09-18',
+    };
+    const category = categories['cat_salary'];
+
+    // Budget engine (via unified isIncome) counts it as spending
+    const spent = computeSpentByDate([tx], isIncome);
+    expect(spent['2026-09-18']).toBe(1000);
+
+    // isIncomeTransaction classifies it as expense
+    expect(isIncomeTransaction(tx, category)).toBe(false);
+  });
+
+  it('transaction with type undefined falls back to category-name keywords', () => {
+    const legacyIncomeTx = {
+      id: 'tx3',
+      amount: 2000,
+      type: undefined,
+      category_id: 'cat_salary',
+      expense_date: '2026-09-18',
+    };
+    const legacyExpenseTx = {
+      id: 'tx4',
+      amount: 300,
+      type: undefined,
+      category_id: 'cat_food',
+      expense_date: '2026-09-18',
+    };
+
+    const spent = computeSpentByDate([legacyIncomeTx, legacyExpenseTx], isIncome);
+    expect(spent['2026-09-18']).toBe(300);
+  });
+});
+
+
 
