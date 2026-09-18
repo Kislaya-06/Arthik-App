@@ -22,19 +22,16 @@ An inflow transaction (`type: 'income'`) that increases total incoming funds wit
 - *_Avoid_*: Credit, Deposit (conflicts with Gullak savings deposit), Top-up
 
 **Transaction Direction Inference**:
-The evaluation rule used by screens and general helpers (`src/lib/paymentUtils.ts`) to determine if a transaction is income: checks explicit `type === 'income'` or `type === 'expense'` first, and falls back to matching the resolved category's name against `DEFAULT_INCOME_KEYWORDS` only if `type` is absent.
-- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/screens/HomeScreen.tsx`, `src/screens/HistoryScreen.tsx`, `src/screens/ExpenseDetailScreen.tsx`
-- *_Avoid_*: Keyword Guessing, Category Type Checking
+The single, unified evaluation rule used across screens, general helpers, and the budget engine (`src/lib/paymentUtils.ts` via `isIncomeTransaction`) to determine if a transaction is income: checks explicit `type === 'income'` (returns `true`) or `type === 'expense'` (returns `false`) first, and falls back to matching the resolved category's name against `DEFAULT_INCOME_KEYWORDS` only if `type` is absent or indeterminate.
+Category lookup is resolved via a category lookup map (`categoryMap.get(item.category_id)` in screens; in `dailyBudgetStore.ts` via `buildCategoryClassifier()`, lines 22–32, constructed from `useCategoryStore.getState().categories`). Startup sequencing in `App.tsx` (line 116) awaits category loading before running budget engine hydration, guaranteeing categories are in memory before classification.
+- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudgetStore.ts` (`buildCategoryClassifier`, lines 22–32), `App.tsx` (line 116), screens (`HomeScreen.tsx`, `HistoryScreen.tsx`, `ExpenseDetailScreen.tsx`)
+- *_Avoid_*: Dual-Engine Inference, Keyword Guessing, Category Type Checking
 
-**Budget Engine Income Inference**:
-The alternate evaluation rule used strictly inside `src/store/dailyBudgetStore.ts`: `getIncomeCategoryIds()` inspects category names in the store against `DEFAULT_INCOME_KEYWORDS` to assemble a Set of IDs, and classifies an expense as income if `e.type === 'income'` OR (`e.type !== 'expense'` and `incomeIds.has(e.category_id)`). It never passes the transaction's own type to the keyword evaluator and relies entirely on categories loaded in memory.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`getIncomeCategoryIds`, `syncWithExpenses`, `checkAndRollover`)
-- *_Avoid_*: Unified Income Engine, Standardized Income Filter
+**Unified Income Classification**:
+The architectural standard where `src/lib/paymentUtils.ts` and `src/store/dailyBudgetStore.ts` share the exact same classification logic, eliminating the historical dual-engine divergence (formerly documented in `docs/adr/0007-income-classification-divergence.md`, superseded by `docs/adr/0008-unified-income-classification.md`).
+- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudgetStore.ts` (`buildCategoryClassifier`, lines 22–32)
+- *_Avoid_*: Dual-Engine Income Inference, Divergent Direction Check
 
-**Income Classification Divergence**:
-The architectural inconsistency where `src/lib/paymentUtils.ts` and `src/store/dailyBudgetStore.ts` classify income using different rules. If a transaction's `type` disagrees with its category keywords, or if `categoryStore` categories have not loaded into memory, the budget engine (Gullak, streak, daily spent) calculates the transaction differently than the rest of the application (Home cashflow, History lists, Insights).
-- *Code location*: Compare `src/lib/paymentUtils.ts` vs `src/store/dailyBudgetStore.ts` (`getIncomeCategoryIds`); documented in `docs/adr/0007-income-classification-divergence.md`
-- *_Avoid_*: Harmonized Direction Check, Uniform Income Logic
 
 ---
 
@@ -71,8 +68,8 @@ An accounting snapshot tracking budget, spent, saved, finalization flag, and eva
 - *_Avoid_*: Day Log, Budget History Item
 
 **Finalized Day**:
-A past calendar day (`date < today`) whose budget and savings are permanently locked and synced to the database.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.isFinalized`, `checkAndRollover`)
+A past calendar day (`date < today`) whose budget and savings are permanently locked and synced to the database. Initial rollover finalization uses `shouldIgnoreDuplicates(status)` (`status === 'unknown'`), ensuring finalized metrics for tracked days genuinely overwrite remote records in `daily_savings_log`.
+- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.isFinalized`, `checkAndRollover`, lines 525–562), `src/lib/budgetCalculations.ts` (`shouldIgnoreDuplicates`, lines 283–285)
 - *_Avoid_*: Closed Day, Settled Day, Archival Record
 
 **Day Status — Active**:
@@ -94,13 +91,13 @@ The canonical domain status for a day where spending exceeded the allocated budg
 - *_Avoid_*: Missed (use Exceeded as canonical domain term; 'missed' is a DB constraint & unadopted component artifact), Failed Day, Overspent Day, Deficit Day
 
 **Day Status — Even**:
-The status of a finalized past day where spending exactly equaled the allocated budget (`saved === 0` and not exceeded).
-- *Code location*: `src/store/dailyBudgetStore.ts` (`status: 'even'`)
+The status of a finalized past day where spending exactly equaled the allocated budget (`budget > 0 && spent === budget`, `saved === 0`).
+- *Code location*: `src/store/dailyBudgetStore.ts` (`status: 'even'`), `src/lib/budgetCalculations.ts` (`evaluateDayStatus`)
 - *_Avoid_*: Break Even, Zero Day, Exact Day
 
 **Day Status — Unknown**:
-The status of a past day where no budget was allocated (`budget === 0`) or the day was untracked before registration.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`status: 'unknown'`)
+The status of a past day where no budget was allocated (`budget === 0`) or the day was untracked before registration, assigned uniformly across both `checkAndRollover` and `hydrateFromSupabase`.
+- *Code location*: `src/store/dailyBudgetStore.ts` (`status: 'unknown'`), `src/lib/budgetCalculations.ts` (`evaluateDayStatus`, lines 167–171)
 - *_Avoid_*: Unset, Null Day, Ignored Day
 
 **Savings Streak**:

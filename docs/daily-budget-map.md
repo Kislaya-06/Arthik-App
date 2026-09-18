@@ -1,6 +1,6 @@
 # Technical Architecture Map: `src/store/dailyBudgetStore.ts`
 
-This document provides a comprehensive, read-only architectural analysis of `src/store/dailyBudgetStore.ts` (1,142 lines). It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md) and cites exact lines and verified code.
+This document provides a comprehensive, read-only architectural analysis of `src/store/dailyBudgetStore.ts` (958 lines, reduced from 1,142 after extracting calculation helpers to `src/lib/budgetCalculations.ts`). It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md) and cites exact lines and verified code.
 
 ---
 
@@ -12,28 +12,31 @@ Every internal and exported function in `src/store/dailyBudgetStore.ts` is catal
 |---|------|---------|----------|-------------|
 | 1 | `registerExpenseGetter` | 9–11 | **STATE-MUTATING** | Registers an external getter callback from `expenseStore` to populate the module-scoped `expenseGetter` variable. |
 | 2 | `getCurrentExpenses` | 12–14 | **CROSS-STORE** | Invokes the registered `expenseGetter` callback to retrieve current expenses from `useExpenseStore`. |
-| 3 | `getIncomeCategoryIds` | 21–31 | **CROSS-STORE** | Reads `useCategoryStore.getState().categories` and filters category names against `DEFAULT_INCOME_KEYWORDS` to return a `Set<string>` of income category IDs. |
-| 4 | `calculateSavingsMetrics` | 43–157 | **MIXED** | Pure mathematical aggregation of savings, penalties, and streaks from `DailyRecord` entries, but reads `useAuthStore.getState()` as a fallback when `userCreatedAtStr` is omitted, and queries `new Date()` directly. |
-| 5 | `getPendingSettingsKey` | 159–160 | **PURE** | Formats and returns the per-user AsyncStorage key string (`@arthik_pending_settings_${userId}`). |
-| 6 | `savePendingSettingsOffline` | 161–174 | **STORAGE** | Reads, merges, and writes pending profile budget updates (`daily_budget`, `is_auto_renew`) to AsyncStorage. |
-| 7 | `clearPendingSettingsOffline` | 176–198 | **STORAGE** | Removes or clears specific keys from the offline pending settings entry in AsyncStorage. |
-| 8 | `getTodayDateStr` | 229 | **SYSTEM-TIME** | Reads device clock via `new Date()` and formats as `'yyyy-MM-dd'`. |
-| 9 | `getTodayRecord` | 246–262 | **STORE-READ** | Retrieves today's `DailyRecord` from store state or synthesizes an unfinalized active record if none exists. |
-| 10 | `getPastRecordsList` | 264–270 | **STORE-READ** | Filters all stored `dailyRecords` for dates `< todayStr` and sorts them in descending chronological order. |
-| 11 | `setDailyBudget` | 272–326 | **MIXED** | Updates profile recurring allowance and today's record in store, recalculates metrics, queues offline patch in AsyncStorage, and syncs update to Supabase `profiles`. |
-| 12 | `toggleAutoRenew` | 328–377 | **MIXED** | Updates `isAutoRenew` in store, ensures today's budget is populated if turning ON, recalculates metrics, queues offline patch, and syncs update to Supabase `profiles`. |
-| 13 | `setTodayBudget` | 379–399 | **CROSS-STORE** | Overrides today's record budget without changing profile baseline, and recalculates metrics (which touches `useAuthStore`). |
-| 14 | `addToTodayBudget` | 401–424 | **CROSS-STORE** | Increments today's record budget by an additional top-up amount, and recalculates metrics (which touches `useAuthStore`). |
-| 15 | `syncWithExpenses` | 426–532 | **MIXED** | Calculates live spent for today, updates store state, checks 80%/100% threshold notifications (`notificationStore` + native module), and triggers `checkAndRollover`. |
-| 16 | `checkAndRollover` | 534–749 | **MIXED** | Evaluates and finalizes past days, calculates spent/saved/status, upserts to Supabase `daily_savings_log`, fires rollover notification (`notificationStore` + native module), and recalculates metrics. |
-| 17 | `uploadPendingDailyRecords` | 751–801 | **MIXED** | Scans `dailyRecords` for `needsUpload === true`, upserts them to Supabase `daily_savings_log`, and clears `needsUpload`. |
-| 18 | `hydrateFromSupabase` | 803–1113 | **MIXED** | Orchestrates full startup hydration: waits for AsyncStorage persist rehydration, resets state if user switched, sets notification owner, reads pending offline settings, fetches Supabase `profiles` and `daily_savings_log`, executes self-healing logic for corrupted 500-budget records, recalculates metrics, triggers `checkAndRollover`, and flushes pending uploads. |
-| 19 | `resetDailyBudget` | 1115–1130 | **STORAGE** | Resets all Zustand store attributes to defaults and wipes `'arthik-daily-budget-storage-v2'` from AsyncStorage. |
-| 20 | Store Reset Callback Subscription | 1139–1141 | **CROSS-STORE** | Subscribes `resetDailyBudget` to `authStore` via `registerStoreResetCallback`. |
+| 3 | `buildCategoryClassifier` | 22–32 | **CROSS-STORE** | Constructs an in-memory `Map<string, Category>` from `useCategoryStore.getState().categories` and returns an `(e: Expense) => boolean` predicate delegating directly to `isIncomeTransaction(e, cat)`. Replaces deleted `getIncomeCategoryIds`. |
+| 4 | `getPendingSettingsKey` | 61–62 | **PURE** | Formats and returns the per-user AsyncStorage key string (`@arthik_pending_settings_${userId}`). |
+| 5 | `savePendingSettingsOffline` | 63–76 | **STORAGE** | Reads, merges, and writes pending profile budget updates (`daily_budget`, `is_auto_renew`) to AsyncStorage. |
+| 6 | `clearPendingSettingsOffline` | 78–100 | **STORAGE** | Removes or clears specific keys from the offline pending settings entry in AsyncStorage. |
+| 7 | `getTodayDateStr` | 133 | **SYSTEM-TIME** | Reads device clock via `new Date()` and formats as `'yyyy-MM-dd'`. |
+| 8 | `getTodayRecord` | 150–158 | **STORE-READ** | Retrieves today's `DailyRecord` from store state or synthesizes an unfinalized active record via `buildDefaultTodayRecord`. |
+| 9 | `getPastRecordsList` | 160–164 | **STORE-READ** | Filters all stored `dailyRecords` for dates `< todayStr` and sorts them in descending order via `filterPastRecords`. |
+| 10 | `setDailyBudget` | 166–220 | **MIXED** | Updates profile recurring allowance and today's record in store, recalculates metrics, queues offline patch in AsyncStorage, and syncs update to Supabase `profiles`. |
+| 11 | `toggleAutoRenew` | 222–271 | **MIXED** | Updates `isAutoRenew` in store, ensures today's budget is populated if turning ON, recalculates metrics, queues offline patch, and syncs update to Supabase `profiles`. |
+| 12 | `setTodayBudget` | 273–293 | **CROSS-STORE** | Overrides today's record budget without changing profile baseline, and recalculates metrics. |
+| 13 | `addToTodayBudget` | 295–318 | **CROSS-STORE** | Increments today's record budget by an additional top-up amount, and recalculates metrics. |
+| 14 | `syncWithExpenses` | 320–417 | **MIXED** | Calculates live spent for today via `computeSpentForDate`, updates store state, checks 80%/100% threshold notifications (`notificationStore` + native module), and triggers `checkAndRollover`. |
+| 15 | `checkAndRollover` | 419–626 | **MIXED** | Evaluates and finalizes past days, calculates spent via `computeSpentByDate` and status via `evaluateDayStatus`, upserts to Supabase `daily_savings_log` using `shouldIgnoreDuplicates(status)`, fires rollover notification, and recalculates metrics. |
+| 16 | `uploadPendingDailyRecords` | 628–674 | **MIXED** | Scans `dailyRecords` for `needsUpload === true`, upserts them to Supabase `daily_savings_log` using `shouldIgnoreDuplicates(status)`, and clears `needsUpload`. |
+| 17 | `hydrateFromSupabase` | 676–941 | **MIXED** | Startup hydration: waits for persist rehydration, resets state if user switched, sets notification owner, reads pending offline settings, fetches Supabase `profiles` and `daily_savings_log`, executes self-healing logic for corrupted records, recalculates metrics, triggers `checkAndRollover`, and flushes pending uploads. |
+| 18 | `resetDailyBudget` | 943–958 | **STORAGE** | Resets all Zustand store attributes to defaults and wipes `'arthik-daily-budget-storage-v2'` from AsyncStorage. |
+| 19 | Store Reset Callback Subscription | 956–958 | **CROSS-STORE** | Subscribes `resetDailyBudget` to `authStore` via `registerStoreResetCallback`. |
+
+> [!NOTE]
+> **Extracted Pure Modules (`src/lib/budgetCalculations.ts`)**:
+> `calculateSavingsMetrics` (lines 27–146), `evaluateDayStatus` (lines 156–178), `computeSpentByDate` (lines 204–226), `computeSpentForDate` (lines 228–242), `buildDefaultTodayRecord` (lines 247–261), `filterPastRecords` (lines 266–274), and `shouldIgnoreDuplicates` (lines 283–285) now reside in `src/lib/budgetCalculations.ts` as pure, testable functions and are re-exported by `dailyBudgetStore.ts`.
 
 > [!WARNING]
 > **The MIXED Functions**:
-> Functions **#4, #11, #12, #15, #16, #17, #18** combine local state mutation, cross-store reads/notifications, and asynchronous storage/Supabase I/O. These 7 functions comprise ~85% of the file's line count and represent the highest blast radius.
+> Functions **#10, #11, #14, #15, #16, #17** combine local state mutation, cross-store reads/notifications, and asynchronous storage/Supabase I/O. These 6 functions comprise ~80% of the file's line count and represent the highest blast radius.
 
 ---
 
@@ -82,73 +85,81 @@ A day's budget is derived according to three distinct tiers:
 
 ### 2.2 How "Spent" is Computed and Excluded Transactions
 
-The computation of spent occurs identically in `syncWithExpenses` (lines 432–440), `checkAndRollover` (lines 547–555), and `hydrateFromSupabase` (lines 890–898):
+The computation of spent delegates to pure helpers `computeSpentForDate` and `computeSpentByDate` in `src/lib/budgetCalculations.ts` (lines 204–242) using `isIncomeFn = buildCategoryClassifier()`:
 
+- In `syncWithExpenses` (lines 323–325):
+  ```ts
+  const isIncomeFn = buildCategoryClassifier();
+  const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
+  ```
+- In `checkAndRollover` (lines 430–433) and `hydrateFromSupabase` (lines 766–767):
+  ```ts
+  const isIncomeFn = buildCategoryClassifier();
+  const spentByDate = computeSpentByDate(expenses, isIncomeFn);
+  ```
+
+Inside `computeSpentForDate` and `computeSpentByDate`, each expense is inspected via the extracted predicate `extractDateAndAmount(e, isIncomeFn)`:
 ```ts
-432: let todaySpent = 0;
-433: for (let i = 0; i < expenses.length; i++) {
-434:   const e = expenses[i];
-435:   const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
-436:   const cleanDate = e.expense_date?.split('T')[0]?.trim();
-437:   if (cleanDate === todayStr && !isIncome) {
-438:     todaySpent += Number(e.amount) || 0;
-439:   }
-440: }
+const isIncome = isIncomeFn ? isIncomeFn(e) : isIncomeTransaction(e);
+if (isIncome) return null;
+const cleanDate = e.expense_date?.split('T')[0]?.trim();
+if (!cleanDate) return null;
+const amount = Number(e.amount) || 0;
 ```
 
 **Excluded Transactions**:
-1. **Income Transactions**: Excluded if `e.type === 'income'`, OR if `e.type !== 'expense'` AND `e.category_id` exists in `incomeIds` (from `getIncomeCategoryIds()`).
+1. **Income Transactions**: Excluded if `isIncomeFn(e)` evaluates to `true`, which uses `buildCategoryClassifier()` (lines 22–32) to look up the transaction's category from `useCategoryStore` and delegate directly to `isIncomeTransaction(e, cat)` (checks explicit `type` first, then category name keywords).
 2. **Date Mismatches**: Excluded if `cleanDate !== targetDate`.
 3. **Pre-Registration Transactions**:
-   - In `calculateSavingsMetrics` (lines 51–53): `if (userCreatedAt && r.date < userCreatedAt) return;`
-   - In `checkAndRollover` (lines 581–589): Any record where `d < userCreatedAtStr` is purged from state via `delete records[d]` and skipped.
-   - In `hydrateFromSupabase` (lines 909, 961): Any log entry where `d < userCreatedAtStr` is ignored.
+   - In `calculateSavingsMetrics` (lines 40–43): `if (userCreatedAt && r.date < userCreatedAt) return;`
+   - In `checkAndRollover` (lines 452–460): Any record where `d < userCreatedAtStr` is purged from state via `delete records[d]` and skipped.
+   - In `hydrateFromSupabase` (line 778): Any log entry where `d < userCreatedAtStr` is ignored.
 4. **Invalid Amounts**: Transactions with `NaN` or non-numeric amounts resolve to `0` via `Number(e.amount) || 0`.
 
 ### 2.3 How "Saved" is Computed
 
 - **For Active / Today Records**:
-  - Formula: `saved = Math.max(0, budget - spent)` (lines 289, 340, 393, 418, 451, 457).
+  - Formula: `saved = Math.max(0, budget - spent)` (lines 177, 234, 287, 312, 336, 352).
   - Unspent allowance is calculated in real time. If `spent >= budget`, `saved` is `0`.
 - **For Finalized Past Days**:
-  - In `checkAndRollover` (lines 610, 617, 631): `saved = Math.max(0, budget - spent)`.
-  - If `status === 'unknown'` (lines 602, 622, 636): `saved = 0`.
-  - In `hydrateFromSupabase` (lines 1013–1019):
-    - If `dayBudget <= 0`: `daySaved = 0`.
+  - In `checkAndRollover` (lines 500, 510) via `evaluateDayStatus(budget, spent)`: `saved = Math.max(0, budget - spent)`.
+  - If `status === 'unknown'`: `saved = 0`.
+  - In `hydrateFromSupabase` (lines 847–853) via `evaluateDayStatus(dayBudget, daySpent, 'unknown')`:
+    - If `dayBudget <= 0`: `daySaved = 0`, `status = 'unknown'`.
     - If `dayBudget > 0`: `daySaved = Math.max(0, dayBudget - daySpent)`.
 
 ### 2.4 When a Day Becomes Finalized and What Triggers It
 
 - **Definition of Finalized**: `DailyRecord.isFinalized === true`. The day's metrics are permanently frozen and queued for remote sync to `daily_savings_log` (`needsUpload: true`).
-- **Condition for Finalization**: A day is finalized **only if it is strictly in the past** (`d < todayStr`). Today is **never** finalized (`isFinalized: false`, lines 259, 284, 341, 388, 412, 452, 1083).
+- **Condition for Finalization**: A day is finalized **only if it is strictly in the past** (`d < todayStr`). Today is **never** finalized (`isFinalized: false`, lines 178, 235, 282, 306, 337, 896).
 - **Execution Triggers**:
-  1. **At the end of `syncWithExpenses(expenses)`** (line 531): Called whenever an expense is added, edited, deleted, or refreshed.
-  2. **In `hydrateFromSupabase(userId)`** (line 1106): Called upon user authentication or refresh.
+  1. **At the end of `syncWithExpenses(expenses)`** (line 416): Called whenever an expense is added, edited, deleted, or refreshed.
+  2. **In `hydrateFromSupabase(userId)`** (line 935): Called upon user authentication or refresh.
 - **Roll-over Workflow (`checkAndRollover`)**:
-  - Scans all past dates (`pastDates = new Set(...)`, lines 558–570) derived from existing `dailyRecords` keys `< todayStr` unioned with all expense dates `< todayStr`.
-  - For each date `d >= userCreatedAtStr`, if any metric changed or `!existing.isFinalized`, sets `isFinalized: true`, `needsUpload: true`, and triggers an asynchronous upsert to Supabase `daily_savings_log` (lines 650–686).
+  - Scans all past dates (`pastDates = new Set(...)`, lines 436–449) derived from existing `dailyRecords` keys `< todayStr` unioned with all expense dates `< todayStr`.
+  - For each date `d >= userCreatedAtStr`, if any metric changed or `!existing.isFinalized`, sets `isFinalized: true`, `needsUpload: true`, and triggers an asynchronous upsert to Supabase `daily_savings_log` (lines 550–563) with `ignoreDuplicates: shouldIgnoreDuplicates(status)`.
 
 ### 2.5 How Each Status is Chosen
 
 1. **Active (`status: 'active'`)**:
-   - Chosen exclusively for **today** when `todaySpent <= budget || budget === 0` (lines 260, 285, 290, 342, 389, 394, 413, 420, 453, 461, 1084).
-   - If `budget === 0`, today remains `'active'` even if `todaySpent > 0` (line 453).
+   - Chosen exclusively for **today** when `todaySpent <= budget || budget === 0` (lines 179, 236, 283, 307, 338, 897).
+   - If `budget === 0`, today remains `'active'` even if `todaySpent > 0`.
 2. **Exceeded (`status: 'exceeded'`)**:
-   - For today: when `todaySpent > budget && budget > 0` (lines 290, 342, 394, 420, 453, 460).
-   - For past days: in `checkAndRollover` (lines 611, 618, 632) and `hydrateFromSupabase` (line 1018), when `spent > budget && budget > 0`.
+   - For today: when `todaySpent > budget && budget > 0` (lines 184, 236, 288, 313, 338, 345).
+   - For past days: in `checkAndRollover` and `hydrateFromSupabase` via `evaluateDayStatus`, when `spent > budget && budget > 0`.
 3. **Saved (`status: 'saved'`)**:
-   - For finalized past days where `budget > 0`, `spent <= budget`, and `saved > 0` (lines 611, 618, 632, 1018).
+   - For finalized past days where `budget > 0`, `spent <= budget`, and `saved > 0` (via `evaluateDayStatus`).
 4. **Even (`status: 'even'`)**:
-   - For finalized past days where `budget > 0`, `spent === budget`, and `saved === 0` (lines 611, 618, 632).
-   - In `hydrateFromSupabase` (line 1015): assigned if `dayBudget <= 0 && daySpent === 0`.
+   - For finalized past days where `budget > 0`, `spent === budget`, and `saved === 0` (via `evaluateDayStatus`).
 5. **Unknown (`status: 'unknown'`)**:
-   - Past days where no budget was allocated (`budget === 0`) and `spent > 0` (lines 620, 634, 1015).
-   - Preserved past days previously marked `'unknown'` (line 598).
+   - Past days where no budget was allocated (`budget === 0`) and `spent === 0` or `spent > 0` (via `evaluateDayStatus(budget, spent, 'unknown')`).
+   - Uniformly assigned in both `checkAndRollover` (line 500) and `hydrateFromSupabase` (line 849), preserving user streaks across untracked days (Ticket 03 resolved).
 
 > [!IMPORTANT]
-> **Discrepancy with CONTEXT.md & Database Schema**:
-> - **Code vs `schema.sql`**: `schema.sql` line 186 enforces check constraint `CHECK (status IN ('saved', 'missed', 'even', 'unknown'))`. In `dailyBudgetStore.ts`, the TypeScript interface uses `'exceeded'` (line 39). When sending to Supabase, lines 663–670 and 763–770 translate `'exceeded'` into `'missed'`.
-> - **Code vs CONTEXT.md on `status: 'even'`**: CONTEXT.md Section 2 states that an untracked day with `budget === 0` is `'unknown'`. However, `hydrateFromSupabase` line 1015 sets `evaluatedStatus = daySpent > 0 ? 'unknown' : 'even'`. Consequently, a zero-budget zero-spend day loaded from Supabase is assigned `'even'`. As traced in Section 2.6, **any day with `status === 'even'` breaks the savings streak**.
+> **Resolution of Past Discrepancies**:
+> - **Code vs `schema.sql`**: `schema.sql` line 152 enforces check constraint `CHECK (status IN ('saved', 'missed', 'even', 'unknown'))`. In `dailyBudgetStore.ts`, the TypeScript interface uses `'exceeded'`. When sending to Supabase, lines 541–545 and 641–645 translate `'exceeded'` into `'missed'`.
+> - **Status 'unknown' Uniformity (Ticket 03)**: The former discrepancy where `hydrateFromSupabase` assigned `'even'` to zero-budget zero-spend days has been resolved. Both `checkAndRollover` and `hydrateFromSupabase` now evaluate zero-budget zero-spend days as `'unknown'`, preventing untracked days from breaking streaks.
+> - **Upsert Duplication Safeguard (Ticket 02)**: In `checkAndRollover` (line 546), `isInsertOnly` is now governed by `shouldIgnoreDuplicates(status)` (`status === 'unknown'`), ensuring that first-time finalization of tracked days (`'saved'`, `'exceeded'`, `'even'`) genuinely overwrites remote records in `daily_savings_log`.
 
 ### 2.6 How the Streak is Computed
 
@@ -258,57 +269,47 @@ The following table documents every location in `dailyBudgetStore.ts` where date
 
 ---
 
-## 4. The Income Inconsistency
+## 4. The Income Inconsistency (Resolved)
 
-### 4.1 Root Cause & Architectural Divergence
+### 4.1 Resolution of Dual-Engine Inconsistency
+The dual-engine divergence between `paymentUtils.ts` and `dailyBudgetStore.ts` (documented in ADR 0007, superseded by ADR 0008) has been completely resolved.
 
-There is an architectural divergence between the general screen helper and the budget store engine:
+`getIncomeCategoryIds` was deleted from `dailyBudgetStore.ts`. Both UI screens and the budget engine now standardize strictly on the shared helper `isIncomeTransaction(item, category)` from `src/lib/paymentUtils.ts`:
 
-1. **General Screen Layer (`src/lib/paymentUtils.ts` via `isIncomeTransaction`)**:
+1. **Category Map Classifier (`src/store/dailyBudgetStore.ts:22–32`)**:
    ```ts
-   49: export const isIncomeTransaction = (
-   50:   item?: { type?: 'expense' | 'income' | string } | null,
-   51:   category?: { name?: string } | null
-   52: ): boolean => {
-   53:   if (item?.type === 'income') return true;
-   54:   if (item?.type === 'expense') return false;
-   55:   if (!category?.name) return false;
-   56:   const lower = category.name.toLowerCase();
-   57:   return DEFAULT_INCOME_KEYWORDS.some((kw) => lower.includes(kw));
-   58: };
+   const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
+     const categories = useCategoryStore.getState().categories;
+     const categoryMap = new Map<string, Category>();
+     for (let i = 0; i < categories.length; i++) {
+       categoryMap.set(categories[i].id, categories[i]);
+     }
+     return (e: Expense): boolean => {
+       const cat = e.category_id ? categoryMap.get(e.category_id) : undefined;
+       return isIncomeTransaction(e, cat);
+     };
+   };
    ```
-2. **Budget Store Engine (`src/store/dailyBudgetStore.ts` via `getIncomeCategoryIds`)**:
-   ```ts
-   21: const getIncomeCategoryIds = (): Set<string> => {
-   22:   const cats = useCategoryStore.getState().categories;
-   23:   const incomeIds = new Set<string>();
-   24:   for (let i = 0; i < cats.length; i++) {
-   25:     const name = cats[i].name.toLowerCase();
-   26:     if (DEFAULT_INCOME_KEYWORDS.some((kw) => name.includes(kw))) {
-   27:       incomeIds.add(cats[i].id);
-   28:     }
-   29:   }
-   30:   return incomeIds;
-   31: };
-   ```
-   And invoked inside `syncWithExpenses` (line 435), `checkAndRollover` (line 550), and `hydrateFromSupabase` (line 893):
-   ```ts
-   const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
-   ```
+2. **Standardized Invocation**: Invoked in `syncWithExpenses` (line 323), `checkAndRollover` (line 430), and `hydrateFromSupabase` (line 766), passing `isIncomeFn` into pure calculation functions `computeSpentForDate` and `computeSpentByDate`.
 
-### 4.2 Failure Mode: Category Load Latency & Untyped Transactions
+### 4.2 Startup Window Sequencing & Residual Risk
 
-`getIncomeCategoryIds()` takes no arguments, cannot inspect transaction metadata, and relies entirely on categories pre-loaded in memory via `useCategoryStore.getState().categories`.
+To close the failure window where categories were empty on cold start, startup initialization in `App.tsx` (lines 116–120) was resequenced:
 
-When a transaction has `type: undefined` (a legacy transaction or imported row) and belongs to an income category (e.g. "Freelance"):
-- If `useCategoryStore` has **not yet completed loading** (such as during cold start, parallel promise resolution in `App.tsx` line 116, or offline boot), `useCategoryStore.getState().categories` is `[]`.
-- `incomeIds` is empty.
-- `e.type === 'income'` is `false`.
-- `incomeIds.has(e.category_id)` is `false`.
-- **`isIncome` evaluates to `false` in `dailyBudgetStore`**.
-- Meanwhile, in `HomeScreen.tsx` or `HistoryScreen.tsx`, once categories hydrate, `isIncomeTransaction(e, cat)` evaluates `cat.name.toLowerCase()` against `DEFAULT_INCOME_KEYWORDS` and returns **`true`**.
+```ts
+116: await fetchCategories(true);
+117: await Promise.all([
+118:   fetchExpenses(),
+119:   useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id),
+120: ]);
+```
 
-### 4.3 Concrete Worked Numerical Example
+**Residual Risk Analysis**:
+1. **Online vs Offline Cold Start**: When online, `fetchCategories(true)` fetches fresh categories from Supabase. When offline, `categoryStore.fetchCategories` rehydrates cached categories from AsyncStorage (`@arthik_cached_categories_${userId}`), ensuring the category map is populated before expenses and budget logs are evaluated.
+2. **Fresh Offline Install (Edge Case)**: The only scenario where categories remain empty is a brand-new, unauthenticated offline install where no cache exists. Because `session?.user?.id` is null on unauthenticated launch, neither `fetchExpenses` nor `hydrateFromSupabase` executes. As soon as a user authenticates, categories are fetched and cached first.
+3. **Explicit Transaction Types**: All transactions created or modified in modern app versions write an explicit `type` column (`'expense' | 'income'`). Because `isIncomeTransaction` checks `item?.type === 'income'` and `item?.type === 'expense'` before category keywords, category lookup latency only affects legacy untyped rows (`type: undefined`).
+
+### 4.3 Historical Worked Numerical Example (Pre-Fix vs Post-Fix)
 
 **Scenario**:
 - User has a Recurring Allowance of **₹500** (`dailyBudgetAmount: 500`, `isAutoRenew: true`).
@@ -318,18 +319,18 @@ When a transaction has `type: undefined` (a legacy transaction or imported row) 
   1. Grocery shopping: **₹300**, `type: 'expense'`.
   2. Freelance consulting payout: **₹2,000**, `category_id: 'cat_freelance'` (Category name: "Freelance Work"), `type: undefined` (legacy/untyped row).
 
-**Evaluation on Screens vs Budget Engine**:
+**Comparison of Behavior**:
 
-| Metric | Screen Layer (`HomeScreen` / `HistoryScreen`) | Budget Engine (`dailyBudgetStore` / `SavingsScreen`) | Discrepancy & Direction |
+| Metric | Screen Layer | Budget Engine (Pre-Fix) | Budget Engine (Post-Fix) |
 |---|---|---|---|
-| **Tx 2 Classification** | **Income** (`isIncomeTransaction` checks category name "Freelance") | **Expense** (`incomeIds` was empty when evaluated) | Budget engine treats inflow as an outflow |
-| **Today's Spent** | **₹300** (only groceries counted) | **₹2,300** (groceries ₹300 + freelance ₹2,000) | **+₹2,000** (Spent inflated by ₹2,000) |
-| **Today's Remaining / Saved** | **₹200** (`500 - 300`) | **₹0** (`Math.max(0, 500 - 2300)`) | **-₹200** (Savings eliminated) |
-| **Today's Status** | **Under Budget** (`active`) | **Exceeded** (`spent 2300 > budget 500`) | Day incorrectly marked as a failure |
-| **Overspend Penalty** | **₹0** | **₹1,800** (`2300 - 500`) | **+₹1,800** penalty charged to user |
-| **Gullak Reserve** | **₹1,500** intact | **₹0** (`Math.max(0, 1500 - 1800)`) | **-₹1,500** (Entire Gullak wiped out) |
-| **Savings Streak Tomorrow** | **6 days** (extended) | **0 days** (Streak Reset triggered by `'exceeded'`) | **Broken** (Falsely reset to 0) |
-| **Device Notifications** | None | **`🚨 Daily Allowance Exceeded!`** fired | False alarm pushed to device notification shade |
+| **Tx 2 Classification** | **Income** (`isIncomeTransaction`) | **Expense** (`incomeIds` was empty) | **Income** (`isIncomeTransaction(e, cat)`) |
+| **Today's Spent** | **₹300** | **₹2,300** (+₹2,000 inflation) | **₹300** (Accurate) |
+| **Today's Remaining / Saved** | **₹200** (`500 - 300`) | **₹0** (Savings eliminated) | **₹200** (`500 - 300`) |
+| **Today's Status** | **Under Budget** (`active`) | **Exceeded** (False failure) | **Under Budget** (`active`) |
+| **Overspend Penalty** | **₹0** | **₹1,800** penalty | **₹0** |
+| **Gullak Reserve** | **₹1,500** intact | **₹0** (Wiped out) | **₹1,500** intact |
+| **Savings Streak Tomorrow** | **6 days** (extended) | **0 days** (Streak broken) | **6 days** (Extended) |
+| **Device Notifications** | None | **`🚨 Daily Allowance Exceeded!`** | None (No false alarm) |
 
 ---
 
@@ -394,61 +395,43 @@ graph TD
 
 ---
 
-## 6. Extraction Candidates
+## 6. Extraction Status & Remaining Candidates
 
-The table below ranks candidate functions for future extraction, ordered from safest to highest risk.
+The table below reflects the current extraction status and remaining candidates:
 
-| Rank | Candidate / Functionality | Current Line(s) | Proposed Pure Form | Rationale & Safety |
+| Rank | Candidate / Functionality | Current Location | Status | Rationale & Safety |
 |---|---|---|---|---|
-| **1 (Safest)** | `getPendingSettingsKey` | 159–160 | `(userId: string): string` | Already completely pure. Zero side effects. |
-| **2** | `getPastRecordsList` logic | 264–270 | `(records: Record<string, DailyRecord>, todayStr: string): DailyRecord[]` | Simple filter and sort on dictionary values. Pure projection. |
-| **3** | `computeDefaultTodayRecord` | 246–262 | `(records: Record<string, DailyRecord>, todayStr: string, isAutoRenew: boolean, recurringAmount: number): DailyRecord` | Pure fallback synthesis. Removes conditional branch from store action. |
-| **4** | `evaluateDayStatus` | 610–638, 1013–1020 | `(budget: number, spent: number): { saved: number; status: DayStatus }` | Currently copy-pasted across 7 functions. A pure function would guarantee identical status rules across rollover and hydration. |
-| **5** | `calculateSavingsMetrics` (Refactored) | 43–157 | `(records: Record<string, DailyRecord>, todayStr: string, userCreatedAtStr?: string, referenceDate?: Date)` | Pure mathematical aggregation. Requires removing implicit `useAuthStore.getState()` and accepting explicit `referenceDate` instead of calling `new Date()`. |
-| **6** | `filterDailyExpenses` (Spent Engine) | 432–440, 547–555 | `(expenses: Expense[], targetDate: string, isIncomeFn: (e: Expense) => boolean): number` | Encapsulates the O(N) date matching and sum. Requires passing the income classifier as a dependency. |
-| **Cannot Extract** | `getIncomeCategoryIds` | 21–31 | N/A | Coupled to `useCategoryStore.getState()`. Should not be extracted; it should be deleted in favor of `isIncomeTransaction`. |
-| **Cannot Extract** | `savePendingSettingsOffline` / `clearPendingSettingsOffline` | 161–198 | N/A | Direct I/O with `AsyncStorage`. Belongs in a storage/repository layer. |
-| **Cannot Extract** | `syncWithExpenses`, `checkAndRollover`, `hydrateFromSupabase` | 426–1113 | N/A | Complex state orchestrators combining network I/O, Supabase RPCs, native notification bridges, and cross-store side effects. |
+| **Extracted** | `evaluateDayStatus` | `src/lib/budgetCalculations.ts:156–178` | **EXTRACTED** | Pure decision function. Guarantees identical status across rollover and hydration. |
+| **Extracted** | `calculateSavingsMetrics` | `src/lib/budgetCalculations.ts:27–146` | **EXTRACTED** | Pure mathematical aggregation accepting explicit `todayStr`, `userCreatedAtStr`, and `referenceDate`. |
+| **Extracted** | `computeSpentByDate` & `computeSpentForDate` | `src/lib/budgetCalculations.ts:204–242` | **EXTRACTED** | Single-pass date grouping and single-date spending calculation using injected `isIncomeFn`. |
+| **Extracted** | `buildDefaultTodayRecord` | `src/lib/budgetCalculations.ts:247–261` | **EXTRACTED** | Pure fallback today record synthesis. |
+| **Extracted** | `filterPastRecords` | `src/lib/budgetCalculations.ts:266–274` | **EXTRACTED** | Pure projection filtering out today's record and sorting past records descending. |
+| **Extracted** | `shouldIgnoreDuplicates` | `src/lib/budgetCalculations.ts:283–285` | **EXTRACTED** | Pure domain decision returning `status === 'unknown'` for Supabase upsert deduplication. |
+| **Deleted** | `getIncomeCategoryIds` | `src/store/dailyBudgetStore.ts:22–32` | **RESOLVED / DELETED** | Eliminated in favor of `buildCategoryClassifier()` delegating directly to `isIncomeTransaction`. |
+| **1 (Safe)** | `getPendingSettingsKey` | `src/store/dailyBudgetStore.ts:61–62` | Candidate | Pure key generator. Zero side effects. |
+| **Cannot Extract** | `savePendingSettingsOffline` / `clearPendingSettingsOffline` | `src/store/dailyBudgetStore.ts:63–100` | N/A | Direct I/O with `AsyncStorage`. Belongs in a storage/repository layer. |
+| **Cannot Extract** | `syncWithExpenses`, `checkAndRollover`, `hydrateFromSupabase` | `src/store/dailyBudgetStore.ts:320–941` | N/A | Complex state orchestrators combining network I/O, Supabase RPCs, native notification bridges, and cross-store side effects. |
 
 ---
 
 ## 7. What You Are Unsure About
 
-During the comprehensive audit of these 1,142 lines, several non-obvious design decisions, heuristics, and potential edge-case bugs were identified where confidence is incomplete:
+During the audit, several non-obvious design decisions, heuristics, and potential edge-case bugs were identified. Their current resolution status is recorded below:
 
-1. **The 500 "OTA Update Bug" Heuristic Deletion Logic (Lines 974–990, 1058–1073)**:
-   - Lines 974–990 identify and **delete** historical rows from both Supabase and local store:
-     ```ts
-     976: const isPhantom500Day =
-     977:   daySpent === 0 &&
-     978:   !spentByDate[d] &&
-     979:   (rawLogBudget === 500 || rawLogSaved === 500) &&
-     980:   (!records[d] || records[d].budget === 500 || records[d].budget === 0) &&
-     981:   (d !== yesterdayStr || !resolvedAutoRenew || resolvedBudget <= 0);
-     982:
-     983: if (isPhantom500Day) {
-     984:   // Delete phantom row from Supabase and purge from local records
-     985:   supabase.from('daily_savings_log').delete().eq('user_id', userId).eq('date', d).then(() => {});
-     986:   if (records[d]) {
-     987:     delete records[d];
-     988:   }
-     989:   continue;
-     990: }
-     ```
-   - *Uncertainty*: What happens if a user intentionally sets a daily budget of exactly ₹500, has auto-renew enabled, but on a day 3 days ago spent ₹0? On that day, `daySpent === 0`, `rawLogBudget === 500`, `records[d].budget === 500`, and `d !== yesterdayStr`. Does line 985 **permanently delete the user's legitimate saved day** from Supabase and purge it from local memory? It appears that any genuine zero-spend day for a user with a ₹500 budget is destroyed unless `d === yesterdayStr`.
-2. **Use of `ignoreDuplicates: isInsertOnly` in `checkAndRollover` (Lines 672–686)**:
-   - Line 672 defines `const isInsertOnly = status === 'unknown' || wasUnfinalized;`.
-   - Line 685 passes `{ onConflict: 'user_id,date', ignoreDuplicates: isInsertOnly }` to Supabase `upsert`.
-   - In Supabase (PostgREST / Postgres), `ignoreDuplicates: true` translates to `ON CONFLICT (user_id, date) DO NOTHING`.
-   - *Uncertainty*: When a day rolls over for the first time, `existing.isFinalized` was `false`, so `wasUnfinalized` is `true`, setting `ignoreDuplicates = true`. If a previous partial sync or another client already inserted a placeholder row for that date in Supabase, Postgres will silently **DO NOTHING**. The finalized `amount_saved` and `spent_amount` will never be written to the database. Why is `ignoreDuplicates: true` enforced on unfinalized days?
-3. **Date Shifting in `bestStreak` Calculation (Lines 115–134)**:
+1. **The 500 "OTA Update Bug" Heuristic Deletion Logic (Resolved — Ticket 01)**:
+   - *Previous state*: Lines 974–990 previously deleted historical rows from Supabase and local store if `daySpent === 0 && (rawLogBudget === 500 || rawLogSaved === 500)`. This risked permanently deleting legitimate ₹500 zero-spend days.
+   - *Resolution*: Unsafe deletion was eliminated and replaced by `resolveHydratedDayBudget` in `src/lib/budgetUtils.ts`, which safely infers true budgets without destructive row purging.
+2. **Use of `ignoreDuplicates: isInsertOnly` in `checkAndRollover` (Resolved — Ticket 02)**:
+   - *Previous state*: Line 672 defined `const isInsertOnly = status === 'unknown' || wasUnfinalized;`. Because `wasUnfinalized` was `true` on every day's first rollover, Supabase executed `ON CONFLICT DO NOTHING`, silently discarding finalized metrics if a row already existed remotely.
+   - *Resolution*: Line 546 now uses `const isInsertOnly = shouldIgnoreDuplicates(status);` (`status === 'unknown'`). Real finalized days (`'saved'`, `'exceeded'`, `'even'`) genuinely overwrite remote records.
+3. **Date Shifting in `bestStreak` Calculation (`src/lib/budgetCalculations.ts:115–134`)**:
    - Line 116 creates `new Date(rec.date)` from a `'yyyy-MM-dd'` string. Line 125 modifies it via `intermediateDate.setDate(prevDate.getDate() + step)`.
-   - *Uncertainty*: Because `new Date('yyyy-MM-dd')` standardizes on UTC midnight while `.getDate()` and `.setDate()` operate on client local time, will users operating in timezones west of UTC (e.g. UTC-4 to UTC-10) experience corrupted `bestStreak` counts due to date shifting across day boundaries?
-4. **Zero-Spend Zero-Budget Day Assigned Status `'even'` (Line 1015)**:
-   - In `hydrateFromSupabase`, line 1015 reads: `evaluatedStatus = daySpent > 0 ? 'unknown' : 'even'`.
-   - *Uncertainty*: If `dayBudget === 0` and `daySpent === 0`, `evaluatedStatus` is `'even'`. However, according to the streak algorithm in `calculateSavingsMetrics` (line 100): "Any other status (exceeded, even, active, or missing unfinalized day) breaks the streak". If a user had an untracked zero-activity day in Supabase, assigning it `'even'` will actively destroy their streak, whereas marking it `'unknown'` would have been neutral. Is this intentional or an accidental bug?
+   - *Uncertainty*: Because `new Date('yyyy-MM-dd')` standardizes on UTC midnight while `.getDate()` and `.setDate()` operate on client local time, users operating in timezones west of UTC (e.g. UTC-4 to UTC-10) may experience corrupted `bestStreak` counts due to date shifting across day boundaries.
+4. **Zero-Spend Zero-Budget Day Assigned Status `'even'` (Resolved — Ticket 03)**:
+   - *Previous state*: In `hydrateFromSupabase`, line 1015 set `evaluatedStatus = daySpent > 0 ? 'unknown' : 'even'`. A zero-budget zero-spend day loaded from Supabase was assigned `'even'`, which broke the user's savings streak.
+   - *Resolution*: `hydrateFromSupabase` (line 849) now uses `evaluateDayStatus(dayBudget, daySpent, 'unknown')`, which returns `'unknown'` for zero-budget zero-spend days, preserving streaks uniformly across both rollover and hydration.
 5. **Notification Race Condition on Startup**:
    - `syncWithExpenses` triggers `checkAndRollover(expenses)` with `skipRolloverNotification = false`.
    - `hydrateFromSupabase` triggers `checkAndRollover(currentExpenses, true)` with `skipRolloverNotification = true`.
    - In `App.tsx` (lines 116–120), `fetchExpenses()` and `hydrateFromSupabase()` run in `Promise.all`.
-   - *Uncertainty*: If `fetchExpenses()` finishes first, `useExpenseStore` calls `syncWithExpenses()` before `hydrateFromSupabase()` sets `hydratedForUserId`. Line 537 blocks execution (`if (get().hydratedForUserId !== currentUser.id) return;`). Then `hydrateFromSupabase()` finishes and calls `checkAndRollover(currentExpenses, true)` which skips notifications. If `syncWithExpenses` is not subsequently re-invoked, does the user miss yesterday's rollover celebration notification entirely?
+   - *Uncertainty*: If `fetchExpenses()` finishes first, `useExpenseStore` calls `syncWithExpenses()` before `hydrateFromSupabase()` sets `hydratedForUserId`. Line 422 blocks execution (`if (get().hydratedForUserId !== currentUser.id) return;`). Then `hydrateFromSupabase()` finishes and calls `checkAndRollover(currentExpenses, true)` which skips notifications. If `syncWithExpenses` is not subsequently re-invoked, does the user miss yesterday's rollover celebration notification entirely?

@@ -1,5 +1,8 @@
 # 0007. Dual-Engine Income Classification Divergence
 
+## Status
+Superseded by [0008. Unified Income Classification via isIncomeTransaction](0008-unified-income-classification.md) (March 2026).
+
 ## Context
 In Arthik, financial transactions can be classified as either an outflow (`expense`) or an inflow (`income`). Two separate modules independently evaluate whether a given transaction represents income:
 
