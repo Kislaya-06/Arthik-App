@@ -157,19 +157,15 @@ export interface DayEvaluation {
  *
  * @param budget Daily budget amount.
  * @param spent Amount spent on that day.
- * @param zeroBudgetZeroSpendStatus Status to assign when budget <= 0 and spent === 0.
- *   Note: checkAndRollover passes 'unknown', while hydrateFromSupabase passes 'even'.
- *   See ticket .scratch/daily-budget/issues/03-untracked-days-get-status-even-instead-of-unknown.md.
  */
 export const evaluateDayStatus = (
   budget: number,
-  spent: number,
-  zeroBudgetZeroSpendStatus: 'unknown' | 'even'
+  spent: number
 ): DayEvaluation => {
   if (budget <= 0) {
     return {
       saved: 0,
-      status: spent > 0 ? 'unknown' : zeroBudgetZeroSpendStatus,
+      status: 'unknown',
     };
   }
 
