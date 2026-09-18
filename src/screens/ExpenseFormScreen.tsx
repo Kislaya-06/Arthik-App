@@ -22,6 +22,7 @@ import { formatDate, formatAmountWithCommas } from '../lib/formatters';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useTheme } from '../store/themeStore';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 // Both AddExpense and EditExpense routes use this single component.
 type Props =
@@ -112,7 +113,7 @@ const TypeSegmentItem: React.FC<TypeSegmentItemProps> = ({
             styles.typeToggleText,
             {
               color: textColor,
-              fontFamily: 'Quicksand_700Bold',
+              fontFamily: FontFamily.bold,
             },
           ]}
         >
@@ -293,7 +294,7 @@ const PaymentSegmentItem: React.FC<PaymentSegmentItemProps> = ({
               styles.paymentToggleText,
               {
                 color: colors.textSecondary,
-                fontFamily: 'Quicksand_700Bold',
+                fontFamily: FontFamily.bold,
               },
             ]}
           >
@@ -317,7 +318,7 @@ const PaymentSegmentItem: React.FC<PaymentSegmentItemProps> = ({
               styles.paymentToggleText,
               {
                 color: colors.forestGreen,
-                fontFamily: 'Quicksand_700Bold',
+                fontFamily: FontFamily.bold,
               },
             ]}
           >
@@ -656,7 +657,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         >
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
           {isEdit ? 'Edit Expense' : 'Add Transaction'}
         </Text>
       </View>
@@ -687,7 +688,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               styles.currencySymbol,
               { color: colors.textMuted },
               isKeyboardOpen && styles.currencySymbolCompact,
-              { fontFamily: 'Quicksand_700Bold' },
+              { fontFamily: FontFamily.bold },
             ]}
           >
             ₹
@@ -699,7 +700,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               styles.amountValue,
               isKeyboardOpen && styles.amountValueCompact,
               amount ? { color: colors.textPrimary } : { color: colors.textMuted },
-              { fontFamily: 'Quicksand_700Bold' },
+              { fontFamily: FontFamily.bold },
             ]}
           >
             {formatAmountWithCommas(amount) || '0'}
@@ -725,13 +726,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         {transactionType === 'expense' && (
           <>
             <View style={styles.sectionLabelRow}>
-              <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
                 CATEGORY
               </Text>
               {(areCategoriesPlaceholder || isCategoriesLoading) && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <ActivityIndicator size="small" color={colors.textMuted} />
-                  <Text style={{ color: colors.textMuted, fontSize: 12, fontFamily: 'Quicksand_500Medium' }}>
+                  <Text style={{ color: colors.textMuted, fontSize: FontSize.caption, fontFamily: FontFamily.medium }}>
                     Loading categories...
                   </Text>
                 </View>
@@ -739,14 +740,14 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
             {isCategoriesFetched && categories.length === 0 ? (
               <View style={[styles.emptyCategoriesContainer, { backgroundColor: colors.inputBg }]}>
-                <Text style={[styles.emptyCategoriesText, { color: colors.textMuted, fontFamily: 'Quicksand_500Medium' }]}>
+                <Text style={[styles.emptyCategoriesText, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
                   No categories found. Create one to add an expense.
                 </Text>
                 <Pressable
                   style={[styles.createCategoryBtn, { backgroundColor: colors.mintGreen }]}
                   onPress={() => (navigation as any).navigate('AddEditCategory')}
                 >
-                  <Text style={[styles.createCategoryBtnText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
+                  <Text style={[styles.createCategoryBtnText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
                     + Create Category
                   </Text>
                 </Pressable>
@@ -785,7 +786,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                           style={[
                             styles.categoryChipText,
                             { color: isSelected ? colors.forestGreen : colors.textPrimary },
-                            { fontFamily: 'Quicksand_700Bold' },
+                            { fontFamily: FontFamily.bold },
                           ]}
                         >
                           {cat.name}
@@ -810,7 +811,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               style={[
                 styles.sectionLabel,
                 styles.sectionLabelNoMargin,
-                { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' },
+                { color: colors.textSecondary, fontFamily: FontFamily.bold },
               ]}
             >
               NOTE (OPTIONAL)
@@ -823,7 +824,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                     countWords(note) >= MAX_NOTE_WORDS || note.length >= MAX_NOTE_CHARS
                       ? colors.peachCoral
                       : colors.textMuted,
-                  fontFamily: 'Quicksand_600SemiBold',
+                  fontFamily: FontFamily.semibold,
                 },
               ]}
             >
@@ -842,7 +843,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               placeholder="Add a note..."
               placeholderTextColor={colors.textMuted}
               keyboardAppearance={isDark ? 'dark' : 'light'}
-              style={[styles.inputText, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.inputText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
               onFocus={() => {
@@ -861,7 +862,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Date Picker */}
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
           DATE
         </Text>
         <Pressable
@@ -870,7 +871,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         >
           <View style={styles.datePickerLeft}>
             <Calendar size={18} color={colors.textSecondary} />
-            <Text style={[styles.datePickerText, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium' }]}>
+            <Text style={[styles.datePickerText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}>
               {formattedDate}
             </Text>
           </View>
@@ -885,7 +886,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         />
 
         {/* Paid Via / Added Via Toggle */}
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
           {transactionType === 'income' ? 'MONEY ADDED VIA' : 'PAID VIA'}
         </Text>
         <BouncyPaymentToggle
@@ -951,7 +952,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 styles.saveButtonText,
                 {
                   color: isSaveEnabled ? colors.forestGreen : colors.textMuted,
-                  fontFamily: 'Quicksand_700Bold',
+                  fontFamily: FontFamily.bold,
                 },
               ]}
             >
@@ -975,27 +976,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   backButton: {
     position: 'absolute',
-    left: 24,
+    left: Spacing.gutter,
   },
   headerTitle: {
     fontSize: 20,
   },
   typeToggleWrapper: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
     marginTop: 18,
   },
   typeToggleWrapperCompact: {
-    marginTop: 8,
+    marginTop: Spacing.element,
   },
   typeToggleContainer: {
-    height: 56,
+    height: ControlHeight.row,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1009,20 +1010,20 @@ const styles = StyleSheet.create({
   typeSegmentContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.element,
   },
   typeToggleText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     includeFontPadding: false,
     textAlignVertical: 'center',
     letterSpacing: 0.2,
   },
   amountContainer: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: Spacing.gutter,
   },
   amountContainerCompact: {
-    marginTop: 8,
+    marginTop: Spacing.element,
   },
   amountRow: {
     flexDirection: 'row',
@@ -1030,7 +1031,7 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: 48,
-    marginRight: 4,
+    marginRight: Spacing.micro,
   },
   currencySymbolCompact: {
     fontSize: 32,
@@ -1044,118 +1045,118 @@ const styles = StyleSheet.create({
   amountUnderline: {
     height: 1,
     width: 80,
-    marginTop: 8,
+    marginTop: Spacing.element,
   },
   amountUnderlineCompact: {
-    marginTop: 4,
+    marginTop: Spacing.micro,
   },
   scrollSection: {
     flex: 1,
-    paddingHorizontal: 24,
-    marginTop: 20,
+    paddingHorizontal: Spacing.gutter,
+    marginTop: Spacing.surface,
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: Spacing.group,
   },
   sectionLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.group,
   },
   sectionLabelNoMargin: {
     marginBottom: 0,
   },
   noteCounterText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     letterSpacing: 0.2,
   },
   categoryScroll: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: Spacing.block,
     overflow: 'visible',
   },
   categoryList: {
     flexDirection: 'row',
-    gap: 12,
-    paddingRight: 24,
+    gap: Spacing.group,
+    paddingRight: Spacing.gutter,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 9999,
-    paddingHorizontal: 16,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.block,
     paddingVertical: 10,
     borderWidth: 1,
   },
   categoryChipText: {
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: FontSize.bodySmall,
+    marginLeft: Spacing.element,
   },
   emptyCategoriesContainer: {
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingHorizontal: Spacing.block,
+    borderRadius: BorderRadius.input,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   emptyCategoriesText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     textAlign: 'center',
   },
   createCategoryBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 9999,
+    paddingHorizontal: Spacing.block,
+    paddingVertical: Spacing.element,
+    borderRadius: BorderRadius.pill,
   },
   createCategoryBtnText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
   },
   inputContainer: {
-    height: 56,
-    borderRadius: 9999,
-    paddingHorizontal: 20,
+    height: ControlHeight.row,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.surface,
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   inputText: {
     height: '100%',
-    fontSize: 16,
+    fontSize: FontSize.body,
     padding: 0,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
   datePickerButton: {
-    height: 56,
+    height: ControlHeight.row,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 9999,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.surface,
+    marginBottom: Spacing.block,
   },
   datePickerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   datePickerText: {
-    marginLeft: 12,
-    fontSize: 16,
+    marginLeft: Spacing.group,
+    fontSize: FontSize.body,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
   paymentToggleContainer: {
-    height: 56,
+    height: ControlHeight.row,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: Spacing.block,
     overflow: 'hidden',
   },
   paymentSlidingPill: {
@@ -1163,7 +1164,7 @@ const styles = StyleSheet.create({
     top: 5,
     bottom: 5,
     left: 5,
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
   },
   paymentToggleSegment: {
     flex: 1,
@@ -1191,8 +1192,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   paymentToggleText: {
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: FontSize.bodySmall,
+    marginLeft: Spacing.element,
     includeFontPadding: false,
     textAlignVertical: 'center',
     transform: [{ translateY: -0.5 }],
@@ -1201,8 +1202,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     borderTopWidth: 1,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: Spacing.surface,
+    paddingTop: Spacing.block,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1224,8 +1225,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   saveButton: {
-    borderRadius: 9999,
-    height: 60,
+    borderRadius: BorderRadius.pill,
+    height: ControlHeight.cta,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
