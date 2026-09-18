@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { useNotificationStore, AppNotification } from '../store/notificationStore';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
@@ -77,8 +78,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       style={[
         styles.container,
         {
-          paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 16,
+          paddingTop: insets.top + Spacing.block,
+          paddingBottom: insets.bottom + Spacing.block,
           backgroundColor: colors.background,
         },
       ]}
@@ -97,7 +98,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
         <Text
           style={[
             styles.headerTitle,
-            { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' },
+            { color: colors.textPrimary, fontFamily: FontFamily.bold },
           ]}
         >
           Notifications
@@ -124,7 +125,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           <Text
             style={[
               styles.emptyTitle,
-              { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' },
+              { color: colors.textPrimary, fontFamily: FontFamily.bold },
             ]}
           >
             No new notifications
@@ -132,7 +133,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           <Text
             style={[
               styles.emptySubtitle,
-              { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' },
+              { color: colors.textSecondary, fontFamily: FontFamily.medium },
             ]}
           >
             Daily budget updates, remaining balance alerts, and savings rollover celebrations will appear here.
@@ -181,7 +182,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                         styles.notifTitle,
                         {
                           color: colors.textPrimary,
-                          fontFamily: n.read ? 'Quicksand_600SemiBold' : 'Quicksand_700Bold',
+                          fontFamily: n.read ? FontFamily.semibold : FontFamily.bold,
                         },
                       ]}
                     >
@@ -193,7 +194,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                   <Text
                     style={[
                       styles.notifMessage,
-                      { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' },
+                      { color: colors.textSecondary, fontFamily: FontFamily.medium },
                     ]}
                   >
                     {n.message}
@@ -202,7 +203,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                   <Text
                     style={[
                       styles.notifTime,
-                      { color: colors.textMuted, fontFamily: 'Quicksand_500Medium' },
+                      { color: colors.textMuted, fontFamily: FontFamily.medium },
                     ]}
                   >
                     {timeAgo}
@@ -226,38 +227,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    paddingHorizontal: 24,
-    marginBottom: 20,
+    paddingHorizontal: Spacing.gutter,
+    marginBottom: Spacing.surface,
   },
   backButton: {
     position: 'absolute',
-    left: 24,
+    left: Spacing.gutter,
   },
   headerTitle: {
     fontSize: 20,
   },
   headerRightActions: {
     position: 'absolute',
-    right: 24,
+    right: Spacing.gutter,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
   },
   actionBtn: {
-    padding: 4,
+    padding: Spacing.micro,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.surface,
     paddingBottom: 30,
   },
   notifCard: {
     flexDirection: 'row',
-    padding: 16,
+    padding: Spacing.block,
     borderRadius: 20,
-    marginBottom: 12,
+    marginBottom: Spacing.group,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: Spacing.micro,
   },
   notifTitle: {
     fontSize: 15,
@@ -289,7 +290,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginLeft: 8,
+    marginLeft: Spacing.element,
   },
   notifMessage: {
     fontSize: 13,
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: Spacing.section,
     paddingBottom: 40,
   },
   iconCircle: {
@@ -312,14 +313,14 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing.gutter,
   },
   emptyTitle: {
     fontSize: 20,
-    marginBottom: 8,
+    marginBottom: Spacing.element,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     textAlign: 'center',
     lineHeight: 20,
   },

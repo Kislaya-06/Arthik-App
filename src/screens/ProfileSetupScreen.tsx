@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProfileSetup'>;
 
@@ -102,12 +103,12 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.gutter }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* Back arrow */}
-          <Pressable style={[styles.backBtn, { marginTop: 16 }]} onPress={() => navigation.goBack()}>
+          <Pressable style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
             <ArrowLeft size={26} color={colors.textPrimary} />
           </Pressable>
 
@@ -228,7 +229,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={[styles.ctaBtnText, { color: colors.forestGreen }]}>
                 {loading ? 'Saving...' : "Let's Go"}
               </Text>
-              {!loading && <ArrowRight size={20} color={colors.forestGreen} style={{ marginLeft: 8 }} />}
+              {!loading && <ArrowRight size={20} color={colors.forestGreen} style={{ marginLeft: Spacing.element }} />}
             </AnimatedButton>
           </View>
         </ScrollView>
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   scrollContent: {
     flexGrow: 1,
@@ -257,25 +258,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: Spacing.section,
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#8A8FA3',
     letterSpacing: 0.8,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
   },
   progressStep: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#7FBF9E',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   progressBarBg: {
     height: 4,
     borderRadius: 2,
     backgroundColor: '#E0E2E8',
-    marginTop: 12,
+    marginTop: Spacing.group,
     width: '100%',
     overflow: 'hidden',
   },
@@ -289,7 +290,7 @@ const styles = StyleSheet.create({
   // Avatar
   avatarSection: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: Spacing.gutter,
   },
   avatarWrapper: {
     position: 'relative',
@@ -329,25 +330,25 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 28,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: Spacing.gutter,
   },
   subtext: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: Spacing.element,
   },
 
   // Inputs
   label: {
-    fontSize: 12,
-    marginTop: 24,
-    marginBottom: 8,
+    fontSize: FontSize.caption,
+    marginTop: Spacing.gutter,
+    marginBottom: Spacing.element,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -355,32 +356,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: Spacing.block,
+    marginBottom: Spacing.element,
   },
   rowLabelText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   optionalBadge: {
     backgroundColor: '#E8F5EC',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.group,
+    paddingVertical: Spacing.micro,
   },
   optionalBadgeText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#7FBF9E',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   inputWrapper: {
     backgroundColor: '#F1F2F5',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    height: 56,
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.surface,
+    height: ControlHeight.row,
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -393,27 +394,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF8F7',
   },
   input: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#E87070',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginTop: 6,
-    marginLeft: 4,
+    marginLeft: Spacing.micro,
   },
 
   // CTA
   ctaContainer: {
     marginTop: 'auto',
-    paddingTop: 32,
+    paddingTop: Spacing.section,
   },
   ctaBtn: {
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     backgroundColor: '#B8E0C8',
-    paddingVertical: 20,
+    paddingVertical: Spacing.surface,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -426,6 +427,6 @@ const styles = StyleSheet.create({
   ctaBtnText: {
     fontSize: 18,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
 });
