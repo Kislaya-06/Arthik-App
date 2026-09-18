@@ -22,6 +22,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { GoogleIcon } from '../components/GoogleIcon';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -302,7 +303,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           {navigation.canGoBack() && (
-            <Pressable style={[styles.backBtn, { marginTop: 16 }]} onPress={() => navigation.goBack()}>
+            <Pressable style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
               <ArrowLeft size={26} color={colors.textPrimary} />
             </Pressable>
           )}
@@ -318,7 +319,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                 { opacity: errorOpacity, transform: [{ translateY: errorTranslateY }] },
               ]}
             >
-              <AlertCircle size={18} color={successMessage ? (isDark ? '#81C784' : '#4CAF50') : (isDark ? '#FF8E8E' : '#E87070')} style={{ marginRight: 8, flexShrink: 0 }} />
+              <AlertCircle size={18} color={successMessage ? (isDark ? '#81C784' : '#4CAF50') : (isDark ? '#FF8E8E' : '#E87070')} style={{ marginRight: Spacing.element, flexShrink: 0 }} />
               <Text
                 style={[
                   styles.errorBannerText,
@@ -514,7 +515,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   scrollContent: {
     flexGrow: 1,
@@ -526,25 +527,25 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 36,
-    marginTop: 32,
+    marginTop: Spacing.section,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   subtext: {
-    fontSize: 16,
-    marginTop: 8,
+    fontSize: FontSize.body,
+    marginTop: Spacing.element,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
   formContainer: {
-    marginTop: 8,
+    marginTop: Spacing.element,
   },
   label: {
-    fontSize: 12,
-    marginTop: 24,
-    marginBottom: 8,
+    fontSize: FontSize.caption,
+    marginTop: Spacing.gutter,
+    marginBottom: Spacing.element,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -556,37 +557,37 @@ const styles = StyleSheet.create({
 
   inputContainer: {
     backgroundColor: '#F1F2F5',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    height: 56,
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.surface,
+    height: ControlHeight.row,
     justifyContent: 'center',
     flexDirection: 'row',
     alignItems: 'center',
   },
   input: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     flex: 1,
   },
   eyeIcon: {
     position: 'absolute',
-    right: 16,
+    right: Spacing.block,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
   },
   forgotPassword: {
     textAlign: 'right',
-    marginTop: 8,
+    marginTop: Spacing.element,
     color: '#7FBF9E',
-    fontSize: 14,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: Spacing.gutter,
   },
   dividerLine: {
     flex: 1,
@@ -594,53 +595,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E2E8',
   },
   dividerText: {
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.block,
     color: '#8A8FA3',
-    fontSize: 14,
-    fontFamily: 'Quicksand_500Medium',
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
   },
   btn: {
     width: '100%',
-    borderRadius: 9999,
-    paddingVertical: 20,
+    borderRadius: BorderRadius.pill,
+    paddingVertical: Spacing.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   googleBtn: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    marginTop: 24,
+    marginTop: Spacing.gutter,
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
   googleBtnText: {
-    marginLeft: 8,
-    fontSize: 16,
+    marginLeft: Spacing.element,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   primaryBtn: {
     backgroundColor: '#B8E0C8',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   primaryBtnText: {
     fontSize: 18,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   toggleBtn: {
-    marginTop: 24,
+    marginTop: Spacing.gutter,
     alignItems: 'center',
   },
   toggleText: {
     color: '#8A8FA3',
-    fontSize: 16,
-    fontFamily: 'Quicksand_500Medium',
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
   },
   toggleTextBold: {
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   // Error Banner
   errorBanner: {
@@ -649,22 +650,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5F5',
     borderWidth: 1,
     borderColor: '#FACACA',
-    borderRadius: 16,
-    paddingHorizontal: 16,
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.block,
     paddingVertical: 14,
-    marginTop: 16,
-    gap: 4,
+    marginTop: Spacing.block,
+    gap: Spacing.micro,
   },
   errorBannerText: {
     flex: 1,
     color: '#C0392B',
-    fontSize: 14,
-    fontFamily: 'Quicksand_500Medium',
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
     lineHeight: 20,
   },
   errorBannerClose: {
-    padding: 4,
-    marginLeft: 4,
+    padding: Spacing.micro,
+    marginLeft: Spacing.micro,
   },
   successBanner: {
     backgroundColor: '#F0FFF4',
