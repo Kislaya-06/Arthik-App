@@ -19,7 +19,7 @@ import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/pay
 import { formatCurrency } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { ThemeColors } from '../config/theme';
+import { ThemeColors, Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'History'>,
@@ -59,22 +59,22 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
         <IconComp size={20} color={categoryColor} />
       </View>
       <View style={styles.transactionMiddle}>
-        <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]} numberOfLines={1}>
+        <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
           {categoryName}
         </Text>
         {!!item.note && (
-          <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]} numberOfLines={1}>
+          <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
             {item.note}
           </Text>
         )}
       </View>
       <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: isIncome ? (colors.isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.transactionAmount, { color: isIncome ? (colors.isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary, fontFamily: FontFamily.bold }]}>
           {isIncome ? `+${formatCurrency(Math.abs(item.amount))}` : `−${formatCurrency(Math.abs(item.amount))}`}
         </Text>
         <View style={styles.paymentModeRow}>
           <PaymentIcon size={12} color={colors.textSecondary} />
-          <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
             {paymentLabel}
           </Text>
         </View>
@@ -204,7 +204,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
     return (
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textMuted, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.sectionTitle, { color: colors.textMuted, fontFamily: FontFamily.bold }]}>
           {section.title}
         </Text>
         <Text
@@ -214,7 +214,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
               color: isIncomeOnly
                 ? (isDark ? colors.mintGreen : colors.mintGreenDark)
                 : colors.textMuted,
-              fontFamily: 'Quicksand_700Bold',
+              fontFamily: FontFamily.bold,
             },
           ]}
         >
@@ -258,8 +258,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
         <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
           <IconComponent size={32} color={colors.textSecondary} />
         </View>
-        <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{title}</Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>{subtitle}</Text>
+        <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{title}</Text>
+        <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>{subtitle}</Text>
       </View>
     );
   }, [searchQuery, selectedCategoryId, categoryMap, colors]);
@@ -271,7 +271,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Header Row */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             History
           </Text>
           <Pressable
@@ -287,7 +287,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           <View style={[styles.searchContainer, { backgroundColor: colors.inputBg }]}>
             <Search size={16} color={colors.textSecondary} />
             <TextInput
-              style={[styles.searchInput, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium' }]}
+              style={[styles.searchInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
               placeholder="Search transactions..."
               placeholderTextColor={colors.textMuted}
               value={searchQuery}
@@ -323,7 +323,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
                       styles.filterPillText,
                       {
                         color: isActive ? colors.textPrimary : colors.textSecondary,
-                        fontFamily: isActive ? 'Quicksand_700Bold' : 'Quicksand_500Medium',
+                        fontFamily: isActive ? FontFamily.bold : FontFamily.medium,
                       },
                     ]}
                   >
@@ -375,13 +375,13 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   headerTitle: {
     fontSize: 36,
@@ -402,78 +402,78 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    marginTop: 16,
-    marginBottom: 8,
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.group,
+    marginTop: Spacing.block,
+    marginBottom: Spacing.element,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
+    marginLeft: Spacing.element,
+    fontSize: FontSize.body,
     padding: 0,
   },
   filterScroll: {
-    paddingVertical: 20,
-    paddingRight: 24,
+    paddingVertical: Spacing.surface,
+    paddingRight: Spacing.gutter,
   },
   filterPill: {
-    borderRadius: 9999,
-    paddingHorizontal: 20,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.surface,
     paddingVertical: 10,
-    marginRight: 12,
+    marginRight: Spacing.group,
     borderWidth: 1,
   },
   filterPillText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: Spacing.gutter,
+    marginBottom: Spacing.group,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     letterSpacing: 1,
   },
   sectionTotal: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
   },
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.block,
     paddingVertical: 14,
-    marginBottom: 12,
+    marginBottom: Spacing.group,
   },
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     alignItems: 'center',
     justifyContent: 'center',
   },
   transactionMiddle: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: Spacing.group,
   },
   transactionTitle: {
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
   transactionNote: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     marginTop: 2,
   },
   transactionRight: {
     alignItems: 'flex-end',
   },
   transactionAmount: {
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
   paymentModeRow: {
     flexDirection: 'row',
@@ -481,14 +481,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   paymentModeText: {
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: FontSize.caption,
+    marginLeft: Spacing.micro,
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: Spacing.section,
     marginTop: 64,
   },
   iconCircle: {
@@ -497,11 +497,11 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing.gutter,
   },
   emptyTitle: {
     fontSize: 20,
-    marginBottom: 8,
+    marginBottom: Spacing.element,
     textAlign: 'center',
   },
   emptySubtitle: {
