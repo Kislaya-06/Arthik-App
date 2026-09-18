@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  LayoutAnimation, Animated, Dimensions, Alert, ActivityIndicator,
+  Animated, Dimensions, Alert, ActivityIndicator,
 } from 'react-native';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -29,6 +29,7 @@ import { applyKeypadPress } from '../lib/amountKeypad';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useTheme } from '../store/themeStore';
+import { useFormKeyboard } from '../hooks/useFormKeyboard';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 // Both AddExpense and EditExpense routes use this single component.
@@ -67,12 +68,15 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const scrollRef = useRef<ScrollView>(null);
+  const {
+    scrollRef,
+    isKeypadVisible,
+    isKeyboardOpen,
+    handleAmountPress,
+    handleNoteLayout,
+    handleNoteFocus,
+  } = useFormKeyboard();
   const noteInputRef = useRef<TextInput>(null);
-  // Tracks the Y offset of the Note section inside the ScrollView so the
-  // keyboard-show listener can scroll the note field into view (edit mode
-  // needs this because the category list adds extra height above the note).
-  const noteSectionY = useRef(0);
   const hasPrefilled = useRef(false);
 
   const [amount, setAmount] = useState('');
@@ -81,8 +85,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
-  const [isKeypadVisible, setIsKeypadVisible] = useState(true);
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleNoteChange = (text: string) => {
@@ -94,37 +96,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       setNote(text);
     }
   };
-
-  // ─── Keyboard listeners ───────────────────────────────────────────────────
-  // Using requestAnimationFrame so the scroll fires AFTER the layout has
-  // settled (matches EditExpenseScreen behaviour — more reliable on Android).
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setIsKeypadVisible(false);
-      setIsKeyboardOpen(true);
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({
-          y: Math.max(0, noteSectionY.current - 10),
-          animated: true,
-        });
-      });
-    });
-
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setIsKeypadVisible(true);
-      setIsKeyboardOpen(false);
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ y: 0, animated: true });
-      });
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   // ─── Fetch categories on mount & on focus (e.g. returning from AddEditCategory) ───
   useEffect(() => {
@@ -289,14 +260,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* ── Amount Display ── */}
       <Pressable
         style={[styles.amountContainer, isKeyboardOpen && styles.amountContainerCompact]}
-        onPress={() => {
-          Keyboard.dismiss();
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          setIsKeypadVisible(true);
-          requestAnimationFrame(() => {
-            scrollRef.current?.scrollTo({ y: 0, animated: true });
-          });
-        }}
+        onPress={handleAmountPress}
       >
         <View style={styles.amountRow}>
           <Text
@@ -417,11 +381,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
 
         {/* Note Input — onLayout tracks Y for keyboard-scroll */}
-        <View
-          onLayout={(e) => {
-            noteSectionY.current = e.nativeEvent.layout.y;
-          }}
-        >
+        <View onLayout={handleNoteLayout}>
           <View style={styles.sectionLabelRow}>
             <Text
               style={[
@@ -462,17 +422,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               style={[styles.inputText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
-              onFocus={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setIsKeypadVisible(false);
-                setIsKeyboardOpen(true);
-                requestAnimationFrame(() => {
-                  scrollRef.current?.scrollTo({
-                    y: Math.max(0, noteSectionY.current - 10),
-                    animated: true,
-                  });
-                });
-              }}
+              onFocus={handleNoteFocus}
             />
           </Pressable>
         </View>
