@@ -1,7 +1,11 @@
 # Issue 01: ErrorBoundary.tsx uses fontFamily 'monospace', violating AGENTS.md 9.2
 
-Status: ready-for-agent
+Status: closed
 Type: task
+
+## Resolution
+
+Closed in mid-September 2026: Decided the code was right and AGENTS.md was incomplete; AGENTS.md Section 9.2 was updated to explicitly permit monospace for developer diagnostic stack traces rendered under __DEV__ in ErrorBoundary. The monospace styling in ErrorBoundary must NOT be changed.
 
 ## Description
 In `src/components/ErrorBoundary.tsx` at line 147, `devErrorText` style uses `fontFamily: 'monospace'`:

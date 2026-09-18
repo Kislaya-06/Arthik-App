@@ -1,6 +1,10 @@
 # Past-day budget of 500 is overwritten when the user's current budget differs
 
-Status: in-progress
+Status: closed
+
+## Resolution Summary
+
+Resolved in mid-September 2026 (dailyBudgetStore refactor): extracted `resolveRolloverBudget` in `src/lib/budgetUtils.ts` and updated `calculatePeriodSummary` in `src/lib/homeCalculations.ts` to preserve recorded past budgets without retroactive 500 rewriting.
 
 ## Resolution (Site 1: `checkAndRollover`)
 

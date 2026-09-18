@@ -1,6 +1,10 @@
 # `ignoreDuplicates` on first day finalization silently discards savings and spending data in Supabase
 
-Status: needs-triage
+Status: closed
+
+## Resolution
+
+Resolved in mid-September 2026 (dailyBudgetStore refactor): extracted `shouldIgnoreDuplicates(status)` in `src/lib/budgetCalculations.ts` so real finalized days ('saved', 'exceeded', 'even') always overwrite existing server records, leaving only untracked days ('unknown') insert-only.
 
 ## Description
 

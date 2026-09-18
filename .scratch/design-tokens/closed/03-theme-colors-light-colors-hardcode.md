@@ -1,7 +1,11 @@
 # Issue 03: Theme.colors is hard-coded to LightColors
 
-Status: needs-triage
+Status: closed
 Type: task
+
+## Resolution
+
+Resolved in mid-September 2026 (design tokens cleanup): `Theme.colors` was completely removed from the static `Theme` object in `src/config/theme.ts`. All callers read theme colors dynamically through `useTheme()`.
 
 ## Description
 In `src/config/theme.ts`:

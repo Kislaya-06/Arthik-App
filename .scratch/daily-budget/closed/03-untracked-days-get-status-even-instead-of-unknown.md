@@ -1,6 +1,10 @@
 # Untracked zero-budget, zero-spend days receive status `'even'` instead of `'unknown'`, resetting the savings streak
 
-Status: needs-triage
+Status: closed
+
+## Resolution
+
+Resolved in mid-September 2026 (dailyBudgetStore refactor): `evaluateDayStatus` in `src/lib/budgetCalculations.ts` explicitly maps `budget <= 0` to status `'unknown'`, preserving savings streak neutrality across untracked days.
 
 ## Description
 

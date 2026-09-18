@@ -1,7 +1,11 @@
 # Issue 02: Dead Theme.borderRadius keys (.button: 28, .pill: 20) and contradiction with pill convention
 
-Status: ready-for-agent
+Status: closed
 Type: task
+
+## Resolution
+
+Resolved in mid-September 2026 (design tokens cleanup): legacy `Theme.borderRadius` was removed from `src/config/theme.ts` in favor of canonical `Theme.radius: BorderRadius` tokens.
 
 ## Description
 In `src/config/theme.ts`:
