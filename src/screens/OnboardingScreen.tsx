@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { Theme } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { useTheme } from '../store/themeStore';
 import { IndianRupee, Sparkles, Check } from 'lucide-react-native';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -241,7 +241,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Skip Button */}
       {currentSlide.showSkip && (
-        <TouchableOpacity style={[styles.skipButton, { top: insets.top + 16 }]} onPress={handlePressSkip} activeOpacity={0.7}>
+        <TouchableOpacity style={[styles.skipButton, { top: insets.top + Spacing.block }]} onPress={handlePressSkip} activeOpacity={0.7}>
           <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip</Text>
         </TouchableOpacity>
       )}
@@ -258,7 +258,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         bounces={false}
         keyExtractor={(_, index) => index.toString()}
         renderItem={({ item }) => (
-          <View style={[styles.content, { width, paddingBottom: Math.max(insets.bottom, 16) + 140 }]}>
+          <View style={[styles.content, { width, paddingBottom: Math.max(insets.bottom, Spacing.block) + 140 }]}>
             <View style={styles.illustrationWrapper}>
               {item.illustration}
             </View>
@@ -269,7 +269,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       />
 
       {/* Bottom Controls (Footer) */}
-      <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+      <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.block }]}>
         {/* Pagination indicators */}
         <View style={styles.paginationRow}>
           {slides.map((_, index) => {
@@ -317,18 +317,18 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     position: 'absolute',
-    right: 24,
+    right: Spacing.gutter,
     zIndex: 10,
   },
   skipText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#8A8FA3',
-    fontFamily: Theme.fonts.semibold,
+    fontFamily: FontFamily.semibold,
   },
   content: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   illustrationWrapper: {
     width: '100%',
@@ -338,19 +338,19 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   title: {
-    fontSize: 30,
+    fontSize: FontSize.screenTitle,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     textAlign: 'center',
     marginTop: 40,
   },
   subtitle: {
     fontSize: 18,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
-    paddingHorizontal: 32,
-    marginTop: 12,
+    paddingHorizontal: Spacing.section,
+    marginTop: Spacing.group,
     lineHeight: 26,
   },
   footerContainer: {
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
     alignItems: 'center',
     zIndex: 10,
   },
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: Spacing.section,
   },
   dot: {
     marginHorizontal: 5,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     backgroundColor: '#B8E0C8',
     paddingVertical: 18,
     alignItems: 'center',
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   // Custom Illustrations
   illContainer: {
@@ -455,9 +455,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   rupeeBadgeText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   // Slide 2 Specifics
   slide2Wrapper: {
@@ -491,18 +491,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
     maxWidth: 290,
-    marginTop: 16,
-    paddingHorizontal: 8,
+    marginTop: Spacing.block,
+    paddingHorizontal: Spacing.element,
   },
   legendCol: {
     flex: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.element,
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 4,
+    marginVertical: Spacing.micro,
   },
   legendLeft: {
     flexDirection: 'row',
@@ -514,17 +514,17 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 5,
-    marginRight: 8,
+    marginRight: Spacing.element,
   },
   legendText: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_600SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   legendPercent: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
   // Slide 3 Specifics
   circleOuterSlide3: {
