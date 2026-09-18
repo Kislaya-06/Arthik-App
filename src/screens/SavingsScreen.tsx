@@ -31,7 +31,6 @@ import { BudgetEditModal } from '../components/BudgetEditModal';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month'] as const;
-type Filter = (typeof FILTERS)[number];
 
 // ─── Main Savings Screen ──────────────────────────────────────────────────────
 export const SavingsScreen: React.FC = () => {
@@ -479,8 +478,8 @@ export const SavingsScreen: React.FC = () => {
                 style={[
                   styles.filterPill,
                   active
-                    ? [styles.filterPillActive, { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }]
-                    : [styles.filterPillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
+                    ? { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }
+                    : { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
                 activeOpacity={0.75}
               >
@@ -489,7 +488,7 @@ export const SavingsScreen: React.FC = () => {
                     styles.filterPillText,
                     active
                       ? [styles.filterPillTextActive, { color: colors.textPrimary }]
-                      : [styles.filterPillTextInactive, { color: colors.textSecondary }],
+                      : { color: colors.textSecondary },
                   ]}
                 >
                   {f}
@@ -859,8 +858,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.input,
     borderWidth: 1,
   },
-  filterPillActive: {},
-  filterPillInactive: {},
   filterPillText: {
     fontSize: 13,
     fontFamily: FontFamily.medium,
@@ -868,7 +865,6 @@ const styles = StyleSheet.create({
   filterPillTextActive: {
     fontFamily: FontFamily.bold,
   },
-  filterPillTextInactive: {},
 
   // Empty state
   emptyCard: {
