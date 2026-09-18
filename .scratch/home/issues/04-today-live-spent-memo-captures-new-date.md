@@ -1,6 +1,26 @@
 # todayLiveSpent memo captures new Date() with no day dependency
 
-Status: needs-triage
+Status: closed
+
+## Resolution & Implementation
+
+Resolved in `src/screens/HomeScreen.tsx`:
+1. Introduced `todayKey` state seeded from `format(new Date(), 'yyyy-MM-dd')`.
+2. Derived a synchronized `referenceDate = useMemo(() => parseISO(todayKey), [todayKey])`.
+3. In `useFocusEffect`, updated `todayKey` conditionally (`prev !== nowKey ? nowKey : prev`), guaranteeing zero re-renders on repeated focus during the same calendar day.
+4. Rewired all three date-dependent memos together so they cannot drift out of sync:
+   - `filtered`: uses `referenceDate` and includes `todayKey` in dependencies.
+   - `todayLiveSpent`: reads `todayKey` as `todayStr` and includes `todayKey` in dependencies.
+   - Hero summary memo: passes `referenceDate` and includes `todayKey` in dependencies.
+
+## Residual Gap (Documented)
+
+`useFocusEffect` triggers on navigation focus (switching tabs or navigating to Home). If a user leaves the app open on `HomeScreen`, locks the device overnight, and unlocks it directly onto `HomeScreen` without changing tabs, `useFocusEffect` does not fire because navigation focus remained continuous.
+In that scenario, the date rolls over on the next user interaction: switching tabs, pull-to-refresh, or recording/editing an expense. Closing this residual gap would require listening to `AppState.addEventListener('change')` for active transitions.
+
+## Cross-Reference
+
+This pattern directly addresses the same defect documented in `.scratch/savings/issues/01-filter-memo-captures-new-date.md` (`useSavingsDashboard.ts`), where `filterSavingsRecords` captures `new Date()` inside a `[pastRecords, activeFilter]` memo. That hook can adopt the identical `todayKey` pattern.
 
 ## Description
 

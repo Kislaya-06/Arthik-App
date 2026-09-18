@@ -17,7 +17,7 @@ import { Bell, ChevronRight, User } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { TransactionRow } from '../components/TransactionRow';
 import { DonutChart } from '../components/DonutChart';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary } from '../lib/homeCalculations';
 import { useAuthStore } from '../store/authStore';
@@ -54,6 +54,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const handleScroll = useScrollDirection();
 
   const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
+  const [todayKey, setTodayKey] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const referenceDate = useMemo(() => parseISO(todayKey), [todayKey]);
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
@@ -86,6 +88,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
+      const nowKey = format(new Date(), 'yyyy-MM-dd');
+      setTodayKey((prev) => (prev !== nowKey ? nowKey : prev));
       loadData(false);
     }, [loadData])
   );
@@ -111,8 +115,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
 
   const filtered = useMemo(
-    () => filterExpenses(expenses, activeFilter, new Date(), userCreatedAtStr),
-    [expenses, activeFilter, userCreatedAtStr]
+    () => filterExpenses(expenses, activeFilter, referenceDate, userCreatedAtStr),
+    [expenses, activeFilter, userCreatedAtStr, todayKey]
   );
 
   const { totalIncome, totalSpent } = useMemo(() => {
@@ -161,7 +165,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const todayBudget = todayRecord.budget;
   // Calculate today's spent directly from expenses for today to guarantee 0-lag live reactivity
   const todayLiveSpent = useMemo(() => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayStr = todayKey;
     let spent = 0;
     for (let i = 0; i < expenses.length; i++) {
       const e = expenses[i];
@@ -173,7 +177,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }
     }
     return spent;
-  }, [expenses, catMap]);
+  }, [expenses, catMap, todayKey]);
 
   const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
   const todayRemaining = Math.max(0, todayBudget - todayRecordSpent);
@@ -201,9 +205,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         totalSpent,
         filtered,
         userCreatedAtStr,
-        referenceDate: new Date(),
+        referenceDate,
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey]
   );
 
   return (
