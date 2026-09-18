@@ -1,6 +1,11 @@
 # amount keypad's 9-character ceiling counts the whole string, not digits
 
-Status: needs-triage
+Status: closed
+
+## Resolution
+
+Resolved in `src/lib/amountKeypad.ts`.
+Introduced decoupled `KeypadRules` interface with default 9 integer digits and 2 decimals. Integer and decimal lengths are enforced independently: reaching the 9-digit integer limit never blocks entering a decimal point or paise, and decimal entries do not eat into integer capacity. Verified by tests in `tests/amountKeypad.test.ts`.
 
 ## Description
 
