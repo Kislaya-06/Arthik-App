@@ -93,8 +93,18 @@ export const calculateSavingsMetrics = (
 
   let maxStreak = 0;
   let currentRun = 0;
+  // Invariant: maxStreak cannot exceed confirmedSavedDays because both are computed
+  // over the same post-registration set. If maxStreak ever exceeds confirmedSavedDays,
+  // a filter has drifted and should be investigated/fixed rather than clamped away.
   const finalizedSavedRecords = Object.values(records)
-    .filter((r) => r.isFinalized && r.date < todayStr && r.status === 'saved' && (r.saved || 0) > 0)
+    .filter(
+      (r) =>
+        r.isFinalized &&
+        r.date < todayStr &&
+        r.status === 'saved' &&
+        (r.saved || 0) > 0 &&
+        (!userCreatedAt || r.date >= userCreatedAt)
+    )
     .sort((a, b) => a.date.localeCompare(b.date));
 
   for (let i = 0; i < finalizedSavedRecords.length; i++) {
@@ -133,6 +143,8 @@ export const calculateSavingsMetrics = (
 
   if (confirmedSavedDays === 0) {
     streak = 0;
+    // Redundant given the post-registration filter on finalizedSavedRecords,
+    // kept as a harmless explicit statement of the invariant.
     maxStreak = 0;
   } else if (streak > confirmedSavedDays) {
     streak = confirmedSavedDays;
