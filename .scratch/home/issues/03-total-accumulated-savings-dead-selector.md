@@ -1,6 +1,10 @@
 # totalAccumulatedSavings is a dead selector in HomeScreen
 
-Status: needs-triage
+Status: closed
+
+## Resolution
+
+Confirmed that `totalAccumulatedSavings` was never read anywhere in `HomeScreen.tsx` (neither in JS calculations nor in JSX). Removed the dead Zustand subscription from `HomeScreen.tsx`, preventing unnecessary whole-tree re-renders whenever Gullak savings recalculates.
 
 ## Description
 

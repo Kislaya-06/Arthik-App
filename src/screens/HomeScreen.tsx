@@ -57,7 +57,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
-  const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);

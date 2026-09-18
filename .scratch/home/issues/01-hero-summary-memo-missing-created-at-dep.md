@@ -6,6 +6,12 @@ Status: closed
 
 Resolved by adding `userCreatedAtStr` to the dependency array of the hero summary memo in `src/screens/HomeScreen.tsx` (line 207). When `authStore` finishes hydrating `user` on cold start / mount, the memo now reliably recomputes, eliminating the stale registration boundary calculation.
 
+## Architectural Note: The `filtered` Dependency Masking Effect
+
+Ticket A's bug was partially masked by the `filtered` dependency on the hero memo, because `filtered` (at `HomeScreen.tsx:116`) already depended on `userCreatedAtStr`. When `filtered` produced a new array reference upon `userCreatedAtStr` changing, the hero memo recomputed via `filtered`.
+
+However, if `expenses` was empty (`[]`) or if `filtered` was ever refactored out as redundant, the memo would stay stale. Crucially: removing `filtered` as "redundant" would have been a behaviour change, not a cleanup. With `userCreatedAtStr` now explicitly in the dependency array, the memo directly declares its boundary dependency, but `filtered` must remain until/unless the 'All' filter's consumption of `params.filtered` is redesigned.
+
 ## Description
 
 In `src/screens/HomeScreen.tsx` (lines 385–558), the Hero Summary Card memo reads `user?.created_at` at line 391:
