@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
-import { useDailyBudgetStore, registerExpenseGetter } from './dailyBudgetStore';
+import { useDailyBudgetStore, registerExpenseGetter, registerExpensesLoadedGetter } from './dailyBudgetStore';
 import { useNetworkStore, registerSyncCallback } from './networkStore';
 
 export interface Expense {
@@ -32,6 +32,7 @@ export interface FailedSyncItem {
 interface ExpenseState {
   expenses: Expense[];
   loading: boolean;
+  isExpensesLoaded: boolean;
   transactionType: 'expense' | 'income';
   failedSyncItems: FailedSyncItem[];
   setTransactionType: (type: 'expense' | 'income') => void;
@@ -211,6 +212,7 @@ export const isNetworkFailure = (error: any): boolean => {
 export const useExpenseStore = create<ExpenseState>((set, get) => ({
   expenses: [],
   loading: false,
+  isExpensesLoaded: false,
   transactionType: 'expense',
   failedSyncItems: [],
 
@@ -219,7 +221,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   },
 
   resetExpenses: () => {
-    set({ expenses: [], loading: false, transactionType: 'expense', failedSyncItems: [] });
+    set({ expenses: [], loading: false, isExpensesLoaded: false, transactionType: 'expense', failedSyncItems: [] });
   },
 
   loadFailedSyncItems: async () => {
@@ -769,7 +771,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         });
 
       const combined = [...activePendingAdds, ...reconciledFetched];
-      set({ expenses: combined });
+      set({ expenses: combined, isExpensesLoaded: true });
 
       // Cache expenses for offline resilience
       await AsyncStorage.setItem(getCachedStorageKey(user.id), JSON.stringify(reconciledFetched));
@@ -782,12 +784,15 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       // Offline fallback: load cached expenses if available
       try {
         const cached = await AsyncStorage.getItem(getCachedStorageKey(user.id));
-        if (cached) {
+        if (cached !== null) {
           const parsed: Expense[] = JSON.parse(cached);
           const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
           const combined = [...pending, ...parsed];
-          set({ expenses: combined });
+          set({ expenses: combined, isExpensesLoaded: true });
           useDailyBudgetStore.getState().syncWithExpenses(combined);
+        } else {
+          // Network failed and no cache exists: leave isExpensesLoaded as false so rollover notification does not fire with false data!
+          useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
         }
       } catch (cacheErr) {
         if (__DEV__) console.log('Error reading cached expenses:', cacheErr);
@@ -1080,6 +1085,7 @@ registerStoreResetCallback(() => {
 });
 
 registerExpenseGetter(() => useExpenseStore.getState().expenses);
+registerExpensesLoadedGetter(() => useExpenseStore.getState().isExpensesLoaded);
 
 export const getPendingSyncCount = async (userId: string): Promise<number> => {
   try {

@@ -12,6 +12,20 @@ export const registerExpenseGetter = (getter: () => Expense[]) => {
 export const getCurrentExpenses = (): Expense[] => {
   return expenseGetter ? expenseGetter() : [];
 };
+
+let expensesLoadedGetter: (() => boolean) | null = null;
+export const registerExpensesLoadedGetter = (getter: () => boolean) => {
+  expensesLoadedGetter = getter;
+};
+export const areExpensesLoaded = (): boolean => {
+  if (expensesLoadedGetter) {
+    return expensesLoadedGetter();
+  }
+  if (__DEV__) {
+    console.warn('[dailyBudgetStore] areExpensesLoaded called before registerExpensesLoadedGetter was registered. Defaulting to false.');
+  }
+  return false;
+};
 import { useCategoryStore, Category } from './categoryStore';
 import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
@@ -44,6 +58,7 @@ import {
   buildDefaultTodayRecord,
   filterPastRecords,
   shouldIgnoreDuplicates,
+  shouldSendRolloverNotification,
 } from '../lib/budgetCalculations';
 export type { DailyRecord, SavingsMetrics, DayStatus, DayEvaluation };
 export {
@@ -54,6 +69,7 @@ export {
   buildDefaultTodayRecord,
   filterPastRecords,
   shouldIgnoreDuplicates,
+  shouldSendRolloverNotification,
 };
 
 const getUserCreatedAtStr = (): string | undefined =>
@@ -579,10 +595,17 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               // Ignore offline/auth errors; needsUpload remains true
             }
 
-            // Trigger notification for yesterday's savings rollover on initial rollover only.
-            // skipRolloverNotification=true when called from hydrateFromSupabase (stale local expenses)
-            // so notification only fires after fresh expenses are loaded via syncWithExpenses.
-            if (d === yesterdayStr && saved > 0 && wasUnfinalized && !skipRolloverNotification && get().lastRolloverNotifiedDate !== d) {
+            // Trigger notification for yesterday's savings rollover once confirmed expenses are loaded.
+            const shouldNotify = shouldSendRolloverNotification({
+              date: d,
+              yesterdayStr,
+              saved,
+              isExpensesLoaded: areExpensesLoaded(),
+              skipRolloverNotification,
+              lastRolloverNotifiedDate: get().lastRolloverNotifiedDate,
+            });
+
+            if (shouldNotify) {
               const title = '🎉 Daily Savings Rollover!';
               const body = `Superb! You saved ₹${Math.round(saved)} yesterday. It has been deposited into your Savings Gullak!`;
 
