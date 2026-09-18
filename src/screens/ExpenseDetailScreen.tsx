@@ -14,6 +14,7 @@ import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
 
@@ -37,11 +38,11 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return (
       <View style={[styles.notFoundContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
-        <Text style={[styles.notFoundText, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+        <Text style={[styles.notFoundText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
           Expense not found
         </Text>
         <Pressable onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mint }]}>
-          <Text style={[styles.backButtonText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.backButtonText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
             Go Back
           </Text>
         </Pressable>
@@ -94,7 +95,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
               <ArrowLeft size={24} color={colors.textPrimary} />
             </Pressable>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               {isIncome ? 'Transaction Detail' : 'Expense Detail'}
             </Text>
           </View>
@@ -102,7 +103,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Pressable onPress={handleEdit} hitSlop={10}>
               <SquarePen size={20} color={colors.textPrimary} />
             </Pressable>
-            <Pressable onPress={handleDelete} hitSlop={10} style={{ marginLeft: 16 }}>
+            <Pressable onPress={handleDelete} hitSlop={10} style={{ marginLeft: Spacing.block }}>
               <Trash2 size={20} color={colors.coral} />
             </Pressable>
           </View>
@@ -112,7 +113,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+            { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section },
           ]}
         >
 
@@ -121,7 +122,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={[styles.badgeOuter, { backgroundColor: categoryBgColor }]}>
               <CategoryIcon size={44} color={categoryColor} />
             </View>
-            <Text style={[styles.badgeText, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+            <Text style={[styles.badgeText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
               {category?.name || (isIncome ? 'Money Added' : 'Unknown')}
             </Text>
           </View>
@@ -129,8 +130,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Amount Display */}
           <View style={styles.amountContainer}>
             <View style={styles.amountRow}>
-              <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>₹</Text>
-              <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>₹</Text>
+              <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
                 {expense.amount.toLocaleString('en-IN')}
               </Text>
             </View>
@@ -139,7 +140,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
             <View style={[styles.typeBadgePill, { backgroundColor: isIncome ? colors.mintGreenSoft : colors.peachSoft }]}>
-              <Text style={[styles.typeBadgeText, { color: isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : (isDark ? colors.peachCoral : '#D97757'), fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.typeBadgeText, { color: isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : (isDark ? colors.peachCoral : '#D97757'), fontFamily: FontFamily.bold }]}>
                 {isIncome ? 'INCOME' : 'EXPENSE'}
               </Text>
             </View>
@@ -156,18 +157,18 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           ]}>
             {/* Date Row */}
             <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
-              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Date</Text>
-              <Text style={[styles.cardValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>{formattedDate}</Text>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>Date</Text>
+              <Text style={[styles.cardValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{formattedDate}</Text>
             </View>
 
             {/* Paid Via Row */}
             <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
-              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                 {isIncome ? 'Added via' : 'Paid via'}
               </Text>
               <View style={styles.paidViaContainer}>
                 <PaymentIcon size={14} color={colors.textPrimary} />
-                <Text style={[styles.cardValue, { color: colors.textPrimary, marginLeft: 6, fontFamily: 'Quicksand_700Bold' }]}>
+                <Text style={[styles.cardValue, { color: colors.textPrimary, marginLeft: 6, fontFamily: FontFamily.bold }]}>
                   {paymentLabel.toUpperCase()}
                 </Text>
               </View>
@@ -175,17 +176,17 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
             {/* Note Row */}
             <View style={[styles.cardRow, styles.cardRowLast, styles.noteRow]}>
-              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>Note</Text>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>Note</Text>
               {expense.note ? (
                 <Text
-                  style={[styles.noteValue, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}
+                  style={[styles.noteValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
                   numberOfLines={4}
                   ellipsizeMode="tail"
                 >
                   {expense.note}
                 </Text>
               ) : (
-                <Text style={[styles.notePlaceholder, { color: colors.textTertiary, fontFamily: 'Quicksand_500Medium', fontStyle: 'italic' }]}>
+                <Text style={[styles.notePlaceholder, { color: colors.textTertiary, fontFamily: FontFamily.medium, fontStyle: 'italic' }]}>
                   No note added
                 </Text>
               )}
@@ -195,12 +196,12 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Bottom Actions */}
           <View style={styles.actionsContainer}>
             <Pressable onPress={handleEdit} style={[styles.editButton, { backgroundColor: colors.mint }]}>
-              <Text style={[styles.editButtonText, { color: colors.forestGreen, fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.editButtonText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
                 Edit Expense
               </Text>
             </Pressable>
             <Pressable onPress={handleDelete} style={styles.deleteLink}>
-              <Text style={[styles.deleteLinkText, { color: colors.coral, fontFamily: 'Quicksand_700Bold' }]}>
+              <Text style={[styles.deleteLinkText, { color: colors.coral, fontFamily: FontFamily.bold }]}>
                 Delete Expense
               </Text>
             </Pressable>
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   notFoundContainer: {
     flex: 1,
@@ -228,29 +229,29 @@ const styles = StyleSheet.create({
   },
   notFoundText: {
     fontSize: 18,
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   backButtonFallback: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
+    paddingVertical: Spacing.group,
+    paddingHorizontal: Spacing.gutter,
+    borderRadius: BorderRadius.card,
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: Spacing.block,
+    marginBottom: Spacing.element,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerTitle: {
-    marginLeft: 16,
+    marginLeft: Spacing.block,
     fontSize: 20,
     color: '#1A2B4C',
   },
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
   },
   badgeContainer: {
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: Spacing.section,
   },
   badgeOuter: {
     width: 112,
@@ -272,22 +273,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: Spacing.block,
+    fontSize: FontSize.body,
     color: '#8A8FA3',
   },
   amountContainer: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   currencySymbol: {
-    fontSize: 30,
+    fontSize: FontSize.screenTitle,
     color: '#1A2B4C',
-    marginRight: 4,
+    marginRight: Spacing.micro,
   },
   amountValue: {
     fontSize: 60,
@@ -295,25 +296,25 @@ const styles = StyleSheet.create({
   },
   typeBadgeContainer: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   typeBadgePill: {
     backgroundColor: '#FDEEE4',
-    borderRadius: 9999,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.element,
   },
   typeBadgeText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#E8956A',
     letterSpacing: 1,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    marginTop: 32,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    borderRadius: BorderRadius.card,
+    marginTop: Spacing.section,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.element,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: Spacing.block,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F1F4',
   },
@@ -332,11 +333,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   cardLabel: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#8A8FA3',
   },
   cardValue: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#1A2B4C',
   },
   paidViaContainer: {
@@ -347,26 +348,26 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   noteValue: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#1A2B4C',
     textAlign: 'right',
-    marginLeft: 16,
+    marginLeft: Spacing.block,
     flex: 1,
   },
   notePlaceholder: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     color: '#B0B4C0',
     textAlign: 'right',
-    marginLeft: 16,
+    marginLeft: Spacing.block,
     flex: 1,
   },
   actionsContainer: {
-    marginTop: 32,
+    marginTop: Spacing.section,
   },
   editButton: {
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     backgroundColor: '#B8E0C8',
-    paddingVertical: 20,
+    paddingVertical: Spacing.surface,
     alignItems: 'center',
   },
   editButtonText: {
@@ -375,11 +376,11 @@ const styles = StyleSheet.create({
   },
   deleteLink: {
     alignItems: 'center',
-    marginTop: 16,
-    paddingVertical: 8,
+    marginTop: Spacing.block,
+    paddingVertical: Spacing.element,
   },
   deleteLinkText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#F4B8AE',
   },
 });
