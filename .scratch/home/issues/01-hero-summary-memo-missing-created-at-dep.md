@@ -1,6 +1,10 @@
 # hero summary memo is missing userCreatedAtStr in its deps
 
-Status: needs-triage
+Status: closed
+
+## Resolution
+
+Resolved by adding `userCreatedAtStr` to the dependency array of the hero summary memo in `src/screens/HomeScreen.tsx` (line 207). When `authStore` finishes hydrating `user` on cold start / mount, the memo now reliably recomputes, eliminating the stale registration boundary calculation.
 
 ## Description
 

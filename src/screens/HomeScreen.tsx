@@ -204,7 +204,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         userCreatedAtStr,
         referenceDate: new Date(),
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr]
   );
 
   return (
