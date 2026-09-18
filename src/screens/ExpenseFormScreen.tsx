@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useRef } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  Animated, Dimensions, Alert, ActivityIndicator,
+  ActivityIndicator,
 } from 'react-native';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,33 +18,25 @@ import {
   EXPENSE_PAYMENT_OPTIONS,
   INCOME_PAYMENT_OPTIONS,
 } from '../components/BouncyPaymentToggle';
-import { format, parseISO } from 'date-fns';
-import { useExpenseStore } from '../store/expenseStore';
-import { useCategoryStore, Category } from '../store/categoryStore';
-import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { Category } from '../store/categoryStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
-import { formatDate, formatAmountWithCommas } from '../lib/formatters';
-import { applyKeypadPress } from '../lib/amountKeypad';
+import { formatAmountWithCommas } from '../lib/formatters';
 import { getCategoryIcon } from '../lib/iconUtils';
-import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useTheme } from '../store/themeStore';
 import { useFormKeyboard } from '../hooks/useFormKeyboard';
+import {
+  useExpenseForm,
+  MAX_NOTE_WORDS,
+  MAX_NOTE_CHARS,
+  countWords,
+} from '../hooks/useExpenseForm';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 // Both AddExpense and EditExpense routes use this single component.
 type Props =
   | NativeStackScreenProps<RootStackParamList, 'AddExpense'>
   | NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
-
-
-const MAX_NOTE_WORDS = 50;
-const MAX_NOTE_CHARS = 250;
-
-const countWords = (text: string) => {
-  const trimmed = text.trim();
-  return trimmed ? trimmed.split(/\s+/).length : 0;
-};
 
 
 const KEYPAD_ROWS = [
@@ -55,18 +47,9 @@ const KEYPAD_ROWS = [
 ];
 
 export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
-  const isEdit = route.name === 'EditExpense';
-  const expenseId = isEdit ? (route.params as { expenseId: string }).expenseId : undefined;
-
-  const addExpense = useExpenseStore((s) => s.addExpense);
-  const updateExpense = useExpenseStore((s) => s.updateExpense);
-  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
-  // expenses is only read in edit mode to pre-fill the form
-  const expenses = useExpenseStore((s) => s.expenses);
-  const categories = useCategoryStore((s) => s.categories);
-  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const noteInputRef = useRef<TextInput>(null);
 
   const {
     scrollRef,
@@ -76,156 +59,32 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleNoteLayout,
     handleNoteFocus,
   } = useFormKeyboard();
-  const noteInputRef = useRef<TextInput>(null);
-  const hasPrefilled = useRef(false);
 
-  const [amount, setAmount] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [note, setNote] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleNoteChange = (text: string) => {
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    if (words.length > MAX_NOTE_WORDS) {
-      const clamped = text.split(/\s+/).slice(0, MAX_NOTE_WORDS).join(' ');
-      setNote(clamped);
-    } else {
-      setNote(text);
-    }
-  };
-
-  // ─── Fetch categories on mount & on focus (e.g. returning from AddEditCategory) ───
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchCategories(true);
-    });
-    return unsubscribe;
-  }, [navigation, fetchCategories]);
-
-  // ─── Pre-fill form when editing an existing expense (P1.7: once only via ref) ───
-  useEffect(() => {
-    if (hasPrefilled.current) return;
-
-    if (!isEdit || !expenseId) {
-      setTransactionType('expense');
-      hasPrefilled.current = true;
-      return;
-    }
-
-    const currentExpense = expenses.find((e) => e.id === expenseId);
-    if (currentExpense) {
-      setAmount(currentExpense.amount.toString());
-      setSelectedCategoryId(currentExpense.category_id || null);
-      setNote(currentExpense.note || '');
-      setSelectedDate(parseISO(currentExpense.expense_date));
-      setPaymentMode(currentExpense.payment_mode);
-      setTransactionType(currentExpense.type === 'income' ? 'income' : 'expense');
-      hasPrefilled.current = true;
-    }
-  }, [isEdit, expenseId, expenses]);
-
-  // ─── Toggle transaction type handler ──────────────────────────────────────
-  const handleTypeChange = useCallback(
-    (type: 'expense' | 'income') => {
-      setTransactionType(type);
-      // Auto-fallback: Card is excluded in Add Money mode
-      if (type === 'income' && paymentMode === 'card') {
-        setPaymentMode('upi');
-      }
-    },
-    [paymentMode]
-  );
-
-  // ─── Keypad handler ───────────────────────────────────────────────────────
-  const handleKeyPress = useCallback((val: string) => {
-    setAmount((prev) => applyKeypadPress(prev, val));
-  }, []);
-
-  const isCategoriesLoading = useCategoryStore((s) => s.loading);
-  const isCategoriesFetched = useCategoryStore((s) => s.isFetched);
-  const areCategoriesPlaceholder = !isCategoriesFetched || categories.some((c) => c.isPlaceholder);
-
-  // ─── Save / Update ────────────────────────────────────────────────────────
-  const handleSave = async () => {
-    if (isSubmitting) return;
-
-    const numAmount = parseFloat(amount);
-    const selectedCat = categories.find((c) => c.id === selectedCategoryId);
-    const isCategorySelectedAndReal =
-      transactionType === 'income' ||
-      (selectedCategoryId !== null && selectedCat && !selectedCat.isPlaceholder);
-
-    const isValid = numAmount > 0 && isCategorySelectedAndReal;
-    if (!isValid) {
-      if (transactionType === 'expense') {
-        if (areCategoriesPlaceholder) {
-          Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
-        } else if (categories.length === 0) {
-          Alert.alert('No Category', 'Please create a category first to add an expense.');
-        }
-      }
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    // P1.6: Income saves with category_id = null (no keyword guessing)
-    const categoryIdToSave = transactionType === 'income' ? null : selectedCategoryId;
-
-    const trimmedNote = note.trim();
-    const clampedNote = trimmedNote
-      ? trimmedNote.split(/\s+/).slice(0, MAX_NOTE_WORDS).join(' ').slice(0, MAX_NOTE_CHARS)
-      : '';
-
-    try {
-      if (isEdit && expenseId) {
-        await updateExpense(
-          expenseId,
-          numAmount,
-          categoryIdToSave,
-          clampedNote,
-          paymentMode,
-          dateStr,
-          transactionType
-        );
-      } else {
-        await addExpense(
-          numAmount,
-          categoryIdToSave,
-          clampedNote,
-          paymentMode,
-          dateStr,
-          transactionType
-        );
-      }
-      // Keep daily budget and smart notifications in sync
-      const currentExpenses = useExpenseStore.getState().expenses;
-      useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
-
-      navigation.goBack();
-    } catch (e: any) {
-      setIsSubmitting(false);
-      Alert.alert('Error', e?.message || 'Could not save transaction. Please try again.');
-    }
-  };
-
-  const formattedDate = formatDate(selectedDate, true);
-  const numAmount = parseFloat(amount || '0');
-  const selectedCat = categories.find((c) => c.id === selectedCategoryId);
-  const isCategorySelectedAndReal =
-    transactionType === 'income' ||
-    (selectedCategoryId !== null && selectedCat && !selectedCat.isPlaceholder);
-
-  const isSaveEnabled =
-    numAmount > 0 && isCategorySelectedAndReal && !isSubmitting;
+  const {
+    amount,
+    transactionType,
+    selectedCategoryId,
+    note,
+    selectedDate,
+    formattedDate,
+    paymentMode,
+    isEdit,
+    isSubmitting,
+    isSaveEnabled,
+    showDatePicker,
+    categories,
+    isCategoriesLoading,
+    areCategoriesPlaceholder,
+    isCategoriesFetched,
+    handleTypeChange,
+    handleKeyPress,
+    handleCategorySelect,
+    handleNoteChange,
+    handleDateConfirm,
+    setShowDatePicker,
+    setPaymentMode,
+    handleSave,
+  } = useExpenseForm({ route, navigation });
 
   return (
     <KeyboardAvoidingView
@@ -350,7 +209,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                         disabled={isPlaceholder}
                         onPress={() => {
                           if (!isPlaceholder) {
-                            setSelectedCategoryId(cat.id);
+                            handleCategorySelect(cat.id);
                           }
                         }}
                         style={[
@@ -447,7 +306,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           visible={showDatePicker}
           value={selectedDate}
           maxDate={new Date()}
-          onConfirm={(date) => setSelectedDate(date)}
+          onConfirm={handleDateConfirm}
           onClose={() => setShowDatePicker(false)}
         />
 
