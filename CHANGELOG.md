@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Startup Period Budget Accuracy:** Fixed an issue where weekly and monthly totals could briefly show more budget than you actually had right after opening the app.
 - **First-Day Savings Sync:** Finalized savings metrics on a day's first rollover are now reliably preserved in the cloud even if a placeholder record was already present.
 - **Midnight Boundary Refresh:** Date-dependent calculations, live spending, and filters on the home screen now update immediately upon returning to the app after midnight.
+- **Nightly Savings Notification Accuracy:** The nightly savings notification no longer claims you saved your full daily budget (e.g. "You saved ₹100") on days you spent money. It now accurately reflects what you actually saved.
 
 ### ⚙️ Internal
 - Code reorganization, architectural decomposition, and comprehensive test coverage across budget calculations, home calculations, and expense form modules.
