@@ -131,8 +131,8 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
             {category.name}
           </Text>
         </View>
-        {/* Spacer to balance the back button */}
-        <View style={{ width: Spacing.gutter }} />
+        {/* Spacer to balance the back button — literal 24 tracks ArrowLeft icon size, not Spacing.gutter */}
+        <View style={{ width: 24 }} />
       </View>
 
       {/* Summary Card */}
