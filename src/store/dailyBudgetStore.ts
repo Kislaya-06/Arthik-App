@@ -12,24 +12,25 @@ export const registerExpenseGetter = (getter: () => Expense[]) => {
 export const getCurrentExpenses = (): Expense[] => {
   return expenseGetter ? expenseGetter() : [];
 };
-import { useCategoryStore } from './categoryStore';
+import { useCategoryStore, Category } from './categoryStore';
 import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
-import { DEFAULT_INCOME_KEYWORDS } from '../lib/paymentUtils';
+import { isIncomeTransaction } from '../lib/paymentUtils';
 import { resolveHydratedDayBudget } from '../lib/budgetUtils';
 
-const getIncomeCategoryIds = (): Set<string> => {
-  const cats = useCategoryStore.getState().categories;
-  const incomeIds = new Set<string>();
-  for (let i = 0; i < cats.length; i++) {
-    const name = cats[i].name.toLowerCase();
-    if (DEFAULT_INCOME_KEYWORDS.some((kw) => name.includes(kw))) {
-      incomeIds.add(cats[i].id);
-    }
+const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
+  const categories = useCategoryStore.getState().categories;
+  const categoryMap = new Map<string, Category>();
+  for (let i = 0; i < categories.length; i++) {
+    categoryMap.set(categories[i].id, categories[i]);
   }
-  return incomeIds;
+  return (e: Expense): boolean => {
+    const cat = e.category_id ? categoryMap.get(e.category_id) : undefined;
+    return isIncomeTransaction(e, cat);
+  };
 };
+
 
 import {
   DailyRecord,
@@ -317,9 +318,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       syncWithExpenses: (expenses: Expense[]) => {
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
-        const incomeIds = getIncomeCategoryIds();
-        const isIncomeFn = (e: Expense): boolean =>
-          e.type === 'income' || (e.type !== 'expense' && !!e.category_id && incomeIds.has(e.category_id));
+        const isIncomeFn = buildCategoryClassifier();
 
         const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
 
@@ -424,11 +423,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
-        const incomeIds = getIncomeCategoryIds();
         let updated = false;
 
-        const isIncomeFn = (e: Expense): boolean =>
-          e.type === 'income' || (e.type !== 'expense' && !!e.category_id && incomeIds.has(e.category_id));
+        const isIncomeFn = buildCategoryClassifier();
 
         // 1. Group all non-income expenses by date in a single O(N) pass
         const spentByDate = computeSpentByDate(expenses, isIncomeFn);
@@ -764,9 +761,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           // If the user's resolved budget is 500 (the default migration/reset value), inspect their
           // historical savings logs & real expenses to detect if their original budget was different.
           const currentExpenses = getCurrentExpenses();
-          const incomeIds = getIncomeCategoryIds();
-          const isIncomeFn = (e: Expense): boolean =>
-            e.type === 'income' || (e.type !== 'expense' && !!e.category_id && incomeIds.has(e.category_id));
+          const isIncomeFn = buildCategoryClassifier();
           const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
 
           let wasRepairedFromHistory = false;
