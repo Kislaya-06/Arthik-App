@@ -1,6 +1,67 @@
 # Past-day budget of 500 is overwritten when the user's current budget differs
 
-Status: needs-triage
+Status: in-progress
+
+## Resolution (Site 1: `checkAndRollover`)
+
+Resolved in `src/store/dailyBudgetStore.ts` and `src/lib/budgetUtils.ts`.
+Extracted `resolveRolloverBudget` pure function and eliminated the 500-sentinel rewrite. Past days finalized with budget 500 are preserved as recorded, preventing retroactive corruption of streaks and Gullak savings when the user's current allowance changes. Verified by characterization tests in `tests/budgetUtils.test.ts`.
+
+## Resolution (Site 3A: `calculatePeriodSummary` Budget Accumulation)
+
+Resolved in `src/lib/homeCalculations.ts` (lines 140–143).
+Removed the retroactive budget rewrite in the 'All' filter period budget accumulation. Recorded past budgets are now counted as recorded, ensuring the hero summary card accurately reflects the user's historical allowance. Verified by characterization tests in `tests/homeCalculations.test.ts`.
+
+## Trade-off: Site 3B Zero-Spend ₹500 Skip in `calculatePeriodSummary` (Deliberate Trade-Off, Not a Fix)
+
+**Location**: [`src/lib/homeCalculations.ts:118-120`](file:///d:/Arthik-App/src/lib/homeCalculations.ts#L118-L120)
+```typescript
+// Skip phantom zero-spend 500 days from periodDates (Sentinel site 3, Issue 01)
+if (dailyRecords[d]?.spent === 0 && dailyRecords[d]?.budget === 500 && dailyRecords[d]?.saved === 500) {
+  return;
+}
+```
+
+- **What it does**: In the 'All' filter date aggregation loop of `calculatePeriodSummary`, this check explicitly excludes any day record matching the signature `spent === 0 && budget === 500 && saved === 500` from being added to `periodDates`.
+- **Who it still hurts**: A genuine ₹500 daily-budget user who spent nothing on a day produces this exact signature (`spent: 0, budget: 500, saved: 500`). Because client-side records lack creation timestamps, there is no way to distinguish their legitimate zero-spend days from synthetic phantom rows (proven in step 6). As a result, legitimate ₹500 users have their real zero-spend days silently missing from the 'All' filter's day count in the hero subtext (e.g. "for X days") and excluded from the total budget pool (`periodBudget`).
+- **Why we kept it anyway**: Without this client-side guardrail, the synthetic phantom rows inserted by the 35-day backfill loop during the 2026-09-16 window leak back into the 'All' filter totals. For an inactive user who never configured a budget or spent money, their 'All' filter would falsely display an inflated budget pool of ₹17,500+ across 35+ non-existent tracking days.
+- **Exit Path (What allows safe removal)**: A one-time SQL cleanup of phantom records in Supabase using the `created_at` timestamp within the known backfill bug window. In the database, legitimate rows and backfill glitch rows are cleanly separable by timestamp. Once those orphaned phantom rows are purged from Supabase, this guardrail has nothing left to guard and can be deleted from `src/lib/homeCalculations.ts`.
+
+### Remediation SQL (Drafted in Step 6)
+
+The backfill window is:
+- **Start**: `2026-09-16 13:51:18+05:30` (Commit `d375bc2` introducing the backfill loop)
+- **End**: `2026-09-17 00:36:56+05:30` (Commit `010ea38` terminating the backfill loop)
+
+#### 1. Preview Count Query (Run first in Supabase SQL Editor)
+```sql
+SELECT count(*) AS phantom_rows_count
+FROM public.daily_savings_log
+WHERE created_at >= '2026-09-16 13:51:18+05:30'
+  AND created_at <= '2026-09-17 00:36:56+05:30'
+  AND budget_amount = 500
+  AND (spent_amount = 0 OR spent_amount IS NULL);
+```
+
+#### 2. Optional: Inspect Matching Rows
+```sql
+SELECT id, user_id, date, amount_saved, spent_amount, budget_amount, created_at
+FROM public.daily_savings_log
+WHERE created_at >= '2026-09-16 13:51:18+05:30'
+  AND created_at <= '2026-09-17 00:36:56+05:30'
+  AND budget_amount = 500
+  AND (spent_amount = 0 OR spent_amount IS NULL)
+ORDER BY created_at ASC;
+```
+
+#### 3. Targeted Deletion Query
+```sql
+DELETE FROM public.daily_savings_log
+WHERE created_at >= '2026-09-16 13:51:18+05:30'
+  AND created_at <= '2026-09-17 00:36:56+05:30'
+  AND budget_amount = 500
+  AND (spent_amount = 0 OR spent_amount IS NULL);
+```
 
 ## Description
 

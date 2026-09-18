@@ -203,7 +203,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.totalAvailable).toBe(1000); // 500 + 500
     });
 
-    it('rewrites past day budget 500 to dailyBudgetAmount when user changed budget', () => {
+    it('past day with budget 500, current allowance 200 -> untouched (700 total)', () => {
       const dailyRecords: Record<string, DailyRecord> = {
         '2026-09-12': { date: '2026-09-12', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
       };
@@ -220,8 +220,70 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
         userCreatedAtStr: '2026-09-01',
       });
 
-      // Past record had budget 500, rewritten to current 200. Today is 200. Total = 400.
-      expect(result.totalAvailable).toBe(400);
+      // Past record had budget 500, preserved as recorded. Today is 200. Total = 700.
+      expect(result.totalAvailable).toBe(700);
+    });
+
+    it('past day with budget 500, current allowance 500 -> untouched (1000 total)', () => {
+      const dailyRecords: Record<string, DailyRecord> = {
+        '2026-09-12': { date: '2026-09-12', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
+      };
+
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        dailyBudgetAmount: 500,
+        todayBudget: 500,
+        dailyRecords,
+        filtered: [{ expense_date: '2026-09-12' }],
+        totalSpent: 100,
+        totalIncome: 0,
+        userCreatedAtStr: '2026-09-01',
+      });
+
+      expect(result.totalAvailable).toBe(1000); // 500 today + 500 past
+    });
+
+    it('past day with budget 300, current allowance 200 -> untouched (500 total)', () => {
+      const dailyRecords: Record<string, DailyRecord> = {
+        '2026-09-12': { date: '2026-09-12', budget: 300, spent: 100, saved: 200, isFinalized: true, status: 'saved' },
+      };
+
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        dailyBudgetAmount: 200,
+        todayBudget: 200,
+        dailyRecords,
+        filtered: [{ expense_date: '2026-09-12' }],
+        totalSpent: 100,
+        totalIncome: 0,
+        userCreatedAtStr: '2026-09-01',
+      });
+
+      expect(result.totalAvailable).toBe(500); // 200 today + 300 past
+    });
+
+    it('past day with budget 500, current allowance 0 -> untouched (500 total)', () => {
+      const dailyRecords: Record<string, DailyRecord> = {
+        '2026-09-12': { date: '2026-09-12', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
+      };
+
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        dailyBudgetAmount: 0,
+        todayBudget: 0,
+        isAutoRenew: false,
+        dailyRecords,
+        filtered: [{ expense_date: '2026-09-12' }],
+        totalSpent: 100,
+        totalIncome: 0,
+        userCreatedAtStr: '2026-09-01',
+      });
+
+      // Past record had budget 500, preserved as recorded. Today is 0. Total = 500.
+      expect(result.totalAvailable).toBe(500);
     });
   });
 
