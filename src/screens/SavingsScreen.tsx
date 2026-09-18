@@ -34,6 +34,7 @@ import { useTheme } from '../store/themeStore';
 import { formatCurrency, formatAmountWithCommas, cleanAmountString } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month'] as const;
 type Filter = (typeof FILTERS)[number];
@@ -585,7 +586,7 @@ export const SavingsScreen: React.FC = () => {
               onPress={() => handleOpenBudgetModal('today')}
               activeOpacity={0.7}
             >
-              <SquarePen size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
+              <SquarePen size={12} color={colors.textSecondary} style={{ marginRight: Spacing.micro }} />
               <Text style={[styles.topUpBtnText, { color: colors.textPrimary }]}>Edit</Text>
             </TouchableOpacity>
           </View>
@@ -652,7 +653,7 @@ export const SavingsScreen: React.FC = () => {
                     </Text>
                   </>
                 ) : (
-                  <Text style={[styles.changeAmountText, { color: colors.textSecondary, fontSize: 16 }]}>
+                  <Text style={[styles.changeAmountText, { color: colors.textSecondary, fontSize: FontSize.body }]}>
                     Not Set
                   </Text>
                 )}
@@ -810,7 +811,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
 
   // Header
@@ -818,15 +819,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   screenSubtitle: {
     fontSize: 13,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
   screenTitle: {
     fontSize: 26,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     marginTop: -2,
   },
   streakBadge: {
@@ -834,13 +835,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
-    gap: 4,
+    gap: Spacing.micro,
   },
   streakBadgeText: {
-    fontSize: 12,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
   },
 
   // Hero Card
@@ -865,12 +866,12 @@ const styles = StyleSheet.create({
   },
   heroSub: {
     fontSize: 11,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginBottom: 2,
   },
   heroTitle: {
     fontSize: 17,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   heroIconWrap: {
     width: 44,
@@ -881,7 +882,7 @@ const styles = StyleSheet.create({
   },
   heroAmountBlock: {
     marginTop: 2,
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   // Strict rule: wrapping row container has alignItems: 'center'
   currencyRow: {
@@ -890,16 +891,16 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: 26,
-    fontFamily: 'Quicksand_700Bold',
-    marginRight: 4,
+    fontFamily: FontFamily.bold,
+    marginRight: Spacing.micro,
   },
   heroAmount: {
     fontSize: 34,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   heroHelperText: {
     fontSize: 11,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginTop: 3,
   },
   heroStatsRow: {
@@ -912,7 +913,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.group,
     borderRadius: 14,
     borderWidth: 1,
   },
@@ -928,12 +929,12 @@ const styles = StyleSheet.create({
   },
   heroStatLabel: {
     fontSize: 10,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginBottom: 1,
   },
   heroStatValue: {
     fontSize: 13,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
 
   // Today's Allowance Card
@@ -955,45 +956,45 @@ const styles = StyleSheet.create({
   },
   todayDateText: {
     fontSize: 11,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginBottom: 2,
   },
   todayTitleText: {
     fontSize: 17,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Spacing.micro,
     borderRadius: 12,
   },
   statusBadgeText: {
     fontSize: 11,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   todayNumbersRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     marginTop: 2,
-    marginBottom: 12,
+    marginBottom: Spacing.group,
   },
   todayNumberBlock: {
     justifyContent: 'center',
   },
   todayNumberLabel: {
     fontSize: 11,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginBottom: 2,
   },
   smallCurrencySymbol: {
     fontSize: 20,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     marginRight: 3,
   },
   todayMainNumber: {
     fontSize: 28,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   todaySubNumbers: {
     alignItems: 'flex-end',
@@ -1001,12 +1002,12 @@ const styles = StyleSheet.create({
   },
   subNumberSpent: {
     fontSize: 13,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     marginBottom: 1,
   },
   subNumberBudget: {
     fontSize: 11,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
 
   // Progress Bar
@@ -1022,7 +1023,7 @@ const styles = StyleSheet.create({
   },
   progressHint: {
     fontSize: 11,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginBottom: 14,
   },
 
@@ -1031,8 +1032,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    paddingTop: 12,
-    gap: 8,
+    paddingTop: Spacing.group,
+    gap: Spacing.element,
   },
   topUpBtn: {
     flex: 1,
@@ -1044,15 +1045,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topUpBtnText: {
-    fontSize: 12,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
   },
 
   // Settings Card
   settingsCard: {
     borderRadius: 22,
     padding: 18,
-    marginBottom: 16,
+    marginBottom: Spacing.block,
   },
   settingsHeader: {
     flexDirection: 'row',
@@ -1063,15 +1064,15 @@ const styles = StyleSheet.create({
   settingsTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.element,
   },
   settingsTitle: {
     fontSize: 15,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   settingsDesc: {
-    fontSize: 12,
-    fontFamily: 'Quicksand_500Medium',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
     lineHeight: 17,
     marginBottom: 10,
   },
@@ -1079,18 +1080,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: Spacing.group,
     borderRadius: 14,
     borderWidth: 1,
   },
   changeAmountSub: {
     fontSize: 11,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginBottom: 2,
   },
   changeAmountText: {
     fontSize: 17,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   editPill: {
     paddingHorizontal: 10,
@@ -1099,37 +1100,37 @@ const styles = StyleSheet.create({
   },
   editPillText: {
     fontSize: 11,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
 
   // History Section
   historySectionHeader: {
-    marginTop: 8,
+    marginTop: Spacing.element,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 17,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   filterPillsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: Spacing.element,
+    marginBottom: Spacing.group,
   },
   filterPill: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
   },
   filterPillActive: {},
   filterPillInactive: {},
   filterPillText: {
     fontSize: 13,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
   },
   filterPillTextActive: {
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   filterPillTextInactive: {},
 
@@ -1150,7 +1151,7 @@ const styles = StyleSheet.create({
   recordLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.group,
     flex: 1,
   },
   recordIconBox: {
@@ -1164,12 +1165,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recordDateText: {
-    fontSize: 14,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
   },
   recordSubText: {
-    fontSize: 12,
-    fontFamily: 'Quicksand_500Medium',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
     marginTop: 2,
   },
   recordSavedPill: {
@@ -1178,30 +1179,30 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   recordSavedText: {
-    fontSize: 12,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
   },
 
   // Empty state
   emptyCard: {
-    paddingVertical: 24,
-    paddingHorizontal: 20,
+    paddingVertical: Spacing.gutter,
+    paddingHorizontal: Spacing.surface,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderStyle: 'dashed',
-    marginTop: 4,
+    marginTop: Spacing.micro,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontFamily: 'Quicksand_700Bold',
-    marginTop: 12,
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
+    marginTop: Spacing.group,
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -1212,11 +1213,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: Spacing.gutter,
   },
   modalContent: {
     width: '100%',
-    borderRadius: 24,
+    borderRadius: BorderRadius.card,
     padding: 22,
     borderWidth: 1,
   },
@@ -1224,63 +1225,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.element,
   },
   modalTitle: {
     fontSize: 18,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   modalSubtitle: {
     fontSize: 13,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: FontFamily.medium,
     marginBottom: 18,
     lineHeight: 18,
   },
   modalInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 20,
+    paddingHorizontal: Spacing.block,
+    paddingVertical: Spacing.group,
+    marginBottom: Spacing.surface,
   },
   modalCurrencySign: {
     fontSize: 22,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
     marginRight: 6,
   },
   modalTextInput: {
     flex: 1,
     fontSize: 22,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: FontFamily.bold,
   },
   modalActionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.group,
   },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingVertical: Spacing.group,
+    borderRadius: BorderRadius.input,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: 14,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
   },
   modalSaveBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingVertical: Spacing.group,
+    borderRadius: BorderRadius.input,
   },
   modalSaveText: {
-    fontSize: 14,
-    fontFamily: 'Quicksand_700Bold',
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
   },
 });
