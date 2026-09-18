@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,15 +17,15 @@ import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditCategory'>;
 
 const PASTEL_COLORS = [
-  '#F4B8AE', '#B8E0C8', '#93C5FD', '#FCD34D', '#C084FC', 
-  '#F87171', '#94A3B8', '#FDEEE4', '#E3F2FD', '#FCE4EC', 
+  '#F4B8AE', '#B8E0C8', '#93C5FD', '#FCD34D', '#C084FC',
+  '#F87171', '#94A3B8', '#FDEEE4', '#E3F2FD', '#FCE4EC',
   '#EDE7F6', '#E3F2E8', '#FDF3D9'
 ];
 
 const ICONS_GRID = [
-  'Coffee', 'Truck', 'ShoppingBag', 'Video', 'Activity', 
-  'FileText', 'GraduationCap', 'Send', 'Home', 'ShoppingCart', 
-  'Move', 'Gift', 'CupSoda', 'Music', 'Users', 'DollarSign', 
+  'Coffee', 'Truck', 'ShoppingBag', 'Video', 'Activity',
+  'FileText', 'GraduationCap', 'Send', 'Home', 'ShoppingCart',
+  'Move', 'Gift', 'CupSoda', 'Music', 'Users', 'DollarSign',
   'MoreHorizontal'
 ];
 
@@ -34,7 +34,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
   const { colors, isDark } = useTheme();
   const { categories, addCategory, updateCategory } = useCategoryStore();
   const isOffline = useNetworkStore((s) => s.isOffline);
-  
+
   const categoryId = route.params?.categoryId;
   const isEditMode = !!categoryId;
 
@@ -76,7 +76,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
       } else {
         await addCategory(name.trim(), selectedIcon, colorToUse);
       }
-      
+
       navigation.goBack();
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Category save nahi ho saki. Please dobara try karein.');
@@ -91,7 +91,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      
+
       {/* Header */}
       <View style={styles.headerRow}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
@@ -102,7 +102,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         </Text>
       </View>
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
@@ -156,7 +156,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
           {ICONS_GRID.map(iconName => {
             const IconComponent = (LucideIcons as any)[iconName] || MoreHorizontal;
             const isSelected = selectedIcon === iconName;
-            
+
             return (
               <Pressable
                 key={iconName}
@@ -166,9 +166,9 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
                 ]}
                 onPress={() => setSelectedIcon(iconName)}
               >
-                <IconComponent 
-                  size={22} 
-                  color={isSelected ? colors.forestGreen : colors.textSecondary} 
+                <IconComponent
+                  size={22}
+                  color={isSelected ? colors.forestGreen : colors.textSecondary}
                 />
               </Pressable>
             );
@@ -176,11 +176,11 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         </View>
 
         {/* Save Button */}
-        <Pressable 
+        <Pressable
           style={[
             styles.saveBtn,
             isSaveEnabled && !isSaving
-              ? [styles.saveBtnEnabled, { backgroundColor: colors.mint }] 
+              ? [styles.saveBtnEnabled, { backgroundColor: colors.mint }]
               : [styles.saveBtnDisabled, { backgroundColor: colors.cardSubtle }]
           ]}
           onPress={handleSave}
@@ -191,8 +191,8 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
           ) : (
             <Text style={[
               styles.saveText,
-              isSaveEnabled 
-                ? [styles.saveTextEnabled, { color: colors.forestGreen }] 
+              isSaveEnabled
+                ? [styles.saveTextEnabled, { color: colors.forestGreen }]
                 : [styles.saveTextDisabled, { color: colors.textTertiary }],
               { fontFamily: FontFamily.bold }
             ]}>
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  
+
   // Preview
   previewContainer: {
     alignItems: 'center',
