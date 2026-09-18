@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -18,6 +19,7 @@ import { RootStackParamList } from '../types';
 import { ArrowLeft, KeyRound, Eye, EyeOff, AlertCircle, X, Check } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 
@@ -168,7 +170,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 16) + 24 },
+            { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.gutter },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -191,7 +193,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
             >
               <ArrowLeft size={24} color={colors.textPrimary} />
             </Pressable>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Reset Password
             </Text>
             <View style={{ width: 40 }} />
@@ -205,10 +207,10 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
 
           {/* Heading and description */}
-          <Text style={[styles.heading, { color: colors.textPrimary, fontFamily: 'Quicksand_700Bold' }]}>
+          <Text style={[styles.heading, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             Set New Password
           </Text>
-          <Text style={[styles.subtext, { color: colors.textSecondary, fontFamily: 'Quicksand_500Medium' }]}>
+          <Text style={[styles.subtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
             Choose a strong password with at least 8 characters to secure your account.
           </Text>
 
@@ -221,8 +223,8 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
                 { opacity: errorOpacity, transform: [{ translateY: errorTranslateY }] },
               ]}
             >
-              <AlertCircle size={18} color={colors.danger} style={{ marginRight: 8, flexShrink: 0 }} />
-              <Text style={[styles.errorBannerText, { color: colors.danger, fontFamily: 'Quicksand_500Medium' }]}>
+              <AlertCircle size={18} color={colors.danger} style={{ marginRight: Spacing.element, flexShrink: 0 }} />
+              <Text style={[styles.errorBannerText, { color: colors.danger, fontFamily: FontFamily.medium }]}>
                 {errorMessage}
               </Text>
               <Pressable onPress={dismissError} style={styles.errorBannerClose}>
@@ -234,7 +236,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* Form */}
           <View style={styles.formContainer}>
             {/* New Password */}
-            <Text style={[styles.label, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>NEW PASSWORD</Text>
+            <Text style={[styles.label, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>NEW PASSWORD</Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -250,7 +252,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
                 }
               ]}>
                 <TextInput
-                  style={[styles.input, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium', paddingRight: 44 }]}
+                  style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.medium, paddingRight: 44 }]}
                   placeholder="At least 8 characters"
                   placeholderTextColor={colors.textTertiary}
                   value={password}
@@ -278,7 +280,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
 
             {/* Confirm New Password */}
-            <Text style={[styles.label, { color: colors.textSecondary, fontFamily: 'Quicksand_700Bold' }]}>CONFIRM NEW PASSWORD</Text>
+            <Text style={[styles.label, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>CONFIRM NEW PASSWORD</Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -294,7 +296,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
                 }
               ]}>
                 <TextInput
-                  style={[styles.input, { color: colors.textPrimary, fontFamily: 'Quicksand_500Medium', paddingRight: 44 }]}
+                  style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.medium, paddingRight: 44 }]}
                   placeholder="Re-enter your password"
                   placeholderTextColor={colors.textTertiary}
                   value={confirmPassword}
@@ -327,14 +329,14 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
                 {password === confirmPassword ? (
                   <>
                     <Check size={14} color={isDark ? colors.mintGreen : colors.mintDark} />
-                    <Text style={[styles.matchTextSuccess, { color: isDark ? colors.mintGreen : colors.mintDark, fontFamily: 'Quicksand_500Medium' }]}>
+                    <Text style={[styles.matchTextSuccess, { color: isDark ? colors.mintGreen : colors.mintDark, fontFamily: FontFamily.medium }]}>
                       Passwords match
                     </Text>
                   </>
                 ) : (
                   <>
                     <X size={14} color={colors.danger} />
-                    <Text style={[styles.matchTextError, { color: colors.danger, fontFamily: 'Quicksand_500Medium' }]}>
+                    <Text style={[styles.matchTextError, { color: colors.danger, fontFamily: FontFamily.medium }]}>
                       Passwords do not match yet
                     </Text>
                   </>
@@ -360,7 +362,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text
                   style={[
                     styles.submitBtnText,
-                    { fontFamily: 'Quicksand_700Bold' },
+                    { fontFamily: FontFamily.bold },
                     passwordsMatch ? { color: colors.forestGreen } : { color: colors.textTertiary },
                   ]}
                 >
@@ -379,7 +381,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.gutter,
   },
   scrollContent: {
     flexGrow: 1,
@@ -388,8 +390,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: Spacing.block,
+    marginBottom: Spacing.element,
   },
   backBtn: {
     width: 40,
@@ -402,13 +404,13 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 8,
+    marginTop: Spacing.gutter,
+    marginBottom: Spacing.element,
   },
   iconCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: 40, // Circle geometry: width / 2
     backgroundColor: '#B8E0C833',
     alignItems: 'center',
     justifyContent: 'center',
@@ -419,26 +421,26 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#1A2B4C',
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: Spacing.block,
   },
   subtext: {
     fontSize: 15,
     color: '#8A8FA3',
     textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 16,
+    marginTop: Spacing.element,
+    paddingHorizontal: Spacing.block,
     lineHeight: 22,
   },
   formContainer: {
-    marginTop: 24,
+    marginTop: Spacing.gutter,
   },
   label: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     color: '#8A8FA3',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: Spacing.element,
+    marginTop: Spacing.block,
   },
   inputWrapper: {
     borderWidth: 2,
@@ -450,21 +452,21 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     backgroundColor: '#F1F2F5',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    height: 56,
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.surface,
+    height: ControlHeight.row,
     justifyContent: 'center',
     flexDirection: 'row',
     alignItems: 'center',
   },
   input: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     color: '#1A2B4C',
     flex: 1,
   },
   eyeIcon: {
     position: 'absolute',
-    right: 16,
+    right: Spacing.block,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
@@ -473,8 +475,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 8,
-    marginLeft: 4,
+    marginTop: Spacing.element,
+    marginLeft: Spacing.micro,
   },
   matchTextSuccess: {
     fontSize: 13,
@@ -485,11 +487,11 @@ const styles = StyleSheet.create({
     color: '#E87070',
   },
   submitBtn: {
-    borderRadius: 9999,
+    borderRadius: BorderRadius.pill,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 32,
+    marginTop: Spacing.section,
   },
   submitBtnActive: {
     backgroundColor: '#B8E0C8',
@@ -520,20 +522,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5F5',
     borderWidth: 1,
     borderColor: '#FACACA',
-    borderRadius: 16,
-    paddingHorizontal: 16,
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.block,
     paddingVertical: 14,
-    marginTop: 16,
-    gap: 4,
+    marginTop: Spacing.block,
+    gap: Spacing.micro,
   },
   errorBannerText: {
     flex: 1,
     color: '#C0392B',
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     lineHeight: 20,
   },
   errorBannerClose: {
-    padding: 4,
-    marginLeft: 4,
+    padding: Spacing.micro,
+    marginLeft: Spacing.micro,
   },
 });

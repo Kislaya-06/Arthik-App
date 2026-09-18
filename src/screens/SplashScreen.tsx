@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
+import { Spacing, FontFamily } from '../config/theme';
 import { supabase } from '../config/supabase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
@@ -282,20 +283,20 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 54,
     color: '#1A2B4C',
-    fontFamily: 'Quicksand_700Bold',
-    marginTop: 24,
+    fontFamily: FontFamily.bold,
+    marginTop: Spacing.gutter,
     letterSpacing: -0.5,
   },
   tagline: {
     fontSize: 18,
     color: '#8A8FA3',
-    fontFamily: 'Quicksand_500Medium',
-    marginTop: 8,
+    fontFamily: FontFamily.medium,
+    marginTop: Spacing.element,
   },
   dotsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.element,
     marginTop: 28,
   },
   dotWrapper: {
