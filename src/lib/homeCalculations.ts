@@ -136,11 +136,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
         // Untracked day where user had no budget
         periodBudget += 0;
       } else {
-        let b = Number(dailyRecords[d].budget) || 0;
-        // Sentinel site 3 repair (Issue 05)
-        if (b === 500 && dailyBudgetAmount !== 500) {
-          b = isBudgetConfigured ? dailyBudgetAmount : 0;
-        }
+        const b = Number(dailyRecords[d].budget) || 0;
         periodBudget += b;
       }
     } else {

@@ -7,6 +7,11 @@ Status: in-progress
 Resolved in `src/store/dailyBudgetStore.ts` and `src/lib/budgetUtils.ts`.
 Extracted `resolveRolloverBudget` pure function and eliminated the 500-sentinel rewrite. Past days finalized with budget 500 are preserved as recorded, preventing retroactive corruption of streaks and Gullak savings when the user's current allowance changes. Verified by characterization tests in `tests/budgetUtils.test.ts`.
 
+## Resolution (Site 3: `calculatePeriodSummary`)
+
+Resolved in `src/lib/homeCalculations.ts` (lines 140–143).
+Removed the retroactive budget rewrite in the 'All' filter period budget accumulation. Recorded past budgets are now counted as recorded, ensuring the hero summary card accurately reflects the user's historical allowance. Verified by characterization tests in `tests/homeCalculations.test.ts`.
+
 ## Description
 
 In `src/store/dailyBudgetStore.ts`, historical daily records with a budget of exactly `500` are assumed to be corrupted artifacts from a historical bug. When a user whose daily budget was previously ₹500 later changes their daily allowance to a different value (e.g. ₹200), the app actively rewrites their finalized historical ₹500 days to the new budget amount.
