@@ -239,14 +239,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     color: '#1A2B4C',
   },
 
   // Summary Card
   summaryCard: {
     backgroundColor: '#1A2B4C',
-    borderRadius: 28,
+    borderRadius: BorderRadius.cardLarge,
     padding: Spacing.gutter,
     marginTop: Spacing.gutter,
     overflow: 'hidden',
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
 
   // Section
   sectionTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     color: '#1A2B4C',
     marginTop: Spacing.section,
     marginBottom: Spacing.block,
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F0F1F4',
     paddingHorizontal: Spacing.block,
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
     marginBottom: Spacing.group,
   },
   expenseLeft: {
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   expenseNote: {
     fontSize: 13,
     color: '#8A8FA3',
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   expenseRight: {
     alignItems: 'flex-end',

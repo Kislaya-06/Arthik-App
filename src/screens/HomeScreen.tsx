@@ -957,7 +957,7 @@ const styles = StyleSheet.create({
 
   // Summary Card
   summaryCard: {
-    borderRadius: 28,
+    borderRadius: BorderRadius.cardLarge,
     marginTop: Spacing.gutter,
     padding: Spacing.surface,
     flexDirection: 'row',
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
   summarySubtext: {
     fontSize: 11,
     fontFamily: FontFamily.semibold,
-    marginTop: 2,
+    marginTop: Spacing.nano,
     opacity: 0.75,
   },
 
@@ -1002,7 +1002,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.section,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     fontFamily: FontFamily.bold,
   },
   seeAllBtn: {
@@ -1043,7 +1043,7 @@ const styles = StyleSheet.create({
   txSubtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   txSubtitle: {
     fontSize: FontSize.bodySmall,
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
   txDate: {
     fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
 
   // Empty state

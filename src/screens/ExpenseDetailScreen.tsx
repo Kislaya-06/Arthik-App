@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     marginLeft: Spacing.block,
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     color: '#1A2B4C',
   },
   headerRight: {
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButtonText: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
     color: '#1A2B4C',
   },
   deleteLink: {

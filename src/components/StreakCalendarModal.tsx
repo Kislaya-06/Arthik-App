@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: 28,
+    borderRadius: BorderRadius.cardLarge,
     borderWidth: 1,
     padding: Spacing.surface,
     ...Platform.select({
@@ -595,10 +595,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: Spacing.nano,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
     fontFamily: FontFamily.bold,
   },
   headerRight: {

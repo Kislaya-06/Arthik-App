@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
   },
   heroCard: {
-    borderRadius: 28,
+    borderRadius: BorderRadius.cardLarge,
     padding: Spacing.gutter,
     overflow: 'hidden',
     position: 'relative',
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     height: 30,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: FontSize.sectionTitle,
     marginTop: Spacing.section,
     marginBottom: Spacing.gutter,
   },
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   },
   chartCenterValue: {
     fontSize: FontSize.body,
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   legendGrid: {
     flexDirection: 'row',
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   },
   legendSubtext: {
     fontSize: FontSize.bodySmall,
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   emptyState: {
     alignItems: 'center',
@@ -661,7 +661,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.block,
-    paddingVertical: 14,
+    paddingVertical: Spacing.row,
     marginTop: Spacing.surface,
   },
   highestSpendDot: {
@@ -701,6 +701,6 @@ const styles = StyleSheet.create({
   },
   insightAmount: {
     fontSize: FontSize.bodySmall,
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
 });

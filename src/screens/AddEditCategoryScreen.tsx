@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7ED',
   },
   saveText: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
   },
   saveTextEnabled: {
     color: '#1A2B4C',

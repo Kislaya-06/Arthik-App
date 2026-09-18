@@ -93,9 +93,11 @@ export const DarkColors: ThemeColors = {
  * Role-based semantic scale derived from recurring layout conventions.
  */
 export const Spacing = {
+  nano: 2,       // Subtitle/subtext optical leading gap (marginTop/marginBottom: 2)
   micro: 4,      // Tightest gap: subtitle top margins, micro badge offsets
   element: 8,    // Adjacent related elements: icon-to-label gaps, input label margins, compact row gaps
   group: 12,     // Grouped items: modal action button gaps, card icon margins
+  row: 14,       // List row and dialog button vertical rhythm (paddingVertical: 14)
   block: 16,     // Standard rhythm between form blocks (AGENTS.md 9.2), default card padding
   surface: 20,   // Inner surface padding, prominent CTA vertical padding
   gutter: 24,    // Screen horizontal padding / gutters (paddingHorizontal: 24), large card padding
@@ -108,9 +110,10 @@ export const Spacing = {
  * Note: Circle radii (e.g. 40 for 80x80 avatars) are width/2 geometry, not radius tokens.
  */
 export const BorderRadius = {
-  input: 16,     // Text inputs, modal inputs, compact containers
-  card: 24,      // Major surface cards (ProfileCard, SettingsCard, ModalCard)
-  pill: 9999,    // Full stadium/pill for interactive buttons, chips, tags (AGENTS.md 9.2)
+  input: 16,        // Text inputs, modal inputs, compact containers
+  card: 24,         // Major surface cards (ProfileCard, SettingsCard, ModalCard)
+  cardLarge: 28,    // Hero and summary cards, modal sheets
+  pill: 9999,       // Full stadium/pill for interactive buttons, chips, tags (AGENTS.md 9.2)
 } as const;
 
 /**
@@ -118,10 +121,12 @@ export const BorderRadius = {
  * Role-based typography scale covering dominant conventions.
  */
 export const FontSize = {
-  caption: 12,     // Section uppercase labels, timestamps, compact tags
-  bodySmall: 14,   // Secondary body text, subtitles, helper notes, version text
-  body: 16,        // Regular body text, input text, row labels, standard button text
-  screenTitle: 30, // Major screen top header titles (Profile, History)
+  caption: 12,        // Section uppercase labels, timestamps, compact tags
+  bodySmall: 14,      // Secondary body text, subtitles, helper notes, version text
+  body: 16,           // Regular body text, input text, row labels, standard button text
+  cta: 18,            // Primary CTA labels and modal titles (AGENTS.md 9.2)
+  sectionTitle: 20,   // Level-2 headers and section titles
+  screenTitle: 30,    // Major screen top header titles (Profile, History)
 } as const;
 
 /**

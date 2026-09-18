@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
   heroSub: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginBottom: 2,
+    marginBottom: Spacing.nano,
   },
   heroTitle: {
     fontSize: 17,
@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroAmountBlock: {
-    marginTop: 2,
+    marginTop: Spacing.nano,
     marginBottom: Spacing.block,
   },
   // Strict rule: wrapping row container has alignItems: 'center'
@@ -957,7 +957,7 @@ const styles = StyleSheet.create({
   todayDateText: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginBottom: 2,
+    marginBottom: Spacing.nano,
   },
   todayTitleText: {
     fontSize: 17,
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginTop: 2,
+    marginTop: Spacing.nano,
     marginBottom: Spacing.group,
   },
   todayNumberBlock: {
@@ -985,7 +985,7 @@ const styles = StyleSheet.create({
   todayNumberLabel: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginBottom: 2,
+    marginBottom: Spacing.nano,
   },
   smallCurrencySymbol: {
     fontSize: 20,
@@ -998,7 +998,7 @@ const styles = StyleSheet.create({
   },
   todaySubNumbers: {
     alignItems: 'flex-end',
-    marginBottom: 2,
+    marginBottom: Spacing.nano,
   },
   subNumberSpent: {
     fontSize: 13,
@@ -1087,7 +1087,7 @@ const styles = StyleSheet.create({
   changeAmountSub: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginBottom: 2,
+    marginBottom: Spacing.nano,
   },
   changeAmountText: {
     fontSize: 17,
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
   recordSubText: {
     fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
-    marginTop: 2,
+    marginTop: Spacing.nano,
   },
   recordSavedPill: {
     paddingHorizontal: 10,
@@ -1228,7 +1228,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.element,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: FontSize.cta,
     fontFamily: FontFamily.bold,
   },
   modalSubtitle: {
