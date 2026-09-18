@@ -31,131 +31,31 @@ const getIncomeCategoryIds = (): Set<string> => {
   return incomeIds;
 };
 
-export interface DailyRecord {
-  date: string; // 'yyyy-MM-dd'
-  budget: number;
-  spent: number;
-  saved: number;
-  isFinalized: boolean;
-  status: 'saved' | 'exceeded' | 'even' | 'active' | 'unknown';
-  needsUpload?: boolean;
-}
-
-export const calculateSavingsMetrics = (records: Record<string, DailyRecord>, todayStr: string, userCreatedAtStr?: string) => {
-  let totalSaved = 0;
-  let totalOverspent = 0;
-  const userCreatedAt = userCreatedAtStr || useAuthStore.getState().user?.created_at?.split('T')[0]?.trim();
-
-  Object.values(records).forEach((r) => {
-    // Check confirmed finalized past days that are on or after the user registered
-    if (r.isFinalized && r.date < todayStr) {
-      if (userCreatedAt && r.date < userCreatedAt) {
-        // Pre-registration backdated days do not affect Gullak savings or penalty
-        return;
-      }
-      // 'unknown' days do not affect Gullak savings or penalties
-      if (r.status === 'unknown') {
-        return;
-      }
-      if (r.budget > 0 && r.spent > r.budget) {
-        totalOverspent += (r.spent - r.budget);
-      } else if ((r.saved || 0) > 0) {
-        totalSaved += (r.saved || 0);
-      }
-    }
-  });
-
-  // Include today's live overspend if user spent more than today's budget
-  const todayRec = records[todayStr];
-  if (todayRec && todayRec.budget > 0 && todayRec.spent > todayRec.budget) {
-    totalOverspent += (todayRec.spent - todayRec.budget);
-  }
-
-  // Net accumulated savings cannot drop below 0
-  const netSavings = Math.max(0, totalSaved - totalOverspent);
-
-  const confirmedSavedDays = Object.values(records).filter(
-    (r) => r.isFinalized && r.date < todayStr && r.status === 'saved' && (r.saved || 0) > 0 && (!userCreatedAt || r.date >= userCreatedAt)
-  ).length;
-
-  let streak = 0;
-  let dayCheck = subDays(new Date(), 1);
-  while (true) {
-    const dStr = format(dayCheck, 'yyyy-MM-dd');
-    if (userCreatedAt && dStr < userCreatedAt) {
-      break;
-    }
-    const rec = records[dStr];
-    if (rec && rec.isFinalized) {
-      // 'unknown' days neither extend nor break the streak: skip and continue checking earlier days
-      if (rec.status === 'unknown') {
-        dayCheck = subDays(dayCheck, 1);
-        continue;
-      }
-      if (rec.status === 'saved' && (rec.saved || 0) > 0) {
-        streak++;
-        dayCheck = subDays(dayCheck, 1);
-        continue;
-      }
-    }
-    // Any other status (exceeded, even, active, or missing unfinalized day) breaks the streak
-    break;
-  }
-
-  let maxStreak = 0;
-  let currentRun = 0;
-  const finalizedSavedRecords = Object.values(records)
-    .filter((r) => r.isFinalized && r.date < todayStr && r.status === 'saved' && (r.saved || 0) > 0)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  for (let i = 0; i < finalizedSavedRecords.length; i++) {
-    const rec = finalizedSavedRecords[i];
-    if (i === 0) {
-      currentRun = 1;
-    } else {
-      const prevDate = new Date(finalizedSavedRecords[i - 1].date);
-      const curDate = new Date(rec.date);
-      const diffDays = Math.round((curDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays === 1) {
-        currentRun++;
-      } else {
-        // Check if all days in between are 'unknown' — an unknown day should neither extend nor break a streak
-        let allIntermediateUnknown = true;
-        for (let step = 1; step < diffDays; step++) {
-          const intermediateDate = new Date(prevDate);
-          intermediateDate.setDate(prevDate.getDate() + step);
-          const intermediateStr = format(intermediateDate, 'yyyy-MM-dd');
-          if (records[intermediateStr]?.status !== 'unknown') {
-            allIntermediateUnknown = false;
-            break;
-          }
-        }
-        if (allIntermediateUnknown) {
-          currentRun++;
-        } else {
-          currentRun = 1;
-        }
-      }
-    }
-    if (currentRun > maxStreak) {
-      maxStreak = currentRun;
-    }
-  }
-
-  if (confirmedSavedDays === 0) {
-    streak = 0;
-    maxStreak = 0;
-  } else if (streak > confirmedSavedDays) {
-    streak = confirmedSavedDays;
-  }
-  const bestStreak = confirmedSavedDays === 0 ? 0 : Math.max(maxStreak, streak);
-
-  return {
-    totalAccumulatedSavings: netSavings,
-    savingsStreak: streak,
-    bestStreak,
-  };
+import {
+  DailyRecord,
+  SavingsMetrics,
+  calculateSavingsMetrics,
+  DayStatus,
+  DayEvaluation,
+  evaluateDayStatus,
+  computeSpentByDate,
+  computeSpentForDate,
+  buildDefaultTodayRecord,
+  filterPastRecords,
+} from '../lib/budgetCalculations';
+export type { DailyRecord, SavingsMetrics, DayStatus, DayEvaluation };
+export {
+  calculateSavingsMetrics,
+  evaluateDayStatus,
+  computeSpentByDate,
+  computeSpentForDate,
+  buildDefaultTodayRecord,
+  filterPastRecords,
 };
+
+const getUserCreatedAtStr = (): string | undefined =>
+  useAuthStore.getState().user?.created_at?.split('T')[0]?.trim();
+
 
 export const getPendingSettingsKey = (userId: string) => `@arthik_pending_settings_${userId}`;
 
@@ -251,23 +151,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           return records[todayStr];
         }
 
-        const budget = get().isAutoRenew ? get().dailyBudgetAmount : 0;
-        return {
-          date: todayStr,
-          budget,
-          spent: 0,
-          saved: budget,
-          isFinalized: false,
-          status: 'active',
-        };
+        return buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
       },
 
       getPastRecordsList: () => {
         const todayStr = getTodayDateStr();
         const records = get().dailyRecords;
-        return Object.values(records)
-          .filter((r) => r.date !== todayStr)
-          .sort((a, b) => b.date.localeCompare(a.date));
+        return filterPastRecords(records, todayStr);
       },
 
       setDailyBudget: (amount: number) => {
@@ -292,7 +182,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           records[todayStr] = currentToday;
         }
 
-        const metrics = calculateSavingsMetrics(records, todayStr);
+        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
 
         set({
           dailyBudgetAmount: cleanAmount,
@@ -344,7 +234,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           };
         }
 
-        const metrics = calculateSavingsMetrics(records, todayStr);
+        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
 
         set({
           isAutoRenew: enabled,
@@ -395,7 +285,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         currentToday.status = currentToday.spent > cleanAmount ? 'exceeded' : 'active';
         records[todayStr] = currentToday;
 
-        const metrics = calculateSavingsMetrics(records, todayStr);
+        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
         set({ dailyRecords: records, ...metrics });
       },
 
@@ -420,7 +310,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         currentToday.status = currentToday.spent > newBudget ? 'exceeded' : 'active';
         records[todayStr] = currentToday;
 
-        const metrics = calculateSavingsMetrics(records, todayStr);
+        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
         set({ dailyRecords: records, ...metrics });
       },
 
@@ -428,17 +318,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
         const incomeIds = getIncomeCategoryIds();
+        const isIncomeFn = (e: Expense): boolean =>
+          e.type === 'income' || (e.type !== 'expense' && !!e.category_id && incomeIds.has(e.category_id));
 
-        // Optimized spent calculation using Set lookup O(1)
-        let todaySpent = 0;
-        for (let i = 0; i < expenses.length; i++) {
-          const e = expenses[i];
-          const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
-          const cleanDate = e.expense_date?.split('T')[0]?.trim();
-          if (cleanDate === todayStr && !isIncome) {
-            todaySpent += Number(e.amount) || 0;
-          }
-        }
+        const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
 
         let todayRecord = records[todayStr];
         let hasTodayChanged = false;
@@ -544,16 +427,11 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const incomeIds = getIncomeCategoryIds();
         let updated = false;
 
+        const isIncomeFn = (e: Expense): boolean =>
+          e.type === 'income' || (e.type !== 'expense' && !!e.category_id && incomeIds.has(e.category_id));
+
         // 1. Group all non-income expenses by date in a single O(N) pass
-        const spentByDate: Record<string, number> = {};
-        for (let i = 0; i < expenses.length; i++) {
-          const e = expenses[i];
-          const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
-          const cleanDate = e.expense_date?.split('T')[0]?.trim();
-          if (!isIncome && cleanDate) {
-            spentByDate[cleanDate] = (spentByDate[cleanDate] || 0) + (Number(e.amount) || 0);
-          }
-        }
+        const spentByDate = computeSpentByDate(expenses, isIncomeFn);
 
         // 2. Identify all past dates (< todayStr) from existing records and expenses
         const pastDates = new Set<string>();
@@ -608,34 +486,33 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             if (budget === 500 && get().dailyBudgetAmount > 0 && get().dailyBudgetAmount !== 500) {
               budget = get().dailyBudgetAmount;
             }
-            saved = Math.max(0, budget - spent);
-            status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
+            const evaluated = evaluateDayStatus(budget, spent, 'unknown');
+            saved = evaluated.saved;
+            status = evaluated.status;
           } else if (!existing) {
             // Past date being finalized for the very first time with no prior record:
             // P1.3 (Option A): If auto-renew is active and budget > 0, use daily budget so streak & savings are preserved
             if (get().isAutoRenew && get().dailyBudgetAmount > 0) {
               budget = get().dailyBudgetAmount;
-              saved = Math.max(0, budget - spent);
-              status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
             } else if (spent > 0) {
-              status = 'unknown';
               budget = 0;
-              saved = 0;
             } else {
               // No prior record, 0 budget, 0 spent: skip
               continue;
             }
+            const evaluated = evaluateDayStatus(budget, spent, 'unknown');
+            saved = evaluated.saved;
+            status = evaluated.status;
           } else {
             // Existing record with 0 budget (e.g. manual mode)
             if (get().isAutoRenew && get().dailyBudgetAmount > 0 && existing.budget === 0) {
               budget = get().dailyBudgetAmount;
-              saved = Math.max(0, budget - spent);
-              status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
             } else {
-              status = 'unknown';
               budget = 0;
-              saved = 0;
             }
+            const evaluated = evaluateDayStatus(budget, spent, 'unknown');
+            saved = evaluated.saved;
+            status = evaluated.status;
           }
 
           const hasChanged =
@@ -734,7 +611,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
 
         // Compute savings metrics using shared helper
-        const metrics = calculateSavingsMetrics(records, todayStr);
+        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
 
         if (
           updated ||
@@ -888,15 +765,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           // historical savings logs & real expenses to detect if their original budget was different.
           const currentExpenses = getCurrentExpenses();
           const incomeIds = getIncomeCategoryIds();
-          const spentByDate: Record<string, number> = {};
-          for (let i = 0; i < currentExpenses.length; i++) {
-            const e = currentExpenses[i];
-            const isIncome = e.type === 'income' || (e.type !== 'expense' && e.category_id ? incomeIds.has(e.category_id) : false);
-            const cleanDate = e.expense_date?.split('T')[0]?.trim();
-            if (!isIncome && cleanDate) {
-              spentByDate[cleanDate] = (spentByDate[cleanDate] || 0) + (Number(e.amount) || 0);
-            }
-          }
+          const isIncomeFn = (e: Expense): boolean =>
+            e.type === 'income' || (e.type !== 'expense' && !!e.category_id && incomeIds.has(e.category_id));
+          const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
 
           let wasRepairedFromHistory = false;
           // Trigger recovery if budget looks wrong: either 500 (migration default) or 0 on fresh install
@@ -978,16 +849,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               });
 
               // --- 2. RECALCULATE SAVED & STATUS ---
-              let daySaved: number;
-              let evaluatedStatus: 'saved' | 'exceeded' | 'even' | 'unknown';
-
-              if (dayBudget <= 0) {
-                daySaved = 0;
-                evaluatedStatus = daySpent > 0 ? 'unknown' : 'even';
-              } else {
-                daySaved = Math.max(0, dayBudget - daySpent);
-                evaluatedStatus = daySpent > dayBudget ? 'exceeded' : daySaved > 0 ? 'saved' : 'even';
-              }
+              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, 'even');
 
               records[d] = {
                 date: d,
@@ -1045,7 +907,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
 
           // 3. Recalculate metrics from combined records
-          const metrics = calculateSavingsMetrics(records, todayStr, userCreatedAtStr);
+          const metrics = calculateSavingsMetrics(records, todayStr, userCreatedAtStr, new Date());
 
           set({
             dailyBudgetAmount: resolvedBudget,
