@@ -17,7 +17,7 @@ import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { isIncomeTransaction } from '../lib/paymentUtils';
-import { resolveHydratedDayBudget } from '../lib/budgetUtils';
+import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 
 const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
   const categories = useCategoryStore.getState().categories;
@@ -479,12 +479,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             budget = 0;
             saved = 0;
           } else if (existing && (existing.budget > 0 || existing.isFinalized)) {
-            // Lock to budget-at-the-time persisted in existing record
-            budget = existing.budget;
-            // Guard: If existing was corrupted to 500 by previous bug, repair to user's real daily budget
-            if (budget === 500 && get().dailyBudgetAmount > 0 && get().dailyBudgetAmount !== 500) {
-              budget = get().dailyBudgetAmount;
-            }
+            // Lock to budget-at-the-time persisted in existing record (resolved via pure helper)
+            budget = resolveRolloverBudget(existing.budget, get().dailyBudgetAmount);
             const evaluated = evaluateDayStatus(budget, spent);
             saved = evaluated.saved;
             status = evaluated.status;

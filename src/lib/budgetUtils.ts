@@ -77,3 +77,17 @@ export function resolveHydratedDayBudget(params: ResolveHydratedDayBudgetParams)
     return 0;
   }
 }
+
+/**
+ * Pure decision function: determines the budget to lock for an existing
+ * past day record during checkAndRollover.
+ *
+ * A recorded past budget is the user's real historical data and is preserved
+ * as-is without rewriting.
+ */
+export function resolveRolloverBudget(
+  existingBudget: number,
+  _currentDailyBudget: number
+): number {
+  return existingBudget;
+}

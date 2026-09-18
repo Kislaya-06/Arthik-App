@@ -1,6 +1,11 @@
 # Past-day budget of 500 is overwritten when the user's current budget differs
 
-Status: needs-triage
+Status: in-progress
+
+## Resolution (Site 1: `checkAndRollover`)
+
+Resolved in `src/store/dailyBudgetStore.ts` and `src/lib/budgetUtils.ts`.
+Extracted `resolveRolloverBudget` pure function and eliminated the 500-sentinel rewrite. Past days finalized with budget 500 are preserved as recorded, preventing retroactive corruption of streaks and Gullak savings when the user's current allowance changes. Verified by characterization tests in `tests/budgetUtils.test.ts`.
 
 ## Description
 

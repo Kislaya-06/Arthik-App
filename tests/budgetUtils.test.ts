@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   shouldDeletePhantom500Day,
   resolveHydratedDayBudget,
+  resolveRolloverBudget,
 } from '../src/lib/budgetUtils';
 
 describe('shouldDeletePhantom500Day - Behavior Tests', () => {
@@ -175,5 +176,27 @@ describe('resolveHydratedDayBudget - Behavior Tests', () => {
       resolvedBudget: 0,
     });
     expect(budget).toBe(0);
+  });
+});
+
+describe('resolveRolloverBudget - Behavior Tests', () => {
+  it('past day with budget 500, current allowance 200 -> untouched (500)', () => {
+    const result = resolveRolloverBudget(500, 200);
+    expect(result).toBe(500);
+  });
+
+  it('past day with budget 500, current allowance 500 -> untouched (500)', () => {
+    const result = resolveRolloverBudget(500, 500);
+    expect(result).toBe(500);
+  });
+
+  it('past day with budget 300, current allowance 200 -> untouched (300)', () => {
+    const result = resolveRolloverBudget(300, 200);
+    expect(result).toBe(300);
+  });
+
+  it('past day with budget 500, current allowance 0 -> untouched (500)', () => {
+    const result = resolveRolloverBudget(500, 0);
+    expect(result).toBe(500);
   });
 });
