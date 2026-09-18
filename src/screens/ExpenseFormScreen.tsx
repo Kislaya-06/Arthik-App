@@ -25,6 +25,7 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
 import { formatDate, formatAmountWithCommas } from '../lib/formatters';
+import { applyKeypadPress } from '../lib/amountKeypad';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useTheme } from '../store/themeStore';
@@ -173,20 +174,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // ─── Keypad handler ───────────────────────────────────────────────────────
   const handleKeyPress = useCallback((val: string) => {
-    if (val === 'backspace') {
-      setAmount((prev) => prev.slice(0, -1));
-    } else if (val === '.') {
-      setAmount((prev) =>
-        !prev.includes('.') ? (prev === '' ? '0.' : prev + '.') : prev
-      );
-    } else {
-      setAmount((prev) => {
-        if (prev === '0') return val;
-        if (prev.includes('.') && prev.split('.')[1]?.length >= 2) return prev;
-        if (prev.length > 9) return prev;
-        return prev + val;
-      });
-    }
+    setAmount((prev) => applyKeypadPress(prev, val));
   }, []);
 
   const isCategoriesLoading = useCategoryStore((s) => s.loading);
