@@ -190,8 +190,8 @@ The savings streak is computed by `calculateSavingsMetrics` (lines 80–102):
   - Reaching registration boundary (`dStr < userCreatedAt`) terminates evaluation cleanly.
 - **What is Neutral**: `rec.status === 'unknown'` (lines 90–93). It advances `dayCheck` by 1 without incrementing `streak` and without breaking the loop.
 - **Streak Guards & Best Streak**:
-  - Lines 144–149: If `confirmedSavedDays === 0`, `streak = 0`. If `streak > confirmedSavedDays`, `streak = confirmedSavedDays`.
-  - Best streak (lines 104–150): Identifies the longest contiguous sequence of saved records in historical order, treating intermediate `'unknown'` days as neutral bridges (lines 122–133).
+  - Lines 144–149: If `confirmedSavedDays === 0`, `streak = 0` and `maxStreak = 0`. If `streak > confirmedSavedDays`, `streak = confirmedSavedDays`. **Note (Ticket 06)**: While `streak` is clamped to `confirmedSavedDays`, `maxStreak` (and therefore `bestStreak`) is **not** clamped by `confirmedSavedDays` whenever `confirmedSavedDays > 0`. Moreover, `finalizedSavedRecords` does not filter out pre-registration days (`< userCreatedAt`), meaning a pre-registration streak can become the user's `bestStreak` once a single post-registration day is saved.
+  - Best streak gap bridging (lines 111–121): Identifies the longest contiguous sequence of saved records in historical order, treating intermediate days as neutral bridges only if explicitly recorded with `status === 'unknown'`. **Note (Ticket 07)**: Missing records (`records[d] === undefined`) evaluate `records[d]?.status !== 'unknown'` to `true` and actively **break** the bridge rather than bridging it.
 
 ### 2.7 How `totalAccumulatedSavings` is Computed
 
