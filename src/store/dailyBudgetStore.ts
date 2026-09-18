@@ -483,7 +483,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             if (budget === 500 && get().dailyBudgetAmount > 0 && get().dailyBudgetAmount !== 500) {
               budget = get().dailyBudgetAmount;
             }
-            const evaluated = evaluateDayStatus(budget, spent, 'unknown');
+            const evaluated = evaluateDayStatus(budget, spent);
             saved = evaluated.saved;
             status = evaluated.status;
           } else if (!existing) {
@@ -497,7 +497,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               // No prior record, 0 budget, 0 spent: skip
               continue;
             }
-            const evaluated = evaluateDayStatus(budget, spent, 'unknown');
+            const evaluated = evaluateDayStatus(budget, spent);
             saved = evaluated.saved;
             status = evaluated.status;
           } else {
@@ -507,7 +507,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             } else {
               budget = 0;
             }
-            const evaluated = evaluateDayStatus(budget, spent, 'unknown');
+            const evaluated = evaluateDayStatus(budget, spent);
             saved = evaluated.saved;
             status = evaluated.status;
           }
@@ -844,7 +844,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               });
 
               // --- 2. RECALCULATE SAVED & STATUS ---
-              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, 'even');
+              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent);
 
               records[d] = {
                 date: d,

@@ -226,10 +226,10 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
       expect(metrics.savingsStreak).toBe(1);
     });
 
-    it("an 'even' day breaks it (pinning ticket 3 behaviour)", () => {
+    it("an 'even' day (budget > 0, spent === budget) breaks the streak", () => {
       const records: Record<string, DailyRecord> = {
         '2026-09-15': { date: '2026-09-15', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
-        '2026-09-16': { date: '2026-09-16', budget: 0, spent: 0, saved: 0, isFinalized: true, status: 'even' },
+        '2026-09-16': { date: '2026-09-16', budget: 500, spent: 500, saved: 0, isFinalized: true, status: 'even' },
         '2026-09-17': { date: '2026-09-17', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
       };
 
@@ -237,10 +237,11 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
       expect(metrics.savingsStreak).toBe(1);
     });
 
-    it("an 'unknown' day is neutral and the streak continues across it", () => {
+    it("an untracked zero-budget zero-spend day evaluated as 'unknown' is neutral and streak continues across it", () => {
+      const untracked = evaluateDayStatus(0, 0);
       const records: Record<string, DailyRecord> = {
         '2026-09-15': { date: '2026-09-15', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
-        '2026-09-16': { date: '2026-09-16', budget: 0, spent: 0, saved: 0, isFinalized: true, status: 'unknown' },
+        '2026-09-16': { date: '2026-09-16', budget: 0, spent: 0, saved: untracked.saved, isFinalized: true, status: untracked.status },
         '2026-09-17': { date: '2026-09-17', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
       };
 
@@ -408,45 +409,37 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
 });
 
 describe('evaluateDayStatus', () => {
-  it('budget 0 with spend returns status unknown and saved 0 (regardless of zeroBudgetZeroSpendStatus)', () => {
-    const resUnknown = evaluateDayStatus(0, 150, 'unknown');
-    expect(resUnknown).toEqual({ saved: 0, status: 'unknown' });
-
-    const resEven = evaluateDayStatus(0, 150, 'even');
-    expect(resEven).toEqual({ saved: 0, status: 'unknown' });
-  });
-
-  it("budget 0 without spend returns 'unknown' when zeroBudgetZeroSpendStatus is 'unknown' (checkAndRollover)", () => {
-    const res = evaluateDayStatus(0, 0, 'unknown');
+  it('budget 0 with spend returns status unknown and saved 0', () => {
+    const res = evaluateDayStatus(0, 150);
     expect(res).toEqual({ saved: 0, status: 'unknown' });
   });
 
-  it("budget 0 without spend returns 'even' when zeroBudgetZeroSpendStatus is 'even' (hydrateFromSupabase - ticket 03)", () => {
-    const res = evaluateDayStatus(0, 0, 'even');
-    expect(res).toEqual({ saved: 0, status: 'even' });
+  it('budget 0 without spend returns status unknown and saved 0 (ticket 03 fixed)', () => {
+    const res = evaluateDayStatus(0, 0);
+    expect(res).toEqual({ saved: 0, status: 'unknown' });
   });
 
   it('spent < budget returns status saved and saved = budget - spent', () => {
-    const res = evaluateDayStatus(500, 300, 'unknown');
+    const res = evaluateDayStatus(500, 300);
     expect(res).toEqual({ saved: 200, status: 'saved' });
   });
 
   it('spent === budget returns status even and saved = 0', () => {
-    const res = evaluateDayStatus(500, 500, 'unknown');
+    const res = evaluateDayStatus(500, 500);
     expect(res).toEqual({ saved: 0, status: 'even' });
   });
 
   it('spent > budget returns status exceeded and saved = 0', () => {
-    const res = evaluateDayStatus(500, 650, 'unknown');
+    const res = evaluateDayStatus(500, 650);
     expect(res).toEqual({ saved: 0, status: 'exceeded' });
   });
 
-  it('negative budget inputs are treated as budget <= 0', () => {
-    const resWithSpend = evaluateDayStatus(-100, 50, 'unknown');
+  it('negative budget inputs are treated as budget <= 0 and return unknown', () => {
+    const resWithSpend = evaluateDayStatus(-100, 50);
     expect(resWithSpend).toEqual({ saved: 0, status: 'unknown' });
 
-    const resZeroSpend = evaluateDayStatus(-100, 0, 'even');
-    expect(resZeroSpend).toEqual({ saved: 0, status: 'even' });
+    const resZeroSpend = evaluateDayStatus(-100, 0);
+    expect(resZeroSpend).toEqual({ saved: 0, status: 'unknown' });
   });
 });
 
