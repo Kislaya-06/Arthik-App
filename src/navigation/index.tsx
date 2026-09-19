@@ -120,7 +120,7 @@ export function AppNavigation() {
         <Stack.Screen name="Auth" component={AuthScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-        <Stack.Screen name="AppTabs" component={TabNavigator} />
+        <Stack.Screen name="AppTabs" component={TabNavigator} options={{ animation: 'fade' }} />
 
         {/* Sub pages stack */}
         <Stack.Screen name="AddExpense" component={ExpenseFormScreen as React.ComponentType<any>} />

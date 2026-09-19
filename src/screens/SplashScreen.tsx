@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Image } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,73 +19,40 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
 
-  // Animation values
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  // Icon initial entrance & punch
+  const iconEntranceScale = useRef(new Animated.Value(0.6)).current;
+  const iconEntranceOpacity = useRef(new Animated.Value(0)).current;
+  const iconPunch = useRef(new Animated.Value(1)).current;
+
+  // 3 line creation / draw progress values (0 -> 1)
+  const line1Progress = useRef(new Animated.Value(0)).current;
+  const line2Progress = useRef(new Animated.Value(0)).current;
+  const line3Progress = useRef(new Animated.Value(0)).current;
+
+  // Icon starts dead-center (brandRowX: 80 -> 0), "Arthik" emerges from inside/behind icon (wordmarkSlideX: -160 -> 0)
+  const brandRowX = useRef(new Animated.Value(80)).current;
+  const wordmarkSlideX = useRef(new Animated.Value(-160)).current;
   const wordmarkOpacity = useRef(new Animated.Value(0)).current;
-  const wordmarkTranslateY = useRef(new Animated.Value(10)).current;
+
+  // Tagline & dots animations
   const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const taglineTranslateY = useRef(new Animated.Value(12)).current;
   const dotsOpacity = useRef(new Animated.Value(0)).current;
+
+  // Expanding Mint Squircle for exit transition (takes ample time: 800ms bloom + 150ms hold from center icon)
+  const exitSquircleScale = useRef(new Animated.Value(1)).current;
+  const exitSquircleOpacity = useRef(new Animated.Value(0)).current;
+  const contentFadeOpacity = useRef(new Animated.Value(1)).current;
 
   // Wave animation values for the 3 dots
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
   const dot3Anim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    // Staggered entrance animations
-    Animated.parallel([
-      // Logo (opacity 0 -> 1, scale 0.8 -> 1) over 500ms
-      Animated.parallel([
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoScale, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-      // Wordmark "Arthik" (starts 150ms after logo, opacity 0 -> 1, translateY 10 -> 0)
-      Animated.sequence([
-        Animated.delay(150),
-        Animated.parallel([
-          Animated.timing(wordmarkOpacity, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(wordmarkTranslateY, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-      // Tagline (starts 300ms after logo, opacity 0 -> 1)
-      Animated.sequence([
-        Animated.delay(300),
-        Animated.timing(taglineOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]),
-      // Pagination dots (starts 450ms after logo, opacity 0 -> 1)
-      Animated.sequence([
-        Animated.delay(450),
-        Animated.timing(dotsOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
+  const dotTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const exitTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
     // Helper to pulse a single dot (0 -> 1 -> 0)
     const createDotPulse = (anim: Animated.Value) =>
       Animated.sequence([
@@ -103,7 +70,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         }),
       ]);
 
-    // Sequential wave animation: 1st green -> 2nd green -> 3rd green -> repeat
+    // Sequential wave animation for the 3 dots: 1st -> 2nd -> 3rd -> repeat
     const dotWaveLoop = Animated.loop(
       Animated.sequence([
         Animated.stagger(180, [
@@ -111,16 +78,190 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           createDotPulse(dot2Anim),
           createDotPulse(dot3Anim),
         ]),
-        Animated.delay(250),
+        Animated.delay(260),
       ])
     );
 
-    // Start wave loop once dots fade in
-    const dotTimer = setTimeout(() => {
+    // Trigger return to center, then butter-smooth circular mint bloom from the centered icon, then navigate
+    const triggerExitAndNavigate = (targetScreen: keyof RootStackParamList) => {
+      dotWaveLoop.stop();
+
+      Animated.sequence([
+        // 1. Tagline and dots fade out quickly, icon glides back to center, wordmark retracts
+        Animated.parallel([
+          Animated.timing(taglineOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotsOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(brandRowX, {
+            toValue: 80,
+            duration: 440,
+            easing: Easing.bezier(0.25, 1, 0.5, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(wordmarkSlideX, {
+            toValue: -160,
+            duration: 440,
+            easing: Easing.bezier(0.25, 1, 0.5, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(wordmarkOpacity, {
+            toValue: 0,
+            duration: 280,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+
+        // 2. Native driver pause (80ms) to clearly perceive the centered icon
+        Animated.delay(80),
+
+        // 3. Butter-smooth circular mint bloom expanding outward from the centered icon (gentle ease-in-out)
+        Animated.parallel([
+          Animated.timing(exitSquircleOpacity, {
+            toValue: 1,
+            duration: 80,
+            useNativeDriver: true,
+          }),
+          Animated.timing(exitSquircleScale, {
+            toValue: 24,
+            duration: 750,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(contentFadeOpacity, {
+            toValue: 0,
+            duration: 280,
+            useNativeDriver: true,
+          }),
+        ]),
+
+        // 4. Brief hold (120ms) on solid mint green before destination cross-fade
+        Animated.delay(120),
+      ]).start(() => {
+        navigation.replace(targetScreen as any);
+      });
+    };
+
+    // 1. Entrance & Reveal Sequence
+    Animated.sequence([
+      // A. Center icon pops in with a smooth spring (icon is at exact center because brandRowX = 75)
+      Animated.parallel([
+        Animated.timing(iconEntranceOpacity, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.spring(iconEntranceScale, {
+          toValue: 1,
+          tension: 70,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+
+      // B. The 3 navy lines draw smoothly in place along their angles
+      Animated.stagger(120, [
+        // Line 1: Top-Left slant (-29.5°)
+        Animated.timing(line1Progress, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.bezier(0.25, 1, 0.5, 1),
+          useNativeDriver: true,
+        }),
+        // Line 2: Right slant (+29.6°)
+        Animated.timing(line2Progress, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.bezier(0.25, 1, 0.5, 1),
+          useNativeDriver: true,
+        }),
+        // Line 3: Bottom curved base
+        Animated.timing(line3Progress, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.bezier(0.25, 1, 0.5, 1),
+          useNativeDriver: true,
+        }),
+      ]),
+
+      // C. Tactile spring punch — lines lock firmly into place!
+      Animated.sequence([
+        Animated.timing(iconPunch, {
+          toValue: 1.08,
+          duration: 90,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.spring(iconPunch, {
+          toValue: 1,
+          tension: 70,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+
+      // Appreciation pause with icon in center (160ms)
+      Animated.delay(160),
+
+      // D. THE UPLATA MOVE: Icon moves from center to left, and "Arthik" emerges from behind the icon
+      Animated.parallel([
+        Animated.timing(brandRowX, {
+          toValue: 0,
+          duration: 520,
+          easing: Easing.bezier(0.2, 1, 0.3, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(wordmarkSlideX, {
+          toValue: 0,
+          duration: 520,
+          easing: Easing.bezier(0.2, 1, 0.3, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(wordmarkOpacity, {
+          toValue: 1,
+          duration: 380,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+
+      // E. Tagline "Apna kharcha, apna hisaab" fades and floats in smoothly
+      Animated.parallel([
+        Animated.timing(taglineOpacity, {
+          toValue: 1,
+          duration: 550,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(taglineTranslateY, {
+          toValue: 0,
+          duration: 550,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+
+      // F. Loading dots fade in
+      Animated.timing(dotsOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Start sequential dot wave loop
       dotWaveLoop.start();
-    }, 550);
+    });
 
     const initAuthAndNavigate = async () => {
+      const startTime = Date.now();
       try {
         let nextScreen: keyof RootStackParamList = 'Onboarding';
         const { data: { session } } = await supabase.auth.getSession();
@@ -136,22 +277,26 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           }
         }
 
-        // Transition to next screen after 2.4 seconds to allow smooth wave animation
-        setTimeout(() => {
-          navigation.replace(nextScreen as any);
-        }, 2400);
+        // Ample viewing time (~4.8s total) so the dots have plenty of time (~2.5 seconds) to blink/pulse before returning to center
+        const elapsed = Date.now() - startTime;
+        const delay = Math.max(0, 4800 - elapsed);
+
+        exitTimerRef.current = setTimeout(() => {
+          triggerExitAndNavigate(nextScreen);
+        }, delay);
       } catch (e) {
         if (__DEV__) console.error('Session retrieval error:', e);
-        setTimeout(() => {
-          navigation.replace('Onboarding');
-        }, 2400);
+        exitTimerRef.current = setTimeout(() => {
+          triggerExitAndNavigate('Onboarding');
+        }, 4800);
       }
     };
 
     initAuthAndNavigate();
 
     return () => {
-      clearTimeout(dotTimer);
+      if (dotTimerRef.current) clearTimeout(dotTimerRef.current);
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
       dotWaveLoop.stop();
     };
   }, []);
@@ -159,85 +304,254 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      {/* Decorative blurred background circles */}
-      <View style={[styles.bgCircleTop, { backgroundColor: colors.mintGreen, opacity: isDark ? 0.05 : 0.1 }]} />
-      <View style={[styles.bgCircleBottom, { backgroundColor: colors.peachCoral, opacity: isDark ? 0.05 : 0.1 }]} />
 
-      {/* Main Logo Container */}
-      <Animated.View
-        style={[
-          styles.logoImageContainer,
-          {
-            backgroundColor: colors.card,
-            borderWidth: isDark ? 1 : 0,
-            borderColor: colors.borderSubtle,
-            opacity: logoOpacity,
-            transform: [{ scale: logoScale }],
-          },
-        ]}
-      >
-        <Image 
-          source={require('../../assets/logo.png')} 
-          style={{ width: 112, height: 112 }} 
-          resizeMode="cover" 
-        />
-      </Animated.View>
+      {/* Main Content wrapper */}
+      <View style={styles.contentContainer}>
+        {/* Brand Row: [Icon Anchor (Icon + Blooming Circle)] + [Emerging Wordmark] */}
+        <Animated.View
+          style={[
+            styles.brandRow,
+            {
+              transform: [{ translateX: brandRowX }],
+            },
+          ]}
+        >
+          {/* Icon Anchor: anchors the expanding circle directly to the icon */}
+          <View style={styles.iconAnchor}>
+            {/* Expanding Mint Circle for Exit Transition: locked to the icon itself */}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.exitCircle,
+                {
+                  backgroundColor: colors.mintGreen,
+                  opacity: exitSquircleOpacity,
+                  transform: [
+                    { scale: exitSquircleScale },
+                  ],
+                },
+              ]}
+            />
 
-      {/* Wordmark "Arthik" */}
-      <Animated.Text
-        style={[
-          styles.appName,
-          {
-            color: colors.textPrimary,
-            opacity: wordmarkOpacity,
-            transform: [{ translateY: wordmarkTranslateY }],
-          },
-        ]}
-      >
-        Arthik
-      </Animated.Text>
-
-      {/* Tagline */}
-      <Animated.Text style={[styles.tagline, { color: colors.textSecondary, opacity: taglineOpacity }]}>
-        Apna kharcha, apna hisaab
-      </Animated.Text>
-
-      {/* Animated Sequential Dots */}
-      <Animated.View style={[styles.dotsContainer, { opacity: dotsOpacity }]}>
-        {[dot1Anim, dot2Anim, dot3Anim].map((anim, index) => {
-          const scale = anim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [1, 1.35],
-          });
-
-          return (
-            <View key={index} style={styles.dotWrapper}>
-              {/* Inactive base dot */}
-              <View
-                style={[
-                  styles.dotBase,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.22)'
-                      : 'rgba(26, 43, 76, 0.18)',
-                  },
-                ]}
-              />
-              {/* Active green animated dot */}
+            {/* Icon Container Card: Starts in dead center, slides left, returns to center */}
+            <Animated.View
+              style={[
+                styles.iconCard,
+                {
+                  backgroundColor: colors.mintGreen,
+                  borderWidth: isDark ? 1 : 0,
+                  borderColor: colors.borderSubtle,
+                  transform: [
+                    { scale: Animated.multiply(iconEntranceScale, iconPunch) },
+                  ],
+                },
+              ]}
+            >
+              {/* Inner lines container scaled from 112 -> 80 (fades out as circle expands) */}
+              <Animated.View style={[styles.linesScaleWrapper, { opacity: contentFadeOpacity }]}>
+              {/* Line 1 (Top-Left): Creates in place along -29.5° diagonal slant */}
               <Animated.View
                 style={[
-                  styles.dotActive,
+                  styles.piece1Container,
                   {
-                    backgroundColor: colors.mint,
-                    opacity: anim,
-                    transform: [{ scale }],
+                    opacity: line1Progress.interpolate({
+                      inputRange: [0, 0.08, 1],
+                      outputRange: [0, 1, 1],
+                    }),
+                    transform: [
+                      { rotate: '-29.5deg' },
+                      {
+                        translateY: line1Progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-18.1, 0],
+                        }),
+                      },
+                      {
+                        scaleY: line1Progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.01, 1],
+                        }),
+                      },
+                      {
+                        scaleX: line1Progress.interpolate({
+                          inputRange: [0, 0.35, 1],
+                          outputRange: [0.35, 1, 1],
+                        }),
+                      },
+                      { rotate: '29.5deg' },
+                    ],
                   },
                 ]}
-              />
-            </View>
-          );
-        })}
-      </Animated.View>
+              >
+                <Image
+                  source={require('../../assets/logo_piece_1.png')}
+                  style={styles.pieceImage1}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+
+              {/* Line 2 (Right): Creates in place along +29.6° diagonal slant */}
+              <Animated.View
+                style={[
+                  styles.piece2Container,
+                  {
+                    opacity: line2Progress.interpolate({
+                      inputRange: [0, 0.08, 1],
+                    outputRange: [0, 1, 1],
+                    }),
+                    transform: [
+                      { rotate: '29.6deg' },
+                      {
+                        translateY: line2Progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-21.1, 0],
+                        }),
+                      },
+                      {
+                        scaleY: line2Progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.01, 1],
+                        }),
+                      },
+                      {
+                        scaleX: line2Progress.interpolate({
+                          inputRange: [0, 0.35, 1],
+                          outputRange: [0.35, 1, 1],
+                        }),
+                      },
+                      { rotate: '-29.6deg' },
+                    ],
+                  },
+                ]}
+              >
+                <Image
+                  source={require('../../assets/logo_piece_2.png')}
+                  style={styles.pieceImage2}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+
+              {/* Line 3 (Bottom): Creates in place along bottom curve */}
+              <Animated.View
+                style={[
+                  styles.piece3Container,
+                  {
+                    opacity: line3Progress.interpolate({
+                      inputRange: [0, 0.08, 1],
+                      outputRange: [0, 1, 1],
+                    }),
+                    transform: [
+                      { rotate: '-12.6deg' },
+                      {
+                        translateX: line3Progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-21.4, 0],
+                        }),
+                      },
+                      {
+                        scaleX: line3Progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.01, 1],
+                        }),
+                      },
+                      {
+                        scaleY: line3Progress.interpolate({
+                          inputRange: [0, 0.35, 1],
+                          outputRange: [0.35, 1, 1],
+                        }),
+                      },
+                      { rotate: '12.6deg' },
+                    ],
+                  },
+                ]}
+              >
+                <Image
+                  source={require('../../assets/logo_piece_3.png')}
+                  style={styles.pieceImage3}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+            </Animated.View>
+          </Animated.View>
+        </View>
+
+          {/* Wordmark Mask: "Arthik" emerges from directly behind the right edge of the icon */}
+          <View style={styles.wordmarkClipBox}>
+            <Animated.View
+              style={[
+                styles.wordmarkInner,
+                {
+                  opacity: wordmarkOpacity,
+                  transform: [{ translateX: wordmarkSlideX }],
+                },
+              ]}
+            >
+              <Animated.Text
+                style={[
+                  styles.appName,
+                  {
+                    color: colors.textPrimary,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                Arthik
+              </Animated.Text>
+            </Animated.View>
+          </View>
+        </Animated.View>
+
+        {/* Tagline "Apna kharcha, apna hisaab" */}
+        <Animated.Text
+          style={[
+            styles.tagline,
+            {
+              color: colors.textSecondary,
+              opacity: taglineOpacity,
+              transform: [{ translateY: taglineTranslateY }],
+            },
+          ]}
+        >
+          Apna kharcha, apna hisaab
+        </Animated.Text>
+
+        {/* Animated Sequential Dots (plenty of time to pulse) */}
+        <Animated.View style={[styles.dotsContainer, { opacity: dotsOpacity }]}>
+          {[dot1Anim, dot2Anim, dot3Anim].map((anim, index) => {
+            const scale = anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 1.35],
+            });
+
+            return (
+              <View key={index} style={styles.dotWrapper}>
+                {/* Inactive base dot */}
+                <View
+                  style={[
+                    styles.dotBase,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(255, 255, 255, 0.22)'
+                        : 'rgba(26, 43, 76, 0.18)',
+                    },
+                  ]}
+                />
+                {/* Active green animated dot */}
+                <Animated.View
+                  style={[
+                    styles.dotActive,
+                    {
+                      backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark,
+                      opacity: anim,
+                      transform: [{ scale }],
+                    },
+                  ]}
+                />
+              </View>
+            );
+          })}
+        </Animated.View>
+      </View>
     </View>
   );
 };
@@ -249,55 +563,146 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    overflow: 'hidden',
   },
-  bgCircleTop: {
+  contentContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    height: 84,
+    zIndex: 2,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    height: 84,
+  },
+  iconAnchor: {
+    width: 80,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    zIndex: 3,
+  },
+  exitCircle: {
     position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    top: -50,
-    left: -50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    zIndex: 10,
   },
-  bgCircleBottom: {
-    position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    bottom: -50,
-    right: -50,
-  },
-  logoImageContainer: {
-    width: 112,
-    height: 112,
-    borderRadius: 32,
-    backgroundColor: '#FFFFFF',
+  iconCard: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#1A2B4C',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowRadius: 16,
-    elevation: 3,
+    elevation: 5,
     overflow: 'hidden',
+    position: 'relative',
+    zIndex: 2,
+  },
+  linesScaleWrapper: {
+    width: 112,
+    height: 112,
+    transform: [{ scale: 80 / 112 }],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Line 1: Pivot at center (50.06, 42.65)
+  piece1Container: {
+    position: 'absolute',
+    left: -5.94,
+    top: -13.35,
+    width: 112,
+    height: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pieceImage1: {
+    position: 'absolute',
+    left: 5.94,
+    top: 13.35,
+    width: 112,
+    height: 112,
+  },
+
+  // Line 2: Pivot at center (74.87, 66.26)
+  piece2Container: {
+    position: 'absolute',
+    left: 18.87,
+    top: 10.26,
+    width: 112,
+    height: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pieceImage2: {
+    position: 'absolute',
+    left: -18.87,
+    top: -10.26,
+    width: 112,
+    height: 112,
+  },
+
+  // Line 3: Pivot at center (42.26, 74.76)
+  piece3Container: {
+    position: 'absolute',
+    left: -13.74,
+    top: 18.76,
+    width: 112,
+    height: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pieceImage3: {
+    position: 'absolute',
+    left: 13.74,
+    top: -18.76,
+    width: 112,
+    height: 112,
+  },
+
+  // Clipping window for "Arthik" so it looks like it emerges directly from behind the icon
+  wordmarkClipBox: {
+    width: 160,
+    height: 80,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  wordmarkInner: {
+    width: 160,
+    paddingLeft: 16,
+    justifyContent: 'center',
   },
   appName: {
-    fontSize: 54,
+    fontSize: 44,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
-    marginTop: Spacing.gutter,
     letterSpacing: -0.5,
   },
   tagline: {
-    fontSize: 18,
+    position: 'absolute',
+    top: 96,
+    fontSize: 17,
     color: '#8A8FA3',
     fontFamily: FontFamily.medium,
-    marginTop: Spacing.element,
   },
   dotsContainer: {
+    position: 'absolute',
+    top: 138,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.element,
-    marginTop: 28,
   },
   dotWrapper: {
     width: 14,
@@ -318,5 +723,3 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
-
-
