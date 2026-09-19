@@ -365,9 +365,14 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <ShieldCheck size={18} color={colors.textPrimary} />
             </View>
-            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              App Lock (Biometric)
-            </Text>
+            <View style={{ flex: 1, marginRight: Spacing.element }}>
+              <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
+                App Lock
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+                Fingerprint or Device PIN
+              </Text>
+            </View>
             <Switch
               value={isAppLockEnabled}
               onValueChange={handleToggleAppLock}

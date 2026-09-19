@@ -63,6 +63,7 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Unlock Arthik',
+        promptSubtitle: 'Use Fingerprint, Face or Device PIN',
         cancelLabel: 'Cancel',
         disableDeviceFallback: false,
       });
