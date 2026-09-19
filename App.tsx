@@ -166,30 +166,32 @@ export default function App() {
             // P1.5: Ask permission after login, not on cold app start
             if (event === 'SIGNED_IN') {
               setupNotifications();
-              initAppLock(session.user.id);
             }
+            initAppLock(session.user.id);
           }
         }
       }, 0);
     });
 
-    // Initialize App Lock on app launch
+    // Initialize App Lock immediately on app launch
     initAppLock(useAuthStore.getState().user?.id);
 
     // AppState listener for auto-syncing and app lock (P0.3)
     const appStateSub = AppState.addEventListener('change', (nextAppState) => {
+      const loggedInUser = useAuthStore.getState().user;
+      const { isAppLockEnabled: lockEnabled, isLocked: locked } = useAppLockStore.getState();
+
       if (nextAppState === 'background' || nextAppState === 'inactive') {
-        if (useAuthStore.getState().user) {
+        if (loggedInUser && lockEnabled) {
           lockApp();
         }
       } else if (nextAppState === 'active') {
         const isOffline = useNetworkStore.getState().isOffline;
-        const loggedInUser = useAuthStore.getState().user;
         if (!isOffline && loggedInUser) {
           useExpenseStore.getState().syncPendingExpenses();
           useDailyBudgetStore.getState().uploadPendingDailyRecords();
         }
-        if (loggedInUser && isAppLockEnabled && isLocked) {
+        if (loggedInUser && lockEnabled && locked) {
           authenticateAppLock();
         }
       }
@@ -229,13 +231,17 @@ export default function App() {
             />
           ) : (
             <AppNavigation
+              onReady={() => {
+                const route = navigationRef.getCurrentRoute()?.name || 'Splash';
+                setCurrentRoute(route);
+              }}
               onStateChange={() => {
                 const route = navigationRef.getCurrentRoute()?.name || 'Splash';
                 setCurrentRoute(route);
               }}
             />
           )}
-          {Boolean(currentUser && isAppLockEnabled && isLocked && currentRoute !== 'Splash') && (
+          {Boolean((currentUser || useAuthStore.getState().user) && isAppLockEnabled && isLocked && currentRoute !== 'Splash') && (
             <AppLockOverlay />
           )}
           <StatusBar

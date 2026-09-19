@@ -91,7 +91,13 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
-export function AppNavigation({ onStateChange }: { onStateChange?: () => void } = {}) {
+export function AppNavigation({
+  onStateChange,
+  onReady,
+}: {
+  onStateChange?: () => void;
+  onReady?: () => void;
+} = {}) {
   const { isDark, colors } = useTheme();
 
   const navTheme = useMemo(() => ({
@@ -107,7 +113,13 @@ export function AppNavigation({ onStateChange }: { onStateChange?: () => void } 
   }), [isDark, colors]);
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme} onStateChange={onStateChange}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
+      theme={navTheme}
+      onStateChange={onStateChange}
+      onReady={onReady}
+    >
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
+import { useAppLockStore } from '../store/appLockStore';
 import { Spacing, FontFamily } from '../config/theme';
 import { supabase } from '../config/supabase';
 
@@ -195,6 +196,9 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         // 4. Brief hold (120ms) on solid mint green before destination cross-fade
         Animated.delay(120),
       ]).start(() => {
+        if (targetScreen === 'AppTabs' && useAppLockStore.getState().isAppLockEnabled) {
+          useAppLockStore.getState().lock();
+        }
         navigation.replace(targetScreen as any);
       });
     };
@@ -307,7 +311,11 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         await setSession(session);
 
         if (session) {
-          await Promise.all([fetchCategories(), fetchExpenses()]);
+          await Promise.all([
+            fetchCategories(),
+            fetchExpenses(),
+            useAppLockStore.getState().init(session.user.id),
+          ]);
           nextScreen = 'AppTabs';
         } else {
           const hasSeen = await AsyncStorage.getItem('@arthik_has_seen_onboarding');

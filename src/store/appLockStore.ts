@@ -19,8 +19,9 @@ interface AppLockState {
   reset: () => void;
 }
 
-const getStorageKey = (userId?: string) =>
-  userId ? `@arthik_app_lock_enabled_${userId}` : '@arthik_app_lock_enabled_default';
+const GLOBAL_STORAGE_KEY = '@arthik_app_lock_enabled';
+const getUserStorageKey = (userId?: string) =>
+  userId ? `@arthik_app_lock_enabled_${userId}` : null;
 
 export const useAppLockStore = create<AppLockState>((set, get) => ({
   isAppLockEnabled: false,
@@ -37,16 +38,48 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
         LocalAuthentication.isEnrolledAsync(),
       ]);
 
-      const key = getStorageKey(userId);
-      const stored = await AsyncStorage.getItem(key);
-      const isEnabled = stored === 'true' && (hasHardware || isEnrolled);
+      const isBiometricSupported = hasHardware || isEnrolled;
+
+      // 1. Check direct global device flag
+      let isEnabled = false;
+      const globalStored = await AsyncStorage.getItem(GLOBAL_STORAGE_KEY);
+
+      if (globalStored !== null) {
+        isEnabled = globalStored === 'true';
+      } else {
+        // 2. Check user-specific key if provided
+        const userKey = getUserStorageKey(userId);
+        if (userKey) {
+          const userStored = await AsyncStorage.getItem(userKey);
+          if (userStored !== null) {
+            isEnabled = userStored === 'true';
+          }
+        }
+
+        // 3. Fallback: scan any existing keys starting with @arthik_app_lock_enabled
+        if (!isEnabled) {
+          const allKeys = await AsyncStorage.getAllKeys();
+          const lockKeys = allKeys.filter((k) => k.startsWith('@arthik_app_lock_enabled'));
+          if (lockKeys.length > 0) {
+            const pairs = await AsyncStorage.multiGet(lockKeys);
+            isEnabled = pairs.some(([_, val]) => val === 'true');
+          }
+        }
+
+        // Cache global flag if found true
+        if (isEnabled) {
+          await AsyncStorage.setItem(GLOBAL_STORAGE_KEY, 'true');
+        }
+      }
+
+      const active = isEnabled && isBiometricSupported;
 
       set({
         isSupported: hasHardware,
         isEnrolled,
-        isAppLockEnabled: isEnabled,
-        // If app lock is enabled, start locked
-        isLocked: isEnabled,
+        isAppLockEnabled: active,
+        // If app lock is enabled, start locked!
+        isLocked: active,
         authError: null,
       });
     } catch (e) {
@@ -101,8 +134,12 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
       return false;
     }
 
-    const key = getStorageKey(userId);
-    await AsyncStorage.setItem(key, enabled ? 'true' : 'false');
+    // Persist to both global device key and user-specific key
+    await AsyncStorage.setItem(GLOBAL_STORAGE_KEY, enabled ? 'true' : 'false');
+    const userKey = getUserStorageKey(userId);
+    if (userKey) {
+      await AsyncStorage.setItem(userKey, enabled ? 'true' : 'false');
+    }
 
     set({
       isAppLockEnabled: enabled,
@@ -124,6 +161,7 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
   },
 
   reset: () => {
+    AsyncStorage.removeItem(GLOBAL_STORAGE_KEY).catch(() => {});
     set({
       isAppLockEnabled: false,
       isLocked: false,
