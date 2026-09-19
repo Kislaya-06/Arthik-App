@@ -27,6 +27,7 @@
         "backgroundColor": "#F8FAF9",
         "foregroundImage": "./assets/logo.png"
       },
+      "allowBackup": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.kislaya_agarwal.arthik",
       "permissions": [
