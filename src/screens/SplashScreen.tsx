@@ -13,6 +13,57 @@ import { supabase } from '../config/supabase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
+interface LogoPieceConfig {
+  source: any;
+  containerOffset: { left: number; top: number };
+  imageOffset: { left: number; top: number };
+  rotate: string;
+  unrotate: string;
+  translateProp: 'translateX' | 'translateY';
+  translateFrom: number;
+  scalePrimaryProp: 'scaleX' | 'scaleY';
+  scaleSecondaryProp: 'scaleX' | 'scaleY';
+}
+
+const LOGO_PIECES: LogoPieceConfig[] = [
+  {
+    // Line 1: Top-Left slant (-29.5°)
+    source: require('../../assets/logo_piece_1.png'),
+    containerOffset: { left: -5.94, top: -13.35 },
+    imageOffset: { left: 5.94, top: 13.35 },
+    rotate: '-29.5deg',
+    unrotate: '29.5deg',
+    translateProp: 'translateY',
+    translateFrom: -18.1,
+    scalePrimaryProp: 'scaleY',
+    scaleSecondaryProp: 'scaleX',
+  },
+  {
+    // Line 2: Right slant (+29.6°)
+    source: require('../../assets/logo_piece_2.png'),
+    containerOffset: { left: 18.87, top: 10.26 },
+    imageOffset: { left: -18.87, top: -10.26 },
+    rotate: '29.6deg',
+    unrotate: '-29.6deg',
+    translateProp: 'translateY',
+    translateFrom: -21.1,
+    scalePrimaryProp: 'scaleY',
+    scaleSecondaryProp: 'scaleX',
+  },
+  {
+    // Line 3: Bottom curved base (-12.6°)
+    source: require('../../assets/logo_piece_3.png'),
+    containerOffset: { left: -13.74, top: 18.76 },
+    imageOffset: { left: 13.74, top: -18.76 },
+    rotate: '-12.6deg',
+    unrotate: '12.6deg',
+    translateProp: 'translateX',
+    translateFrom: -21.4,
+    scalePrimaryProp: 'scaleX',
+    scaleSecondaryProp: 'scaleY',
+  },
+];
+
 export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const { setSession } = useAuthStore();
   const { colors, isDark } = useTheme();
@@ -25,9 +76,11 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const iconPunch = useRef(new Animated.Value(1)).current;
 
   // 3 line creation / draw progress values (0 -> 1)
-  const line1Progress = useRef(new Animated.Value(0)).current;
-  const line2Progress = useRef(new Animated.Value(0)).current;
-  const line3Progress = useRef(new Animated.Value(0)).current;
+  const lineProgress = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
   // Icon starts dead-center (brandRowX: 80 -> 0), "Arthik" emerges from inside/behind icon (wordmarkSlideX: -160 -> 0)
   const brandRowX = useRef(new Animated.Value(80)).current;
@@ -39,17 +92,18 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const taglineTranslateY = useRef(new Animated.Value(12)).current;
   const dotsOpacity = useRef(new Animated.Value(0)).current;
 
-  // Expanding Mint Squircle for exit transition (takes ample time: 800ms bloom + 150ms hold from center icon)
-  const exitSquircleScale = useRef(new Animated.Value(1)).current;
-  const exitSquircleOpacity = useRef(new Animated.Value(0)).current;
+  // Expanding Mint Circle for exit transition (bloom from centered icon)
+  const exitCircleScale = useRef(new Animated.Value(1)).current;
+  const exitCircleOpacity = useRef(new Animated.Value(0)).current;
   const contentFadeOpacity = useRef(new Animated.Value(1)).current;
 
   // Wave animation values for the 3 dots
-  const dot1Anim = useRef(new Animated.Value(0)).current;
-  const dot2Anim = useRef(new Animated.Value(0)).current;
-  const dot3Anim = useRef(new Animated.Value(0)).current;
+  const dotAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
-  const dotTimerRef = useRef<NodeJS.Timeout | null>(null);
   const exitTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -73,11 +127,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     // Sequential wave animation for the 3 dots: 1st -> 2nd -> 3rd -> repeat
     const dotWaveLoop = Animated.loop(
       Animated.sequence([
-        Animated.stagger(180, [
-          createDotPulse(dot1Anim),
-          createDotPulse(dot2Anim),
-          createDotPulse(dot3Anim),
-        ]),
+        Animated.stagger(180, dotAnims.map(createDotPulse)),
         Animated.delay(260),
       ])
     );
@@ -124,12 +174,12 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
         // 3. Butter-smooth circular mint bloom expanding outward from the centered icon (gentle ease-in-out)
         Animated.parallel([
-          Animated.timing(exitSquircleOpacity, {
+          Animated.timing(exitCircleOpacity, {
             toValue: 1,
             duration: 80,
             useNativeDriver: true,
           }),
-          Animated.timing(exitSquircleScale, {
+          Animated.timing(exitCircleScale, {
             toValue: 24,
             duration: 750,
             easing: Easing.inOut(Easing.quad),
@@ -151,7 +201,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
     // 1. Entrance & Reveal Sequence
     Animated.sequence([
-      // A. Center icon pops in with a smooth spring (icon is at exact center because brandRowX = 75)
+      // A. Center icon pops in with a smooth spring
       Animated.parallel([
         Animated.timing(iconEntranceOpacity, {
           toValue: 1,
@@ -168,29 +218,17 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       ]),
 
       // B. The 3 navy lines draw smoothly in place along their angles
-      Animated.stagger(120, [
-        // Line 1: Top-Left slant (-29.5°)
-        Animated.timing(line1Progress, {
-          toValue: 1,
-          duration: 280,
-          easing: Easing.bezier(0.25, 1, 0.5, 1),
-          useNativeDriver: true,
-        }),
-        // Line 2: Right slant (+29.6°)
-        Animated.timing(line2Progress, {
-          toValue: 1,
-          duration: 280,
-          easing: Easing.bezier(0.25, 1, 0.5, 1),
-          useNativeDriver: true,
-        }),
-        // Line 3: Bottom curved base
-        Animated.timing(line3Progress, {
-          toValue: 1,
-          duration: 280,
-          easing: Easing.bezier(0.25, 1, 0.5, 1),
-          useNativeDriver: true,
-        }),
-      ]),
+      Animated.stagger(
+        120,
+        lineProgress.map((anim) =>
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 280,
+            easing: Easing.bezier(0.25, 1, 0.5, 1),
+            useNativeDriver: true,
+          })
+        )
+      ),
 
       // C. Tactile spring punch — lines lock firmly into place!
       Animated.sequence([
@@ -256,15 +294,16 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Start sequential dot wave loop
       dotWaveLoop.start();
     });
 
     const initAuthAndNavigate = async () => {
       const startTime = Date.now();
+      let nextScreen: keyof RootStackParamList = 'Onboarding';
       try {
-        let nextScreen: keyof RootStackParamList = 'Onboarding';
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         await setSession(session);
 
         if (session) {
@@ -276,26 +315,21 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
             nextScreen = 'Auth';
           }
         }
-
-        // Ample viewing time (~4.8s total) so the dots have plenty of time (~2.5 seconds) to blink/pulse before returning to center
+      } catch (e) {
+        if (__DEV__) console.error('Session retrieval error:', e);
+      } finally {
+        // Ample viewing time (~4.8s total) so dots have ~2.5s to pulse before returning to center
         const elapsed = Date.now() - startTime;
         const delay = Math.max(0, 4800 - elapsed);
-
         exitTimerRef.current = setTimeout(() => {
           triggerExitAndNavigate(nextScreen);
         }, delay);
-      } catch (e) {
-        if (__DEV__) console.error('Session retrieval error:', e);
-        exitTimerRef.current = setTimeout(() => {
-          triggerExitAndNavigate('Onboarding');
-        }, 4800);
       }
     };
 
     initAuthAndNavigate();
 
     return () => {
-      if (dotTimerRef.current) clearTimeout(dotTimerRef.current);
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
       dotWaveLoop.stop();
     };
@@ -325,10 +359,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
                 styles.exitCircle,
                 {
                   backgroundColor: colors.mintGreen,
-                  opacity: exitSquircleOpacity,
-                  transform: [
-                    { scale: exitSquircleScale },
-                  ],
+                  opacity: exitCircleOpacity,
+                  transform: [{ scale: exitCircleScale }],
                 },
               ]}
             />
@@ -341,139 +373,63 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
                   backgroundColor: colors.mintGreen,
                   borderWidth: isDark ? 1 : 0,
                   borderColor: colors.borderSubtle,
-                  transform: [
-                    { scale: Animated.multiply(iconEntranceScale, iconPunch) },
-                  ],
+                  transform: [{ scale: Animated.multiply(iconEntranceScale, iconPunch) }],
                 },
               ]}
             >
               {/* Inner lines container scaled from 112 -> 80 (fades out as circle expands) */}
               <Animated.View style={[styles.linesScaleWrapper, { opacity: contentFadeOpacity }]}>
-              {/* Line 1 (Top-Left): Creates in place along -29.5° diagonal slant */}
-              <Animated.View
-                style={[
-                  styles.piece1Container,
-                  {
-                    opacity: line1Progress.interpolate({
-                      inputRange: [0, 0.08, 1],
-                      outputRange: [0, 1, 1],
-                    }),
-                    transform: [
-                      { rotate: '-29.5deg' },
-                      {
-                        translateY: line1Progress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [-18.1, 0],
-                        }),
-                      },
-                      {
-                        scaleY: line1Progress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.01, 1],
-                        }),
-                      },
-                      {
-                        scaleX: line1Progress.interpolate({
-                          inputRange: [0, 0.35, 1],
-                          outputRange: [0.35, 1, 1],
-                        }),
-                      },
-                      { rotate: '29.5deg' },
-                    ],
-                  },
-                ]}
-              >
-                <Image
-                  source={require('../../assets/logo_piece_1.png')}
-                  style={styles.pieceImage1}
-                  resizeMode="contain"
-                />
-              </Animated.View>
+                {LOGO_PIECES.map((piece, i) => {
+                  const progress = lineProgress[i];
+                  const transform: any[] = [
+                    { rotate: piece.rotate },
+                    {
+                      [piece.translateProp]: progress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [piece.translateFrom, 0],
+                      }),
+                    },
+                    {
+                      [piece.scalePrimaryProp]: progress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.01, 1],
+                      }),
+                    },
+                    {
+                      [piece.scaleSecondaryProp]: progress.interpolate({
+                        inputRange: [0, 0.35, 1],
+                        outputRange: [0.35, 1, 1],
+                      }),
+                    },
+                    { rotate: piece.unrotate },
+                  ];
 
-              {/* Line 2 (Right): Creates in place along +29.6° diagonal slant */}
-              <Animated.View
-                style={[
-                  styles.piece2Container,
-                  {
-                    opacity: line2Progress.interpolate({
-                      inputRange: [0, 0.08, 1],
-                    outputRange: [0, 1, 1],
-                    }),
-                    transform: [
-                      { rotate: '29.6deg' },
-                      {
-                        translateY: line2Progress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [-21.1, 0],
-                        }),
-                      },
-                      {
-                        scaleY: line2Progress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.01, 1],
-                        }),
-                      },
-                      {
-                        scaleX: line2Progress.interpolate({
-                          inputRange: [0, 0.35, 1],
-                          outputRange: [0.35, 1, 1],
-                        }),
-                      },
-                      { rotate: '-29.6deg' },
-                    ],
-                  },
-                ]}
-              >
-                <Image
-                  source={require('../../assets/logo_piece_2.png')}
-                  style={styles.pieceImage2}
-                  resizeMode="contain"
-                />
-              </Animated.View>
-
-              {/* Line 3 (Bottom): Creates in place along bottom curve */}
-              <Animated.View
-                style={[
-                  styles.piece3Container,
-                  {
-                    opacity: line3Progress.interpolate({
-                      inputRange: [0, 0.08, 1],
-                      outputRange: [0, 1, 1],
-                    }),
-                    transform: [
-                      { rotate: '-12.6deg' },
-                      {
-                        translateX: line3Progress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [-21.4, 0],
-                        }),
-                      },
-                      {
-                        scaleX: line3Progress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.01, 1],
-                        }),
-                      },
-                      {
-                        scaleY: line3Progress.interpolate({
-                          inputRange: [0, 0.35, 1],
-                          outputRange: [0.35, 1, 1],
-                        }),
-                      },
-                      { rotate: '12.6deg' },
-                    ],
-                  },
-                ]}
-              >
-                <Image
-                  source={require('../../assets/logo_piece_3.png')}
-                  style={styles.pieceImage3}
-                  resizeMode="contain"
-                />
+                  return (
+                    <Animated.View
+                      key={i}
+                      style={[
+                        styles.pieceContainer,
+                        piece.containerOffset,
+                        {
+                          opacity: progress.interpolate({
+                            inputRange: [0, 0.08, 1],
+                            outputRange: [0, 1, 1],
+                          }),
+                          transform,
+                        },
+                      ]}
+                    >
+                      <Image
+                        source={piece.source}
+                        style={[styles.pieceImage, piece.imageOffset]}
+                        resizeMode="contain"
+                      />
+                    </Animated.View>
+                  );
+                })}
               </Animated.View>
             </Animated.View>
-          </Animated.View>
-        </View>
+          </View>
 
           {/* Wordmark Mask: "Arthik" emerges from directly behind the right edge of the icon */}
           <View style={styles.wordmarkClipBox}>
@@ -517,7 +473,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Animated Sequential Dots (plenty of time to pulse) */}
         <Animated.View style={[styles.dotsContainer, { opacity: dotsOpacity }]}>
-          {[dot1Anim, dot2Anim, dot3Anim].map((anim, index) => {
+          {dotAnims.map((anim, index) => {
             const scale = anim.interpolate({
               inputRange: [0, 1],
               outputRange: [1, 1.35],
@@ -616,62 +572,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Line 1: Pivot at center (50.06, 42.65)
-  piece1Container: {
+  pieceContainer: {
     position: 'absolute',
-    left: -5.94,
-    top: -13.35,
     width: 112,
     height: 112,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pieceImage1: {
+  pieceImage: {
     position: 'absolute',
-    left: 5.94,
-    top: 13.35,
     width: 112,
     height: 112,
   },
-
-  // Line 2: Pivot at center (74.87, 66.26)
-  piece2Container: {
-    position: 'absolute',
-    left: 18.87,
-    top: 10.26,
-    width: 112,
-    height: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pieceImage2: {
-    position: 'absolute',
-    left: -18.87,
-    top: -10.26,
-    width: 112,
-    height: 112,
-  },
-
-  // Line 3: Pivot at center (42.26, 74.76)
-  piece3Container: {
-    position: 'absolute',
-    left: -13.74,
-    top: 18.76,
-    width: 112,
-    height: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pieceImage3: {
-    position: 'absolute',
-    left: 13.74,
-    top: -18.76,
-    width: 112,
-    height: 112,
-  },
-
-  // Clipping window for "Arthik" so it looks like it emerges directly from behind the icon
   wordmarkClipBox: {
     width: 160,
     height: 80,
