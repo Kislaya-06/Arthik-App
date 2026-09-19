@@ -55,5 +55,6 @@ supabase/.temp/
 .vscode/
 .idea/
 .agent/
+.agents/
 
 
