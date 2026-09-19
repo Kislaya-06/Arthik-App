@@ -6,7 +6,7 @@
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
-[![Version](https://img.shields.io/badge/Version-1.2.3-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
+[![Version](https://img.shields.io/badge/Version-1.2.4-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -17,7 +17,7 @@
 *(Sign in quickly inside the app using your Google Account or Email).*
 
 1. Head to [**GitHub Releases**](https://github.com/Kislaya-06/Arthik-App/releases/latest).
-2. Under **Assets**, download **`Arthik-v1.2.3.apk`**.
+2. Under **Assets**, download **`Arthik-v1.2.4.apk`**.
 3. Open your phone's Downloads folder and tap the APK to install (enable *"Install unknown apps"* if prompted).
 4. Launch **Arthik** from your app drawer!
 
