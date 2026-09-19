@@ -9,8 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.2.4] - 2026-09-19
+
 ### 🚀 Added
 - **Update Required Screen & Remote Version Control:** Added a non-dismissible "Update Required" screen for legacy app versions with direct download link to GitHub Releases. Controlled dynamically via server-side config (`app_config` table) with strict semver matching, fail-open offline tolerance, and a remote master killswitch.
+
+### 🔒 Security
+- **Deep Link Session Takeover Guard:** Prevented session fixation and unauthorized account switching via unverified custom scheme deep links (`arthik://callback#access_token=...`). Deep-linked sessions for a different user identity are blocked if an active session already exists.
+- **Disabled Android Auto-Backup:** Added `allowBackup: false` in `app.json` preventing AsyncStorage session tokens, cached records, and pending offline queues from being extracted via `adb backup` or included in Google Cloud backups.
+- **Tenant Category Isolation:** Enforced strict row-level security policy on `expenses` verifying that attached `category_id` references either the authenticated user's own category or a shared default system category (`user_id IS NULL`).
+- **Database Integrity & Bounds Constraints:** Added database check constraints on `profiles` (positive daily budget, validated name lengths), `daily_savings_log` (non-negative spent/budget amounts), and `expenses` (amount upper bounded to ₹999,999,999.99 matching keypad precision).
 
 ### 🐛 Fixed
 - **Changing Daily Budget No Longer Rewrites Past Days:** If you had a ₹500 daily budget and changed it to another amount, your past days are no longer rewritten to the new allowance, preserving your genuine savings history and Gullak balance.
@@ -25,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Nightly Savings Notification Accuracy:** The nightly savings notification no longer claims you saved your full daily budget (e.g. "You saved ₹100") on days you spent money. It now accurately reflects what you actually saved.
 
 ### ⚙️ Internal
-- Code reorganization, architectural decomposition, and comprehensive test coverage across budget calculations, home calculations, and expense form modules.
+- Code reorganization, architectural decomposition, and comprehensive test coverage across budget calculations, home calculations, deep link guards, version control checks, and expense form modules.
 
 ---
 
