@@ -17,6 +17,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     is_auto_renew BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_daily_budget_non_negative;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_daily_budget_non_negative CHECK (daily_budget >= 0);
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_first_name_len;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_first_name_len CHECK (char_length(btrim(first_name)) BETWEEN 1 AND 50);
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_last_name_len;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_last_name_len CHECK (last_name IS NULL OR char_length(last_name) <= 50);
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -108,6 +116,9 @@ CREATE TABLE IF NOT EXISTS public.expenses (
 ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_note_len;
 ALTER TABLE public.expenses ADD CONSTRAINT expenses_note_len CHECK (note IS NULL OR char_length(note) <= 250);
 
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_amount_valid;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_amount_valid CHECK (amount > 0 AND amount <= 999999999.99);
+
 ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view their own expenses" ON public.expenses;
@@ -155,6 +166,11 @@ CREATE TABLE IF NOT EXISTS public.daily_savings_log (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_user_daily_savings UNIQUE (user_id, date)
 );
+ALTER TABLE public.daily_savings_log DROP CONSTRAINT IF EXISTS daily_savings_spent_non_negative;
+ALTER TABLE public.daily_savings_log ADD CONSTRAINT daily_savings_spent_non_negative CHECK (spent_amount IS NULL OR spent_amount >= 0);
+
+ALTER TABLE public.daily_savings_log DROP CONSTRAINT IF EXISTS daily_savings_budget_non_negative;
+ALTER TABLE public.daily_savings_log ADD CONSTRAINT daily_savings_budget_non_negative CHECK (budget_amount IS NULL OR budget_amount >= 0);
 
 ALTER TABLE public.daily_savings_log ENABLE ROW LEVEL SECURITY;
 
@@ -259,3 +275,23 @@ DROP FUNCTION IF EXISTS public.delete_user_account();
 -- A4. Default daily limit feature to OFF for new user profiles
 ALTER TABLE public.profiles ALTER COLUMN daily_budget SET DEFAULT 0;
 ALTER TABLE public.profiles ALTER COLUMN is_auto_renew SET DEFAULT false;
+
+-- A5. Security & Validation Constraints
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_daily_budget_non_negative;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_daily_budget_non_negative CHECK (daily_budget >= 0);
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_first_name_len;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_first_name_len CHECK (char_length(btrim(first_name)) BETWEEN 1 AND 50);
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_last_name_len;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_last_name_len CHECK (last_name IS NULL OR char_length(last_name) <= 50);
+
+ALTER TABLE public.daily_savings_log DROP CONSTRAINT IF EXISTS daily_savings_spent_non_negative;
+ALTER TABLE public.daily_savings_log ADD CONSTRAINT daily_savings_spent_non_negative CHECK (spent_amount IS NULL OR spent_amount >= 0);
+
+ALTER TABLE public.daily_savings_log DROP CONSTRAINT IF EXISTS daily_savings_budget_non_negative;
+ALTER TABLE public.daily_savings_log ADD CONSTRAINT daily_savings_budget_non_negative CHECK (budget_amount IS NULL OR budget_amount >= 0);
+
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_amount_valid;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_amount_valid CHECK (amount > 0 AND amount <= 999999999.99);
+
