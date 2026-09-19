@@ -349,3 +349,32 @@ WITH CHECK (
     )
 );
 
+-- ------------------------------------------------------------------------------
+-- 9. App Configuration Table (Remote Version Control & Feature Flags)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.app_config (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read app_config" ON public.app_config;
+CREATE POLICY "Public can read app_config" 
+ON public.app_config FOR SELECT 
+TO anon, authenticated 
+USING (true);
+
+-- Default configuration row for version control
+INSERT INTO public.app_config (key, value)
+VALUES (
+    'version_control',
+    jsonb_build_object(
+        'min_supported_version', '1.2.3',
+        'force_update_enabled', false,
+        'release_url', 'https://github.com/Kislaya-06/Arthik-App/releases/latest'
+    )
+)
+ON CONFLICT (key) DO NOTHING;
+
