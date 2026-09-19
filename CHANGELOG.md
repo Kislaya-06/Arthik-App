@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🚀 Added
+- **Update Required Screen & Remote Version Control:** Added a non-dismissible "Update Required" screen for legacy app versions with direct download link to GitHub Releases. Controlled dynamically via server-side config (`app_config` table) with strict semver matching, fail-open offline tolerance, and a remote master killswitch.
+
 ### 🐛 Fixed
 - **Changing Daily Budget No Longer Rewrites Past Days:** If you had a ₹500 daily budget and changed it to another amount, your past days are no longer rewritten to the new allowance, preserving your genuine savings history and Gullak balance.
 - **Zero-Spend Days No Longer Deleted on Cloud Sync:** If your daily budget was ₹500 and you spent ₹0 on a day, those days are no longer mistakenly treated as test data and removed from your cloud history when the app syncs.

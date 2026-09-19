@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
 import { ActivityIndicator, StyleSheet, View, StatusBar, Alert, AppState } from 'react-native';
@@ -17,10 +17,13 @@ import {
   registerNotificationResponseListener,
   setupNotifications,
 } from './src/lib/notificationService';
+import Constants from 'expo-constants';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { SyncFailedBanner } from './src/components/SyncFailedBanner';
 import { useNetworkStore } from './src/store/networkStore';
+import { checkAppVersionStatus, VersionCheckResult } from './src/lib/versionCheck';
+import { UpdateRequiredScreen } from './src/screens/UpdateRequiredScreen';
 
 export default function App() {
   const { colors, isDark } = useTheme();
@@ -35,8 +38,34 @@ export default function App() {
     Quicksand_700Bold,
   });
 
+  const [updateRequirement, setUpdateRequirement] = useState<VersionCheckResult>({
+    isRequired: false,
+    minVersion: '',
+    releaseUrl: '',
+  });
+
   useEffect(() => {
+    const currentVersion = Constants.expoConfig?.version || '1.2.3';
+    checkAppVersionStatus(supabase, useNetworkStore.getState().isOffline, currentVersion).then((res) => {
+      if (res.isRequired) {
+        setUpdateRequirement(res);
+      }
+    });
+
+    const unsubNetwork = useNetworkStore.subscribe((state, prevState) => {
+      if (prevState.isOffline && !state.isOffline) {
+        checkAppVersionStatus(supabase, false, currentVersion).then((res) => {
+          if (res.isRequired) {
+            setUpdateRequirement(res);
+          }
+        });
+      }
+    });
+
     async function checkForUpdates() {
+      if (updateRequirement.isRequired) {
+        return;
+      }
       try {
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
@@ -154,6 +183,7 @@ export default function App() {
       appStateSub.remove();
       unregisterNotif();
       cleanupNetwork();
+      unsubNetwork();
     };
   }, []);
 
@@ -171,7 +201,15 @@ export default function App() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
           <OfflineBanner />
           <SyncFailedBanner />
-          <AppNavigation />
+          {updateRequirement.isRequired ? (
+            <UpdateRequiredScreen
+              currentVersion={Constants.expoConfig?.version || '1.2.3'}
+              minVersion={updateRequirement.minVersion}
+              releaseUrl={updateRequirement.releaseUrl}
+            />
+          ) : (
+            <AppNavigation />
+          )}
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}
             translucent={true}
