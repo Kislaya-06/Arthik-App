@@ -1,6 +1,37 @@
+import { Alert } from 'react-native';
 import { supabase } from '../config/supabase';
 import { navigateTo } from '../navigation/navigationRef';
 import { useAuthStore } from '../store/authStore';
+import { evaluateDeepLinkSessionAction, isSameUserIdentity } from './deepLinkGuard';
+
+/**
+ * Prompts user for explicit confirmation before switching active sessions via an external deep link.
+ * Guards against Login CSRF and Session Fixation attacks.
+ */
+function promptAccountSwitch(currentEmail?: string, incomingEmail?: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const currentMsg = currentEmail ? `signed in as ${currentEmail}` : 'currently signed in';
+    const incomingMsg = incomingEmail ? `for ${incomingEmail}` : 'for another account';
+
+    Alert.alert(
+      'Switch Account?',
+      `You are ${currentMsg}. An authentication link ${incomingMsg} was opened.\n\nDo you want to sign out and switch accounts?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => resolve(false),
+        },
+        {
+          text: 'Switch Account',
+          style: 'destructive',
+          onPress: () => resolve(true),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) }
+    );
+  });
+}
 
 let lastHandledUrl = '';
 let lastHandledTime = 0;
@@ -83,8 +114,25 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
         return true;
       }
 
-      // Valid recovery session tokens
+      const currentUser = useAuthStore.getState().user;
+      const currentSession = useAuthStore.getState().session;
+
+      // Subcase 1A: Direct tokens (access_token & refresh_token)
       if (accessToken && refreshToken) {
+        const action = evaluateDeepLinkSessionAction({
+          currentUser,
+          isRecovery: true,
+          accessToken,
+        });
+
+        if (action.type === 'PROMPT_SWITCH') {
+          const confirmed = await promptAccountSwitch(currentUser?.email, action.incomingEmail);
+          if (!confirmed) {
+            return true; // Cancelled by user; preserve current session and abort
+          }
+          await useAuthStore.getState().signOut();
+        }
+
         const { data, error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -100,6 +148,7 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
           await useAuthStore.getState().setSession(data.session);
         }
       } else if (code) {
+        // Subcase 1B: PKCE code exchange
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           if (__DEV__) console.error('[AuthDeepLink] Failed to exchange recovery code:', error.message);
@@ -107,7 +156,22 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
             initialError: 'Password reset code is invalid or expired. Please request a new link.',
           });
           return true;
-        } else if (data?.session) {
+        }
+
+        if (data?.session) {
+          // If a user was already logged in and the code exchanged to a DIFFERENT account, prompt before applying
+          if (currentUser && !isSameUserIdentity(currentUser, data.session.user)) {
+            const confirmed = await promptAccountSwitch(currentUser?.email, data.session.user.email);
+            if (!confirmed) {
+              if (currentSession) {
+                await supabase.auth.setSession({
+                  access_token: currentSession.access_token,
+                  refresh_token: currentSession.refresh_token,
+                });
+              }
+              return true;
+            }
+          }
           await useAuthStore.getState().setSession(data.session);
         }
       }
@@ -125,7 +189,24 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
 
     // Case 3: Email Confirmation or OAuth Callbacks
     if (path.includes('callback') || type === 'signup' || type === 'invite') {
+      const currentUser = useAuthStore.getState().user;
+      const currentSession = useAuthStore.getState().session;
+
       if (accessToken && refreshToken) {
+        const action = evaluateDeepLinkSessionAction({
+          currentUser,
+          isRecovery: false,
+          accessToken,
+        });
+
+        if (action.type === 'PROMPT_SWITCH') {
+          const confirmed = await promptAccountSwitch(currentUser?.email, action.incomingEmail);
+          if (!confirmed) {
+            return true; // Cancelled by user; preserve current session
+          }
+          await useAuthStore.getState().signOut();
+        }
+
         const { data } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -134,8 +215,26 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
           await useAuthStore.getState().setSession(data.session);
         }
       } else if (code) {
-        const { data } = await supabase.auth.exchangeCodeForSession(code);
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          if (__DEV__) console.warn('[AuthDeepLink] Failed to exchange callback code:', error.message);
+          return false;
+        }
+
         if (data?.session) {
+          // If an active session exists and the code belongs to a DIFFERENT user, confirm before switching
+          if (currentUser && !isSameUserIdentity(currentUser, data.session.user)) {
+            const confirmed = await promptAccountSwitch(currentUser?.email, data.session.user.email);
+            if (!confirmed) {
+              if (currentSession) {
+                await supabase.auth.setSession({
+                  access_token: currentSession.access_token,
+                  refresh_token: currentSession.refresh_token,
+                });
+              }
+              return true;
+            }
+          }
           await useAuthStore.getState().setSession(data.session);
         }
       }
