@@ -33,7 +33,9 @@
       "permissions": [
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "VIBRATE",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
       ]
     },
     "plugins": [
@@ -41,7 +43,8 @@
       "expo-web-browser",
       "expo-font",
       "expo-status-bar",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-local-authentication"
     ],
     "extra": {
       "supabaseUrl": "https://dapbkooakqiemgdkxonx.supabase.co",

@@ -24,12 +24,21 @@ import { SyncFailedBanner } from './src/components/SyncFailedBanner';
 import { useNetworkStore } from './src/store/networkStore';
 import { checkAppVersionStatus, VersionCheckResult } from './src/lib/versionCheck';
 import { UpdateRequiredScreen } from './src/screens/UpdateRequiredScreen';
+import { useAppLockStore } from './src/store/appLockStore';
+import { AppLockOverlay } from './src/components/AppLockOverlay';
 
 export default function App() {
   const { colors, isDark } = useTheme();
   const setSession = useAuthStore((s) => s.setSession);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
+  const isAppLockEnabled = useAppLockStore((s) => s.isAppLockEnabled);
+  const isLocked = useAppLockStore((s) => s.isLocked);
+  const initAppLock = useAppLockStore((s) => s.init);
+  const lockApp = useAppLockStore((s) => s.lock);
+  const authenticateAppLock = useAppLockStore((s) => s.authenticate);
+  const currentUser = useAuthStore((s) => s.user);
+  const [currentRoute, setCurrentRoute] = useState<string>('Splash');
 
   const [fontsLoaded] = useFonts({
     Quicksand_400Regular,
@@ -157,20 +166,31 @@ export default function App() {
             // P1.5: Ask permission after login, not on cold app start
             if (event === 'SIGNED_IN') {
               setupNotifications();
+              initAppLock(session.user.id);
             }
           }
         }
       }, 0);
     });
 
-    // AppState listener for auto-syncing when returning to foreground (P0.3)
+    // Initialize App Lock on app launch
+    initAppLock(useAuthStore.getState().user?.id);
+
+    // AppState listener for auto-syncing and app lock (P0.3)
     const appStateSub = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (useAuthStore.getState().user) {
+          lockApp();
+        }
+      } else if (nextAppState === 'active') {
         const isOffline = useNetworkStore.getState().isOffline;
-        const currentUser = useAuthStore.getState().user;
-        if (!isOffline && currentUser) {
+        const loggedInUser = useAuthStore.getState().user;
+        if (!isOffline && loggedInUser) {
           useExpenseStore.getState().syncPendingExpenses();
           useDailyBudgetStore.getState().uploadPendingDailyRecords();
+        }
+        if (loggedInUser && isAppLockEnabled && isLocked) {
+          authenticateAppLock();
         }
       }
     });
@@ -208,7 +228,15 @@ export default function App() {
               releaseUrl={updateRequirement.releaseUrl}
             />
           ) : (
-            <AppNavigation />
+            <AppNavigation
+              onStateChange={() => {
+                const route = navigationRef.getCurrentRoute()?.name || 'Splash';
+                setCurrentRoute(route);
+              }}
+            />
+          )}
+          {Boolean(currentUser && isAppLockEnabled && isLocked && currentRoute !== 'Splash') && (
+            <AppLockOverlay />
           )}
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}

@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon,
-  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2
+  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
@@ -21,6 +21,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { scheduleDailyReminder, cancelDailyReminder } from '../lib/notificationService';
+import { useAppLockStore } from '../store/appLockStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -36,6 +37,25 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   // Local state for toggles with AsyncStorage persistence
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const isAppLockEnabled = useAppLockStore((s) => s.isAppLockEnabled);
+  const isSupported = useAppLockStore((s) => s.isSupported);
+  const isEnrolled = useAppLockStore((s) => s.isEnrolled);
+  const setAppLockEnabled = useAppLockStore((s) => s.setAppLockEnabled);
+
+  const handleToggleAppLock = async (val: boolean) => {
+    if (val && !isSupported && !isEnrolled) {
+      Alert.alert(
+        'Not Supported',
+        'Device me biometric ya screen lock (PIN/Pattern) setup nahi hai. Please pehle apne phone ki settings me screen lock enable karein.'
+      );
+      return;
+    }
+
+    const success = await setAppLockEnabled(val, user?.id);
+    if (!success && val) {
+      Alert.alert('Authentication Failed', 'App lock verify karne me problem hui.');
+    }
+  };
 
   useEffect(() => {
     AsyncStorage.getItem('@arthik_notifications_enabled').then((val) => {
@@ -340,7 +360,23 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          {/* 4. App Version */}
+          {/* 4. App Lock (Biometric) */}
+          <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <ShieldCheck size={18} color={colors.textPrimary} />
+            </View>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+              App Lock (Biometric)
+            </Text>
+            <Switch
+              value={isAppLockEnabled}
+              onValueChange={handleToggleAppLock}
+              trackColor={{ false: colors.border, true: colors.mintGreen }}
+              thumbColor={colors.white}
+            />
+          </View>
+
+          {/* 5. App Version */}
           <View style={[styles.settingRow, styles.lastSettingRow]}>
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <CircleAlert size={18} color={colors.textPrimary} />
