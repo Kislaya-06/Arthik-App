@@ -131,14 +131,34 @@ DROP POLICY IF EXISTS "Users can insert their own expenses" ON public.expenses;
 CREATE POLICY "Users can insert their own expenses" 
 ON public.expenses FOR INSERT 
 TO authenticated
-WITH CHECK ((select auth.uid()) = user_id);
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (
+        category_id IS NULL
+        OR EXISTS (
+            SELECT 1 FROM public.categories
+            WHERE id = category_id
+              AND (user_id IS NULL OR user_id = (select auth.uid()))
+        )
+    )
+);
 
 DROP POLICY IF EXISTS "Users can update their own expenses" ON public.expenses;
 CREATE POLICY "Users can update their own expenses" 
 ON public.expenses FOR UPDATE 
 TO authenticated
 USING ((select auth.uid()) = user_id)
-WITH CHECK ((select auth.uid()) = user_id);
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (
+        category_id IS NULL
+        OR EXISTS (
+            SELECT 1 FROM public.categories
+            WHERE id = category_id
+              AND (user_id IS NULL OR user_id = (select auth.uid()))
+        )
+    )
+);
 
 DROP POLICY IF EXISTS "Users can delete their own expenses" ON public.expenses;
 CREATE POLICY "Users can delete their own expenses" 
@@ -294,4 +314,38 @@ ALTER TABLE public.daily_savings_log ADD CONSTRAINT daily_savings_budget_non_neg
 
 ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_amount_valid;
 ALTER TABLE public.expenses ADD CONSTRAINT expenses_amount_valid CHECK (amount > 0 AND amount <= 999999999.99);
+
+-- A6. Tighten category tenant isolation on expenses
+DROP POLICY IF EXISTS "Users can insert their own expenses" ON public.expenses;
+CREATE POLICY "Users can insert their own expenses" 
+ON public.expenses FOR INSERT 
+TO authenticated
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (
+        category_id IS NULL
+        OR EXISTS (
+            SELECT 1 FROM public.categories
+            WHERE id = category_id
+              AND (user_id IS NULL OR user_id = (select auth.uid()))
+        )
+    )
+);
+
+DROP POLICY IF EXISTS "Users can update their own expenses" ON public.expenses;
+CREATE POLICY "Users can update their own expenses" 
+ON public.expenses FOR UPDATE 
+TO authenticated
+USING ((select auth.uid()) = user_id)
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (
+        category_id IS NULL
+        OR EXISTS (
+            SELECT 1 FROM public.categories
+            WHERE id = category_id
+              AND (user_id IS NULL OR user_id = (select auth.uid()))
+        )
+    )
+);
 
