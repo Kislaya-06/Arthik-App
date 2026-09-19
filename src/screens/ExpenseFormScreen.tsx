@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
@@ -50,6 +50,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const noteInputRef = useRef<TextInput>(null);
+  const [isNoteFocused, setIsNoteFocused] = useState(false);
 
   const {
     scrollRef,
@@ -84,7 +85,11 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     setShowDatePicker,
     setPaymentMode,
     handleSave,
+    noteSuggestions,
+    handleSelectNoteSuggestion,
   } = useExpenseForm({ route, navigation });
+
+  const showSuggestions = isNoteFocused && noteSuggestions.length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -267,7 +272,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </View>
           <Pressable
-            style={[styles.inputContainer, { backgroundColor: colors.inputBg }]}
+            style={[
+              styles.inputContainer,
+              {
+                backgroundColor: colors.inputBg,
+                marginBottom: showSuggestions ? Spacing.element : Spacing.block,
+              },
+            ]}
             onPress={() => noteInputRef.current?.focus()}
           >
             <TextInput
@@ -281,9 +292,47 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               style={[styles.inputText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
-              onFocus={handleNoteFocus}
+              onFocus={() => {
+                setIsNoteFocused(true);
+                handleNoteFocus();
+              }}
+              onBlur={() => setIsNoteFocused(false)}
             />
           </Pressable>
+
+          {showSuggestions && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="always"
+              style={styles.suggestionsScroll}
+              contentContainerStyle={styles.suggestionsList}
+            >
+              {noteSuggestions.map((suggestion) => (
+                <Pressable
+                  key={suggestion}
+                  onPress={() => handleSelectNoteSuggestion(suggestion)}
+                  style={({ pressed }) => [
+                    styles.suggestionChip,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.borderSubtle,
+                      opacity: pressed ? 0.75 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.suggestionText,
+                      { color: colors.textSecondary, fontFamily: FontFamily.medium },
+                    ]}
+                  >
+                    {suggestion}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         {/* Date Picker */}
@@ -522,6 +571,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.surface,
     justifyContent: 'center',
     marginBottom: Spacing.block,
+  },
+  suggestionsScroll: {
+    marginBottom: Spacing.block,
+  },
+  suggestionsList: {
+    flexDirection: 'row',
+    gap: Spacing.element,
+  },
+  suggestionChip: {
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: 8,
+    borderWidth: 1,
+  },
+  suggestionText: {
+    fontSize: FontSize.bodySmall,
   },
   inputText: {
     height: '100%',

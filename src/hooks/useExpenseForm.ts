@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,6 +10,7 @@ import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { formatDate } from '../lib/formatters';
 import { applyKeypadPress } from '../lib/amountKeypad';
+import { getNoteSuggestions } from '../lib/noteSuggestions';
 
 export const MAX_NOTE_WORDS = 50;
 export const MAX_NOTE_CHARS = 250;
@@ -55,6 +56,8 @@ export interface UseExpenseFormReturn {
   setShowDatePicker: (show: boolean) => void;
   setPaymentMode: (mode: 'cash' | 'upi' | 'card') => void;
   handleSave: () => Promise<void>;
+  noteSuggestions: string[];
+  handleSelectNoteSuggestion: (suggestion: string) => void;
 }
 
 export function useExpenseForm({ route, navigation }: UseExpenseFormParams): UseExpenseFormReturn {
@@ -220,6 +223,15 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     }
   };
 
+  const noteSuggestions = useMemo(
+    () => getNoteSuggestions(expenses, note, { currentCategoryId: selectedCategoryId, limit: 4 }),
+    [expenses, note, selectedCategoryId]
+  );
+
+  const handleSelectNoteSuggestion = useCallback((suggestion: string) => {
+    setNote(suggestion);
+  }, []);
+
   const formattedDate = formatDate(selectedDate, true);
   const numAmount = parseFloat(amount || '0');
   const selectedCat = categories.find((c) => c.id === selectedCategoryId);
@@ -254,5 +266,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     setShowDatePicker,
     setPaymentMode,
     handleSave,
+    noteSuggestions,
+    handleSelectNoteSuggestion,
   };
 }
