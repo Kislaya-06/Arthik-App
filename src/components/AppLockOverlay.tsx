@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Lock, ShieldCheck } from 'lucide-react-native';
+import { Lock, FingerprintPattern } from 'lucide-react-native';
 import { useTheme } from '../store/themeStore';
 import { useAppLockStore } from '../store/appLockStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily } from '../config/theme';
 
 export const AppLockOverlay: React.FC = () => {
   const { colors, isDark } = useTheme();
@@ -48,29 +48,33 @@ export const AppLockOverlay: React.FC = () => {
           Touch the fingerprint sensor or use your device screen lock to access your finances.
         </Text>
 
-        {/* Unlock Action Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.unlockButton,
-            {
-              backgroundColor: colors.mintGreen,
-              opacity: pressed ? 0.85 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            },
-          ]}
-          onPress={() => authenticate(true)}
-        >
-          <View style={styles.buttonRow}>
+        {/* Circular Touch / Scan Sensor Action */}
+        <View style={styles.actionContainer}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Unlock Arthik"
+            accessibilityHint="Double tap to scan fingerprint or enter device PIN"
+            style={({ pressed }) => [
+              styles.circleButton,
+              {
+                backgroundColor: colors.mintGreen,
+                opacity: pressed ? 0.85 : 1,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+              },
+            ]}
+            onPress={() => authenticate(true)}
+          >
             {isAuthenticating ? (
               <ActivityIndicator size="small" color="#1A2B4C" />
             ) : (
-              <ShieldCheck size={20} color="#1A2B4C" />
+              <FingerprintPattern size={36} color="#1A2B4C" strokeWidth={2.2} />
             )}
-            <Text style={styles.buttonText}>
-              {isAuthenticating ? 'Waiting for Sensor...' : 'Unlock Arthik'}
-            </Text>
-          </View>
-        </Pressable>
+          </Pressable>
+
+          <Text style={[styles.touchHint, { color: colors.textSecondary }]}>
+            {isAuthenticating ? 'Waiting for Sensor...' : 'Tap to unlock'}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -115,27 +119,26 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: Spacing.section,
   },
-  unlockButton: {
-    width: '100%',
-    height: ControlHeight.cta,
-    borderRadius: BorderRadius.pill,
+  actionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#1A2B4C',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 4,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.element,
-  },
-  buttonText: {
-    fontSize: FontSize.cta,
-    fontFamily: FontFamily.bold,
-    color: '#1A2B4C',
+  touchHint: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.semibold,
+    textAlign: 'center',
+    marginTop: Spacing.group,
   },
 });
