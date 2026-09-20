@@ -1,8 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  ActivityIndicator,
+  ActivityIndicator, Animated,
 } from 'react-native';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -56,9 +56,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     scrollRef,
     isKeypadVisible,
     isKeyboardOpen,
+    keypadAnim,
     handleAmountPress,
     handleNoteLayout,
     handleNoteFocus,
+    handleScroll,
+    handleScrollBeginDrag,
+    showKeypad,
   } = useFormKeyboard();
 
   const {
@@ -89,6 +93,39 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleSelectNoteSuggestion,
   } = useExpenseForm({ route, navigation });
 
+  const onTypeChange = useCallback(
+    (type: 'expense' | 'income') => {
+      handleTypeChange(type);
+      showKeypad();
+    },
+    [handleTypeChange, showKeypad]
+  );
+
+  const { keypadHeight, keypadOpacity, keypadTranslateY, saveButtonMarginTop } = useMemo(() => {
+    return {
+      keypadHeight: keypadAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 238],
+        extrapolate: 'clamp',
+      }),
+      keypadOpacity: keypadAnim.interpolate({
+        inputRange: [0, 0.4, 1],
+        outputRange: [0, 0, 1],
+        extrapolate: 'clamp',
+      }),
+      keypadTranslateY: keypadAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [30, 0],
+        extrapolate: 'clamp',
+      }),
+      saveButtonMarginTop: keypadAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 14],
+        extrapolate: 'clamp',
+      }),
+    };
+  }, [keypadAnim]);
+
   const showSuggestions = isNoteFocused && noteSuggestions.length > 0;
 
   return (
@@ -117,7 +154,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={[styles.typeToggleWrapper, isKeyboardOpen && styles.typeToggleWrapperCompact]}>
         <BouncyTypeToggle
           value={transactionType}
-          onChange={handleTypeChange}
+          onChange={onTypeChange}
         />
       </View>
 
@@ -163,8 +200,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <ScrollView
         ref={scrollRef}
         style={styles.scrollSection}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onScroll={handleScroll}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        scrollEventThrottle={16}
       >
         {/* Category Selector (Expense mode only) */}
         {transactionType === 'expense' && (
@@ -382,7 +424,15 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           },
         ]}
       >
-        {isKeypadVisible && (
+        <Animated.View
+          pointerEvents={isKeypadVisible ? 'auto' : 'none'}
+          style={{
+            height: keypadHeight,
+            opacity: keypadOpacity,
+            transform: [{ translateY: keypadTranslateY }],
+            overflow: 'hidden',
+          }}
+        >
           <View style={styles.keypadGrid}>
             {KEYPAD_ROWS.map((row, rIdx) => (
               <View key={rIdx} style={styles.keypadRow}>
@@ -392,50 +442,52 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             ))}
           </View>
-        )}
+        </Animated.View>
 
-        <Pressable
-          disabled={!isSaveEnabled || isSubmitting}
-          onPress={handleSave}
-          style={({ pressed }) => [
-            styles.saveButton,
-            isKeyboardOpen && styles.saveButtonKeyboard,
-            isSaveEnabled && !isSubmitting
-              ? [
-                  styles.saveButtonEnabled,
+        <Animated.View style={{ marginTop: isKeyboardOpen ? 0 : saveButtonMarginTop }}>
+          <Pressable
+            disabled={!isSaveEnabled || isSubmitting}
+            onPress={handleSave}
+            style={({ pressed }) => [
+              styles.saveButton,
+              isKeyboardOpen && styles.saveButtonKeyboard,
+              isSaveEnabled && !isSubmitting
+                ? [
+                    styles.saveButtonEnabled,
+                    {
+                      backgroundColor: colors.mintGreen,
+                      opacity: pressed ? 0.9 : 1,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                    },
+                  ]
+                : [
+                    styles.saveButtonDisabled,
+                    {
+                      backgroundColor: colors.cardSubtle,
+                      borderColor: colors.borderSubtle,
+                    },
+                  ],
+            ]}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color={colors.forestGreen} />
+            ) : (
+              <Text
+                style={[
+                  styles.saveButtonText,
                   {
-                    backgroundColor: colors.mintGreen,
-                    opacity: pressed ? 0.9 : 1,
-                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                    color: isSaveEnabled ? colors.forestGreen : colors.textMuted,
+                    fontFamily: FontFamily.bold,
                   },
-                ]
-              : [
-                  styles.saveButtonDisabled,
-                  {
-                    backgroundColor: colors.cardSubtle,
-                    borderColor: colors.borderSubtle,
-                  },
-                ],
-          ]}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color={colors.forestGreen} />
-          ) : (
-            <Text
-              style={[
-                styles.saveButtonText,
-                {
-                  color: isSaveEnabled ? colors.forestGreen : colors.textMuted,
-                  fontFamily: FontFamily.bold,
-                },
-              ]}
-            >
-              {isEdit
-                ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
-                : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
-            </Text>
-          )}
-        </Pressable>
+                ]}
+              >
+                {isEdit
+                  ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
+                  : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
+              </Text>
+            )}
+          </Pressable>
+        </Animated.View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -502,6 +554,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.gutter,
     marginTop: Spacing.surface,
+  },
+  scrollContent: {
+    paddingBottom: Spacing.block,
   },
   sectionLabel: {
     fontSize: FontSize.caption,
@@ -645,7 +700,7 @@ const styles = StyleSheet.create({
     height: ControlHeight.cta,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 14,
+    marginTop: 0,
   },
   saveButtonKeyboard: {
     marginTop: 0,
