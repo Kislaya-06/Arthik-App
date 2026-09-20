@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Lock, ShieldCheck } from 'lucide-react-native';
 import { useTheme } from '../store/themeStore';
@@ -11,8 +11,15 @@ export const AppLockOverlay: React.FC = () => {
   const { isAuthenticating, authenticate } = useAppLockStore();
 
   useEffect(() => {
-    // Automatically trigger biometric prompt on appearance
-    authenticate();
+    // Only auto-trigger biometric prompt on appearance if app is in active foreground state
+    if (AppState.currentState === 'active') {
+      const timer = setTimeout(() => {
+        if (AppState.currentState === 'active' && useAppLockStore.getState().isLocked) {
+          authenticate();
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
   }, [authenticate]);
 
   return (
@@ -47,21 +54,22 @@ export const AppLockOverlay: React.FC = () => {
             styles.unlockButton,
             {
               backgroundColor: colors.mintGreen,
-              opacity: pressed || isAuthenticating ? 0.85 : 1,
+              opacity: pressed ? 0.85 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             },
           ]}
-          onPress={() => authenticate()}
-          disabled={isAuthenticating}
+          onPress={() => authenticate(true)}
         >
-          {isAuthenticating ? (
-            <ActivityIndicator size="small" color="#1A2B4C" />
-          ) : (
-            <View style={styles.buttonRow}>
+          <View style={styles.buttonRow}>
+            {isAuthenticating ? (
+              <ActivityIndicator size="small" color="#1A2B4C" />
+            ) : (
               <ShieldCheck size={20} color="#1A2B4C" />
-              <Text style={styles.buttonText}>Unlock Arthik</Text>
-            </View>
-          )}
+            )}
+            <Text style={styles.buttonText}>
+              {isAuthenticating ? 'Waiting for Sensor...' : 'Unlock Arthik'}
+            </Text>
+          </View>
         </Pressable>
       </View>
     </View>
@@ -80,9 +88,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
+    width: '100%',
+    maxWidth: 340,
     alignItems: 'center',
     paddingHorizontal: Spacing.gutter,
-    maxWidth: 340,
   },
   iconWrapper: {
     width: 80,
@@ -121,6 +130,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.element,
   },
   buttonText: {

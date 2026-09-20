@@ -177,11 +177,16 @@ export default function App() {
     initAppLock(useAuthStore.getState().user?.id);
 
     // AppState listener for auto-syncing and app lock (P0.3)
+    let authTimeout: NodeJS.Timeout | null = null;
     const appStateSub = AppState.addEventListener('change', (nextAppState) => {
       const loggedInUser = useAuthStore.getState().user;
-      const { isAppLockEnabled: lockEnabled, isLocked: locked } = useAppLockStore.getState();
+      const { isAppLockEnabled: lockEnabled } = useAppLockStore.getState();
 
       if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (authTimeout) {
+          clearTimeout(authTimeout);
+          authTimeout = null;
+        }
         if (loggedInUser && lockEnabled) {
           lockApp();
         }
@@ -191,8 +196,14 @@ export default function App() {
           useExpenseStore.getState().syncPendingExpenses();
           useDailyBudgetStore.getState().uploadPendingDailyRecords();
         }
-        if (loggedInUser && lockEnabled && locked) {
-          authenticateAppLock();
+        const isSplash = (navigationRef.getCurrentRoute()?.name || 'Splash') === 'Splash';
+        if (loggedInUser && lockEnabled && useAppLockStore.getState().isLocked && !isSplash) {
+          if (authTimeout) clearTimeout(authTimeout);
+          authTimeout = setTimeout(() => {
+            if (AppState.currentState === 'active' && useAppLockStore.getState().isLocked) {
+              authenticateAppLock();
+            }
+          }, 200);
         }
       }
     });
@@ -201,6 +212,7 @@ export default function App() {
     const cleanupNetwork = useNetworkStore.getState().initNetworkListener();
 
     return () => {
+      if (authTimeout) clearTimeout(authTimeout);
       subscription.unsubscribe();
       appStateSub.remove();
       unregisterNotif();

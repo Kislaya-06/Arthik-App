@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 import { registerStoreResetCallback } from './authStore';
 
 interface AppLockState {
@@ -12,7 +13,8 @@ interface AppLockState {
   authError: string | null;
 
   init: (userId?: string) => Promise<void>;
-  authenticate: () => Promise<boolean>;
+  authenticate: (force?: boolean) => Promise<boolean>;
+  cancelAuthentication: () => Promise<void>;
   setAppLockEnabled: (enabled: boolean, userId?: string) => Promise<boolean>;
   lock: () => void;
   unlock: () => void;
@@ -87,9 +89,38 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
     }
   },
 
-  authenticate: async () => {
+  cancelAuthentication: async () => {
+    try {
+      if (typeof LocalAuthentication.cancelAuthenticate === 'function') {
+        await LocalAuthentication.cancelAuthenticate();
+      }
+    } catch (_) {}
+    set({ isAuthenticating: false });
+  },
+
+  authenticate: async (force = false) => {
     const { isAuthenticating, isAppLockEnabled } = get();
-    if (isAuthenticating) return false;
+
+    if (force) {
+      try {
+        if (typeof LocalAuthentication.cancelAuthenticate === 'function') {
+          await LocalAuthentication.cancelAuthenticate();
+        }
+      } catch (_) {}
+      set({ isAuthenticating: false });
+    } else if (isAuthenticating) {
+      return false;
+    }
+
+    if (!isAppLockEnabled) {
+      set({ isLocked: false, isAuthenticating: false });
+      return true;
+    }
+
+    // Never attempt authentication if app is in background or inactive
+    if (AppState.currentState && AppState.currentState !== 'active') {
+      return false;
+    }
 
     set({ isAuthenticating: true, authError: null });
 
@@ -118,6 +149,10 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
         authError: e?.message || 'Authentication error',
       });
       return false;
+    } finally {
+      if (get().isAuthenticating) {
+        set({ isAuthenticating: false });
+      }
     }
   },
 
@@ -129,7 +164,7 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
     }
 
     // Always require successful authentication to toggle App Lock on or off
-    const verified = await authenticate();
+    const verified = await authenticate(true);
     if (!verified) {
       return false;
     }
@@ -152,12 +187,17 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
 
   lock: () => {
     if (get().isAppLockEnabled) {
-      set({ isLocked: true });
+      try {
+        if (typeof LocalAuthentication.cancelAuthenticate === 'function') {
+          LocalAuthentication.cancelAuthenticate().catch(() => {});
+        }
+      } catch (_) {}
+      set({ isLocked: true, isAuthenticating: false });
     }
   },
 
   unlock: () => {
-    set({ isLocked: false, authError: null });
+    set({ isLocked: false, isAuthenticating: false, authError: null });
   },
 
   reset: () => {

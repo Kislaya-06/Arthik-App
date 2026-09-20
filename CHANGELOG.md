@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Added
 - **Native Biometric App Lock:** Added native device screen lock and biometric security (Fingerprint, Face Unlock, and device PIN/Pattern fallback) via `expo-local-authentication`. Includes a user toggle in Profile settings (requiring authentication to enable or disable) and automatically secures the app on launch and background minimization, preventing sensitive financial data from appearing in the recent apps task switcher.
+- **App Lock Resume & Biometric Prompt Fix:** Fixed an issue where swiping to home or backgrounding the app caused the biometric prompt to hang with a stuck loading indicator upon reopen. Added background state guards, safe cancellation on lock, settling delay for Android window focus, and improved CTA button styling and retry responsiveness.
 - **Note Autocomplete & Quick Suggestions:** As users type in the transaction note input, matching previous notes (e.g. "College Rapido") appear as horizontal suggestion chips ranked by recency, frequency, and category affinity. Tapping a chip autofills the note instantly.
 - **Cinematic Animated Splash Screen:** Redesigned app opening sequence featuring staged in-place drawing of the 3 logo lines along their exact geometric angles, a tactile lockup spring punch, smooth left slide with "Arthik" wordmark reveal, pulsing loading dots during session/data hydration, and an anchored circular mint bloom transition into destination screens.
 
