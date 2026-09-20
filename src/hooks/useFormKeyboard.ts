@@ -3,6 +3,7 @@ import {
   ScrollView,
   Keyboard,
   Animated,
+  Easing,
   LayoutChangeEvent,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -16,8 +17,9 @@ export interface UseFormKeyboardReturn {
   handleAmountPress: () => void;
   handleNoteLayout: (e: LayoutChangeEvent) => void;
   handleNoteFocus: () => void;
+  handleNoteBlur: () => void;
   handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  handleScrollBeginDrag: () => void;
+  handleScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   showKeypad: () => void;
   hideKeypad: () => void;
 }
@@ -27,35 +29,39 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   // Tracks the Y offset of the Note section inside the ScrollView so the
   // keyboard-show listener can scroll the note field into view.
   const noteSectionY = useRef(0);
-  const lastScrollY = useRef(0);
+  const dragStartY = useRef(0);
 
   // Keypad animation value: 1 = fully visible, 0 = collapsed/hidden downwards
   const keypadAnim = useRef(new Animated.Value(1)).current;
   const isKeypadVisibleRef = useRef(true);
   const isKeyboardOpenRef = useRef(false);
+  const isNoteFocusedRef = useRef(false);
 
   const [isKeypadVisible, setIsKeypadVisible] = useState(true);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
-  // ─── Keypad spring animations (physics matching AGENTS.md rule 9.7) ────────
+  // ─── Keypad show/hide animations ──────────────────────────────────────────
   const showKeypad = useCallback(() => {
+    if (isNoteFocusedRef.current) return;
+    if (isKeypadVisibleRef.current) return;
     isKeypadVisibleRef.current = true;
     setIsKeypadVisible(true);
-    Animated.spring(keypadAnim, {
+    Animated.timing(keypadAnim, {
       toValue: 1,
-      tension: 70,
-      friction: 8,
+      duration: 250,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
   }, [keypadAnim]);
 
   const hideKeypad = useCallback(() => {
+    if (!isKeypadVisibleRef.current) return;
     isKeypadVisibleRef.current = false;
     setIsKeypadVisible(false);
-    Animated.spring(keypadAnim, {
+    Animated.timing(keypadAnim, {
       toValue: 0,
-      tension: 70,
-      friction: 8,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
       useNativeDriver: false,
     }).start();
   }, [keypadAnim]);
@@ -72,6 +78,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
 
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       isKeyboardOpenRef.current = false;
+      isNoteFocusedRef.current = false;
       setIsKeyboardOpen(false);
       // Keyboard dismissed: keep keypad collapsed so the user can easily
       // view Category, Note, Date, and Payment mode without clutter.
@@ -85,6 +92,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
 
   // Tapping the amount display brings the keypad back and scrolls to top
   const handleAmountPress = useCallback(() => {
+    isNoteFocusedRef.current = false;
     Keyboard.dismiss();
     showKeypad();
     requestAnimationFrame(() => {
@@ -97,45 +105,38 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   }, []);
 
   const handleNoteFocus = useCallback(() => {
-    hideKeypad();
+    isNoteFocusedRef.current = true;
     isKeyboardOpenRef.current = true;
     setIsKeyboardOpen(true);
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, noteSectionY.current - 10),
-        animated: true,
-      });
-    });
+    hideKeypad();
   }, [hideKeypad]);
 
-  // ─── Drag initiation listener ───────────────────────────────────────────
-  // Triggers the instant the user begins touching and dragging the ScrollView,
-  // regardless of drag speed (slow, gentle drags collapse keypad immediately).
-  const handleScrollBeginDrag = useCallback(() => {
-    if (isKeyboardOpenRef.current) {
-      Keyboard.dismiss();
-    }
-    if (isKeypadVisibleRef.current) {
-      hideKeypad();
-    }
-  }, [hideKeypad]);
+  const handleNoteBlur = useCallback(() => {
+    isNoteFocusedRef.current = false;
+  }, []);
 
-  // ─── Scroll listener ─────────────────────────────────────────────────────
-  // Collapses keypad on any downward scroll movement past the top boundary.
-  // Never calls Keyboard.dismiss() directly here to prevent programmatic
-  // auto-scrolls (e.g. note focus) from erroneously dismissing the keyboard.
+  // ─── Scroll-driven keypad toggle ──────────────────────────────────────────
+  // Scrolling down (into form fields) hides the keypad to give more room.
+  // Scrolling back to top restores it.
+  const handleScrollBeginDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      dragStartY.current = event.nativeEvent.contentOffset.y;
+    },
+    []
+  );
+
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const currentY = event.nativeEvent.contentOffset.y;
-      const delta = currentY - lastScrollY.current;
+      const dragDelta = currentY - dragStartY.current;
 
-      if (isKeypadVisibleRef.current && delta > 0.5 && currentY > 2) {
+      if (isKeypadVisibleRef.current && (dragDelta > 10 || currentY > 15)) {
         hideKeypad();
+      } else if (!isKeypadVisibleRef.current && !isKeyboardOpenRef.current && !isNoteFocusedRef.current && currentY <= 5 && dragDelta < -15) {
+        showKeypad();
       }
-
-      lastScrollY.current = currentY;
     },
-    [hideKeypad]
+    [hideKeypad, showKeypad]
   );
 
   return {
@@ -146,6 +147,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     handleAmountPress,
     handleNoteLayout,
     handleNoteFocus,
+    handleNoteBlur,
     handleScroll,
     handleScrollBeginDrag,
     showKeypad,

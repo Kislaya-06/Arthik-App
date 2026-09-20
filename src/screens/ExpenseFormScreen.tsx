@@ -9,7 +9,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import {
-  ArrowLeft, Calendar, ChevronRight,
+  ArrowLeft, Calendar, ChevronRight, Plus,
 } from 'lucide-react-native';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
 import { BouncyTypeToggle } from '../components/BouncyTypeToggle';
@@ -60,6 +60,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleAmountPress,
     handleNoteLayout,
     handleNoteFocus,
+    handleNoteBlur,
     handleScroll,
     handleScrollBeginDrag,
     showKeypad,
@@ -101,7 +102,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     [handleTypeChange, showKeypad]
   );
 
-  const { keypadHeight, keypadOpacity, keypadTranslateY, saveButtonMarginTop } = useMemo(() => {
+  // Keypad-only interpolations — category stays always visible (no animation)
+  const {
+    keypadHeight,
+    keypadOpacity,
+    keypadTranslateY,
+    saveButtonMarginTop,
+  } = useMemo(() => {
     return {
       keypadHeight: keypadAnim.interpolate({
         inputRange: [0, 1],
@@ -109,13 +116,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         extrapolate: 'clamp',
       }),
       keypadOpacity: keypadAnim.interpolate({
-        inputRange: [0, 0.4, 1],
-        outputRange: [0, 0, 1],
+        inputRange: [0, 0.6, 1],
+        outputRange: [0, 0.85, 1],
         extrapolate: 'clamp',
       }),
       keypadTranslateY: keypadAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [30, 0],
+        outputRange: [120, 0],
         extrapolate: 'clamp',
       }),
       saveButtonMarginTop: keypadAnim.interpolate({
@@ -131,7 +138,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -158,11 +165,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         />
       </View>
 
-      {/* ── Amount Display ── */}
-      <Pressable
-        style={[styles.amountContainer, isKeyboardOpen && styles.amountContainerCompact]}
-        onPress={handleAmountPress}
-      >
+      {/* ── Middle Body (Amount Display + Scrollable Section) ── */}
+      <View style={styles.bodyWrapper}>
+        {/* ── Amount Display ── */}
+        <Pressable
+          style={[styles.amountContainer, isKeyboardOpen && styles.amountContainerCompact]}
+          onPress={handleAmountPress}
+        >
         <View style={styles.amountRow}>
           <Text
             style={[
@@ -208,9 +217,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         onScrollBeginDrag={handleScrollBeginDrag}
         scrollEventThrottle={16}
       >
-        {/* Category Selector (Expense mode only) */}
+        {/* Category Selector (Expense mode only) — always visible */}
         {transactionType === 'expense' && (
-          <>
+          <View
+          >
             <View style={styles.sectionLabelRow}>
               <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
                 CATEGORY
@@ -280,10 +290,33 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                       </Pressable>
                     );
                   })}
+                  <Pressable
+                    disabled={areCategoriesPlaceholder || isCategoriesLoading}
+                    onPress={() => navigation.navigate('ManageCategories')}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.categoryChip,
+                      styles.manageCategoryChip,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        opacity:
+                          areCategoriesPlaceholder || isCategoriesLoading
+                            ? 0.45
+                            : pressed
+                            ? 0.7
+                            : 1,
+                      },
+                    ]}
+                    accessibilityLabel="Manage categories"
+                    accessibilityRole="button"
+                  >
+                    <Plus size={16} color={colors.textPrimary} />
+                  </Pressable>
                 </View>
               </ScrollView>
             )}
-          </>
+          </View>
         )}
 
         {/* Note Input — onLayout tracks Y for keyboard-scroll */}
@@ -313,7 +346,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               {countWords(note)}/{MAX_NOTE_WORDS} words
             </Text>
           </View>
-          <Pressable
+          <View
             style={[
               styles.inputContainer,
               {
@@ -321,7 +354,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 marginBottom: showSuggestions ? Spacing.element : Spacing.block,
               },
             ]}
-            onPress={() => noteInputRef.current?.focus()}
           >
             <TextInput
               ref={noteInputRef}
@@ -338,9 +370,12 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 setIsNoteFocused(true);
                 handleNoteFocus();
               }}
-              onBlur={() => setIsNoteFocused(false)}
+              onBlur={() => {
+                setIsNoteFocused(false);
+                handleNoteBlur();
+              }}
             />
-          </Pressable>
+          </View>
 
           {showSuggestions && (
             <ScrollView
@@ -412,6 +447,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
         />
       </ScrollView>
+      </View>
 
       {/* ── Bottom Console (Keypad + Save Button) ── */}
       <View
@@ -550,13 +586,16 @@ const styles = StyleSheet.create({
   amountUnderlineCompact: {
     marginTop: Spacing.micro,
   },
+  bodyWrapper: {
+    flex: 1,
+  },
   scrollSection: {
     flex: 1,
     paddingHorizontal: Spacing.gutter,
     marginTop: Spacing.surface,
   },
   scrollContent: {
-    paddingBottom: Spacing.block,
+    paddingBottom: Spacing.section,
   },
   sectionLabel: {
     fontSize: FontSize.caption,
@@ -577,6 +616,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     letterSpacing: 0.2,
   },
+
   categoryScroll: {
     flexDirection: 'row',
     marginBottom: Spacing.block,
@@ -598,6 +638,10 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: FontSize.bodySmall,
     marginLeft: Spacing.element,
+  },
+  manageCategoryChip: {
+    paddingHorizontal: Spacing.group,
+    justifyContent: 'center',
   },
   emptyCategoriesContainer: {
     paddingVertical: 14,
