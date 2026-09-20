@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### ⚡ Performance
 - **Silky-Smooth Navigation & Scroll Physics:** Optimized `BottomNavBar` tab animations by switching from oscillating springs to a 180ms cubic deceleration timing curve, caching the floating capsule and action button on Android GPU hardware layers (`renderToHardwareTextureAndroid`), preventing unnecessary re-renders via `React.memo` and stable callbacks, enabling `freezeOnBlur` on `TabNavigator` to prevent background tab re-renders, and tuning `scrollEventThrottle` to 32ms across all screens to cut native-to-JS bridge traffic by 50%.
 
+### 🐛 Fixed
+- **Category Chips Scroll Clipping & Corner Blink:** Fixed an issue on the Add Transaction form where horizontal category chips were abruptly clipped 24dp before the screen edge and suffered from corner blinking/flickering during scrolling. Expanded the scroll viewport to bleed to device screen edges with proper content insets while removing glitchy overflow visibility.
+
 ---
 
 ## [1.2.4] - 2026-09-19

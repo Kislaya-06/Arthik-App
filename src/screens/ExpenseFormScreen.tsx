@@ -254,66 +254,65 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 showsHorizontalScrollIndicator={false}
                 keyboardShouldPersistTaps="always"
                 style={styles.categoryScroll}
+                contentContainerStyle={styles.categoryList}
               >
-                <View style={styles.categoryList}>
-                  {categories.map((cat: Category) => {
-                    const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
-                    const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
-                    const IconComp = getCategoryIcon(cat.icon);
-                    return (
-                      <Pressable
-                        key={cat.id}
-                        disabled={isPlaceholder}
-                        onPress={() => {
-                          if (!isPlaceholder) {
-                            handleCategorySelect(cat.id);
-                          }
-                        }}
+                {categories.map((cat: Category) => {
+                  const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
+                  const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
+                  const IconComp = getCategoryIcon(cat.icon);
+                  return (
+                    <Pressable
+                      key={cat.id}
+                      disabled={isPlaceholder}
+                      onPress={() => {
+                        if (!isPlaceholder) {
+                          handleCategorySelect(cat.id);
+                        }
+                      }}
+                      style={[
+                        styles.categoryChip,
+                        isSelected
+                          ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
+                          : { backgroundColor: colors.card, borderColor: colors.border },
+                        isPlaceholder && { opacity: 0.45 },
+                      ]}
+                    >
+                      <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
+                      <Text
                         style={[
-                          styles.categoryChip,
-                          isSelected
-                            ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
-                            : { backgroundColor: colors.card, borderColor: colors.border },
-                          isPlaceholder && { opacity: 0.45 },
+                          styles.categoryChipText,
+                          { color: isSelected ? colors.forestGreen : colors.textPrimary },
+                          { fontFamily: FontFamily.bold },
                         ]}
                       >
-                        <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
-                        <Text
-                          style={[
-                            styles.categoryChipText,
-                            { color: isSelected ? colors.forestGreen : colors.textPrimary },
-                            { fontFamily: FontFamily.bold },
-                          ]}
-                        >
-                          {cat.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                  <Pressable
-                    disabled={areCategoriesPlaceholder || isCategoriesLoading}
-                    onPress={() => navigation.navigate('ManageCategories')}
-                    hitSlop={8}
-                    style={({ pressed }) => [
-                      styles.categoryChip,
-                      styles.manageCategoryChip,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.border,
-                        opacity:
-                          areCategoriesPlaceholder || isCategoriesLoading
-                            ? 0.45
-                            : pressed
-                            ? 0.7
-                            : 1,
-                      },
-                    ]}
-                    accessibilityLabel="Manage categories"
-                    accessibilityRole="button"
-                  >
-                    <Plus size={16} color={colors.textPrimary} />
-                  </Pressable>
-                </View>
+                        {cat.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable
+                  disabled={areCategoriesPlaceholder || isCategoriesLoading}
+                  onPress={() => navigation.navigate('ManageCategories')}
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.categoryChip,
+                    styles.manageCategoryChip,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      opacity:
+                        areCategoriesPlaceholder || isCategoriesLoading
+                          ? 0.45
+                          : pressed
+                          ? 0.7
+                          : 1,
+                    },
+                  ]}
+                  accessibilityLabel="Manage categories"
+                  accessibilityRole="button"
+                >
+                  <Plus size={16} color={colors.textPrimary} />
+                </Pressable>
               </ScrollView>
             )}
           </View>
@@ -618,14 +617,13 @@ const styles = StyleSheet.create({
   },
 
   categoryScroll: {
-    flexDirection: 'row',
+    marginHorizontal: -Spacing.gutter,
     marginBottom: Spacing.block,
-    overflow: 'visible',
   },
   categoryList: {
     flexDirection: 'row',
     gap: Spacing.group,
-    paddingRight: Spacing.gutter,
+    paddingHorizontal: Spacing.gutter,
   },
   categoryChip: {
     flexDirection: 'row',
