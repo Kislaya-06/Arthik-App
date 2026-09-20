@@ -15,6 +15,21 @@ interface OtaState {
   checkForUpdates: () => Promise<void>;
 }
 
+const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
+  const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
+  return {
+    version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
+    title: ota?.title || 'New Update Available 🎉',
+    highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
+      ? ota.highlights
+      : [
+          'Swipe-to-dismiss keypad on Add Expense',
+          'Smooth scrolling & jitter-free category chips',
+          'Biometric App Lock & security fixes',
+        ],
+  };
+};
+
 export const useOtaStore = create<OtaState>((set, get) => ({
   visible: false,
   info: null,
@@ -22,29 +37,15 @@ export const useOtaStore = create<OtaState>((set, get) => ({
   downloadText: 'Downloading update...',
   error: null,
 
-  showUpdateModal: (info) => {
-    const otaExtra = Constants.expoConfig?.extra?.otaUpdate;
-    const defaultInfo: OtaUpdateInfo = {
-      version: otaExtra?.version || Constants.expoConfig?.version || '1.2.4',
-      title: otaExtra?.title || 'New Update Available 🎉',
-      highlights: otaExtra?.highlights || [
-        'Swipe-to-dismiss keypad on Add Expense',
-        'Smooth scrolling & jitter-free category chips',
-        'Biometric App Lock & security fixes',
-      ],
-    };
-    set({
-      visible: true,
-      info: info || defaultInfo,
-      isDownloading: false,
-      error: null,
-    });
-  },
+  showUpdateModal: (info) => set({
+    visible: true,
+    info: info || resolveOtaInfo(),
+    isDownloading: false,
+    error: null,
+  }),
 
   hideUpdateModal: () => {
-    if (!get().isDownloading) {
-      set({ visible: false, error: null });
-    }
+    if (!get().isDownloading) set({ visible: false, error: null });
   },
 
   applyUpdate: async () => {
@@ -55,17 +56,13 @@ export const useOtaStore = create<OtaState>((set, get) => ({
         set({ downloadText: 'Restarting Arthik...' });
         await Updates.reloadAsync();
       } else {
-        // Simulated progress for UI testing in __DEV__
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((r) => setTimeout(r, 1000));
         set({ downloadText: 'Restarting Arthik...' });
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        await new Promise((r) => setTimeout(r, 800));
         set({ visible: false, isDownloading: false });
       }
     } catch {
-      set({
-        isDownloading: false,
-        error: 'Could not apply update. Please check your connection and try again.',
-      });
+      set({ isDownloading: false, error: 'Could not apply update. Please check connection and try again.' });
     }
   },
 
@@ -74,21 +71,9 @@ export const useOtaStore = create<OtaState>((set, get) => ({
     try {
       const update = await Updates.checkForUpdateAsync();
       if (update.isAvailable) {
-        const manifest: any = update.manifest;
-        const extra = manifest?.extra?.expoClient?.extra || manifest?.extra;
-        const ota = extra?.otaUpdate;
         set({
           visible: true,
-          info: {
-            version: ota?.version || manifest?.runtimeVersion || undefined,
-            title: ota?.title || 'New Update Available 🎉',
-            highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
-              ? ota.highlights
-              : [
-                  'Performance enhancements and smoother animations',
-                  'UI polish and overall stability fixes',
-                ],
-          },
+          info: resolveOtaInfo(update.manifest),
           isDownloading: false,
           error: null,
         });

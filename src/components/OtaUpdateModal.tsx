@@ -10,13 +10,7 @@ import {
 } from 'react-native';
 import { Sparkles, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../store/themeStore';
-import {
-  Spacing,
-  BorderRadius,
-  FontSize,
-  FontFamily,
-  ControlHeight,
-} from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 export interface OtaUpdateInfo {
   version?: string;
@@ -46,132 +40,47 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
   onRetry,
 }) => {
   const { colors, isDark } = useTheme();
-
   if (!visible) return null;
 
   const title = updateInfo?.title || 'New Update Available 🎉';
   const highlights = updateInfo?.highlights || [];
-  const versionBadge = updateInfo?.version
-    ? `v${updateInfo.version.replace(/^v/, '')}`
-    : 'OTA PATCH';
+  const versionBadge = updateInfo?.version ? `v${updateInfo.version.replace(/^v/, '')}` : 'OTA PATCH';
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={isDownloading ? undefined : onDismiss}
-    >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[
-            styles.modalCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          {/* Top Hero Icon (width / 2 = 26 for 52x52 circle geometry) */}
-          <View
-            style={[
-              styles.heroIconContainer,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(184, 224, 200, 0.15)'
-                  : colors.mintGreenSoft,
-              },
-            ]}
-          >
-            <Sparkles size={26} color={colors.mintGreenDark} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={isDownloading ? undefined : onDismiss}>
+      <View style={styles.overlay}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Top Hero Icon (26 radius for 52x52 circle - AGENTS.md 9.3) */}
+          <View style={[styles.heroIcon, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft }]}>
+            <Sparkles size={24} color={colors.mintGreenDark} />
           </View>
 
           {/* Badge chip */}
-          <View
-            style={[
-              styles.badgeChip,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(184, 224, 200, 0.12)'
-                  : colors.mintGreenSoft,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.badgeText,
-                { color: colors.mintGreenDark, fontFamily: FontFamily.bold },
-              ]}
-            >
+          <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.12)' : colors.mintGreenSoft }]}>
+            <Text style={[styles.badgeText, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
               {versionBadge}
             </Text>
           </View>
 
-          {/* Title and Subtitle */}
-          <Text
-            style={[
-              styles.modalTitle,
-              { color: colors.textPrimary, fontFamily: FontFamily.bold },
-            ]}
-          >
-            {title}
-          </Text>
-          <Text
-            style={[
-              styles.modalSubtitle,
-              { color: colors.textSecondary, fontFamily: FontFamily.medium },
-            ]}
-          >
+          <Text style={[styles.title, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{title}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
             A fresh update is ready to install for the best experience.
           </Text>
 
-          {/* Highlights / What's New Container */}
+          {/* Highlights */}
           {highlights.length > 0 && (
-            <View
-              style={[
-                styles.highlightsBox,
-                {
-                  backgroundColor: colors.cardSubtle,
-                  borderColor: colors.borderSubtle,
-                },
-              ]}
-            >
+            <View style={[styles.highlightsBox, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}>
               <View style={styles.highlightsHeader}>
-                <Sparkles size={13} color={colors.mintGreenDark} />
-                <Text
-                  style={[
-                    styles.highlightsLabel,
-                    {
-                      color: colors.mintGreenDark,
-                      fontFamily: FontFamily.bold,
-                    },
-                  ]}
-                >
+                <Sparkles size={12} color={colors.mintGreenDark} />
+                <Text style={[styles.highlightsLabel, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
                   WHAT'S NEW
                 </Text>
               </View>
-
-              <ScrollView
-                style={styles.highlightsScroll}
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-              >
-                {highlights.map((item, index) => (
-                  <View key={`highlight-${index}`} style={styles.highlightRow}>
-                    <CheckCircle2
-                      size={14}
-                      color={colors.mintGreenDark}
-                      style={styles.highlightIcon}
-                    />
-                    <Text
-                      style={[
-                        styles.highlightText,
-                        {
-                          color: colors.textPrimary,
-                          fontFamily: FontFamily.medium,
-                        },
-                      ]}
-                    >
+              <ScrollView style={{ maxHeight: 160 }} showsVerticalScrollIndicator={false} bounces={false}>
+                {highlights.map((item, idx) => (
+                  <View key={idx} style={styles.highlightRow}>
+                    <CheckCircle2 size={14} color={colors.mintGreenDark} style={{ marginTop: 2 }} />
+                    <Text style={[styles.highlightText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}>
                       {item}
                     </Text>
                   </View>
@@ -181,23 +90,10 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
           )}
 
           {/* Error Banner */}
-          {error && (
-            <View
-              style={[
-                styles.errorBanner,
-                {
-                  backgroundColor: colors.peachSoft,
-                  borderColor: colors.peachCoral,
-                },
-              ]}
-            >
-              <AlertCircle size={16} color={colors.danger} />
-              <Text
-                style={[
-                  styles.errorText,
-                  { color: colors.textPrimary, fontFamily: FontFamily.medium },
-                ]}
-              >
+          {Boolean(error) && (
+            <View style={[styles.errorBanner, { backgroundColor: colors.peachSoft, borderColor: colors.peachCoral }]}>
+              <AlertCircle size={15} color={colors.danger} />
+              <Text style={[styles.errorText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}>
                 {error}
               </Text>
             </View>
@@ -205,90 +101,26 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
 
           {/* Action Row */}
           {isDownloading ? (
-            <View
-              style={[
-                styles.downloadingContainer,
-                { backgroundColor: colors.cardSubtle },
-              ]}
-            >
+            <View style={[styles.ctaBtn, { backgroundColor: colors.cardSubtle }]}>
               <ActivityIndicator size="small" color={colors.mintGreenDark} />
-              <Text
-                style={[
-                  styles.downloadingText,
-                  { color: colors.textPrimary, fontFamily: FontFamily.bold },
-                ]}
-              >
+              <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
                 {downloadProgressText || 'Downloading update...'}
               </Text>
             </View>
-          ) : error ? (
-            <View style={styles.actionColumn}>
-              <Pressable
-                style={[
-                  styles.primaryBtn,
-                  { backgroundColor: colors.mintGreen },
-                ]}
-                onPress={onRetry || onUpdate}
-              >
-                <RefreshCw size={16} color={colors.forestGreen} />
-                <Text
-                  style={[
-                    styles.primaryBtnText,
-                    {
-                      color: colors.forestGreen,
-                      fontFamily: FontFamily.bold,
-                    },
-                  ]}
-                >
-                  Try Again
-                </Text>
-              </Pressable>
-              <Pressable style={styles.laterBtn} onPress={onDismiss}>
-                <Text
-                  style={[
-                    styles.laterBtnText,
-                    {
-                      color: colors.textSecondary,
-                      fontFamily: FontFamily.semibold,
-                    },
-                  ]}
-                >
-                  Dismiss
-                </Text>
-              </Pressable>
-            </View>
           ) : (
-            <View style={styles.actionColumn}>
+            <View style={{ width: '100%', alignItems: 'center' }}>
               <Pressable
-                style={[
-                  styles.primaryBtn,
-                  { backgroundColor: colors.mintGreen },
-                ]}
-                onPress={onUpdate}
+                style={[styles.ctaBtn, { backgroundColor: colors.mintGreen }]}
+                onPress={error ? (onRetry || onUpdate) : onUpdate}
               >
-                <Text
-                  style={[
-                    styles.primaryBtnText,
-                    {
-                      color: colors.forestGreen,
-                      fontFamily: FontFamily.bold,
-                    },
-                  ]}
-                >
-                  Update Now
+                {Boolean(error) && <RefreshCw size={16} color={colors.forestGreen} />}
+                <Text style={[styles.ctaText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
+                  {error ? 'Try Again' : 'Update Now'}
                 </Text>
               </Pressable>
               <Pressable style={styles.laterBtn} onPress={onDismiss}>
-                <Text
-                  style={[
-                    styles.laterBtnText,
-                    {
-                      color: colors.textSecondary,
-                      fontFamily: FontFamily.semibold,
-                    },
-                  ]}
-                >
-                  Later
+                <Text style={[{ color: colors.textSecondary, fontFamily: FontFamily.semibold, fontSize: FontSize.bodySmall }]}>
+                  {error ? 'Dismiss' : 'Later'}
                 </Text>
               </Pressable>
             </View>
@@ -300,14 +132,14 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.gutter,
   },
-  modalCard: {
+  card: {
     width: '100%',
     maxWidth: 380,
     borderRadius: BorderRadius.cardLarge,
@@ -315,15 +147,15 @@ const styles = StyleSheet.create({
     padding: Spacing.gutter,
     alignItems: 'center',
   },
-  heroIconContainer: {
+  heroIcon: {
     width: 52,
     height: 52,
-    borderRadius: 26, // width / 2 circle geometry (AGENTS.md 9.3)
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.group,
   },
-  badgeChip: {
+  badge: {
     paddingHorizontal: Spacing.group,
     paddingVertical: Spacing.micro,
     borderRadius: BorderRadius.pill,
@@ -333,12 +165,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     letterSpacing: 0.5,
   },
-  modalTitle: {
+  title: {
     fontSize: FontSize.cta,
     textAlign: 'center',
     marginBottom: Spacing.nano,
   },
-  modalSubtitle: {
+  subtitle: {
     fontSize: FontSize.bodySmall,
     textAlign: 'center',
     marginBottom: Spacing.surface,
@@ -360,17 +192,11 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     letterSpacing: 0.8,
   },
-  highlightsScroll: {
-    maxHeight: 180,
-  },
   highlightRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: Spacing.group,
+    marginBottom: Spacing.element,
     gap: Spacing.element,
-  },
-  highlightIcon: {
-    marginTop: 2,
   },
   highlightText: {
     flex: 1,
@@ -391,11 +217,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.caption,
   },
-  actionColumn: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  primaryBtn: {
+  ctaBtn: {
     width: '100%',
     height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
@@ -404,7 +226,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.element,
   },
-  primaryBtnText: {
+  ctaText: {
     fontSize: FontSize.body,
   },
   laterBtn: {
@@ -412,21 +234,5 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.row,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.micro,
-  },
-  laterBtnText: {
-    fontSize: FontSize.bodySmall,
-  },
-  downloadingContainer: {
-    width: '100%',
-    height: ControlHeight.cta,
-    borderRadius: BorderRadius.pill,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.group,
-  },
-  downloadingText: {
-    fontSize: FontSize.body,
   },
 });

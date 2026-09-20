@@ -40,15 +40,7 @@ export default function App() {
   const authenticateAppLock = useAppLockStore((s) => s.authenticate);
   const currentUser = useAuthStore((s) => s.user);
   const [currentRoute, setCurrentRoute] = useState<string>('Splash');
-
-  const otaVisible = useOtaStore((s) => s.visible);
-  const otaInfo = useOtaStore((s) => s.info);
-  const isOtaDownloading = useOtaStore((s) => s.isDownloading);
-  const otaDownloadText = useOtaStore((s) => s.downloadText);
-  const otaError = useOtaStore((s) => s.error);
-  const applyOtaUpdate = useOtaStore((s) => s.applyUpdate);
-  const hideOtaModal = useOtaStore((s) => s.hideUpdateModal);
-  const checkForOtaUpdates = useOtaStore((s) => s.checkForUpdates);
+  const ota = useOtaStore();
 
   const [fontsLoaded] = useFonts({
     Quicksand_400Regular,
@@ -82,7 +74,7 @@ export default function App() {
     });
 
     if (!__DEV__ && !updateRequirement.isRequired) {
-      checkForOtaUpdates();
+      useOtaStore.getState().checkForUpdates();
     }
 
     // P1.5: Only schedule daily reminder if notifications toggle is enabled
@@ -235,14 +227,14 @@ export default function App() {
             <AppLockOverlay />
           )}
           <OtaUpdateModal
-            visible={otaVisible}
-            updateInfo={otaInfo}
-            isDownloading={isOtaDownloading}
-            downloadProgressText={otaDownloadText}
-            error={otaError}
-            onUpdate={applyOtaUpdate}
-            onDismiss={hideOtaModal}
-            onRetry={applyOtaUpdate}
+            visible={ota.visible}
+            updateInfo={ota.info}
+            isDownloading={ota.isDownloading}
+            downloadProgressText={ota.downloadText}
+            error={ota.error}
+            onUpdate={ota.applyUpdate}
+            onDismiss={ota.hideUpdateModal}
+            onRetry={ota.applyUpdate}
           />
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}
