@@ -93,7 +93,7 @@ export const SavingsScreen: React.FC = () => {
           />
         }
         onScroll={handleScroll}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
       >
         {/* ── Header ── */}
         <View style={styles.headerRow}>

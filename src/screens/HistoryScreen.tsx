@@ -355,7 +355,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
           ]}
           stickySectionHeadersEnabled={false}
           onScroll={handleScroll}
-          scrollEventThrottle={16}
+          scrollEventThrottle={32}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}

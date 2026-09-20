@@ -42,6 +42,7 @@ function TabNavigator() {
       tabBar={renderTabBar}
       screenOptions={{
         headerShown: false,
+        freezeOnBlur: true,
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen as React.ComponentType<any>} />

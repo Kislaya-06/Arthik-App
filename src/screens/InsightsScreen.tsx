@@ -270,7 +270,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           />
         }
         onScroll={handleScroll}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
       >
         {/* Header Row */}
         <View style={styles.headerRow}>

@@ -1,10 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   Animated,
+  Easing,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
@@ -46,7 +47,7 @@ interface CapsuleTabItemProps {
   onPress: () => void;
 }
 
-const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
+const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   icon,
   label,
   active,
@@ -57,10 +58,10 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   const pressScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.spring(anim, {
+    Animated.timing(anim, {
       toValue: active ? 1 : 0,
-      tension: 60,
-      friction: 10,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
   }, [active]);
@@ -68,6 +69,8 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   const handlePressIn = () => {
     Animated.spring(pressScale, {
       toValue: 0.92,
+      tension: 70,
+      friction: 8,
       useNativeDriver: true,
     }).start();
   };
@@ -75,8 +78,8 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   const handlePressOut = () => {
     Animated.spring(pressScale, {
       toValue: 1,
-      friction: 6,
-      tension: 40,
+      tension: 70,
+      friction: 8,
       useNativeDriver: true,
     }).start();
   };
@@ -134,7 +137,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
       style={styles.tabPressable}
       hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
     >
-      <Animated.View style={{ transform: [{ scale: pressScale }] }}>
+      <Animated.View style={{ transform: [{ scale: pressScale }] }} renderToHardwareTextureAndroid={true}>
         <Animated.View
           style={[
             styles.capsule,
@@ -172,16 +175,18 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
       </Animated.View>
     </Pressable>
   );
-};
+});
 
 // ─── Center Flush Action Button (+) ──────────────────────────────────────────
-const CenterAddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
   const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
     Animated.spring(scale, {
       toValue: 0.88,
+      tension: 70,
+      friction: 8,
       useNativeDriver: true,
     }).start();
   };
@@ -189,7 +194,8 @@ const CenterAddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
   const handlePressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
-      friction: 4,
+      tension: 70,
+      friction: 8,
       useNativeDriver: true,
     }).start();
   };
@@ -203,6 +209,7 @@ const CenterAddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Animated.View
+        renderToHardwareTextureAndroid={true}
         style={[
           styles.addButton,
           {
@@ -216,7 +223,7 @@ const CenterAddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
       </Animated.View>
     </Pressable>
   );
-};
+});
 
 // ─── Main Bottom Navigation Bar Component ───────────────────────────────────
 export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
@@ -242,26 +249,38 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
     extrapolate: 'clamp',
   });
 
-  const getRouteIndex = (name: string) => state.routes.findIndex((r) => r.name === name);
+  const getRouteIndex = useCallback(
+    (name: string) => state.routes.findIndex((r) => r.name === name),
+    [state.routes]
+  );
 
-  const navigateTo = (routeName: string, routeIndex: number) => {
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: state.routes[routeIndex]?.key || '',
-      canPreventDefault: true,
-    });
+  const navigateTo = useCallback(
+    (routeName: string, routeIndex: number) => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: state.routes[routeIndex]?.key || '',
+        canPreventDefault: true,
+      });
 
-    if (state.index !== routeIndex && !event.defaultPrevented) {
-      navigation.navigate(routeName);
-    }
-  };
+      if (state.index !== routeIndex && !event.defaultPrevented) {
+        navigation.navigate(routeName);
+      }
+    },
+    [navigation, state.routes, state.index]
+  );
 
-  const handleAddExpense = () => {
+  const handleAddExpense = useCallback(() => {
     navigation.navigate('AddExpense');
-  };
+  }, [navigation]);
+
+  const onPressHome = useCallback(() => navigateTo('Home', getRouteIndex('Home')), [navigateTo, getRouteIndex]);
+  const onPressHistory = useCallback(() => navigateTo('History', getRouteIndex('History')), [navigateTo, getRouteIndex]);
+  const onPressSavings = useCallback(() => navigateTo('Savings', getRouteIndex('Savings')), [navigateTo, getRouteIndex]);
+  const onPressInsights = useCallback(() => navigateTo('Insights', getRouteIndex('Insights')), [navigateTo, getRouteIndex]);
 
   return (
     <Animated.View
+      renderToHardwareTextureAndroid={true}
       style={[
         styles.outerContainer,
         {
@@ -279,6 +298,8 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
         - Left & Right wings strictly symmetric with smooth expanding capsule animation
       */}
       <View
+        renderToHardwareTextureAndroid={true}
+        needsOffscreenAlphaCompositing={true}
         style={[
           styles.pillBar,
           {
@@ -293,13 +314,13 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
             icon={Home}
             label="Home"
             active={state.index === getRouteIndex('Home')}
-            onPress={() => navigateTo('Home', getRouteIndex('Home'))}
+            onPress={onPressHome}
           />
           <CapsuleTabItem
             icon={Clock}
             label="History"
             active={state.index === getRouteIndex('History')}
-            onPress={() => navigateTo('History', getRouteIndex('History'))}
+            onPress={onPressHistory}
           />
         </View>
 
@@ -314,13 +335,13 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
             icon={PiggyBankCoinIcon}
             label="Savings"
             active={state.index === getRouteIndex('Savings')}
-            onPress={() => navigateTo('Savings', getRouteIndex('Savings'))}
+            onPress={onPressSavings}
           />
           <CapsuleTabItem
             icon={BarChart2}
             label="Insights"
             active={state.index === getRouteIndex('Insights')}
-            onPress={() => navigateTo('Insights', getRouteIndex('Insights'))}
+            onPress={onPressInsights}
           />
         </View>
       </View>

@@ -257,7 +257,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
       >
         <View style={styles.headerRow}>
           <Pressable 
