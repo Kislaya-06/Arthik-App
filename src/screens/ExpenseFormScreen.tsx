@@ -2,7 +2,7 @@ import React, { useRef, useState, useMemo, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  ActivityIndicator, Animated,
+  ActivityIndicator, Animated, PanResponder,
 } from 'react-native';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import {
   ArrowLeft, Calendar, ChevronRight, Plus,
 } from 'lucide-react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
 import { BouncyTypeToggle } from '../components/BouncyTypeToggle';
 import {
@@ -61,9 +62,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleNoteLayout,
     handleNoteFocus,
     handleNoteBlur,
-    handleScroll,
-    handleScrollBeginDrag,
     showKeypad,
+    hideKeypad,
+    handleKeypadDrag,
+    handleKeypadDragEnd,
   } = useFormKeyboard();
 
   const {
@@ -112,17 +114,17 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     return {
       keypadHeight: keypadAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [0, 238],
+        outputRange: [0, 258],
         extrapolate: 'clamp',
       }),
       keypadOpacity: keypadAnim.interpolate({
-        inputRange: [0, 0.6, 1],
-        outputRange: [0, 0.85, 1],
+        inputRange: [0, 0.4, 1],
+        outputRange: [0, 0.6, 1],
         extrapolate: 'clamp',
       }),
       keypadTranslateY: keypadAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [120, 0],
+        outputRange: [30, 0],
         extrapolate: 'clamp',
       }),
       saveButtonMarginTop: keypadAnim.interpolate({
@@ -132,6 +134,32 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       }),
     };
   }, [keypadAnim]);
+
+  // PanResponder to slide the keyboard down with a finger gesture
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return (
+            gestureState.dy > 8 &&
+            Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2
+          );
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (gestureState.dy > 0) {
+            handleKeypadDrag(gestureState.dy);
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          handleKeypadDragEnd(gestureState.dy, gestureState.vy);
+        },
+        onPanResponderTerminate: () => {
+          handleKeypadDragEnd(0, 0);
+        },
+      }),
+    [handleKeypadDrag, handleKeypadDragEnd]
+  );
 
   const showSuggestions = isNoteFocused && noteSuggestions.length > 0;
 
@@ -147,7 +175,11 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={[styles.header, { marginTop: insets.top + 16 }]}>
         <Pressable
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            }
+          }}
           hitSlop={10}
         >
           <ArrowLeft size={24} color={colors.textPrimary} />
@@ -158,7 +190,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       </View>
 
       {/* ── Transaction Type Segmented Toggle ── */}
-      <View style={[styles.typeToggleWrapper, isKeyboardOpen && styles.typeToggleWrapperCompact]}>
+      <View style={styles.typeToggleWrapper}>
         <BouncyTypeToggle
           value={transactionType}
           onChange={onTypeChange}
@@ -169,38 +201,35 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.bodyWrapper}>
         {/* ── Amount Display ── */}
         <Pressable
-          style={[styles.amountContainer, isKeyboardOpen && styles.amountContainerCompact]}
+          style={styles.amountContainer}
           onPress={handleAmountPress}
         >
-        <View style={styles.amountRow}>
-          <Text
-            style={[
-              styles.currencySymbol,
-              { color: colors.textMuted },
-              isKeyboardOpen && styles.currencySymbolCompact,
-              { fontFamily: FontFamily.bold },
-            ]}
-          >
-            ₹
-          </Text>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            style={[
-              styles.amountValue,
-              isKeyboardOpen && styles.amountValueCompact,
-              amount ? { color: colors.textPrimary } : { color: colors.textMuted },
-              { fontFamily: FontFamily.bold },
-            ]}
-          >
-            {formatAmountWithCommas(amount) || '0'}
-          </Text>
-        </View>
+          <View style={styles.amountRow}>
+            <Text
+              style={[
+                styles.currencySymbol,
+                { color: colors.textMuted },
+                { fontFamily: FontFamily.bold },
+              ]}
+            >
+              ₹
+            </Text>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={[
+                styles.amountValue,
+                amount ? { color: colors.textPrimary } : { color: colors.textMuted },
+                { fontFamily: FontFamily.bold },
+              ]}
+            >
+              {formatAmountWithCommas(amount) || '0'}
+            </Text>
+          </View>
         <View
           style={[
             styles.amountUnderline,
             { backgroundColor: colors.border },
-            isKeyboardOpen && styles.amountUnderlineCompact,
           ]}
         />
       </Pressable>
@@ -213,9 +242,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        onScroll={handleScroll}
-        onScrollBeginDrag={handleScrollBeginDrag}
-        scrollEventThrottle={16}
       >
         {/* Category Selector (Expense mode only) — always visible */}
         {transactionType === 'expense' && (
@@ -249,71 +275,101 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 </Pressable>
               </View>
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyboardShouldPersistTaps="always"
-                style={styles.categoryScroll}
-                contentContainerStyle={styles.categoryList}
-              >
-                {categories.map((cat: Category) => {
-                  const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
-                  const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
-                  const IconComp = getCategoryIcon(cat.icon);
-                  return (
-                    <Pressable
-                      key={cat.id}
-                      disabled={isPlaceholder}
-                      onPress={() => {
-                        if (!isPlaceholder) {
-                          handleCategorySelect(cat.id);
-                        }
-                      }}
-                      style={[
-                        styles.categoryChip,
-                        isSelected
-                          ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
-                          : { backgroundColor: colors.card, borderColor: colors.border },
-                        isPlaceholder && { opacity: 0.45 },
-                      ]}
-                    >
-                      <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
-                      <Text
+              <View style={styles.categoryScrollContainer}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="always"
+                  contentContainerStyle={styles.categoryList}
+                >
+                  {categories.map((cat: Category) => {
+                    const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
+                    const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
+                    const IconComp = getCategoryIcon(cat.icon);
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        disabled={isPlaceholder}
+                        onPress={() => {
+                          if (!isPlaceholder) {
+                            handleCategorySelect(cat.id);
+                            hideKeypad();
+                          }
+                        }}
                         style={[
-                          styles.categoryChipText,
-                          { color: isSelected ? colors.forestGreen : colors.textPrimary },
-                          { fontFamily: FontFamily.bold },
+                          styles.categoryChip,
+                          isSelected
+                            ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
+                            : { backgroundColor: colors.card, borderColor: colors.border },
+                          isPlaceholder && { opacity: 0.45 },
                         ]}
                       >
-                        {cat.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-                <Pressable
-                  disabled={areCategoriesPlaceholder || isCategoriesLoading}
-                  onPress={() => navigation.navigate('ManageCategories')}
-                  hitSlop={8}
-                  style={({ pressed }) => [
-                    styles.categoryChip,
-                    styles.manageCategoryChip,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      opacity:
-                        areCategoriesPlaceholder || isCategoriesLoading
-                          ? 0.45
-                          : pressed
-                          ? 0.7
-                          : 1,
-                    },
-                  ]}
-                  accessibilityLabel="Manage categories"
-                  accessibilityRole="button"
-                >
-                  <Plus size={16} color={colors.textPrimary} />
-                </Pressable>
-              </ScrollView>
+                        <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
+                        <Text
+                          style={[
+                            styles.categoryChipText,
+                            { color: isSelected ? colors.forestGreen : colors.textPrimary },
+                            { fontFamily: FontFamily.bold },
+                          ]}
+                        >
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  <Pressable
+                    disabled={areCategoriesPlaceholder || isCategoriesLoading}
+                    onPress={() => navigation.navigate('ManageCategories')}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.categoryChip,
+                      styles.manageCategoryChip,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        opacity:
+                          areCategoriesPlaceholder || isCategoriesLoading
+                            ? 0.45
+                            : pressed
+                            ? 0.7
+                            : 1,
+                      },
+                    ]}
+                    accessibilityLabel="Manage categories"
+                    accessibilityRole="button"
+                  >
+                    <Plus size={16} color={colors.textPrimary} />
+                  </Pressable>
+                </ScrollView>
+
+                {/* Left Fade Overlay (padding area) */}
+                <View pointerEvents="none" style={styles.categoryFadeLeft}>
+                  <Svg width="100%" height="100%" preserveAspectRatio="none">
+                    <Defs>
+                      <LinearGradient id="expenseCategoryFadeLeft" x1="0" y1="0" x2="1" y2="0">
+                        <Stop offset="0" stopColor={colors.background} stopOpacity="1" />
+                        <Stop offset="0.5" stopColor={colors.background} stopOpacity="0.8" />
+                        <Stop offset="1" stopColor={colors.background} stopOpacity="0" />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect width="100%" height="100%" fill="url(#expenseCategoryFadeLeft)" />
+                  </Svg>
+                </View>
+
+                {/* Right Fade Overlay (padding area) */}
+                <View pointerEvents="none" style={styles.categoryFadeRight}>
+                  <Svg width="100%" height="100%" preserveAspectRatio="none">
+                    <Defs>
+                      <LinearGradient id="expenseCategoryFadeRight" x1="0" y1="0" x2="1" y2="0">
+                        <Stop offset="0" stopColor={colors.background} stopOpacity="0" />
+                        <Stop offset="0.5" stopColor={colors.background} stopOpacity="0.8" />
+                        <Stop offset="1" stopColor={colors.background} stopOpacity="1" />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect width="100%" height="100%" fill="url(#expenseCategoryFadeRight)" />
+                  </Svg>
+                </View>
+              </View>
             )}
           </View>
         )}
@@ -412,11 +468,15 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Date Picker */}
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
+        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
           DATE
         </Text>
         <Pressable
-          onPress={() => setShowDatePicker(true)}
+          onPress={() => {
+            Keyboard.dismiss();
+            hideKeypad();
+            setShowDatePicker(true);
+          }}
           style={[styles.datePickerButton, { backgroundColor: colors.inputBg }]}
         >
           <View style={styles.datePickerLeft}>
@@ -436,15 +496,20 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         />
 
         {/* Paid Via / Added Via Toggle */}
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
+        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
           {transactionType === 'income' ? 'MONEY ADDED VIA' : 'PAID VIA'}
         </Text>
-        <BouncyPaymentToggle
-          value={paymentMode}
-          onChange={(mode) => setPaymentMode(mode)}
-          options={transactionType === 'income' ? INCOME_PAYMENT_OPTIONS : EXPENSE_PAYMENT_OPTIONS}
-          activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
-        />
+        <View style={styles.formSectionPadding}>
+          <BouncyPaymentToggle
+            value={paymentMode}
+            onChange={(mode) => {
+              hideKeypad();
+              setPaymentMode(mode);
+            }}
+            options={transactionType === 'income' ? INCOME_PAYMENT_OPTIONS : EXPENSE_PAYMENT_OPTIONS}
+            activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
+          />
+        </View>
       </ScrollView>
       </View>
 
@@ -460,6 +525,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         ]}
       >
         <Animated.View
+          {...panResponder.panHandlers}
           pointerEvents={isKeypadVisible ? 'auto' : 'none'}
           style={{
             height: keypadHeight,
@@ -468,6 +534,17 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             overflow: 'hidden',
           }}
         >
+          {/* ── Keypad Drag Handle Bar (Slide down to dismiss) ── */}
+          <Pressable
+            hitSlop={{ top: 8, bottom: 12, left: 30, right: 30 }}
+            onPress={hideKeypad}
+            style={styles.keypadHandleBar}
+            accessibilityLabel="Dismiss keypad"
+            accessibilityRole="button"
+          >
+            <View style={[styles.keypadHandle, { backgroundColor: colors.border }]} />
+          </Pressable>
+
           <View style={styles.keypadGrid}>
             {KEYPAD_ROWS.map((row, rIdx) => (
               <View key={rIdx} style={styles.keypadRow}>
@@ -548,17 +625,11 @@ const styles = StyleSheet.create({
   },
   typeToggleWrapper: {
     paddingHorizontal: Spacing.gutter,
-    marginTop: 18,
-  },
-  typeToggleWrapperCompact: {
-    marginTop: Spacing.element,
+    marginTop: Spacing.block,
   },
   amountContainer: {
     alignItems: 'center',
-    marginTop: Spacing.gutter,
-  },
-  amountContainerCompact: {
-    marginTop: Spacing.element,
+    marginTop: Spacing.block,
   },
   amountRow: {
     flexDirection: 'row',
@@ -568,33 +639,26 @@ const styles = StyleSheet.create({
     fontSize: 48,
     marginRight: Spacing.micro,
   },
-  currencySymbolCompact: {
-    fontSize: 32,
-  },
   amountValue: {
-    fontSize: 60,
-  },
-  amountValueCompact: {
-    fontSize: 40,
+    fontSize: 56,
   },
   amountUnderline: {
     height: 1,
     width: 80,
     marginTop: Spacing.element,
   },
-  amountUnderlineCompact: {
-    marginTop: Spacing.micro,
-  },
   bodyWrapper: {
     flex: 1,
   },
   scrollSection: {
     flex: 1,
-    paddingHorizontal: Spacing.gutter,
     marginTop: Spacing.surface,
   },
   scrollContent: {
     paddingBottom: Spacing.section,
+  },
+  formSectionPadding: {
+    paddingHorizontal: Spacing.gutter,
   },
   sectionLabel: {
     fontSize: FontSize.caption,
@@ -607,6 +671,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.group,
+    paddingHorizontal: Spacing.gutter,
   },
   sectionLabelNoMargin: {
     marginBottom: 0,
@@ -616,14 +681,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  categoryScroll: {
-    marginHorizontal: -Spacing.gutter,
+  categoryScrollContainer: {
+    position: 'relative',
     marginBottom: Spacing.block,
   },
   categoryList: {
     flexDirection: 'row',
     gap: Spacing.group,
     paddingHorizontal: Spacing.gutter,
+  },
+  categoryFadeLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 36,
+    zIndex: 10,
+  },
+  categoryFadeRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 36,
+    zIndex: 10,
   },
   categoryChip: {
     flexDirection: 'row',
@@ -649,6 +730,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     marginBottom: Spacing.block,
+    marginHorizontal: Spacing.gutter,
   },
   emptyCategoriesText: {
     fontSize: FontSize.bodySmall,
@@ -668,6 +750,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.surface,
     justifyContent: 'center',
     marginBottom: Spacing.block,
+    marginHorizontal: Spacing.gutter,
   },
   suggestionsScroll: {
     marginBottom: Spacing.block,
@@ -675,6 +758,7 @@ const styles = StyleSheet.create({
   suggestionsList: {
     flexDirection: 'row',
     gap: Spacing.element,
+    paddingHorizontal: Spacing.gutter,
   },
   suggestionChip: {
     borderRadius: BorderRadius.pill,
@@ -700,6 +784,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.surface,
     marginBottom: Spacing.block,
+    marginHorizontal: Spacing.gutter,
   },
   datePickerLeft: {
     flexDirection: 'row',
@@ -712,11 +797,11 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   bottomSection: {
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
     borderTopWidth: 1,
     paddingHorizontal: Spacing.surface,
-    paddingTop: Spacing.block,
+    paddingTop: 10,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -767,5 +852,17 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: FontSize.cta,
     letterSpacing: 0.3,
+  },
+  keypadHandleBar: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    marginBottom: Spacing.micro,
+  },
+  keypadHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
   },
 });

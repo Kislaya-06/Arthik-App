@@ -5,8 +5,6 @@ import {
   Animated,
   Easing,
   LayoutChangeEvent,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 
 export interface UseFormKeyboardReturn {
@@ -18,10 +16,10 @@ export interface UseFormKeyboardReturn {
   handleNoteLayout: (e: LayoutChangeEvent) => void;
   handleNoteFocus: () => void;
   handleNoteBlur: () => void;
-  handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  handleScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   showKeypad: () => void;
   hideKeypad: () => void;
+  handleKeypadDrag: (dy: number) => void;
+  handleKeypadDragEnd: (dy: number, vy: number) => void;
 }
 
 export function useFormKeyboard(): UseFormKeyboardReturn {
@@ -29,7 +27,6 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   // Tracks the Y offset of the Note section inside the ScrollView so the
   // keyboard-show listener can scroll the note field into view.
   const noteSectionY = useRef(0);
-  const dragStartY = useRef(0);
 
   // Keypad animation value: 1 = fully visible, 0 = collapsed/hidden downwards
   const keypadAnim = useRef(new Animated.Value(1)).current;
@@ -43,12 +40,11 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   // ─── Keypad show/hide animations ──────────────────────────────────────────
   const showKeypad = useCallback(() => {
     if (isNoteFocusedRef.current) return;
-    if (isKeypadVisibleRef.current) return;
     isKeypadVisibleRef.current = true;
     setIsKeypadVisible(true);
     Animated.timing(keypadAnim, {
       toValue: 1,
-      duration: 250,
+      duration: 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
@@ -57,14 +53,56 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   const hideKeypad = useCallback(() => {
     if (!isKeypadVisibleRef.current) return;
     isKeypadVisibleRef.current = false;
-    setIsKeypadVisible(false);
     Animated.timing(keypadAnim, {
       toValue: 0,
       duration: 200,
-      easing: Easing.in(Easing.cubic),
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
-    }).start();
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsKeypadVisible(false);
+      }
+    });
   }, [keypadAnim]);
+
+  const handleKeypadDrag = useCallback(
+    (dy: number) => {
+      if (!isKeypadVisibleRef.current) return;
+      // Map drag distance down (0 to 258) to normalized progress (1 to 0)
+      const progress = Math.max(0, Math.min(1, 1 - dy / 258));
+      keypadAnim.setValue(progress);
+    },
+    [keypadAnim]
+  );
+
+  const handleKeypadDragEnd = useCallback(
+    (dy: number, vy: number) => {
+      if (!isKeypadVisibleRef.current) return;
+      if (dy > 30 || vy > 0.35) {
+        // Drag confirmed: smoothly continue closing to 0
+        isKeypadVisibleRef.current = false;
+        Animated.timing(keypadAnim, {
+          toValue: 0,
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start(({ finished }) => {
+          if (finished) {
+            setIsKeypadVisible(false);
+          }
+        });
+      } else {
+        // Drag cancelled: spring back to open using AGENTS.md 9.7 physics
+        Animated.spring(keypadAnim, {
+          toValue: 1,
+          tension: 70,
+          friction: 8,
+          useNativeDriver: false,
+        }).start();
+      }
+    },
+    [keypadAnim]
+  );
 
   // ─── Keyboard listeners ───────────────────────────────────────────────────
   useEffect(() => {
@@ -73,6 +111,14 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
       setIsKeyboardOpen(true);
       if (isKeypadVisibleRef.current) {
         hideKeypad();
+      }
+      if (isNoteFocusedRef.current && noteSectionY.current > 0) {
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({
+            y: Math.max(0, noteSectionY.current - 12),
+            animated: true,
+          });
+        });
       }
     });
 
@@ -109,35 +155,19 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     isKeyboardOpenRef.current = true;
     setIsKeyboardOpen(true);
     hideKeypad();
+    if (noteSectionY.current > 0) {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, noteSectionY.current - 12),
+          animated: true,
+        });
+      });
+    }
   }, [hideKeypad]);
 
   const handleNoteBlur = useCallback(() => {
     isNoteFocusedRef.current = false;
   }, []);
-
-  // ─── Scroll-driven keypad toggle ──────────────────────────────────────────
-  // Scrolling down (into form fields) hides the keypad to give more room.
-  // Scrolling back to top restores it.
-  const handleScrollBeginDrag = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      dragStartY.current = event.nativeEvent.contentOffset.y;
-    },
-    []
-  );
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const currentY = event.nativeEvent.contentOffset.y;
-      const dragDelta = currentY - dragStartY.current;
-
-      if (isKeypadVisibleRef.current && (dragDelta > 10 || currentY > 15)) {
-        hideKeypad();
-      } else if (!isKeypadVisibleRef.current && !isKeyboardOpenRef.current && !isNoteFocusedRef.current && currentY <= 5 && dragDelta < -15) {
-        showKeypad();
-      }
-    },
-    [hideKeypad, showKeypad]
-  );
 
   return {
     scrollRef,
@@ -148,9 +178,9 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     handleNoteLayout,
     handleNoteFocus,
     handleNoteBlur,
-    handleScroll,
-    handleScrollBeginDrag,
     showKeypad,
     hideKeypad,
+    handleKeypadDrag,
+    handleKeypadDragEnd,
   };
 }
