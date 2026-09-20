@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
-import { ActivityIndicator, StyleSheet, View, StatusBar, Alert, AppState } from 'react-native';
-import * as Updates from 'expo-updates';
+import { ActivityIndicator, StyleSheet, View, StatusBar, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppNavigation, navigationRef, navigateTo } from './src/navigation';
 import { Theme } from './src/config/theme';
@@ -26,6 +25,8 @@ import { checkAppVersionStatus, VersionCheckResult } from './src/lib/versionChec
 import { UpdateRequiredScreen } from './src/screens/UpdateRequiredScreen';
 import { useAppLockStore } from './src/store/appLockStore';
 import { AppLockOverlay } from './src/components/AppLockOverlay';
+import { OtaUpdateModal } from './src/components/OtaUpdateModal';
+import { useOtaStore } from './src/store/otaStore';
 
 export default function App() {
   const { colors, isDark } = useTheme();
@@ -39,6 +40,15 @@ export default function App() {
   const authenticateAppLock = useAppLockStore((s) => s.authenticate);
   const currentUser = useAuthStore((s) => s.user);
   const [currentRoute, setCurrentRoute] = useState<string>('Splash');
+
+  const otaVisible = useOtaStore((s) => s.visible);
+  const otaInfo = useOtaStore((s) => s.info);
+  const isOtaDownloading = useOtaStore((s) => s.isDownloading);
+  const otaDownloadText = useOtaStore((s) => s.downloadText);
+  const otaError = useOtaStore((s) => s.error);
+  const applyOtaUpdate = useOtaStore((s) => s.applyUpdate);
+  const hideOtaModal = useOtaStore((s) => s.hideUpdateModal);
+  const checkForOtaUpdates = useOtaStore((s) => s.checkForUpdates);
 
   const [fontsLoaded] = useFonts({
     Quicksand_400Regular,
@@ -71,40 +81,8 @@ export default function App() {
       }
     });
 
-    async function checkForUpdates() {
-      if (updateRequirement.isRequired) {
-        return;
-      }
-      try {
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
-          Alert.alert(
-            'New Update Available 🎉',
-            'We have squashed some bugs and added new features. Update now for the best experience!',
-            [
-              { text: 'Later', style: 'cancel' },
-              {
-                text: 'Update Now',
-                onPress: async () => {
-                  try {
-                    await Updates.fetchUpdateAsync();
-                    await Updates.reloadAsync();
-                  } catch (e) {
-                    Alert.alert('Update Failed', 'Could not apply the update. Please try again later.');
-                  }
-                },
-              },
-            ]
-          );
-        }
-      } catch (e) {
-        // Silently fail in case of network issues so it doesn't block the app
-        if (__DEV__) console.log('Update check failed:', e);
-      }
-    }
-
-    if (!__DEV__) {
-      checkForUpdates();
+    if (!__DEV__ && !updateRequirement.isRequired) {
+      checkForOtaUpdates();
     }
 
     // P1.5: Only schedule daily reminder if notifications toggle is enabled
@@ -256,6 +234,16 @@ export default function App() {
           {Boolean((currentUser || useAuthStore.getState().user) && isAppLockEnabled && isLocked && currentRoute !== 'Splash') && (
             <AppLockOverlay />
           )}
+          <OtaUpdateModal
+            visible={otaVisible}
+            updateInfo={otaInfo}
+            isDownloading={isOtaDownloading}
+            downloadProgressText={otaDownloadText}
+            error={otaError}
+            onUpdate={applyOtaUpdate}
+            onDismiss={hideOtaModal}
+            onRetry={applyOtaUpdate}
+          />
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}
             translucent={true}

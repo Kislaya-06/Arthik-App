@@ -22,6 +22,7 @@ import { RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { scheduleDailyReminder, cancelDailyReminder } from '../lib/notificationService';
 import { useAppLockStore } from '../store/appLockStore';
+import { useOtaStore } from '../store/otaStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -382,7 +383,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* 5. App Version */}
-          <View style={[styles.settingRow, styles.lastSettingRow]}>
+          <Pressable
+            style={[styles.settingRow, styles.lastSettingRow]}
+            onPress={() => useOtaStore.getState().showUpdateModal()}
+          >
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <CircleAlert size={18} color={colors.textPrimary} />
             </View>
@@ -392,7 +396,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={[styles.versionText, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
               {appVersion}
             </Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* Log Out Button */}
