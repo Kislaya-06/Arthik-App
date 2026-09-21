@@ -413,3 +413,44 @@ VALUES (
 )
 ON CONFLICT (key) DO NOTHING;
 
+-- ------------------------------------------------------------------------------
+-- 10. Gullak Deposits Table (Manual Savings Top-ups)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.gullak_deposits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    amount NUMERIC NOT NULL CHECK (amount > 0),
+    date DATE NOT NULL,
+    note TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.gullak_deposits ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own gullak deposits" ON public.gullak_deposits;
+CREATE POLICY "Users can view their own gullak deposits" 
+ON public.gullak_deposits FOR SELECT 
+TO authenticated 
+USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own gullak deposits" ON public.gullak_deposits;
+CREATE POLICY "Users can insert their own gullak deposits" 
+ON public.gullak_deposits FOR INSERT 
+TO authenticated 
+WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own gullak deposits" ON public.gullak_deposits;
+CREATE POLICY "Users can update their own gullak deposits" 
+ON public.gullak_deposits FOR UPDATE 
+TO authenticated 
+USING ((select auth.uid()) = user_id)
+WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own gullak deposits" ON public.gullak_deposits;
+CREATE POLICY "Users can delete their own gullak deposits" 
+ON public.gullak_deposits FOR DELETE 
+TO authenticated 
+USING ((select auth.uid()) = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_gullak_deposits_user ON public.gullak_deposits (user_id, date);
+

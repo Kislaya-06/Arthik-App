@@ -366,41 +366,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <DonutChart spent={displaySpent} total={Math.max(totalAvailable, displaySpent)} colors={colors} />
           </View>
 
-          {/* Dual Metric Tiles: Inflow (Income / Allowance) & Outflow (Spent) */}
-          {(() => {
-            const isAllowance = activeFilter === 'Daily' && todayBudget > 0 && periodIncome === 0;
-            return (
-              <View style={styles.metricTilesRow}>
-                {/* Income or Allowance Tile */}
-                <View style={[styles.metricTile, { backgroundColor: colors.mintGreenSoft }]}>
-                  <View style={styles.metricTileHeader}>
-                    <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(184,224,200,0.2)' : 'rgba(127,184,150,0.2)' }]}>
-                      <ArrowDownLeft size={13} color={isDark ? colors.mintGreen : colors.mintGreenDark} />
-                    </View>
-                    <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>
-                      {isAllowance ? 'Allowance' : 'Income'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.metricTileAmount, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]} numberOfLines={1}>
-                    {isAllowance ? formatCurrency(todayBudget) : `+${formatCurrency(periodIncome)}`}
-                  </Text>
+          {/* Dual Metric Tiles: Inflow (Income / Total Available) & Outflow (Spent) */}
+          <View style={styles.metricTilesRow}>
+            {/* Income Tile */}
+            <View style={[styles.metricTile, { backgroundColor: colors.mintGreenSoft }]}>
+              <View style={styles.metricTileHeader}>
+                <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(184,224,200,0.2)' : 'rgba(127,184,150,0.2)' }]}>
+                  <ArrowDownLeft size={13} color={isDark ? colors.mintGreen : colors.mintGreenDark} />
                 </View>
-
-                {/* Spent Tile */}
-                <View style={[styles.metricTile, { backgroundColor: colors.peachSoft }]}>
-                  <View style={styles.metricTileHeader}>
-                    <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(244,184,174,0.2)' : 'rgba(244,184,174,0.3)' }]}>
-                      <ArrowUpRight size={13} color={colors.peachCoral} />
-                    </View>
-                    <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>Spent</Text>
-                  </View>
-                  <Text style={[styles.metricTileAmount, { color: colors.textPrimary }]} numberOfLines={1}>
-                    {`−${formatCurrency(periodSpent)}`}
-                  </Text>
-                </View>
+                <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>
+                  Income
+                </Text>
               </View>
-            );
-          })()}
+              <Text style={[styles.metricTileAmount, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]} numberOfLines={1}>
+                {`+${formatCurrency(totalAvailable)}`}
+              </Text>
+            </View>
+
+            {/* Spent Tile */}
+            <View style={[styles.metricTile, { backgroundColor: colors.peachSoft }]}>
+              <View style={styles.metricTileHeader}>
+                <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(244,184,174,0.2)' : 'rgba(244,184,174,0.3)' }]}>
+                  <ArrowUpRight size={13} color={colors.peachCoral} />
+                </View>
+                <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>Spent</Text>
+              </View>
+              <Text style={[styles.metricTileAmount, { color: colors.textPrimary }]} numberOfLines={1}>
+                {`−${formatCurrency(periodSpent)}`}
+              </Text>
+            </View>
+          </View>
 
           {/* Daily Gullak Rollover Teaser (Only on Daily, and ONLY if user has active budget) */}
           {activeFilter === 'Daily' && todayBudget > 0 && (

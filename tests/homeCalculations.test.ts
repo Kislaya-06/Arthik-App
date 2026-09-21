@@ -81,36 +81,40 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.isOverBudgetPeriod).toBe(false);
     });
 
-    it("computes 'All' filter tracking lifetime net balance when user has income", () => {
+    it("computes 'All' filter combining lifetime budget pool and income", () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
-        totalSpent: 12000,
-        totalIncome: 30000,
+        dailyBudgetAmount: 500,
+        isAutoRenew: true,
+        todayBudget: 500,
+        totalSpent: 1200,
+        totalIncome: 1000,
+        userCreatedAtStr: '2026-09-14', // 5 days to 2026-09-18: 14, 15, 16, 17, 18
       });
 
-      expect(result.primaryLabel).toBe('Net Balance');
-      expect(result.primaryAmount).toBe(18000); // 30000 - 12000
-      expect(result.primarySubtext).toBe('₹30,000 income − ₹12,000 spent');
-      expect(result.displaySpent).toBe(12000);
-      expect(result.totalAvailable).toBe(30000);
-      expect(result.isOverBudgetPeriod).toBe(false);
-      expect(result.periodIncome).toBe(30000);
-      expect(result.periodSpent).toBe(12000);
+      // 5 days * 500 = 2500 budget pool + 1000 income = 3500 available
+      expect(result.totalAvailable).toBe(3500);
+      expect(result.displaySpent).toBe(1200);
+      expect(result.primaryAmount).toBe(2300); // 3500 - 1200
+      expect(result.primaryLabel).toBe('Total Remaining');
+      expect(result.primarySubtext).toBe('₹2,500 budget + ₹1,000 income');
     });
 
-    it("computes 'All' filter as Total Spent when user has zero income", () => {
+    it("computes 'All' filter as Total Spent when user has no budget and zero income", () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
+        dailyBudgetAmount: 0,
+        isAutoRenew: false,
+        todayBudget: 0,
         totalSpent: 1000,
         totalIncome: 0,
       });
 
       expect(result.primaryLabel).toBe('Total Spent');
       expect(result.primaryAmount).toBe(1000);
-      expect(result.primarySubtext).toBe('Total lifetime expenses');
-      expect(result.totalAvailable).toBe(1000);
+      expect(result.totalAvailable).toBe(0);
       expect(result.displaySpent).toBe(1000);
       expect(result.isOverBudgetPeriod).toBe(false);
     });
@@ -186,64 +190,80 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
     });
   });
 
-  describe('All Filter - Lifetime Cashflow (Income vs Spent)', () => {
-    it('handles surplus (Net Balance) when income exceeds expenses', () => {
+  describe('All Filter - Lifetime Cashflow (Budget Pool + Income vs Spent)', () => {
+    it('handles surplus (Total Remaining) when budget and income exceed expenses', () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
+        dailyBudgetAmount: 500,
+        isAutoRenew: true,
+        todayBudget: 500,
+        userCreatedAtStr: '2026-09-14', // 5 days * 500 = 2500
+        totalIncome: 1000,
+        totalSpent: 1500,
+      });
+
+      expect(result.primaryLabel).toBe('Total Remaining');
+      expect(result.primaryAmount).toBe(2000); // 3500 - 1500
+      expect(result.isOverBudgetPeriod).toBe(false);
+      expect(result.primarySubtext).toBe('₹2,500 budget + ₹1,000 income');
+      expect(result.totalAvailable).toBe(3500);
+      expect(result.displaySpent).toBe(1500);
+    });
+
+    it('handles deficit (Total Budget Exceeded) when expenses exceed available', () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        dailyBudgetAmount: 500,
+        isAutoRenew: true,
+        todayBudget: 500,
+        userCreatedAtStr: '2026-09-14', // 5 days * 500 = 2500
+        totalIncome: 0,
+        totalSpent: 3000,
+      });
+
+      expect(result.primaryLabel).toBe('Total Budget Exceeded');
+      expect(result.primaryAmount).toBe(500); // 3000 - 2500
+      expect(result.isOverBudgetPeriod).toBe(true);
+      expect(result.primarySubtext).toBe('Exceeded total limit by ₹500');
+      expect(result.totalAvailable).toBe(2500);
+      expect(result.displaySpent).toBe(3000);
+    });
+
+    it('handles non-budget user with income as Total Remaining', () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        dailyBudgetAmount: 0,
+        isAutoRenew: false,
+        todayBudget: 0,
         totalIncome: 50000,
         totalSpent: 20000,
       });
 
-      expect(result.primaryLabel).toBe('Net Balance');
+      expect(result.primaryLabel).toBe('Total Remaining');
       expect(result.primaryAmount).toBe(30000);
       expect(result.isOverBudgetPeriod).toBe(false);
-      expect(result.primarySubtext).toBe('₹50,000 income − ₹20,000 spent');
+      expect(result.primarySubtext).toBeNull();
       expect(result.totalAvailable).toBe(50000);
       expect(result.displaySpent).toBe(20000);
     });
 
-    it('handles deficit (Net Deficit) when expenses exceed income', () => {
+    it('handles non-budget user with zero income as Total Spent', () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
-        totalIncome: 10000,
-        totalSpent: 15000,
-      });
-
-      expect(result.primaryLabel).toBe('Net Deficit');
-      expect(result.primaryAmount).toBe(5000);
-      expect(result.isOverBudgetPeriod).toBe(true);
-      expect(result.primarySubtext).toBe('Spent ₹5,000 more than total income');
-      expect(result.totalAvailable).toBe(10000);
-      expect(result.displaySpent).toBe(15000);
-    });
-
-    it('handles break-even (Net Balance ₹0) when income equals expenses', () => {
-      const result = calculatePeriodSummary({
-        ...baseParams,
-        activeFilter: 'All',
-        totalIncome: 10000,
-        totalSpent: 10000,
-      });
-
-      expect(result.primaryLabel).toBe('Net Balance');
-      expect(result.primaryAmount).toBe(0);
-      expect(result.isOverBudgetPeriod).toBe(false);
-      expect(result.primarySubtext).toBe('₹10,000 income − ₹10,000 spent');
-    });
-
-    it('handles zero income and zero expenses gracefully', () => {
-      const result = calculatePeriodSummary({
-        ...baseParams,
-        activeFilter: 'All',
+        dailyBudgetAmount: 0,
+        isAutoRenew: false,
+        todayBudget: 0,
         totalIncome: 0,
         totalSpent: 0,
       });
 
       expect(result.primaryLabel).toBe('Total Spent');
       expect(result.primaryAmount).toBe(0);
-      expect(result.primarySubtext).toBe('No transactions recorded yet');
+      expect(result.totalAvailable).toBe(0);
       expect(result.isOverBudgetPeriod).toBe(false);
     });
   });
