@@ -41,10 +41,10 @@ type Props =
 
 
 const KEYPAD_ROWS = [
-  ['1', '2', '3'],
-  ['4', '5', '6'],
-  ['7', '8', '9'],
-  ['.', '0', 'backspace'],
+  ['1', '2', '3', '÷'],
+  ['4', '5', '6', '×'],
+  ['7', '8', '9', '−'],
+  ['.', '0', 'backspace', '+'],
 ];
 
 export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -70,6 +70,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const {
     amount,
+    evaluatedAmount,
+    formattedExpression,
+    hasOperator,
+    isDivisionByZero,
     transactionType,
     selectedCategoryId,
     note,
@@ -204,11 +208,23 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           style={styles.amountContainer}
           onPress={handleAmountPress}
         >
+          {hasOperator && (
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="head"
+              style={[
+                styles.expressionText,
+                { color: colors.textSecondary, fontFamily: FontFamily.medium },
+              ]}
+            >
+              {formattedExpression}
+            </Text>
+          )}
           <View style={styles.amountRow}>
             <Text
               style={[
                 styles.currencySymbol,
-                { color: colors.textMuted },
+                { color: isDivisionByZero ? colors.danger : colors.textMuted },
                 { fontFamily: FontFamily.bold },
               ]}
             >
@@ -219,20 +235,28 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               adjustsFontSizeToFit
               style={[
                 styles.amountValue,
-                amount ? { color: colors.textPrimary } : { color: colors.textMuted },
+                isDivisionByZero
+                  ? { color: colors.danger }
+                  : (hasOperator ? evaluatedAmount > 0 : amount)
+                  ? { color: colors.textPrimary }
+                  : { color: colors.textMuted },
                 { fontFamily: FontFamily.bold },
               ]}
             >
-              {formatAmountWithCommas(amount) || '0'}
+              {isDivisionByZero
+                ? '—'
+                : hasOperator
+                ? formatAmountWithCommas(evaluatedAmount.toString()) || '0'
+                : formatAmountWithCommas(amount) || '0'}
             </Text>
           </View>
-        <View
-          style={[
-            styles.amountUnderline,
-            { backgroundColor: colors.border },
-          ]}
-        />
-      </Pressable>
+          <View
+            style={[
+              styles.amountUnderline,
+              { backgroundColor: isDivisionByZero ? colors.danger : colors.border },
+            ]}
+          />
+        </Pressable>
 
       {/* ── Scrollable Section (Category, Note, Date, Payment) ── */}
       <ScrollView
@@ -576,7 +600,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                     styles.saveButtonDisabled,
                     {
                       backgroundColor: colors.cardSubtle,
-                      borderColor: colors.borderSubtle,
+                      borderColor: isDivisionByZero ? colors.danger : colors.borderSubtle,
                     },
                   ],
             ]}
@@ -588,12 +612,18 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 style={[
                   styles.saveButtonText,
                   {
-                    color: isSaveEnabled ? colors.forestGreen : colors.textMuted,
+                    color: isDivisionByZero
+                      ? colors.danger
+                      : isSaveEnabled
+                      ? colors.forestGreen
+                      : colors.textMuted,
                     fontFamily: FontFamily.bold,
                   },
                 ]}
               >
-                {isEdit
+                {isDivisionByZero
+                  ? 'Cannot divide by 0'
+                  : isEdit
                   ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
                   : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
               </Text>
@@ -630,6 +660,12 @@ const styles = StyleSheet.create({
   amountContainer: {
     alignItems: 'center',
     marginTop: Spacing.block,
+  },
+  expressionText: {
+    fontSize: FontSize.body,
+    marginBottom: Spacing.nano,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.gutter,
   },
   amountRow: {
     flexDirection: 'row',

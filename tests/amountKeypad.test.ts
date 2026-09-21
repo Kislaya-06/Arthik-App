@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { applyKeypadPress, parseKeypadAmount } from '../src/lib/amountKeypad';
+import {
+  applyKeypadPress,
+  parseKeypadAmount,
+  evaluateExpression,
+  formatExpressionWithCommas,
+} from '../src/lib/amountKeypad';
 
 describe('amountKeypad', () => {
   describe('single decimal and second dot rejection', () => {
@@ -150,6 +155,68 @@ describe('amountKeypad', () => {
 
     it('handles trailing dot on positive numbers correctly', () => {
       expect(parseKeypadAmount('50.')).toBe(50);
+    });
+
+    it('evaluates expressions correctly via parseKeypadAmount', () => {
+      expect(parseKeypadAmount('350 + 120 + 85')).toBe(555);
+      expect(parseKeypadAmount('100 + 50 × 2')).toBe(200);
+      expect(parseKeypadAmount('1800 ÷ 3')).toBe(600);
+    });
+  });
+
+  describe('calculator operators and expression evaluation', () => {
+    it('appends operator with spacing and replaces operator on consecutive press', () => {
+      let val = '350';
+      val = applyKeypadPress(val, '+');
+      expect(val).toBe('350 + ');
+
+      // Pressing another operator replaces the previous one
+      val = applyKeypadPress(val, '×');
+      expect(val).toBe('350 × ');
+
+      val = applyKeypadPress(val, '÷');
+      expect(val).toBe('350 ÷ ');
+
+      val = applyKeypadPress(val, '−');
+      expect(val).toBe('350 − ');
+    });
+
+    it('strips trailing dot when operator is pressed', () => {
+      expect(applyKeypadPress('350.', '+')).toBe('350 + ');
+    });
+
+    it('removes operator cleanly on backspace', () => {
+      expect(applyKeypadPress('350 + ', 'backspace')).toBe('350');
+      expect(applyKeypadPress('350 + 1', 'backspace')).toBe('350 + ');
+    });
+
+    it('evaluates standard multi-operator calculations with proper precedence', () => {
+      const res1 = parseKeypadAmount('350 + 120 + 85');
+      expect(res1).toBe(555);
+
+      const res2 = parseKeypadAmount('100 + 50 × 2');
+      expect(res2).toBe(200); // 50 * 2 = 100, 100 + 100 = 200
+
+      const res3 = parseKeypadAmount('100 − 30 + 10');
+      expect(res3).toBe(80);
+    });
+
+    it('detects division by zero and sets isDivisionByZero', () => {
+      const divZero = evaluateExpression('100 ÷ 0');
+      expect(divZero.isDivisionByZero).toBe(true);
+      expect(divZero.result).toBe(0);
+
+      const divZeroDec = evaluateExpression('100 ÷ 0.0');
+      expect(divZeroDec.isDivisionByZero).toBe(true);
+
+      const divValidDec = evaluateExpression('100 ÷ 0.5');
+      expect(divValidDec.isDivisionByZero).toBe(false);
+      expect(divValidDec.result).toBe(200);
+    });
+
+    it('formats expressions with Indian commas on all numeric tokens', () => {
+      expect(formatExpressionWithCommas('1200 + 350.5')).toBe('1,200 + 350.5');
+      expect(formatExpressionWithCommas('100000 × 2')).toBe('1,00,000 × 2');
     });
   });
 });

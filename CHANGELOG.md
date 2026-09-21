@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### 🚀 Added
+- **In-Keypad Calculator & Arithmetic Evaluator:** Added math operators (`+`, `−`, `×`, `÷`) directly to the numeric keypad on the Add/Edit Transaction screen. Supports live order-of-operations evaluation, real-time expression preview, zero-division protection with active validation, automatic calculation breakdown notes, and an optimized 4-column keypad layout.
 - **Unified Hero Card Across All Time Filters (Daily, Weekly, Monthly, All):** The Home Screen hero card now presents a unified financial picture across all four periods. The Income tile consistently represents total period inflow (`Period Budget Pool + Incomes`), while the Spent tile tracks expenses, and the center metric reflects net balance/remaining allowance. The 'All' filter computes the entire lifetime budget pool from user registration alongside total income.
 - **Supabase Cloud Sync for Manual Gullak Deposits:** Manual Gullak deposits and removals now automatically sync with Supabase `gullak_deposits` table with Row-Level Security, restoring savings data seamlessly across device re-logins.
 - **Two-Step Email Confirmation for Account Deletion:** Protected account deletion behind an email confirmation modal requiring the user to type their exact registered email address, followed by a final double-check confirmation alert to eliminate accidental account deletion.

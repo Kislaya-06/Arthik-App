@@ -20,7 +20,7 @@ interface KeyButtonProps {
  * Pass item="backspace" to render the delete icon.
  */
 const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -32,6 +32,7 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
   };
 
   const isBackspace = item === 'backspace';
+  const isOperator = item === '+' || item === '−' || item === '×' || item === '÷';
 
   return (
     <Pressable
@@ -44,16 +45,31 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
         style={[
           styles.keyButton,
           {
-            borderColor: colors.borderSubtle,
-            backgroundColor: isBackspace ? colors.peachSoft : colors.cardSubtle,
+            borderColor: isOperator && isDark ? 'rgba(184, 224, 200, 0.25)' : colors.borderSubtle,
+            backgroundColor: isBackspace
+              ? colors.peachSoft
+              : isOperator
+              ? (isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft)
+              : colors.cardSubtle,
             transform: [{ scale }],
           },
         ]}
       >
         {isBackspace ? (
-          <Delete size={22} color={colors.peachCoral} />
+          <Delete size={20} color={colors.peachCoral} />
         ) : (
-          <Text style={[styles.keyText, { color: colors.textPrimary }]}>{item}</Text>
+          <Text
+            style={[
+              styles.keyText,
+              {
+                color: isOperator
+                  ? (isDark ? colors.mintGreen : colors.mintGreenDark)
+                  : colors.textPrimary,
+              },
+            ]}
+          >
+            {item}
+          </Text>
         )}
       </Animated.View>
     </Pressable>

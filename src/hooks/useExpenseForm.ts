@@ -9,7 +9,11 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { formatDate } from '../lib/formatters';
-import { applyKeypadPress } from '../lib/amountKeypad';
+import {
+  applyKeypadPress,
+  evaluateExpression,
+  formatExpressionWithCommas,
+} from '../lib/amountKeypad';
 import { getNoteSuggestions } from '../lib/noteSuggestions';
 
 export const MAX_NOTE_WORDS = 50;
@@ -28,6 +32,10 @@ export interface UseExpenseFormParams {
 export interface UseExpenseFormReturn {
   // Form Values
   amount: string;
+  evaluatedAmount: number;
+  formattedExpression: string;
+  hasOperator: boolean;
+  isDivisionByZero: boolean;
   transactionType: 'expense' | 'income';
   selectedCategoryId: string | null;
   note: string;
@@ -132,6 +140,17 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     [paymentMode]
   );
 
+  // ─── Calculator / Expression evaluation ────────────────────────────────────
+  const {
+    result: evaluatedAmount,
+    isDivisionByZero,
+    hasOperator,
+    hasCalculation,
+    cleanExpression,
+  } = useMemo(() => evaluateExpression(amount), [amount]);
+
+  const formattedExpression = useMemo(() => formatExpressionWithCommas(amount), [amount]);
+
   // ─── Keypad handler ───────────────────────────────────────────────────────
   const handleKeyPress = useCallback((val: string) => {
     setAmount((prev) => applyKeypadPress(prev, val));
@@ -158,38 +177,53 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     setSelectedDate(date);
   }, []);
 
+  // ─── Auto-select first real category for new expenses ────────────────────
+  useEffect(() => {
+    if (!isEdit && !selectedCategoryId && categories.length > 0) {
+      const firstReal = categories.find((c) => !c.isPlaceholder);
+      if (firstReal) {
+        setSelectedCategoryId(firstReal.id);
+      }
+    }
+  }, [isEdit, selectedCategoryId, categories]);
+
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isDivisionByZero) return;
 
-    const numAmount = parseFloat(amount);
-    const selectedCat = categories.find((c) => c.id === selectedCategoryId);
-    const isCategorySelectedAndReal =
-      transactionType === 'income' ||
-      (selectedCategoryId !== null && selectedCat && !selectedCat.isPlaceholder);
+    const numAmount = evaluatedAmount;
+    if (numAmount <= 0) return;
 
-    const isValid = numAmount > 0 && isCategorySelectedAndReal;
-    if (!isValid) {
-      if (transactionType === 'expense') {
-        if (areCategoriesPlaceholder) {
-          Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
-        } else if (categories.length === 0) {
-          Alert.alert('No Category', 'Please create a category first to add an expense.');
-        }
+    let categoryIdToSave = transactionType === 'income' ? null : selectedCategoryId;
+
+    if (transactionType === 'expense') {
+      if (areCategoriesPlaceholder) {
+        Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
+        return;
       }
-      return;
+      if (categories.length === 0) {
+        Alert.alert('No Category', 'Please create a category first to add an expense.');
+        return;
+      }
+      if (!categoryIdToSave) {
+        Alert.alert('Category Required', 'Please select a category for this expense.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
 
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    // P1.6: Income saves with category_id = null (no keyword guessing)
-    const categoryIdToSave = transactionType === 'income' ? null : selectedCategoryId;
 
     const trimmedNote = note.trim();
-    const clampedNote = trimmedNote
+    let clampedNote = trimmedNote
       ? trimmedNote.split(/\s+/).slice(0, MAX_NOTE_WORDS).join(' ').slice(0, MAX_NOTE_CHARS)
       : '';
+
+    // Auto-Breakdown Note feature: if user did a calculation and note was left blank
+    if (!trimmedNote && hasCalculation && cleanExpression) {
+      clampedNote = `Breakdown: ${cleanExpression}`.slice(0, MAX_NOTE_CHARS);
+    }
 
     try {
       if (isEdit && expenseId) {
@@ -233,17 +267,14 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   }, []);
 
   const formattedDate = formatDate(selectedDate, true);
-  const numAmount = parseFloat(amount || '0');
-  const selectedCat = categories.find((c) => c.id === selectedCategoryId);
-  const isCategorySelectedAndReal =
-    transactionType === 'income' ||
-    Boolean(selectedCategoryId !== null && selectedCat && !selectedCat.isPlaceholder);
-
-  const isSaveEnabled =
-    Boolean(numAmount > 0 && isCategorySelectedAndReal && !isSubmitting);
+  const isSaveEnabled = evaluatedAmount > 0 && !isDivisionByZero && !isSubmitting;
 
   return {
     amount,
+    evaluatedAmount,
+    formattedExpression,
+    hasOperator,
+    isDivisionByZero,
     transactionType,
     selectedCategoryId,
     note,
