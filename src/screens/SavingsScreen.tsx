@@ -20,10 +20,9 @@ import {
   Settings,
   SquarePen,
   Plus,
-  Trash2,
 } from 'lucide-react-native';
+import { format } from 'date-fns';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
-import { format, parseISO } from 'date-fns';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
@@ -632,68 +631,20 @@ export const SavingsScreen: React.FC = () => {
             </Text>
           </View>
         ) : (
-          unifiedList.map((item) => {
-            if (item.type === 'deposit' && item.deposit) {
-              const dep = item.deposit;
-              let dateStr = dep.date;
-              try {
-                dateStr = format(parseISO(dep.date), 'd MMM yyyy');
-              } catch {}
-              return (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.depositRecordCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      borderWidth: isDark ? 1 : 0,
-                    },
-                  ]}
-                >
-                  <View style={styles.recordLeft}>
-                    <View style={[styles.recordIconBox, { backgroundColor: colors.mintGreenSoft }]}>
-                      <PiggyBankCoinIcon size={20} color={colors.mintGreenDark} />
-                    </View>
-                    <View style={styles.recordDetails}>
-                      <Text style={[styles.recordDateText, { color: colors.textPrimary }]}>
-                        {dep.note || 'Deposit to Gullak'}
-                      </Text>
-                      <Text style={[styles.recordSubText, { color: colors.textSecondary }]}>
-                        Manual Deposit • {dateStr}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.depositRecordRight}>
-                    <View style={[styles.recordSavedPill, { backgroundColor: colors.mintGreenSoft }]}>
-                      <Text style={[styles.recordSavedText, { color: colors.mintGreenDark }]}>
-                        +{formatCurrency(dep.amount)}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteDeposit(dep.id, dep.amount)}
-                      hitSlop={12}
-                      style={styles.deleteDepositBtn}
-                    >
-                      <Trash2 size={15} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            }
-            if (item.type === 'daily' && item.dailyRecord) {
-              return (
-                <SavingsRecordRow
-                  key={item.id}
-                  rec={item.dailyRecord}
-                  colors={colors}
-                  isDark={isDark}
-                />
-              );
-            }
-            return null;
-          })
+          unifiedList.map((item) => (
+            <SavingsRecordRow
+              key={item.id}
+              rec={item.dailyRecord}
+              deposit={item.deposit}
+              onDeleteDeposit={
+                item.deposit
+                  ? () => handleDeleteDeposit(item.deposit!.id, item.deposit!.amount)
+                  : undefined
+              }
+              colors={colors}
+              isDark={isDark}
+            />
+          ))
         )}
       </ScrollView>
 
@@ -1084,60 +1035,6 @@ const styles = StyleSheet.create({
   },
   depositCtaBtnText: {
     fontSize: FontSize.body,
-    fontFamily: FontFamily.bold,
-  },
-  depositRecordCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Spacing.block,
-    borderRadius: BorderRadius.card,
-    marginBottom: Spacing.element,
-  },
-  depositRecordRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.element,
-  },
-  deleteDepositBtn: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: Spacing.element,
-  },
-  recordIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.group,
-  },
-  recordDetails: {
-    flex: 1,
-  },
-  recordDateText: {
-    fontSize: FontSize.body,
-    fontFamily: FontFamily.semibold,
-    marginBottom: Spacing.nano,
-  },
-  recordSubText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
-  recordSavedPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.pill,
-  },
-  recordSavedText: {
-    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
   },
 });
