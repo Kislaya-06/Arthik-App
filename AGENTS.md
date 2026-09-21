@@ -69,6 +69,16 @@ npm run android                  # adb reverse + expo start --android
 npx tsc --noEmit                 # THE type check — covers both src/ and tests/ (via tsconfig.json) — run after every change
 ```
 
+**Metro server rule:** Always run exactly **one** Metro server on **port 8081**. Before starting `expo start`, kill any existing Node process on port 8081 to avoid "multiple bundlers" conflicts. Use `--port 8081` explicitly:
+
+```powershell
+# Kill any existing Metro on 8081 first
+$pid = (Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue).OwningProcess
+if ($pid) { Stop-Process -Id $pid -Force }
+# Then start fresh
+adb reverse tcp:8081 tcp:8081; npx expo start --port 8081
+```
+
 `npx tsc --noEmit` covers `tests/` as well as `src/` via `tsconfig.json`.
 
 There is **no ESLint, no Prettier, no test runner** in this repo. Do not invent `npm run lint` or `npm test` and do not claim you ran them. `npx tsc --noEmit` plus a manual trace is the check.

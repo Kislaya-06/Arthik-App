@@ -54,11 +54,12 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "Daily Allowance & Gullak Update 🎉",
+        "title": "Insights & Navigation Update ✨",
         "highlights": [
-          "Today's Allowance instant reflection when edited",
-          "Smooth bounce animation for Daily Budget Mode toggle",
-          "Extra allowance streak protection & Gullak rollover logic"
+          "Insights hero card tightened with balanced, compact spacing",
+          "Stretchy elastic pill animation on period navigation dots",
+          "Data-driven period navigation with zero phantom dots",
+          "Left-to-right faded emergence effect on timeline dots"
         ]
       }
     }
