@@ -173,7 +173,8 @@ export interface DayEvaluation {
  */
 export const evaluateDayStatus = (
   budget: number,
-  spent: number
+  spent: number,
+  baseBudget?: number
 ): DayEvaluation => {
   if (budget <= 0) {
     return {
@@ -182,7 +183,19 @@ export const evaluateDayStatus = (
     };
   }
 
-  const saved = Math.max(0, budget - spent);
+  // If baseBudget is configured and budget > baseBudget, the extra amount
+  // is a temporary spending buffer to protect the user's streak.
+  // Expenses are deducted first from the extra buffer before touching the base allowance.
+  // Unspent extra does not roll over to Gullak; only remaining base allowance is saved.
+  let saved = 0;
+  if (baseBudget !== undefined && baseBudget > 0 && budget > baseBudget) {
+    const extraBudget = budget - baseBudget;
+    const spentFromBase = Math.max(0, spent - extraBudget);
+    saved = Math.max(0, baseBudget - spentFromBase);
+  } else {
+    saved = Math.max(0, budget - spent);
+  }
+
   const status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
   return { saved, status };
 };
@@ -307,6 +320,7 @@ export interface TodayMetrics {
   progressRatio: number;
   isOverBudget: boolean;
   overAmount: number;
+  saved: number;
 }
 
 /**
@@ -319,6 +333,7 @@ export const calculateTodayMetrics = (todayRecord: DailyRecord): TodayMetrics =>
   const progressRatio = budget > 0 ? Math.min(spent / budget, 1) : 0;
   const isOverBudget = budget > 0 && spent > budget;
   const overAmount = isOverBudget ? spent - budget : 0;
+  const saved = todayRecord.saved;
 
   return {
     budget,
@@ -327,6 +342,7 @@ export const calculateTodayMetrics = (todayRecord: DailyRecord): TodayMetrics =>
     progressRatio,
     isOverBudget,
     overAmount,
+    saved,
   };
 };
 

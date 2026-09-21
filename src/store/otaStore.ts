@@ -19,13 +19,13 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'New Update Available 🎉',
+    title: ota?.title || 'Daily Allowance & Gullak Update 🎉',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          'Swipe-to-dismiss keypad on Add Expense',
-          'Smooth scrolling & jitter-free category chips',
-          'Biometric App Lock & security fixes',
+          "Today's Allowance instant reflection when edited",
+          "Smooth bounce animation for Daily Budget Mode toggle",
+          "Extra allowance streak protection & Gullak rollover logic",
         ],
   };
 };

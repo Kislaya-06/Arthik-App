@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Switch,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -68,7 +69,34 @@ export const SavingsScreen: React.FC = () => {
     progressRatio,
     isOverBudget,
     overAmount,
+    saved: todaySaved,
   } = todayMetrics;
+
+  // Today's Allowance Card visibility & bouncy spring animation when Daily Budget Mode is toggled
+  const cardAnim = useRef(new Animated.Value(isAutoRenew ? 1 : 0)).current;
+  const [shouldRenderTodayCard, setShouldRenderTodayCard] = useState(isAutoRenew);
+
+  useEffect(() => {
+    if (isAutoRenew) {
+      setShouldRenderTodayCard(true);
+      Animated.spring(cardAnim, {
+        toValue: 1,
+        tension: 70,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(cardAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setShouldRenderTodayCard(false);
+        }
+      });
+    }
+  }, [isAutoRenew, cardAnim]);
 
 
   return (
@@ -214,17 +242,35 @@ export const SavingsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* ── Today's Live Allowance Tracker Card ── */}
-        <View
-          style={[
-            styles.todayCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderWidth: isDark ? 1 : 0,
-            },
-          ]}
-        >
+        {/* ── Today's Live Allowance Tracker Card (visible only when Daily Budget Mode is ON) ── */}
+        {shouldRenderTodayCard && (
+          <Animated.View
+            style={[
+              styles.todayCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                borderWidth: isDark ? 1 : 0,
+                opacity: cardAnim,
+                transform: [
+                  {
+                    scale: cardAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.92, 1],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                  {
+                    translateY: cardAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-12, 0],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
           {/* Header */}
           <View style={styles.todayHeader}>
             <View>
@@ -343,7 +389,7 @@ export const SavingsScreen: React.FC = () => {
             {isOverBudget
               ? `🚨 ₹${Math.round(overAmount)} deducted from your Gullak`
               : todayBudget > 0
-              ? `✨ Save ₹${Math.round(todayRemaining)} if unspent today`
+              ? `✨ Save ₹${Math.round(todaySaved)} if unspent today`
               : 'Set a daily budget to start saving in Gullak'}
           </Text>
 
@@ -383,7 +429,8 @@ export const SavingsScreen: React.FC = () => {
               <Text style={[styles.topUpBtnText, { color: colors.textPrimary }]}>Edit</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
+        )}
 
         {/* ── Auto-Renew vs Manual Settings Card ── */}
         <View

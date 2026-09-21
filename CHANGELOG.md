@@ -22,7 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Form Scroll Bridge Optimization:** Removed redundant scroll bridge events and throttles on the Add/Edit Transaction form, eliminating per-frame native-to-JS serialization for fluid, 60+ FPS vertical scrolling.
 - **Silky-Smooth Navigation & Scroll Physics:** Optimized `BottomNavBar` tab animations by switching from oscillating springs to a 180ms cubic deceleration timing curve, caching the floating capsule and action button on Android GPU hardware layers (`renderToHardwareTextureAndroid`), preventing unnecessary re-renders via `React.memo` and stable callbacks, enabling `freezeOnBlur` on `TabNavigator` to prevent background tab re-renders, and tuning `scrollEventThrottle` to 32ms across all screens to cut native-to-JS bridge traffic by 50%.
 
+### 🚀 Added
+- **Daily Budget Mode Toggle Bounce Animation:** When Daily Budget Mode is disabled, the Today's Allowance card is cleanly hidden. Toggling it on smoothly animates the card into view using a bouncy spring curve (`tension: 70, friction: 8`), providing tactile visual feedback.
+- **Extra Allowance Buffer & Gullak Rollover Protection:** When users increase their daily limit, expenses are deducted first from the extra buffer before touching the base daily allowance, keeping user streaks protected. Unspent extra buffer amounts do not roll over to Gullak, ensuring that accumulated savings only reflect real unspent base budget.
+
 ### 🐛 Fixed
+- **Today's Allowance Card Instant Reflection:** Fixed a state mutation issue in `dailyBudgetStore` where editing today's budget or adding top-ups reflected immediately on the Home screen but failed to update the Today's Allowance card in place without leaving or refreshing the screen.
 - **Category Chips Scroll Clipping & Corner Blink:** Fixed an issue on the Add Transaction form where horizontal category chips were abruptly clipped 24dp before the screen edge and suffered from corner blinking/flickering during scrolling. Expanded the scroll viewport to bleed to device screen edges with proper content insets while removing glitchy overflow visibility.
 
 ---

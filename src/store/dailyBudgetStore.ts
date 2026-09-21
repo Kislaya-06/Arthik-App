@@ -186,19 +186,17 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const willAutoRenew = cleanAmount > 0 ? true : get().isAutoRenew;
 
         if (willAutoRenew) {
-          const currentToday = records[todayStr] || {
+          const existing = records[todayStr];
+          const spent = existing?.spent || 0;
+          const { saved } = evaluateDayStatus(cleanAmount, spent, cleanAmount);
+          records[todayStr] = {
             date: todayStr,
             budget: cleanAmount,
-            spent: 0,
-            saved: cleanAmount,
+            spent,
+            saved,
             isFinalized: false,
-            status: 'active',
+            status: spent > cleanAmount && cleanAmount > 0 ? 'exceeded' : 'active',
           };
-
-          currentToday.budget = cleanAmount;
-          currentToday.saved = Math.max(0, cleanAmount - currentToday.spent);
-          currentToday.status = currentToday.spent > cleanAmount ? 'exceeded' : 'active';
-          records[todayStr] = currentToday;
         }
 
         const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
@@ -243,11 +241,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (enabled && get().dailyBudgetAmount > 0 && (!currentToday || currentToday.budget === 0)) {
           const budget = get().dailyBudgetAmount;
           const spent = currentToday?.spent || 0;
+          const { saved } = evaluateDayStatus(budget, spent, budget);
           records[todayStr] = {
             date: todayStr,
             budget,
             spent,
-            saved: Math.max(0, budget - spent),
+            saved,
             isFinalized: false,
             status: spent > budget ? 'exceeded' : 'active',
           };
@@ -290,19 +289,20 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const cleanAmount = Math.max(0, Math.round(amount));
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
-        const currentToday = records[todayStr] || {
+        const existing = records[todayStr] || buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
+        const spent = existing.spent || 0;
+
+        const baseDaily = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
+        const { saved } = evaluateDayStatus(cleanAmount, spent, baseDaily);
+
+        records[todayStr] = {
+          ...existing,
           date: todayStr,
           budget: cleanAmount,
-          spent: 0,
-          saved: cleanAmount,
-          isFinalized: false,
-          status: 'active',
+          spent,
+          saved,
+          status: spent > cleanAmount && cleanAmount > 0 ? 'exceeded' : 'active',
         };
-
-        currentToday.budget = cleanAmount;
-        currentToday.saved = Math.max(0, cleanAmount - currentToday.spent);
-        currentToday.status = currentToday.spent > cleanAmount ? 'exceeded' : 'active';
-        records[todayStr] = currentToday;
 
         const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
         set({ dailyRecords: records, ...metrics });
@@ -314,20 +314,21 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
-        const currentToday = records[todayStr] || {
-          date: todayStr,
-          budget: get().isAutoRenew ? get().dailyBudgetAmount : 0,
-          spent: 0,
-          saved: 0,
-          isFinalized: false,
-          status: 'active',
-        };
+        const existing = records[todayStr] || buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
 
-        const newBudget = currentToday.budget + cleanExtra;
-        currentToday.budget = newBudget;
-        currentToday.saved = Math.max(0, newBudget - currentToday.spent);
-        currentToday.status = currentToday.spent > newBudget ? 'exceeded' : 'active';
-        records[todayStr] = currentToday;
+        const newBudget = existing.budget + cleanExtra;
+        const spent = existing.spent || 0;
+        const baseDaily = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
+        const { saved } = evaluateDayStatus(newBudget, spent, baseDaily);
+
+        records[todayStr] = {
+          ...existing,
+          date: todayStr,
+          budget: newBudget,
+          spent,
+          saved,
+          status: spent > newBudget && newBudget > 0 ? 'exceeded' : 'active',
+        };
 
         const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
         set({ dailyRecords: records, ...metrics });
@@ -343,25 +344,28 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         let todayRecord = records[todayStr];
         let hasTodayChanged = false;
 
+        const baseDaily = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
+
         if (!todayRecord) {
           const budget = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0;
+          const { saved } = evaluateDayStatus(budget, todaySpent, baseDaily);
           todayRecord = {
             date: todayStr,
             budget,
             spent: todaySpent,
-            saved: Math.max(0, budget - todaySpent),
+            saved,
             isFinalized: false,
             status: todaySpent > budget && budget > 0 ? 'exceeded' : 'active',
           };
           hasTodayChanged = true;
         } else {
-          const newSaved = Math.max(0, todayRecord.budget - todaySpent);
+          const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, baseDaily);
           const newStatus =
             todaySpent > todayRecord.budget && todayRecord.budget > 0
               ? 'exceeded'
               : 'active';
 
-          if (todayRecord.spent !== todaySpent || todayRecord.status !== newStatus) {
+          if (todayRecord.spent !== todaySpent || todayRecord.status !== newStatus || todayRecord.saved !== newSaved) {
             todayRecord = {
               ...todayRecord,
               spent: todaySpent,
@@ -425,7 +429,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
 
         if (hasTodayChanged) {
-          set({ dailyRecords: records });
+          const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
+          set({ dailyRecords: records, ...metrics });
         }
 
         // Trigger rollover check
@@ -497,7 +502,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           } else if (existing && (existing.budget > 0 || existing.isFinalized)) {
             // Lock to budget-at-the-time persisted in existing record (resolved via pure helper)
             budget = resolveRolloverBudget(existing.budget, get().dailyBudgetAmount);
-            const evaluated = evaluateDayStatus(budget, spent);
+            const baseDaily = get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
+            const evaluated = evaluateDayStatus(budget, spent, baseDaily);
             saved = evaluated.saved;
             status = evaluated.status;
           } else if (!existing) {
@@ -511,7 +517,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               // No prior record, 0 budget, 0 spent: skip
               continue;
             }
-            const evaluated = evaluateDayStatus(budget, spent);
+            const baseDaily = get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
+            const evaluated = evaluateDayStatus(budget, spent, baseDaily);
             saved = evaluated.saved;
             status = evaluated.status;
           } else {
@@ -521,7 +528,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             } else {
               budget = 0;
             }
-            const evaluated = evaluateDayStatus(budget, spent);
+            const baseDaily = get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
+            const evaluated = evaluateDayStatus(budget, spent, baseDaily);
             saved = evaluated.saved;
             status = evaluated.status;
           }
@@ -865,7 +873,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               });
 
               // --- 2. RECALCULATE SAVED & STATUS ---
-              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent);
+              const baseDaily = resolvedBudget > 0 ? resolvedBudget : undefined;
+              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, baseDaily);
 
               records[d] = {
                 date: d,

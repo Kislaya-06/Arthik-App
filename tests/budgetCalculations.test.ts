@@ -537,6 +537,49 @@ describe('evaluateDayStatus', () => {
     const resZeroSpend = evaluateDayStatus(-100, 0);
     expect(resZeroSpend).toEqual({ saved: 0, status: 'unknown' });
   });
+
+  describe('extra allowance buffer & Gullak rollover priority', () => {
+    // Base allowance = 200, user sets today's budget to 300 (extra buffer = 100)
+    it('0 spend: full base allowance 200 is saved to Gullak, extra 100 is not saved', () => {
+      const res = evaluateDayStatus(300, 0, 200);
+      expect(res).toEqual({ saved: 200, status: 'saved' });
+    });
+
+    it('spend within extra buffer: deducted from extra buffer first, base allowance remains untouched', () => {
+      // User spends 50: comes out of 100 extra buffer, base 200 untouched
+      const res = evaluateDayStatus(300, 50, 200);
+      expect(res).toEqual({ saved: 200, status: 'saved' });
+    });
+
+    it('spend exactly equal to extra buffer: extra exhausted, base allowance 200 untouched and saved', () => {
+      const res = evaluateDayStatus(300, 100, 200);
+      expect(res).toEqual({ saved: 200, status: 'saved' });
+    });
+
+    it('spend exceeds extra buffer: consumes all extra and partially base allowance', () => {
+      // User spends 150: 100 from extra, 50 from base 200 -> saved = 150
+      const res = evaluateDayStatus(300, 150, 200);
+      expect(res).toEqual({ saved: 150, status: 'saved' });
+    });
+
+    it('spend exactly equals total budget: 0 saved, status even, streak maintained', () => {
+      const res = evaluateDayStatus(300, 300, 200);
+      expect(res).toEqual({ saved: 0, status: 'even' });
+    });
+
+    it('spend exceeds total budget: status exceeded, 0 saved, streak broken', () => {
+      const res = evaluateDayStatus(300, 350, 200);
+      expect(res).toEqual({ saved: 0, status: 'exceeded' });
+    });
+
+    it('budget equal or less than baseBudget: behaves standardly', () => {
+      const resEqual = evaluateDayStatus(200, 50, 200);
+      expect(resEqual).toEqual({ saved: 150, status: 'saved' });
+
+      const resLess = evaluateDayStatus(100, 40, 200);
+      expect(resLess).toEqual({ saved: 60, status: 'saved' });
+    });
+  });
 });
 
 describe('computeSpentByDate & computeSpentForDate', () => {

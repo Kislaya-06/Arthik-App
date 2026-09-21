@@ -111,7 +111,7 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
   }, [loadData]);
 
   // ─── Memoized Records ──────────────────────────────────────────────────────
-  const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, dailyRecords]);
+  const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, dailyRecords, isAutoRenew, dailyBudgetAmount]);
   const pastRecords = useMemo(() => getPastRecordsList(), [getPastRecordsList, dailyRecords]);
 
   // ─── Filtered Past Records (Explicit referenceDate, Week starts Monday) ─────

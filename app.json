@@ -54,11 +54,11 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "New Update Available 🎉",
+        "title": "Daily Allowance & Gullak Update 🎉",
         "highlights": [
-          "Swipe-to-dismiss keypad on Add Expense",
-          "Smooth scrolling & jitter-free category chips",
-          "Biometric App Lock & security fixes"
+          "Today's Allowance instant reflection when edited",
+          "Smooth bounce animation for Daily Budget Mode toggle",
+          "Extra allowance streak protection & Gullak rollover logic"
         ]
       }
     }
