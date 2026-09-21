@@ -16,6 +16,7 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../config/supabase';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { formatCurrency } from '../lib/formatters';
 
 interface StreakCalendarModalProps {
   visible: boolean;
@@ -495,7 +496,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                       <Text style={[styles.tooltipTitle, { color: colors.textPrimary }]}>
                         You saved{' '}
                         <Text style={{ color: colors.mintGreenDark, fontFamily: FontFamily.bold }}>
-                          ₹{Math.round(activeTooltip.amount)}
+                          {formatCurrency(activeTooltip.amount)}
                         </Text>{' '}
                         on {activeTooltip.formattedDate}
                       </Text>

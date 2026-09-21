@@ -1,6 +1,12 @@
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 
 /**
+ * Safely rounds a number to 2 decimal places, eliminating IEEE-754 floating-point drift.
+ * e.g. 17.500000000000004 → 17.5
+ */
+export const round2 = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
+
+/**
  * Formats a number as Indian Rupee currency string.
  * Preserves decimals if present (up to 2 decimal places), otherwise formats as whole number.
  * e.g. 52000.75 → "₹52,000.75", 52000 → "₹52,000"

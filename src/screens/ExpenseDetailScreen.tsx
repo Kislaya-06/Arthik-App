@@ -132,7 +132,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={styles.amountRow}>
               <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>₹</Text>
               <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                {expense.amount.toLocaleString('en-IN')}
+                {expense.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </Text>
             </View>
           </View>

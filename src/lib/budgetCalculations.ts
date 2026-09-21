@@ -1,5 +1,6 @@
 import { format, subDays, parseISO } from 'date-fns';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
+import { round2 } from './formatters';
 
 export interface DailyRecord {
   date: string; // 'yyyy-MM-dd'
@@ -62,7 +63,7 @@ export const calculateSavingsMetrics = (
   }
 
   // Net accumulated savings cannot drop below 0 (includes manual Gullak deposits)
-  const netSavings = Math.max(0, totalSaved - totalOverspent) + manualDeposits;
+  const netSavings = Math.max(0, round2(totalSaved - totalOverspent + manualDeposits));
 
   const confirmedSavedDays = Object.values(records).filter(
     (r) => r.isFinalized && r.date < todayStr && r.status === 'saved' && (r.saved || 0) > 0 && (!userCreatedAt || r.date >= userCreatedAt)
@@ -185,7 +186,7 @@ export const evaluateDayStatus = (
   }
 
   // 100% of unspent budget (including top-ups) rolls over into Gullak
-  const saved = Math.max(0, budget - spent);
+  const saved = Math.max(0, round2(budget - spent));
   const status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
   return { saved, status };
 };
@@ -232,7 +233,7 @@ export const computeSpentByDate = <T extends ExpenseItem>(
   for (let i = 0; i < expenses.length; i++) {
     const entry = extractNonIncomeExpense(expenses[i], isIncomeFn);
     if (entry) {
-      spentByDate[entry.date] = (spentByDate[entry.date] || 0) + entry.amount;
+      spentByDate[entry.date] = round2((spentByDate[entry.date] || 0) + entry.amount);
     }
   }
   return spentByDate;
@@ -251,7 +252,7 @@ export const computeSpentForDate = <T extends ExpenseItem>(
   for (let i = 0; i < expenses.length; i++) {
     const entry = extractNonIncomeExpense(expenses[i], isIncomeFn);
     if (entry && entry.date === targetDate) {
-      totalSpent += entry.amount;
+      totalSpent = round2(totalSpent + entry.amount);
     }
   }
   return totalSpent;
@@ -317,13 +318,13 @@ export interface TodayMetrics {
  * Derives live allowance display metrics for today from the given today record.
  */
 export const calculateTodayMetrics = (todayRecord: DailyRecord): TodayMetrics => {
-  const budget = todayRecord.budget;
-  const spent = todayRecord.spent;
-  const remaining = Math.max(0, budget - spent);
+  const budget = round2(todayRecord.budget);
+  const spent = round2(todayRecord.spent);
+  const remaining = Math.max(0, round2(budget - spent));
   const progressRatio = budget > 0 ? Math.min(spent / budget, 1) : 0;
   const isOverBudget = budget > 0 && spent > budget;
-  const overAmount = isOverBudget ? spent - budget : 0;
-  const saved = todayRecord.saved;
+  const overAmount = isOverBudget ? round2(spent - budget) : 0;
+  const saved = round2(todayRecord.saved);
 
   return {
     budget,

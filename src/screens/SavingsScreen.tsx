@@ -559,7 +559,7 @@ export const SavingsScreen: React.FC = () => {
                   <>
                     <Text style={[styles.smallCurrencySymbol, { color: colors.textPrimary }]}>₹</Text>
                     <Text style={[styles.changeAmountText, { color: colors.textPrimary }]}>
-                      {dailyBudgetAmount.toLocaleString('en-IN')}
+                      {dailyBudgetAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </Text>
                   </>
                 ) : (

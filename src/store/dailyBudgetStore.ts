@@ -33,6 +33,7 @@ import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
+import { formatCurrency, round2 } from '../lib/formatters';
 
 const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
   const categories = useCategoryStore.getState().categories;
@@ -216,7 +217,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       setDailyBudget: (amount: number) => {
-        const cleanAmount = Math.max(0, Math.round(amount));
+        const cleanAmount = Math.max(0, round2(amount));
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
         const willAutoRenew = cleanAmount > 0 ? true : get().isAutoRenew;
@@ -329,7 +330,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       setTodayBudget: (amount: number) => {
-        const cleanAmount = Math.max(0, Math.round(amount));
+        const cleanAmount = Math.max(0, round2(amount));
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
         const existing = records[todayStr] || buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
@@ -352,7 +353,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       addToTodayBudget: (extraAmount: number) => {
-        const cleanExtra = Math.max(0, Math.round(extraAmount));
+        const cleanExtra = Math.max(0, round2(extraAmount));
         if (cleanExtra <= 0) return;
 
         const todayStr = getTodayDateStr();
@@ -381,7 +382,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (!amount || amount <= 0) return;
         const newDeposit: GullakDeposit = {
           id: Crypto.randomUUID(),
-          amount: Math.round(amount * 100) / 100,
+          amount: round2(amount),
           date: getTodayDateStr(),
           note: note?.trim() || undefined,
           created_at: new Date().toISOString(),
@@ -482,7 +483,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           if (ratio >= 1) {
             if (get().lastExceededNotifiedDate !== todayStr) {
               const title = '🚨 Daily Allowance Exceeded!';
-              const body = `You spent ₹${Math.round(todaySpent)} of today's ₹${todayRecord.budget} limit (exceeded by ₹${Math.round(todaySpent - todayRecord.budget)}).`;
+              const body = `You spent ${formatCurrency(todaySpent)} of today's ${formatCurrency(todayRecord.budget)} limit (exceeded by ${formatCurrency(todaySpent - todayRecord.budget)}).`;
 
               notifStore.addNotification({
                 id: `alert_exceeded_${todayStr}`,
@@ -503,7 +504,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           } else if (ratio >= 0.8) {
             if (get().lastWarningNotifiedDate !== todayStr) {
               const title = '⚠️ 80% Daily Budget Reached';
-              const body = `You've used ${Math.round(ratio * 100)}% of today's budget. Only ₹${Math.round(remaining)} left to spend today!`;
+              const body = `You've used ${Math.round(ratio * 100)}% of today's budget. Only ${formatCurrency(remaining)} left to spend today!`;
 
               notifStore.addNotification({
                 id: `alert_warning_80_${todayStr}`,
@@ -710,8 +711,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             });
 
             if (shouldNotify) {
-              const title = '🎉 Daily Savings Rollover!';
-              const body = `Superb! You saved ₹${Math.round(saved)} yesterday. It has been deposited into your Savings Gullak!`;
+              const title = '🎉 Savings Gullak Deposit!';
+              const body = `Superb! You saved ${formatCurrency(saved)} yesterday. It has been deposited into your Savings Gullak!`;
 
               useNotificationStore.getState().addNotification({
                 id: `rollover_${d}`,
@@ -844,7 +845,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           if (pendingSettings.daily_budget !== undefined) {
             resolvedBudget = pendingSettings.daily_budget;
           } else if (profileData && profileData.daily_budget !== null && profileData.daily_budget !== undefined) {
-            const remoteBudget = Math.max(0, Math.round(Number(profileData.daily_budget)));
+            const remoteBudget = Math.max(0, round2(Number(profileData.daily_budget)));
             // Guard: Remote is the migration default 500 AND local has a different value (including 0 = fresh install).
             // In both cases the self-healing recovery block below will infer the real budget from savings logs,
             // so we defer — leave resolvedBudget as whatever local already has and let recovery overwrite if needed.
@@ -904,7 +905,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
               // Check if past log had an explicit non-500 budget_amount saved
               if (logEntry.budget_amount !== null && logEntry.budget_amount !== undefined) {
-                const b = Math.round(Number(logEntry.budget_amount));
+                const b = round2(Number(logEntry.budget_amount));
                 if (b > 0 && b !== 500) {
                   budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
                 }
@@ -912,13 +913,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
               // Check if local record for that day has a non-500 budget
               if (records[d]?.budget && records[d].budget > 0 && records[d].budget !== 500) {
-                const b = Math.round(records[d].budget);
+                const b = round2(records[d].budget);
                 budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
               }
 
               // On confirmed saved days, amount_saved + spent reveals the original day budget
               if (logEntry.status === 'saved' && amountSaved > 0) {
-                const inferred = Math.round(amountSaved + spent);
+                const inferred = round2(amountSaved + spent);
                 if (inferred > 0 && inferred !== 500) {
                   budgetCandidates[inferred] = (budgetCandidates[inferred] || 0) + 1;
                 }

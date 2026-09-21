@@ -22,6 +22,7 @@ import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { formatCurrency } from '../lib/formatters';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -314,7 +315,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.heroAmountRow}>
             <Text style={[styles.heroCurrency, { fontFamily: FontFamily.bold }]}>₹</Text>
             <Text style={[styles.heroAmount, { fontFamily: FontFamily.bold }]}>
-              {currentTotal.toLocaleString('en-IN')}
+              {currentTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </Text>
           </View>
 
@@ -391,7 +392,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   <View>
                     <Text style={[styles.legendName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{segment.name}</Text>
                     <Text style={[styles.legendSubtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                      ₹{segment.amount.toLocaleString('en-IN')} · {segment.percentage}%
+                      {formatCurrency(segment.amount)} · {segment.percentage}%
                     </Text>
                   </View>
                 </Pressable>
@@ -431,7 +432,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={[styles.highestSpendText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                   Highest spend:{' '}
                   <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
-                    {maxWeekDay.day} — ₹{maxWeekDay.amount.toLocaleString('en-IN')}
+                    {maxWeekDay.day} — {formatCurrency(maxWeekDay.amount)}
                   </Text>
                 </Text>
               </View>
@@ -451,7 +452,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={[styles.insightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>Most Spent On</Text>
                 <Text style={[styles.insightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{topCategory?.name || 'N/A'}</Text>
                 <Text style={[styles.insightAmount, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  {topCategory ? `₹${topCategory.amount.toLocaleString('en-IN')}` : '-'}
+                  {topCategory ? formatCurrency(topCategory.amount) : '-'}
                 </Text>
               </View>
 

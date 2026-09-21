@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Extra Allowance Buffer & Gullak Rollover Protection:** When users increase their daily limit, expenses are deducted first from the extra buffer before touching the base daily allowance, keeping user streaks protected. Unspent extra buffer amounts do not roll over to Gullak, ensuring that accumulated savings only reflect real unspent base budget.
 
 ### 🐛 Fixed
+- **Floating-Point Decimal Precision Across All Period Cards:** Fixed fractional amounts (e.g. ₹17.5, ₹100.25) forcibly rounding to integers across All, Daily, Weekly, and Monthly summary cards on Home, Savings, Gullak, and Insights screens. Introduced a shared `round2` utility to eliminate IEEE-754 precision drift while maintaining native 2-decimal formatting.
 - **Today's Allowance Card Instant Reflection:** Fixed a state mutation issue in `dailyBudgetStore` where editing today's budget or adding top-ups reflected immediately on the Home screen but failed to update the Today's Allowance card in place without leaving or refreshing the screen.
 - **Category Chips Scroll Clipping & Corner Blink:** Fixed an issue on the Add Transaction form where horizontal category chips were abruptly clipped 24dp before the screen edge and suffered from corner blinking/flickering during scrolling. Expanded the scroll viewport to bleed to device screen edges with proper content insets while removing glitchy overflow visibility.
 

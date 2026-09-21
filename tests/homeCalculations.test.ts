@@ -325,4 +325,60 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.primarySubtext).toBe('of ₹2,500 budget (5 days)');
     });
   });
+
+  describe('Floating Point Decimal Support Across Filters', () => {
+    it('supports decimal amounts on Daily filter without float drift', () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Daily',
+        todayBudget: 100,
+        totalSpent: 82.5,
+        totalIncome: 0,
+      });
+
+      expect(result.primaryLabel).toBe('Remaining to Spend');
+      expect(result.primaryAmount).toBe(17.5);
+      expect(result.displaySpent).toBe(82.5);
+      expect(result.totalAvailable).toBe(100);
+      expect(result.isOverBudgetPeriod).toBe(false);
+    });
+
+    it('supports decimal amounts on All filter with income and spent', () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        dailyBudgetAmount: 100.5,
+        todayBudget: 100.5,
+        totalSpent: 82.75,
+        totalIncome: 50.25,
+        userCreatedAtStr: '2026-09-18', // 1 day
+      });
+
+      // budgetPool = 100.5, income = 50.25 => totalAvailable = 150.75
+      expect(result.totalAvailable).toBe(150.75);
+      expect(result.displaySpent).toBe(82.75);
+      // remaining = 150.75 - 82.75 = 68
+      expect(result.primaryAmount).toBe(68);
+      expect(result.periodIncome).toBe(50.25);
+      expect(result.periodSpent).toBe(82.75);
+    });
+
+    it('supports decimal amounts on Weekly and Monthly filters', () => {
+      const weeklyResult = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Weekly',
+        dailyBudgetAmount: 50.25,
+        todayBudget: 50.25,
+        totalSpent: 120.5,
+        totalIncome: 10.25,
+        userCreatedAtStr: '2026-09-14', // 5 days: 5 * 50.25 = 251.25
+      });
+
+      // available = 251.25 + 10.25 = 261.5
+      expect(weeklyResult.totalAvailable).toBe(261.5);
+      expect(weeklyResult.displaySpent).toBe(120.5);
+      // remaining = 261.5 - 120.5 = 141
+      expect(weeklyResult.primaryAmount).toBe(141);
+    });
+  });
 });

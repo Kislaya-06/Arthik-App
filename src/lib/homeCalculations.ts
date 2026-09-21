@@ -18,7 +18,7 @@
  */
 
 import { format, parseISO, startOfWeek, startOfMonth, eachDayOfInterval } from 'date-fns';
-import { formatCurrency } from './formatters';
+import { formatCurrency, round2 } from './formatters';
 import { DailyRecord } from './budgetCalculations';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
@@ -131,15 +131,10 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   periodDates.forEach((d) => {
     if (d === todayStr) {
       // Today: include today's allowance + any top-up added (+₹100, +₹200, Edit)
-      const todayVal = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
-      periodBudget += todayVal;
+      periodBudget += todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
     } else if (dailyRecords[d]) {
-      if (dailyRecords[d].status === 'unknown') {
-        // Untracked day where user had no budget
-        periodBudget += 0;
-      } else {
-        const b = Number(dailyRecords[d].budget) || 0;
-        periodBudget += b;
+      if (dailyRecords[d].status !== 'unknown') {
+        periodBudget += Number(dailyRecords[d].budget) || 0;
       }
     } else {
       // Past day in the period where no record was stored
@@ -148,14 +143,14 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   });
 
   const daysCount = periodDates.length;
-  const income = totalIncome;
-  const spent = totalSpent;
+  const income = round2(totalIncome);
+  const spent = round2(totalSpent);
 
-  const budgetPool = activeFilter === 'Daily' ? activeDailyBudget : periodBudget;
-  const available = budgetPool + income;
+  const budgetPool = round2(activeFilter === 'Daily' ? activeDailyBudget : periodBudget);
+  const available = round2(budgetPool + income);
   const isOver = spent > available && available > 0;
-  const remaining = Math.max(0, available - spent);
-  const overAmount = isOver ? spent - available : 0;
+  const remaining = round2(Math.max(0, available - spent));
+  const overAmount = round2(isOver ? spent - available : 0);
 
   const isPeriodFilter = activeFilter === 'Weekly' || activeFilter === 'Monthly';
   const prefix = activeFilter === 'Daily' ? 'Daily' : (activeFilter === 'All' ? 'Total' : activeFilter);
@@ -181,7 +176,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     }
   }
 
-  const primaryAmount = (!isBudgetConfigured && income === 0) ? spent : (isOver ? overAmount : remaining);
+  const primaryAmount = round2((!isBudgetConfigured && income === 0) ? spent : (isOver ? overAmount : remaining));
 
   return {
     primaryAmount,

@@ -27,7 +27,7 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
-import { formatCurrency } from '../lib/formatters';
+import { formatCurrency, round2 } from '../lib/formatters';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
@@ -129,7 +129,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       if (isIncome) income += Number(e.amount) || 0;
       else spent += Number(e.amount) || 0;
     }
-    return { totalIncome: income, totalSpent: spent };
+    return {
+      totalIncome: round2(income),
+      totalSpent: round2(spent),
+    };
   }, [filtered, catMap]);
 
   const recentTx = useMemo(
@@ -177,11 +180,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         spent += Number(e.amount) || 0;
       }
     }
-    return spent;
+    return round2(spent);
   }, [expenses, catMap, todayKey]);
 
   const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
-  const todayRemaining = Math.max(0, todayBudget - todayRecordSpent);
+  const todayRemaining = Math.max(0, round2(todayBudget - todayRecordSpent));
   const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
 
   // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):

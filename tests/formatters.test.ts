@@ -4,7 +4,18 @@ import {
   formatAmountWithCommas,
   cleanAmountString,
   formatDate,
+  round2,
 } from '../src/lib/formatters';
+
+describe('round2', () => {
+  it('rounds numbers to 2 decimal places and fixes IEEE-754 drift', () => {
+    expect(round2(17.500000000000007)).toBe(17.5);
+    expect(round2(0.1 + 0.2)).toBe(0.3);
+    expect(round2(100.555)).toBe(100.56);
+    expect(round2(100.554)).toBe(100.55);
+    expect(round2(NaN)).toBe(0);
+  });
+});
 
 describe('formatCurrency', () => {
   it('formats a whole number with Indian Rupee symbol and commas', () => {

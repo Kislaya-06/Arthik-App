@@ -1155,5 +1155,28 @@ describe('shouldSendRolloverNotification - Pure Unit Tests', () => {
     });
     expect(shouldNotifyNegative).toBe(false);
   });
+
+  describe('Floating point decimal precision', () => {
+    it('calculates net savings and allowance with decimal values without precision drift', () => {
+      const todayMetrics = calculateTodayMetrics({
+        date: '2026-09-18',
+        budget: 100,
+        spent: 82.5,
+        saved: 17.5,
+        isFinalized: false,
+        status: 'active',
+      });
+
+      expect(todayMetrics.remaining).toBe(17.5);
+      expect(todayMetrics.spent).toBe(82.5);
+      expect(todayMetrics.budget).toBe(100);
+      expect(todayMetrics.isOverBudget).toBe(false);
+      expect(todayMetrics.overAmount).toBe(0);
+
+      const status = evaluateDayStatus(100, 82.5);
+      expect(status.saved).toBe(17.5);
+      expect(status.status).toBe('saved');
+    });
+  });
 });
 
