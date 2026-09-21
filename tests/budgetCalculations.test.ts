@@ -61,6 +61,22 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
       expect(metrics.totalAccumulatedSavings).toBe(200);
     });
 
+    it('adds manual deposits to total accumulated savings', () => {
+      const records: Record<string, DailyRecord> = {
+        '2026-09-16': {
+          date: '2026-09-16',
+          budget: 500,
+          spent: 300,
+          saved: 200,
+          isFinalized: true,
+          status: 'saved',
+        },
+      };
+
+      const metrics = calculateSavingsMetrics(records, TODAY_STR, USER_CREATED, FIXED_REF_DATE, 350);
+      expect(metrics.totalAccumulatedSavings).toBe(550); // 200 + 350
+    });
+
     it('days before userCreatedAt are excluded', () => {
       const records: Record<string, DailyRecord> = {
         '2026-08-30': {
@@ -538,26 +554,25 @@ describe('evaluateDayStatus', () => {
     expect(resZeroSpend).toEqual({ saved: 0, status: 'unknown' });
   });
 
-  describe('extra allowance buffer & Gullak rollover priority', () => {
-    // Base allowance = 200, user sets today's budget to 300 (extra buffer = 100)
-    it('0 spend: full base allowance 200 is saved to Gullak, extra 100 is not saved', () => {
+  describe('100% unspent budget & top-up rollover into Gullak', () => {
+    // Base allowance = 200, user sets today's budget to 300 (top-up = 100)
+    it('0 spend: full allocated budget 300 is saved to Gullak', () => {
       const res = evaluateDayStatus(300, 0, 200);
-      expect(res).toEqual({ saved: 200, status: 'saved' });
+      expect(res).toEqual({ saved: 300, status: 'saved' });
     });
 
-    it('spend within extra buffer: deducted from extra buffer first, base allowance remains untouched', () => {
-      // User spends 50: comes out of 100 extra buffer, base 200 untouched
+    it('partial spend: unspent amount of total budget is 100% saved', () => {
+      // User spends 50: 300 - 50 = 250 saved
       const res = evaluateDayStatus(300, 50, 200);
-      expect(res).toEqual({ saved: 200, status: 'saved' });
+      expect(res).toEqual({ saved: 250, status: 'saved' });
     });
 
-    it('spend exactly equal to extra buffer: extra exhausted, base allowance 200 untouched and saved', () => {
+    it('spend exactly 100: 300 - 100 = 200 saved', () => {
       const res = evaluateDayStatus(300, 100, 200);
       expect(res).toEqual({ saved: 200, status: 'saved' });
     });
 
-    it('spend exceeds extra buffer: consumes all extra and partially base allowance', () => {
-      // User spends 150: 100 from extra, 50 from base 200 -> saved = 150
+    it('spend 150: 300 - 150 = 150 saved', () => {
       const res = evaluateDayStatus(300, 150, 200);
       expect(res).toEqual({ saved: 150, status: 'saved' });
     });

@@ -220,7 +220,42 @@ TO authenticated
 USING ((select auth.uid()) = user_id);
 
 -- ------------------------------------------------------------------------------
--- 5. Functions & Triggers
+-- 5. Gullak Deposits Table (Manual Savings)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.gullak_deposits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0 AND amount <= 999999999.99),
+    date DATE NOT NULL,
+    note TEXT CHECK (note IS NULL OR char_length(note) <= 250),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.gullak_deposits ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own gullak deposits" ON public.gullak_deposits;
+CREATE POLICY "Users can view their own gullak deposits" 
+ON public.gullak_deposits FOR SELECT 
+TO authenticated
+USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own gullak deposits" ON public.gullak_deposits;
+CREATE POLICY "Users can insert their own gullak deposits" 
+ON public.gullak_deposits FOR INSERT 
+TO authenticated
+WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own gullak deposits" ON public.gullak_deposits;
+CREATE POLICY "Users can delete their own gullak deposits" 
+ON public.gullak_deposits FOR DELETE 
+TO authenticated
+USING ((select auth.uid()) = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_gullak_deposits_user_date 
+ON public.gullak_deposits (user_id, date DESC);
+
+-- ------------------------------------------------------------------------------
+-- 6. Functions & Triggers
 -- ------------------------------------------------------------------------------
 
 -- Trigger function: Initialize user profile & default categories on signup

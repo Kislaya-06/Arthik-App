@@ -117,12 +117,26 @@ export const clearPendingSettingsOffline = async (
   }
 };
 
+export interface GullakDeposit {
+  id: string;
+  amount: number;
+  date: string; // 'yyyy-MM-dd'
+  note?: string;
+  created_at: string;
+}
+
+const getTotalManualDeposits = (deposits?: GullakDeposit[]): number => {
+  if (!deposits || !Array.isArray(deposits)) return 0;
+  return deposits.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+};
+
 interface DailyBudgetState {
   ownerUserId: string | null;
   hydratedForUserId: string | null;
   dailyBudgetAmount: number; // default daily recurring amount
   isAutoRenew: boolean; // toggle ON: auto-add daily budget; OFF: manual add
   dailyRecords: Record<string, DailyRecord>;
+  gullakDeposits: GullakDeposit[];
   totalAccumulatedSavings: number;
   savingsStreak: number;
   bestStreak: number;
@@ -137,6 +151,8 @@ interface DailyBudgetState {
   toggleAutoRenew: (enabled: boolean) => void;
   setTodayBudget: (amount: number) => void;
   addToTodayBudget: (amount: number) => void;
+  addGullakDeposit: (amount: number, note?: string) => void;
+  removeGullakDeposit: (id: string) => void;
   syncWithExpenses: (expenses: Expense[]) => void;
   checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
   uploadPendingDailyRecords: () => Promise<void>;
@@ -156,6 +172,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       dailyBudgetAmount: 0,
       isAutoRenew: false,
       dailyRecords: {},
+      gullakDeposits: [],
       totalAccumulatedSavings: 0,
       savingsStreak: 0,
       bestStreak: 0,
@@ -207,7 +224,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           };
         }
 
-        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
+        const metrics = calculateSavingsMetrics(
+          records,
+          todayStr,
+          getUserCreatedAtStr(),
+          new Date(),
+          getTotalManualDeposits(get().gullakDeposits)
+        );
 
         set({
           dailyBudgetAmount: cleanAmount,
@@ -267,7 +290,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           };
         }
 
-        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
+        const metrics = calculateSavingsMetrics(
+          records,
+          todayStr,
+          getUserCreatedAtStr(),
+          new Date(),
+          getTotalManualDeposits(get().gullakDeposits)
+        );
 
         set({
           isAutoRenew: enabled,
@@ -319,7 +348,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           status: spent > cleanAmount && cleanAmount > 0 ? 'exceeded' : 'active',
         };
 
-        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
+        const metrics = calculateSavingsMetrics(
+          records,
+          todayStr,
+          getUserCreatedAtStr(),
+          new Date(),
+          getTotalManualDeposits(get().gullakDeposits)
+        );
         set({ dailyRecords: records, ...metrics });
       },
 
@@ -345,8 +380,46 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           status: spent > newBudget && newBudget > 0 ? 'exceeded' : 'active',
         };
 
-        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
+        const metrics = calculateSavingsMetrics(
+          records,
+          todayStr,
+          getUserCreatedAtStr(),
+          new Date(),
+          getTotalManualDeposits(get().gullakDeposits)
+        );
         set({ dailyRecords: records, ...metrics });
+      },
+
+      addGullakDeposit: (amount: number, note?: string) => {
+        if (!amount || amount <= 0) return;
+        const newDeposit: GullakDeposit = {
+          id: `dep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          amount: Math.round(amount * 100) / 100,
+          date: getTodayDateStr(),
+          note: note?.trim() || undefined,
+          created_at: new Date().toISOString(),
+        };
+        const deposits = [newDeposit, ...(get().gullakDeposits || [])];
+        const metrics = calculateSavingsMetrics(
+          get().dailyRecords,
+          getTodayDateStr(),
+          getUserCreatedAtStr(),
+          new Date(),
+          getTotalManualDeposits(deposits)
+        );
+        set({ gullakDeposits: deposits, ...metrics });
+      },
+
+      removeGullakDeposit: (id: string) => {
+        const deposits = (get().gullakDeposits || []).filter((d) => d.id !== id);
+        const metrics = calculateSavingsMetrics(
+          get().dailyRecords,
+          getTodayDateStr(),
+          getUserCreatedAtStr(),
+          new Date(),
+          getTotalManualDeposits(deposits)
+        );
+        set({ gullakDeposits: deposits, ...metrics });
       },
 
       syncWithExpenses: (expenses: Expense[]) => {
@@ -444,7 +517,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
 
         if (hasTodayChanged) {
-          const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
+          const metrics = calculateSavingsMetrics(
+            records,
+            todayStr,
+            getUserCreatedAtStr(),
+            new Date(),
+            getTotalManualDeposits(get().gullakDeposits)
+          );
           set({ dailyRecords: records, ...metrics });
         }
 
@@ -652,7 +731,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
 
         // Compute savings metrics using shared helper
-        const metrics = calculateSavingsMetrics(records, todayStr, getUserCreatedAtStr(), new Date());
+        const metrics = calculateSavingsMetrics(
+          records,
+          todayStr,
+          getUserCreatedAtStr(),
+          new Date(),
+          getTotalManualDeposits(get().gullakDeposits)
+        );
 
         if (
           updated ||
@@ -948,7 +1033,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
 
           // 3. Recalculate metrics from combined records
-          const metrics = calculateSavingsMetrics(records, todayStr, userCreatedAtStr, new Date());
+          const metrics = calculateSavingsMetrics(
+            records,
+            todayStr,
+            userCreatedAtStr,
+            new Date(),
+            getTotalManualDeposits(get().gullakDeposits)
+          );
 
           set({
             dailyBudgetAmount: resolvedBudget,
@@ -978,6 +1069,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           dailyBudgetAmount: 0,
           isAutoRenew: false,
           dailyRecords: {},
+          gullakDeposits: [],
           totalAccumulatedSavings: 0,
           savingsStreak: 0,
           bestStreak: 0,

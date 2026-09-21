@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Switch,
   TouchableOpacity,
   Animated,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,20 +19,25 @@ import {
   Sparkles,
   Settings,
   SquarePen,
+  Plus,
+  Trash2,
 } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
+import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
+import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
 import { BudgetEditModal } from '../components/BudgetEditModal';
+import { DepositGullakModal } from '../components/DepositGullakModal';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
-const FILTERS = ['All', 'This Week', 'This Month'] as const;
+const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 
 // ─── Main Savings Screen ──────────────────────────────────────────────────────
 export const SavingsScreen: React.FC = () => {
@@ -61,6 +67,55 @@ export const SavingsScreen: React.FC = () => {
   } = useSavingsDashboard();
 
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
+  const [depositModalVisible, setDepositModalVisible] = useState(false);
+
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
+  const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
+
+  const handleDeleteDeposit = useCallback((id: string, amount: number) => {
+    Alert.alert(
+      'Remove Deposit',
+      `Are you sure you want to remove ${formatCurrency(amount)} from your Gullak?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => removeGullakDeposit(id),
+        },
+      ]
+    );
+  }, [removeGullakDeposit]);
+
+  const depositItems = useMemo(() => {
+    return gullakDeposits.map((dep) => ({
+      id: dep.id,
+      type: 'deposit' as const,
+      date: dep.date,
+      deposit: dep,
+      dailyRecord: undefined,
+    }));
+  }, [gullakDeposits]);
+
+  const unifiedList = useMemo(() => {
+    if (activeFilter === 'Deposits') {
+      return depositItems;
+    }
+    const dailyItems = filteredRecords.map((rec) => ({
+      id: `daily_${rec.date}`,
+      type: 'daily' as const,
+      date: rec.date,
+      dailyRecord: rec,
+      deposit: undefined as GullakDeposit | undefined,
+    }));
+
+    const matchingDeposits = depositItems.filter((d) => {
+      if (activeFilter === 'All') return true;
+      return isDateInPeriod(d.date, activeFilter === 'This Week' ? 'week' : 'month', new Date());
+    });
+
+    return [...dailyItems, ...matchingDeposits].sort((a, b) => b.date.localeCompare(a.date));
+  }, [activeFilter, filteredRecords, depositItems]);
 
   const {
     budget: todayBudget,
@@ -240,6 +295,24 @@ export const SavingsScreen: React.FC = () => {
               </View>
             </View>
           </View>
+
+          {/* Action: Deposit into Gullak */}
+          <TouchableOpacity
+            style={[
+              styles.depositCtaBtn,
+              {
+                backgroundColor: colors.mintGreenSoft,
+                borderColor: isDark ? 'rgba(184, 224, 200, 0.25)' : colors.mintGreen,
+              },
+            ]}
+            onPress={() => setDepositModalVisible(true)}
+            activeOpacity={0.75}
+          >
+            <Plus size={16} color={colors.mintGreenDark} />
+            <Text style={[styles.depositCtaBtnText, { color: colors.mintGreenDark }]}>
+              Deposit to Gullak
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Today's Live Allowance Tracker Card (visible only when Daily Budget Mode is ON) ── */}
@@ -546,25 +619,81 @@ export const SavingsScreen: React.FC = () => {
         </View>
 
         {/* Past Records List */}
-        {filteredRecords.length === 0 ? (
+        {unifiedList.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Calendar size={36} color={colors.textSecondary} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              No Past Savings History Yet
+              {activeFilter === 'Deposits' ? 'No Manual Deposits Yet' : 'No Past Savings History Yet'}
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              At the end of each day, any unspent balance from your daily budget will automatically roll into your Savings Gullak and appear right here!
+              {activeFilter === 'Deposits'
+                ? 'Tap "Deposit to Gullak" above to add extra savings or cash directly into your jar.'
+                : 'At the end of each day, any unspent balance from your daily budget will automatically roll into your Savings Gullak and appear right here!'}
             </Text>
           </View>
         ) : (
-          filteredRecords.map((rec) => (
-            <SavingsRecordRow
-              key={rec.date}
-              rec={rec}
-              colors={colors}
-              isDark={isDark}
-            />
-          ))
+          unifiedList.map((item) => {
+            if (item.type === 'deposit' && item.deposit) {
+              const dep = item.deposit;
+              let dateStr = dep.date;
+              try {
+                dateStr = format(parseISO(dep.date), 'd MMM yyyy');
+              } catch {}
+              return (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.depositRecordCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      borderWidth: isDark ? 1 : 0,
+                    },
+                  ]}
+                >
+                  <View style={styles.recordLeft}>
+                    <View style={[styles.recordIconBox, { backgroundColor: colors.mintGreenSoft }]}>
+                      <PiggyBankCoinIcon size={20} color={colors.mintGreenDark} />
+                    </View>
+                    <View style={styles.recordDetails}>
+                      <Text style={[styles.recordDateText, { color: colors.textPrimary }]}>
+                        {dep.note || 'Deposit to Gullak'}
+                      </Text>
+                      <Text style={[styles.recordSubText, { color: colors.textSecondary }]}>
+                        Manual Deposit • {dateStr}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.depositRecordRight}>
+                    <View style={[styles.recordSavedPill, { backgroundColor: colors.mintGreenSoft }]}>
+                      <Text style={[styles.recordSavedText, { color: colors.mintGreenDark }]}>
+                        +{formatCurrency(dep.amount)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteDeposit(dep.id, dep.amount)}
+                      hitSlop={12}
+                      style={styles.deleteDepositBtn}
+                    >
+                      <Trash2 size={15} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            }
+            if (item.type === 'daily' && item.dailyRecord) {
+              return (
+                <SavingsRecordRow
+                  key={item.id}
+                  rec={item.dailyRecord}
+                  colors={colors}
+                  isDark={isDark}
+                />
+              );
+            }
+            return null;
+          })
         )}
       </ScrollView>
 
@@ -580,6 +709,12 @@ export const SavingsScreen: React.FC = () => {
       <StreakCalendarModal
         visible={streakCalendarVisible}
         onClose={() => setStreakCalendarVisible(false)}
+      />
+
+      {/* ── Deposit to Gullak Modal ── */}
+      <DepositGullakModal
+        visible={depositModalVisible}
+        onClose={() => setDepositModalVisible(false)}
       />
     </View>
   );
@@ -937,5 +1072,72 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-
+  depositCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 42,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    marginTop: Spacing.group,
+  },
+  depositCtaBtnText: {
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
+  },
+  depositRecordCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.block,
+    borderRadius: BorderRadius.card,
+    marginBottom: Spacing.element,
+  },
+  depositRecordRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.element,
+  },
+  deleteDepositBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: Spacing.element,
+  },
+  recordIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.group,
+  },
+  recordDetails: {
+    flex: 1,
+  },
+  recordDateText: {
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.semibold,
+    marginBottom: Spacing.nano,
+  },
+  recordSubText: {
+    fontSize: 13,
+    fontFamily: FontFamily.medium,
+  },
+  recordSavedPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.pill,
+  },
+  recordSavedText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
+  },
 });

@@ -29,7 +29,8 @@ export const calculateSavingsMetrics = (
   records: Record<string, DailyRecord>,
   todayStr: string,
   userCreatedAtStr: string | undefined,
-  referenceDate: Date
+  referenceDate: Date,
+  manualDeposits: number = 0
 ): SavingsMetrics => {
   let totalSaved = 0;
   let totalOverspent = 0;
@@ -60,8 +61,8 @@ export const calculateSavingsMetrics = (
     totalOverspent += (todayRec.spent - todayRec.budget);
   }
 
-  // Net accumulated savings cannot drop below 0
-  const netSavings = Math.max(0, totalSaved - totalOverspent);
+  // Net accumulated savings cannot drop below 0 (includes manual Gullak deposits)
+  const netSavings = Math.max(0, totalSaved - totalOverspent) + manualDeposits;
 
   const confirmedSavedDays = Object.values(records).filter(
     (r) => r.isFinalized && r.date < todayStr && r.status === 'saved' && (r.saved || 0) > 0 && (!userCreatedAt || r.date >= userCreatedAt)
@@ -174,7 +175,7 @@ export interface DayEvaluation {
 export const evaluateDayStatus = (
   budget: number,
   spent: number,
-  baseBudget?: number
+  _baseBudget?: number
 ): DayEvaluation => {
   if (budget <= 0) {
     return {
@@ -183,19 +184,8 @@ export const evaluateDayStatus = (
     };
   }
 
-  // If baseBudget is configured and budget > baseBudget, the extra amount
-  // is a temporary spending buffer to protect the user's streak.
-  // Expenses are deducted first from the extra buffer before touching the base allowance.
-  // Unspent extra does not roll over to Gullak; only remaining base allowance is saved.
-  let saved = 0;
-  if (baseBudget !== undefined && baseBudget > 0 && budget > baseBudget) {
-    const extraBudget = budget - baseBudget;
-    const spentFromBase = Math.max(0, spent - extraBudget);
-    saved = Math.max(0, baseBudget - spentFromBase);
-  } else {
-    saved = Math.max(0, budget - spent);
-  }
-
+  // 100% of unspent budget (including top-ups) rolls over into Gullak
+  const saved = Math.max(0, budget - spent);
   const status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
   return { saved, status };
 };
@@ -311,7 +301,7 @@ export const shouldIgnoreDuplicates = (status: DayStatus): boolean => {
   return status === 'unknown';
 };
 
-export type SavingsFilter = 'All' | 'This Week' | 'This Month';
+export type SavingsFilter = 'All' | 'This Week' | 'This Month' | 'Deposits';
 
 export interface TodayMetrics {
   budget: number;
@@ -356,7 +346,7 @@ export const filterSavingsRecords = (
   filter: SavingsFilter,
   referenceDate: Date
 ): DailyRecord[] => {
-  if (filter === 'All') return records;
+  if (filter === 'All' || filter === 'Deposits') return records;
 
   const period: FilterPeriod = filter === 'This Week' ? 'week' : 'month';
   return records.filter((rec) => isDateInPeriod(rec.date, period, referenceDate));
