@@ -47,6 +47,10 @@ export interface PeriodSummary {
   displaySpent: number;
   totalAvailable: number;
   isOverBudgetPeriod: boolean;
+  periodIncome: number;
+  periodSpent: number;
+  periodBudgetPool: number;
+  isBudgetConfigured: boolean;
 }
 
 /**
@@ -72,7 +76,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   } = params;
 
   const isBudgetConfigured = isAutoRenew && dailyBudgetAmount > 0;
-  const activeDailyBudget = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
+  const activeDailyBudget = isBudgetConfigured ? (todayBudget > 0 ? todayBudget : dailyBudgetAmount) : 0;
   const todayStr = format(referenceDate, 'yyyy-MM-dd');
 
   // Determine the calendar days belonging to the active period up to today
@@ -149,92 +153,48 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   const income = totalIncome;
   const spent = totalSpent;
 
-  let budgetPool = activeDailyBudget;
-  if (activeFilter === 'Weekly' || activeFilter === 'Monthly' || activeFilter === 'All') {
-    budgetPool = periodBudget;
-  }
-
+  const budgetPool = activeFilter === 'Daily' ? activeDailyBudget : periodBudget;
   const available = budgetPool + income;
   const isOver = spent > available && available > 0;
   const remaining = Math.max(0, available - spent);
   const overAmount = isOver ? spent - available : 0;
 
-  let label = 'Remaining to Spend';
+  const isPeriodFilter = activeFilter === 'Weekly' || activeFilter === 'Monthly';
+  const prefix = activeFilter === 'Daily' ? 'Daily' : (activeFilter === 'All' ? 'Total' : activeFilter);
+
+  let label: string;
   let subtext: string | null = null;
 
-  if (activeFilter === 'Daily') {
-    if (isOver) {
-      label = 'Daily Budget Exceeded';
-      subtext = `Exceeded daily limit by ${formatCurrency(overAmount)}`;
-    } else {
-      label = 'Remaining to Spend';
-      if (budgetPool > 0 && income > 0) {
-        subtext = `${formatCurrency(budgetPool)} budget + ${formatCurrency(income)} income`;
-      } else if (income > 0) {
-        subtext = `of ${formatCurrency(income)} total income`;
-      } else if (budgetPool > 0) {
-        subtext = `of ${formatCurrency(budgetPool)} daily allowance`;
-      } else {
-        subtext = null;
-      }
-    }
-  } else if (activeFilter === 'Weekly') {
-    if (isOver) {
-      label = 'Weekly Budget Exceeded';
-      subtext = `Exceeded weekly limit by ${formatCurrency(overAmount)}`;
-    } else {
-      label = 'Weekly Remaining';
-      if (budgetPool > 0 && income > 0) {
-        subtext = `${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ${formatCurrency(income)} income`;
-      } else if (income > 0) {
-        subtext = `of ${formatCurrency(income)} total income`;
-      } else if (budgetPool > 0) {
-        subtext = `of ${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
-      } else {
-        subtext = null;
-      }
-    }
-  } else if (activeFilter === 'Monthly') {
-    if (isOver) {
-      label = 'Monthly Budget Exceeded';
-      subtext = `Exceeded monthly limit by ${formatCurrency(overAmount)}`;
-    } else {
-      label = 'Monthly Remaining';
-      if (budgetPool > 0 && income > 0) {
-        subtext = `${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'}) + ${formatCurrency(income)} income`;
-      } else if (income > 0) {
-        subtext = `of ${formatCurrency(income)} total income`;
-      } else if (budgetPool > 0) {
-        subtext = `of ${formatCurrency(budgetPool)} budget (${daysCount} ${daysCount === 1 ? 'day' : 'days'})`;
-      } else {
-        subtext = null;
-      }
-    }
+  if (!isBudgetConfigured && income === 0) {
+    label = activeFilter === 'Daily' ? 'Spent Today' : `${prefix} Spent`;
+  } else if (isOver) {
+    label = `${prefix} Budget Exceeded`;
+    subtext = `Exceeded ${prefix.toLowerCase()} limit by ${formatCurrency(overAmount)}`;
   } else {
-    // 'All' filter
-    if (isOver) {
-      label = 'Total Budget Exceeded';
-      subtext = `Exceeded total limit by ${formatCurrency(overAmount)}`;
-    } else {
-      label = 'Total Remaining';
-      if (budgetPool > 0 && income > 0) {
-        subtext = `${formatCurrency(budgetPool)} budget + ${formatCurrency(income)} income`;
-      } else if (income > 0) {
-        subtext = `of ${formatCurrency(income)} total income`;
-      } else if (budgetPool > 0) {
-        subtext = `of ${formatCurrency(budgetPool)} total budget`;
+    label = activeFilter === 'Daily' ? 'Remaining to Spend' : `${prefix} Remaining`;
+    if (isBudgetConfigured && budgetPool > 0) {
+      const daysSuffix = isPeriodFilter ? ` (${daysCount} ${daysCount === 1 ? 'day' : 'days'})` : '';
+      if (income > 0) {
+        subtext = `${formatCurrency(budgetPool)} budget${daysSuffix} + ${formatCurrency(income)} income`;
       } else {
-        subtext = null;
+        const poolDesc = activeFilter === 'Daily' ? 'daily allowance' : (activeFilter === 'All' ? 'total budget' : `budget${daysSuffix}`);
+        subtext = `of ${formatCurrency(budgetPool)} ${poolDesc}`;
       }
     }
   }
 
+  const primaryAmount = (!isBudgetConfigured && income === 0) ? spent : (isOver ? overAmount : remaining);
+
   return {
-    primaryAmount: isOver ? overAmount : remaining,
+    primaryAmount,
     primaryLabel: label,
     primarySubtext: subtext,
     displaySpent: spent,
     totalAvailable: available,
     isOverBudgetPeriod: isOver,
+    periodIncome: income,
+    periodSpent: spent,
+    periodBudgetPool: budgetPool,
+    isBudgetConfigured,
   };
 };

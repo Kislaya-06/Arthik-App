@@ -160,7 +160,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.totalAvailable).toBe(1000);
       expect(result.primaryAmount).toBe(800);
       expect(result.primaryLabel).toBe('Remaining to Spend');
-      expect(result.primarySubtext).toBe('of ₹1,000 total income');
+      expect(result.primarySubtext).toBeNull();
     });
 
     it('handles zero budget and zero income (null subtext)', () => {

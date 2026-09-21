@@ -13,11 +13,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Bell, ChevronRight, User } from 'lucide-react-native';
+import { Bell, ChevronRight, User, ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { TransactionRow } from '../components/TransactionRow';
 import { DonutChart } from '../components/DonutChart';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary } from '../lib/homeCalculations';
 import { useAuthStore } from '../store/authStore';
@@ -158,11 +158,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return 19;
   }, [firstName]);
 
+  const isBudgetConfigured = isAutoRenew && dailyBudgetAmount > 0;
   const todayRecord = useMemo(
     () => getTodayRecord(),
-    [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses]
+    [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses, isAutoRenew]
   );
-  const todayBudget = todayRecord.budget;
+  const todayBudget = isBudgetConfigured ? todayRecord.budget : 0;
   // Calculate today's spent directly from expenses for today to guarantee 0-lag live reactivity
   const todayLiveSpent = useMemo(() => {
     const todayStr = todayKey;
@@ -182,7 +183,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
   const todayRemaining = Math.max(0, todayBudget - todayRecordSpent);
   const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
-  const budgetRatio = todayBudget > 0 ? Math.min(todayRecordSpent / todayBudget, 1) : 0;
 
   // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
   // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
@@ -193,6 +193,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     displaySpent,
     totalAvailable,
     isOverBudgetPeriod,
+    periodIncome,
+    periodSpent,
   } = useMemo(
     () =>
       calculatePeriodSummary({
@@ -209,6 +211,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }),
     [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey]
   );
+
+  // Date range label shown below filter pills for quick orientation
+  const filterDateLabel = useMemo(() => {
+    const t = referenceDate;
+    if (activeFilter === 'All') return userCreatedAtStr ? `Since ${format(parseISO(userCreatedAtStr), 'd MMM yyyy')}` : 'All time';
+    if (activeFilter === 'Daily') return format(t, 'EEEE, d MMM');
+    const periodStart = format(activeFilter === 'Weekly' ? startOfWeek(t, { weekStartsOn: 1 }) : startOfMonth(t), 'yyyy-MM-dd');
+    const startStr = (userCreatedAtStr && userCreatedAtStr > periodStart) ? userCreatedAtStr : periodStart;
+    const start = parseISO(startStr);
+    if (startStr === format(t, 'yyyy-MM-dd')) return format(t, 'd MMM');
+    const sameMonth = format(start, 'M') === format(t, 'M');
+    return activeFilter === 'Monthly'
+      ? `${format(start, 'd')}\u2013${format(t, 'd MMM yyyy')}`
+      : sameMonth ? `${format(start, 'd')}\u2013${format(t, 'd MMM')}` : `${format(start, 'd MMM')} \u2013 ${format(t, 'd MMM')}`;
+  }, [activeFilter, referenceDate, userCreatedAtStr]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -301,110 +318,107 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             );
           })}
         </ScrollView>
+        <View style={styles.filterDateRow}>
+          <Text style={[styles.filterDateLabel, { color: colors.textMuted }]}>
+            {filterDateLabel}
+          </Text>
+          {activeFilter === 'Daily' && todayBudget === 0 && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('Savings' as any)}
+              style={styles.setLimitAffordance}
+            >
+              <Text style={[styles.setLimitDot, { color: colors.textMuted }]}>•</Text>
+              <Text style={[styles.setLimitText, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
+                Set daily limit ›
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* ── Summary Card ── */}
         <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          {/* Left column */}
-          <View style={styles.summaryLeft}>
-            <View style={styles.summaryLabelRow}>
-              <View
-                style={[
-                  styles.summaryBar,
-                  { backgroundColor: isOverBudgetPeriod ? colors.danger : colors.mintGreen },
-                ]}
-              />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{primaryLabel}</Text>
+          {/* Top row: stats + donut */}
+          <View style={styles.summaryTopRow}>
+            <View style={styles.summaryStats}>
+              {/* Remaining / Balance */}
+              <View style={styles.summaryLabelRow}>
+                <View style={[styles.summaryBar, { backgroundColor: isOverBudgetPeriod ? colors.danger : colors.mintGreen }]} />
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{primaryLabel}</Text>
+              </View>
+              <Text
+                style={[styles.summaryAmount, { color: isOverBudgetPeriod ? colors.danger : colors.textPrimary }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {formatCurrency(primaryAmount)}
+              </Text>
+
+              {primarySubtext ? (
+                <Text style={[styles.summarySubtext, { color: colors.textSecondary }]} numberOfLines={2}>
+                  {primarySubtext}
+                </Text>
+              ) : null}
             </View>
-            <Text
-              style={[
-                styles.summaryAmount,
-                { color: isOverBudgetPeriod ? colors.danger : colors.textPrimary },
-              ]}
+
+            {/* Donut */}
+            <DonutChart spent={displaySpent} total={Math.max(totalAvailable, displaySpent)} colors={colors} />
+          </View>
+
+          {/* Dual Metric Tiles: Inflow (Income / Allowance) & Outflow (Spent) */}
+          {(() => {
+            const isAllowance = activeFilter === 'Daily' && todayBudget > 0 && periodIncome === 0;
+            return (
+              <View style={styles.metricTilesRow}>
+                {/* Income or Allowance Tile */}
+                <View style={[styles.metricTile, { backgroundColor: colors.mintGreenSoft }]}>
+                  <View style={styles.metricTileHeader}>
+                    <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(184,224,200,0.2)' : 'rgba(127,184,150,0.2)' }]}>
+                      <ArrowDownLeft size={13} color={isDark ? colors.mintGreen : colors.mintGreenDark} />
+                    </View>
+                    <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>
+                      {isAllowance ? 'Allowance' : 'Income'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.metricTileAmount, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]} numberOfLines={1}>
+                    {isAllowance ? formatCurrency(todayBudget) : `+${formatCurrency(periodIncome)}`}
+                  </Text>
+                </View>
+
+                {/* Spent Tile */}
+                <View style={[styles.metricTile, { backgroundColor: colors.peachSoft }]}>
+                  <View style={styles.metricTileHeader}>
+                    <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(244,184,174,0.2)' : 'rgba(244,184,174,0.3)' }]}>
+                      <ArrowUpRight size={13} color={colors.peachCoral} />
+                    </View>
+                    <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>Spent</Text>
+                  </View>
+                  <Text style={[styles.metricTileAmount, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {`−${formatCurrency(periodSpent)}`}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
+
+          {/* Daily Gullak Rollover Teaser (Only on Daily, and ONLY if user has active budget) */}
+          {activeFilter === 'Daily' && todayBudget > 0 && (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => navigation.navigate('Savings' as any)}
+              style={[styles.dailyRolloverStrip, { backgroundColor: colors.mintGreenSoft }]}
             >
-              {formatCurrency(primaryAmount)}
-            </Text>
-            {primarySubtext ? (
-              <Text style={[styles.summarySubtext, { color: colors.textSecondary }]}>{primarySubtext}</Text>
-            ) : null}
-
-            <View style={[styles.summaryLabelRow, { marginTop: primarySubtext ? 14 : Spacing.surface }]}>
-              <View style={[styles.summaryBar, { backgroundColor: colors.peachCoral }]} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Spent</Text>
-            </View>
-            <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>{formatCurrency(displaySpent)}</Text>
-          </View>
-
-          {/* Donut */}
-          <DonutChart spent={displaySpent} total={Math.max(totalAvailable, displaySpent)} colors={colors} />
+              <PiggyBankCoinIcon size={18} color={isDark ? colors.mintGreen : colors.mintGreenDark} />
+              <Text style={[styles.dailyRolloverText, { color: colors.textPrimary }]} numberOfLines={1}>
+                {isOverBudget
+                  ? `Over limit by ${formatCurrency(todayRecordSpent - todayBudget)} today`
+                  : `${formatCurrency(todayRemaining)} rolls over to Gullak tonight`}
+              </Text>
+              <ChevronRight size={14} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
-
-        {/* ── Compact Daily Allowance & Gullak Banner (Senior UI/UX Design) ── */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('Savings' as any)}
-          style={[
-            styles.dailyCompactCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderWidth: isDark ? 1 : 0,
-            },
-          ]}
-        >
-          <View style={[styles.dailyCompactIconWrap, { backgroundColor: colors.mintGreenSoft }]}>
-            <PiggyBankCoinIcon size={22} color={colors.mintGreenDark} />
-          </View>
-
-          <View style={styles.dailyCompactContent}>
-            <View style={styles.dailyCompactTopRow}>
-              <View style={styles.dailyCompactTitleGroup}>
-                <Text style={[styles.dailyCompactTitle, { color: colors.textPrimary }]}>
-                  Daily Allowance
-                </Text>
-              </View>
-
-              <View style={styles.currencyRow}>
-                <Text
-                  style={[
-                    styles.dailyCompactAmount,
-                    {
-                      color:
-                        todayBudget === 0
-                          ? colors.textSecondary
-                          : isOverBudget
-                          ? colors.danger
-                          : colors.mintGreenDark,
-                    },
-                  ]}
-                >
-                  {todayBudget === 0
-                    ? 'Off • Tap to set'
-                    : isOverBudget
-                    ? `+${formatCurrency(todayRecordSpent - todayBudget)} over`
-                    : `${formatCurrency(todayRemaining)} left`}
-                </Text>
-                <ChevronRight size={15} color={colors.textSecondary} style={{ marginLeft: Spacing.micro }} />
-              </View>
-            </View>
-
-            {/* Mini Progress Bar */}
-            <View style={[styles.dailyCompactProgressTrack, { backgroundColor: colors.chartTrack }]}>
-              <View
-                style={[
-                  styles.dailyCompactProgressFill,
-                  {
-                    width: `${Math.round(budgetRatio * 100)}%`,
-                    backgroundColor: isOverBudget
-                      ? colors.danger
-                      : budgetRatio >= 0.8
-                      ? '#F59E0B'
-                      : colors.mintGreen,
-                  },
-                ]}
-              />
-            </View>
-          </View>
-        </TouchableOpacity>
 
         {/* ── Recent Transactions ── */}
         <View style={styles.sectionHeader}>
@@ -512,67 +526,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
 
-  // Compact Daily Allowance Widget Banner
-  dailyCompactCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 18,
-    paddingVertical: Spacing.group,
-    paddingHorizontal: 14,
-    marginTop: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  dailyCompactIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.group,
-  },
-  dailyCompactContent: {
-    flex: 1,
-  },
-  dailyCompactTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  dailyCompactTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dailyCompactTitle: {
-    fontSize: 13,
-    fontFamily: FontFamily.bold,
-  },
-  currencyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dailyCompactAmount: {
-    fontSize: 13,
-    fontFamily: FontFamily.bold,
-  },
-  dailyCompactProgressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  dailyCompactProgressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-
   // Filter pills
   pillsScroll: {
     marginTop: 18,
+  },
+  filterDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: Spacing.block,
+  },
+  filterDateLabel: {
+    fontSize: 13,
+    fontFamily: FontFamily.semibold,
+    opacity: 0.65,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  setLimitAffordance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  setLimitDot: {
+    fontSize: 13,
+    opacity: 0.5,
+    marginRight: 6,
+  },
+  setLimitText: {
+    fontSize: 12,
+    fontFamily: FontFamily.semibold,
   },
   pillsContent: {
     paddingRight: Spacing.element,
@@ -602,14 +585,17 @@ const styles = StyleSheet.create({
   // Summary Card
   summaryCard: {
     borderRadius: BorderRadius.cardLarge,
-    marginTop: Spacing.gutter,
-    padding: Spacing.surface,
+    paddingVertical: Spacing.block,
+    paddingHorizontal: Spacing.surface,
+  },
+  summaryTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  summaryLeft: {
+  summaryStats: {
     flex: 1,
+    paddingRight: Spacing.group,
   },
   summaryLabelRow: {
     flexDirection: 'row',
@@ -627,15 +613,64 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.element,
   },
   summaryAmount: {
-    fontSize: 24,
+    fontSize: 32,
     fontFamily: FontFamily.bold,
     marginTop: Spacing.micro,
+    includeFontPadding: false,
   },
   summarySubtext: {
+    fontSize: 12,
+    fontFamily: FontFamily.medium,
+    marginTop: Spacing.micro,
+    opacity: 0.8,
+  },
+  dailyRolloverStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.element,
+    marginTop: Spacing.group,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.group,
+    borderRadius: BorderRadius.input,
+  },
+  dailyRolloverText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: FontFamily.semibold,
+  },
+  metricTilesRow: {
+    flexDirection: 'row',
+    gap: Spacing.group,
+    marginTop: Spacing.group,
+  },
+  metricTile: {
+    flex: 1,
+    borderRadius: BorderRadius.input,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.group,
+  },
+  metricTileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  metricIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricTileLabel: {
     fontSize: 11,
     fontFamily: FontFamily.semibold,
-    marginTop: Spacing.nano,
-    opacity: 0.75,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  metricTileAmount: {
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
   },
 
   // Section header

@@ -167,6 +167,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const todayStr = getTodayDateStr();
         const records = get().dailyRecords;
         if (records[todayStr]) {
+          if (!get().isAutoRenew && !records[todayStr].isFinalized) {
+            return {
+              ...records[todayStr],
+              budget: 0,
+              saved: 0,
+              status: 'unknown',
+            };
+          }
           return records[todayStr];
         }
 
@@ -249,6 +257,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             saved,
             isFinalized: false,
             status: spent > budget ? 'exceeded' : 'active',
+          };
+        } else if (!enabled && currentToday && !currentToday.isFinalized) {
+          records[todayStr] = {
+            ...currentToday,
+            budget: 0,
+            saved: 0,
+            status: 'unknown',
           };
         }
 
