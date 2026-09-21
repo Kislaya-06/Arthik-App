@@ -238,12 +238,12 @@ export const SavingsScreen: React.FC = () => {
             <View style={styles.currencyRow}>
               <Text style={[styles.currencySymbol, { color: colors.mintGreenDark }]}>₹</Text>
               <Text style={[styles.heroAmount, { color: colors.textPrimary }]}>
-                {Math.round(totalAccumulatedSavings).toLocaleString('en-IN')}
+                {totalAccumulatedSavings.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </Text>
             </View>
             <Text style={[styles.heroHelperText, { color: isOverBudget ? colors.danger : colors.textSecondary }]}>
               {isOverBudget
-                ? `🚨 -₹${Math.round(overAmount).toLocaleString('en-IN')} deducted today from Gullak`
+                ? `🚨 -${formatCurrency(overAmount)} deducted today from Gullak`
                 : 'Auto-saved from unspent daily allowance'}
             </Text>
           </View>
@@ -422,9 +422,7 @@ export const SavingsScreen: React.FC = () => {
                     { color: isOverBudget ? '#DC2626' : colors.textPrimary },
                   ]}
                 >
-                  {isOverBudget
-                    ? Math.round(overAmount).toLocaleString('en-IN')
-                    : Math.round(todayRemaining).toLocaleString('en-IN')}
+                  {(isOverBudget ? overAmount : todayRemaining).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                 </Text>
               </View>
             </View>
@@ -459,9 +457,9 @@ export const SavingsScreen: React.FC = () => {
           {/* Single Meaningful Status Hint */}
           <Text style={[styles.progressHint, { color: isOverBudget ? colors.danger : colors.textSecondary }]}>
             {isOverBudget
-              ? `🚨 ₹${Math.round(overAmount)} deducted from your Gullak`
+              ? `🚨 ${formatCurrency(overAmount)} deducted from your Gullak`
               : todayBudget > 0
-              ? `✨ Save ₹${Math.round(todaySaved)} if unspent today`
+              ? `✨ Save ${formatCurrency(todaySaved)} if unspent today`
               : 'Set a daily budget to start saving in Gullak'}
           </Text>
 
