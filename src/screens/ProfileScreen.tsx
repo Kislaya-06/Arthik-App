@@ -239,6 +239,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     fullName = `${profile.first_name} ${profile.last_name || ''}`.trim();
   }
 
+  const isEmailMatching = Boolean(user?.email && deleteEmailInput.trim().toLowerCase() === user.email.trim().toLowerCase());
+  const deleteBtnBg = isEmailMatching ? '#DC2626' : (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2');
+  const deleteBtnColor = isEmailMatching ? '#FFFFFF' : '#DC2626';
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -366,49 +370,16 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               </Pressable>
 
               <Pressable
-                style={[
-                  styles.modalBtn,
-                  {
-                    backgroundColor:
-                      (user?.email && deleteEmailInput.trim().toLowerCase() === user.email.trim().toLowerCase())
-                        ? '#DC2626'
-                        : (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2'),
-                  },
-                ]}
+                style={[styles.modalBtn, { backgroundColor: deleteBtnBg }]}
                 onPress={handleConfirmEmailForDelete}
                 disabled={isDeleting}
               >
                 {isDeleting ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={
-                      (user?.email && deleteEmailInput.trim().toLowerCase() === user.email.trim().toLowerCase())
-                        ? '#FFFFFF'
-                        : '#DC2626'
-                    }
-                  />
+                  <ActivityIndicator size="small" color={deleteBtnColor} />
                 ) : (
                   <>
-                    <Trash2
-                      size={16}
-                      color={
-                        (user?.email && deleteEmailInput.trim().toLowerCase() === user.email.trim().toLowerCase())
-                          ? '#FFFFFF'
-                          : '#DC2626'
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.modalSaveText,
-                        {
-                          color:
-                            (user?.email && deleteEmailInput.trim().toLowerCase() === user.email.trim().toLowerCase())
-                              ? '#FFFFFF'
-                              : '#DC2626',
-                          fontFamily: FontFamily.bold,
-                        },
-                      ]}
-                    >
+                    <Trash2 size={16} color={deleteBtnColor} />
+                    <Text style={[styles.modalSaveText, { color: deleteBtnColor, fontFamily: FontFamily.bold }]}>
                       Continue
                     </Text>
                   </>
