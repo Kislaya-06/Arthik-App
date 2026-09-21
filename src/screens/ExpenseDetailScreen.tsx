@@ -200,8 +200,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 Edit Expense
               </Text>
             </Pressable>
-            <Pressable onPress={handleDelete} style={styles.deleteLink}>
-              <Text style={[styles.deleteLinkText, { color: colors.coral, fontFamily: FontFamily.bold }]}>
+            <Pressable onPress={handleDelete} style={[styles.editButton, { backgroundColor: colors.peachSoft, marginTop: Spacing.block }]}>
+              <Text style={[styles.editButtonText, { color: colors.coral, fontFamily: FontFamily.bold }]}>
                 Delete Expense
               </Text>
             </Pressable>
@@ -373,14 +373,5 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: FontSize.cta,
     color: '#1A2B4C',
-  },
-  deleteLink: {
-    alignItems: 'center',
-    marginTop: Spacing.block,
-    paddingVertical: Spacing.element,
-  },
-  deleteLinkText: {
-    fontSize: FontSize.body,
-    color: '#F4B8AE',
   },
 });
