@@ -79,6 +79,48 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   const activeDailyBudget = isBudgetConfigured ? (todayBudget > 0 ? todayBudget : dailyBudgetAmount) : 0;
   const todayStr = format(referenceDate, 'yyyy-MM-dd');
 
+  // 'All' (Lifetime Cashflow): Macro net worth & cashflow (Total Income vs Total Spent)
+  if (activeFilter === 'All') {
+    const income = totalIncome;
+    const spent = totalSpent;
+    const net = income - spent;
+    const hasIncome = income > 0;
+    const isDeficit = hasIncome && net < 0;
+
+    let label: string;
+    let subtext: string | null = null;
+    let primaryAmount: number;
+
+    if (hasIncome) {
+      if (net >= 0) {
+        label = 'Net Balance';
+        primaryAmount = net;
+        subtext = `${formatCurrency(income)} income − ${formatCurrency(spent)} spent`;
+      } else {
+        label = 'Net Deficit';
+        primaryAmount = Math.abs(net);
+        subtext = `Spent ${formatCurrency(Math.abs(net))} more than total income`;
+      }
+    } else {
+      label = 'Total Spent';
+      primaryAmount = spent;
+      subtext = spent > 0 ? 'Total lifetime expenses' : 'No transactions recorded yet';
+    }
+
+    return {
+      primaryAmount,
+      primaryLabel: label,
+      primarySubtext: subtext,
+      displaySpent: spent,
+      totalAvailable: hasIncome ? income : spent,
+      isOverBudgetPeriod: isDeficit,
+      periodIncome: income,
+      periodSpent: spent,
+      periodBudgetPool: 0,
+      isBudgetConfigured,
+    };
+  }
+
   // Determine the calendar days belonging to the active period up to today
   const periodDates: string[] = [];
 
@@ -106,27 +148,6 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     days.forEach((d) => {
       periodDates.push(format(d, 'yyyy-MM-dd'));
     });
-  } else {
-    // 'All' filter: all past dates tracked up to today
-    const allDates = new Set<string>();
-    allDates.add(todayStr);
-    for (let i = 0; i < filtered.length; i++) {
-      const d = filtered[i].expense_date?.split('T')[0]?.trim();
-      if (d && d <= todayStr && (!userCreatedAtStr || d >= userCreatedAtStr)) {
-        allDates.add(d);
-      }
-    }
-    Object.keys(dailyRecords).forEach((d) => {
-      const cleanD = d.split('T')[0]?.trim();
-      // Skip phantom zero-spend 500 days from periodDates (Sentinel site 3, Issue 01)
-      if (dailyRecords[d]?.spent === 0 && dailyRecords[d]?.budget === 500 && dailyRecords[d]?.saved === 500) {
-        return;
-      }
-      if (cleanD && cleanD <= todayStr && (!userCreatedAtStr || cleanD >= userCreatedAtStr)) {
-        allDates.add(cleanD);
-      }
-    });
-    allDates.forEach((d) => periodDates.push(d));
   }
 
   let periodBudget = 0;
@@ -160,7 +181,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   const overAmount = isOver ? spent - available : 0;
 
   const isPeriodFilter = activeFilter === 'Weekly' || activeFilter === 'Monthly';
-  const prefix = activeFilter === 'Daily' ? 'Daily' : (activeFilter === 'All' ? 'Total' : activeFilter);
+  const prefix = activeFilter === 'Daily' ? 'Daily' : activeFilter;
 
   let label: string;
   let subtext: string | null = null;
@@ -177,7 +198,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       if (income > 0) {
         subtext = `${formatCurrency(budgetPool)} budget${daysSuffix} + ${formatCurrency(income)} income`;
       } else {
-        const poolDesc = activeFilter === 'Daily' ? 'daily allowance' : (activeFilter === 'All' ? 'total budget' : `budget${daysSuffix}`);
+        const poolDesc = activeFilter === 'Daily' ? 'daily allowance' : `budget${daysSuffix}`;
         subtext = `of ${formatCurrency(budgetPool)} ${poolDesc}`;
       }
     }

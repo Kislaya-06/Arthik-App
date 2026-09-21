@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { format, subDays } from 'date-fns';
 import { Expense } from './expenseStore';
 import { useNotificationStore } from './notificationStore';
@@ -379,7 +380,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       addGullakDeposit: (amount: number, note?: string) => {
         if (!amount || amount <= 0) return;
         const newDeposit: GullakDeposit = {
-          id: `dep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: Crypto.randomUUID(),
           amount: Math.round(amount * 100) / 100,
           date: getTodayDateStr(),
           note: note?.trim() || undefined,
@@ -388,12 +389,45 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const deposits = [newDeposit, ...(get().gullakDeposits || [])];
         const metrics = computeMetrics(get().dailyRecords, deposits);
         set({ gullakDeposits: deposits, ...metrics });
+
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) {
+          supabase
+            .from('gullak_deposits')
+            .insert({
+              id: newDeposit.id,
+              user_id: userId,
+              amount: newDeposit.amount,
+              date: newDeposit.date,
+              note: newDeposit.note || null,
+              created_at: newDeposit.created_at,
+            })
+            .then(({ error }) => {
+              if (error && __DEV__) {
+                console.error('[dailyBudgetStore] Error inserting gullak_deposit:', error);
+              }
+            });
+        }
       },
 
       removeGullakDeposit: (id: string) => {
         const deposits = (get().gullakDeposits || []).filter((d) => d.id !== id);
         const metrics = computeMetrics(get().dailyRecords, deposits);
         set({ gullakDeposits: deposits, ...metrics });
+
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) {
+          supabase
+            .from('gullak_deposits')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', userId)
+            .then(({ error }) => {
+              if (error && __DEV__) {
+                console.error('[dailyBudgetStore] Error deleting gullak_deposit:', error);
+              }
+            });
+        }
       },
 
       syncWithExpenses: (expenses: Expense[]) => {
@@ -994,13 +1028,60 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
           }
 
+          // 2b. Fetch manual gullak deposits from Supabase
+          let resolvedDeposits = get().gullakDeposits || [];
+          try {
+            const { data: depData, error: depError } = await supabase
+              .from('gullak_deposits')
+              .select('id, amount, date, note, created_at')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false });
+
+            if (!depError && depData) {
+              const serverDeposits: GullakDeposit[] = depData.map((d: any) => ({
+                id: d.id,
+                amount: Number(d.amount) || 0,
+                date: d.date,
+                note: d.note || undefined,
+                created_at: d.created_at,
+              }));
+
+              const localDeposits = get().gullakDeposits || [];
+              const serverIdSet = new Set(serverDeposits.map((d) => d.id));
+              const missingOnServer = localDeposits.filter((d) => !serverIdSet.has(d.id));
+
+              if (missingOnServer.length > 0) {
+                missingOnServer.forEach((m) => {
+                  supabase
+                    .from('gullak_deposits')
+                    .insert({
+                      id: m.id,
+                      user_id: userId,
+                      amount: m.amount,
+                      date: m.date,
+                      note: m.note || null,
+                      created_at: m.created_at,
+                    })
+                    .then(() => {});
+                });
+              }
+
+              resolvedDeposits = [...serverDeposits, ...missingOnServer].sort((a, b) =>
+                b.date.localeCompare(a.date)
+              );
+            }
+          } catch (depErr) {
+            if (__DEV__) console.log('Error hydrating gullak_deposits from Supabase:', depErr);
+          }
+
           // 3. Recalculate metrics from combined records
-          const metrics = computeMetrics(records, get().gullakDeposits, userCreatedAtStr);
+          const metrics = computeMetrics(records, resolvedDeposits, userCreatedAtStr);
 
           set({
             dailyBudgetAmount: resolvedBudget,
             isAutoRenew: resolvedAutoRenew,
             dailyRecords: records,
+            gullakDeposits: resolvedDeposits,
             ownerUserId: userId,
             hydratedForUserId: userId,
             ...metrics,

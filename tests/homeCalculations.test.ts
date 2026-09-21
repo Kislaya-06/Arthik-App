@@ -81,32 +81,38 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.isOverBudgetPeriod).toBe(false);
     });
 
-    it("computes 'All' filter tracking past recorded dates and today", () => {
-      const dailyRecords: Record<string, DailyRecord> = {
-        '2026-09-10': { date: '2026-09-10', budget: 500, spent: 300, saved: 200, isFinalized: true, status: 'saved' },
-        '2026-09-12': { date: '2026-09-12', budget: 500, spent: 400, saved: 100, isFinalized: true, status: 'saved' },
-      };
-      const filtered = [
-        { expense_date: '2026-09-10' },
-        { expense_date: '2026-09-12' },
-        { expense_date: '2026-09-18' },
-      ];
-
+    it("computes 'All' filter tracking lifetime net balance when user has income", () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
-        dailyRecords,
-        filtered,
-        totalSpent: 1000,
-        totalIncome: 0,
-        userCreatedAtStr: '2026-09-01',
+        totalSpent: 12000,
+        totalIncome: 30000,
       });
 
-      // Unique dates: 2026-09-18 (today: 500) + 2026-09-10 (500) + 2026-09-12 (500) = 1500
-      expect(result.totalAvailable).toBe(1500);
-      expect(result.primaryAmount).toBe(500);
-      expect(result.primaryLabel).toBe('Total Remaining');
-      expect(result.primarySubtext).toBe('of ₹1,500 total budget');
+      expect(result.primaryLabel).toBe('Net Balance');
+      expect(result.primaryAmount).toBe(18000); // 30000 - 12000
+      expect(result.primarySubtext).toBe('₹30,000 income − ₹12,000 spent');
+      expect(result.displaySpent).toBe(12000);
+      expect(result.totalAvailable).toBe(30000);
+      expect(result.isOverBudgetPeriod).toBe(false);
+      expect(result.periodIncome).toBe(30000);
+      expect(result.periodSpent).toBe(12000);
+    });
+
+    it("computes 'All' filter as Total Spent when user has zero income", () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        totalSpent: 1000,
+        totalIncome: 0,
+      });
+
+      expect(result.primaryLabel).toBe('Total Spent');
+      expect(result.primaryAmount).toBe(1000);
+      expect(result.primarySubtext).toBe('Total lifetime expenses');
+      expect(result.totalAvailable).toBe(1000);
+      expect(result.displaySpent).toBe(1000);
+      expect(result.isOverBudgetPeriod).toBe(false);
     });
   });
 
@@ -180,110 +186,65 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
     });
   });
 
-  describe('Sentinel 500 Handling (Preserved Behavior)', () => {
-    it('skips phantom zero-spend 500 days from periodDates in All filter', () => {
-      const dailyRecords: Record<string, DailyRecord> = {
-        // Phantom 500 record (0 spent, 500 budget, 500 saved)
-        '2026-09-10': { date: '2026-09-10', budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' },
-        // Legitimate past record with spending
-        '2026-09-12': { date: '2026-09-12', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
-      };
-
+  describe('All Filter - Lifetime Cashflow (Income vs Spent)', () => {
+    it('handles surplus (Net Balance) when income exceeds expenses', () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
-        dailyRecords,
-        filtered: [], // No expenses on 2026-09-10
-        totalSpent: 100,
-        totalIncome: 0,
-        userCreatedAtStr: '2026-09-01',
+        totalIncome: 50000,
+        totalSpent: 20000,
       });
 
-      // Only today (2026-09-18: 500) and 2026-09-12 (500) are counted. 2026-09-10 is skipped!
-      expect(result.totalAvailable).toBe(1000); // 500 + 500
+      expect(result.primaryLabel).toBe('Net Balance');
+      expect(result.primaryAmount).toBe(30000);
+      expect(result.isOverBudgetPeriod).toBe(false);
+      expect(result.primarySubtext).toBe('₹50,000 income − ₹20,000 spent');
+      expect(result.totalAvailable).toBe(50000);
+      expect(result.displaySpent).toBe(20000);
     });
 
-    it('past day with budget 500, current allowance 200 -> untouched (700 total)', () => {
-      const dailyRecords: Record<string, DailyRecord> = {
-        '2026-09-12': { date: '2026-09-12', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
-      };
-
+    it('handles deficit (Net Deficit) when expenses exceed income', () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
-        dailyBudgetAmount: 200, // User current budget is 200
-        todayBudget: 200,
-        dailyRecords,
-        filtered: [{ expense_date: '2026-09-12' }],
-        totalSpent: 100,
-        totalIncome: 0,
-        userCreatedAtStr: '2026-09-01',
+        totalIncome: 10000,
+        totalSpent: 15000,
       });
 
-      // Past record had budget 500, preserved as recorded. Today is 200. Total = 700.
-      expect(result.totalAvailable).toBe(700);
+      expect(result.primaryLabel).toBe('Net Deficit');
+      expect(result.primaryAmount).toBe(5000);
+      expect(result.isOverBudgetPeriod).toBe(true);
+      expect(result.primarySubtext).toBe('Spent ₹5,000 more than total income');
+      expect(result.totalAvailable).toBe(10000);
+      expect(result.displaySpent).toBe(15000);
     });
 
-    it('past day with budget 500, current allowance 500 -> untouched (1000 total)', () => {
-      const dailyRecords: Record<string, DailyRecord> = {
-        '2026-09-12': { date: '2026-09-12', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
-      };
-
+    it('handles break-even (Net Balance ₹0) when income equals expenses', () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
-        dailyBudgetAmount: 500,
-        todayBudget: 500,
-        dailyRecords,
-        filtered: [{ expense_date: '2026-09-12' }],
-        totalSpent: 100,
-        totalIncome: 0,
-        userCreatedAtStr: '2026-09-01',
+        totalIncome: 10000,
+        totalSpent: 10000,
       });
 
-      expect(result.totalAvailable).toBe(1000); // 500 today + 500 past
+      expect(result.primaryLabel).toBe('Net Balance');
+      expect(result.primaryAmount).toBe(0);
+      expect(result.isOverBudgetPeriod).toBe(false);
+      expect(result.primarySubtext).toBe('₹10,000 income − ₹10,000 spent');
     });
 
-    it('past day with budget 300, current allowance 200 -> untouched (500 total)', () => {
-      const dailyRecords: Record<string, DailyRecord> = {
-        '2026-09-12': { date: '2026-09-12', budget: 300, spent: 100, saved: 200, isFinalized: true, status: 'saved' },
-      };
-
+    it('handles zero income and zero expenses gracefully', () => {
       const result = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
-        dailyBudgetAmount: 200,
-        todayBudget: 200,
-        dailyRecords,
-        filtered: [{ expense_date: '2026-09-12' }],
-        totalSpent: 100,
         totalIncome: 0,
-        userCreatedAtStr: '2026-09-01',
+        totalSpent: 0,
       });
 
-      expect(result.totalAvailable).toBe(500); // 200 today + 300 past
-    });
-
-    it('past day with budget 500, current allowance 0 -> untouched (500 total)', () => {
-      const dailyRecords: Record<string, DailyRecord> = {
-        '2026-09-12': { date: '2026-09-12', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
-      };
-
-      const result = calculatePeriodSummary({
-        ...baseParams,
-        activeFilter: 'All',
-        dailyBudgetAmount: 0,
-        todayBudget: 0,
-        isAutoRenew: false,
-        dailyRecords,
-        filtered: [{ expense_date: '2026-09-12' }],
-        totalSpent: 100,
-        totalIncome: 0,
-        userCreatedAtStr: '2026-09-01',
-      });
-
-      // Past record had budget 500, preserved as recorded. Today is 0. Total = 500.
-      expect(result.totalAvailable).toBe(500);
+      expect(result.primaryLabel).toBe('Total Spent');
+      expect(result.primaryAmount).toBe(0);
+      expect(result.primarySubtext).toBe('No transactions recorded yet');
+      expect(result.isOverBudgetPeriod).toBe(false);
     });
   });
 
