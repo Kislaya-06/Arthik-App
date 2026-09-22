@@ -2,9 +2,9 @@
 
 > [!NOTE]
 > **Historical Snapshot (Pre-Refactor, September 2026)**
-> This document reflects `src/store/dailyBudgetStore.ts` prior to the architectural decomposition and bug fixes in mid-September 2026. Exact line numbers, function catalogs, and specific helper implementations (sentinel 500 purging, duplicate handling, budget resolution, rollover notifications) have evolved. Refer to active code in [`src/store/dailyBudgetStore.ts`](file:///d:/Arthik-App/src/store/dailyBudgetStore.ts), [`src/lib/budgetCalculations.ts`](file:///d:/Arthik-App/src/lib/budgetCalculations.ts), and [`src/lib/budgetUtils.ts`](file:///d:/Arthik-App/src/lib/budgetUtils.ts) for current behavior.
+> This document reflects `src/store/dailyBudgetStore.ts` prior to the architectural decomposition and bug fixes in mid-September 2026. Exact line numbers, function catalogs, and specific helper implementations have evolved. For the current system-level picture, read [`docs/architecture.md §6`](../architecture.md) first. For live behavior, refer to [`src/store/dailyBudgetStore.ts`](file:///d:/Arthik-App/src/store/dailyBudgetStore.ts), [`src/lib/budgetCalculations.ts`](file:///d:/Arthik-App/src/lib/budgetCalculations.ts), and [`src/lib/budgetUtils.ts`](file:///d:/Arthik-App/src/lib/budgetUtils.ts).
 
-This document provides a comprehensive, read-only architectural analysis of `src/store/dailyBudgetStore.ts` (958 lines, reduced from 1,142 after extracting calculation helpers to `src/lib/budgetCalculations.ts`). It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md) and cites exact lines and verified code.
+This document provides a comprehensive, read-only deep-dive function catalog of `src/store/dailyBudgetStore.ts` (reduced from 1,142 lines to 958 after extracting calculation helpers to `src/lib/budgetCalculations.ts`). It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md) and cites exact lines and verified code.
 
 ---
 

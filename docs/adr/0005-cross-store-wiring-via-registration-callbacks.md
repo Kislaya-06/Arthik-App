@@ -2,28 +2,30 @@
 
 ## Context
 In Arthik, several independent Zustand stores need to coordinate state changes and trigger side-effects across boundaries:
-- `authStore` must reset `expenseStore`, `categoryStore`, `dailyBudgetStore`, and `notificationStore` when the user signs out or deletes their account.
+- `authStore` must reset `expenseStore`, `categoryStore`, `dailyBudgetStore`, `notificationStore`, and `appLockStore` when the user signs out or deletes their account.
 - `networkStore` must trigger `expenseStore.syncPendingExpenses()` when internet connectivity is re-established.
 - `dailyBudgetStore` needs to compute spending directly from `expenseStore.expenses`.
-- `expenseStore` must notify `dailyBudgetStore.syncWithExpenses()` whenever transactions change.
+- `dailyBudgetStore` must know when `expenseStore` has finished loading to avoid running rollover before data is ready.
+- `expenseStore` must notify `categoryStore` when a category is deleted, so in-memory expenses can null out their `category_id` without a direct import.
 
-Directly importing stores into one another creates circular dependency graphs (e.g. `authStore` -> `expenseStore` -> `dailyBudgetStore` -> `authStore`). In JavaScript/TypeScript bundling, circular imports lead to `undefined` module exports at runtime, initialization order bugs, and difficult-to-trace null pointer exceptions.
+Directly importing stores into one another creates circular dependency graphs (e.g. `authStore` → `expenseStore` → `dailyBudgetStore` → `authStore`). In JavaScript/TypeScript bundling, circular imports lead to `undefined` module exports at runtime, initialization order bugs, and difficult-to-trace null pointer exceptions.
 
 ## Decision
-We prohibited circular store imports and adopted an explicit callback registration pattern:
-1. Stores declare lightweight registration functions:
-   - `registerStoreResetCallback(callback)` in `authStore.ts`
-   - `registerSyncCallback(callback)` in `networkStore.ts`
-   - `registerExpenseGetter(getter)` in `dailyBudgetStore.ts`
-2. Dependent stores register their handlers during module evaluation:
-   - `expenseStore.ts` calls `registerSyncCallback(() => useExpenseStore.getState().syncPendingExpenses())`
-   - `expenseStore.ts` calls `registerExpenseGetter(() => useExpenseStore.getState().expenses)`
-   - Every user-data store calls `registerStoreResetCallback(() => get().reset())`
-3. Callbacks are stored in Sets or single reference slots and invoked safely within `try/catch` blocks during events.
+We prohibited circular store imports and adopted an explicit callback registration pattern. Five registration functions exist as of v1.2.4:
+
+| Function | Declared in | Registered by | Purpose |
+|---|---|---|---|
+| `registerStoreResetCallback(cb)` | `authStore.ts` | Every user-data store | Sign-out/account-delete cascade |
+| `registerSyncCallback(cb)` | `networkStore.ts` | `expenseStore.ts` | Flush pending queue on reconnect |
+| `registerExpenseGetter(getter)` | `dailyBudgetStore.ts` | `expenseStore.ts` | Read expenses without circular import |
+| `registerExpensesLoadedGetter(getter)` | `dailyBudgetStore.ts` | `expenseStore.ts` | Guard rollover until expenses are loaded |
+| `registerCategoryDeleteCallback(cb)` | `categoryStore.ts` | `expenseStore.ts` | Null `category_id` on in-memory expenses after deletion |
+
+Callbacks are stored in module-scoped reference slots and invoked safely at the appropriate event boundary.
 
 ## Consequences
 - **Positive**: Complete elimination of circular dependency cycles. Clear and decoupled store lifecycles. Zero external event-bus dependency needed.
-- **Negative**: Coordination is implicit at module boot time. A newly added store with user data must remember to register its reset callback with `authStore`, otherwise stale data could leak across sign-in sessions.
+- **Negative**: Coordination is implicit at module boot time. A newly added store with user data must remember to call `registerStoreResetCallback`, otherwise stale data leaks to the next signed-in account. The registration table above must be kept current as new stores are added.
 
 ## What Would Have to Be True to Revisit
 We would revisit this decision only if:

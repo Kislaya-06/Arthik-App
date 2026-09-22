@@ -69,9 +69,9 @@ src/
 ├── screens/      # Home, Savings, History, Insights, ExpenseForm, ManageCategories,
 │                 # Profile, Notifications, Auth, Splash, Onboarding
 ├── store/        # Zustand stores (dailyBudgetStore, expenseStore, categoryStore,
-│                 # authStore, networkStore, themeStore, notificationStore)
+│                 # authStore, networkStore, themeStore, notificationStore, appLockStore)
 └── types/        # TypeScript route navigation & entity interfaces
-tests/            # Vitest characterization & unit test suites (7 test files, 170 tests)
+tests/            # Vitest unit tests (18 files, 308 tests)
 ```
 
 ---
@@ -80,9 +80,11 @@ tests/            # Vitest characterization & unit test suites (7 test files, 17
 
 This repository follows documented coding standards and domain models:
 
-- [`AGENTS.md`](./AGENTS.md) — Operational guidelines, coding standards, design tokens, and safety invariants for developers and AI pair programmers.
+- [`AGENTS.md`](./AGENTS.md) — Operational guidelines, coding standards, design tokens, test coverage rules, and safety invariants for developers and AI pair programmers.
 - [`CONTEXT.md`](./CONTEXT.md) — Single-context domain model, business rules, entity relationships, and core architectural invariants.
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records capturing the rationale behind key architectural and design choices.
+- [`docs/architecture.md`](./docs/architecture.md) — System architecture: layer map, stores, offline write path, startup sequence, Gullak engine, auth, and test inventory.
+- [`docs/prd.md`](./docs/prd.md) — Product Requirements Document: full feature inventory, constraints, UX principles, roadmap, and technical risks.
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (9 ADRs) capturing the rationale behind key architectural and design choices.
 
 ---
 
