@@ -24,6 +24,11 @@ interface CategoryState {
   resetCategories: () => void;
 }
 
+let categoryDeleteCallback: ((id: string) => void) | null = null;
+export const registerCategoryDeleteCallback = (cb: (id: string) => void) => {
+  categoryDeleteCallback = cb;
+};
+
 // Display-only visual placeholder array shown before real categories load from Supabase.
 // IMPORTANT: These fake IDs ('1' through '7') are NEVER selectable and NEVER sent to Supabase.
 const DEFAULT_CATEGORIES: Category[] = [
@@ -154,16 +159,20 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       await get().fetchCategories(true);
 
       // Clean up client expenses store so no expense retains the deleted category_id
-      try {
-        const { useExpenseStore } = require('./expenseStore');
-        const expStore = useExpenseStore.getState();
-        if (expStore.expenses.some((e: any) => e.category_id === id)) {
-          useExpenseStore.setState((s: any) => ({
-            expenses: s.expenses.map((e: any) => (e.category_id === id ? { ...e, category_id: null } : e)),
-          }));
+      if (categoryDeleteCallback) {
+        categoryDeleteCallback(id);
+      } else {
+        try {
+          const { useExpenseStore } = require('./expenseStore');
+          const expStore = useExpenseStore.getState();
+          if (expStore.expenses.some((e: any) => e.category_id === id)) {
+            useExpenseStore.setState((s: any) => ({
+              expenses: s.expenses.map((e: any) => (e.category_id === id ? { ...e, category_id: null } : e)),
+            }));
+          }
+        } catch (err) {
+          if (__DEV__) console.log('Error syncing deleted category with expense store:', err);
         }
-      } catch (err) {
-        if (__DEV__) console.log('Error syncing deleted category with expense store:', err);
       }
     } catch (e) {
       if (__DEV__) console.error('Error deleting category:', e);

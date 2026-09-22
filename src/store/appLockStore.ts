@@ -112,7 +112,7 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
       return false;
     }
 
-    if (!isAppLockEnabled) {
+    if (!isAppLockEnabled && !force) {
       set({ isLocked: false, isAuthenticating: false });
       return true;
     }
