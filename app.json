@@ -3,7 +3,7 @@
     "name": "Arthik",
     "slug": "arthik",
     "scheme": "arthik",
-    "version": "1.2.5",
+    "version": "1.2.4",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -53,7 +53,7 @@
         "projectId": "5760997d-33b7-48b5-995a-aedb1e29f1e2"
       },
       "otaUpdate": {
-        "version": "1.2.5",
+        "version": "1.2.4",
         "title": "Help Centre & Stability Update 📚",
         "highlights": [
           "New FAQ / Help Centre in Profile — instant answers to common questions",

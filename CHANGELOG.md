@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.5] - 2026-09-23
+## [Unreleased]
 
 ### 🚀 Added
 - **FAQ / Help Centre in Profile:** A searchable FAQ screen (accessible from the Profile tab) answers the most common questions about Daily Budget, Gullak, streaks, offline sync, categories, and account security — so users get instant answers without leaving the app.
