@@ -6,32 +6,33 @@ import {
   TextInput,
   Modal,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
-import { formatAmountWithCommas, cleanAmountString } from '../lib/formatters';
+import { formatAmountWithCommas, cleanAmountString, formatCurrency } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 export interface BudgetEditModalProps {
   visible: boolean;
-  mode: 'recurring' | 'today';
+  mode?: 'recurring';
   initialAmount: number;
   onClose: () => void;
 }
 
 export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   visible,
-  mode,
   initialAmount,
   onClose,
 }) => {
   const { colors } = useTheme();
   const [inputBudget, setInputBudget] = useState('');
 
+  const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const setDailyBudget = useDailyBudgetStore((s) => s.setDailyBudget);
-  const setTodayBudget = useDailyBudgetStore((s) => s.setTodayBudget);
+  const scheduleNextDailyBudget = useDailyBudgetStore((s) => s.scheduleNextDailyBudget);
 
   // Sync internal input string whenever modal becomes visible or initialAmount changes
   useEffect(() => {
@@ -43,15 +44,34 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
   const handleSave = useCallback(() => {
     const num = parseFloat(cleanAmountString(inputBudget));
-    if (!isNaN(num) && num >= 0) {
-      if (mode === 'recurring') {
-        setDailyBudget(num);
-      } else {
-        setTodayBudget(num);
-      }
+    if (isNaN(num) || num < 0) {
+      onClose();
+      return;
     }
+
+    // If daily budget is already configured and user is changing it
+    if (dailyBudgetAmount > 0 && num !== dailyBudgetAmount) {
+      Alert.alert(
+        'Change Daily Budget?',
+        `Your new daily budget (${formatCurrency(num)}) will take effect tomorrow at 12:00 AM. Today's budget (${formatCurrency(dailyBudgetAmount)}) will remain active.\n\nDo you want to confirm?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Yes, Change',
+            onPress: () => {
+              scheduleNextDailyBudget(num);
+              onClose();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Setting for the first time or same amount
+    setDailyBudget(num);
     onClose();
-  }, [inputBudget, mode, setDailyBudget, setTodayBudget, onClose]);
+  }, [inputBudget, dailyBudgetAmount, setDailyBudget, scheduleNextDailyBudget, onClose]);
 
   return (
     <Modal
@@ -64,9 +84,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
         <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              {mode === 'recurring'
-                ? 'Set Default Daily Allowance'
-                : "Set Today's Budget"}
+              {dailyBudgetAmount > 0 ? 'Change Daily Budget' : 'Set Daily Budget'}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={10}>
               <X size={20} color={colors.textSecondary} />
@@ -74,9 +92,9 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
           </View>
 
           <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-            {mode === 'recurring'
-              ? 'Kitne rupaye roz kharch ke liye budget banana chahte hain?'
-              : "Sirf aaj ke liye kitna spending limit set karna chahte hain?"}
+            {dailyBudgetAmount > 0
+              ? 'New daily budget takes effect tomorrow at 12:00 AM. Today’s allowance remains active.'
+              : 'How much would you like to budget for daily spending?'}
           </Text>
 
           <View style={[styles.modalInputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>

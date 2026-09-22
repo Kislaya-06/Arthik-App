@@ -37,17 +37,17 @@ export interface UseSavingsDashboardReturn {
   onRefresh: () => Promise<void>;
 
   // Action handlers
-  handleTopUp100: () => void;
-  handleTopUp200: () => void;
   handleToggleAutoRenew: (val: boolean) => void;
+  scheduledNextDailyBudget: number | null;
+  cancelScheduledNextDailyBudget: () => void;
 
   // Modal coordination
   budgetModal: {
     visible: boolean;
-    mode: 'recurring' | 'today';
+    mode: 'recurring';
     initialAmount: number;
   };
-  openBudgetModal: (mode: 'recurring' | 'today') => void;
+  openBudgetModal: (mode?: 'recurring') => void;
   closeBudgetModal: () => void;
 }
 
@@ -61,7 +61,8 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
   const savingsStreak = useDailyBudgetStore((s) => s.savingsStreak);
   const bestStreak = useDailyBudgetStore((s) => s.bestStreak);
   const toggleAutoRenew = useDailyBudgetStore((s) => s.toggleAutoRenew);
-  const addToTodayBudget = useDailyBudgetStore((s) => s.addToTodayBudget);
+  const scheduledNextDailyBudget = useDailyBudgetStore((s) => s.scheduledNextDailyBudget);
+  const cancelScheduledNextDailyBudget = useDailyBudgetStore((s) => s.cancelScheduledNextDailyBudget);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
@@ -70,7 +71,7 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
   // Modal state
   const [budgetModal, setBudgetModal] = useState<{
     visible: boolean;
-    mode: 'recurring' | 'today';
+    mode: 'recurring';
     initialAmount: number;
   }>({
     visible: false,
@@ -134,35 +135,21 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
 
   // ─── Budget Modal Coordination ────────────────────────────────────────────
   const openBudgetModal = useCallback(
-    (mode: 'recurring' | 'today') => {
-      let initialAmount = 0;
-      if (mode === 'recurring') {
-        initialAmount = dailyBudgetAmount;
-      } else {
-        initialAmount =
-          todayMetrics.budget > 0
-            ? todayMetrics.budget
-            : dailyBudgetAmount > 0
-            ? dailyBudgetAmount
-            : 0;
-      }
+    (_mode?: 'recurring') => {
       setBudgetModal({
         visible: true,
-        mode,
-        initialAmount,
+        mode: 'recurring',
+        initialAmount: dailyBudgetAmount,
       });
     },
-    [dailyBudgetAmount, todayMetrics.budget]
+    [dailyBudgetAmount]
   );
 
   const closeBudgetModal = useCallback(() => {
     setBudgetModal((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  // ─── Top-Up & Auto-Renew Actions ──────────────────────────────────────────
-  const handleTopUp100 = useCallback(() => addToTodayBudget(100), [addToTodayBudget]);
-  const handleTopUp200 = useCallback(() => addToTodayBudget(200), [addToTodayBudget]);
-
+  // ─── Auto-Renew Actions ───────────────────────────────────────────────────
   const handleToggleAutoRenew = useCallback(
     (val: boolean) => {
       if (val && dailyBudgetAmount === 0) {
@@ -191,9 +178,9 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
     setActiveFilter,
     refreshing,
     onRefresh,
-    handleTopUp100,
-    handleTopUp200,
     handleToggleAutoRenew,
+    scheduledNextDailyBudget,
+    cancelScheduledNextDailyBudget,
     budgetModal,
     openBudgetModal,
     closeBudgetModal,

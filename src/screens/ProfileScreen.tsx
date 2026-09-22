@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon,
-  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck
+  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck, HelpCircle
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
@@ -47,14 +47,14 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     if (val && !isSupported && !isEnrolled) {
       Alert.alert(
         'Not Supported',
-        'Device me biometric ya screen lock (PIN/Pattern) setup nahi hai. Please pehle apne phone ki settings me screen lock enable karein.'
+        'Device lock (Biometric/PIN/Pattern) is not set up on this device. Please enable screen lock in your device settings.'
       );
       return;
     }
 
     const success = await setAppLockEnabled(val, user?.id);
     if (!success && val) {
-      Alert.alert('Authentication Failed', 'App lock verify karne me problem hui.');
+      Alert.alert('Authentication Failed', 'Could not verify app lock credentials.');
     }
   };
 
@@ -103,14 +103,14 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       if (!isOffline) {
         Alert.alert(
           'Unsynced Data',
-          `${pendingCount} entries abhi sync nahi hui hain. Logout karne par ye tab tak sync nahi hongi jab tak aap wapas login nahi karte.`,
+          `${pendingCount} entries have not synced yet. If you log out now, they will not sync until you log back in.`,
           [
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Sync Now',
               onPress: async () => {
                 await syncPendingExpenses();
-                Alert.alert('Synced', 'Aapka data sync ho gaya hai.', [
+                Alert.alert('Synced', 'Your data has been synced successfully.', [
                   { text: 'OK' }
                 ]);
               },
@@ -125,7 +125,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         Alert.alert(
           'Unsynced Data',
-          `${pendingCount} entries abhi sync nahi hui hain. Aap abhi offline hain. Logout karne par ye tab tak sync nahi hongi jab tak aap wapas login nahi karte.`,
+          `${pendingCount} entries have not synced yet and you are currently offline. If you log out now, they will not sync until you log back in.`,
           [
             { text: 'Cancel', style: 'cancel' },
             {
@@ -521,7 +521,21 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          {/* 5. App Version */}
+          {/* 5. FAQs & Help */}
+          <Pressable 
+            style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}
+            onPress={() => navigation.navigate('Faq')}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <HelpCircle size={18} color={colors.textPrimary} />
+            </View>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+              FAQs & Help
+            </Text>
+            <ChevronRight size={18} color={colors.textSecondary} />
+          </Pressable>
+
+          {/* 6. App Version */}
           <Pressable
             style={[styles.settingRow, styles.lastSettingRow]}
             onPress={() => useOtaStore.getState().showUpdateModal()}

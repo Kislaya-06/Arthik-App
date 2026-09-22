@@ -9,8 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.2.5] - 2026-09-23
+
+### 🚀 Added
+- **FAQ / Help Centre in Profile:** A searchable FAQ screen (accessible from the Profile tab) answers the most common questions about Daily Budget, Gullak, streaks, offline sync, categories, and account security — so users get instant answers without leaving the app.
+
 ### 🐛 Fixed
-- **Daily Allowance 0 Bug:** Setting daily allowance to ₹0 now correctly disables Daily Budget mode. Previously, entering 0 would show "Not Set" momentarily but revert to the old amount and re-enable budget mode on the next app refresh. Two root causes fixed: (1) `setDailyBudget(0)` now explicitly turns off `isAutoRenew` instead of preserving the previous state; (2) the self-healing recovery in `hydrateFromSupabase` no longer misidentifies an intentional `₹0` setting as a corrupted migration default and overwrites it with historical budget data.
+- **Daily Budget Hydration Stability:** Fixed a regression where `isAutoRenew` and `dailyBudgetAmount` would silently reset to `false` / `0` on app launch if Supabase profile data had not yet loaded. Settings now persist correctly across app restarts.
+- **Daily Allowance ₹0 Bug:** Setting daily allowance to ₹0 now correctly disables Daily Budget mode instead of reverting to the previous amount on the next app refresh.
+
+### 🎨 Improved
+- **Fully English UI Copy:** Translated all remaining Hinglish alert messages, button labels, confirmation dialogs, and status text to clear, professional English across Profile, Budget, Savings, and Category management screens.
 
 ### 🚀 Added
 - **Interactive Period Navigation & Elastic Insights Hero Card:** Tightened Insights hero card spacing by ~42px for a sleek, compact visual hierarchy. Added period navigation (Weekly, Monthly, Yearly) with dynamic data bounds derived from earliest user transactions (eliminating dead phantom dots), a left-to-right faded emergence opacity/scale progression for timeline dots, and a stretchy elastic rubber/chewing-gum stretch-and-snap sliding pill animation.
