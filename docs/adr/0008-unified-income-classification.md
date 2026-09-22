@@ -11,9 +11,9 @@ Previously, Arthik evaluated transaction direction using two separate implementa
 ## Decision
 We eliminated `getIncomeCategoryIds` and unified the entire application on the single, shared classification helper `isIncomeTransaction(item, category)` from `src/lib/paymentUtils.ts`:
 
-1. **Category Lookup in Budget Engine (`src/store/dailyBudgetStore.ts:22–32`)**:
+1. **Category Lookup in Budget Engine (`src/store/dailyBudgetStore.ts:38–48`)**:
    Extracted `buildCategoryClassifier()` inside `dailyBudgetStore.ts`. It builds an in-memory `Map<string, Category>` from `useCategoryStore.getState().categories` and constructs a pure predicate `(e: Expense) => boolean` delegating directly to `isIncomeTransaction(e, cat)`.
-2. **Startup Sequence Enforcement (`App.tsx:116–120`)**:
+2. **Startup Sequence Enforcement (`App.tsx:122–127`)**:
    In `App.tsx`, we sequenced boot initialization so `await fetchCategories(true)` completes before launching `Promise.all([fetchExpenses(), hydrateFromSupabase()])`. This guarantees categories are in memory before the budget engine evaluates expenses.
 3. **Purity in Budget Calculations (`src/lib/budgetCalculations.ts:204–242`)**:
    Pure calculation functions `computeSpentByDate` and `computeSpentForDate` accept `isIncomeFn: (e: Expense) => boolean` as an injected argument rather than reading store state directly.

@@ -21,6 +21,7 @@ Arthik is a personal finance, expense and daily-savings tracking app.
 | Fonts | Quicksand via `@expo-google-fonts/quicksand` |
 | Updates | `expo-updates` (EAS Update, OTA) |
 | Offline | `@react-native-community/netinfo` + AsyncStorage pending queues |
+| Tests | Vitest (`npm test` → `vitest run`, config: `vitest.config.mjs`) |
 
 Android is the only shipped platform today (package `com.kislaya_agarwal.arthik`). iOS config exists but is untested — do not claim iOS support.
 
@@ -33,30 +34,34 @@ Follow the existing architecture, patterns and conventions. This codebase is opi
 Know where things live before you grep blindly.
 
 ```
-App.tsx                 # fonts, theme boot, OTA update listener, network listener, deep links
+App.tsx                 # fonts, theme boot, OTA update listener, network listener, deep links, startup hydration sequence
 index.ts                # entry
 app.json                # expo config: version, runtimeVersion, updates URL, android perms, extra.*
 eas.json                # build profiles: development | preview | production
 schema.sql              # full Supabase DDL + RLS policies (source of truth for DB)
 CHANGELOG.md            # user-facing change log — keep it updated
+CONTEXT.md              # domain language glossary — update when adding new domain concepts
+tests/                  # Vitest unit tests (18 files, ~308 tests as of v1.2.4)
+vitest.config.mjs       # Vitest config: node env, __DEV__=true, RN/Expo module aliases
 src/
 ├── components/   BottomNavBar, CustomDatePickerModal, KeyButton, ErrorBoundary,
 │                 OfflineBanner, SyncFailedBanner, StreakCalendarModal, GoogleIcon, PiggyBankCoinIcon
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors)
 ├── hooks/        useScrollDirection.ts
-├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts,
-│                 notificationService.ts, authLinkHandler.ts
+├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts,
+│                 notificationService.ts, authLinkHandler.ts, budgetCalculations.ts,
+│                 amountKeypad.ts
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History, Insights,
 │                 Savings, ExpenseForm (add+edit), ExpenseDetail, CategoryDetail,
 │                 ManageCategories, AddEditCategory, Notifications, Profile, ResetPassword
 ├── store/        authStore, expenseStore, categoryStore, dailyBudgetStore,
-│                 notificationStore, networkStore, navBarStore, themeStore
+│                 notificationStore, networkStore, navBarStore, themeStore, appLockStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
 **Hot files** — heavy, high blast-radius, read fully before editing:
-`src/store/dailyBudgetStore.ts` (~1.1k lines), `src/store/expenseStore.ts` (~1.1k), `src/screens/ExpenseFormScreen.tsx` (~1.2k), `src/screens/SavingsScreen.tsx` (~1.3k), `src/screens/HomeScreen.tsx` (~1.1k).
+`src/store/dailyBudgetStore.ts` (~1137 lines), `src/store/expenseStore.ts` (~1124 lines), `src/screens/ExpenseFormScreen.tsx` (~1.2k lines), `src/screens/SavingsScreen.tsx` (~1.3k lines), `src/screens/HomeScreen.tsx` (~1.1k lines), `src/lib/budgetCalculations.ts` (~385 lines).
 
 ---
 
@@ -66,7 +71,15 @@ src/
 npm install                      # install
 npm run dev                      # adb reverse + expo start (dev client)
 npm run android                  # adb reverse + expo start --android
+npm test                         # vitest run — runs all tests in tests/**/*.test.ts
+npx vitest run --reporter=verbose  # same with per-test output
 npx tsc --noEmit                 # THE type check — covers both src/ and tests/ (via tsconfig.json) — run after every change
+```
+
+**Always run both checks before reporting done:**
+```bash
+npm test          # must show all tests passing
+npx tsc --noEmit  # must produce no output
 ```
 
 **Metro server rule:** Always run exactly **one** Metro server on **port 8081**. Before starting `expo start`, kill any existing Node process on port 8081 to avoid "multiple bundlers" conflicts. Use `--port 8081` explicitly:
@@ -81,9 +94,9 @@ adb reverse tcp:8081 tcp:8081; npx expo start --port 8081
 
 `npx tsc --noEmit` covers `tests/` as well as `src/` via `tsconfig.json`.
 
-There is **no ESLint, no Prettier, no test runner** in this repo. Do not invent `npm run lint` or `npm test` and do not claim you ran them. `npx tsc --noEmit` plus a manual trace is the check.
+There is **no ESLint, no Prettier** in this repo. Do not invent `npm run lint` and do not claim you ran it.
 
-Do not add a test framework, linter or formatter unless explicitly asked.
+Do not add a linter or formatter unless explicitly asked. Vitest is already installed — do not replace it or add Jest.
 
 ---
 
@@ -93,7 +106,7 @@ When touching Expo/React Native APIs, native modules, `app.json`, plugins or bui
 
 For pure UI, styling, text or app-level logic changes, skipping the docs is fine.
 
-Installed Expo modules: `expo-auth-session`, `expo-constants`, `expo-crypto`, `expo-dev-client`, `expo-font`, `expo-linking`, `expo-notifications`, `expo-status-bar`, `expo-updates`, `expo-web-browser`.
+Installed Expo modules: `expo-auth-session`, `expo-constants`, `expo-crypto`, `expo-dev-client`, `expo-font`, `expo-linking`, `expo-local-authentication`, `expo-notifications`, `expo-status-bar`, `expo-updates`, `expo-web-browser`.
 
 ---
 
@@ -122,7 +135,7 @@ The smallest change in the wrong place isn't lazy, it's a second bug.
 - Do not introduce a new state management pattern without explicit approval.
 - Do not duplicate existing business logic.
 - Keep UI, business logic and data access separated the way the project already does it: screens render + call store actions; stores own Supabase calls, AsyncStorage and derived state; `lib/` holds pure helpers.
-- Cross-store wiring in this repo is done through explicit registration callbacks (`registerSyncCallback`, `registerExpenseGetter`, `registerStoreResetCallback`). Follow that pattern instead of importing stores in circles.
+- Cross-store wiring in this repo is done through explicit registration callbacks (`registerSyncCallback`, `registerExpenseGetter`, `registerExpensesLoadedGetter`, `registerStoreResetCallback`, `registerCategoryDeleteCallback`). Follow that pattern instead of importing stores in circles.
 
 ## 6.2 Dependencies
 
@@ -150,8 +163,9 @@ This is the most fragile part of the app. Treat it as load-bearing.
 - Optimistic rows are marked `pending: true`. Any new UI that lists expenses must handle the pending state and not treat a local id as a server id.
 - `networkStore` owns connectivity + banner state and calls the registered sync callback on reconnect. `OfflineBanner` and `SyncFailedBanner` are the only UI for this — reuse them.
 - If you change the shape of a queued item, you must handle items already sitting in storage from an older app version. Migrate or defensively parse; never crash on an old payload.
-- Never silently drop a queued item. A failed sync goes to the failed list where the user can retry or discard.
+- Never silently drop a queued item. A failed sync goes to the failed list where the user can retry or discard. Retry uses exponential backoff: `[2s, 5s, 15s, 30s, 60s]`, max 5 attempts (`MAX_SYNC_RETRIES`).
 - On sign-out, every store must reset (`resetCategories`, `resetExpenses`, budget/notification state). Adding a new store with user data means adding it to the reset path — otherwise the next account sees the previous user's data.
+- The startup hydration order is fixed: `loadPendingExpenses` → `fetchCategories` → (`fetchExpenses` + `hydrateFromSupabase`) in parallel. Categories must be in memory before `hydrateFromSupabase` runs `checkAndRollover`, or income classification will misclassify transactions.
 
 ---
 
@@ -410,15 +424,14 @@ Lazy code without its check is unfinished.
 
 Before reporting done:
 
-1. `npx tsc --noEmit` passes — no new type errors, no broken imports.
-2. Re-read the modified files top to bottom.
-3. Manually verify the affected screen where possible, in **both themes**.
-4. For anything touching data: check online **and** offline paths, and the empty/zero state.
-5. Confirm unrelated features were not changed.
-6. State plainly what was tested and what could not be tested (native builds, real-device behaviour, Supabase writes).
-7. Flag if the change needs a new APK rather than an OTA (section 11.2).
-
-Non-trivial logic leaves ONE runnable check behind — the smallest thing that fails if the logic breaks (an assert-based self-check or one small file). No frameworks, no fixtures. Trivial one-liners need no test.
+1. `npm test` passes — no failing tests, no new test regressions.
+2. `npx tsc --noEmit` passes — no new type errors, no broken imports.
+3. Re-read the modified files top to bottom.
+4. Manually verify the affected screen where possible, in **both themes**.
+5. For anything touching data: check online **and** offline paths, and the empty/zero state.
+6. Confirm unrelated features were not changed.
+7. State plainly what was tested and what could not be tested (native builds, real-device behaviour, Supabase writes).
+8. Flag if the change needs a new APK rather than an OTA (section 11.2).
 
 ---
 
@@ -441,6 +454,88 @@ Non-trivial logic leaves ONE runnable check behind — the smallest thing that f
 # 20. Scope of This File
 
 This file applies to every agent working in this repository, including work on the agent tooling and on this file itself.
+
+---
+
+# 21. Test Coverage Rules
+
+This repo uses **Vitest** (`npm test`). Tests live in `tests/` and follow the pattern `tests/<subject>.test.ts`.
+
+## 21.1 What always requires a test
+
+Write a test file whenever you add or change:
+
+| What changed | Why a test is needed |
+| --- | --- |
+| A new `lib/` pure helper (formatter, classifier, calculator) | Pure functions are trivially testable; no excuse to skip |
+| New store action with offline/online branching | Offline-first paths are the highest blast-radius and hardest to verify manually |
+| New or changed sync queue behavior (add/update/delete/retry) | Queue correctness is invisible from the UI |
+| User isolation logic (per-user keys, sign-out reset) | Cross-account data leaks are catastrophic and silent |
+| Income/expense classification rule changes | Any change here ripples into budget, streak, and Gullak calculations |
+| Budget calculation changes (rollover, streak, status) | Financial math must not regress silently |
+| Auth deep link / session token handling | Security boundary — every edge case matters |
+| Multi-user guard (hydration guard, `isHydrated` check) | Rollover running before hydration corrupts data |
+
+## 21.2 What does NOT need a test
+
+- Pure UI layout, colors, spacing, or animation changes.
+- Navigation wiring (screen registration, param types).
+- One-liners that are self-evidently correct (a guard that returns early if `null`).
+- Anything that requires a real device, native biometric, or live Supabase call — note it in your "what I could not test" report instead.
+
+## 21.3 How to write a test in this repo
+
+### Setup pattern (for store tests)
+```typescript
+// 1. Mock AsyncStorage with an in-memory map
+const storageMap = new Map<string, string>();
+vi.mock('@react-native-async-storage/async-storage', () => ({ default: { ... } }));
+
+// 2. Mock Supabase (vi.mock before imports)
+vi.mock('../src/config/supabase', () => ({ supabase: { from: vi.fn(...) } }));
+
+// 3. Mock cross-store dependencies
+vi.mock('../src/store/authStore', () => ({
+  useAuthStore: { getState: vi.fn(() => ({ user: { id: 'test-user' } })) },
+  registerStoreResetCallback: vi.fn(),
+}));
+
+// 4. Reset state in beforeEach — never share mutable state across tests
+beforeEach(() => {
+  storageMap.clear();
+  vi.clearAllMocks();
+  useMyStore.getState().reset();
+});
+```
+
+### Test file naming
+- `tests/<storeName>.test.ts` for stores (e.g. `expenseStore.test.ts`)
+- `tests/<libFile>.test.ts` for lib helpers (e.g. `formatters.test.ts`)
+- Group with `describe('storeName (Seam: useStoreName)')` and `describe('Slice N: What this slice tests')`
+
+### Testability seam pattern
+If a store action calls Supabase directly and you need to inject state, add a `_set<Noun>` escape hatch:
+```typescript
+// In the store (minimal addition)
+_setExpenses: (expenses: Expense[]) => set({ expenses }),
+```
+Use it only in tests — it is not part of the public store interface.
+
+### Key mocks already available (see existing test files for reference)
+- `@react-native-async-storage/async-storage` → in-memory `Map`
+- `expo-crypto` → deterministic UUID counter
+- `../src/config/supabase` → chainable mock builder
+- `../src/store/authStore` → fixed `user.id`
+- `../src/store/networkStore` → mutable `mockIsOffline` flag
+- `react-native` → `Alert`, `Platform`, `AppState`, `Appearance`
+- `expo-local-authentication` → `hasHardwareAsync`, `isEnrolledAsync`, `authenticateAsync`
+
+## 21.4 Maintaining existing tests
+
+- When you change a store action signature, update the corresponding test file in the same commit.
+- When you fix a bug, add or update a test that would have caught it.
+- When you add a new queue key or change queue item shape, add a test that reads and writes from that key.
+- Do not delete passing tests unless the feature they test is also being deleted.
 
 ---
 
