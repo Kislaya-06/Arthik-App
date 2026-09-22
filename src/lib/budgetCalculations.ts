@@ -185,7 +185,7 @@ export const evaluateDayStatus = (
     };
   }
 
-  // 100% of unspent budget (including top-ups) rolls over into Gullak
+  // Unspent daily budget rolls over into Gullak
   const saved = Math.max(0, round2(budget - spent));
   const status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
   return { saved, status };

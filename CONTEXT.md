@@ -42,9 +42,9 @@ The user's persistent profile baseline allowance automatically applied to each n
 - *_Avoid_*: Baseline Budget, Base Allowance, Daily Cap, Spending Ceiling
 
 **Day's Allowance (Date Budget)**:
-The specific spending limit allocated for a single calendar date (`yyyy-MM-dd`), which defaults to the Recurring Allowance but can be customized or topped up for that day without altering the user's profile baseline.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.budget`, `setTodayBudget`, `addToTodayBudget`)
-- *_Avoid_*: Daily Quota, Profile Budget
+The specific spending limit allocated for a single calendar date (`yyyy-MM-dd`), which defaults to the Recurring Allowance. To maintain financial discipline, edits to the daily budget take effect starting the next day at 12:00 AM without altering today's active allowance.
+- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.budget`, `scheduleNextDailyBudget`, `scheduledNextDailyBudget`)
+- *_Avoid_*: Daily Quota, Profile Budget, Top-up
 
 **Today's Spent**:
 The sum of all non-income transactions logged for the current local date.

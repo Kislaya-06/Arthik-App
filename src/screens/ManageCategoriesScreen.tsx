@@ -79,7 +79,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
               await deleteCategory(categoryId);
               await fetchCategories();
             } catch (e: any) {
-              Alert.alert('Error', e?.message || 'Category delete nahi ho saki. Please try again.');
+              Alert.alert('Error', e?.message || 'Could not delete category. Please try again.');
             } finally {
               setIsDeleting(false);
             }

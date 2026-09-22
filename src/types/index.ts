@@ -14,6 +14,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Savings: undefined;
   ResetPassword: { initialError?: string } | undefined;
+  Faq: undefined;
 };
 
 export type TabParamList = {

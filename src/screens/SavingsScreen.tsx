@@ -18,8 +18,9 @@ import {
   Calendar,
   Sparkles,
   Settings,
-  SquarePen,
   Plus,
+  Clock,
+  X,
 } from 'lucide-react-native';
 import { format } from 'date-fns';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
@@ -57,9 +58,9 @@ export const SavingsScreen: React.FC = () => {
     setActiveFilter,
     refreshing,
     onRefresh,
-    handleTopUp100,
-    handleTopUp200,
     handleToggleAutoRenew,
+    scheduledNextDailyBudget,
+    cancelScheduledNextDailyBudget,
     budgetModal,
     openBudgetModal,
     closeBudgetModal,
@@ -462,43 +463,6 @@ export const SavingsScreen: React.FC = () => {
               ? `✨ Save ${formatCurrency(todaySaved)} if unspent today`
               : 'Set a daily budget to start saving in Gullak'}
           </Text>
-
-          {/* Balanced 3-Tile Action Row */}
-          <View style={[styles.topUpRow, { borderTopColor: colors.borderSubtle }]}>
-            <TouchableOpacity
-              style={[
-                styles.topUpBtn,
-                { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle },
-              ]}
-              onPress={handleTopUp100}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.topUpBtnText, { color: colors.textPrimary }]}>+₹100</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.topUpBtn,
-                { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle },
-              ]}
-              onPress={handleTopUp200}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.topUpBtnText, { color: colors.textPrimary }]}>+₹200</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.topUpBtn,
-                { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle },
-              ]}
-              onPress={() => openBudgetModal('today')}
-              activeOpacity={0.7}
-            >
-              <SquarePen size={12} color={colors.textSecondary} style={{ marginRight: Spacing.micro }} />
-              <Text style={[styles.topUpBtnText, { color: colors.textPrimary }]}>Edit</Text>
-            </TouchableOpacity>
-          </View>
         </Animated.View>
         )}
 
@@ -536,7 +500,7 @@ export const SavingsScreen: React.FC = () => {
                 ' is added automatically. Whatever you do not spend rolls over into your Daily Savings Gullak.'
               : isAutoRenew
               ? 'Auto-Add is ON: Set your default allowance below to start automatic daily budgeting.'
-              : 'Manual Mode: Auto-add is turned off. You can set or top-up your budget manually for each day whenever you want.'}
+              : 'Manual Mode: Auto-add is turned off. You can set your daily budget manually.'}
           </Text>
 
           <TouchableOpacity
@@ -575,6 +539,36 @@ export const SavingsScreen: React.FC = () => {
               </Text>
             </View>
           </TouchableOpacity>
+
+          {/* Scheduled Tomorrow Budget Banner */}
+          {scheduledNextDailyBudget !== null && scheduledNextDailyBudget > 0 && (
+            <View style={[styles.scheduledBanner, { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }]}>
+              <Clock size={16} color={colors.mintGreenDark} style={{ marginRight: Spacing.element }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.scheduledBannerTitle, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
+                  Tomorrow's Budget Scheduled
+                </Text>
+                <Text style={[styles.scheduledBannerSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                  {formatCurrency(scheduledNextDailyBudget)} will take effect at 12:00 AM
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Scheduled Budget',
+                    'Are you sure you want to cancel the scheduled budget change for tomorrow?',
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { text: 'Yes, Cancel', style: 'destructive', onPress: cancelScheduledNextDailyBudget },
+                    ]
+                  );
+                }}
+                hitSlop={8}
+              >
+                <X size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* ── Day-by-Day Savings History ── */}
@@ -890,29 +884,23 @@ const styles = StyleSheet.create({
   progressHint: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginBottom: 14,
   },
 
-  // Top Up Row
-  topUpRow: {
+  // Scheduled Banner
+  scheduledBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopWidth: 1,
-    paddingTop: Spacing.group,
-    gap: Spacing.element,
-  },
-  topUpBtn: {
-    flex: 1,
-    height: 34,
+    padding: Spacing.element,
     borderRadius: 14,
     borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: Spacing.element,
   },
-  topUpBtnText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
+  scheduledBannerTitle: {
+    fontSize: FontSize.bodySmall,
+  },
+  scheduledBannerSubtitle: {
+    fontSize: 11,
+    marginTop: 1,
   },
 
   // Settings Card

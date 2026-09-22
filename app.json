@@ -3,7 +3,7 @@
     "name": "Arthik",
     "slug": "arthik",
     "scheme": "arthik",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -53,13 +53,13 @@
         "projectId": "5760997d-33b7-48b5-995a-aedb1e29f1e2"
       },
       "otaUpdate": {
-        "version": "1.2.4",
-        "title": "Insights & Navigation Update ✨",
+        "version": "1.2.5",
+        "title": "Help Centre & Stability Update 📚",
         "highlights": [
-          "Insights hero card tightened with balanced, compact spacing",
-          "Stretchy elastic pill animation on period navigation dots",
-          "Data-driven period navigation with zero phantom dots",
-          "Left-to-right faded emergence effect on timeline dots"
+          "New FAQ / Help Centre in Profile — instant answers to common questions",
+          "Daily Budget settings now persist correctly across app restarts",
+          "Fixed Daily Allowance ₹0 bug — disabling now works reliably",
+          "All UI text polished to clear, professional English"
         ]
       }
     }

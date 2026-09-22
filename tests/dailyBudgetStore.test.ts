@@ -233,25 +233,14 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
     });
   });
 
-  describe('Slice 3: Custom Today Allowance (setTodayBudget & addToTodayBudget)', () => {
-    it('updates today budget without changing profile dailyBudgetAmount', () => {
+  describe('Slice 3: Next-Day Budget Scheduling (scheduleNextDailyBudget)', () => {
+    it('schedules next day budget without modifying today budget or baseline', () => {
       useDailyBudgetStore.setState({
         hydratedForUserId: 'user_budget_test_1',
         dailyBudgetAmount: 500,
         isAutoRenew: true,
-      });
-
-      useDailyBudgetStore.getState().setTodayBudget(800);
-
-      const state = useDailyBudgetStore.getState();
-      expect(state.dailyBudgetAmount).toBe(500); // Baseline unchanged
-      expect(state.dailyRecords[todayStr].budget).toBe(800);
-    });
-
-    it('adds delta to today budget', () => {
-      useDailyBudgetStore.setState({
-        hydratedForUserId: 'user_budget_test_1',
-        dailyBudgetAmount: 500,
+        scheduledNextDailyBudget: null,
+        scheduledBudgetSetDate: null,
         dailyRecords: {
           [todayStr]: {
             date: todayStr,
@@ -264,10 +253,42 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
         },
       });
 
-      useDailyBudgetStore.getState().addToTodayBudget(250);
+      useDailyBudgetStore.getState().scheduleNextDailyBudget(800);
 
       const state = useDailyBudgetStore.getState();
-      expect(state.dailyRecords[todayStr].budget).toBe(750);
+      expect(state.dailyBudgetAmount).toBe(500); // Today's baseline untouched
+      expect(state.dailyRecords[todayStr].budget).toBe(500); // Today's budget untouched
+      expect(state.scheduledNextDailyBudget).toBe(800);
+      expect(state.scheduledBudgetSetDate).toBe(todayStr);
+    });
+
+    it('cancels scheduled next day budget', () => {
+      useDailyBudgetStore.setState({
+        scheduledNextDailyBudget: 800,
+        scheduledBudgetSetDate: todayStr,
+      });
+
+      useDailyBudgetStore.getState().cancelScheduledNextDailyBudget();
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.scheduledNextDailyBudget).toBeNull();
+      expect(state.scheduledBudgetSetDate).toBeNull();
+    });
+
+    it('applies scheduled budget on rollover when date transitions to next day', () => {
+      useDailyBudgetStore.setState({
+        hydratedForUserId: 'user_budget_test_1',
+        dailyBudgetAmount: 500,
+        scheduledNextDailyBudget: 800,
+        scheduledBudgetSetDate: yesterdayStr, // scheduled on yesterday
+      });
+
+      useDailyBudgetStore.getState().checkAndRollover([], true);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.dailyBudgetAmount).toBe(800);
+      expect(state.scheduledNextDailyBudget).toBeNull();
+      expect(state.scheduledBudgetSetDate).toBeNull();
     });
   });
 

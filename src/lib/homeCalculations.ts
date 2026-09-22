@@ -130,7 +130,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   let periodBudget = 0;
   periodDates.forEach((d) => {
     if (d === todayStr) {
-      // Today: include today's allowance + any top-up added (+₹100, +₹200, Edit)
+      // Today: include today's allowance
       periodBudget += todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
     } else if (dailyRecords[d]) {
       if (dailyRecords[d].status !== 'unknown') {

@@ -79,7 +79,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
 
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Category save nahi ho saki. Please dobara try karein.');
+      Alert.alert('Error', e?.message || 'Could not save category. Please try again.');
     } finally {
       setIsSaving(false);
     }

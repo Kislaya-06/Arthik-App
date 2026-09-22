@@ -158,11 +158,15 @@ interface DailyBudgetState {
   lastExceededNotifiedDate: string | null;
   lastRolloverNotifiedDate: string | null;
 
+  // Next-day scheduled budget
+  scheduledNextDailyBudget: number | null;
+  scheduledBudgetSetDate: string | null;
+
   // Actions
   setDailyBudget: (amount: number) => void;
+  scheduleNextDailyBudget: (amount: number) => void;
+  cancelScheduledNextDailyBudget: () => void;
   toggleAutoRenew: (enabled: boolean) => void;
-  setTodayBudget: (amount: number) => void;
-  addToTodayBudget: (amount: number) => void;
   addGullakDeposit: (amount: number, note?: string) => void;
   removeGullakDeposit: (id: string) => void;
   syncWithExpenses: (expenses: Expense[]) => void;
@@ -191,6 +195,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       lastWarningNotifiedDate: null,
       lastExceededNotifiedDate: null,
       lastRolloverNotifiedDate: null,
+      scheduledNextDailyBudget: null,
+      scheduledBudgetSetDate: null,
 
       getTodayRecord: () => {
         const todayStr = getTodayDateStr();
@@ -329,53 +335,20 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
       },
 
-      setTodayBudget: (amount: number) => {
+      scheduleNextDailyBudget: (amount: number) => {
         const cleanAmount = Math.max(0, round2(amount));
         const todayStr = getTodayDateStr();
-        const records = { ...get().dailyRecords };
-        const existing = records[todayStr] || buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
-        const spent = existing.spent || 0;
-
-        const baseDaily = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
-        const { saved } = evaluateDayStatus(cleanAmount, spent, baseDaily);
-
-        records[todayStr] = {
-          ...existing,
-          date: todayStr,
-          budget: cleanAmount,
-          spent,
-          saved,
-          status: spent > cleanAmount && cleanAmount > 0 ? 'exceeded' : 'active',
-        };
-
-        const metrics = computeMetrics(records, get().gullakDeposits);
-        set({ dailyRecords: records, ...metrics });
+        set({
+          scheduledNextDailyBudget: cleanAmount > 0 ? cleanAmount : null,
+          scheduledBudgetSetDate: cleanAmount > 0 ? todayStr : null,
+        });
       },
 
-      addToTodayBudget: (extraAmount: number) => {
-        const cleanExtra = Math.max(0, round2(extraAmount));
-        if (cleanExtra <= 0) return;
-
-        const todayStr = getTodayDateStr();
-        const records = { ...get().dailyRecords };
-        const existing = records[todayStr] || buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
-
-        const newBudget = existing.budget + cleanExtra;
-        const spent = existing.spent || 0;
-        const baseDaily = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
-        const { saved } = evaluateDayStatus(newBudget, spent, baseDaily);
-
-        records[todayStr] = {
-          ...existing,
-          date: todayStr,
-          budget: newBudget,
-          spent,
-          saved,
-          status: spent > newBudget && newBudget > 0 ? 'exceeded' : 'active',
-        };
-
-        const metrics = computeMetrics(records, get().gullakDeposits);
-        set({ dailyRecords: records, ...metrics });
+      cancelScheduledNextDailyBudget: () => {
+        set({
+          scheduledNextDailyBudget: null,
+          scheduledBudgetSetDate: null,
+        });
       },
 
       addGullakDeposit: (amount: number, note?: string) => {
@@ -544,6 +517,25 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
         let updated = false;
+
+        // Apply scheduled next-day daily budget if date has advanced past scheduled day
+        const scheduled = get().scheduledNextDailyBudget;
+        const scheduledDate = get().scheduledBudgetSetDate;
+        if (scheduled && scheduledDate && todayStr > scheduledDate) {
+          get().setDailyBudget(scheduled);
+          set({ scheduledNextDailyBudget: null, scheduledBudgetSetDate: null });
+
+          const title = '✨ Daily Budget Updated!';
+          const body = `Your new daily budget of ${formatCurrency(scheduled)} is now active.`;
+          useNotificationStore.getState().addNotification({
+            id: `scheduled_budget_${todayStr}`,
+            title,
+            message: body,
+            type: 'budget_warning',
+            data: { date: todayStr, amount: scheduled },
+          });
+          triggerDeviceNotification(title, body, { type: 'budget_warning', screen: 'Savings', date: todayStr });
+        }
 
         const isIncomeFn = buildCategoryClassifier();
 
@@ -859,18 +851,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             } else {
               resolvedBudget = remoteBudget;
             }
-          } else {
-            // New user without daily_budget: default to 0 (disabled)
-            resolvedBudget = 0;
           }
 
           if (pendingSettings.is_auto_renew !== undefined) {
             resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
           } else if (profileData && profileData.is_auto_renew !== null && profileData.is_auto_renew !== undefined) {
             resolvedAutoRenew = Boolean(profileData.is_auto_renew);
-          } else {
-            // New user without is_auto_renew: default to false (disabled)
-            resolvedAutoRenew = false;
+          } else if (resolvedBudget > 0) {
+            resolvedAutoRenew = true;
           }
 
           // 2. Fetch past daily savings logs from Supabase
@@ -949,6 +937,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               wasRepairedFromHistory = true;
               supabase.from('profiles').update({ daily_budget: resolvedBudget, is_auto_renew: true }).eq('id', userId).then(() => {});
             }
+          }
+
+          // If remote was 500 and no non-500 candidate was found, restore 500
+          if (remoteBudgetWasMigrationDefault && resolvedBudget === 0) {
+            resolvedBudget = 500;
+          }
+          if (resolvedBudget > 0 && profileData?.is_auto_renew !== false && !pendingSettings.is_auto_renew) {
+            resolvedAutoRenew = true;
           }
 
           if (logsData && logsData.length > 0) {
@@ -1120,6 +1116,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           lastWarningNotifiedDate: null,
           lastExceededNotifiedDate: null,
           lastRolloverNotifiedDate: null,
+          scheduledNextDailyBudget: null,
+          scheduledBudgetSetDate: null,
         });
         AsyncStorage.removeItem('arthik-daily-budget-storage-v2').catch(() => {});
       },
