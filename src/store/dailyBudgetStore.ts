@@ -220,7 +220,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const cleanAmount = Math.max(0, round2(amount));
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
-        const willAutoRenew = cleanAmount > 0 ? true : get().isAutoRenew;
+        const willAutoRenew = cleanAmount > 0 ? true : false;
 
         if (willAutoRenew) {
           const existing = records[todayStr];
@@ -841,6 +841,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
           let resolvedBudget = get().dailyBudgetAmount;
           let resolvedAutoRenew = get().isAutoRenew;
+          // Track whether Supabase returned the migration-default 500 so self-healing can fire
+          // even on fresh installs where local state is already 0 (and resolvedBudget gets set to 0).
+          let remoteBudgetWasMigrationDefault = false;
 
           if (pendingSettings.daily_budget !== undefined) {
             resolvedBudget = pendingSettings.daily_budget;
@@ -850,6 +853,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             // In both cases the self-healing recovery block below will infer the real budget from savings logs,
             // so we defer — leave resolvedBudget as whatever local already has and let recovery overwrite if needed.
             if (remoteBudget === 500) {
+              remoteBudgetWasMigrationDefault = true;
               // Keep local value for now; self-healing block below will fix it from savings log history
               resolvedBudget = get().dailyBudgetAmount; // may be 0 on fresh install — overwritten by recovery
             } else {
@@ -891,9 +895,11 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
 
           let wasRepairedFromHistory = false;
-          // Trigger recovery if budget looks wrong: either 500 (migration default) or 0 on fresh install
-          // when the user actually has historical savings logs (meaning they did set a real budget before)
-          const budgetLooksWrong = resolvedBudget === 500 || (resolvedBudget === 0 && (logsData?.length ?? 0) > 0);
+          // Trigger recovery only when Supabase returned the migration-default 500.
+          // This covers both the live case (resolvedBudget===500 via pendingSettings) and the
+          // fresh-install case (remote=500 deferred to local=0 above). Intentional 0 set by
+          // the user is never treated as "wrong" — remoteBudgetWasMigrationDefault stays false.
+          const budgetLooksWrong = remoteBudgetWasMigrationDefault || resolvedBudget === 500;
           if (budgetLooksWrong && logsData && logsData.length > 0) {
             const budgetCandidates: Record<number, number> = {};
             for (let i = 0; i < logsData.length; i++) {

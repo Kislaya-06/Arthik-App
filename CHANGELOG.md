@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Fixed
+- **Daily Allowance 0 Bug:** Setting daily allowance to ₹0 now correctly disables Daily Budget mode. Previously, entering 0 would show "Not Set" momentarily but revert to the old amount and re-enable budget mode on the next app refresh. Two root causes fixed: (1) `setDailyBudget(0)` now explicitly turns off `isAutoRenew` instead of preserving the previous state; (2) the self-healing recovery in `hydrateFromSupabase` no longer misidentifies an intentional `₹0` setting as a corrupted migration default and overwrites it with historical budget data.
+
 ### 🚀 Added
 - **Interactive Period Navigation & Elastic Insights Hero Card:** Tightened Insights hero card spacing by ~42px for a sleek, compact visual hierarchy. Added period navigation (Weekly, Monthly, Yearly) with dynamic data bounds derived from earliest user transactions (eliminating dead phantom dots), a left-to-right faded emergence opacity/scale progression for timeline dots, and a stretchy elastic rubber/chewing-gum stretch-and-snap sliding pill animation.
 - **In-Keypad Calculator & Arithmetic Evaluator:** Added math operators (`+`, `−`, `×`, `÷`) directly to the numeric keypad on the Add/Edit Transaction screen. Supports live order-of-operations evaluation, real-time expression preview, zero-division protection with active validation, automatic calculation breakdown notes, and an optimized 4-column keypad layout.
