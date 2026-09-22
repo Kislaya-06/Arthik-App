@@ -5,6 +5,7 @@ import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useDailyBudgetStore, registerExpenseGetter, registerExpensesLoadedGetter } from './dailyBudgetStore';
 import { useNetworkStore, registerSyncCallback } from './networkStore';
+import { registerCategoryDeleteCallback } from './categoryStore';
 
 export interface Expense {
   id: string;
@@ -1086,6 +1087,12 @@ registerStoreResetCallback(() => {
 
 registerExpenseGetter(() => useExpenseStore.getState().expenses);
 registerExpensesLoadedGetter(() => useExpenseStore.getState().isExpensesLoaded);
+
+registerCategoryDeleteCallback((deletedCategoryId: string) => {
+  useExpenseStore.setState((s) => ({
+    expenses: s.expenses.map((e) => (e.category_id === deletedCategoryId ? { ...e, category_id: null } : e)),
+  }));
+});
 
 export const getPendingSyncCount = async (userId: string): Promise<number> => {
   try {
