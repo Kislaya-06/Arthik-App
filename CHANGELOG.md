@@ -9,9 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
----
+### 🚀 Added
+- **Dual-Source Gullak Deposits ("From Income" vs "Add New Money"):** Users can now choose their deposit source when adding funds to Gullak:
+  - *From Income:* Capped by available tracked income (`totalTrackedIncome - incomeDeposits`). Increases Gullak savings without inflating period available balances (avoiding double-counting).
+  - *Add New Money (External):* Records external money, increasing both Gullak savings and period available balance (`totalAvailable`) across Daily, Weekly, Monthly, and All views for both daily allowance users and users without daily allowance.
+- **Custom In-App Numeric Keypad in Deposit Modal:** Replaced the system keyboard with Arthik's custom spring-animated numeric keypad (`KeyButton`), live expression evaluator, and quick amount preset chips (`+₹100`, `+₹500`, `+₹1k`, `+₹2k`, `Max`).
+- **Ergonomic Modal Sheet Positioning:** Anchored the deposit sheet closer to the top with safe area insets for comfortable one-handed reach.
+- **Gullak Deposit History & Detail Screen:** Gullak deposits now appear interleaved in Recent Transactions and History with distinct source badges. Tapping any deposit opens `GullakDepositDetailScreen` with deposit metadata and a safe removal button that restores available income on deletion.
 
-## [Unreleased]
 
 ### 🚀 Added
 - **FAQ / Help Centre in Profile:** A searchable FAQ screen (accessible from the Profile tab) answers the most common questions about Daily Budget, Gullak, streaks, offline sync, categories, and account security — so users get instant answers without leaving the app.

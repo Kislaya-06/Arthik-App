@@ -20,12 +20,36 @@
 import { format, parseISO, startOfWeek, startOfMonth, eachDayOfInterval } from 'date-fns';
 import { formatCurrency, round2 } from './formatters';
 import { DailyRecord } from './budgetCalculations';
+import { isDateInPeriod, FilterPeriod } from './dateFilters';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
 
 export interface ExpenseDateItem {
   expense_date?: string;
 }
+
+export interface DepositDateItem {
+  date: string;
+  amount: number;
+  source?: 'income' | 'external';
+}
+
+export const getExternalDepositsInPeriod = (
+  deposits: DepositDateItem[],
+  filter: HomeFilter,
+  referenceDate: Date,
+  userCreatedAtStr?: string
+): number => {
+  const period: FilterPeriod = filter === 'All' ? 'all' : (filter === 'Daily' ? 'day' : (filter === 'Weekly' ? 'week' : 'month'));
+  let sum = 0;
+  for (let i = 0; i < deposits.length; i++) {
+    const dep = deposits[i];
+    if (dep.source === 'external' && isDateInPeriod(dep.date, period, referenceDate, userCreatedAtStr)) {
+      sum += Number(dep.amount) || 0;
+    }
+  }
+  return round2(sum);
+};
 
 export interface PeriodCalculationParams {
   activeFilter: HomeFilter;
@@ -38,6 +62,7 @@ export interface PeriodCalculationParams {
   filtered: ExpenseDateItem[];
   userCreatedAtStr?: string;
   referenceDate: Date;
+  externalDepositsInPeriod?: number;
 }
 
 export interface PeriodSummary {
@@ -73,6 +98,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     filtered,
     userCreatedAtStr,
     referenceDate,
+    externalDepositsInPeriod = 0,
   } = params;
 
   const isBudgetConfigured = isAutoRenew && dailyBudgetAmount > 0;
@@ -147,7 +173,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   const spent = round2(totalSpent);
 
   const budgetPool = round2(activeFilter === 'Daily' ? activeDailyBudget : periodBudget);
-  const available = round2(budgetPool + income);
+  const available = round2(budgetPool + income + externalDepositsInPeriod);
   const isOver = spent > available && available > 0;
   const remaining = round2(Math.max(0, available - spent));
   const overAmount = round2(isOver ? spent - available : 0);
@@ -158,7 +184,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   let label: string;
   let subtext: string | null = null;
 
-  if (!isBudgetConfigured && income === 0) {
+  if (!isBudgetConfigured && income === 0 && externalDepositsInPeriod === 0) {
     label = activeFilter === 'Daily' ? 'Spent Today' : `${prefix} Spent`;
   } else if (isOver) {
     label = `${prefix} Budget Exceeded`;
@@ -167,16 +193,26 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     label = activeFilter === 'Daily' ? 'Remaining to Spend' : `${prefix} Remaining`;
     if (isBudgetConfigured && budgetPool > 0) {
       const daysSuffix = isPeriodFilter ? ` (${daysCount} ${daysCount === 1 ? 'day' : 'days'})` : '';
-      if (income > 0) {
-        subtext = `${formatCurrency(budgetPool)} budget${daysSuffix} + ${formatCurrency(income)} income`;
+      const parts: string[] = [];
+      parts.push(`${formatCurrency(budgetPool)} budget${daysSuffix}`);
+      if (income > 0) parts.push(`${formatCurrency(income)} income`);
+      if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(externalDepositsInPeriod)} deposits`);
+      if (parts.length > 1) {
+        subtext = parts.join(' + ');
       } else {
         const poolDesc = activeFilter === 'Daily' ? 'daily allowance' : (activeFilter === 'All' ? 'total budget' : `budget${daysSuffix}`);
         subtext = `of ${formatCurrency(budgetPool)} ${poolDesc}`;
       }
+    } else if (externalDepositsInPeriod > 0) {
+      if (income > 0) {
+        subtext = `${formatCurrency(income)} income + ${formatCurrency(externalDepositsInPeriod)} deposits`;
+      } else {
+        subtext = `${formatCurrency(externalDepositsInPeriod)} external deposits`;
+      }
     }
   }
 
-  const primaryAmount = round2((!isBudgetConfigured && income === 0) ? spent : (isOver ? overAmount : remaining));
+  const primaryAmount = round2((!isBudgetConfigured && income === 0 && externalDepositsInPeriod === 0) ? spent : (isOver ? overAmount : remaining));
 
   return {
     primaryAmount,

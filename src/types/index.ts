@@ -7,6 +7,7 @@ export type RootStackParamList = {
   AddExpense: undefined;
   EditExpense: { expenseId: string };
   ExpenseDetail: { expenseId: string };
+  GullakDepositDetail: { depositId: string };
   CategoryDetail: { categoryId: string };
   ManageCategories: undefined;
   AddEditCategory: { categoryId?: string } | undefined;

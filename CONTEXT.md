@@ -62,8 +62,11 @@ The lifetime net piggy-bank reserve: all finalized past savings plus any Gullak 
 - *_Avoid_*: Piggy Bank (use Gullak), Total Savings, Net Balance
 
 **Gullak Deposit**:
-A one-time manual top-up the user makes directly into their Gullak reserve (e.g. a cash windfall or salary bonus), separate from automated daily savings. Stored in `gullak_deposits` in Supabase and in `gullakDeposits` in local state.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`GullakDeposit` interface line 122, `addGullakDeposit` line 381, `removeGullakDeposit` line 414), `schema.sql` (`gullak_deposits` table)
+A manual top-up the user makes directly into their Gullak reserve, separate from automated daily savings. Classified by a distinct `source` (`'income' | 'external'`):
+- **From Income (`'income'`)**: Funds moved from tracked income into Gullak. Increases Gullak reserve while leaving total available budget unchanged. Capped by lifetime available income (`getAvailableIncomeBalance`).
+- **External (`'external'`)**: Fresh money from outside the app (cash gift, windfall, bonus). Increases both Gullak reserve and the period's available balance across Daily, Weekly, Monthly, and All views.
+Both sources appear alongside expenses in recent transactions (`HomeScreen`) and `HistoryScreen` (via `GullakDepositRow`), and open `GullakDepositDetailScreen`. Stored in `gullak_deposits` in Supabase and `gullakDeposits` in local state.
+- *Code location*: `src/store/dailyBudgetStore.ts` (`GullakDeposit` interface, `addGullakDeposit`, `getAvailableIncomeBalance`), `src/components/DepositGullakModal.tsx`, `src/screens/GullakDepositDetailScreen.tsx`, `src/components/GullakDepositRow.tsx`, `schema.sql` (`gullak_deposits` table)
 - *_Avoid_*: Manual Deposit, Savings Top-up, Windfall
 
 **Daily Record**:

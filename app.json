@@ -54,12 +54,13 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "Help Centre & Stability Update 📚",
+        "title": "Smart Gullak Deposits & In-App Keypad 🐷✨",
         "highlights": [
-          "New FAQ / Help Centre in Profile — instant answers to common questions",
-          "Daily Budget settings now persist correctly across app restarts",
-          "Fixed Daily Allowance ₹0 bug — disabling now works reliably",
-          "All UI text polished to clear, professional English"
+          "Choose 'From Income' or 'Add New Money' when depositing into Gullak",
+          "Tracked income cap prevents double-counting your savings",
+          "Custom in-app numeric keypad with quick preset amount chips",
+          "Gullak deposits now appear in Recent Transactions and History",
+          "Full deposit details screen with 1-tap removal & income restoration"
         ]
       }
     }

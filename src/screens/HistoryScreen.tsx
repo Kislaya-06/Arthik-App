@@ -11,6 +11,8 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
+import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
+import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
@@ -26,11 +28,15 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+export type HistoryItem =
+  | { kind: 'expense'; data: Expense; date: string; created_at: string }
+  | { kind: 'gullak'; data: GullakDeposit; date: string; created_at: string };
+
 interface Section {
   title: string;
   totalSpent: number;
   totalIncome: number;
-  data: Expense[];
+  data: HistoryItem[];
 }
 
 interface TransactionRowItemProps {
@@ -83,11 +89,52 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
   );
 });
 
+interface GullakRowItemProps {
+  item: GullakDeposit;
+  onPress: (id: string) => void;
+  colors: ThemeColors;
+}
+
+const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors }) => {
+  const sourceLabel = item.source === 'income' ? 'From Income' : 'External Deposit';
+
+  return (
+    <Pressable
+      style={[styles.transactionRow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
+      onPress={() => onPress(item.id)}
+      android_ripple={{ color: colors.cardSubtle, borderless: false }}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: colors.mintGreenSoft }]}>
+        <PiggyBankCoinIcon size={20} color={colors.mintGreenDark} />
+      </View>
+      <View style={styles.transactionMiddle}>
+        <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
+          {item.note || 'Gullak Deposit'}
+        </Text>
+        <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
+          {sourceLabel}
+        </Text>
+      </View>
+      <View style={styles.transactionRight}>
+        <Text style={[styles.transactionAmount, { color: colors.isDark ? colors.mintGreen : colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
+          {`+${formatCurrency(Math.abs(item.amount))}`}
+        </Text>
+        <View style={styles.paymentModeRow}>
+          <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: FontFamily.medium, marginLeft: 0 }]}>
+            Gullak
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+});
+
 export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
   const expenses = useExpenseStore((s) => s.expenses);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
   const categories = useCategoryStore((s) => s.categories);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
@@ -127,15 +174,16 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
   }, [categories]);
 
   const filteredAndGroupedExpenses = useMemo<Section[]>(() => {
-    let filtered = expenses;
+    let filteredExpenses = expenses;
+    let filteredDeposits = selectedCategoryId ? [] : gullakDeposits;
 
     if (selectedCategoryId) {
-      filtered = filtered.filter(e => e.category_id === selectedCategoryId);
+      filteredExpenses = filteredExpenses.filter((e) => e.category_id === selectedCategoryId);
     }
 
     if (searchQuery.trim()) {
       const lowerQuery = searchQuery.toLowerCase();
-      filtered = filtered.filter(e => {
+      filteredExpenses = filteredExpenses.filter((e) => {
         const category = e.category_id ? categoryMap.get(e.category_id) : undefined;
         const categoryName = category?.name?.toLowerCase() || (e.type === 'income' ? 'money added' : '');
         const note = e.note?.toLowerCase() || '';
@@ -143,40 +191,60 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
         const payment = e.payment_mode?.toLowerCase() || '';
         return categoryName.includes(lowerQuery) || note.includes(lowerQuery) || amountStr.includes(lowerQuery) || payment.includes(lowerQuery);
       });
+
+      filteredDeposits = filteredDeposits.filter((d) => {
+        const note = (d.note || '').toLowerCase();
+        const amountStr = d.amount.toString();
+        const sourceStr = d.source === 'income' ? 'from income' : 'external deposit';
+        return 'gullak'.includes(lowerQuery) || 'deposit'.includes(lowerQuery) || note.includes(lowerQuery) || amountStr.includes(lowerQuery) || sourceStr.includes(lowerQuery);
+      });
     }
 
-    const grouped: Record<string, Expense[]> = {};
+    const grouped: Record<string, HistoryItem[]> = {};
     const spentTotals: Record<string, number> = {};
     const incomeTotals: Record<string, number> = {};
 
-    filtered.forEach(expense => {
+    filteredExpenses.forEach((expense) => {
       const dateKey = expense.expense_date;
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
-        spentTotals[dateKey] = 0;
-        incomeTotals[dateKey] = 0;
-      }
-      grouped[dateKey].push(expense);
+      (grouped[dateKey] ??= []).push({
+        kind: 'expense',
+        data: expense,
+        date: dateKey,
+        created_at: expense.created_at || '',
+      });
 
       const category = expense.category_id ? categoryMap.get(expense.category_id) : undefined;
-      const isIncome = isIncomeTransaction(expense, category);
-      if (isIncome) {
-        incomeTotals[dateKey] += expense.amount;
+      if (isIncomeTransaction(expense, category)) {
+        incomeTotals[dateKey] = (incomeTotals[dateKey] || 0) + expense.amount;
       } else {
-        spentTotals[dateKey] += expense.amount;
+        spentTotals[dateKey] = (spentTotals[dateKey] || 0) + expense.amount;
+      }
+    });
+
+    filteredDeposits.forEach((deposit) => {
+      const dateKey = deposit.date;
+      (grouped[dateKey] ??= []).push({
+        kind: 'gullak',
+        data: deposit,
+        date: dateKey,
+        created_at: deposit.created_at || '',
+      });
+
+      if (deposit.source === 'external') {
+        incomeTotals[dateKey] = (incomeTotals[dateKey] || 0) + deposit.amount;
       }
     });
 
     const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
-    return sortedDates.map(dateStr => {
+    return sortedDates.map((dateStr) => {
       const dateObj = parseISO(dateStr);
       let title = format(dateObj, 'd MMM').toUpperCase();
       if (isToday(dateObj)) title = 'TODAY';
       else if (isYesterday(dateObj)) title = 'YESTERDAY';
 
-      const sortedData = [...grouped[dateStr]].sort((a, b) =>
-        (b.created_at || '').localeCompare(a.created_at || '')
+      const sortedData = grouped[dateStr].slice().sort((a, b) =>
+        b.created_at.localeCompare(a.created_at)
       );
 
       return {
@@ -186,7 +254,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
         data: sortedData,
       };
     });
-  }, [expenses, categoryMap, selectedCategoryId, searchQuery]);
+  }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, searchQuery]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => {
     let text = '';
@@ -228,14 +296,25 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate('ExpenseDetail', { expenseId });
   }, [navigation]);
 
-  const renderItem = useCallback(({ item }: { item: Expense }) => (
-    <TransactionRowItem
-      item={item}
-      category={item.category_id ? categoryMap.get(item.category_id) : undefined}
-      onPress={handleItemPress}
-      colors={colors}
-    />
-  ), [categoryMap, handleItemPress, colors]);
+  const renderItem = useCallback(({ item }: { item: HistoryItem }) => {
+    if (item.kind === 'gullak') {
+      return (
+        <GullakRowItem
+          item={item.data}
+          onPress={(id) => navigation.navigate('GullakDepositDetail', { depositId: id })}
+          colors={colors}
+        />
+      );
+    }
+    return (
+      <TransactionRowItem
+        item={item.data}
+        category={item.data.category_id ? categoryMap.get(item.data.category_id) : undefined}
+        onPress={handleItemPress}
+        colors={colors}
+      />
+    );
+  }, [categoryMap, handleItemPress, navigation, colors]);
 
   const renderEmptyState = useCallback(() => {
     let IconComponent = Receipt;
@@ -338,7 +417,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
         {/* Transaction List */}
         <SectionList
           sections={filteredAndGroupedExpenses}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => `${item.kind}-${item.data.id}`}
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           showsVerticalScrollIndicator={false}

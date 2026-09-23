@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePeriodSummary, PeriodCalculationParams } from '../src/lib/homeCalculations';
+import { calculatePeriodSummary, PeriodCalculationParams, getExternalDepositsInPeriod } from '../src/lib/homeCalculations';
 import { DailyRecord } from '../src/lib/budgetCalculations';
 
 describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
@@ -379,6 +379,86 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(weeklyResult.displaySpent).toBe(120.5);
       // remaining = 261.5 - 120.5 = 141
       expect(weeklyResult.primaryAmount).toBe(141);
+    });
+  });
+
+  describe('External Gullak Deposits Integration', () => {
+    it('increases totalAvailable with external deposits in Daily filter', () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Daily',
+        todayBudget: 500,
+        totalSpent: 200,
+        totalIncome: 0,
+        externalDepositsInPeriod: 1000,
+      });
+
+      // budget (500) + deposits (1000) = 1500 available
+      expect(result.totalAvailable).toBe(1500);
+      expect(result.primaryAmount).toBe(1300); // 1500 - 200
+      expect(result.primaryLabel).toBe('Remaining to Spend');
+      expect(result.primarySubtext).toBe('₹500 budget + ₹1,000 deposits');
+    });
+
+    it('displays composite subtext with budget, income, and external deposits in Weekly filter', () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Weekly',
+        dailyBudgetAmount: 500,
+        todayBudget: 500,
+        totalSpent: 1200,
+        totalIncome: 500,
+        externalDepositsInPeriod: 1000,
+        userCreatedAtStr: '2026-09-14', // 5 days => 2500 budget
+      });
+
+      // 2500 + 500 + 1000 = 4000 available
+      expect(result.totalAvailable).toBe(4000);
+      expect(result.primaryAmount).toBe(2800); // 4000 - 1200
+      expect(result.primarySubtext).toBe('₹2,500 budget (5 days) + ₹500 income + ₹1,000 deposits');
+    });
+
+    it('shows Remaining when user has no budget and no income, but has external deposits', () => {
+      const result = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Daily',
+        dailyBudgetAmount: 0,
+        isAutoRenew: false,
+        todayBudget: 0,
+        totalSpent: 200,
+        totalIncome: 0,
+        externalDepositsInPeriod: 500,
+      });
+
+      expect(result.totalAvailable).toBe(500);
+      expect(result.primaryAmount).toBe(300);
+      expect(result.primaryLabel).toBe('Remaining to Spend');
+      expect(result.primarySubtext).toBe('₹500 external deposits');
+    });
+
+    it('getExternalDepositsInPeriod filters correctly by date and source', () => {
+      const deposits = [
+        { date: '2026-09-18', amount: 500, source: 'external' as const },
+        { date: '2026-09-18', amount: 300, source: 'income' as const }, // from income -> ignore
+        { date: '2026-09-16', amount: 700, source: 'external' as const }, // same week (Wed 16th)
+        { date: '2026-09-02', amount: 1200, source: 'external' as const }, // earlier this month
+      ];
+
+      // Daily: only 2026-09-18 external = 500
+      const dailySum = getExternalDepositsInPeriod(deposits, 'Daily', REF_DATE, USER_CREATED);
+      expect(dailySum).toBe(500);
+
+      // Weekly: 18th (500) + 16th (700) = 1200 (both in week of 14-18 Sept)
+      const weeklySum = getExternalDepositsInPeriod(deposits, 'Weekly', REF_DATE, USER_CREATED);
+      expect(weeklySum).toBe(1200);
+
+      // Monthly: 18th (500) + 16th (700) + 2nd (1200) = 2400 (all in Sept)
+      const monthlySum = getExternalDepositsInPeriod(deposits, 'Monthly', REF_DATE, '2026-09-01');
+      expect(monthlySum).toBe(2400);
+
+      // All: all external = 2400
+      const allSum = getExternalDepositsInPeriod(deposits, 'All', REF_DATE, '2026-09-01');
+      expect(allSum).toBe(2400);
     });
   });
 });

@@ -293,7 +293,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
   });
 
   describe('Slice 4: Gullak Deposits', () => {
-    it('adds gullak deposit and includes it in accumulated savings metrics', () => {
+    it('adds gullak deposit defaulting to external and includes it in accumulated savings metrics', () => {
       useDailyBudgetStore.setState({
         hydratedForUserId: 'user_budget_test_1',
         dailyBudgetAmount: 500,
@@ -307,7 +307,49 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(state.gullakDeposits.length).toBe(1);
       expect(state.gullakDeposits[0].amount).toBe(1000);
       expect(state.gullakDeposits[0].note).toBe('Diwali gift');
+      expect(state.gullakDeposits[0].source).toBe('external');
       expect(state.totalAccumulatedSavings).toBeGreaterThanOrEqual(1000);
+    });
+
+    it('adds gullak deposit with explicit source: income and external', () => {
+      useDailyBudgetStore.setState({
+        hydratedForUserId: 'user_budget_test_1',
+        dailyBudgetAmount: 500,
+        gullakDeposits: [],
+        dailyRecords: {},
+      });
+
+      useDailyBudgetStore.getState().addGullakDeposit(500, 'Salary cut', 'income');
+      useDailyBudgetStore.getState().addGullakDeposit(300, 'Cash savings', 'external');
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.gullakDeposits.length).toBe(2);
+      expect(state.gullakDeposits[0].source).toBe('external');
+      expect(state.gullakDeposits[0].amount).toBe(300);
+      expect(state.gullakDeposits[1].source).toBe('income');
+      expect(state.gullakDeposits[1].amount).toBe(500);
+    });
+
+    it('calculates getAvailableIncomeBalance correctly (total income - income deposits)', () => {
+      // Setup expense getter with 2 income expenses and 1 regular expense
+      registerExpenseGetter(() => [
+        { id: 'exp1', amount: 3000, type: 'income', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr } as any,
+        { id: 'exp2', amount: 1000, type: 'income', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr } as any,
+        { id: 'exp3', amount: 500, type: 'expense', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr } as any,
+      ]);
+
+      useDailyBudgetStore.setState({
+        hydratedForUserId: 'user_budget_test_1',
+        gullakDeposits: [
+          { id: 'd1', amount: 800, date: todayStr, source: 'income', created_at: todayStr },
+          { id: 'd2', amount: 1500, date: todayStr, source: 'external', created_at: todayStr },
+        ],
+      });
+
+      // Total income = 4000. Income deposits = 800. External deposit 1500 does NOT reduce available income.
+      // Available income = 4000 - 800 = 3200.
+      const available = useDailyBudgetStore.getState().getAvailableIncomeBalance();
+      expect(available).toBe(3200);
     });
 
     it('removes gullak deposit by id', () => {
@@ -315,6 +357,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
         id: 'dep-test-1',
         amount: 500,
         date: todayStr,
+        source: 'external' as const,
         created_at: new Date().toISOString(),
       };
       useDailyBudgetStore.setState({
@@ -349,6 +392,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
             id: 'dep1',
             amount: 200,
             date: todayStr,
+            source: 'external',
             created_at: new Date().toISOString(),
           },
         ],

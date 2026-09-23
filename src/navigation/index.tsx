@@ -26,6 +26,7 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 import { SavingsScreen } from '../screens/SavingsScreen';
 import { FaqScreen } from '../screens/FaqScreen';
+import { GullakDepositDetailScreen } from '../screens/GullakDepositDetailScreen';
 
 // Custom Tab Bar
 import { BottomNavBar } from '../components/BottomNavBar';
@@ -140,6 +141,7 @@ export function AppNavigation({
         <Stack.Screen name="AddExpense" component={ExpenseFormScreen as React.ComponentType<any>} />
         <Stack.Screen name="EditExpense" component={ExpenseFormScreen as React.ComponentType<any>} />
         <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
+        <Stack.Screen name="GullakDepositDetail" component={GullakDepositDetailScreen} />
         <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
         <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />
         <Stack.Screen name="AddEditCategory" component={AddEditCategoryScreen} />

@@ -119,11 +119,14 @@ export const clearPendingSettingsOffline = async (
   }
 };
 
+export type GullakDepositSource = 'income' | 'external';
+
 export interface GullakDeposit {
   id: string;
   amount: number;
   date: string; // 'yyyy-MM-dd'
   note?: string;
+  source: GullakDepositSource;
   created_at: string;
 }
 
@@ -167,8 +170,9 @@ interface DailyBudgetState {
   scheduleNextDailyBudget: (amount: number) => void;
   cancelScheduledNextDailyBudget: () => void;
   toggleAutoRenew: (enabled: boolean) => void;
-  addGullakDeposit: (amount: number, note?: string) => void;
+  addGullakDeposit: (amount: number, note?: string, source?: GullakDepositSource) => void;
   removeGullakDeposit: (id: string) => void;
+  getAvailableIncomeBalance: () => number;
   syncWithExpenses: (expenses: Expense[]) => void;
   checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
   uploadPendingDailyRecords: () => Promise<void>;
@@ -351,13 +355,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         });
       },
 
-      addGullakDeposit: (amount: number, note?: string) => {
+      addGullakDeposit: (amount: number, note?: string, source: GullakDepositSource = 'external') => {
         if (!amount || amount <= 0) return;
         const newDeposit: GullakDeposit = {
           id: Crypto.randomUUID(),
           amount: round2(amount),
           date: getTodayDateStr(),
           note: note?.trim() || undefined,
+          source,
           created_at: new Date().toISOString(),
         };
         const deposits = [newDeposit, ...(get().gullakDeposits || [])];
@@ -374,6 +379,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               amount: newDeposit.amount,
               date: newDeposit.date,
               note: newDeposit.note || null,
+              source: newDeposit.source,
               created_at: newDeposit.created_at,
             })
             .then(({ error }) => {
@@ -402,6 +408,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               }
             });
         }
+      },
+
+      getAvailableIncomeBalance: () => {
+        const isIncome = buildCategoryClassifier();
+        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isIncome(e) ? (Number(e.amount) || 0) : 0), 0);
+        const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
+        return round2(Math.max(0, totalIncome - incomeDeposits));
       },
 
       syncWithExpenses: (expenses: Expense[]) => {
@@ -1036,7 +1049,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           try {
             const { data: depData, error: depError } = await supabase
               .from('gullak_deposits')
-              .select('id, amount, date, note, created_at')
+              .select('id, amount, date, note, source, created_at')
               .eq('user_id', userId)
               .order('created_at', { ascending: false });
 
@@ -1046,6 +1059,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 amount: Number(d.amount) || 0,
                 date: d.date,
                 note: d.note || undefined,
+                source: (d.source === 'income' || d.source === 'external') ? d.source : 'external',
                 created_at: d.created_at,
               }));
 
@@ -1063,6 +1077,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                       amount: m.amount,
                       date: m.date,
                       note: m.note || null,
+                      source: m.source || 'external',
                       created_at: m.created_at,
                     })
                     .then(() => {});

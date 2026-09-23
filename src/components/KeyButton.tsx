@@ -12,14 +12,16 @@ import { BorderRadius, FontFamily } from '../config/theme';
 interface KeyButtonProps {
   item: string;
   onPress: (val: string) => void;
+  height?: number;
+  fontSize?: number;
 }
 
 /**
- * Shared numeric keypad button used by AddExpenseScreen and EditExpenseScreen.
+ * Shared numeric keypad button used by AddExpenseScreen, EditExpenseScreen, and modals.
  * Includes a spring press-in/press-out animation.
  * Pass item="backspace" to render the delete icon.
  */
-const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
+const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSize }) => {
   const { colors, isDark } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -53,10 +55,11 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
               : colors.cardSubtle,
             transform: [{ scale }],
           },
+          height !== undefined && { height },
         ]}
       >
         {isBackspace ? (
-          <Delete size={20} color={colors.peachCoral} />
+          <Delete size={fontSize !== undefined ? Math.round(fontSize * 0.9) : 20} color={colors.peachCoral} />
         ) : (
           <Text
             style={[
@@ -66,6 +69,7 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress }) => {
                   ? (isDark ? colors.mintGreen : colors.mintGreenDark)
                   : colors.textPrimary,
               },
+              fontSize !== undefined && { fontSize },
             ]}
           >
             {item}

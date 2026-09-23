@@ -422,6 +422,7 @@ CREATE TABLE IF NOT EXISTS public.gullak_deposits (
     amount NUMERIC NOT NULL CHECK (amount > 0),
     date DATE NOT NULL,
     note TEXT,
+    source TEXT NOT NULL DEFAULT 'external' CHECK (source IN ('income', 'external')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

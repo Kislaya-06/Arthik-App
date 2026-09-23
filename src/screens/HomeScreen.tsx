@@ -19,11 +19,11 @@ import { TransactionRow } from '../components/TransactionRow';
 import { DonutChart } from '../components/DonutChart';
 import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
-import { calculatePeriodSummary } from '../lib/homeCalculations';
+import { calculatePeriodSummary, getExternalDepositsInPeriod } from '../lib/homeCalculations';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
-import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
@@ -31,6 +31,7 @@ import { formatCurrency, round2 } from '../lib/formatters';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
+import { GullakDepositRow } from '../components/GullakDepositRow';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type HomeScreenProps = CompositeScreenProps<
@@ -62,6 +63,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
 
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
@@ -135,17 +137,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     };
   }, [filtered, catMap]);
 
-  const recentTx = useMemo(
-    () =>
-      [...expenses]
-        .sort((a, b) => {
-          const dateCmp = b.expense_date.localeCompare(a.expense_date);
-          if (dateCmp !== 0) return dateCmp;
-          return (b.created_at || '').localeCompare(a.created_at || '');
-        })
-        .slice(0, 4),
-    [expenses]
-  );
+  type UnifiedTxItem =
+    | { kind: 'expense'; data: Expense; date: string; created_at: string }
+    | { kind: 'gullak'; data: GullakDeposit; date: string; created_at: string };
+
+  const recentTx = useMemo<UnifiedTxItem[]>(() => {
+    const items: UnifiedTxItem[] = [
+      ...expenses.map((e) => ({ kind: 'expense' as const, data: e, date: e.expense_date, created_at: e.created_at || '' })),
+      ...gullakDeposits.map((d) => ({ kind: 'gullak' as const, data: d, date: d.date, created_at: d.created_at || '' })),
+    ];
+    return items
+      .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at))
+      .slice(0, 4);
+  }, [expenses, gullakDeposits]);
 
   const { colors, isDark } = useTheme();
   const nameFromMeta = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
@@ -187,6 +191,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const todayRemaining = Math.max(0, round2(todayBudget - todayRecordSpent));
   const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
 
+  const externalDepositsInPeriod = useMemo(
+    () => getExternalDepositsInPeriod(gullakDeposits, activeFilter, referenceDate, userCreatedAtStr),
+    [gullakDeposits, activeFilter, referenceDate, userCreatedAtStr]
+  );
+
   // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
   // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
   const {
@@ -211,8 +220,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         filtered,
         userCreatedAtStr,
         referenceDate,
+        externalDepositsInPeriod,
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod]
   );
 
   // Date range label shown below filter pills for quick orientation
@@ -436,7 +446,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
           </View>
         ) : (
-          recentTx.map((e) => {
+          recentTx.map((item) => {
+            if (item.kind === 'gullak') {
+              return (
+                <TouchableOpacity
+                  key={`gullak-${item.data.id}`}
+                  activeOpacity={0.75}
+                  onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
+                >
+                  <GullakDepositRow
+                    deposit={item.data}
+                    colors={colors}
+                    isDark={isDark}
+                  />
+                </TouchableOpacity>
+              );
+            }
+            const e = item.data;
             const cat = e.category_id ? catMap[e.category_id] : undefined;
             const isIncome = isIncomeTransaction(e, cat);
             return (
