@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Smart Gullak Deposits & In-App Keypad 🐷✨',
+    title: ota?.title || 'Complete Offline-First & Instant Sync 📶⚡',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Choose 'From Income' or 'Add New Money' when depositing into Gullak",
-          "Tracked income cap prevents double-counting your savings",
-          "Custom in-app numeric keypad with quick preset amount chips",
-          "Gullak deposits now appear in Recent Transactions and History",
-          "Full deposit details screen with 1-tap removal & income restoration",
+          "Full offline functionality: Use Arthik anywhere without internet",
+          "Add, edit & delete categories and Gullak deposits completely offline",
+          "Instant cold launch straight to Home screen with cached data",
+          "Automatic background sync as soon as your device reconnects",
+          "Snappier and faster app launch animations",
         ],
   };
 };

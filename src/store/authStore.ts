@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../config/supabase';
 import { useNetworkStore } from './networkStore';
+import { isNetworkFailure } from '../lib/networkUtils';
 
 export interface Profile {
   id: string;
@@ -166,8 +167,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user, profile } = get();
     if (!user) return;
 
-    set({ loading: true });
-
     const updatedProfile: Profile = {
       id: user.id,
       first_name: firstName ?? profile?.first_name ?? '',
@@ -177,17 +176,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       is_auto_renew: settings?.is_auto_renew !== undefined ? settings.is_auto_renew : profile?.is_auto_renew,
     };
 
+    // Optimistic: update local state + cache immediately so UI reflects change without waiting for network
+    set({ profile: updatedProfile });
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert(updatedProfile);
+      await AsyncStorage.setItem(`@arthik_cached_profile_${user.id}`, JSON.stringify(updatedProfile));
+    } catch (_) {}
 
-      if (error) throw error;
-      set({ profile: updatedProfile });
+    // Build patch (only changed scalar fields) for pending queue
+    const patch: Record<string, any> = {};
+    if (firstName !== undefined) patch.first_name = firstName;
+    if (lastName !== undefined) patch.last_name = lastName;
+    if (settings?.daily_budget !== undefined) patch.daily_budget = settings.daily_budget;
+    if (settings?.is_auto_renew !== undefined) patch.is_auto_renew = settings.is_auto_renew;
+
+    const pendingKey = `@arthik_pending_profile_${user.id}`;
+    const queuePatch = async () => {
       try {
-        await AsyncStorage.setItem(`@arthik_cached_profile_${user.id}`, JSON.stringify(updatedProfile));
-      } catch (_) {}
-    } catch (e) {
+        const existing = await AsyncStorage.getItem(pendingKey);
+        await AsyncStorage.setItem(pendingKey, JSON.stringify({ ...(existing ? JSON.parse(existing) : {}), ...patch }));
+      } catch {}
+    };
+
+    if (useNetworkStore.getState().isOffline) return queuePatch();
+
+    set({ loading: true });
+    try {
+      const { error } = await supabase.from('profiles').upsert(updatedProfile);
+      if (error) throw error;
+      try { await AsyncStorage.removeItem(pendingKey); } catch {}
+    } catch (e: any) {
+      if (isNetworkFailure(e)) return queuePatch();
       if (__DEV__) console.error('Error updating profile:', e);
       throw e;
     } finally {

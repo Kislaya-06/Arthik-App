@@ -5,7 +5,7 @@ import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useDailyBudgetStore, registerExpenseGetter, registerExpensesLoadedGetter } from './dailyBudgetStore';
 import { useNetworkStore, registerSyncCallback } from './networkStore';
-import { registerCategoryDeleteCallback } from './categoryStore';
+import { useCategoryStore, registerCategoryDeleteCallback } from './categoryStore';
 
 export interface Expense {
   id: string;
@@ -188,27 +188,8 @@ const sanitizeNote = (n?: string) => {
 let isSyncInProgress = false;
 
 // P0.7: Exact network failure identification
-export const isNetworkFailure = (error: any): boolean => {
-  if (!error) return false;
-  if (error.name === 'AbortError' || (typeof error.message === 'string' && error.message.includes('aborted'))) {
-    return true;
-  }
-  if (error.name === 'AuthRetryableFetchError' || error.__isAuthRetryableFetchError) {
-    return true;
-  }
-  if (
-    error.name === 'TypeError' &&
-    typeof error.message === 'string' &&
-    error.message.toLowerCase().includes('network request failed')
-  ) {
-    return true;
-  }
-  const status = error.status || error.statusCode || (error.code ? Number(error.code) : undefined);
-  if (status === 0 || (typeof status === 'number' && status >= 500 && status < 600)) {
-    return true;
-  }
-  return false;
-};
+export { isNetworkFailure } from '../lib/networkUtils';
+import { isNetworkFailure } from '../lib/networkUtils';
 
 export const useExpenseStore = create<ExpenseState>((set, get) => ({
   expenses: [],
@@ -673,6 +654,28 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
       // 5. Upload pending daily savings records (P0.14)
       await useDailyBudgetStore.getState().uploadPendingDailyRecords();
+
+      // 6. Sync pending gullak deposits
+      await useDailyBudgetStore.getState().syncPendingGullakDeposits().catch((e) => {
+        if (__DEV__) console.log('[sync] Error syncing gullak deposits:', e);
+      });
+
+      // 7. Sync pending category mutations
+      await useCategoryStore.getState().syncPendingCategories().catch((e) => {
+        if (__DEV__) console.log('[sync] Error syncing categories:', e);
+      });
+
+      // 8. Flush pending profile patch (name / avatar; budget settings already handled in step 4)
+      try {
+        const profileKey = `@arthik_pending_profile_${user.id}`;
+        const storedPatch = await AsyncStorage.getItem(profileKey);
+        if (storedPatch) {
+          const { error } = await supabase.from('profiles').update(JSON.parse(storedPatch)).eq('id', user.id);
+          if (!error) await AsyncStorage.removeItem(profileKey);
+        }
+      } catch (profileErr) {
+        if (__DEV__) console.log('[sync] Error syncing profile:', profileErr);
+      }
 
       // Cache updated confirmed expenses for offline resiliency
       const confirmedExpenses = get().expenses.filter((e) => !e.pending && !e.id.startsWith('temp_'));

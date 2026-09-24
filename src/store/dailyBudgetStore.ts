@@ -32,6 +32,7 @@ import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
+import { isNetworkFailure } from '../lib/networkUtils';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 import { formatCurrency, round2 } from '../lib/formatters';
@@ -80,6 +81,8 @@ const getUserCreatedAtStr = (): string | undefined =>
 
 
 export const getPendingSettingsKey = (userId: string) => `@arthik_pending_settings_${userId}`;
+export const getPendingGullakAddsKey = (userId: string) => `@arthik_pending_gullak_adds_${userId}`;
+export const getPendingGullakDeletesKey = (userId: string) => `@arthik_pending_gullak_deletes_${userId}`;
 
 export const savePendingSettingsOffline = async (
   userId: string,
@@ -131,6 +134,38 @@ export interface GullakDeposit {
   created_at: string;
 }
 
+const getStoredList = async <T>(key: string): Promise<T[]> => {
+  try {
+    const s = await AsyncStorage.getItem(key);
+    return s ? JSON.parse(s) : [];
+  } catch { return []; }
+};
+const setStoredList = async <T>(key: string, list: T[]) => {
+  try { await AsyncStorage.setItem(key, JSON.stringify(list)); } catch {}
+};
+
+const savePendingGullakAdd = async (userId: string, deposit: GullakDeposit): Promise<void> => {
+  const key = getPendingGullakAddsKey(userId);
+  const list = await getStoredList<GullakDeposit>(key);
+  if (!list.some((d) => d.id === deposit.id)) await setStoredList(key, [...list, deposit]);
+};
+
+// Returns true if the deposit was in the pending-add queue (never reached Supabase).
+const tryRemovePendingGullakAdd = async (userId: string, depositId: string): Promise<boolean> => {
+  const key = getPendingGullakAddsKey(userId);
+  const list = await getStoredList<GullakDeposit>(key);
+  const filtered = list.filter((d) => d.id !== depositId);
+  if (filtered.length === list.length) return false;
+  await setStoredList(key, filtered);
+  return true;
+};
+
+const savePendingGullakDelete = async (userId: string, depositId: string): Promise<void> => {
+  const key = getPendingGullakDeletesKey(userId);
+  const list = await getStoredList<string>(key);
+  if (!list.includes(depositId)) await setStoredList(key, [...list, depositId]);
+};
+
 const computeMetrics = (
   records: Record<string, DailyRecord>,
   deposits?: GullakDeposit[],
@@ -177,6 +212,7 @@ interface DailyBudgetState {
   syncWithExpenses: (expenses: Expense[]) => void;
   checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
   uploadPendingDailyRecords: () => Promise<void>;
+  syncPendingGullakDeposits: () => Promise<void>;
   hydrateFromSupabase: (userId: string) => Promise<void>;
   resetDailyBudget: () => void;
   getTodayRecord: () => DailyRecord;
@@ -371,24 +407,35 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         set({ gullakDeposits: deposits, ...metrics });
 
         const userId = useAuthStore.getState().user?.id;
-        if (userId) {
-          supabase
-            .from('gullak_deposits')
-            .insert({
-              id: newDeposit.id,
-              user_id: userId,
-              amount: newDeposit.amount,
-              date: newDeposit.date,
-              note: newDeposit.note || null,
-              source: newDeposit.source,
-              created_at: newDeposit.created_at,
-            })
-            .then(({ error }) => {
-              if (error && __DEV__) {
+        if (!userId) return;
+
+        const insertPayload = {
+          id: newDeposit.id,
+          user_id: userId,
+          amount: newDeposit.amount,
+          date: newDeposit.date,
+          note: newDeposit.note || null,
+          source: newDeposit.source,
+          created_at: newDeposit.created_at,
+        };
+
+        if (useNetworkStore.getState().isOffline) {
+          savePendingGullakAdd(userId, newDeposit);
+          return;
+        }
+
+        supabase
+          .from('gullak_deposits')
+          .insert(insertPayload)
+          .then(({ error }) => {
+            if (error) {
+              if (isNetworkFailure(error)) {
+                savePendingGullakAdd(userId, newDeposit);
+              } else if (__DEV__) {
                 console.error('[dailyBudgetStore] Error inserting gullak_deposit:', error);
               }
-            });
-        }
+            }
+          });
       },
 
       removeGullakDeposit: (id: string) => {
@@ -397,18 +444,33 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         set({ gullakDeposits: deposits, ...metrics });
 
         const userId = useAuthStore.getState().user?.id;
-        if (userId) {
+        if (!userId) return;
+
+        // If the deposit was never synced (still in pending-add queue), just remove it there.
+        // Otherwise queue a server delete for when we reconnect.
+        tryRemovePendingGullakAdd(userId, id).then((wasPending) => {
+          if (wasPending) return;
+
+          if (useNetworkStore.getState().isOffline) {
+            savePendingGullakDelete(userId, id);
+            return;
+          }
+
           supabase
             .from('gullak_deposits')
             .delete()
             .eq('id', id)
             .eq('user_id', userId)
             .then(({ error }) => {
-              if (error && __DEV__) {
-                console.error('[dailyBudgetStore] Error deleting gullak_deposit:', error);
+              if (error) {
+                if (isNetworkFailure(error)) {
+                  savePendingGullakDelete(userId, id);
+                } else if (__DEV__) {
+                  console.error('[dailyBudgetStore] Error deleting gullak_deposit:', error);
+                }
               }
             });
-        }
+        });
       },
 
       getAvailableIncomeBalance: () => {
@@ -804,6 +866,50 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         if (hasUpdates) {
           set({ dailyRecords: records });
+        }
+      },
+
+      syncPendingGullakDeposits: async () => {
+        const userId = useAuthStore.getState().user?.id;
+        if (!userId) return;
+
+        // 1. Flush pending adds (upsert is idempotent if sync runs twice)
+        const addsKey = getPendingGullakAddsKey(userId);
+        const adds = await getStoredList<GullakDeposit>(addsKey);
+        if (adds.length) {
+          const synced: string[] = [];
+          for (const d of adds) {
+            try {
+              const { error } = await supabase.from('gullak_deposits').upsert(
+                {
+                  id: d.id,
+                  user_id: userId,
+                  amount: d.amount,
+                  date: d.date,
+                  note: d.note || null,
+                  source: d.source,
+                  created_at: d.created_at,
+                },
+                { onConflict: 'id', ignoreDuplicates: true }
+              );
+              if (!error) synced.push(d.id);
+            } catch {}
+          }
+          if (synced.length) await setStoredList(addsKey, adds.filter((d) => !synced.includes(d.id)));
+        }
+
+        // 2. Flush pending deletes
+        const delsKey = getPendingGullakDeletesKey(userId);
+        const dels = await getStoredList<string>(delsKey);
+        if (dels.length) {
+          const synced: string[] = [];
+          for (const id of dels) {
+            try {
+              const { error } = await supabase.from('gullak_deposits').delete().eq('id', id).eq('user_id', userId);
+              if (!error) synced.push(id);
+            } catch {}
+          }
+          if (synced.length) await setStoredList(delsKey, dels.filter((id) => !synced.includes(id)));
         }
       },
 

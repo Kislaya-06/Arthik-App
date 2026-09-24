@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+// Mock expo-crypto (used by categoryStore for randomUUID)
+let uuidCounter = 0;
+vi.mock('expo-crypto', () => ({
+  randomUUID: vi.fn(() => `00000000-0000-0000-0000-${String(++uuidCounter).padStart(12, '0')}`),
+}));
+
 // Mock AsyncStorage
 const storageMap = new Map<string, string>();
 vi.mock('@react-native-async-storage/async-storage', () => ({
@@ -19,6 +25,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 
 // Mock Supabase
 const mockSupabaseInsert = vi.fn().mockResolvedValue({ error: null });
+const mockSupabaseUpsert = vi.fn().mockResolvedValue({ error: null });
 const mockSupabaseUpdate = vi.fn(() => ({
   eq: vi.fn().mockResolvedValue({ error: null }),
 }));
@@ -37,13 +44,23 @@ const mockSupabaseSelect = vi.fn(() => ({
 
 vi.mock('../src/config/supabase', () => ({
   supabase: {
-    from: vi.fn((table: string) => ({
+    from: vi.fn(() => ({
       select: mockSupabaseSelect,
       insert: mockSupabaseInsert,
+      upsert: mockSupabaseUpsert,
       update: mockSupabaseUpdate,
       delete: mockSupabaseDelete,
     })),
   },
+}));
+
+// Mock NetworkStore (offline detection)
+let mockIsOffline = false;
+vi.mock('../src/store/networkStore', () => ({
+  useNetworkStore: {
+    getState: vi.fn(() => ({ isOffline: mockIsOffline })),
+  },
+  registerSyncCallback: vi.fn(),
 }));
 
 // Mock AuthStore
@@ -86,6 +103,8 @@ describe('categoryStore (Seam: useCategoryStore)', () => {
 
   beforeEach(() => {
     storageMap.clear();
+    uuidCounter = 0;
+    mockIsOffline = false;
     vi.clearAllMocks();
     mockUser = { id: TEST_USER_ID, email: 'user@test.com' };
     mockExpenses = [];
@@ -147,23 +166,31 @@ describe('categoryStore (Seam: useCategoryStore)', () => {
   });
 
   describe('Slice 4: Adding Categories', () => {
-    it('inserts new custom category to Supabase and re-fetches', async () => {
+    it('upserts new custom category with client UUID and refreshes from server', async () => {
       await useCategoryStore.getState().addCategory('Fitness & Gym', 'Dumbbell', '#EC4899');
 
-      expect(mockSupabaseInsert).toHaveBeenCalledWith({
-        user_id: TEST_USER_ID,
-        name: 'Fitness & Gym',
-        icon: 'Dumbbell',
-        color: '#EC4899',
-        is_default: false,
-      });
-
+      // Now uses upsert (not insert) with a client-generated UUID
+      expect(mockSupabaseUpsert).toHaveBeenCalled();
+      const upsertArg = (mockSupabaseUpsert as any).mock.calls[0][0];
+      expect(upsertArg.name).toBe('Fitness & Gym');
+      expect(upsertArg.icon).toBe('Dumbbell');
+      expect(upsertArg.color).toBe('#EC4899');
+      expect(upsertArg.user_id).toBe(TEST_USER_ID);
+      expect(upsertArg.is_default).toBe(false);
+      // After successful upsert, a full refetch is triggered to get authoritative server state
       expect(useCategoryStore.getState().isFetched).toBe(true);
     });
   });
 
   describe('Slice 5: Deleting Category & Orphan Prevention', () => {
     it('deletes category from Supabase and nulls category_id on linked client expenses', async () => {
+      // Pre-populate state with a synced (non-pending) category to delete
+      useCategoryStore.setState((s) => ({
+        categories: [
+          ...s.categories,
+          { id: 'cat_to_delete', user_id: TEST_USER_ID, name: 'Old Cat', icon: 'Tag', color: '#aaa', is_default: false },
+        ],
+      }));
       mockExpenses = [
         { id: 'exp_1', amount: 100, category_id: 'cat_to_delete' },
         { id: 'exp_2', amount: 200, category_id: 'other_cat' },

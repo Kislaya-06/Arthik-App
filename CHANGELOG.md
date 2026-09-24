@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📶 Offline-First Architecture & Auto-Sync
+- **100% Offline Cold Launch:** App opens directly to the Home screen instantly without requiring network connectivity. Restores cached authentication session, profile, categories, and confirmed expenses from persistent offline storage.
+- **Offline Category CRUD:** Create, edit, and delete custom categories with zero network connection. Local state updates optimistically and mutations queue locally in persistent AsyncStorage queues (`@arthik_pending_cat_*`), syncing automatically when connectivity returns.
+- **Offline Gullak Deposits:** Deposit and remove funds in Gullak completely offline. Tracked balances and savings streaks update immediately, with deposits queued and automatically flushed to Supabase when reconnected.
+- **Offline Profile & Budget Updates:** Update profile names and daily allowance settings while offline. Changes are saved locally and synced in the background upon reconnect.
+- **Unified Background Auto-Sync:** When the device regains internet connection, a unified sync pipeline flushes all pending expenses, category mutations, Gullak deposits, daily budget records, and profile settings in background order with exponential backoff retry.
+- **Fast Animated App Launch:** Reduced launch hold times and streamlined cinematic splash animation sequences for snappier startup.
+
 ### 🚀 Added
 - **Dual-Source Gullak Deposits ("From Income" vs "Add New Money"):** Users can now choose their deposit source when adding funds to Gullak:
   - *From Income:* Capped by available tracked income (`totalTrackedIncome - incomeDeposits`). Increases Gullak savings without inflating period available balances (avoiding double-counting).
