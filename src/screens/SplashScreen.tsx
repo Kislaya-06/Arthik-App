@@ -113,13 +113,13 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       Animated.sequence([
         Animated.timing(anim, {
           toValue: 1,
-          duration: 260,
+          duration: 200,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(anim, {
           toValue: 0,
-          duration: 260,
+          duration: 200,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -128,8 +128,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     // Sequential wave animation for the 3 dots: 1st -> 2nd -> 3rd -> repeat
     const dotWaveLoop = Animated.loop(
       Animated.sequence([
-        Animated.stagger(180, dotAnims.map(createDotPulse)),
-        Animated.delay(260),
+        Animated.stagger(130, dotAnims.map(createDotPulse)),
+        Animated.delay(180),
       ])
     );
 
@@ -142,59 +142,59 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         Animated.parallel([
           Animated.timing(taglineOpacity, {
             toValue: 0,
-            duration: 200,
+            duration: 150,
             useNativeDriver: true,
           }),
           Animated.timing(dotsOpacity, {
             toValue: 0,
-            duration: 200,
+            duration: 150,
             useNativeDriver: true,
           }),
           Animated.timing(brandRowX, {
             toValue: 80,
-            duration: 440,
+            duration: 320,
             easing: Easing.bezier(0.25, 1, 0.5, 1),
             useNativeDriver: true,
           }),
           Animated.timing(wordmarkSlideX, {
             toValue: -160,
-            duration: 440,
+            duration: 320,
             easing: Easing.bezier(0.25, 1, 0.5, 1),
             useNativeDriver: true,
           }),
           Animated.timing(wordmarkOpacity, {
             toValue: 0,
-            duration: 280,
+            duration: 200,
             easing: Easing.out(Easing.quad),
             useNativeDriver: true,
           }),
         ]),
 
-        // 2. Native driver pause (80ms) to clearly perceive the centered icon
-        Animated.delay(80),
+        // 2. Native driver pause (60ms) to clearly perceive the centered icon
+        Animated.delay(60),
 
         // 3. Butter-smooth circular mint bloom expanding outward from the centered icon (gentle ease-in-out)
         Animated.parallel([
           Animated.timing(exitCircleOpacity, {
             toValue: 1,
-            duration: 80,
+            duration: 60,
             useNativeDriver: true,
           }),
           Animated.timing(exitCircleScale, {
             toValue: 24,
-            duration: 750,
+            duration: 500,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
           }),
           Animated.timing(contentFadeOpacity, {
             toValue: 0,
-            duration: 280,
+            duration: 200,
             useNativeDriver: true,
           }),
         ]),
 
-        // 4. Brief hold (120ms) on solid mint green before destination cross-fade
-        Animated.delay(120),
+        // 4. Brief hold (80ms) on solid mint green before destination cross-fade
+        Animated.delay(80),
       ]).start(() => {
         if (targetScreen === 'AppTabs' && useAppLockStore.getState().isAppLockEnabled) {
           useAppLockStore.getState().lock();
@@ -209,13 +209,13 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       Animated.parallel([
         Animated.timing(iconEntranceOpacity, {
           toValue: 1,
-          duration: 260,
+          duration: 190,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.spring(iconEntranceScale, {
           toValue: 1,
-          tension: 70,
+          tension: 75,
           friction: 8,
           useNativeDriver: true,
         }),
@@ -223,11 +223,11 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
       // B. The 3 navy lines draw smoothly in place along their angles
       Animated.stagger(
-        120,
+        85,
         lineProgress.map((anim) =>
           Animated.timing(anim, {
             toValue: 1,
-            duration: 280,
+            duration: 200,
             easing: Easing.bezier(0.25, 1, 0.5, 1),
             useNativeDriver: true,
           })
@@ -238,38 +238,38 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       Animated.sequence([
         Animated.timing(iconPunch, {
           toValue: 1.08,
-          duration: 90,
+          duration: 70,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.spring(iconPunch, {
           toValue: 1,
-          tension: 70,
+          tension: 75,
           friction: 8,
           useNativeDriver: true,
         }),
       ]),
 
-      // Appreciation pause with icon in center (160ms)
-      Animated.delay(160),
+      // Appreciation pause with icon in center (100ms)
+      Animated.delay(100),
 
       // D. THE UPLATA MOVE: Icon moves from center to left, and "Arthik" emerges from behind the icon
       Animated.parallel([
         Animated.timing(brandRowX, {
           toValue: 0,
-          duration: 520,
+          duration: 380,
           easing: Easing.bezier(0.2, 1, 0.3, 1),
           useNativeDriver: true,
         }),
         Animated.timing(wordmarkSlideX, {
           toValue: 0,
-          duration: 520,
+          duration: 380,
           easing: Easing.bezier(0.2, 1, 0.3, 1),
           useNativeDriver: true,
         }),
         Animated.timing(wordmarkOpacity, {
           toValue: 1,
-          duration: 380,
+          duration: 280,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
@@ -279,13 +279,13 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       Animated.parallel([
         Animated.timing(taglineOpacity, {
           toValue: 1,
-          duration: 550,
+          duration: 380,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(taglineTranslateY, {
           toValue: 0,
-          duration: 550,
+          duration: 380,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -294,7 +294,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       // F. Loading dots fade in
       Animated.timing(dotsOpacity, {
         toValue: 1,
-        duration: 300,
+        duration: 220,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -326,9 +326,9 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       } catch (e) {
         if (__DEV__) console.error('Session retrieval error:', e);
       } finally {
-        // Ample viewing time (~4.8s total) so dots have ~2.5s to pulse before returning to center
+        // Optimized viewing time (~2.2s total) so animations complete crisply and dots pulse before transition
         const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, 4800 - elapsed);
+        const delay = Math.max(0, 2200 - elapsed);
         exitTimerRef.current = setTimeout(() => {
           triggerExitAndNavigate(nextScreen);
         }, delay);
