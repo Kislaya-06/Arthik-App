@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
+import { useNetworkStore } from './networkStore';
 
 export interface Category {
   id: string;
@@ -73,12 +74,23 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       }
     }
 
+    // Offline fast-path: return immediately with cached categories
+    if (useNetworkStore.getState().isOffline) {
+      set({ loading: false });
+      return;
+    }
+
     set({ loading: true });
     try {
-      const { data, error } = await supabase
+      const fetchPromise = supabase
         .from('categories')
         .select('*')
         .or(`user_id.is.null,user_id.eq.${user.id}`);
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('Category fetch timeout') }), 3500)
+      );
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (error) throw error;
       if (data) {

@@ -6,7 +6,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
-import { useExpenseStore } from '../store/expenseStore';
+import { useExpenseStore, isNetworkFailure } from '../store/expenseStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
 import { useAppLockStore } from '../store/appLockStore';
 import { Spacing, FontFamily } from '../config/theme';
@@ -305,17 +307,52 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       const startTime = Date.now();
       let nextScreen: keyof RootStackParamList = 'Onboarding';
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        await setSession(session);
+        // 1. Immediately determine connectivity status on cold launch
+        try {
+          await useNetworkStore.getState().checkConnectivity();
+        } catch (_) {}
 
-        if (session) {
-          await Promise.all([
-            fetchCategories(),
-            fetchExpenses(),
-            useAppLockStore.getState().init(session.user.id),
-          ]);
+        // 2. Try to get Supabase session with a strict 2s timeout
+        let activeUser: any = null;
+        try {
+          const sessionPromise = supabase.auth.getSession();
+          const sessionTimeout = new Promise<{ data: { session: null }; error: any }>((resolve) =>
+            setTimeout(() => resolve({ data: { session: null }, error: new Error('Session timeout') }), 2000)
+          );
+          const { data, error } = await Promise.race([sessionPromise, sessionTimeout]);
+          if (data?.session) {
+            await setSession(data.session);
+            activeUser = data.session.user;
+          } else if (error && isNetworkFailure(error)) {
+            useNetworkStore.getState().setOffline(true);
+          }
+        } catch (_) {
+          useNetworkStore.getState().setOffline(true);
+        }
+
+        // 3. Offline recovery: If session is null (offline, token expired, or network failed),
+        // restore the authenticated user & profile from local cache
+        if (!activeUser) {
+          const restoredUser = await useAuthStore.getState().restoreOfflineSession();
+          if (restoredUser) {
+            activeUser = restoredUser;
+          }
+        }
+
+        // 4. Fixed startup hydration sequence for authenticated user:
+        // loadPendingExpenses -> fetchCategories -> (fetchExpenses + hydrateFromSupabase + appLock.init)
+        if (activeUser) {
+          try {
+            await useExpenseStore.getState().loadPendingExpenses();
+            await fetchCategories();
+            await Promise.all([
+              fetchExpenses(),
+              useDailyBudgetStore.getState().hydrateFromSupabase(activeUser.id),
+              useAppLockStore.getState().init(activeUser.id),
+            ]);
+          } catch (hydrationErr) {
+            if (__DEV__) console.error('Startup hydration error:', hydrationErr);
+          }
           nextScreen = 'AppTabs';
         } else {
           const hasSeen = await AsyncStorage.getItem('@arthik_has_seen_onboarding');

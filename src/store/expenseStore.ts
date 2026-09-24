@@ -689,45 +689,74 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const user = useAuthStore.getState().user;
     if (!user) return;
 
+    // Fast-path: pre-load cached expenses immediately so state has data right away
+    const cacheKey = getCachedStorageKey(user.id);
+    if (!get().isExpensesLoaded) {
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached !== null) {
+          const parsed: Expense[] = JSON.parse(cached);
+          const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
+          const combined = [...pending, ...parsed];
+          set({ expenses: combined, isExpensesLoaded: true });
+          useDailyBudgetStore.getState().syncWithExpenses(combined);
+        }
+      } catch (cacheErr) {
+        if (__DEV__) console.log('Error reading cached expenses on launch:', cacheErr);
+      }
+    }
+
+    // Offline fast-path: if currently offline, return immediately with cached expenses
+    const isOffline = useNetworkStore.getState().isOffline;
+    if (isOffline) {
+      set({ loading: false });
+      return;
+    }
+
     set({ loading: true });
 
     try {
       // P0.5: Run sync before fetch if online
-      const isOffline = useNetworkStore.getState().isOffline;
-      if (!isOffline) {
-        try {
-          await get().syncPendingExpenses();
-        } catch {}
-      }
+      try {
+        await get().syncPendingExpenses();
+      } catch {}
 
-      // P0.6: Range pagination in a loop
+      // P0.6: Range pagination in a loop with timeout guard
       const BATCH_SIZE = 1000;
       let fetchedRows: Expense[] = [];
       let from = 0;
       let hasMore = true;
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('expenses')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('expense_date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .range(from, from + BATCH_SIZE - 1);
+      const paginationPromise = (async () => {
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('expenses')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('expense_date', { ascending: false })
+            .order('created_at', { ascending: false })
+            .range(from, from + BATCH_SIZE - 1);
 
-        if (error) throw error;
+          if (error) throw error;
 
-        if (data && data.length > 0) {
-          fetchedRows = fetchedRows.concat(data);
-          if (data.length < BATCH_SIZE) {
-            hasMore = false;
+          if (data && data.length > 0) {
+            fetchedRows = fetchedRows.concat(data);
+            if (data.length < BATCH_SIZE) {
+              hasMore = false;
+            } else {
+              from += BATCH_SIZE;
+            }
           } else {
-            from += BATCH_SIZE;
+            hasMore = false;
           }
-        } else {
-          hasMore = false;
         }
-      }
+      })();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Network request failed: timeout')), 5000)
+      );
+
+      await Promise.race([paginationPromise, timeoutPromise]);
 
       // P0.5: Read pending deletes and updates from AsyncStorage
       let pendingDeletes: string[] = [];

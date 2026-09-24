@@ -31,6 +31,7 @@ import { useCategoryStore, Category } from './categoryStore';
 import { triggerDeviceNotification } from '../lib/notificationService';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
+import { useNetworkStore } from './networkStore';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 import { formatCurrency, round2 } from '../lib/formatters';
@@ -811,12 +812,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         try {
           // P0.1: Wait for zustand persist rehydration if not already done
           if (!useDailyBudgetStore.persist.hasHydrated()) {
-            await new Promise<void>((resolve) => {
-              const unsub = useDailyBudgetStore.persist.onFinishHydration(() => {
-                unsub();
-                resolve();
-              });
-            });
+            await Promise.race([
+              new Promise<void>((resolve) => {
+                const unsub = useDailyBudgetStore.persist.onFinishHydration(() => {
+                  unsub();
+                  resolve();
+                });
+              }),
+              new Promise<void>((resolve) => setTimeout(resolve, 500)),
+            ]);
           }
 
           // P0.2: Reset state if owner changed
@@ -837,12 +841,48 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             if (stored) pendingSettings = JSON.parse(stored);
           } catch {}
 
-          // 1. Fetch user's profile settings (daily_budget, is_auto_renew)
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('daily_budget, is_auto_renew')
-            .eq('id', userId)
-            .maybeSingle();
+          // Offline fast-path: return immediately with persisted state from Zustand persist
+          if (useNetworkStore.getState().isOffline) {
+            const records = { ...get().dailyRecords };
+            let resolvedBudget = get().dailyBudgetAmount;
+            let resolvedAutoRenew = get().isAutoRenew;
+            if (pendingSettings.daily_budget !== undefined) {
+              resolvedBudget = pendingSettings.daily_budget;
+            }
+            if (pendingSettings.is_auto_renew !== undefined) {
+              resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
+            }
+            if (!records[todayStr]) {
+              const todayBudget = resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
+              records[todayStr] = {
+                date: todayStr,
+                budget: todayBudget,
+                spent: 0,
+                saved: todayBudget,
+                isFinalized: false,
+                status: 'active',
+              };
+            }
+            const metrics = computeMetrics(records, get().gullakDeposits);
+            set({
+              dailyRecords: records,
+              dailyBudgetAmount: resolvedBudget,
+              isAutoRenew: resolvedAutoRenew,
+              ...metrics,
+              hydratedForUserId: userId,
+            });
+            return;
+          }
+
+          // 1. Fetch user's profile settings (daily_budget, is_auto_renew) with timeout
+          const { data: profileData } = await Promise.race([
+            supabase
+              .from('profiles')
+              .select('daily_budget, is_auto_renew')
+              .eq('id', userId)
+              .maybeSingle(),
+            new Promise<{ data: null }>((r) => setTimeout(() => r({ data: null }), 3500)),
+          ]);
 
           let resolvedBudget = get().dailyBudgetAmount;
           let resolvedAutoRenew = get().isAutoRenew;
@@ -874,12 +914,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             resolvedAutoRenew = true;
           }
 
-          // 2. Fetch past daily savings logs from Supabase
-          const { data: logsData } = await supabase
-            .from('daily_savings_log')
-            .select('date, amount_saved, spent_amount, status, budget_amount')
-            .eq('user_id', userId)
-            .order('date', { ascending: true });
+          // 2. Fetch past daily savings logs from Supabase with timeout
+          const { data: logsData } = await Promise.race([
+            supabase
+              .from('daily_savings_log')
+              .select('date, amount_saved, spent_amount, status, budget_amount')
+              .eq('user_id', userId)
+              .order('date', { ascending: true }),
+            new Promise<{ data: null }>((r) => setTimeout(() => r({ data: null }), 3500)),
+          ]);
 
           const records = { ...get().dailyRecords };
 
@@ -1044,14 +1087,19 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
           }
 
-          // 2b. Fetch manual gullak deposits from Supabase
+          // 2b. Fetch manual gullak deposits from Supabase with timeout
           let resolvedDeposits = get().gullakDeposits || [];
           try {
-            const { data: depData, error: depError } = await supabase
-              .from('gullak_deposits')
-              .select('id, amount, date, note, source, created_at')
-              .eq('user_id', userId)
-              .order('created_at', { ascending: false });
+            const { data: depData, error: depError } = await Promise.race([
+              supabase
+                .from('gullak_deposits')
+                .select('id, amount, date, note, source, created_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false }),
+              new Promise<{ data: null; error: any }>((r) =>
+                setTimeout(() => r({ data: null, error: new Error('timeout') }), 3500)
+              ),
+            ]);
 
             if (!depError && depData) {
               const serverDeposits: GullakDeposit[] = depData.map((d: any) => ({

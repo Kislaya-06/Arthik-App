@@ -3,6 +3,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../config/supabase';
+import { useNetworkStore } from './networkStore';
 
 export interface Profile {
   id: string;
@@ -20,6 +21,7 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   setSession: (session: Session | null) => Promise<void>;
+  restoreOfflineSession: () => Promise<User | null>;
   signOut: () => Promise<void>;
   updateProfile: (
     firstName?: string,
@@ -62,24 +64,82 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const user = session.user;
     set({ session, user, loading: true });
 
+    // Cache user for offline cold launch
     try {
-      const { data, error } = await supabase
+      await AsyncStorage.setItem('@arthik_cached_user', JSON.stringify(user));
+    } catch (_) {}
+
+    // Load cached profile immediately if available
+    const cacheKey = `@arthik_cached_profile_${user.id}`;
+    let cachedProfile: Profile | null = null;
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        cachedProfile = JSON.parse(cached);
+        set({ profile: cachedProfile });
+      }
+    } catch (_) {}
+
+    // If offline, complete immediately without network call
+    if (useNetworkStore.getState().isOffline) {
+      set({ loading: false, initialized: true });
+      return;
+    }
+
+    try {
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('Profile fetch timeout') }), 3000)
+      );
+
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
+
       if (error) {
-        // Profile might not exist yet (first sign up setup)
-        set({ profile: null });
-      } else {
+        if (!cachedProfile) {
+          // Profile might not exist yet (first sign up setup)
+          set({ profile: null });
+        }
+      } else if (data) {
         set({ profile: data });
+        try {
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+        } catch (_) {}
       }
     } catch (e) {
       if (__DEV__) console.error('Error fetching profile:', e);
     } finally {
       set({ loading: false, initialized: true });
     }
+  },
+
+  restoreOfflineSession: async () => {
+    try {
+      const cachedUserStr = await AsyncStorage.getItem('@arthik_cached_user');
+      if (cachedUserStr) {
+        const cachedUser = JSON.parse(cachedUserStr);
+        if (cachedUser?.id) {
+          const cacheKey = `@arthik_cached_profile_${cachedUser.id}`;
+          const cachedProfileStr = await AsyncStorage.getItem(cacheKey);
+          const cachedProfile = cachedProfileStr ? JSON.parse(cachedProfileStr) : null;
+          set({
+            user: cachedUser,
+            profile: cachedProfile,
+            session: null,
+            loading: false,
+            initialized: true,
+          });
+          return cachedUser;
+        }
+      }
+    } catch (e) {
+      if (__DEV__) console.error('Error restoring offline user:', e);
+    }
+    return null;
   },
 
   signOut: async () => {
@@ -95,6 +155,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       if (__DEV__) console.error('Error resetting stores on sign out:', e);
     }
+    try {
+      await AsyncStorage.removeItem('@arthik_cached_user');
+    } catch (_) {}
     await supabase.auth.signOut();
     set({ session: null, user: null, profile: null, loading: false });
   },
@@ -121,6 +184,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (error) throw error;
       set({ profile: updatedProfile });
+      try {
+        await AsyncStorage.setItem(`@arthik_cached_profile_${user.id}`, JSON.stringify(updatedProfile));
+      } catch (_) {}
     } catch (e) {
       if (__DEV__) console.error('Error updating profile:', e);
       throw e;
@@ -161,6 +227,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Clean up all AsyncStorage keys for this user (pending, cache, failed, etc.)
       try {
+        await AsyncStorage.removeItem('@arthik_cached_user');
         const allKeys = await AsyncStorage.getAllKeys();
         const userKeys = allKeys.filter((k) => k.includes(userId));
         if (userKeys.length > 0) {
