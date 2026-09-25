@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚡ Slow Network & Launch Stability Fixes
+- **Splash Screen 5s Aggregate Hydration Timeout:** Wrapped network hydration (`loadPendingExpenses`, `fetchCategories`, `fetchExpenses`, `hydrateFromSupabase`) in a fail-safe 5-second aggregate timeout. On slow, high-latency, or fluctuating 2G/3G connections, the app falls back to local cache and opens the Home dashboard immediately instead of hanging on the splash screen.
+- **Profile State Preservation on Network Timeout:** Fixed an issue where a slow network timeout could temporarily clear user profile state and cause "Welcome User" and zeroed metrics to display. Local profile memory is now strictly preserved when network hydration times out.
+- **Eliminated Duplicate Startup Hydration:** Prevented `App.tsx` from triggering duplicate concurrent Supabase queries during `INITIAL_SESSION` while the splash screen is already hydrating data, drastically reducing network contention and load times on weak connections.
+
 ### 📶 Offline-First Architecture & Auto-Sync
 - **100% Offline Cold Launch:** App opens directly to the Home screen instantly without requiring network connectivity. Restores cached authentication session, profile, categories, and confirmed expenses from persistent offline storage.
 - **Offline Category CRUD:** Create, edit, and delete custom categories with zero network connection. Local state updates optimistically and mutations queue locally in persistent AsyncStorage queues (`@arthik_pending_cat_*`), syncing automatically when connectivity returns.

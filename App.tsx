@@ -119,6 +119,14 @@ export default function App() {
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
           await setSession(session);
           if (session?.user?.id) {
+            // Skip full hydration for INITIAL_SESSION during Splash — SplashScreen handles it.
+            // This prevents duplicate competing Supabase requests on slow connections.
+            const currentRoute = navigationRef.getCurrentRoute()?.name;
+            if (event === 'INITIAL_SESSION' && (!currentRoute || currentRoute === 'Splash')) {
+              initAppLock(session.user.id);
+              return;
+            }
+
             // P0.3: load pending expenses after user is restored
             await useExpenseStore.getState().loadPendingExpenses();
             await fetchCategories(true);

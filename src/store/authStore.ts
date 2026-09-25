@@ -101,7 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
 
       if (error) {
-        if (!cachedProfile) {
+        if (!cachedProfile && !get().profile) {
           // Profile might not exist yet (first sign up setup)
           set({ profile: null });
         }

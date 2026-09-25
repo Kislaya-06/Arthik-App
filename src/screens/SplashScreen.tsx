@@ -341,14 +341,22 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
         // 4. Fixed startup hydration sequence for authenticated user:
         // loadPendingExpenses -> fetchCategories -> (fetchExpenses + hydrateFromSupabase + appLock.init)
+        // Aggregate 5s timeout: cache-first loads in fetchCategories/fetchExpenses ensure stores
+        // have data before this fires. Background fetches complete and update stores after navigation.
         if (activeUser) {
-          try {
+          const hydrationChain = async () => {
             await useExpenseStore.getState().loadPendingExpenses();
             await fetchCategories();
             await Promise.all([
               fetchExpenses(),
               useDailyBudgetStore.getState().hydrateFromSupabase(activeUser.id),
               useAppLockStore.getState().init(activeUser.id),
+            ]);
+          };
+          try {
+            await Promise.race([
+              hydrationChain(),
+              new Promise<void>((resolve) => setTimeout(resolve, 5000)),
             ]);
           } catch (hydrationErr) {
             if (__DEV__) console.error('Startup hydration error:', hydrationErr);

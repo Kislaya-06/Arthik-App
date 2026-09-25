@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Complete Offline-First & Instant Sync 📶⚡',
+    title: ota?.title || 'Network & Launch Stability Improvements 📶⚡',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Full offline functionality: Use Arthik anywhere without internet",
-          "Add, edit & delete categories and Gullak deposits completely offline",
-          "Instant cold launch straight to Home screen with cached data",
-          "Automatic background sync as soon as your device reconnects",
-          "Snappier and faster app launch animations",
+          "Instant app launch even on slow or fluctuating 2G/3G networks",
+          "Eliminated splash screen hang on weak internet connections",
+          "Smoother data & profile loading directly from local offline cache",
+          "Full offline-first functionality across transactions and categories",
+          "Automatic background sync as soon as network reconnects",
         ],
   };
 };
