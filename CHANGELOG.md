@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🎨 UI & Design Polish
+- **Pill Capsule Transaction Rows:** Redesigned Recent Transactions (Home Screen) and History Screen transaction rows into rounded pill/capsule cards (`BorderRadius.pill`), with circular icon badges, high-contrast theme-adaptive surfaces, and color-coded tabular amounts (coral for expenses, mint for income).
+
 ### ✨ Tactile Animations & Micro-Interactions
 - **Gullak Coin Drop & Piggy Bounce:** Animated squash-and-stretch bounce on the Gullak piggy bank icon paired with a golden coin drop micro-interaction when depositing savings or rolling over unspent daily budget.
 - **Streak Flame Breathing & Calendar Transitions:** Gentle continuous breathing pulsation on the header streak flame badge to celebrate active savings consistency, along with smooth staggered pop-ins for saved days in the Streak Calendar modal.

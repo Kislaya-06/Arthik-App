@@ -50,14 +50,23 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
   const isIncome = isIncomeTransaction(item, category);
   const categoryName = category?.name || (isIncome ? 'Money Added' : 'Unknown');
   const categoryColor = category?.color || (isIncome ? colors.mintGreen : '#F4B8AE');
-  const categoryBgColor = categoryColor + '33';
+  const categoryBgColor = categoryColor + '30';
   const IconComp = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
   const PaymentIcon = getPaymentIcon(item.payment_mode);
   const paymentLabel = getPaymentLabel(item.payment_mode);
+  const expenseColor = colors.isDark ? colors.peachCoral : '#E05345';
+  const incomeColor = colors.isDark ? colors.mintGreen : colors.mintGreenDark;
+  const amountColor = isIncome ? incomeColor : expenseColor;
 
   return (
     <Pressable
-      style={[styles.transactionRow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
+      style={[
+        styles.transactionRow,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle,
+        },
+      ]}
       onPress={() => onPress(item.id)}
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
@@ -75,7 +84,7 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
         )}
       </View>
       <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: isIncome ? (colors.isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary, fontFamily: FontFamily.bold }]}>
+        <Text style={[styles.transactionAmount, { color: amountColor, fontFamily: FontFamily.bold }]}>
           {isIncome ? `+${formatCurrency(Math.abs(item.amount))}` : `−${formatCurrency(Math.abs(item.amount))}`}
         </Text>
         <View style={styles.paymentModeRow}>
@@ -97,15 +106,23 @@ interface GullakRowItemProps {
 
 const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors }) => {
   const sourceLabel = item.source === 'income' ? 'From Income' : 'External Deposit';
+  const iconColor = colors.isDark ? colors.mintGreen : colors.mintGreenDark;
+  const iconBg = colors.isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft;
 
   return (
     <Pressable
-      style={[styles.transactionRow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
+      style={[
+        styles.transactionRow,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle,
+        },
+      ]}
       onPress={() => onPress(item.id)}
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
-      <View style={[styles.iconContainer, { backgroundColor: colors.mintGreenSoft }]}>
-        <PiggyBankCoinIcon size={20} color={colors.mintGreenDark} />
+      <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+        <PiggyBankCoinIcon size={20} color={iconColor} />
       </View>
       <View style={styles.transactionMiddle}>
         <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
@@ -481,7 +498,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.input,
+    borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.surface,
     paddingVertical: Spacing.group,
     marginTop: Spacing.block,
@@ -524,43 +541,47 @@ const styles = StyleSheet.create({
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.input,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.row,
-    marginBottom: Spacing.group,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    marginBottom: 10,
+    overflow: 'hidden',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   transactionMiddle: {
     flex: 1,
-    marginLeft: Spacing.group,
+    marginLeft: 14,
   },
   transactionTitle: {
     fontSize: FontSize.body,
   },
   transactionNote: {
-    fontSize: FontSize.bodySmall,
-    marginTop: Spacing.nano,
+    fontSize: 13,
+    marginTop: 2,
   },
   transactionRight: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: Spacing.group,
   },
   transactionAmount: {
     fontSize: FontSize.body,
+    fontVariant: ['tabular-nums'],
   },
   paymentModeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.nano,
+    marginTop: 2,
   },
   paymentModeText: {
-    fontSize: FontSize.caption,
+    fontSize: 12,
     marginLeft: Spacing.micro,
   },
   emptyContainer: {

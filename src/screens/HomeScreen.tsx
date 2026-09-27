@@ -491,43 +491,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
           </View>
         ) : (
-          recentTx.map((item, idx) => {
-            if (item.kind === 'gullak') {
+          <View style={styles.recentTxList}>
+            {recentTx.map((item, idx) => {
+              if (item.kind === 'gullak') {
+                return (
+                  <StaggerRow key={`gullak-${item.data.id}`} index={idx}>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
+                    >
+                      <GullakDepositRow
+                        deposit={item.data}
+                        colors={colors}
+                        isDark={isDark}
+                      />
+                    </TouchableOpacity>
+                  </StaggerRow>
+                );
+              }
+              const e = item.data;
+              const cat = e.category_id ? catMap[e.category_id] : undefined;
+              const isIncome = isIncomeTransaction(e, cat);
               return (
-                <StaggerRow key={`gullak-${item.data.id}`} index={idx}>
+                <StaggerRow key={e.id} index={idx}>
                   <TouchableOpacity
                     activeOpacity={0.75}
-                    onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
+                    onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
                   >
-                    <GullakDepositRow
-                      deposit={item.data}
+                    <TransactionRow
+                      expense={e}
+                      category={cat}
+                      isIncome={isIncome}
                       colors={colors}
                       isDark={isDark}
                     />
                   </TouchableOpacity>
                 </StaggerRow>
               );
-            }
-            const e = item.data;
-            const cat = e.category_id ? catMap[e.category_id] : undefined;
-            const isIncome = isIncomeTransaction(e, cat);
-            return (
-              <StaggerRow key={e.id} index={idx}>
-                <TouchableOpacity
-                  activeOpacity={0.75}
-                  onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
-                >
-                  <TransactionRow
-                    expense={e}
-                    category={cat}
-                    isIncome={isIncome}
-                    colors={colors}
-                    isDark={isDark}
-                  />
-                </TouchableOpacity>
-              </StaggerRow>
-            );
-          })
+            })}
+          </View>
         )}
       </ScrollView>
     </View>
@@ -768,7 +770,9 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     marginRight: Spacing.micro,
   },
-
+  recentTxList: {
+    marginTop: Spacing.block,
+  },
 
   // Empty state
   emptyState: {
