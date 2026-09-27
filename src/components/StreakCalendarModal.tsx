@@ -8,6 +8,8 @@ import {
   Platform,
   ActivityIndicator,
   TouchableWithoutFeedback,
+  Animated,
+  Easing,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Flame, X, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { format, isToday as checkIsToday, parseISO } from 'date-fns';
@@ -53,6 +55,39 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<TooltipState | null>(null);
 
+  // Animations: Flame pulse, Grid entrance, Tooltip pop
+  const flamePulse = useRef(new Animated.Value(1)).current;
+  const gridAnim = useRef(new Animated.Value(0)).current;
+  const tooltipAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible && savingsStreak > 0) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(flamePulse, {
+            toValue: 1.2,
+            duration: 850,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(flamePulse, {
+            toValue: 1,
+            duration: 850,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loop.start();
+      return () => {
+        loop.stop();
+        flamePulse.setValue(1);
+      };
+    } else {
+      flamePulse.setValue(1);
+    }
+  }, [visible, savingsStreak, flamePulse]);
+
   // Cache fetched month data per 'yyyy-MM' key to avoid re-fetching on navigation
   const monthCache = useRef<Record<string, Record<string, DayLogData>>>({});
   const [monthDataVersion, setMonthDataVersion] = useState(0);
@@ -63,6 +98,30 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
 
   const now = new Date();
   const isCurrentMonth = viewingYear > now.getFullYear() || (viewingYear === now.getFullYear() && viewingMonth >= now.getMonth());
+
+  useEffect(() => {
+    if (visible) {
+      gridAnim.setValue(0);
+      Animated.timing(gridAnim, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible, monthKey, gridAnim]);
+
+  useEffect(() => {
+    if (activeTooltip) {
+      tooltipAnim.setValue(0);
+      Animated.spring(tooltipAnim, {
+        toValue: 1,
+        tension: 70,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [activeTooltip, tooltipAnim]);
 
   // Month navigation handlers
   const handlePrevMonth = () => {
@@ -319,7 +378,9 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                       },
                     ]}
                   >
-                    <Flame size={14} color="#E05638" />
+                    <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
+                      <Flame size={14} color="#E05638" />
+                    </Animated.View>
                     <Text style={[styles.streakPillText, { color: '#E05638' }]}>
                       {savingsStreak}d
                     </Text>
@@ -406,7 +467,22 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
               </View>
 
               {/* 7-Column Calendar Grid */}
-              <View style={styles.calendarGrid}>
+              <Animated.View
+                style={[
+                  styles.calendarGrid,
+                  {
+                    opacity: gridAnim,
+                    transform: [
+                      {
+                        translateY: gridAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [8, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
                 {calendarCells.map((cell, index) => {
                   if (cell.day === null) {
                     return <View key={`blank-${index}`} style={styles.dayCellWrapper} />;
@@ -471,16 +547,25 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     </View>
                   );
                 })}
-              </View>
+              </Animated.View>
 
               {/* Interactive Tooltip Popover Card */}
               {activeTooltip && (
-                <View
+                <Animated.View
                   style={[
                     styles.tooltipCard,
                     {
                       backgroundColor: isDark ? '#1A263B' : '#F5F6F9',
                       borderColor: activeTooltip.status === 'saved' ? colors.mintGreen : colors.peachCoral,
+                      opacity: tooltipAnim,
+                      transform: [
+                        {
+                          scale: tooltipAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.94, 1],
+                          }),
+                        },
+                      ],
                     },
                   ]}
                 >
@@ -513,7 +598,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   >
                     <X size={13} color={colors.textSecondary} />
                   </Pressable>
-                </View>
+                </Animated.View>
               )}
 
               {/* Legend Row at Bottom */}

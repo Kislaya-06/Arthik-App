@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Modal,
   TouchableOpacity,
   Alert,
+  Animated,
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 
@@ -29,6 +30,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const [inputBudget, setInputBudget] = useState('');
+  const sheetAnim = useRef(new Animated.Value(0)).current;
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const setDailyBudget = useDailyBudgetStore((s) => s.setDailyBudget);
@@ -39,8 +41,15 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     if (visible) {
       const rawVal = initialAmount > 0 ? String(initialAmount) : '';
       setInputBudget(rawVal ? formatAmountWithCommas(rawVal) : '');
+      sheetAnim.setValue(0);
+      Animated.spring(sheetAnim, {
+        toValue: 1,
+        tension: 70,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
     }
-  }, [visible, initialAmount]);
+  }, [visible, initialAmount, sheetAnim]);
 
   const handleSave = useCallback(() => {
     const num = parseFloat(cleanAmountString(inputBudget));
@@ -81,7 +90,30 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Animated.View
+          style={[
+            styles.modalContent,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              opacity: sheetAnim,
+              transform: [
+                {
+                  translateY: sheetAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [36, 0],
+                  }),
+                },
+                {
+                  scale: sheetAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.95, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
               {dailyBudgetAmount > 0 ? 'Change Daily Budget' : 'Set Daily Budget'}
@@ -130,7 +162,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );

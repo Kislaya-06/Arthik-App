@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
+  Easing,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -153,6 +154,83 @@ export const SavingsScreen: React.FC = () => {
     }
   }, [isAutoRenew, cardAnim]);
 
+  // ─── Priority 1 Animations: Piggy Bounce, Flame Breathe & Progress Fill ────
+  const heroPiggyScale = useRef(new Animated.Value(1)).current;
+  const prevSavingsRef = useRef(totalAccumulatedSavings);
+
+  const triggerPiggyBounce = useCallback(() => {
+    Animated.sequence([
+      Animated.spring(heroPiggyScale, {
+        toValue: 1.25,
+        tension: 80,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+      Animated.spring(heroPiggyScale, {
+        toValue: 1,
+        tension: 70,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [heroPiggyScale]);
+
+  useEffect(() => {
+    if (totalAccumulatedSavings > prevSavingsRef.current) {
+      triggerPiggyBounce();
+    }
+    prevSavingsRef.current = totalAccumulatedSavings;
+  }, [totalAccumulatedSavings, triggerPiggyBounce]);
+
+  const flamePulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (effectiveStreak > 0) {
+      const pulseLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(flamePulse, {
+            toValue: 1.18,
+            duration: 850,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(flamePulse, {
+            toValue: 1,
+            duration: 850,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseLoop.start();
+      return () => {
+        pulseLoop.stop();
+        flamePulse.setValue(1);
+      };
+    } else {
+      flamePulse.setValue(1);
+    }
+  }, [effectiveStreak, flamePulse]);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (shouldRenderTodayCard) {
+      Animated.timing(progressAnim, {
+        toValue: Math.min(1, Math.max(0, progressRatio)),
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [shouldRenderTodayCard, progressRatio, progressAnim]);
+
+  const animatedProgressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -201,7 +279,9 @@ export const SavingsScreen: React.FC = () => {
               },
             ]}
           >
-            <Flame size={18} color="#E05638" />
+            <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
+              <Flame size={18} color="#E05638" />
+            </Animated.View>
             <Text style={[styles.streakBadgeText, { color: '#E05638' }]}>
               {effectiveStreak} Day Streak
             </Text>
@@ -229,9 +309,15 @@ export const SavingsScreen: React.FC = () => {
                 Your Daily Gullak
               </Text>
             </View>
-            <View style={[styles.heroIconWrap, { backgroundColor: colors.mintGreenSoft }]}>
-              <PiggyBankCoinIcon size={24} color={colors.mintGreenDark} />
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={triggerPiggyBounce}
+              style={[styles.heroIconWrap, { backgroundColor: colors.mintGreenSoft }]}
+            >
+              <Animated.View style={{ transform: [{ scale: heroPiggyScale }] }}>
+                <PiggyBankCoinIcon size={24} color={colors.mintGreenDark} />
+              </Animated.View>
+            </TouchableOpacity>
           </View>
 
           {/* Large currency amount with strict alignItems: 'center' per project rule */}
@@ -440,11 +526,11 @@ export const SavingsScreen: React.FC = () => {
 
           {/* Sleek 6px Progress Bar */}
           <View style={[styles.progressBarTrack, { backgroundColor: colors.chartTrack }]}>
-            <View
+            <Animated.View
               style={[
                 styles.progressBarFill,
                 {
-                  width: `${Math.round(progressRatio * 100)}%`,
+                  width: animatedProgressWidth,
                   backgroundColor: isOverBudget
                     ? '#EF4444'
                     : progressRatio >= 0.8

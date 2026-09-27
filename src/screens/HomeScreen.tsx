@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Pressable,
+  Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
@@ -39,10 +40,72 @@ type HomeScreenProps = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+// ─── Animated Filter Pill (Elastic Spring Bounce) ───────────────────────────
+const FilterPill: React.FC<{
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+}> = ({ label, active, onPress, colors }) => {
+  const scale = useRef(new Animated.Value(1)).current;
 
+  const handlePressIn = () => {
+    Animated.spring(scale, { toValue: 0.92, tension: 70, friction: 8, useNativeDriver: true }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(scale, { toValue: 1, tension: 70, friction: 8, useNativeDriver: true }).start();
+  };
 
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+      <Animated.View
+        style={[
+          styles.pill,
+          active
+            ? [styles.pillActive, { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }]
+            : [styles.pillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
+          { transform: [{ scale }] },
+        ]}
+      >
+        <Text
+          style={[
+            styles.pillText,
+            active
+              ? [styles.pillTextActive, { color: colors.textPrimary }]
+              : [styles.pillTextInactive, { color: colors.textSecondary }],
+          ]}
+        >
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+};
 
+// ─── Staggered Transaction Row ───────────────────────────────────────────────
+const StaggerRow: React.FC<{ index: number; children: React.ReactNode }> = ({ index, children }) => {
+  const anim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 220,
+      delay: Math.min(index * 35, 140),
+      useNativeDriver: true,
+    }).start();
+  }, [anim, index]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+};
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
@@ -303,33 +366,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           style={styles.pillsScroll}
           contentContainerStyle={styles.pillsContent}
         >
-          {FILTERS.map((f) => {
-            const active = f === activeFilter;
-            return (
-              <TouchableOpacity
-                key={f}
-                onPress={() => setActiveFilter(f)}
-                style={[
-                  styles.pill,
-                  active
-                    ? [styles.pillActive, { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }]
-                    : [styles.pillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
-                ]}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.pillText,
-                    active
-                      ? [styles.pillTextActive, { color: colors.textPrimary }]
-                      : [styles.pillTextInactive, { color: colors.textSecondary }],
-                  ]}
-                >
-                  {f}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {FILTERS.map((f) => (
+            <FilterPill
+              key={f}
+              label={f}
+              active={f === activeFilter}
+              onPress={() => setActiveFilter(f)}
+              colors={colors}
+            />
+          ))}
         </ScrollView>
         <View style={styles.filterDateRow}>
           <Text style={[styles.filterDateLabel, { color: colors.textMuted }]}>
@@ -446,39 +491,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
           </View>
         ) : (
-          recentTx.map((item) => {
+          recentTx.map((item, idx) => {
             if (item.kind === 'gullak') {
               return (
-                <TouchableOpacity
-                  key={`gullak-${item.data.id}`}
-                  activeOpacity={0.75}
-                  onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
-                >
-                  <GullakDepositRow
-                    deposit={item.data}
-                    colors={colors}
-                    isDark={isDark}
-                  />
-                </TouchableOpacity>
+                <StaggerRow key={`gullak-${item.data.id}`} index={idx}>
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
+                  >
+                    <GullakDepositRow
+                      deposit={item.data}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                  </TouchableOpacity>
+                </StaggerRow>
               );
             }
             const e = item.data;
             const cat = e.category_id ? catMap[e.category_id] : undefined;
             const isIncome = isIncomeTransaction(e, cat);
             return (
-              <TouchableOpacity
-                key={e.id}
-                activeOpacity={0.75}
-                onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
-              >
-                <TransactionRow
-                  expense={e}
-                  category={cat}
-                  isIncome={isIncome}
-                  colors={colors}
-                  isDark={isDark}
-                />
-              </TouchableOpacity>
+              <StaggerRow key={e.id} index={idx}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
+                >
+                  <TransactionRow
+                    expense={e}
+                    category={cat}
+                    isIncome={isIncome}
+                    colors={colors}
+                    isDark={isDark}
+                  />
+                </TouchableOpacity>
+              </StaggerRow>
             );
           })
         )}

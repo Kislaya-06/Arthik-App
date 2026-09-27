@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Tactile Animations & Micro-Interactions
+- **Gullak Coin Drop & Piggy Bounce:** Animated squash-and-stretch bounce on the Gullak piggy bank icon paired with a golden coin drop micro-interaction when depositing savings or rolling over unspent daily budget.
+- **Streak Flame Breathing & Calendar Transitions:** Gentle continuous breathing pulsation on the header streak flame badge to celebrate active savings consistency, along with smooth staggered pop-ins for saved days in the Streak Calendar modal.
+- **Donut Chart SVG Sweep & Allowance Progress Fill:** Fluid animated arc sweeps on the Home screen donut chart when toggling between Daily, Weekly, and Monthly periods, plus animated fill width on the Daily Allowance progress bar.
+- **Keypad Amount Punch & Error Shake:** Subtle amount punch animation on keypad input and a horizontal error shake when attempting to save with zero amount.
+- **Category Chip Selection Pop:** Spring scale pop feedback when selecting categories in the transaction form.
+- **Filter Pill Elastic Spring:** Fluid spring feedback when toggling time filters on the Home screen.
+- **Spring Sheet & Modal Physics:** Weighted spring enter and exit physics for budget edit modals and bottom sheets.
+- **Transaction Feed Stagger:** Subtle sequential fade-in and slide-up stagger for recent transactions on the Home screen.
+
 ### ⚡ Slow Network & Launch Stability Fixes
 - **Splash Screen 5s Aggregate Hydration Timeout:** Wrapped network hydration (`loadPendingExpenses`, `fetchCategories`, `fetchExpenses`, `hydrateFromSupabase`) in a fail-safe 5-second aggregate timeout. On slow, high-latency, or fluctuating 2G/3G connections, the app falls back to local cache and opens the Home dashboard immediately instead of hanging on the splash screen.
 - **Profile State Preservation on Network Timeout:** Fixed an issue where a slow network timeout could temporarily clear user profile state and cause "Welcome User" and zeroed metrics to display. Local profile memory is now strictly preserved when network hydration times out.

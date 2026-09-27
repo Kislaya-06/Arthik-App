@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,14 @@ import {
   ScrollView,
   Platform,
   Keyboard,
+  Animated,
 } from 'react-native';
 import { X, Check, ArrowLeft, Wallet, PlusCircle, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useDailyBudgetStore, GullakDepositSource } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
-import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
+import { PiggyBankCoinIcon, AnimatedPiggyBank } from './PiggyBankCoinIcon';
 import { KeyButton } from './KeyButton';
 import { formatAmountWithCommas, formatCurrency } from '../lib/formatters';
 import {
@@ -50,6 +51,9 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const [source, setSource] = useState<GullakDepositSource>('external');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [isCelebrating, setIsCelebrating] = useState(false);
+  const celebrationScale = useRef(new Animated.Value(0.8)).current;
+  const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
   const addGullakDeposit = useDailyBudgetStore((s) => s.addGullakDeposit);
   const availableIncome = useDailyBudgetStore((s) => s.getAvailableIncomeBalance());
@@ -60,8 +64,11 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
       setSource('external');
       setAmount('');
       setNote('');
+      setIsCelebrating(false);
+      celebrationScale.setValue(0.8);
+      celebrationOpacity.setValue(0);
     }
-  }, [visible]);
+  }, [visible, celebrationScale, celebrationOpacity]);
 
   const {
     result: evaluatedAmount,
@@ -93,11 +100,30 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   }, [availableIncome]);
 
   const handleDeposit = useCallback(() => {
-    if (isValidAmount) {
-      addGullakDeposit(evaluatedAmount, note.trim(), source);
-      onClose();
+    if (isValidAmount && !isCelebrating) {
+      Keyboard.dismiss();
+      setIsCelebrating(true);
+      Animated.parallel([
+        Animated.spring(celebrationScale, {
+          toValue: 1,
+          tension: 70,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(celebrationOpacity, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      setTimeout(() => {
+        addGullakDeposit(evaluatedAmount, note.trim(), source);
+        setIsCelebrating(false);
+        onClose();
+      }, 720);
     }
-  }, [isValidAmount, evaluatedAmount, note, source, addGullakDeposit, onClose]);
+  }, [isValidAmount, isCelebrating, evaluatedAmount, note, source, addGullakDeposit, onClose, celebrationScale, celebrationOpacity]);
 
   return (
     <Modal
@@ -487,6 +513,45 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               </View>
             </ScrollView>
           )}
+
+          {/* ── Celebration Overlay (Coin Drop & Piggy Bounce) ── */}
+          {isCelebrating && (
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFill,
+                styles.celebrationOverlay,
+                {
+                  backgroundColor: colors.card,
+                  opacity: celebrationOpacity,
+                  transform: [{ scale: celebrationScale }],
+                },
+              ]}
+              pointerEvents="auto"
+            >
+              <View style={[styles.celebrationCircle, { backgroundColor: colors.mintGreenSoft }]}>
+                <AnimatedPiggyBank
+                  size={58}
+                  color={colors.mintGreenDark}
+                  coinColor="#F59E0B"
+                  triggerKey={isCelebrating ? 1 : 0}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.celebrationAmount,
+                  { color: isDark ? colors.mintGreen : colors.mintGreenDark },
+                ]}
+              >
+                +{formatCurrency(evaluatedAmount)}
+              </Text>
+              <Text style={[styles.celebrationTitle, { color: colors.textPrimary }]}>
+                Saved in Gullak!
+              </Text>
+              <Text style={[styles.celebrationSub, { color: colors.textSecondary }]}>
+                {source === 'income' ? 'Allocated from income' : 'Added to your savings'}
+              </Text>
+            </Animated.View>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -511,6 +576,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  celebrationOverlay: {
+    borderRadius: BorderRadius.cardLarge,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.surface,
+    zIndex: 10,
+  },
+  celebrationCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.surface,
+  },
+  celebrationAmount: {
+    fontSize: 26,
+    fontFamily: FontFamily.bold,
+    marginBottom: Spacing.nano,
+  },
+  celebrationTitle: {
+    fontSize: FontSize.cta,
+    fontFamily: FontFamily.bold,
+    marginBottom: Spacing.micro,
+  },
+  celebrationSub: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
+    textAlign: 'center',
   },
   scrollContent: {
     flexGrow: 0,

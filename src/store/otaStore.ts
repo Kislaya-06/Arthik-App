@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Network & Launch Stability Improvements 📶⚡',
+    title: ota?.title || 'Tactile Animations & Visual Delight ✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Instant app launch even on slow or fluctuating 2G/3G networks",
-          "Eliminated splash screen hang on weak internet connections",
-          "Smoother data & profile loading directly from local offline cache",
-          "Full offline-first functionality across transactions and categories",
-          "Automatic background sync as soon as network reconnects",
+          "Delightful Gullak coin drop & piggy bounce micro-interaction",
+          "Dynamic streak flame breathing and interactive calendar transitions",
+          "Smooth animated SVG Donut chart sweeps & daily allowance progress",
+          "Tactile numeric keypad amount punch & error shake feedback",
+          "Elastic category chip selection pops and spring bottom-sheet modals",
         ],
   };
 };

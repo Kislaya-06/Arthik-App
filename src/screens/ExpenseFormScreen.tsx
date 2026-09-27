@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
@@ -46,6 +46,58 @@ const KEYPAD_ROWS = [
   ['7', '8', '9', '−'],
   ['.', '0', 'backspace', '+'],
 ];
+
+// ─── Animated Category Chip ─────────────────────────────────────────────────
+const CategoryChipItem: React.FC<{
+  category: Category;
+  isSelected: boolean;
+  isPlaceholder: boolean;
+  onSelect: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+}> = ({ category, isSelected, isPlaceholder, onSelect, colors }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  const IconComp = getCategoryIcon(category.icon);
+
+  useEffect(() => {
+    if (isSelected) {
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [isSelected, scale]);
+
+  return (
+    <Pressable
+      disabled={isPlaceholder}
+      onPress={() => {
+        if (!isPlaceholder) onSelect();
+      }}
+    >
+      <Animated.View
+        style={[
+          styles.categoryChip,
+          isSelected
+            ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
+            : { backgroundColor: colors.card, borderColor: colors.border },
+          isPlaceholder && { opacity: 0.45 },
+          { transform: [{ scale }] },
+        ]}
+      >
+        <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
+        <Text
+          style={[
+            styles.categoryChipText,
+            { color: isSelected ? colors.forestGreen : colors.textPrimary },
+            { fontFamily: FontFamily.bold },
+          ]}
+        >
+          {category.name}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const { colors, isDark } = useTheme();
@@ -107,6 +159,39 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     },
     [handleTypeChange, showKeypad]
   );
+
+  // Animations: Amount scale punch on key press & error shake on invalid save
+  const amountScale = useRef(new Animated.Value(1)).current;
+  const amountShake = useRef(new Animated.Value(0)).current;
+  const prevAmountRef = useRef(amount);
+
+  useEffect(() => {
+    if (amount !== prevAmountRef.current && amount.length > 0) {
+      Animated.sequence([
+        Animated.timing(amountScale, { toValue: 1.05, duration: 60, useNativeDriver: true }),
+        Animated.spring(amountScale, { toValue: 1, tension: 70, friction: 8, useNativeDriver: true }),
+      ]).start();
+    }
+    prevAmountRef.current = amount;
+  }, [amount, amountScale]);
+
+  const triggerErrorShake = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(amountShake, { toValue: -8, duration: 40, useNativeDriver: true }),
+      Animated.timing(amountShake, { toValue: 8, duration: 40, useNativeDriver: true }),
+      Animated.timing(amountShake, { toValue: -5, duration: 40, useNativeDriver: true }),
+      Animated.timing(amountShake, { toValue: 5, duration: 40, useNativeDriver: true }),
+      Animated.timing(amountShake, { toValue: 0, duration: 40, useNativeDriver: true }),
+    ]).start();
+  }, [amountShake]);
+
+  const onSavePress = useCallback(() => {
+    if (!isSaveEnabled) {
+      triggerErrorShake();
+      return;
+    }
+    handleSave();
+  }, [isSaveEnabled, triggerErrorShake, handleSave]);
 
   // Keypad-only interpolations — category stays always visible (no animation)
   const {
@@ -220,7 +305,17 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               {formattedExpression}
             </Text>
           )}
-          <View style={styles.amountRow}>
+          <Animated.View
+            style={[
+              styles.amountRow,
+              {
+                transform: [
+                  { scale: amountScale },
+                  { translateX: amountShake },
+                ],
+              },
+            ]}
+          >
             <Text
               style={[
                 styles.currencySymbol,
@@ -249,7 +344,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 ? formatAmountWithCommas(evaluatedAmount.toString()) || '0'
                 : formatAmountWithCommas(amount) || '0'}
             </Text>
-          </View>
+          </Animated.View>
           <View
             style={[
               styles.amountUnderline,
@@ -309,36 +404,18 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                   {categories.map((cat: Category) => {
                     const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
                     const isSelected = selectedCategoryId === cat.id && !isPlaceholder;
-                    const IconComp = getCategoryIcon(cat.icon);
                     return (
-                      <Pressable
+                      <CategoryChipItem
                         key={cat.id}
-                        disabled={isPlaceholder}
-                        onPress={() => {
-                          if (!isPlaceholder) {
-                            handleCategorySelect(cat.id);
-                            hideKeypad();
-                          }
+                        category={cat}
+                        isSelected={isSelected}
+                        isPlaceholder={isPlaceholder}
+                        onSelect={() => {
+                          handleCategorySelect(cat.id);
+                          hideKeypad();
                         }}
-                        style={[
-                          styles.categoryChip,
-                          isSelected
-                            ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
-                            : { backgroundColor: colors.card, borderColor: colors.border },
-                          isPlaceholder && { opacity: 0.45 },
-                        ]}
-                      >
-                        <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
-                        <Text
-                          style={[
-                            styles.categoryChipText,
-                            { color: isSelected ? colors.forestGreen : colors.textPrimary },
-                            { fontFamily: FontFamily.bold },
-                          ]}
-                        >
-                          {cat.name}
-                        </Text>
-                      </Pressable>
+                        colors={colors}
+                      />
                     );
                   })}
                   <Pressable
@@ -582,8 +659,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
         <Animated.View style={{ marginTop: isKeyboardOpen ? 0 : saveButtonMarginTop }}>
           <Pressable
-            disabled={!isSaveEnabled || isSubmitting}
-            onPress={handleSave}
+            disabled={isSubmitting}
+            onPress={onSavePress}
             style={({ pressed }) => [
               styles.saveButton,
               isKeyboardOpen && styles.saveButtonKeyboard,
