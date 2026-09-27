@@ -63,7 +63,7 @@ export interface UseExpenseFormReturn {
   handleDateConfirm: (date: Date) => void;
   setShowDatePicker: (show: boolean) => void;
   setPaymentMode: (mode: 'cash' | 'upi' | 'card') => void;
-  handleSave: () => Promise<void>;
+  handleSave: (onSuccess?: () => Promise<void> | void) => Promise<void>;
   noteSuggestions: string[];
   handleSelectNoteSuggestion: (suggestion: string) => void;
 }
@@ -188,7 +188,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   }, [isEdit, selectedCategoryId, categories]);
 
   // ─── Save / Update ────────────────────────────────────────────────────────
-  const handleSave = async () => {
+  const handleSave = async (onSuccess?: () => Promise<void> | void) => {
     if (isSubmitting || isDivisionByZero) return;
 
     const numAmount = evaluatedAmount;
@@ -249,6 +249,10 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
       // Keep daily budget and smart notifications in sync
       const currentExpenses = useExpenseStore.getState().expenses;
       useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
+
+      if (onSuccess) {
+        await onSuccess();
+      }
 
       navigation.goBack();
     } catch (e: any) {

@@ -9,7 +9,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import {
-  ArrowLeft, Calendar, ChevronRight, Plus,
+  ArrowLeft, Calendar, ChevronRight, Plus, Check,
 } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
@@ -185,13 +185,65 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     ]).start();
   }, [amountShake]);
 
-  const onSavePress = useCallback(() => {
+  // Animations: Save button text hide & tick reveal animation (button stays green)
+  const [isSaved, setIsSaved] = useState(false);
+  const successAnim = useRef(new Animated.Value(0)).current;
+
+  const textOpacity = useMemo(() => {
+    return successAnim.interpolate({
+      inputRange: [0, 0.35],
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
+    });
+  }, [successAnim]);
+
+  const textTranslateY = useMemo(() => {
+    return successAnim.interpolate({
+      inputRange: [0, 0.35],
+      outputRange: [0, -8],
+      extrapolate: 'clamp',
+    });
+  }, [successAnim]);
+
+  const tickOpacity = useMemo(() => {
+    return successAnim.interpolate({
+      inputRange: [0.25, 0.55],
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    });
+  }, [successAnim]);
+
+  const tickScale = useMemo(() => {
+    return successAnim.interpolate({
+      inputRange: [0.25, 0.65, 1],
+      outputRange: [0.3, 1.2, 1.0],
+      extrapolate: 'clamp',
+    });
+  }, [successAnim]);
+
+  const onSavePress = useCallback(async () => {
     if (!isSaveEnabled) {
       triggerErrorShake();
       return;
     }
-    handleSave();
-  }, [isSaveEnabled, triggerErrorShake, handleSave]);
+    try {
+      await handleSave(async () => {
+        Keyboard.dismiss();
+        hideKeypad();
+        setIsSaved(true);
+        Animated.spring(successAnim, {
+          toValue: 1,
+          tension: 70,
+          friction: 7,
+          useNativeDriver: true,
+        }).start();
+        await new Promise((resolve) => setTimeout(resolve, 450));
+      });
+    } catch {
+      setIsSaved(false);
+      successAnim.setValue(0);
+    }
+  }, [isSaveEnabled, triggerErrorShake, handleSave, hideKeypad, successAnim]);
 
   // Keypad-only interpolations — category stays always visible (no animation)
   const {
@@ -264,6 +316,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={[styles.header, { marginTop: insets.top + 16 }]}>
         <Pressable
           style={styles.backButton}
+          disabled={isSubmitting || isSaved}
           onPress={() => {
             if (navigation.canGoBack()) {
               navigation.goBack();
@@ -659,12 +712,12 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
         <Animated.View style={{ marginTop: isKeyboardOpen ? 0 : saveButtonMarginTop }}>
           <Pressable
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSaved}
             onPress={onSavePress}
             style={({ pressed }) => [
               styles.saveButton,
               isKeyboardOpen && styles.saveButtonKeyboard,
-              isSaveEnabled && !isSubmitting
+              (isSaveEnabled && !isSubmitting) || isSaved
                 ? [
                     styles.saveButtonEnabled,
                     {
@@ -682,28 +735,52 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                   ],
             ]}
           >
-            {isSubmitting ? (
+            {isSubmitting && !isSaved ? (
               <ActivityIndicator size="small" color={colors.forestGreen} />
             ) : (
-              <Text
-                style={[
-                  styles.saveButtonText,
-                  {
-                    color: isDivisionByZero
-                      ? colors.danger
-                      : isSaveEnabled
-                      ? colors.forestGreen
-                      : colors.textMuted,
-                    fontFamily: FontFamily.bold,
-                  },
-                ]}
-              >
-                {isDivisionByZero
-                  ? 'Cannot divide by 0'
-                  : isEdit
-                  ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
-                  : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
-              </Text>
+              <View style={{ alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <Animated.View
+                  style={{
+                    opacity: textOpacity,
+                    transform: [{ translateY: textTranslateY }],
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.saveButtonText,
+                      {
+                        color: isDivisionByZero
+                          ? colors.danger
+                          : (isSaveEnabled || isSaved)
+                          ? colors.forestGreen
+                          : colors.textMuted,
+                        fontFamily: FontFamily.bold,
+                      },
+                    ]}
+                  >
+                    {isDivisionByZero
+                      ? 'Cannot divide by 0'
+                      : isEdit
+                      ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
+                      : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
+                  </Text>
+                </Animated.View>
+
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: tickOpacity,
+                      transform: [{ scale: tickScale }],
+                    },
+                  ]}
+                >
+                  <Check size={26} color={colors.forestGreen} strokeWidth={2.8} />
+                </Animated.View>
+              </View>
             )}
           </Pressable>
         </Animated.View>
