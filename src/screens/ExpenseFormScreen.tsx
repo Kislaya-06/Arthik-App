@@ -185,41 +185,30 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     ]).start();
   }, [amountShake]);
 
-  // Animations: Save button text hide & tick reveal animation (button stays green)
-  const [isSaved, setIsSaved] = useState(false);
-  const successAnim = useRef(new Animated.Value(0)).current;
+  // Animations: Save button morph to green circle & tick reveal (never turns grey)
+  const [buttonFullWidth, setButtonFullWidth] = useState<number>(0);
+  const [isMorphing, setIsMorphing] = useState<boolean>(false);
+  const [showTick, setShowTick] = useState<boolean>(false);
+  const morphAnim = useRef(new Animated.Value(0)).current;
+  const tickScale = useRef(new Animated.Value(0)).current;
+  const buttonHeight = isKeyboardOpen ? 50 : ControlHeight.cta;
+
+  const isButtonGreen = isSaveEnabled || isSubmitting || isMorphing || showTick;
+
+  const animatedButtonWidth = useMemo(() => {
+    return morphAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [buttonFullWidth || 350, buttonHeight],
+    });
+  }, [morphAnim, buttonFullWidth, buttonHeight]);
 
   const textOpacity = useMemo(() => {
-    return successAnim.interpolate({
-      inputRange: [0, 0.35],
+    return morphAnim.interpolate({
+      inputRange: [0, 0.25],
       outputRange: [1, 0],
       extrapolate: 'clamp',
     });
-  }, [successAnim]);
-
-  const textTranslateY = useMemo(() => {
-    return successAnim.interpolate({
-      inputRange: [0, 0.35],
-      outputRange: [0, -8],
-      extrapolate: 'clamp',
-    });
-  }, [successAnim]);
-
-  const tickOpacity = useMemo(() => {
-    return successAnim.interpolate({
-      inputRange: [0.25, 0.55],
-      outputRange: [0, 1],
-      extrapolate: 'clamp',
-    });
-  }, [successAnim]);
-
-  const tickScale = useMemo(() => {
-    return successAnim.interpolate({
-      inputRange: [0.25, 0.65, 1],
-      outputRange: [0.3, 1.2, 1.0],
-      extrapolate: 'clamp',
-    });
-  }, [successAnim]);
+  }, [morphAnim]);
 
   const onSavePress = useCallback(async () => {
     if (!isSaveEnabled) {
@@ -230,20 +219,36 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       await handleSave(async () => {
         Keyboard.dismiss();
         hideKeypad();
-        setIsSaved(true);
-        Animated.spring(successAnim, {
+        setIsMorphing(true);
+
+        // 1. Button smoothly contracts into green circle (never turning grey)
+        await new Promise<void>((resolve) => {
+          Animated.timing(morphAnim, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: false,
+          }).start(() => resolve());
+        });
+
+        // 2. Tick appears with bouncy spring inside the green circle
+        setShowTick(true);
+        Animated.spring(tickScale, {
           toValue: 1,
-          tension: 70,
-          friction: 7,
+          tension: 75,
+          friction: 6,
           useNativeDriver: true,
         }).start();
+
+        // 3. Keep green circle + tick visible for a brief moment ("bahut kam time ke liye")
         await new Promise((resolve) => setTimeout(resolve, 450));
       });
     } catch {
-      setIsSaved(false);
-      successAnim.setValue(0);
+      setIsMorphing(false);
+      setShowTick(false);
+      morphAnim.setValue(0);
+      tickScale.setValue(0);
     }
-  }, [isSaveEnabled, triggerErrorShake, handleSave, hideKeypad, successAnim]);
+  }, [isSaveEnabled, triggerErrorShake, handleSave, hideKeypad, morphAnim, tickScale]);
 
   // Keypad-only interpolations — category stays always visible (no animation)
   const {
@@ -316,7 +321,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={[styles.header, { marginTop: insets.top + 16 }]}>
         <Pressable
           style={styles.backButton}
-          disabled={isSubmitting || isSaved}
+          disabled={isSubmitting || isMorphing}
           onPress={() => {
             if (navigation.canGoBack()) {
               navigation.goBack();
@@ -710,79 +715,78 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </Animated.View>
 
-        <Animated.View style={{ marginTop: isKeyboardOpen ? 0 : saveButtonMarginTop }}>
-          <Pressable
-            disabled={isSubmitting || isSaved}
-            onPress={onSavePress}
-            style={({ pressed }) => [
-              styles.saveButton,
-              isKeyboardOpen && styles.saveButtonKeyboard,
-              (isSaveEnabled && !isSubmitting) || isSaved
-                ? [
-                    styles.saveButtonEnabled,
-                    {
-                      backgroundColor: colors.mintGreen,
-                      opacity: pressed ? 0.9 : 1,
-                      transform: [{ scale: pressed ? 0.98 : 1 }],
-                    },
-                  ]
-                : [
-                    styles.saveButtonDisabled,
-                    {
-                      backgroundColor: colors.cardSubtle,
-                      borderColor: isDivisionByZero ? colors.danger : colors.borderSubtle,
-                    },
-                  ],
+        <Animated.View
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            if (w > 0 && !isMorphing && w !== buttonFullWidth) {
+              setButtonFullWidth(w);
+            }
+          }}
+          style={{
+            marginTop: isKeyboardOpen ? 0 : saveButtonMarginTop,
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
+          <Animated.View
+            style={[
+              {
+                width: buttonFullWidth > 0 ? animatedButtonWidth : '100%',
+                height: buttonHeight,
+                borderRadius: BorderRadius.pill,
+                alignSelf: 'center',
+                backgroundColor: isButtonGreen ? colors.mintGreen : colors.cardSubtle,
+                borderColor: !isButtonGreen && isDivisionByZero ? colors.danger : (!isButtonGreen ? colors.borderSubtle : 'transparent'),
+                borderWidth: !isButtonGreen ? 1 : 0,
+              },
+              isButtonGreen ? styles.saveButtonEnabled : null,
             ]}
           >
-            {isSubmitting && !isSaved ? (
-              <ActivityIndicator size="small" color={colors.forestGreen} />
-            ) : (
-              <View style={{ alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                <Animated.View
-                  style={{
-                    opacity: textOpacity,
-                    transform: [{ translateY: textTranslateY }],
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.saveButtonText,
-                      {
-                        color: isDivisionByZero
-                          ? colors.danger
-                          : (isSaveEnabled || isSaved)
-                          ? colors.forestGreen
-                          : colors.textMuted,
-                        fontFamily: FontFamily.bold,
-                      },
-                    ]}
-                  >
-                    {isDivisionByZero
-                      ? 'Cannot divide by 0'
-                      : isEdit
-                      ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
-                      : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
-                  </Text>
+            <Pressable
+              disabled={isSubmitting || isMorphing}
+              onPress={onSavePress}
+              style={({ pressed }) => [
+                styles.saveButton,
+                {
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: 'transparent',
+                  opacity: pressed && !isMorphing ? 0.9 : 1,
+                },
+                isKeyboardOpen && styles.saveButtonKeyboard,
+              ]}
+            >
+              {showTick ? (
+                <Animated.View style={{ transform: [{ scale: tickScale }] }}>
+                  <Check size={26} color={colors.forestGreen} strokeWidth={2.8} />
                 </Animated.View>
-
-                <Animated.View
-                  pointerEvents="none"
+              ) : isSubmitting && !isMorphing ? (
+                <ActivityIndicator size="small" color={colors.forestGreen} />
+              ) : (
+                <Animated.Text
+                  numberOfLines={1}
                   style={[
-                    StyleSheet.absoluteFill,
+                    styles.saveButtonText,
                     {
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      opacity: tickOpacity,
-                      transform: [{ scale: tickScale }],
+                      opacity: textOpacity,
+                      color: isDivisionByZero
+                        ? colors.danger
+                        : isButtonGreen
+                        ? colors.forestGreen
+                        : colors.textMuted,
+                      fontFamily: FontFamily.bold,
                     },
                   ]}
                 >
-                  <Check size={26} color={colors.forestGreen} strokeWidth={2.8} />
-                </Animated.View>
-              </View>
-            )}
-          </Pressable>
+                  {isDivisionByZero
+                    ? 'Cannot divide by 0'
+                    : isEdit
+                    ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
+                    : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
+                </Animated.Text>
+              )}
+            </Pressable>
+          </Animated.View>
         </Animated.View>
       </View>
     </KeyboardAvoidingView>
