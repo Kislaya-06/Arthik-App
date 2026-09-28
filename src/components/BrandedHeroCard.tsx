@@ -36,45 +36,50 @@ const DEFAULT_WIDTH = 340;
 const CORNER_RADIUS = 24;
 const POD_SIZE = 80;
 const GAP = 8;
-const SCOOP_RADIUS = 22;
 
 /**
- * Generates an SVG path for a card with an organic scooped notch in the top-right corner.
- * Tangent-continuous cubic Bézier curves ensure a seamless S-curve transition.
+ * Generates an SVG path for a card with an organic concentric circular socket in the top-right corner.
+ * The cutout follows the exact same circular curvature as the chart pod with an equidistant gap,
+ * eliminating any flat corners under the circle.
  */
 function buildNotchedCardPath(
   w: number,
   h: number,
   r: number,
   podSize: number,
-  gap: number,
-  scoopRadius: number
+  gap: number
 ): string {
   if (w <= 0 || h <= 0) return '';
 
-  const shelfY = Math.min(podSize + gap, h - r * 2);
-  const shelfX = Math.max(r * 2, w - podSize - gap);
-  const scoopR = Math.min(scoopRadius, (shelfX - r) * 0.4, shelfY * 0.5);
+  const Rc = podSize / 2;
+  const Cx = w - Rc;
+  const Cy = Rc;
+  const Rcradle = Rc + gap;
+  const r1 = 16;
+  const r2 = 16;
 
-  const startX = shelfX - scoopR;
-  const endX = shelfX + scoopR;
+  // Top fillet blending horizontal top edge into concentric circular arc
+  const d1 = Math.sqrt(Math.max(1, Math.pow(Rcradle + r1, 2) - Math.pow(Cy - r1, 2)));
+  const x_f1 = Cx - d1;
+  const T1_x = x_f1 + r1 * (d1 / (Rcradle + r1));
+  const T1_y = r1 + r1 * ((Cy - r1) / (Rcradle + r1));
 
-  // Tangent continuous control points for S-curve
-  const cp1X = startX + scoopR * 0.55;
-  const cp1Y = 0;
-  const cp2X = endX - scoopR * 0.55;
-  const cp2Y = shelfY;
+  // Right fillet blending concentric circular arc into vertical right edge
+  const d2 = Math.sqrt(Math.max(1, Math.pow(Rcradle + r2, 2) - Math.pow(Rc - r2, 2)));
+  const y_f2 = Cy + d2;
+  const T2_x = Cx + Rcradle * ((Rc - r2) / (Rcradle + r2));
+  const T2_y = Cy + Rcradle * (d2 / (Rcradle + r2));
 
   return [
     `M ${r},0`,
-    `L ${startX},0`,
-    `C ${cp1X},${cp1Y} ${cp2X},${cp2Y} ${endX},${shelfY}`,
-    `L ${w - r},${shelfY}`,
-    `A ${r},${r} 0 0 1 ${w},${shelfY + r}`,
-    `L ${w},${h - r}`,
-    `A ${r},${r} 0 0 1 ${w - r},${h}`,
+    `L ${x_f1.toFixed(2)},0`,
+    `A ${r1},${r1} 0 0 1 ${T1_x.toFixed(2)},${T1_y.toFixed(2)}`,
+    `A ${Rcradle},${Rcradle} 0 0 0 ${T2_x.toFixed(2)},${T2_y.toFixed(2)}`,
+    `A ${r2},${r2} 0 0 1 ${w},${y_f2.toFixed(2)}`,
+    `L ${w},${(h - r).toFixed(2)}`,
+    `A ${r},${r} 0 0 1 ${(w - r).toFixed(2)},${h}`,
     `L ${r},${h}`,
-    `A ${r},${r} 0 0 1 0,${h - r}`,
+    `A ${r},${r} 0 0 1 0,${(h - r).toFixed(2)}`,
     `L 0,${r}`,
     `A ${r},${r} 0 0 1 ${r},0`,
     'Z',
@@ -117,7 +122,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   const cardPath = useMemo(() => {
     const h = dimensions.height > 0 ? dimensions.height : 210;
-    return buildNotchedCardPath(dimensions.width, h, CORNER_RADIUS, POD_SIZE, GAP, SCOOP_RADIUS);
+    return buildNotchedCardPath(dimensions.width, h, CORNER_RADIUS, POD_SIZE, GAP);
   }, [dimensions.width, dimensions.height]);
 
   const showRollover = activeFilter === 'Daily' && todayBudget > 0;
