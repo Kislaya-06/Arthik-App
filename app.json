@@ -54,13 +54,13 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "Modern Dashboard & UI Polish ✨",
+        "title": "Interactive Cash Flow & Insights 📊",
         "highlights": [
-          "Branded notched hero card with integrated donut chart & period insights",
-          "Unboxed financial metrics with high-contrast allowance & spending breakdown",
-          "Smooth animated category donut sweeps & breathing streak flame physics",
-          "Refined pill-capsule transaction rows across Home and History",
-          "Codebase modularity, dead code cleanup, and snappy UI performance"
+          "Interactive 4-week Cash Flow chart with executive Net Flow & In/Out breakdown",
+          "One-tap deep navigation from Weekly Cash Flow pods directly to History",
+          "Seamless History auto-scroll to exact transaction dates",
+          "Weekly Spending Flow and Yearly Gullak milestones visualization",
+          "Refined typography, circular action badges, and calibrated zero-state gauge indicators"
         ]
       }
     }

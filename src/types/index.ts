@@ -20,7 +20,7 @@ export type RootStackParamList = {
 
 export type TabParamList = {
   Home: undefined;
-  History: { targetDate?: string } | undefined;
+  History: { targetDate?: string; startDate?: string; endDate?: string } | undefined;
   AddExpensePlaceholder: undefined;
   Savings: undefined;
   Insights: undefined;

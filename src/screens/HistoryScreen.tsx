@@ -14,7 +14,7 @@ import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
-import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
@@ -224,7 +224,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     const incomeTotals: Record<string, number> = {};
 
     filteredExpenses.forEach((expense) => {
-      const dateKey = expense.expense_date;
+      const dateKey = expense.expense_date?.split('T')[0]?.trim() || '';
+      if (!dateKey) return;
       (grouped[dateKey] ??= []).push({
         kind: 'expense',
         data: expense,
@@ -241,7 +242,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     });
 
     filteredDeposits.forEach((deposit) => {
-      const dateKey = deposit.date;
+      const dateKey = deposit.date?.split('T')[0]?.trim() || '';
+      if (!dateKey) return;
       (grouped[dateKey] ??= []).push({
         kind: 'gullak',
         data: deposit,
@@ -282,33 +284,116 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, searchQuery]);
 
   const targetDate = route.params?.targetDate;
+  const targetStartDate = route.params?.startDate;
+  const targetEndDate = route.params?.endDate;
+
+  const targetIndexRef = useRef<number>(-1);
+  const lastHandledKeyRef = useRef<string>('');
+
+  const filteredAndGroupedExpensesRef = useRef(filteredAndGroupedExpenses);
+  useEffect(() => {
+    filteredAndGroupedExpensesRef.current = filteredAndGroupedExpenses;
+  }, [filteredAndGroupedExpenses]);
+
+  // Reset handled key when user navigates away from History
+  useEffect(() => {
+    const unsub = navigation.addListener('blur', () => {
+      lastHandledKeyRef.current = '';
+    });
+    return unsub;
+  }, [navigation]);
 
   useEffect(() => {
-    if (!targetDate) return;
+    if (!targetDate && !targetStartDate) return;
 
+    const targetKey = `${targetDate || ''}_${targetStartDate || ''}_${targetEndDate || ''}`;
+    if (lastHandledKeyRef.current === targetKey) return;
+    lastHandledKeyRef.current = targetKey;
+
+    // Reset filters so the target transaction is visible
     setSearchQuery('');
     setSelectedCategoryId(null);
 
-    const timer = setTimeout(() => {
-      const targetIndex = filteredAndGroupedExpenses.findIndex(
-        (s) => s.dateStr === targetDate
-      );
-      if (targetIndex >= 0 && sectionListRef.current) {
-        sectionListRef.current.scrollToLocation({
-          sectionIndex: targetIndex,
-          itemIndex: 0,
-          animated: true,
-          viewPosition: 0,
-        });
-      }
-    }, 150);
+    const target = targetDate;
+    const start = targetStartDate;
+    const end = targetEndDate;
 
-    navigation.setParams({ targetDate: undefined });
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const performScroll = () => {
+      attempts++;
+      const sections = filteredAndGroupedExpensesRef.current;
+      if (!sectionListRef.current || !sections || sections.length === 0) {
+        if (attempts < maxAttempts) {
+          setTimeout(performScroll, 50);
+        }
+        return;
+      }
+
+      let targetIndex = -1;
+
+      // 1. If start and end range is provided (e.g. 8 to 14, or 15 to 21):
+      // Check each day starting from start in ascending order (e.g. 15, then 16, 17... 21)
+      if (start && end) {
+        let cur = parseISO(start);
+        const endObj = parseISO(end);
+        while (!isAfter(cur, endObj)) {
+          const curStr = format(cur, 'yyyy-MM-dd');
+          const idx = sections.findIndex((s) => s.dateStr === curStr);
+          if (idx >= 0) {
+            targetIndex = idx;
+            break;
+          }
+          cur = addDays(cur, 1);
+        }
+      }
+
+      // 2. If not found by range, try exact targetDate
+      if (targetIndex < 0 && target) {
+        targetIndex = sections.findIndex((s) => s.dateStr === target);
+      }
+
+      // 3. Fallback: closest section by date
+      if (targetIndex < 0 && target) {
+        let minDiff = Infinity;
+        let bestIndex = -1;
+        const targetTime = parseISO(target).getTime();
+
+        sections.forEach((s, idx) => {
+          const sTime = parseISO(s.dateStr).getTime();
+          const diff = Math.abs(sTime - targetTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestIndex = idx;
+          }
+        });
+        targetIndex = bestIndex;
+      }
+
+      if (targetIndex >= 0 && sectionListRef.current) {
+        targetIndexRef.current = targetIndex;
+        try {
+          sectionListRef.current.scrollToLocation({
+            sectionIndex: targetIndex,
+            itemIndex: 0,
+            animated: true,
+            viewPosition: 0,
+          });
+        } catch {
+          if (attempts < maxAttempts) {
+            setTimeout(performScroll, 80);
+          }
+        }
+      }
+    };
+
+    const timer = setTimeout(performScroll, 120);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [targetDate, filteredAndGroupedExpenses, navigation]);
+  }, [targetDate, targetStartDate, targetEndDate]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => {
     let text = '';
@@ -476,15 +561,17 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           showsVerticalScrollIndicator={false}
-          onScrollToIndexFailed={(info) => {
+          onScrollToIndexFailed={() => {
             setTimeout(() => {
-              sectionListRef.current?.scrollToLocation({
-                sectionIndex: info.index,
-                itemIndex: 0,
-                animated: true,
-                viewPosition: 0,
-              });
-            }, 100);
+              if (targetIndexRef.current >= 0 && sectionListRef.current) {
+                sectionListRef.current.scrollToLocation({
+                  sectionIndex: targetIndexRef.current,
+                  itemIndex: 0,
+                  animated: true,
+                  viewPosition: 0,
+                });
+              }
+            }, 80);
           }}
           refreshControl={
             <RefreshControl
@@ -500,10 +587,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           stickySectionHeadersEnabled={false}
           onScroll={handleScroll}
           scrollEventThrottle={32}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
+          initialNumToRender={50}
+          maxToRenderPerBatch={30}
+          windowSize={21}
+          removeClippedSubviews={false}
           updateCellsBatchingPeriod={50}
           ListEmptyComponent={renderEmptyState}
         />

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📊 Interactive Cash Flow & Insights Visualizer
+- **Executive Cash Flow Chart:** Introduced an interactive 4-week dual-bar Cash Flow chart for the Monthly Insights view (`CashFlowChart`). Features an executive Net Cash Flow summary banner (signed surplus/deficit amount with semantic status badges), paired with circular In/Out icon badges (`ArrowUpRight` and `ArrowDownRight`) with whole-rupee formatting.
+- **Weekly Capsule Pods & Zero-State Baseline:** Replaced bare floating bars with interactive week pods (`W1`–`W4`), solid 18px pill tracks, calibrated zero-baseline marks for inactive weeks, bold Quicksand typography, and net delta indicators (`+₹1k`, `−₹340`, `—`).
+- **One-Tap Deep Navigation to History:** Tapping any weekly pod in the Cash Flow chart navigates directly to the History screen, pre-filtering the transaction feed to the selected week interval and smoothly auto-scrolling to the first transaction of that week.
+- **History Auto-Scroll Reliability:** Resolved an issue where auto-scrolling to target transaction dates was interrupted by re-renders. Decoupled navigation parameter clearing using stable ref tracking (`lastHandledKeyRef`), ascending date matching, and graceful layout retry handling (`targetIndexRef`).
+- **Weekly Spending Flow & Yearly Gullak Milestones:** Added fluid 7-day capsule spending flow charts for Weekly Insights and annual milestone progress tracking for Gullak savings in Yearly Insights.
+
 ### 🎨 UI & Design Polish
 - **Branded Notched Hero Card:** Redesigned the Home screen hero card with an organic circular notch embracing the centered donut chart pod, high-contrast unboxed financial metrics (period allowance/income vs. spent), and intuitive breakdown subtext clarifying daily rollover projections and period balance totals.
 - **Pill Capsule Transaction Rows:** Redesigned Recent Transactions (Home Screen) and History Screen transaction rows into rounded pill/capsule cards (`BorderRadius.pill`), with circular icon badges, high-contrast theme-adaptive surfaces, and color-coded tabular amounts (coral for expenses, mint for income).
