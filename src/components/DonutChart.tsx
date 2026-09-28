@@ -7,17 +7,38 @@ export type DonutProps = {
   spent: number;
   total: number;
   colors: ThemeColors;
+  size?: number;
+  strokeWidth?: number;
+  trackColor?: string;
+  spentColor?: string;
+  baseColor?: string;
+  textColor?: string;
+  subtextColor?: string;
 };
 
-const SIZE = 100;
-const STROKE_WIDTH = 14;
-const R = (SIZE - STROKE_WIDTH) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * R;
-const CENTER = SIZE / 2;
+const DEFAULT_SIZE = 100;
+const DEFAULT_STROKE_WIDTH = 14;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-const DonutChartBase: React.FC<DonutProps> = ({ spent, total, colors }) => {
+const DonutChartBase: React.FC<DonutProps> = ({
+  spent,
+  total,
+  colors,
+  size = DEFAULT_SIZE,
+  strokeWidth = DEFAULT_STROKE_WIDTH,
+  trackColor,
+  spentColor,
+  baseColor,
+  textColor,
+  subtextColor,
+}) => {
+  const SIZE = size;
+  const STROKE_WIDTH = strokeWidth;
+  const R = (SIZE - STROKE_WIDTH) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * R;
+  const CENTER = SIZE / 2;
+
   const hasData = total > 0;
   const targetSpentRatio = hasData ? Math.max(0, Math.min(spent / total, 1)) : 0;
   const targetSpentPercentage = hasData ? Math.round((spent / total) * 100) : 0;
@@ -66,14 +87,14 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total, colors }) => {
   });
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View style={[styles.container, { width: SIZE, height: SIZE, transform: [{ scale: scaleAnim }] }]}>
       <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
-        {/* Track (grey bg) */}
+        {/* Track (grey/custom bg) */}
         <Circle
           cx={CENTER}
           cy={CENTER}
           r={R}
-          stroke={colors.chartTrack}
+          stroke={trackColor || colors.chartTrack}
           strokeWidth={STROKE_WIDTH}
           fill="none"
         />
@@ -84,7 +105,7 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total, colors }) => {
             cx={CENTER}
             cy={CENTER}
             r={R}
-            stroke={colors.mintGreen}
+            stroke={baseColor || colors.mintGreen}
             strokeWidth={STROKE_WIDTH}
             fill="none"
             strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
@@ -100,7 +121,7 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total, colors }) => {
             cx={CENTER}
             cy={CENTER}
             r={R}
-            stroke={isOverspent ? colors.danger : colors.peachCoral}
+            stroke={spentColor || (isOverspent ? colors.danger : colors.peachCoral)}
             strokeWidth={STROKE_WIDTH}
             fill="none"
             strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
@@ -116,13 +137,25 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total, colors }) => {
         <Text
           style={[
             styles.percentageText,
-            { color: isOverspent ? colors.danger : colors.textPrimary },
+            {
+              fontSize: Math.max(11, Math.round(SIZE * 0.16)),
+              lineHeight: Math.max(14, Math.round(SIZE * 0.2)),
+              color: textColor || (isOverspent ? colors.danger : colors.textPrimary),
+            },
           ]}
           numberOfLines={1}
         >
           {`${displayPercentage}%`}
         </Text>
-        <Text style={[styles.labelText, { color: colors.textSecondary }]}>
+        <Text
+          style={[
+            styles.labelText,
+            {
+              fontSize: Math.max(7, Math.round(SIZE * 0.08)),
+              color: subtextColor || colors.textSecondary,
+            },
+          ]}
+        >
           SPENT
         </Text>
       </View>
@@ -132,8 +165,6 @@ const DonutChartBase: React.FC<DonutProps> = ({ spent, total, colors }) => {
 
 const styles = StyleSheet.create({
   container: {
-    width: SIZE,
-    height: SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',

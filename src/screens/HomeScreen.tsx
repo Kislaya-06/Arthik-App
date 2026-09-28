@@ -14,10 +14,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Bell, ChevronRight, User, ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
+import { Bell, ChevronRight, User } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { TransactionRow } from '../components/TransactionRow';
-import { DonutChart } from '../components/DonutChart';
+import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod } from '../lib/homeCalculations';
@@ -394,84 +394,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           )}
         </View>
 
-        {/* ── Summary Card ── */}
-        <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          {/* Top row: stats + donut */}
-          <View style={styles.summaryTopRow}>
-            <View style={styles.summaryStats}>
-              {/* Remaining / Balance */}
-              <View style={styles.summaryLabelRow}>
-                <View style={[styles.summaryBar, { backgroundColor: isOverBudgetPeriod ? colors.danger : colors.mintGreen }]} />
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{primaryLabel}</Text>
-              </View>
-              <Text
-                style={[styles.summaryAmount, { color: isOverBudgetPeriod ? colors.danger : colors.textPrimary }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-              >
-                {formatCurrency(primaryAmount)}
-              </Text>
-
-              {primarySubtext ? (
-                <Text style={[styles.summarySubtext, { color: colors.textSecondary }]} numberOfLines={2}>
-                  {primarySubtext}
-                </Text>
-              ) : null}
-            </View>
-
-            {/* Donut */}
-            <DonutChart spent={displaySpent} total={Math.max(totalAvailable, displaySpent)} colors={colors} />
-          </View>
-
-          {/* Dual Metric Tiles: Inflow (Income / Total Available) & Outflow (Spent) */}
-          <View style={styles.metricTilesRow}>
-            {/* Income Tile */}
-            <View style={[styles.metricTile, { backgroundColor: colors.mintGreenSoft }]}>
-              <View style={styles.metricTileHeader}>
-                <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(184,224,200,0.2)' : 'rgba(127,184,150,0.2)' }]}>
-                  <ArrowDownLeft size={13} color={isDark ? colors.mintGreen : colors.mintGreenDark} />
-                </View>
-                <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>
-                  Income
-                </Text>
-              </View>
-              <Text style={[styles.metricTileAmount, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]} numberOfLines={1}>
-                {`+${formatCurrency(totalAvailable)}`}
-              </Text>
-            </View>
-
-            {/* Spent Tile */}
-            <View style={[styles.metricTile, { backgroundColor: colors.peachSoft }]}>
-              <View style={styles.metricTileHeader}>
-                <View style={[styles.metricIconWrap, { backgroundColor: isDark ? 'rgba(244,184,174,0.2)' : 'rgba(244,184,174,0.3)' }]}>
-                  <ArrowUpRight size={13} color={colors.peachCoral} />
-                </View>
-                <Text style={[styles.metricTileLabel, { color: colors.textSecondary }]}>Spent</Text>
-              </View>
-              <Text style={[styles.metricTileAmount, { color: colors.textPrimary }]} numberOfLines={1}>
-                {`−${formatCurrency(periodSpent)}`}
-              </Text>
-            </View>
-          </View>
-
-          {/* Daily Gullak Rollover Teaser (Only on Daily, and ONLY if user has active budget) */}
-          {activeFilter === 'Daily' && todayBudget > 0 && (
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => navigation.navigate('Savings' as any)}
-              style={[styles.dailyRolloverStrip, { backgroundColor: colors.mintGreenSoft }]}
-            >
-              <PiggyBankCoinIcon size={18} color={isDark ? colors.mintGreen : colors.mintGreenDark} />
-              <Text style={[styles.dailyRolloverText, { color: colors.textPrimary }]} numberOfLines={1}>
-                {isOverBudget
-                  ? `Over limit by ${formatCurrency(todayRecordSpent - todayBudget)} today`
-                  : `${formatCurrency(todayRemaining)} rolls over to Gullak tonight`}
-              </Text>
-              <ChevronRight size={14} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
+        {/* ── Branded Hero Card ── */}
+        <BrandedHeroCard
+          primaryLabel={primaryLabel}
+          primaryAmount={primaryAmount}
+          primarySubtext={primarySubtext}
+          displaySpent={displaySpent}
+          totalAvailable={totalAvailable}
+          periodSpent={periodSpent}
+          isOverBudgetPeriod={isOverBudgetPeriod}
+          activeFilter={activeFilter}
+          todayBudget={todayBudget}
+          todayRemaining={todayRemaining}
+          todayRecordSpent={todayRecordSpent}
+          isOverBudget={isOverBudget}
+          colors={colors}
+          isDark={isDark}
+          onNavigateSavings={() => navigation.navigate('Savings' as any)}
+        />
 
         {/* ── Recent Transactions ── */}
         <View style={styles.sectionHeader}>
@@ -655,96 +595,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
   },
 
-  // Summary Card
-  summaryCard: {
-    borderRadius: BorderRadius.cardLarge,
-    paddingVertical: Spacing.block,
-    paddingHorizontal: Spacing.surface,
-  },
-  summaryTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  summaryStats: {
-    flex: 1,
-    paddingRight: Spacing.group,
-  },
-  summaryLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.element,
-  },
-  summaryBar: {
-    width: 4,
-    height: 16,
-    borderRadius: 2,
-  },
-  summaryLabel: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.medium,
-    marginLeft: Spacing.element,
-  },
-  summaryAmount: {
-    fontSize: 32,
-    fontFamily: FontFamily.bold,
-    marginTop: Spacing.micro,
-    includeFontPadding: false,
-  },
-  summarySubtext: {
-    fontSize: 12,
-    fontFamily: FontFamily.medium,
-    marginTop: Spacing.micro,
-    opacity: 0.8,
-  },
-  dailyRolloverStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.element,
-    marginTop: Spacing.group,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.group,
-    borderRadius: BorderRadius.input,
-  },
-  dailyRolloverText: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: FontFamily.semibold,
-  },
-  metricTilesRow: {
-    flexDirection: 'row',
-    gap: Spacing.group,
-    marginTop: Spacing.group,
-  },
-  metricTile: {
-    flex: 1,
-    borderRadius: BorderRadius.input,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.group,
-  },
-  metricTileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  metricIconWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricTileLabel: {
-    fontSize: 11,
-    fontFamily: FontFamily.semibold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  metricTileAmount: {
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
 
   // Section header
   sectionHeader: {
