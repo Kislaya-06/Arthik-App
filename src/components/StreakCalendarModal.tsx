@@ -11,7 +11,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { ChevronLeft, ChevronRight, Flame, X, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, X, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { format, isToday as checkIsToday, parseISO } from 'date-fns';
 import { useTheme } from '../store/themeStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -19,6 +19,7 @@ import { useAuthStore } from '../store/authStore';
 import { supabase } from '../config/supabase';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
+import { StreakFlame } from './StreakFlame';
 
 interface StreakCalendarModalProps {
   visible: boolean;
@@ -55,38 +56,9 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<TooltipState | null>(null);
 
-  // Animations: Flame pulse, Grid entrance, Tooltip pop
-  const flamePulse = useRef(new Animated.Value(1)).current;
+  // Animations: Grid entrance, Tooltip pop
   const gridAnim = useRef(new Animated.Value(0)).current;
   const tooltipAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible && savingsStreak > 0) {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(flamePulse, {
-            toValue: 1.2,
-            duration: 850,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(flamePulse, {
-            toValue: 1,
-            duration: 850,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      loop.start();
-      return () => {
-        loop.stop();
-        flamePulse.setValue(1);
-      };
-    } else {
-      flamePulse.setValue(1);
-    }
-  }, [visible, savingsStreak, flamePulse]);
 
   // Cache fetched month data per 'yyyy-MM' key to avoid re-fetching on navigation
   const monthCache = useRef<Record<string, Record<string, DayLogData>>>({});
@@ -378,9 +350,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                       },
                     ]}
                   >
-                    <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
-                      <Flame size={14} color="#E05638" />
-                    </Animated.View>
+                    <StreakFlame streak={savingsStreak} size={15} />
                     <Text style={[styles.streakPillText, { color: '#E05638' }]}>
                       {savingsStreak}d
                     </Text>
@@ -700,6 +670,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
+    overflow: 'visible',
   },
   streakPillText: {
     fontFamily: FontFamily.bold,

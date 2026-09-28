@@ -15,7 +15,6 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, ChevronRight, User } from 'lucide-react-native';
-import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
@@ -28,59 +27,18 @@ import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
-import { formatCurrency, round2 } from '../lib/formatters';
+import { round2 } from '../lib/formatters';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
+import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
   NativeStackScreenProps<RootStackParamList>
 >;
-
-// ─── Animated Filter Pill (Elastic Spring Bounce) ───────────────────────────
-const FilterPill: React.FC<{
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  colors: ReturnType<typeof useTheme>['colors'];
-}> = ({ label, active, onPress, colors }) => {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Animated.spring(scale, { toValue: 0.92, tension: 70, friction: 8, useNativeDriver: true }).start();
-  };
-  const handlePressOut = () => {
-    Animated.spring(scale, { toValue: 1, tension: 70, friction: 8, useNativeDriver: true }).start();
-  };
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
-      <Animated.View
-        style={[
-          styles.pill,
-          active
-            ? [styles.pillActive, { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }]
-            : [styles.pillInactive, { backgroundColor: colors.card, borderColor: colors.border }],
-          { transform: [{ scale }] },
-        ]}
-      >
-        <Text
-          style={[
-            styles.pillText,
-            active
-              ? [styles.pillTextActive, { color: colors.textPrimary }]
-              : [styles.pillTextInactive, { color: colors.textSecondary }],
-          ]}
-        >
-          {label}
-        </Text>
-      </Animated.View>
-    </Pressable>
-  );
-};
 
 // ─── Staggered Transaction Row ───────────────────────────────────────────────
 const StaggerRow: React.FC<{ index: number; children: React.ReactNode }> = ({ index, children }) => {
@@ -211,7 +169,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     ];
     return items
       .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at))
-      .slice(0, 4);
+      .slice(0, 5);
   }, [expenses, gullakDeposits]);
 
   const { colors, isDark } = useTheme();
@@ -359,23 +317,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* ── Filter Pills ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.pillsScroll}
-          contentContainerStyle={styles.pillsContent}
-        >
-          {FILTERS.map((f) => (
-            <FilterPill
-              key={f}
-              label={f}
-              active={f === activeFilter}
-              onPress={() => setActiveFilter(f)}
-              colors={colors}
-            />
-          ))}
-        </ScrollView>
+        {/* ── Segmented Filter Toggle ── */}
+        <View style={styles.filterToggleWrapper}>
+          <BouncyFilterToggle
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={FILTERS}
+          />
+        </View>
         <View style={styles.filterDateRow}>
           <Text style={[styles.filterDateLabel, { color: colors.textMuted }]}>
             {filterDateLabel}
@@ -539,8 +488,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
 
-  // Filter pills
-  pillsScroll: {
+  // Filter toggle
+  filterToggleWrapper: {
     marginTop: 18,
   },
   filterDateRow: {
@@ -569,30 +518,6 @@ const styles = StyleSheet.create({
   setLimitText: {
     fontSize: 12,
     fontFamily: FontFamily.semibold,
-  },
-  pillsContent: {
-    paddingRight: Spacing.element,
-  },
-  pill: {
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: 10,
-    marginRight: Spacing.group,
-  },
-  pillActive: {
-    borderWidth: 2,
-  },
-  pillInactive: {
-    borderWidth: 1,
-  },
-  pillText: {
-    fontSize: FontSize.bodySmall,
-  },
-  pillTextActive: {
-    fontFamily: FontFamily.bold,
-  },
-  pillTextInactive: {
-    fontFamily: FontFamily.medium,
   },
 
 

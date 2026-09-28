@@ -14,7 +14,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Flame,
   Trophy,
   Calendar,
   Sparkles,
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { format } from 'date-fns';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
+import { StreakFlame } from '../components/StreakFlame';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
@@ -182,35 +182,6 @@ export const SavingsScreen: React.FC = () => {
     prevSavingsRef.current = totalAccumulatedSavings;
   }, [totalAccumulatedSavings, triggerPiggyBounce]);
 
-  const flamePulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (effectiveStreak > 0) {
-      const pulseLoop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(flamePulse, {
-            toValue: 1.18,
-            duration: 850,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(flamePulse, {
-            toValue: 1,
-            duration: 850,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulseLoop.start();
-      return () => {
-        pulseLoop.stop();
-        flamePulse.setValue(1);
-      };
-    } else {
-      flamePulse.setValue(1);
-    }
-  }, [effectiveStreak, flamePulse]);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -279,9 +250,7 @@ export const SavingsScreen: React.FC = () => {
               },
             ]}
           >
-            <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
-              <Flame size={18} color="#E05638" />
-            </Animated.View>
+            <StreakFlame streak={effectiveStreak} size={18} />
             <Text style={[styles.streakBadgeText, { color: '#E05638' }]}>
               {effectiveStreak} Day Streak
             </Text>
@@ -784,6 +753,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.input,
     borderWidth: 1,
     gap: Spacing.micro,
+    overflow: 'visible',
   },
   streakBadgeText: {
     fontSize: FontSize.caption,

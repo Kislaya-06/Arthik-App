@@ -8,14 +8,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Svg, { Circle, Polyline } from 'react-native-svg';
+import Svg, { Polyline } from 'react-native-svg';
 import {
   TrendingUp, TrendingDown, CheckSquare, Wallet, CreditCard,
   ChevronLeft, ChevronRight,
 } from 'lucide-react-native';
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
-  subWeeks, subMonths, subYears,
+  subWeeks, subMonths, subYears, addDays,
   isWithinInterval, isBefore, startOfDay, parseISO, format,
 } from 'date-fns';
 
@@ -28,6 +28,7 @@ import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
+import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -278,12 +279,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
 
-  const [period, setPeriod] = useState<Period>('Monthly');
+  const [period, setPeriod] = useState<Period>('Weekly');
   // offset=0 → current period, negative → how many periods back
   const [offset, setOffset] = useState(0);
   const [focusTime, setFocusTime] = useState<number>(Date.now());
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchTime = useRef<number>(0);
+  const lastDayRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
   // Reset to current period when the user switches period type (Weekly/Monthly/Yearly)
   const handlePeriodChange = useCallback((p: Period) => {
@@ -293,14 +295,20 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
   const loadData = useCallback(async (force = false) => {
     const now = Date.now();
-    setFocusTime(now);
+    const today = format(now, 'yyyy-MM-dd');
+    if (today !== lastDayRef.current) {
+      lastDayRef.current = today;
+      setFocusTime(now);
+    }
     if (!force && now - lastFetchTime.current < 60_000) return;
     lastFetchTime.current = now;
     await Promise.all([fetchExpenses(), fetchCategories()]);
   }, [fetchExpenses, fetchCategories]);
 
   useFocusEffect(
-    useCallback(() => { loadData(false); }, [loadData]),
+    useCallback(() => {
+      loadData(false);
+    }, [loadData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -443,16 +451,25 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   // For Monthly/Yearly views it always reflects the current calendar week (same as before).
   const { weeklyData, maxWeekDay } = useMemo(() => {
     const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const data = weekDays.map((day) => ({ day, amount: 0 }));
 
     const weekRef = period === 'Weekly' && offset < 0
       ? subWeeks(new Date(), Math.abs(offset))
       : new Date();
 
+    const weekStart = startOfWeek(weekRef, { weekStartsOn: 1 });
     const weekInterval = {
-      start: startOfWeek(weekRef, { weekStartsOn: 1 }),
+      start: weekStart,
       end: endOfWeek(weekRef, { weekStartsOn: 1 }),
     };
+
+    const data = weekDays.map((day, i) => {
+      const dateObj = addDays(weekStart, i);
+      return {
+        day,
+        dateStr: format(dateObj, 'yyyy-MM-dd'),
+        amount: 0,
+      };
+    });
 
     for (const exp of expenses) {
       const date = parseISO(exp.expense_date);
@@ -495,28 +512,15 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [expenses, currentInterval]);
 
-  // ─── Donut chart geometry ──────────────────────────────────────────────────
   const SVG_SIZE = 220;
   const STROKE_WIDTH = 28;
-  const RADIUS = (SVG_SIZE - STROKE_WIDTH) / 2;
-  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-  const CENTER = SVG_SIZE / 2;
 
-  const chartSegments = useMemo(() => {
-    let angle = -90;
-    return sortedCategories.map((item, i) => {
-      const fraction = currentTotal > 0 ? item.amount / currentTotal : 0;
-      const arcLength = fraction * CIRCUMFERENCE;
-      const startAngle = angle;
-      angle += fraction * 360;
-      return {
-        ...item,
-        color: CHART_COLORS[i % CHART_COLORS.length],
-        strokeDasharray: `${arcLength} ${CIRCUMFERENCE}`,
-        transform: `rotate(${startAngle}, ${CENTER}, ${CENTER})`,
-      };
-    });
-  }, [sortedCategories, currentTotal, CIRCUMFERENCE, CENTER]);
+  const legendSegments = useMemo(() => {
+    return sortedCategories.map((item, i) => ({
+      ...item,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    }));
+  }, [sortedCategories]);
 
   // Derive icon components once — avoids inline function calls in JSX
   const CategoryInsightIcon = getCategoryInsightIcon(topCategory?.name || '');
@@ -652,41 +656,25 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {currentTotal > 0 ? (
           <>
-            {/* Donut chart */}
+            {/* Animated Donut chart */}
             <View style={styles.chartContainer}>
-              <Svg width={SVG_SIZE} height={SVG_SIZE}>
-                {chartSegments.map((seg) => (
-                  <Circle
-                    key={seg.id}
-                    cx={CENTER}
-                    cy={CENTER}
-                    r={RADIUS}
-                    stroke={seg.color}
-                    strokeWidth={STROKE_WIDTH}
-                    strokeDasharray={seg.strokeDasharray}
-                    strokeDashoffset={0}
-                    strokeLinecap="butt"
-                    fill="none"
-                    transform={seg.transform}
-                  />
-                ))}
-              </Svg>
-              <View style={styles.chartCenterContent}>
-                <Text style={[styles.chartCenterLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  Top spend
-                </Text>
-                <Text style={[styles.chartCenterTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                  {topCategory?.name}
-                </Text>
-                <Text style={[styles.chartCenterValue, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  {topCategory?.percentage}%
-                </Text>
-              </View>
+              <AnimatedCategoryDonut
+                categories={sortedCategories}
+                totalAmount={currentTotal}
+                topCategory={topCategory}
+                palette={CHART_COLORS}
+                size={SVG_SIZE}
+                strokeWidth={STROKE_WIDTH}
+                isDark={isDark}
+                textColorPrimary={colors.textPrimary}
+                textColorSecondary={colors.textSecondary}
+                triggerKey={`${period}_${offset}`}
+              />
             </View>
 
             {/* Legend */}
             <View style={styles.legendGrid}>
-              {chartSegments.map((seg) => (
+              {legendSegments.map((seg) => (
                 <Pressable
                   key={seg.id}
                   style={styles.legendItem}
@@ -717,7 +705,16 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   ? (d.amount === 0 ? 0 : Math.max(20, (d.amount / maxWeekDay.amount) * 120))
                   : 0;
                 return (
-                  <View key={d.day} style={styles.barColumn}>
+                  <Pressable
+                    key={d.day}
+                    style={styles.barColumn}
+                    onPress={() => {
+                      navigation.navigate('History', { targetDate: d.dateStr });
+                    }}
+                    hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View transactions for ${d.day}`}
+                  >
                     <View style={[styles.bar, { height, backgroundColor: isMax ? '#F4B8AE' : '#B8E0C8' }]} />
                     <Text style={[
                       styles.barLabel,
@@ -726,13 +723,21 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     ]}>
                       {d.day}
                     </Text>
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
 
             {maxWeekDay && maxWeekDay.amount > 0 && (
-              <View style={[styles.highestSpendCallout, { backgroundColor: isDark ? colors.cardSubtle : '#FDEEE4' }]}>
+              <Pressable
+                onPress={() => {
+                  const maxItem = weeklyData.find((d) => d.day === maxWeekDay.day);
+                  if (maxItem) {
+                    navigation.navigate('History', { targetDate: maxItem.dateStr });
+                  }
+                }}
+                style={[styles.highestSpendCallout, { backgroundColor: isDark ? colors.cardSubtle : '#FDEEE4' }]}
+              >
                 <View style={styles.highestSpendDot} />
                 <Text style={[styles.highestSpendText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                   Highest spend:{' '}
@@ -740,7 +745,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     {maxWeekDay.day} — {formatCurrency(maxWeekDay.amount)}
                   </Text>
                 </Text>
-              </View>
+              </Pressable>
             )}
 
             {/* ── Quick Insights Section ── */}
@@ -849,10 +854,6 @@ const styles = StyleSheet.create({
   sparklineContainer: { width: 100, height: 30 },
   sectionTitle: { fontSize: FontSize.sectionTitle, marginTop: Spacing.section, marginBottom: Spacing.gutter },
   chartContainer: { alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  chartCenterContent: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  chartCenterLabel: { fontSize: FontSize.bodySmall },
-  chartCenterTitle: { fontSize: 20, marginTop: Spacing.micro },
-  chartCenterValue: { fontSize: FontSize.body, marginTop: Spacing.nano },
   legendGrid: {
     flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: Spacing.section,
   },

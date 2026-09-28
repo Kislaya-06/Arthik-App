@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Tactile Animations & Visual Delight ✨',
+    title: ota?.title || 'Modern Dashboard & UI Polish ✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Delightful Gullak coin drop & piggy bounce micro-interaction",
-          "Dynamic streak flame breathing and interactive calendar transitions",
-          "Smooth animated SVG Donut chart sweeps & daily allowance progress",
-          "Tactile numeric keypad amount punch & error shake feedback",
-          "Elastic category chip selection pops and spring bottom-sheet modals",
+          "Branded notched hero card with integrated donut chart & period insights",
+          "Unboxed financial metrics with high-contrast allowance & spending breakdown",
+          "Smooth animated category donut sweeps & breathing streak flame physics",
+          "Refined pill-capsule transaction rows across Home and History",
+          "Codebase modularity, dead code cleanup, and snappy UI performance",
         ],
   };
 };

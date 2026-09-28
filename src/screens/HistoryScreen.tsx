@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  ScrollView, SectionList, Platform, RefreshControl,
+  ScrollView, SectionList, RefreshControl, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -34,6 +34,7 @@ export type HistoryItem =
 
 interface Section {
   title: string;
+  dateStr: string;
   totalSpent: number;
   totalIncome: number;
   data: HistoryItem[];
@@ -146,7 +147,7 @@ const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors })
   );
 });
 
-export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
+export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const expenses = useExpenseStore((s) => s.expenses);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
   const categories = useCategoryStore((s) => s.categories);
@@ -159,6 +160,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const sectionListRef = useRef<SectionList<HistoryItem, Section>>(null);
 
   const lastFetchTime = useRef<number>(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -256,9 +258,14 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
     return sortedDates.map((dateStr) => {
       const dateObj = parseISO(dateStr);
-      let title = format(dateObj, 'd MMM').toUpperCase();
-      if (isToday(dateObj)) title = 'TODAY';
-      else if (isYesterday(dateObj)) title = 'YESTERDAY';
+      const dayName = format(dateObj, 'EEEE');
+      const dateFormatted = format(dateObj, 'd MMM');
+      let title = `${dayName}, ${dateFormatted}`.toUpperCase();
+      if (isToday(dateObj)) {
+        title = `TODAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
+      } else if (isYesterday(dateObj)) {
+        title = `YESTERDAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
+      }
 
       const sortedData = grouped[dateStr].slice().sort((a, b) =>
         b.created_at.localeCompare(a.created_at)
@@ -266,12 +273,42 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
       return {
         title,
+        dateStr,
         totalSpent: spentTotals[dateStr] || 0,
         totalIncome: incomeTotals[dateStr] || 0,
         data: sortedData,
       };
     });
   }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, searchQuery]);
+
+  const targetDate = route.params?.targetDate;
+
+  useEffect(() => {
+    if (!targetDate) return;
+
+    setSearchQuery('');
+    setSelectedCategoryId(null);
+
+    const timer = setTimeout(() => {
+      const targetIndex = filteredAndGroupedExpenses.findIndex(
+        (s) => s.dateStr === targetDate
+      );
+      if (targetIndex >= 0 && sectionListRef.current) {
+        sectionListRef.current.scrollToLocation({
+          sectionIndex: targetIndex,
+          itemIndex: 0,
+          animated: true,
+          viewPosition: 0,
+        });
+      }
+    }, 150);
+
+    navigation.setParams({ targetDate: undefined });
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [targetDate, filteredAndGroupedExpenses, navigation]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => {
     let text = '';
@@ -433,11 +470,22 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Transaction List */}
         <SectionList
+          ref={sectionListRef}
           sections={filteredAndGroupedExpenses}
           keyExtractor={(item) => `${item.kind}-${item.data.id}`}
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           showsVerticalScrollIndicator={false}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              sectionListRef.current?.scrollToLocation({
+                sectionIndex: info.index,
+                itemIndex: 0,
+                animated: true,
+                viewPosition: 0,
+              });
+            }, 100);
+          }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

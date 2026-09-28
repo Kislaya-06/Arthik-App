@@ -158,7 +158,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
               overflow: 'hidden',
               justifyContent: 'center',
               alignItems: 'center',
-              transform: [{ translateY: -1.5 }],
+              height: 20,
             }}
           >
             <Text
