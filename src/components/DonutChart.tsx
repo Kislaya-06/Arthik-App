@@ -138,8 +138,8 @@ const DonutChartBase: React.FC<DonutProps> = ({
           style={[
             styles.percentageText,
             {
-              fontSize: Math.max(11, Math.round(SIZE * 0.16)),
-              lineHeight: Math.max(14, Math.round(SIZE * 0.2)),
+              fontSize: Math.max(15, Math.round(SIZE * 0.20)),
+              lineHeight: Math.max(18, Math.round(SIZE * 0.24)),
               color: textColor || (isOverspent ? colors.danger : colors.textPrimary),
             },
           ]}
@@ -151,8 +151,9 @@ const DonutChartBase: React.FC<DonutProps> = ({
           style={[
             styles.labelText,
             {
-              fontSize: Math.max(7, Math.round(SIZE * 0.08)),
+              fontSize: Math.max(9, Math.round(SIZE * 0.11)),
               color: subtextColor || colors.textSecondary,
+              letterSpacing: 0.8,
             },
           ]}
         >

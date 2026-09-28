@@ -34,7 +34,7 @@ export type BrandedHeroCardProps = {
 // Corner & layout geometry constants
 const DEFAULT_WIDTH = 340;
 const CORNER_RADIUS = 24;
-const POD_SIZE = 80;
+const POD_SIZE = 94;
 const GAP = 8;
 
 /**
@@ -132,10 +132,24 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   const mintBase = colors.mintGreen; // #B8E0C8
   const cardBorderColor = isDark ? 'rgba(184, 224, 200, 0.35)' : 'rgba(26, 43, 76, 0.12)';
   const textColorPrimary = '#1A2B4C';
-  const textColorSecondary = 'rgba(26, 43, 76, 0.72)';
-  const textMuted = 'rgba(26, 43, 76, 0.55)';
-  const tileBg = 'rgba(255, 255, 255, 0.82)';
-  const tileBorder = 'rgba(255, 255, 255, 0.95)';
+  const textColorSecondary = 'rgba(26, 43, 76, 0.65)';
+
+  // Split breakdown into distinct, atomic micro-chips for effortless scanning
+  const subtextParts = useMemo(() => {
+    if (!primarySubtext) return [];
+    if (primarySubtext.includes(' + ')) {
+      return primarySubtext.split(' + ').map((part, index) => {
+        const trimmed = part.trim();
+        if (index > 0 && !trimmed.startsWith('+')) {
+          return `+${trimmed}`;
+        }
+        return trimmed;
+      });
+    }
+    return [primarySubtext.trim()];
+  }, [primarySubtext]);
+
+  const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
   return (
     <View style={styles.outerWrapper}>
@@ -169,15 +183,6 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         <View style={styles.cardInner}>
           {/* Top Section: Constrained width to clear the notched chart pod */}
           <View style={styles.topSection}>
-            {/* Brand / Period Tag */}
-            <View style={styles.brandRow}>
-              <View style={styles.brandDot} />
-              <Text style={styles.brandText}>ARTHIK</Text>
-              <View style={styles.periodPill}>
-                <Text style={styles.periodPillText}>{activeFilter.toUpperCase()}</Text>
-              </View>
-            </View>
-
             {/* Label & Amount */}
             <Text style={[styles.primaryLabel, { color: textColorSecondary }]}>
               {primaryLabel}
@@ -194,50 +199,69 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               {formatCurrency(primaryAmount)}
             </Text>
 
-            {primarySubtext ? (
-              <Text
-                style={[styles.primarySubtext, { color: textMuted }]}
-                numberOfLines={2}
-              >
-                {primarySubtext}
-              </Text>
-            ) : null}
+            {subtextParts.length > 0 && (
+              <View style={styles.subtextContainer}>
+                {subtextParts.map((part, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.subtextChip,
+                      isOverBudgetPeriod && { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.subtextChipText,
+                        { color: isOverBudgetPeriod ? '#DC2626' : textColorPrimary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {part}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
-          {/* Metric Tiles Row: Income & Spent */}
-          <View style={styles.metricTilesRow}>
-            {/* Income Tile */}
-            <View style={[styles.metricTile, { backgroundColor: tileBg, borderColor: tileBorder }]}>
-              <View style={styles.metricTileHeader}>
-                <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(21, 128, 61, 0.14)' }]}>
-                  <ArrowDownLeft size={13} color="#15803D" />
-                </View>
-                <Text style={[styles.metricTileLabel, { color: '#15803D' }]}>Income</Text>
-              </View>
-              <Text
-                style={[styles.metricTileAmount, { color: textColorPrimary }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {`+${formatCurrency(totalAvailable)}`}
+          {/* ── Inflow & Outflow: Unboxed 2-Column Layout (Matching User Ref) ── */}
+          <View style={styles.metricsRow}>
+            {/* Income Column */}
+            <View style={styles.metricCol}>
+              <Text style={styles.metricColLabel}>
+                {`${filterLabelPrefix} Income`}
               </Text>
+              <View style={styles.metricAmountRow}>
+                <Text
+                  style={[styles.metricAmount, { color: textColorPrimary }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {`+${formatCurrency(totalAvailable)}`}
+                </Text>
+                <View style={styles.trendChipIncome}>
+                  <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
+                </View>
+              </View>
             </View>
 
-            {/* Spent Tile */}
-            <View style={[styles.metricTile, { backgroundColor: tileBg, borderColor: tileBorder }]}>
-              <View style={styles.metricTileHeader}>
-                <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(220, 38, 38, 0.14)' }]}>
-                  <ArrowUpRight size={13} color="#DC2626" />
-                </View>
-                <Text style={[styles.metricTileLabel, { color: '#DC2626' }]}>Spent</Text>
-              </View>
-              <Text
-                style={[styles.metricTileAmount, { color: textColorPrimary }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {`−${formatCurrency(periodSpent)}`}
+            {/* Expense Column */}
+            <View style={styles.metricCol}>
+              <Text style={styles.metricColLabel}>
+                {`${filterLabelPrefix} Expense`}
               </Text>
+              <View style={styles.metricAmountRow}>
+                <Text
+                  style={[styles.metricAmount, { color: textColorPrimary }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {`−${formatCurrency(periodSpent)}`}
+                </Text>
+                <View style={styles.trendChipExpense}>
+                  <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
+                </View>
+              </View>
             </View>
           </View>
 
@@ -246,7 +270,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             <TouchableOpacity
               activeOpacity={0.75}
               onPress={onNavigateSavings}
-              style={[styles.rolloverStrip, { backgroundColor: tileBg, borderColor: tileBorder }]}
+              style={styles.rolloverStrip}
             >
               <PiggyBankCoinIcon size={16} color="#15803D" />
               <Text style={[styles.rolloverText, { color: textColorPrimary }]} numberOfLines={1}>
@@ -271,8 +295,8 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           pointerEvents="none"
         >
           <DonutChart
-            size={70}
-            strokeWidth={9}
+            size={82}
+            strokeWidth={9.5}
             spent={displaySpent}
             total={Math.max(totalAvailable, displaySpent)}
             colors={colors}
@@ -308,102 +332,92 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   topSection: {
-    // Leave room on the right for the notched chart pod
+    // Leave room on the right for the enlarged notched chart pod
     paddingRight: POD_SIZE + GAP + 6,
-    minHeight: 88,
+    minHeight: 84,
     justifyContent: 'center',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  brandDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#15803D',
-  },
-  brandText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 1.2,
-    color: '#1A2B4C',
-  },
-  periodPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 9999,
-    backgroundColor: 'rgba(26, 43, 76, 0.08)',
-  },
-  periodPillText: {
-    fontSize: 9,
-    fontFamily: FontFamily.bold,
-    color: '#1A2B4C',
-    letterSpacing: 0.5,
   },
   primaryLabel: {
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.medium,
-    marginTop: 2,
   },
   primaryAmount: {
-    fontSize: 29,
+    fontSize: 30,
     fontFamily: FontFamily.bold,
     marginTop: 1,
     includeFontPadding: false,
   },
-  primarySubtext: {
+  subtextContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 8,
+  },
+  subtextChip: {
+    backgroundColor: 'rgba(26, 43, 76, 0.08)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  subtextChipText: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginTop: 3,
-    lineHeight: 15,
+    color: 'rgba(26, 43, 76, 0.85)',
+    includeFontPadding: false,
   },
-  metricTilesRow: {
+  // Inflow & Outflow unboxed layout matching user reference
+  metricsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: 18,
   },
-  metricTile: {
+  metricCol: {
     flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
   },
-  metricTileHeader: {
+  metricColLabel: {
+    fontSize: 12,
+    fontFamily: FontFamily.medium,
+    color: 'rgba(26, 43, 76, 0.65)',
+    marginBottom: 4,
+  },
+  metricAmountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
   },
-  metricIconWrap: {
+  metricAmount: {
+    fontSize: 18,
+    fontFamily: FontFamily.bold,
+    includeFontPadding: false,
+  },
+  trendChipIncome: {
     width: 20,
     height: 20,
     borderRadius: 10,
+    backgroundColor: 'rgba(21, 128, 61, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  metricTileLabel: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  metricTileAmount: {
-    fontSize: 15,
-    fontFamily: FontFamily.bold,
+  trendChipExpense: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(220, 38, 38, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rolloverStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 10,
+    marginTop: 12,
     paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(26, 43, 76, 0.06)',
     borderWidth: 1,
+    borderColor: 'rgba(26, 43, 76, 0.08)',
   },
   rolloverText: {
     flex: 1,
