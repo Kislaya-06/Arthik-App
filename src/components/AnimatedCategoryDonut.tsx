@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, Animated, Easing, Pressable } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
-import { prepareCategorySegments, PreparedSegment } from '../lib/chartUtils';
+import { prepareBlockSweepSegments, PreparedBlockSweepSegment } from '../lib/chartUtils';
+import { formatCurrency } from '../lib/formatters';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -18,6 +19,7 @@ export interface AnimatedCategoryDonutProps {
   textColorSecondary: string;
   trackColor?: string;
   triggerKey?: string | number;
+  isFocused?: boolean;
 }
 
 export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
@@ -26,134 +28,92 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   topCategory,
   palette,
   size = 220,
-  strokeWidth = 28,
+  strokeWidth = 26,
   isDark,
   textColorPrimary,
   textColorSecondary,
   trackColor,
   triggerKey,
+  isFocused = true,
 }) => {
   const radius = (size - strokeWidth) / 2;
   const center = size / 2;
-  const targetPercentage = topCategory?.percentage ?? 0;
 
-  // ── Drivers ───────────────────────────────────────────────────────────────
-  // Smooth sequential sweep progress (0 to 1)
-  const anim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  // Selected category interaction (defaults to null -> topCategory shown)
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Smooth clockwise sweep animation driver (0 to 1)
+  const sweepAnim = useRef(new Animated.Value(0)).current;
   const centerOpacity = useRef(new Animated.Value(1)).current;
 
-  // State to hold previous segments during period cross-fade transitions
-  const [prevSegments, setPrevSegments] = useState<PreparedSegment[] | null>(null);
-  const prevOpacity = useRef(new Animated.Value(0)).current;
-
-  const hasMountedRef = useRef(false);
-  const prevTriggerKeyRef = useRef<string | number | undefined>(triggerKey);
-
+  // Prepare block-wise sweep segments (separate blocks with rounded caps and 6deg gaps)
   const preparedSegments = useMemo(
-    () => prepareCategorySegments(categories, totalAmount, palette, size, strokeWidth),
+    () => prepareBlockSweepSegments(categories, totalAmount, palette, size, strokeWidth, 6),
     [categories, totalAmount, palette, size, strokeWidth]
   );
 
-  const preparedSegmentsRef = useRef(preparedSegments);
+  // Trigger smooth round sweep on mount, on period change, and on screen focus
   useEffect(() => {
-    preparedSegmentsRef.current = preparedSegments;
-  }, [preparedSegments]);
-
-  useEffect(() => {
-    if (!hasMountedRef.current) {
-      // First mount: soft entrance fade + silky smooth clockwise sweep
-      hasMountedRef.current = true;
-      prevTriggerKeyRef.current = triggerKey;
-
-      opacityAnim.setValue(0);
-      anim.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 260,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 750,
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-          useNativeDriver: false,
-        }),
-      ]).start();
+    if (!isFocused) {
+      // Screen is not focused (in background).
+      // Immediately reset animations so when user returns, the first frame is at 0, not 100%.
+      sweepAnim.setValue(0);
+      centerOpacity.setValue(0);
       return;
     }
 
-    // Returning to screen / tab switch with same triggerKey: DO NOT reset or re-animate!
-    if (triggerKey === prevTriggerKeyRef.current) {
-      // Ensure steady fully rendered state
-      anim.setValue(1);
-      opacityAnim.setValue(1);
-      return;
-    }
+    setSelectedId(null);
+    sweepAnim.setValue(0);
+    centerOpacity.setValue(0.3);
 
-    // Trigger key changed (e.g. Weekly -> Monthly, or week navigation):
-    // Perform a luxurious cross-fade sweep where the previous donut softly fades out
-    // while the new donut sweeps in clockwise, completely eliminating any blank/black frame.
-    const oldSegments = preparedSegmentsRef.current;
-    prevTriggerKeyRef.current = triggerKey;
-
-    if (oldSegments && oldSegments.length > 0) {
-      setPrevSegments(oldSegments);
-      prevOpacity.setValue(0.4);
-      Animated.timing(prevOpacity, {
-        toValue: 0,
-        duration: 380,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start(() => {
-        setPrevSegments(null);
-      });
-    }
-
-    // Animate new segments
-    anim.setValue(0);
-    opacityAnim.setValue(0.7);
-
-    // Soft center text transition
-    centerOpacity.setValue(0.5);
-    Animated.timing(centerOpacity, {
-      toValue: 1,
-      duration: 300,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
-
-    const sweep = Animated.parallel([
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 240,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(anim, {
+    const animation = Animated.parallel([
+      Animated.timing(sweepAnim, {
         toValue: 1,
         duration: 750,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         useNativeDriver: false,
       }),
+      Animated.timing(centerOpacity, {
+        toValue: 1,
+        duration: 350,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
     ]);
-    sweep.start();
+
+    animation.start();
 
     return () => {
-      sweep.stop();
+      animation.stop();
     };
-  }, [triggerKey, anim, opacityAnim, prevOpacity, centerOpacity]);
+  }, [isFocused, triggerKey, sweepAnim, centerOpacity]);
+
+  const selectedCategory = useMemo(() => {
+    if (!selectedId) return null;
+    return categories.find((c) => c.id === selectedId) || null;
+  }, [selectedId, categories]);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedId((prev) => (prev === id ? null : id));
+  }, []);
 
   const defaultTrackColor = isDark
-    ? 'rgba(255, 255, 255, 0.08)'
-    : 'rgba(0, 0, 0, 0.06)';
+    ? 'rgba(255, 255, 255, 0.06)'
+    : 'rgba(0, 0, 0, 0.05)';
+
+  // Active display details for center
+  const displayLabel = selectedCategory ? 'Selected' : 'Top spend';
+  const displayTitle = selectedCategory?.name || topCategory?.name || 'No spend';
+  const displayPercentage = selectedCategory
+    ? `${selectedCategory.percentage}%`
+    : topCategory
+    ? `${topCategory.percentage}%`
+    : '0%';
+  const displaySubAmount = selectedCategory ? formatCurrency(selectedCategory.amount) : null;
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      {/* Subtle background track: ALWAYS visible, prevents any visual blink */}
+      {/* Background circular track */}
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Circle
           cx={center}
@@ -165,85 +125,96 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
         />
       </Svg>
 
-      {/* Ghost layer of previous segments during period cross-fade transition */}
-      {prevSegments && prevSegments.length > 0 && (
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: prevOpacity }]} pointerEvents="none">
-          <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-            {prevSegments.map((seg) => (
-              <Circle
-                key={`prev-${seg.id}`}
-                cx={center}
-                cy={center}
-                r={radius}
-                stroke={seg.color}
-                strokeWidth={strokeWidth}
-                strokeDasharray={seg.strokeDasharray}
-                strokeDashoffset={0}
-                strokeLinecap="butt"
-                fill="none"
-                transform={seg.transform}
-              />
-            ))}
-          </Svg>
-        </Animated.View>
-      )}
+      {/* Active block-wise category slices sweeping smoothly clockwise */}
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        {preparedSegments.map((seg) => {
+          const offsetAnim = sweepAnim.interpolate({
+            inputRange: seg.offsetInterpolation.inputRange,
+            outputRange: seg.offsetInterpolation.outputRange,
+            extrapolate: 'clamp',
+          });
 
-      {/* Active category segments with sequential clockwise sweep */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
-        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-          {preparedSegments.map((seg) => {
-            const offsetAnim = anim.interpolate({
-              inputRange: seg.interpolation.inputRange,
-              outputRange: seg.interpolation.outputRange,
-              extrapolate: 'clamp',
-            });
+          const opacityAnim = sweepAnim.interpolate({
+            inputRange: seg.opacityInterpolation.inputRange,
+            outputRange: seg.opacityInterpolation.outputRange,
+            extrapolate: 'clamp',
+          });
 
-            return (
-              <AnimatedCircle
-                key={seg.id}
-                cx={center}
-                cy={center}
-                r={radius}
-                stroke={seg.color}
-                strokeWidth={strokeWidth}
-                strokeDasharray={seg.strokeDasharray}
-                strokeDashoffset={offsetAnim}
-                strokeLinecap="butt"
-                fill="none"
-                transform={seg.transform}
-              />
-            );
-          })}
-        </Svg>
-      </Animated.View>
+          const isSelected = selectedId === seg.id;
+          const currentStrokeWidth = isSelected ? strokeWidth + 3 : strokeWidth;
+
+          return (
+            <AnimatedCircle
+              key={seg.id}
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={seg.color}
+              strokeWidth={currentStrokeWidth}
+              strokeDasharray={seg.strokeDasharray}
+              strokeDashoffset={offsetAnim}
+              strokeLinecap="round"
+              fill="none"
+              transform={seg.transform}
+              opacity={opacityAnim}
+              onPress={() => handleToggleSelect(seg.id)}
+            />
+          );
+        })}
+      </Svg>
 
       {/* Center Top Spend summary */}
-      <Animated.View style={[styles.chartCenterContent, { opacity: centerOpacity }]} pointerEvents="none">
-        <Text
-          style={[
-            styles.chartCenterLabel,
-            { color: textColorSecondary, fontFamily: FontFamily.medium },
-          ]}
+      <Animated.View
+        style={[
+          styles.chartCenterContent,
+          { opacity: centerOpacity },
+        ]}
+        pointerEvents="box-none"
+      >
+        <Pressable
+          onPress={() => selectedId && setSelectedId(null)}
+          style={styles.centerPressable}
         >
-          Top spend
-        </Text>
-        <Text
-          style={[
-            styles.chartCenterTitle,
-            { color: textColorPrimary, fontFamily: FontFamily.bold },
-          ]}
-          numberOfLines={2}
-        >
-          {topCategory?.name || 'No spend'}
-        </Text>
-        <Text
-          style={[
-            styles.chartCenterValue,
-            { color: textColorSecondary, fontFamily: FontFamily.medium },
-          ]}
-        >
-          {`${targetPercentage}%`}
-        </Text>
+          <Text
+            style={[
+              styles.chartCenterLabel,
+              { color: textColorSecondary, fontFamily: FontFamily.medium },
+            ]}
+          >
+            {displayLabel}
+          </Text>
+          <Text
+            style={[
+              styles.chartCenterTitle,
+              { color: textColorPrimary, fontFamily: FontFamily.bold },
+            ]}
+            numberOfLines={2}
+          >
+            {displayTitle}
+          </Text>
+          <Text
+            style={[
+              styles.chartCenterValue,
+              {
+                color: isDark ? '#B8E0C8' : '#3E8A5E',
+                fontFamily: FontFamily.bold,
+              },
+            ]}
+          >
+            {displayPercentage}
+          </Text>
+          {displaySubAmount && (
+            <Text
+              style={[
+                styles.chartCenterSubAmount,
+                { color: textColorSecondary, fontFamily: FontFamily.medium },
+              ]}
+              numberOfLines={1}
+            >
+              {displaySubAmount}
+            </Text>
+          )}
+        </Pressable>
       </Animated.View>
     </View>
   );
@@ -258,19 +229,33 @@ const styles = StyleSheet.create({
   chartCenterContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    maxWidth: 160,
+  },
+  centerPressable: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chartCenterLabel: {
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   chartCenterTitle: {
-    fontSize: 18,
+    fontSize: 17,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
+    includeFontPadding: false,
   },
   chartCenterValue: {
-    fontSize: 14,
+    fontSize: 15,
+    includeFontPadding: false,
+  },
+  chartCenterSubAmount: {
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.85,
   },
 });
 

@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   buildSegmentInterpolation,
   prepareCategorySegments,
+  generateRoundedBlockPath,
+  prepareCategoryBlockSegments,
+  prepareBlockSweepSegments,
   calculatePillFillHeight,
   getSpendingFlowFillColor,
   computeMonthlyWeeksData,
@@ -85,6 +88,114 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
     it('handles empty category list gracefully', () => {
       const segments = prepareCategorySegments([], 0, palette, 220, 28);
       expect(segments).toEqual([]);
+    });
+  });
+
+  describe('Block-Wise Donut Chart Engine', () => {
+    const palette = ['#F4B8AE', '#99C5F1', '#B8E0C8', '#C9B8E8'];
+
+    describe('generateRoundedBlockPath', () => {
+      it('generates a valid SVG path with rounded corners for an arc slice', () => {
+        const path = generateRoundedBlockPath(110, 110, 80, 108, -90, 45, 5, 7);
+        expect(path).toContain('M ');
+        expect(path).toContain('A 108 108');
+        expect(path).toContain('A 80 80');
+        expect(path.endsWith('Z')).toBe(true);
+        expect(path.includes('NaN')).toBe(false);
+      });
+
+      it('returns empty string if totalSpan is smaller than gap', () => {
+        const path = generateRoundedBlockPath(110, 110, 80, 108, 0, 3, 5, 7);
+        expect(path).toBe('');
+      });
+    });
+
+    describe('prepareCategoryBlockSegments', () => {
+      it('handles single 100% category with a single near-full circular block', () => {
+        const cats = [{ id: 'c1', name: 'Rent', amount: 15000, percentage: 100 }];
+        const segments = prepareCategoryBlockSegments(cats, 15000, palette, 220, 28);
+        expect(segments).toHaveLength(1);
+        expect(segments[0].startAngle).toBe(-90);
+        expect(segments[0].endAngle).toBe(268);
+        expect(segments[0].path).toContain('M ');
+        expect(segments[0].path.endsWith('Z')).toBe(true);
+      });
+
+      it('computes proportional block angles and paths for multiple categories summing to 360 degrees', () => {
+        const cats = [
+          { id: 'c1', name: 'Food', amount: 500, percentage: 50 },
+          { id: 'c2', name: 'Shopping', amount: 300, percentage: 30 },
+          { id: 'c3', name: 'Travel', amount: 200, percentage: 20 },
+        ];
+        const segments = prepareCategoryBlockSegments(cats, 1000, palette, 220, 28);
+        expect(segments).toHaveLength(3);
+
+        expect(segments[0].startAngle).toBe(-90);
+        const lastSeg = segments[segments.length - 1];
+        expect(lastSeg.endAngle - segments[0].startAngle).toBeCloseTo(360, 1);
+
+        segments.forEach((seg) => {
+          expect(seg.path).toContain('M ');
+          expect(seg.path.endsWith('Z')).toBe(true);
+          expect(seg.path.includes('NaN')).toBe(false);
+        });
+      });
+
+      it('allocates minimum visible block angle so tiny categories are clearly visible', () => {
+        const cats = [
+          { id: 'c1', name: 'Bills', amount: 990, percentage: 99 },
+          { id: 'c2', name: 'Candy', amount: 10, percentage: 1 },
+        ];
+        const segments = prepareCategoryBlockSegments(cats, 1000, palette, 220, 28);
+        expect(segments).toHaveLength(2);
+        const tinySeg = segments[1];
+        const tinySpan = tinySeg.endAngle - tinySeg.startAngle;
+        // Even 1% category gets at least a visible block span (> 10 degrees)
+        expect(tinySpan).toBeGreaterThanOrEqual(10);
+        expect(tinySeg.path).toContain('M ');
+      });
+
+      it('returns empty array when categories is empty or totalAmount is 0', () => {
+        expect(prepareCategoryBlockSegments([], 0, palette, 220, 28)).toEqual([]);
+        expect(prepareCategoryBlockSegments([{ id: 'c1', name: 'A', amount: 0, percentage: 0 }], 0, palette)).toEqual([]);
+      });
+    });
+
+    describe('prepareBlockSweepSegments', () => {
+      it('handles single category smoothly', () => {
+        const cats = [{ id: 'c1', name: 'Rent', amount: 1000, percentage: 100 }];
+        const segments = prepareBlockSweepSegments(cats, 1000, palette, 220, 26);
+        expect(segments).toHaveLength(1);
+        expect(segments[0].offsetInterpolation.inputRange).toEqual([0, 1]);
+        expect(segments[0].offsetInterpolation.outputRange[1]).toBe(0);
+      });
+
+      it('computes monotonic interpolations and gap-separated strokes for multi-category breakdown', () => {
+        const cats = [
+          { id: 'c1', name: 'Food', amount: 600, percentage: 60 },
+          { id: 'c2', name: 'Travel', amount: 400, percentage: 40 },
+        ];
+        const segments = prepareBlockSweepSegments(cats, 1000, palette, 220, 26);
+        expect(segments).toHaveLength(2);
+
+        segments.forEach((seg) => {
+          expect(seg.strokeArcLength).toBeGreaterThan(0);
+          expect(seg.strokeDasharray).toContain(String(seg.strokeArcLength));
+
+          // Ensure monotonic ranges
+          for (let i = 0; i < seg.offsetInterpolation.inputRange.length - 1; i++) {
+            expect(seg.offsetInterpolation.inputRange[i]).toBeLessThan(seg.offsetInterpolation.inputRange[i + 1]);
+          }
+          for (let i = 0; i < seg.opacityInterpolation.inputRange.length - 1; i++) {
+            expect(seg.opacityInterpolation.inputRange[i]).toBeLessThan(seg.opacityInterpolation.inputRange[i + 1]);
+          }
+        });
+      });
+
+      it('returns empty array when categories is empty or totalAmount is 0', () => {
+        expect(prepareBlockSweepSegments([], 0, palette)).toEqual([]);
+        expect(prepareBlockSweepSegments([{ id: 'c1', name: 'A', amount: 0, percentage: 0 }], 0, palette)).toEqual([]);
+      });
     });
   });
 

@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -286,6 +286,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
+  const isFocused = useIsFocused();
 
   const [period, setPeriod] = useState<Period>('Weekly');
   // offset=0 → current period, negative → how many periods back
@@ -723,6 +724,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 textColorPrimary={colors.textPrimary}
                 textColorSecondary={colors.textSecondary}
                 triggerKey={`${period}_${offset}`}
+                isFocused={isFocused}
               />
             </View>
 
