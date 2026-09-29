@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  ScrollView, SectionList, RefreshControl, Platform,
+  ScrollView, SectionList, RefreshControl, Platform, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -174,11 +174,30 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     await Promise.all([fetchExpenses(), fetchCategories()]);
   }, [fetchExpenses, fetchCategories]);
 
+  const enterAnim = useRef(new Animated.Value(0)).current;
+
   useFocusEffect(
     useCallback(() => {
       loadData(false);
-    }, [loadData]),
+      enterAnim.setValue(0);
+      Animated.spring(enterAnim, {
+        toValue: 1,
+        tension: 65,
+        friction: 9,
+        useNativeDriver: true,
+      }).start();
+    }, [loadData, enterAnim]),
   );
+
+  const screenSlideAnim = enterAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [50, 0],
+  });
+
+  const screenFadeAnim = enterAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.15, 1],
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -485,7 +504,15 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.container}>
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            opacity: screenFadeAnim,
+            transform: [{ translateY: screenSlideAnim }],
+          },
+        ]}
+      >
 
         {/* Header Row */}
         <View style={styles.header}>
@@ -595,7 +622,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           ListEmptyComponent={renderEmptyState}
         />
 
-      </View>
+      </Animated.View>
     </View>
   );
 };

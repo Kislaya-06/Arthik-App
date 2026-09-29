@@ -21,6 +21,11 @@ describe('networkUtils (Seam: isNetworkFailure)', () => {
     expect(isNetworkFailure({ name: 'TypeError', message: 'Network request failed' })).toBe(true);
   });
 
+  it('detects network request timeout errors', () => {
+    expect(isNetworkFailure(new Error('Network request failed: timeout'))).toBe(true);
+    expect(isNetworkFailure({ message: 'Request timed out' })).toBe(true);
+  });
+
   it('detects status 0 or 5xx server errors', () => {
     expect(isNetworkFailure({ status: 0 })).toBe(true);
     expect(isNetworkFailure({ statusCode: 500 })).toBe(true);

@@ -233,6 +233,28 @@ export function generateRoundedBlockPath(
 }
 
 /**
+ * Generates an SVG path for a 100% complete, seamless 360-degree donut ring (annulus) with NO gaps or cuts.
+ * Uses concentric arcs (counter-clockwise outer, clockwise inner) to produce a hollow circular ring.
+ */
+export function generateFullAnnulusPath(
+  cx: number,
+  cy: number,
+  rInner: number,
+  rOuter: number
+): string {
+  const f = (n: number) => Number(n.toFixed(2));
+  return [
+    `M ${f(cx)} ${f(cy - rOuter)}`,
+    `A ${f(rOuter)} ${f(rOuter)} 0 1 0 ${f(cx)} ${f(cy + rOuter)}`,
+    `A ${f(rOuter)} ${f(rOuter)} 0 1 0 ${f(cx)} ${f(cy - rOuter)}`,
+    `M ${f(cx)} ${f(cy - rInner)}`,
+    `A ${f(rInner)} ${f(rInner)} 0 1 1 ${f(cx)} ${f(cy + rInner)}`,
+    `A ${f(rInner)} ${f(rInner)} 0 1 1 ${f(cx)} ${f(cy - rInner)}`,
+    'Z',
+  ].join(' ');
+}
+
+/**
  * Prepares block-wise donut segments with proportional angles, minimum display clamps,
  * uniform gaps, and smooth rounded corners.
  */
@@ -252,14 +274,16 @@ export function prepareCategoryBlockSegments(
   const rOuter = size / 2 - 2;
   const rInner = rOuter - strokeWidth;
 
-  if (categories.length === 1) {
-    const path = generateRoundedBlockPath(cx, cy, rInner, rOuter, -90, 268, 2, cornerRadius);
+  const positiveCats = categories.filter((c) => c.amount > 0);
+  if (categories.length === 1 || positiveCats.length === 1) {
+    const singleCat = positiveCats[0] || categories[0];
+    const path = generateFullAnnulusPath(cx, cy, rInner, rOuter);
     return [{
-      ...categories[0],
+      ...singleCat,
       color: palette[0] || '#B8E0C8',
       fraction: 1,
       startAngle: -90,
-      endAngle: 268,
+      endAngle: 270,
       path,
     }];
   }

@@ -3,6 +3,7 @@ import {
   buildSegmentInterpolation,
   prepareCategorySegments,
   generateRoundedBlockPath,
+  generateFullAnnulusPath,
   prepareCategoryBlockSegments,
   prepareBlockSweepSegments,
   calculatePillFillHeight,
@@ -111,14 +112,17 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
     });
 
     describe('prepareCategoryBlockSegments', () => {
-      it('handles single 100% category with a single near-full circular block', () => {
+      it('handles single 100% category with a seamless full 360-degree circular annulus without gap', () => {
         const cats = [{ id: 'c1', name: 'Rent', amount: 15000, percentage: 100 }];
         const segments = prepareCategoryBlockSegments(cats, 15000, palette, 220, 28);
         expect(segments).toHaveLength(1);
         expect(segments[0].startAngle).toBe(-90);
-        expect(segments[0].endAngle).toBe(268);
+        expect(segments[0].endAngle).toBe(270);
         expect(segments[0].path).toContain('M ');
         expect(segments[0].path.endsWith('Z')).toBe(true);
+        // Verify it equals the full annulus path
+        const expectedPath = generateFullAnnulusPath(110, 110, 80, 108);
+        expect(segments[0].path).toBe(expectedPath);
       });
 
       it('computes proportional block angles and paths for multiple categories summing to 360 degrees', () => {

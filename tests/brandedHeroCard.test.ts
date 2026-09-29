@@ -90,3 +90,72 @@ describe('BrandedHeroCard Concentric Circular Socket Geometry Engine', () => {
     expect(path).toContain(`A ${Rcradle},${Rcradle} 0 0 0`);
   });
 });
+
+import { parseChipNumber } from '../src/lib/homeCalculations';
+
+describe('parseChipNumber parser engine', () => {
+  it('correctly parses integer budget chip', () => {
+    const parsed = parseChipNumber('₹19,750 budget');
+    expect(parsed).toEqual({
+      prefix: '₹',
+      numericValue: 19750,
+      suffix: ' budget',
+      hasDecimals: false,
+    });
+  });
+
+  it('correctly parses decimal income chip with plus sign', () => {
+    const parsed = parseChipNumber('+₹2,823.8 income');
+    expect(parsed).toEqual({
+      prefix: '+₹',
+      numericValue: 2823.8,
+      suffix: ' income',
+      hasDecimals: true,
+    });
+  });
+
+  it('correctly parses deposits chip', () => {
+    const parsed = parseChipNumber('+₹3,630 deposits');
+    expect(parsed).toEqual({
+      prefix: '+₹',
+      numericValue: 3630,
+      suffix: ' deposits',
+      hasDecimals: false,
+    });
+  });
+
+  it('correctly parses budget with days suffix', () => {
+    const parsed = parseChipNumber('₹500 budget (12 days)');
+    expect(parsed).toEqual({
+      prefix: '₹',
+      numericValue: 500,
+      suffix: ' budget (12 days)',
+      hasDecimals: false,
+    });
+  });
+
+  it('correctly parses "of ₹" prefix format', () => {
+    const parsed = parseChipNumber('of ₹19,750 total budget');
+    expect(parsed).toEqual({
+      prefix: 'of ₹',
+      numericValue: 19750,
+      suffix: ' total budget',
+      hasDecimals: false,
+    });
+  });
+
+  it('correctly parses negative prefix format', () => {
+    const parsed = parseChipNumber('-₹1,617 expense');
+    expect(parsed).toEqual({
+      prefix: '-₹',
+      numericValue: 1617,
+      suffix: ' expense',
+      hasDecimals: false,
+    });
+  });
+
+  it('safely returns null for empty or non-numeric chip', () => {
+    expect(parseChipNumber('')).toBeNull();
+    expect(parseChipNumber('No budget set')).toBeNull();
+  });
+});

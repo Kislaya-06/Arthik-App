@@ -14,6 +14,7 @@ export type DonutProps = {
   baseColor?: string;
   textColor?: string;
   subtextColor?: string;
+  triggerKey?: string | number;
 };
 
 const DEFAULT_SIZE = 100;
@@ -32,6 +33,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
   baseColor,
   textColor,
   subtextColor,
+  triggerKey,
 }) => {
   const SIZE = size;
   const STROKE_WIDTH = strokeWidth;
@@ -46,9 +48,14 @@ const DonutChartBase: React.FC<DonutProps> = ({
 
   const anim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const [displayPercentage, setDisplayPercentage] = useState(targetSpentPercentage);
+  const [displayPercentage, setDisplayPercentage] = useState(0);
 
   useEffect(() => {
+    let isMounted = true;
+    // Reset to 0 on filter switch or initial mount so percentage smoothly rolls up
+    anim.setValue(0);
+    setDisplayPercentage(0);
+
     // Gentle spring scale on change
     Animated.spring(scaleAnim, {
       toValue: 1,
@@ -66,18 +73,22 @@ const DonutChartBase: React.FC<DonutProps> = ({
     });
 
     const listenerId = anim.addListener(({ value }) => {
+      if (!isMounted) return;
       setDisplayPercentage(Math.round(value * 100));
     });
 
-    sweep.start(() => {
-      setDisplayPercentage(targetSpentPercentage);
+    sweep.start(({ finished }) => {
+      if (finished && isMounted) {
+        setDisplayPercentage(targetSpentPercentage);
+      }
     });
 
     return () => {
+      isMounted = false;
       anim.removeListener(listenerId);
       sweep.stop();
     };
-  }, [targetSpentRatio, targetSpentPercentage, anim, scaleAnim]);
+  }, [targetSpentRatio, targetSpentPercentage, anim, scaleAnim, triggerKey]);
 
   // Interpolated stroke dashoffset for the spent (peach) arc
   const spentOffset = anim.interpolate({

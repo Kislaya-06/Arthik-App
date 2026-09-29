@@ -291,6 +291,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const [period, setPeriod] = useState<Period>('Weekly');
   // offset=0 → current period, negative → how many periods back
   const [offset, setOffset] = useState(0);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState<number>(Date.now());
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchTime = useRef<number>(0);
@@ -300,6 +301,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const handlePeriodChange = useCallback((p: Period) => {
     setPeriod(p);
     setOffset(0);
+    setSelectedCategoryId(null);
   }, []);
 
   const loadData = useCallback(async (force = false) => {
@@ -405,9 +407,11 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         onPanResponderRelease: (_, gs) => {
           if (gs.dx < -40 && offset < 0) {
             // Swipe left → go forward in time (toward current)
+            setSelectedCategoryId(null);
             setOffset((o) => Math.min(o + 1, 0));
           } else if (gs.dx > 40 && offset > minOff) {
             // Swipe right → go back in time
+            setSelectedCategoryId(null);
             setOffset((o) => Math.max(o - 1, minOff));
           }
         },
@@ -572,8 +576,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [expenses, currentInterval]);
 
-  const SVG_SIZE = 220;
-  const STROKE_WIDTH = 28;
+  const DONUT_SIZE = 160;
+  const DONUT_STROKE = 22;
+  const MAX_SIDE_STACK = 5;
 
   const legendSegments = useMemo(() => {
     return sortedCategories.map((item, i) => ({
@@ -581,6 +586,15 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       color: CHART_COLORS[i % CHART_COLORS.length],
     }));
   }, [sortedCategories]);
+
+  const sideCategories = useMemo(
+    () => legendSegments.slice(0, MAX_SIDE_STACK),
+    [legendSegments]
+  );
+  const bottomCategories = useMemo(
+    () => legendSegments.slice(MAX_SIDE_STACK),
+    [legendSegments]
+  );
 
   // Derive icon components once — avoids inline function calls in JSX
   const CategoryInsightIcon = getCategoryInsightIcon(topCategory?.name || '');
@@ -699,8 +713,14 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             dotCount={dotCount}
             activeDotIndex={activeDotIndex}
             hasPrevData={hasPrevData}
-            onPrev={() => setOffset((o) => Math.max(o - 1, minOff))}
-            onNext={() => setOffset((o) => Math.min(o + 1, 0))}
+            onPrev={() => {
+              setSelectedCategoryId(null);
+              setOffset((o) => Math.max(o - 1, minOff));
+            }}
+            onNext={() => {
+              setSelectedCategoryId(null);
+              setOffset((o) => Math.min(o + 1, 0));
+            }}
           />
         </View>
 
@@ -711,43 +731,132 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {currentTotal > 0 ? (
           <>
-            {/* Animated Donut chart */}
-            <View style={styles.chartContainer}>
-              <AnimatedCategoryDonut
-                categories={sortedCategories}
-                totalAmount={currentTotal}
-                topCategory={topCategory}
-                palette={CHART_COLORS}
-                size={SVG_SIZE}
-                strokeWidth={STROKE_WIDTH}
-                isDark={isDark}
-                textColorPrimary={colors.textPrimary}
-                textColorSecondary={colors.textSecondary}
-                triggerKey={`${period}_${offset}`}
-                isFocused={isFocused}
-              />
+            {/* Top row: Donut on Left, up to 5 categories stacked on Right */}
+            <View style={styles.byCategoryRow}>
+              {/* Donut chart on left */}
+              <View style={styles.donutLeftContainer}>
+                <AnimatedCategoryDonut
+                  categories={sortedCategories}
+                  totalAmount={currentTotal}
+                  topCategory={topCategory}
+                  palette={CHART_COLORS}
+                  size={DONUT_SIZE}
+                  strokeWidth={DONUT_STROKE}
+                  isDark={isDark}
+                  textColorPrimary={colors.textPrimary}
+                  textColorSecondary={colors.textSecondary}
+                  triggerKey={`${period}_${offset}`}
+                  isFocused={isFocused}
+                  selectedId={selectedCategoryId}
+                  onSelectCategory={setSelectedCategoryId}
+                />
+              </View>
+
+              {/* Stacked Categories on the Right */}
+              <View style={styles.categoryStackRight}>
+                {sideCategories.map((seg) => {
+                  const isSelected = selectedCategoryId === seg.id;
+                  const isAnySelected = selectedCategoryId !== null;
+                  const rowOpacity = isSelected ? 1 : isAnySelected ? 0.35 : 1;
+
+                  return (
+                    <Pressable
+                      key={seg.id}
+                      style={[
+                        styles.categoryStackItem,
+                        { opacity: rowOpacity },
+                        isSelected && {
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                          borderRadius: 8,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          marginHorizontal: -8,
+                        },
+                      ]}
+                      onPress={() => {
+                        if (selectedCategoryId === seg.id) {
+                          navigation.navigate('CategoryDetail', { categoryId: seg.id });
+                        } else {
+                          setSelectedCategoryId(seg.id);
+                        }
+                      }}
+                    >
+                      <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
+                      <View style={styles.categoryStackTextWrapper}>
+                        <Text
+                          style={[styles.categoryStackName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+                          numberOfLines={1}
+                        >
+                          {seg.name}
+                        </Text>
+                        <Text
+                          style={[styles.categoryStackSubtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
+                          numberOfLines={1}
+                        >
+                          {formatCurrency(seg.amount)} · {seg.percentage}%
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <ChevronRight size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
-            {/* Legend */}
-            <View style={styles.legendGrid}>
-              {legendSegments.map((seg) => (
-                <Pressable
-                  key={seg.id}
-                  style={styles.legendItem}
-                  onPress={() => navigation.navigate('CategoryDetail', { categoryId: seg.id })}
-                >
-                  <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
-                  <View>
-                    <Text style={[styles.legendName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                      {seg.name}
-                    </Text>
-                    <Text style={[styles.legendSubtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                      {formatCurrency(seg.amount)} · {seg.percentage}%
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
+            {/* Overflow Categories: Render below in 2-column grid if > 5 categories */}
+            {bottomCategories.length > 0 && (
+              <View style={styles.legendGrid}>
+                {bottomCategories.map((seg) => {
+                  const isSelected = selectedCategoryId === seg.id;
+                  const isAnySelected = selectedCategoryId !== null;
+                  const rowOpacity = isSelected ? 1 : isAnySelected ? 0.35 : 1;
+
+                  return (
+                    <Pressable
+                      key={seg.id}
+                      style={[
+                        styles.legendItem,
+                        { opacity: rowOpacity },
+                        isSelected && {
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                          borderRadius: 8,
+                          paddingHorizontal: 6,
+                          paddingVertical: 4,
+                        },
+                      ]}
+                      onPress={() => {
+                        if (selectedCategoryId === seg.id) {
+                          navigation.navigate('CategoryDetail', { categoryId: seg.id });
+                        } else {
+                          setSelectedCategoryId(seg.id);
+                        }
+                      }}
+                    >
+                      <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.legendName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+                          numberOfLines={1}
+                        >
+                          {seg.name}
+                        </Text>
+                        <Text
+                          style={[styles.legendSubtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
+                          numberOfLines={1}
+                        >
+                          {formatCurrency(seg.amount)} · {seg.percentage}%
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <ChevronRight size={14} color={colors.textSecondary} style={{ marginLeft: 2 }} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
 
             {/* ── Weekly Spending Flow Section ── */}
             {period === 'Weekly' && (
@@ -909,9 +1018,41 @@ const styles = StyleSheet.create({
   trendText: { fontSize: FontSize.caption },
   sparklineContainer: { width: 100, height: 30 },
   sectionTitle: { fontSize: FontSize.sectionTitle, marginTop: Spacing.section, marginBottom: Spacing.gutter },
+  byCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  donutLeftContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryStackRight: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  categoryStackItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  categoryStackTextWrapper: {
+    flex: 1,
+  },
+  categoryStackName: {
+    fontSize: FontSize.body,
+    includeFontPadding: false,
+  },
+  categoryStackSubtext: {
+    fontSize: FontSize.bodySmall,
+    marginTop: 1,
+    includeFontPadding: false,
+  },
   chartContainer: { alignItems: 'center', justifyContent: 'center', position: 'relative' },
   legendGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: Spacing.section,
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: Spacing.surface,
   },
   legendItem: {
     width: '48%', flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.surface,
