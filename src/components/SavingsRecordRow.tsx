@@ -124,7 +124,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       style={[
         styles.recordRow,
         {
-          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
         },
       ]}
       activeOpacity={0.7}

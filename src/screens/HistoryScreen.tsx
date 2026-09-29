@@ -78,7 +78,7 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
       style={[
         styles.transactionRow,
         {
-          borderBottomColor: colors.isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+          borderBottomColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
         },
       ]}
       onPress={() => onPress(item.id)}
@@ -135,7 +135,7 @@ const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors })
       style={[
         styles.transactionRow,
         {
-          borderBottomColor: colors.isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+          borderBottomColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
         },
       ]}
       onPress={() => onPress(item.id)}
