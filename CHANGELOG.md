@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 📊 Interactive Cash Flow & Insights Visualizer
+### 🎨 UI Polish — Telegram-Style Rows & Bouncy Category Filter
+
+- **Scrollable Bouncy Category Filter (History):** Replaced the separate pill chips on the History screen with a single elongated pill track containing a spring-animated sliding highlight. The highlight morphs to each category's natural text width and scrolls to keep the active item visible — same `tension: 70 / friction: 8` spring physics as the HomeScreen filter toggle.
+- **Telegram Unboxed Transaction & Notification Rows:** Redesigned transaction, notification, and savings rows into an unboxed chat-style layout (note-first hierarchy, category badge, payment icon) matching the visual language of the telegram pull indicator introduced earlier.
+- **Softer List Dividers:** Reduced divider opacity to 0.08 (dark) / 0.06 (light) for a balanced, non-intrusive visual separator across History, Savings, and Notifications.
+- **Savings Row UX:** Deposit rows now carry a `ChevronRight` affordance so users know they can tap to manage deposits. A contextual helper text appears under the Deposits filter to guide first-time users.
+- **Daily Budget Mode 1-line Summary:** Condensed the verbose Daily Budget Mode description card into a single concise line for a cleaner Settings layout.
+
+
 - **Executive Cash Flow Chart:** Introduced an interactive 4-week dual-bar Cash Flow chart for the Monthly Insights view (`CashFlowChart`). Features an executive Net Cash Flow summary banner (signed surplus/deficit amount with semantic status badges), paired with circular In/Out icon badges (`ArrowUpRight` and `ArrowDownRight`) with whole-rupee formatting.
 - **Weekly Capsule Pods & Zero-State Baseline:** Replaced bare floating bars with interactive week pods (`W1`–`W4`), solid 18px pill tracks, calibrated zero-baseline marks for inactive weeks, bold Quicksand typography, and net delta indicators (`+₹1k`, `−₹340`, `—`).
 - **One-Tap Deep Navigation to History:** Tapping any weekly pod in the Cash Flow chart navigates directly to the History screen, pre-filtering the transaction feed to the selected week interval and smoothly auto-scrolling to the first transaction of that week.

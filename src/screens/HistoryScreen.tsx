@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  ScrollView, SectionList, RefreshControl, Platform, Animated,
+  SectionList, RefreshControl, Platform, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +14,7 @@ import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
+import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
 import { getCategoryIcon } from '../lib/iconUtils';
@@ -559,43 +560,12 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Filter Pills — unified: "All" + categories in one map */}
-        <View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-          >
-            {([{ id: null as string | null, name: 'All' }, ...categories]).map(item => {
-              const isActive = selectedCategoryId === item.id;
-              return (
-                <Pressable
-                  key={item.id ?? 'all'}
-                  style={[
-                    styles.filterPill,
-                    {
-                      backgroundColor: isActive ? (isDark ? colors.mintGreenSoft : '#B8E0C8') : colors.card,
-                      borderColor: isActive ? colors.mintGreen : colors.border,
-                    },
-                  ]}
-                  onPress={() => setSelectedCategoryId(item.id)}
-                >
-                  <Text
-                    style={[
-                      styles.filterPillText,
-                      {
-                        color: isActive ? colors.textPrimary : colors.textSecondary,
-                        fontFamily: isActive ? FontFamily.bold : FontFamily.medium,
-                      },
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
+        {/* Filter Pills — bouncy sliding pill */}
+        <BouncyCategoryFilter
+          options={[{ id: null, name: 'All' }, ...categories]}
+          value={selectedCategoryId}
+          onChange={setSelectedCategoryId}
+        />
 
         {/* Transaction List */}
         <SectionList
@@ -689,20 +659,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     padding: 0,
   },
-  filterScroll: {
-    paddingVertical: Spacing.surface,
-    paddingRight: Spacing.gutter,
-  },
-  filterPill: {
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: 10,
-    marginRight: Spacing.group,
-    borderWidth: 1,
-  },
-  filterPillText: {
-    fontSize: FontSize.bodySmall,
-  },
+
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

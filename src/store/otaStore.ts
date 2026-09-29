@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Interactive Cash Flow & Insights 📊',
+    title: ota?.title || 'UI Polish & Bouncy Filters ✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Interactive 4-week Cash Flow chart with executive Net Flow & In/Out breakdown",
-          "One-tap deep navigation from Weekly Cash Flow pods directly to History",
-          "Seamless History auto-scroll to exact transaction dates",
-          "Weekly Spending Flow and Yearly Gullak milestones visualization",
-          "Refined typography, circular action badges, and calibrated zero-state gauge indicators",
+          "Scrollable bouncy category filter on History — spring-animated sliding highlight inside a single pill",
+          "Telegram-style unboxed rows for transactions, notifications & savings",
+          "Softer, less intrusive list dividers across all screens",
+          "Deposit rows now show a chevron so you know you can tap to manage them",
+          "Daily Budget Mode description condensed to a single clean line",
         ],
   };
 };
