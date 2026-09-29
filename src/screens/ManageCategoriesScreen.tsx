@@ -100,8 +100,8 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         { borderBottomColor: colors.borderSubtle },
         isLast && styles.lastCategoryRow
       ]}>
-        <View style={[styles.iconContainer, { backgroundColor: item.color + '33' }]}>
-          <IconComponent size={20} color={item.color} />
+        <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+          <IconComponent size={20} color="#000000" strokeWidth={2.2} />
         </View>
         <View style={styles.categoryMiddle}>
           <Text style={[styles.categoryName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>

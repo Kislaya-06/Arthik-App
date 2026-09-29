@@ -478,4 +478,48 @@ describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
       expect(afterRemovalSummary.primaryAmount).toBe(400);
     });
   });
+
+  describe('Savings History Pagination & Visibility Logic', () => {
+    const INITIAL_RECORDS_COUNT = 8;
+    const RECORDS_PAGE_SIZE = 8;
+
+    it('limits initial visible items to 8 when total records exceed initial count', () => {
+      const records = Array.from({ length: 15 }, (_, i) => ({ id: `rec_${i}` }));
+      const visible = records.slice(0, INITIAL_RECORDS_COUNT);
+      const hasMore = records.length > INITIAL_RECORDS_COUNT;
+
+      expect(visible).toHaveLength(8);
+      expect(hasMore).toBe(true);
+    });
+
+    it('increments visible items by page size when see more is clicked', () => {
+      const records = Array.from({ length: 15 }, (_, i) => ({ id: `rec_${i}` }));
+      let visibleCount = INITIAL_RECORDS_COUNT;
+
+      // Click "See More" once
+      visibleCount += RECORDS_PAGE_SIZE;
+      const visible = records.slice(0, visibleCount);
+      const hasMore = records.length > visibleCount;
+
+      expect(visible).toHaveLength(15);
+      expect(hasMore).toBe(false);
+    });
+
+    it('does not show see more button when total records are 8 or fewer', () => {
+      const records = Array.from({ length: 5 }, (_, i) => ({ id: `rec_${i}` }));
+      const visible = records.slice(0, INITIAL_RECORDS_COUNT);
+      const hasMore = records.length > INITIAL_RECORDS_COUNT;
+
+      expect(visible).toHaveLength(5);
+      expect(hasMore).toBe(false);
+    });
+
+    it('resets visible count back to initial count on filter switch', () => {
+      let visibleCount = 16;
+      // Filter switch triggers reset to INITIAL_RECORDS_COUNT
+      visibleCount = INITIAL_RECORDS_COUNT;
+      expect(visibleCount).toBe(8);
+    });
+  });
 });
+

@@ -5,6 +5,7 @@ import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure } from '../lib/networkUtils';
+import { getNextCategoryColor } from '../config/theme';
 
 export interface Category {
   id: string;
@@ -90,14 +91,55 @@ const savePendingCatDelete = async (uid: string, catId: string) => {
 // Display-only visual placeholder array shown before real categories load from Supabase.
 // IMPORTANT: These fake IDs ('1' through '7') are NEVER selectable and NEVER sent to Supabase.
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#F4B8AE', is_default: true, isPlaceholder: true },
-  { id: '2', user_id: null, name: 'Shopping', icon: 'ShoppingBag', color: '#B8E0C8', is_default: true, isPlaceholder: true },
-  { id: '3', user_id: null, name: 'Transport', icon: 'Car', color: '#93C5FD', is_default: true, isPlaceholder: true },
-  { id: '4', user_id: null, name: 'Bills & Utilities', icon: 'FileText', color: '#FCD34D', is_default: true, isPlaceholder: true },
-  { id: '5', user_id: null, name: 'Entertainment', icon: 'Film', color: '#C084FC', is_default: true, isPlaceholder: true },
-  { id: '6', user_id: null, name: 'Health', icon: 'HeartPulse', color: '#F87171', is_default: true, isPlaceholder: true },
-  { id: '7', user_id: null, name: 'Others', icon: 'DollarSign', color: '#94A3B8', is_default: true, isPlaceholder: true },
+  { id: '1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#FF857A', is_default: true, isPlaceholder: true },
+  { id: '2', user_id: null, name: 'Shopping', icon: 'ShoppingBag', color: '#EBAEE6', is_default: true, isPlaceholder: true },
+  { id: '3', user_id: null, name: 'Transport', icon: 'Car', color: '#4A90D9', is_default: true, isPlaceholder: true },
+  { id: '4', user_id: null, name: 'Bills & Utilities', icon: 'FileText', color: '#F4A460', is_default: true, isPlaceholder: true },
+  { id: '5', user_id: null, name: 'Entertainment', icon: 'Film', color: '#9988A1', is_default: true, isPlaceholder: true },
+  { id: '6', user_id: null, name: 'Health', icon: 'HeartPulse', color: '#E35336', is_default: true, isPlaceholder: true },
+  { id: '7', user_id: null, name: 'Others', icon: 'DollarSign', color: '#ADEBB3', is_default: true, isPlaceholder: true },
 ];
+
+export const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
+  'Food & Drinks': '#FF857A',
+  'Shopping': '#EBAEE6',
+  'Transport': '#4A90D9',
+  'Bills & Utilities': '#F4A460',
+  'Entertainment': '#9988A1',
+  'Health': '#E35336',
+  'Others': '#ADEBB3',
+};
+
+export const LEGACY_CATEGORY_COLOR_MAP: Record<string, string> = {
+  '#F4B8AE': '#FF857A', // Food & Drinks
+  '#B8E0C8': '#EBAEE6', // Shopping
+  '#93C5FD': '#4A90D9', // Transport
+  '#FCD34D': '#F4A460', // Bills & Utilities
+  '#C084FC': '#9988A1', // Entertainment
+  '#F87171': '#E35336', // Health
+  '#94A3B8': '#ADEBB3', // Others
+};
+
+export const normalizeCategoryColors = (cats: Category[]): { updated: Category[]; changedCategories: Category[] } => {
+  const changedCategories: Category[] = [];
+  const updated = cats.map((cat) => {
+    // Only normalize default categories or categories whose name matches a default category
+    let targetColor: string | undefined;
+    if (DEFAULT_CATEGORY_COLORS[cat.name]) {
+      targetColor = DEFAULT_CATEGORY_COLORS[cat.name];
+    } else if (cat.is_default && cat.color && LEGACY_CATEGORY_COLOR_MAP[cat.color.toUpperCase()]) {
+      targetColor = LEGACY_CATEGORY_COLOR_MAP[cat.color.toUpperCase()];
+    }
+
+    if (targetColor && cat.color.toUpperCase() !== targetColor.toUpperCase()) {
+      const up = { ...cat, color: targetColor };
+      changedCategories.push(up);
+      return up;
+    }
+    return cat;
+  });
+  return { updated, changedCategories };
+};
 
 export const useCategoryStore = create<CategoryState>((set, get) => ({
   categories: DEFAULT_CATEGORIES,
@@ -123,7 +165,8 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) {
-            set({ categories: parsed, isFetched: true });
+            const { updated } = normalizeCategoryColors(parsed);
+            set({ categories: updated, isFetched: true });
           }
         }
       } catch (cacheErr) {
@@ -151,8 +194,25 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
 
       if (error) throw error;
       if (data) {
-        set({ categories: data, isFetched: true });
-        await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+        const { updated, changedCategories } = normalizeCategoryColors(data);
+        set({ categories: updated, isFetched: true });
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(updated));
+
+        // Asynchronously update legacy categories in Supabase DB so they are permanently fixed
+        if (changedCategories.length > 0 && !useNetworkStore.getState().isOffline) {
+          (async () => {
+            try {
+              for (const changed of changedCategories) {
+                if (changed.user_id && changed.id) {
+                  await supabase
+                    .from('categories')
+                    .update({ color: changed.color })
+                    .eq('id', changed.id);
+                }
+              }
+            } catch {}
+          })();
+        }
       }
     } catch (e) {
       if (__DEV__) console.error('Error fetching categories:', e);
@@ -165,13 +225,15 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     const user = useAuthStore.getState().user;
     if (!user) return;
 
+    const assignedColor = color?.trim() || getNextCategoryColor(get().categories);
+
     const newId = Crypto.randomUUID();
     const newCategory: Category = {
       id: newId,
       user_id: user.id,
       name,
       icon,
-      color,
+      color: assignedColor,
       is_default: false,
       pending: true,
     };
@@ -180,7 +242,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     set((state) => ({ categories: [...state.categories, newCategory] }));
 
     if (useNetworkStore.getState().isOffline) {
-      await savePendingCatAdd(user.id, { id: newId, user_id: user.id, name, icon, color });
+      await savePendingCatAdd(user.id, { id: newId, user_id: user.id, name, icon, color: assignedColor });
       // Keep pending category in cache so it survives restart
       try {
         const cacheKey = `@arthik_cached_categories_${user.id}`;
@@ -195,7 +257,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     try {
       const { error } = await supabase
         .from('categories')
-        .upsert({ id: newId, user_id: user.id, name, icon, color, is_default: false }, { onConflict: 'id' });
+        .upsert({ id: newId, user_id: user.id, name, icon, color: assignedColor, is_default: false }, { onConflict: 'id' });
 
       if (error) throw error;
       set((state) => ({

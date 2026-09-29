@@ -1,26 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ArrowLeft, MoreHorizontal } from 'lucide-react-native';
+import { ArrowLeft, MoreHorizontal, Check } from 'lucide-react-native';
 import * as LucideIcons from 'lucide-react-native';
 
 import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import {
+  Spacing,
+  BorderRadius,
+  FontSize,
+  FontFamily,
+  CATEGORY_PALETTE,
+  getNextCategoryColor,
+  getContrastTextColor,
+} from '../config/theme';
+
+export { CATEGORY_PALETTE };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditCategory'>;
-
-const PASTEL_COLORS = [
-  '#F4B8AE', '#B8E0C8', '#93C5FD', '#FCD34D', '#C084FC',
-  '#F87171', '#94A3B8', '#FDEEE4', '#E3F2FD', '#FCE4EC',
-  '#EDE7F6', '#E3F2E8', '#FDF3D9'
-];
 
 const ICONS_GRID = [
   'Coffee', 'Truck', 'ShoppingBag', 'Video', 'Activity',
@@ -40,19 +44,30 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
 
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
-  const [existingColor, setExistingColor] = useState<string | null>(null);
+
+  // Automatically find the next available unique color (from curated palette or dynamically curated)
+  const [selectedColor, setSelectedColor] = useState<string>(() => getNextCategoryColor(categories));
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isEditMode && categoryId) {
-      const cat = categories.find(c => c.id === categoryId);
+      const cat = categories.find((c) => c.id === categoryId);
       if (cat) {
         setName(cat.name);
         setSelectedIcon(cat.icon);
-        setExistingColor(cat.color);
+        setSelectedColor(cat.color);
       }
+    } else if (!isEditMode) {
+      setSelectedColor(getNextCategoryColor(categories));
     }
   }, [isEditMode, categoryId, categories]);
+
+  const displayPalette: readonly string[] = useMemo(() => {
+    if (selectedColor && !CATEGORY_PALETTE.some((c) => c.toUpperCase() === selectedColor.toUpperCase())) {
+      return [selectedColor, ...CATEGORY_PALETTE];
+    }
+    return CATEGORY_PALETTE;
+  }, [selectedColor]);
 
   const handleSave = async () => {
     if (isSaving || !name.trim() || !selectedIcon) return;
@@ -69,12 +84,10 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
     setIsSaving(true);
 
     try {
-      const colorToUse = existingColor || PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
-
       if (isEditMode && categoryId) {
-        await updateCategory(categoryId, name.trim(), selectedIcon, colorToUse);
+        await updateCategory(categoryId, name.trim(), selectedIcon, selectedColor);
       } else {
-        await addCategory(name.trim(), selectedIcon, colorToUse);
+        await addCategory(name.trim(), selectedIcon, selectedColor);
       }
 
       navigation.goBack();
@@ -109,11 +122,18 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
       >
         {/* Live Preview */}
         <View style={styles.previewContainer}>
-          <View style={[styles.previewCircle, { backgroundColor: colors.cardSubtle }]}>
+          <View
+            style={[
+              styles.previewCircle,
+              {
+                backgroundColor: selectedColor,
+              },
+            ]}
+          >
             {selectedIcon ? (
-              <PreviewIconComponent size={32} color={colors.textPrimary} />
+              <PreviewIconComponent size={32} color="#000000" strokeWidth={2.2} />
             ) : (
-              <MoreHorizontal size={24} color={colors.textTertiary} />
+              <MoreHorizontal size={24} color="#000000" strokeWidth={2.2} />
             )}
           </View>
           <Text style={[styles.previewLabel, { color: colors.textTertiary, fontFamily: FontFamily.bold }]}>
@@ -170,6 +190,31 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
                   size={22}
                   color={isSelected ? colors.forestGreen : colors.textSecondary}
                 />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Choose Color Grid */}
+        <Text style={[styles.inputLabel, styles.chooseColorLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
+          CHOOSE COLOR
+        </Text>
+        <View style={styles.colorGrid}>
+          {displayPalette.map((colorHex: string) => {
+            const isSelected = selectedColor.toUpperCase() === colorHex.toUpperCase();
+            const checkColor = getContrastTextColor(colorHex);
+            return (
+              <Pressable
+                key={colorHex}
+                style={[
+                  styles.colorOption,
+                  { backgroundColor: colorHex },
+                  isSelected && styles.colorOptionSelected,
+                ]}
+                onPress={() => setSelectedColor(colorHex)}
+                accessibilityLabel={`Select color ${colorHex}`}
+              >
+                {isSelected && <Check size={18} color={checkColor} strokeWidth={2.6} />}
               </Pressable>
             );
           })}
@@ -301,6 +346,34 @@ const styles = StyleSheet.create({
   iconOptionSelected: {
     backgroundColor: '#B8E0C8',
     borderColor: '#B8E0C8',
+  },
+
+  // Color Grid
+  chooseColorLabel: {
+    marginTop: Spacing.section,
+    marginBottom: Spacing.block,
+  },
+  colorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.block,
+  },
+  colorOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  colorOptionSelected: {
+    borderWidth: 3,
+    borderColor: '#000000',
+    transform: [{ scale: 1.08 }],
   },
 
   // Save Button

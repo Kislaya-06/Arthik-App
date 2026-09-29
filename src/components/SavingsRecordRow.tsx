@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Sparkles, AlertCircle, Coins } from 'lucide-react-native';
+import { Sparkles, AlertCircle, Coins, ChevronRight } from 'lucide-react-native';
 import { format, isYesterday, parseISO } from 'date-fns';
 
 import { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -108,13 +108,13 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
 
   const iconBg = useMemo(() => {
     if (isDeposit || isSaved) {
-      return isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft;
+      return '#ADEBB3';
     }
     if (isExceeded) {
-      return isDark ? 'rgba(239, 68, 68, 0.18)' : '#FEE2E2';
+      return '#FF857A';
     }
-    return colors.cardSubtle;
-  }, [isDeposit, isSaved, isExceeded, isDark, colors.mintGreenSoft, colors.cardSubtle]);
+    return '#FFD3AC';
+  }, [isDeposit, isSaved, isExceeded]);
 
   const isInteractive = Boolean(onPress || onDeleteDeposit);
   const ContainerComponent = isInteractive ? TouchableOpacity : View;
@@ -133,13 +133,13 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     >
       <View style={[styles.recordIconBox, { backgroundColor: iconBg }]}>
         {isDeposit ? (
-          <PiggyBankCoinIcon size={22} color={incomeGreen} />
+          <PiggyBankCoinIcon size={22} color="#000000" />
         ) : isSaved ? (
-          <Sparkles size={22} color={incomeGreen} />
+          <Sparkles size={22} color="#000000" strokeWidth={2.2} />
         ) : isExceeded ? (
-          <AlertCircle size={22} color="#DC2626" />
+          <AlertCircle size={22} color="#000000" strokeWidth={2.2} />
         ) : (
-          <Coins size={22} color={colors.textSecondary} />
+          <Coins size={22} color="#000000" strokeWidth={2.2} />
         )}
       </View>
 
@@ -161,6 +161,13 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
             {statusText}
           </Text>
         </View>
+        {isDeposit && (
+          <ChevronRight
+            size={16}
+            color={colors.textSecondary}
+            style={styles.chevronIcon}
+          />
+        )}
       </View>
     </ContainerComponent>
   );
@@ -199,13 +206,17 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   recordRightRow: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     marginLeft: 12,
   },
   recordAmountCol: {
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  chevronIcon: {
+    marginLeft: 6,
   },
   recordAmount: {
     fontSize: 16,

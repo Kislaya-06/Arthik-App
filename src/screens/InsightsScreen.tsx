@@ -27,7 +27,7 @@ import { isIncomeTransaction } from '../lib/paymentUtils';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, CATEGORY_PALETTE } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
@@ -42,9 +42,7 @@ type Props = CompositeScreenProps<
 
 type Period = 'Weekly' | 'Monthly' | 'Yearly';
 
-const CHART_COLORS = [
-  '#F4B8AE', '#A8C8EC', '#F0A8C8', '#C9B8E8', '#B8E0C8', '#F5D98B', '#94A3B8',
-];
+const CHART_COLORS = CATEGORY_PALETTE;
 
 // Max dots shown in the navigator — prevents visual clutter for long-time users
 const MAX_NAV_DOTS = 5;
@@ -455,13 +453,14 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
   const sortedCategories = useMemo(() => {
     return Object.keys(categoryTotals)
-      .map((catId) => {
+      .map((catId, index) => {
         const cat = categories.find((c) => c.id === catId);
         return {
           id: catId,
           name: cat?.name || (catId === 'others' ? 'Others' : 'Unknown'),
           amount: categoryTotals[catId],
           percentage: currentTotal > 0 ? Math.round((categoryTotals[catId] / currentTotal) * 100) : 0,
+          color: cat?.color || CHART_COLORS[index % CHART_COLORS.length],
         };
       })
       .sort((a, b) => b.amount - a.amount);
@@ -581,9 +580,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const MAX_SIDE_STACK = 5;
 
   const legendSegments = useMemo(() => {
-    return sortedCategories.map((item, i) => ({
+    return sortedCategories.map((item) => ({
       ...item,
-      color: CHART_COLORS[i % CHART_COLORS.length],
+      color: item.color,
     }));
   }, [sortedCategories]);
 

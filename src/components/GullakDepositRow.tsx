@@ -18,8 +18,7 @@ const GullakDepositRowBase: React.FC<GullakDepositRowProps> = ({ deposit, colors
   const theme = useTheme();
   const colors = propColors ?? theme.colors;
   const isDark = propIsDark ?? theme.isDark;
-  const bg = isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft;
-  const iconColor = isDark ? colors.mintGreen : colors.mintGreenDark;
+  const bg = '#ADEBB3';
   const amountColor = isDark ? colors.mintGreen : colors.mintGreenDark;
 
   const dateStr = useMemo(() => {
@@ -45,7 +44,7 @@ const GullakDepositRowBase: React.FC<GullakDepositRowProps> = ({ deposit, colors
       ]}
     >
       <View style={[styles.txIconContainer, { backgroundColor: bg }]}>
-        <PiggyBankCoinIcon size={22} color={iconColor} />
+        <PiggyBankCoinIcon size={22} color="#000000" />
       </View>
       <View style={styles.txMiddle}>
         <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>

@@ -32,7 +32,7 @@ import {
   MAX_NOTE_CHARS,
   countWords,
 } from '../hooks/useExpenseForm';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, getContrastTextColor } from '../config/theme';
 
 // Both AddExpense and EditExpense routes use this single component.
 type Props =
@@ -67,6 +67,9 @@ const CategoryChipItem: React.FC<{
     }
   }, [isSelected, scale]);
 
+  const chipColor = category.color || colors.mintGreen;
+  const contentColor = isSelected ? getContrastTextColor(chipColor) : colors.textPrimary;
+
   return (
     <Pressable
       disabled={isPlaceholder}
@@ -78,17 +81,21 @@ const CategoryChipItem: React.FC<{
         style={[
           styles.categoryChip,
           isSelected
-            ? { backgroundColor: colors.mintGreen, borderColor: colors.mintGreen }
+            ? { backgroundColor: chipColor, borderColor: chipColor }
             : { backgroundColor: colors.card, borderColor: colors.border },
           isPlaceholder && { opacity: 0.45 },
           { transform: [{ scale }] },
         ]}
       >
-        <IconComp size={16} color={isSelected ? colors.forestGreen : colors.textPrimary} />
+        <IconComp
+          size={16}
+          color={contentColor}
+          strokeWidth={isSelected ? 2.2 : 2.0}
+        />
         <Text
           style={[
             styles.categoryChipText,
-            { color: isSelected ? colors.forestGreen : colors.textPrimary },
+            { color: contentColor },
             { fontFamily: FontFamily.bold },
           ]}
         >

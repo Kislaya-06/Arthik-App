@@ -35,7 +35,7 @@ const mockSupabaseDelete = vi.fn(() => ({
 const mockSupabaseSelect = vi.fn(() => ({
   or: vi.fn().mockResolvedValue({
     data: [
-      { id: 'cat_default_1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#F4B8AE', is_default: true },
+      { id: 'cat_default_1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#FF857A', is_default: true },
       { id: 'cat_custom_1', user_id: 'user_cat_test_1', name: 'Freelance Tools', icon: 'Briefcase', color: '#B8E0C8', is_default: false },
     ],
     error: null,
@@ -146,7 +146,7 @@ describe('categoryStore (Seam: useCategoryStore)', () => {
       const state = useCategoryStore.getState();
       expect(state.isFetched).toBe(true);
       expect(state.categories).toEqual([
-        { id: 'cat_default_1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#F4B8AE', is_default: true },
+        { id: 'cat_default_1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#FF857A', is_default: true },
         { id: 'cat_custom_1', user_id: TEST_USER_ID, name: 'Freelance Tools', icon: 'Briefcase', color: '#B8E0C8', is_default: false },
       ]);
 

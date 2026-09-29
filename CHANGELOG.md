@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🎨 Vibrant Category Palettes, Keypad Polish & Spacing Refinements
+
+- **Curated 26-Color Category Palette & Unique Color Auto-Assignment:** Expanded category styling with a curated 26-color modern palette (`CATEGORY_PALETTE`). Adding a new category now automatically assigns the next unused color from the palette, and dynamically synthesizes harmonious, golden-angle pastel hues when all palette colors are in use.
+- **High-Contrast Black Icons on Category Badges:** Standardized all category and transaction circle badges across History, Recent Transactions, Gullak Deposits, and Savings to use crisp `#000000` icons (`strokeWidth: 2.2`) against vibrant colored backgrounds for maximum visibility and visual pop.
+- **Unified Donut Chart & Category Legend Colors:** Connected the Category Donut in Insights directly to `CATEGORY_PALETTE` and individual category colors, ensuring the donut ring slices and category breakdown list dots are always 100% color-consistent (e.g. single-category views now accurately show the category's assigned color rather than defaulting to green).
+- **Dynamic Category Chip Selection:** Selected category chips on the Add/Edit Expense form dynamically adopt their assigned color with automatic YIQ contrast calculation for white or black text and icon rendering.
+- **Vibrant Tactile Keypad Overhaul:** Upgraded the numeric keypad from muted tones to a lively, tactile color palette: rich slate-grey number keys (`#334155` dark / `#E2E8F0` light), vibrant mint green operators (`+`, `−`, `×`, `÷`, `#ADEBB3`), and vibrant coral red delete key (`#FF857A`), paired with significantly enlarged operator symbols and delete icon.
+- **History & Savings Screen Filter Pill Spacing:** Fixed the cramped vertical layout where the sliding filter pill track touched the bottom of the "History" header title, adding a clean 32px breathing room. Also improved filter pill margin under the "Day-by-Day Savings History" header in the Savings screen.
+- **Savings Gullak Deposit Affordance & Pagination:** Added a distinct `ChevronRight` arrow affordance on Gullak deposit records in the Savings timeline to indicate tap-to-manage/delete actions, initialized the list to 8 records, and added a sleek rounded "See More" button for smooth on-demand pagination.
+
 ### 🎨 UI Polish — Telegram-Style Rows & Bouncy Category Filter
 
 - **Scrollable Bouncy Category Filter (History):** Replaced the separate pill chips on the History screen with a single elongated pill track containing a spring-animated sliding highlight. The highlight morphs to each category's natural text width and scrolls to keep the active item visible — same `tension: 70 / friction: 8` spring physics as the HomeScreen filter toggle.

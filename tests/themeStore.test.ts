@@ -39,6 +39,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 import { useThemeStore } from '../src/store/themeStore';
+import { CATEGORY_PALETTE, getNextCategoryColor, getContrastTextColor } from '../src/config/theme';
 
 describe('themeStore (Seam: useThemeStore)', () => {
   beforeEach(() => {
@@ -103,6 +104,36 @@ describe('themeStore (Seam: useThemeStore)', () => {
 
       listener({ colorScheme: 'light' });
       expect(useThemeStore.getState().systemScheme).toBe('light');
+    });
+  });
+
+  describe('Slice 5: Category Color Assignment & Contrast Helpers', () => {
+    it('returns the first unused color from CATEGORY_PALETTE', () => {
+      const existing = [
+        { color: CATEGORY_PALETTE[0] },
+        { color: CATEGORY_PALETTE[1] },
+      ];
+      const next = getNextCategoryColor(existing);
+      expect(next).toBe(CATEGORY_PALETTE[2]);
+    });
+
+    it('dynamically curates a fresh pastel color when all palette colors are in use', () => {
+      const allPalette = CATEGORY_PALETTE.map((c) => ({ color: c }));
+      const curated = getNextCategoryColor(allPalette);
+      expect(curated).toMatch(/^#[0-9A-F]{6}$/);
+      // Must not match any in the palette
+      expect(allPalette.some((c) => c.color.toUpperCase() === curated.toUpperCase())).toBe(false);
+    });
+
+    it('returns #000000 for bright/pastel backgrounds and #FFFFFF for dark backgrounds', () => {
+      // Bright / pastel
+      expect(getContrastTextColor('#ADEBB3')).toBe('#000000');
+      expect(getContrastTextColor('#FF857A')).toBe('#000000');
+      expect(getContrastTextColor('#FFFFFF')).toBe('#000000');
+      // Dark
+      expect(getContrastTextColor('#0B111E')).toBe('#FFFFFF');
+      expect(getContrastTextColor('#6B403C')).toBe('#FFFFFF');
+      expect(getContrastTextColor('#000000')).toBe('#FFFFFF');
     });
   });
 });

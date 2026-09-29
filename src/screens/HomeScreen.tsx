@@ -13,7 +13,6 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -81,29 +80,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const showNavBar = useNavBarStore((s) => s.showNavBar);
 
-  // Animated scroll position for gradient fade between header and list
-  const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
-
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
-  const gradientFadeOpacity = scrollY.interpolate({
-    inputRange: [0, 16],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
 
   const handleTriggerHistory = useCallback(() => {
     try {
       Vibration.vibrate(20);
     } catch {}
     navigation.navigate('History');
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-    }, 200);
   }, [navigation]);
 
   const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
@@ -149,7 +132,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       const nowKey = format(new Date(), 'yyyy-MM-dd');
       setTodayKey((prev) => (prev !== nowKey ? nowKey : prev));
       loadData(false);
-      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      });
     }, [loadData, showNavBar])
   );
 
@@ -318,28 +303,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             progressViewOffset={insets.top + 8}
           />
         }
-        stickyHeaderIndices={[0]}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
       >
-        {/* ── Child 0: Fixed Top Section (Screenshot 1 + Recent Transactions Header) ── */}
+        {/* ── Top Section (Header, Filter, Hero Card & Recent Transactions Header) ── */}
         <View
           style={[
-            styles.fixedTopSection,
+            styles.topSection,
             { paddingTop: insets.top + 10 },
           ]}
         >
-          {/* Solid background covering the top portion ONLY (leaves bottom 24px transparent for dissolve gradient) */}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: colors.background,
-                bottom: 24,
-              },
-            ]}
-            pointerEvents="none"
-          />
 
           {/* Header */}
           <View style={styles.headerRow}>
@@ -431,31 +402,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <ChevronRight size={14} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-
-          {/* Dissolve Gradient Fade: The bottom 24px is transparent with only this SVG gradient overlay */}
-          <Animated.View
-            style={[
-              styles.gradientFadeWrapper,
-              { opacity: gradientFadeOpacity },
-            ]}
-            pointerEvents="none"
-          >
-            <Svg height={24} width="100%">
-              <Defs>
-                <LinearGradient id="recentHeaderFade" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <Stop offset="0%" stopColor={colors.background} stopOpacity={1} />
-                  <Stop offset="25%" stopColor={colors.background} stopOpacity={0.9} />
-                  <Stop offset="50%" stopColor={colors.background} stopOpacity={0.65} />
-                  <Stop offset="75%" stopColor={colors.background} stopOpacity={0.3} />
-                  <Stop offset="100%" stopColor={colors.background} stopOpacity={0} />
-                </LinearGradient>
-              </Defs>
-              <Rect x="0" y="0" width="100%" height={24} fill="url(#recentHeaderFade)" />
-            </Svg>
-          </Animated.View>
         </View>
 
-        {/* ── Child 1: Scrollable Transactions List & Telegram Pull Indicator ── */}
+        {/* ── Scrollable Transactions List & Telegram Pull Indicator ── */}
         {recentTx.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
@@ -525,11 +474,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 
-  // Fixed Top Section (sticky header index 0)
-  fixedTopSection: {
+  topSection: {
     paddingHorizontal: Spacing.gutter,
-    zIndex: 10,
-    position: 'relative',
   },
 
   // Header
@@ -622,7 +568,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: Spacing.block,
-    paddingBottom: 2,
+    marginBottom: Spacing.element,
   },
   sectionTitle: {
     fontSize: 22,
@@ -641,11 +587,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.medium,
     marginRight: Spacing.micro,
-  },
-  gradientFadeWrapper: {
-    marginHorizontal: -Spacing.gutter,
-    height: 24,
-    zIndex: 11,
   },
 
   // Transaction scroll list

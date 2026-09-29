@@ -1,7 +1,7 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react-native';
 
-type IconComponent = React.FC<{ size: number; color: string }>;
+type IconComponent = React.FC<{ size: number; color: string; strokeWidth?: number }>;
 
 /**
  * Safely looks up a Lucide icon component by name string.

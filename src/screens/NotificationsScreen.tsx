@@ -54,30 +54,30 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const getIcon = (type: AppNotification['type']) => {
     switch (type) {
       case 'budget_exceeded':
-        return <AlertCircle size={20} color="#DC2626" />;
+        return <AlertCircle size={20} color="#000000" strokeWidth={2.2} />;
       case 'budget_warning':
-        return <AlertTriangle size={20} color="#D97706" />;
+        return <AlertTriangle size={20} color="#000000" strokeWidth={2.2} />;
       case 'savings_rollover':
-        return <Sparkles size={20} color={colors.mintGreenDark} />;
+        return <Sparkles size={20} color="#000000" strokeWidth={2.2} />;
       case 'daily_reminder':
-        return <Coins size={20} color={colors.mintGreenDark} />;
+        return <Coins size={20} color="#000000" strokeWidth={2.2} />;
       default:
-        return <Bell size={20} color={colors.textPrimary} />;
+        return <Bell size={20} color="#000000" strokeWidth={2.2} />;
     }
   };
 
   const getIconBg = (type: AppNotification['type']) => {
     switch (type) {
       case 'budget_exceeded':
-        return isDark ? 'rgba(220, 38, 38, 0.2)' : '#FEE2E2';
+        return '#FF857A';
       case 'budget_warning':
-        return isDark ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7';
+        return '#F4A460';
       case 'savings_rollover':
-        return colors.mintGreenSoft;
+        return '#ADEBB3';
       case 'daily_reminder':
-        return colors.mintGreenSoft;
+        return '#EBAEE6';
       default:
-        return colors.cardSubtle;
+        return '#FFD3AC';
     }
   };
 
