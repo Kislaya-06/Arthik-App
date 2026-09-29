@@ -550,12 +550,10 @@ export const SavingsScreen: React.FC = () => {
 
           <Text style={[styles.settingsDesc, { color: colors.textSecondary }]}>
             {isAutoRenew && dailyBudgetAmount > 0
-              ? 'Auto-Add is ON: Every day at midnight, ₹' +
-                dailyBudgetAmount +
-                ' is added automatically. Whatever you do not spend rolls over into your Daily Savings Gullak.'
+              ? 'Auto-adds daily allowance and saves unspent money to Gullak.'
               : isAutoRenew
-              ? 'Auto-Add is ON: Set your default allowance below to start automatic daily budgeting.'
-              : 'Manual Mode: Auto-add is turned off. You can set your daily budget manually.'}
+              ? 'Set your daily allowance below to start automatic budgeting.'
+              : 'Manual mode: Set your daily budget whenever you want.'}
           </Text>
 
           <TouchableOpacity
