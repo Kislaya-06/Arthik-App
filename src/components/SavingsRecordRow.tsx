@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Sparkles, AlertCircle, Coins, Trash2 } from 'lucide-react-native';
+import { Sparkles, AlertCircle, Coins } from 'lucide-react-native';
 import { format, isYesterday, parseISO } from 'date-fns';
 
 import { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -12,6 +12,7 @@ import { FontFamily } from '../config/theme';
 export interface SavingsRecordRowProps {
   rec?: DailyRecord;
   deposit?: GullakDeposit;
+  onPress?: () => void;
   onDeleteDeposit?: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
@@ -20,6 +21,7 @@ export interface SavingsRecordRowProps {
 const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   rec,
   deposit,
+  onPress,
   onDeleteDeposit,
   colors,
   isDark,
@@ -114,14 +116,20 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     return colors.cardSubtle;
   }, [isDeposit, isSaved, isExceeded, isDark, colors.mintGreenSoft, colors.cardSubtle]);
 
+  const isInteractive = Boolean(onPress || onDeleteDeposit);
+  const ContainerComponent = isInteractive ? TouchableOpacity : View;
+
   return (
-    <View
+    <ContainerComponent
       style={[
         styles.recordRow,
         {
-          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.borderSubtle,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
         },
       ]}
+      activeOpacity={0.7}
+      onPress={onPress}
+      onLongPress={onDeleteDeposit}
     >
       <View style={[styles.recordIconBox, { backgroundColor: iconBg }]}>
         {isDeposit ? (
@@ -153,18 +161,8 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
             {statusText}
           </Text>
         </View>
-
-        {isDeposit && onDeleteDeposit && (
-          <TouchableOpacity
-            onPress={onDeleteDeposit}
-            hitSlop={12}
-            style={styles.deleteBtn}
-          >
-            <Trash2 size={16} color={colors.textMuted} />
-          </TouchableOpacity>
-        )}
       </View>
-    </View>
+    </ContainerComponent>
   );
 };
 
@@ -176,7 +174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
   },
   recordIconBox: {
     width: 48,
@@ -201,8 +199,8 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   recordRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
     marginLeft: 12,
   },
   recordAmountCol: {
@@ -218,12 +216,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FontFamily.semibold,
     marginTop: 3,
-  },
-  deleteBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
   },
 });

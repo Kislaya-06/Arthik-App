@@ -36,12 +36,21 @@ import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { DepositGullakModal } from '../components/DepositGullakModal';
+import { CompositeScreenProps } from '@react-navigation/native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { TabParamList, RootStackParamList } from '../types';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 
+type SavingsScreenProps = CompositeScreenProps<
+  BottomTabScreenProps<TabParamList, 'Savings'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
 // ─── Main Savings Screen ──────────────────────────────────────────────────────
-export const SavingsScreen: React.FC = () => {
+export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const handleScroll = useScrollDirection();
@@ -681,6 +690,11 @@ export const SavingsScreen: React.FC = () => {
               key={item.id}
               rec={item.dailyRecord}
               deposit={item.deposit}
+              onPress={
+                item.deposit
+                  ? () => navigation.navigate('GullakDepositDetail', { depositId: item.deposit!.id })
+                  : undefined
+              }
               onDeleteDeposit={
                 item.deposit
                   ? () => handleDeleteDeposit(item.deposit!.id, item.deposit!.amount)

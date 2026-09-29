@@ -60,7 +60,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
       style={[
         styles.txRow,
         {
-          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.borderSubtle,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
         },
       ]}
     >
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
   },
   txIconContainer: {
     width: 48,

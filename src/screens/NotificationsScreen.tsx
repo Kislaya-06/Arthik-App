@@ -174,7 +174,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                 style={[
                   styles.notifRow,
                   {
-                    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.borderSubtle,
+                    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
                   },
                 ]}
                 activeOpacity={0.7}
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 13,
     paddingHorizontal: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
   },
   notifIconWrap: {
     width: 48,
