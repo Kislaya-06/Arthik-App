@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { useNotificationStore, AppNotification } from '../store/notificationStore';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
@@ -30,6 +30,26 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const markAsRead = useNotificationStore((s) => s.markAsRead);
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
   const clearNotifications = useNotificationStore((s) => s.clearNotifications);
+
+  const getCompactTime = (isoString: string): string => {
+    try {
+      const date = parseISO(isoString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHour / 24);
+
+      if (diffSec < 60) return 'Just now';
+      if (diffMin < 60) return `${diffMin}m ago`;
+      if (diffHour < 24) return `${diffHour}h ago`;
+      if (diffDay < 7) return `${diffDay}d ago`;
+      return format(date, 'd MMM');
+    } catch {
+      return 'Recently';
+    }
+  };
 
   const getIcon = (type: AppNotification['type']) => {
     switch (type) {
@@ -146,29 +166,18 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           {notifications.map((n) => {
-            let timeAgo = '';
-            try {
-              timeAgo = formatDistanceToNow(parseISO(n.createdAt), { addSuffix: true });
-            } catch {
-              timeAgo = 'Recently';
-            }
+            const timeAgo = getCompactTime(n.createdAt);
 
             return (
               <TouchableOpacity
                 key={n.id}
                 style={[
-                  styles.notifCard,
+                  styles.notifRow,
                   {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    borderWidth: isDark ? 1 : 0,
-                  },
-                  !n.read && {
-                    borderColor: colors.mintGreen,
-                    borderWidth: 1,
+                    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.borderSubtle,
                   },
                 ]}
-                activeOpacity={0.75}
+                activeOpacity={0.7}
                 onPress={() => handleNotificationPress(n)}
               >
                 <View style={[styles.notifIconWrap, { backgroundColor: getIconBg(n.type) }]}>
@@ -185,10 +194,23 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                           fontFamily: n.read ? FontFamily.semibold : FontFamily.bold,
                         },
                       ]}
+                      numberOfLines={1}
                     >
                       {n.title}
                     </Text>
-                    {!n.read && <View style={[styles.unreadDot, { backgroundColor: colors.mintGreenDark }]} />}
+                    <View style={styles.notifRightMeta}>
+                      <Text style={[styles.notifTime, { color: colors.textMuted }]}>
+                        {timeAgo}
+                      </Text>
+                      {!n.read && (
+                        <View
+                          style={[
+                            styles.unreadDot,
+                            { backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark },
+                          ]}
+                        />
+                      )}
+                    </View>
                   </View>
 
                   <Text
@@ -198,15 +220,6 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                     ]}
                   >
                     {n.message}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.notifTime,
-                      { color: colors.textMuted, fontFamily: FontFamily.medium },
-                    ]}
-                  >
-                    {timeAgo}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -251,54 +264,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.surface,
+    paddingHorizontal: Spacing.gutter,
     paddingBottom: 30,
   },
-  notifCard: {
+  notifRow: {
     flexDirection: 'row',
-    padding: Spacing.block,
-    borderRadius: 20,
-    marginBottom: Spacing.group,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    alignItems: 'flex-start',
+    paddingVertical: 13,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   notifIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   notifContent: {
     flex: 1,
+    justifyContent: 'center',
   },
   notifTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.micro,
+    marginBottom: 3,
   },
   notifTitle: {
-    fontSize: 15,
+    fontSize: 16,
+    letterSpacing: -0.2,
     flex: 1,
+    marginRight: 10,
+  },
+  notifRightMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginLeft: Spacing.element,
+    marginLeft: 6,
   },
   notifMessage: {
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 6,
   },
   notifTime: {
-    fontSize: 11,
+    fontSize: 12,
+    fontFamily: FontFamily.medium,
   },
   emptyContainer: {
     flex: 1,

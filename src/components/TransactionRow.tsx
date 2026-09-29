@@ -26,11 +26,17 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
 
   const dateStr = useMemo(() => {
     try {
+      if (expense.created_at) {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        if (expense.expense_date === todayStr) {
+          return format(parseISO(expense.created_at), 'h:mm a');
+        }
+      }
       return format(parseISO(expense.expense_date), 'd MMM');
     } catch {
       return expense.expense_date;
     }
-  }, [expense.expense_date]);
+  }, [expense.expense_date, expense.created_at]);
 
   const amountLabel = isIncome ? `+${formatCurrency(Math.abs(expense.amount))}` : `−${formatCurrency(Math.abs(expense.amount))}`;
   const expenseColor = isDark ? colors.peachCoral : '#E05345';
@@ -44,50 +50,34 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
         ? 'Card'
         : 'Cash';
 
+  const categoryName = category?.name ?? (isIncome ? 'Money Added' : 'Other');
+  const hasNote = Boolean(expense.note && expense.note.trim().length > 0);
+  const mainTitle = hasNote ? expense.note!.trim() : categoryName;
+  const subtitle = hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
+
   return (
     <View
       style={[
         styles.txRow,
         {
-          backgroundColor: colors.card,
-          borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.borderSubtle,
         },
       ]}
     >
       <View style={[styles.txIconContainer, { backgroundColor: bg }]}>
-        <IconComp size={20} color={catColor} />
+        <IconComp size={22} color={catColor} />
       </View>
       <View style={styles.txMiddle}>
         <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-          {category?.name ?? (isIncome ? 'Money Added' : 'Other')}
+          {mainTitle}
         </Text>
-        <View style={styles.txSubtitleRow}>
-          {expense.note ? (
-            <>
-              <Text
-                style={[styles.txSubtitle, styles.txNoteText, { color: colors.textSecondary }]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {expense.note}
-              </Text>
-              <Text
-                style={[styles.txSubtitle, styles.txModeText, { color: colors.textSecondary }]}
-                numberOfLines={1}
-              >
-                {` · ${modeLabel}`}
-              </Text>
-            </>
-          ) : (
-            <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-              {modeLabel}
-            </Text>
-          )}
-        </View>
+        <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          {subtitle}
+        </Text>
       </View>
       <View style={styles.txRight}>
         <Text style={[styles.txAmount, { color: amountColor }]}>{amountLabel}</Text>
-        <Text style={[styles.txDate, { color: colors.textSecondary }]}>{dateStr}</Text>
+        <Text style={[styles.txDate, { color: colors.textMuted }]}>{dateStr}</Text>
       </View>
     </View>
   );
@@ -99,56 +89,45 @@ const styles = StyleSheet.create({
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    paddingHorizontal: 18,
     paddingVertical: 12,
-    marginBottom: 10,
-    overflow: 'hidden',
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   txIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   txMiddle: {
     flex: 1,
     marginLeft: 14,
+    justifyContent: 'center',
   },
   txTitle: {
-    fontSize: FontSize.body,
+    fontSize: 16,
     fontFamily: FontFamily.bold,
-  },
-  txSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
+    letterSpacing: -0.2,
   },
   txSubtitle: {
     fontSize: 13,
     fontFamily: FontFamily.medium,
-  },
-  txNoteText: {
-    flexShrink: 1,
-  },
-  txModeText: {
-    flexShrink: 0,
+    marginTop: 3,
   },
   txRight: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: Spacing.group,
+    marginLeft: 12,
   },
   txAmount: {
-    fontSize: FontSize.body,
+    fontSize: 16,
     fontFamily: FontFamily.bold,
     fontVariant: ['tabular-nums'],
   },
   txDate: {
     fontSize: 12,
     fontFamily: FontFamily.medium,
-    marginTop: 2,
+    marginTop: 3,
   },
 });
