@@ -81,8 +81,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const formattedDate = expense.expense_date
     ? format(parseISO(expense.expense_date), 'd MMM yyyy')
     : '';
-  const categoryColor = category?.color || (isIncome ? colors.mintGreen : '#F4B8AE');
-  const categoryBgColor = categoryColor + '33';
+  const categoryColor = category?.color || (isIncome ? '#ADEBB3' : '#FF857A');
+  const categoryBgColor = categoryColor;
 
   return (
     <View style={[styles.safeArea, { paddingTop: insets.top, backgroundColor: colors.background }]}>
@@ -119,8 +119,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Category Icon Badge */}
           <View style={styles.badgeContainer}>
-            <View style={[styles.badgeOuter, { backgroundColor: categoryBgColor }]}>
-              <CategoryIcon size={44} color={categoryColor} />
+            <View style={[styles.badgeOuter, { backgroundColor: categoryColor }]}>
+              <CategoryIcon size={44} color="#000000" strokeWidth={2.2} />
             </View>
             <Text style={[styles.badgeText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
               {category?.name || (isIncome ? 'Money Added' : 'Unknown')}

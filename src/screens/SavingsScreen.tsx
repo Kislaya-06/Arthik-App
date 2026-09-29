@@ -21,6 +21,7 @@ import {
   Plus,
   Clock,
   X,
+  ChevronDown,
 } from 'lucide-react-native';
 import { format } from 'date-fns';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
@@ -43,6 +44,8 @@ import { TabParamList, RootStackParamList } from '../types';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
+const INITIAL_RECORDS_COUNT = 8;
+const RECORDS_PAGE_SIZE = 8;
 
 type SavingsScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Savings'>,
@@ -126,6 +129,19 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
     return [...dailyItems, ...matchingDeposits].sort((a, b) => b.date.localeCompare(a.date));
   }, [activeFilter, filteredRecords, depositItems]);
+
+  const [visibleRecordsCount, setVisibleRecordsCount] = useState(INITIAL_RECORDS_COUNT);
+
+  // Reset visible count whenever the active filter changes
+  useEffect(() => {
+    setVisibleRecordsCount(INITIAL_RECORDS_COUNT);
+  }, [activeFilter]);
+
+  const visibleUnifiedList = useMemo(() => {
+    return unifiedList.slice(0, visibleRecordsCount);
+  }, [unifiedList, visibleRecordsCount]);
+
+  const hasMoreRecords = unifiedList.length > visibleRecordsCount;
 
   const {
     budget: todayBudget,
@@ -685,25 +701,46 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             </Text>
           </View>
         ) : (
-          unifiedList.map((item) => (
-            <SavingsRecordRow
-              key={item.id}
-              rec={item.dailyRecord}
-              deposit={item.deposit}
-              onPress={
-                item.deposit
-                  ? () => navigation.navigate('GullakDepositDetail', { depositId: item.deposit!.id })
-                  : undefined
-              }
-              onDeleteDeposit={
-                item.deposit
-                  ? () => handleDeleteDeposit(item.deposit!.id, item.deposit!.amount)
-                  : undefined
-              }
-              colors={colors}
-              isDark={isDark}
-            />
-          ))
+          <>
+            {visibleUnifiedList.map((item) => (
+              <SavingsRecordRow
+                key={item.id}
+                rec={item.dailyRecord}
+                deposit={item.deposit}
+                onPress={
+                  item.deposit
+                    ? () => navigation.navigate('GullakDepositDetail', { depositId: item.deposit!.id })
+                    : undefined
+                }
+                onDeleteDeposit={
+                  item.deposit
+                    ? () => handleDeleteDeposit(item.deposit!.id, item.deposit!.amount)
+                    : undefined
+                }
+                colors={colors}
+                isDark={isDark}
+              />
+            ))}
+
+            {hasMoreRecords && (
+              <TouchableOpacity
+                style={[
+                  styles.seeMoreBtn,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => setVisibleRecordsCount((prev) => prev + RECORDS_PAGE_SIZE)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.seeMoreText, { color: colors.textPrimary }]}>
+                  See More
+                </Text>
+                <ChevronDown size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -1027,8 +1064,8 @@ const styles = StyleSheet.create({
 
   // History Section
   historySectionHeader: {
-    marginTop: Spacing.element,
-    marginBottom: 10,
+    marginTop: Spacing.block,
+    marginBottom: 14,
   },
   sectionTitle: {
     fontSize: 17,
@@ -1037,7 +1074,7 @@ const styles = StyleSheet.create({
   filterPillsRow: {
     flexDirection: 'row',
     gap: Spacing.element,
-    marginBottom: Spacing.group,
+    marginBottom: Spacing.block,
   },
   filterPill: {
     paddingHorizontal: 14,
@@ -1089,6 +1126,23 @@ const styles = StyleSheet.create({
   },
   depositCtaBtnText: {
     fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
+  },
+  seeMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: Spacing.element,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.surface,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    marginTop: 24,
+    marginBottom: Spacing.element,
+  },
+  seeMoreText: {
+    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
   },
 });

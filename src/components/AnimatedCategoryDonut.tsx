@@ -8,10 +8,10 @@ import { formatCurrency } from '../lib/formatters';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export interface AnimatedCategoryDonutProps {
-  categories: Array<{ id: string; name: string; amount: number; percentage: number }>;
+  categories: Array<{ id: string; name: string; amount: number; percentage: number; color?: string }>;
   totalAmount: number;
   topCategory: { name: string; percentage: number } | null;
-  palette: string[];
+  palette: readonly string[];
   size?: number;
   strokeWidth?: number;
   isDark: boolean;

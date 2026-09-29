@@ -21,8 +21,8 @@ export type TxRowProps = {
 
 const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome, colors, isDark }) => {
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : (isIncome ? Wallet : DollarSign);
-  const catColor = category?.color ?? (isIncome ? colors.mintGreen : '#94A3B8');
-  const bg = pastelBg(catColor);
+  const catColor = category?.color ?? (isIncome ? '#ADEBB3' : '#FFD3AC');
+  const bg = catColor;
 
   const dateStr = useMemo(() => {
     try {
@@ -65,7 +65,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
       ]}
     >
       <View style={[styles.txIconContainer, { backgroundColor: bg }]}>
-        <IconComp size={22} color={catColor} />
+        <IconComp size={22} color="#000000" strokeWidth={2.2} />
       </View>
       <View style={styles.txMiddle}>
         <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>

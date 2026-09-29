@@ -51,8 +51,8 @@ interface TransactionRowItemProps {
 const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
   const isIncome = isIncomeTransaction(item, category);
   const categoryName = category?.name || (isIncome ? 'Money Added' : 'Other');
-  const categoryColor = category?.color || (isIncome ? colors.mintGreen : '#F4B8AE');
-  const categoryBgColor = categoryColor + '30';
+  const categoryColor = category?.color || (isIncome ? '#ADEBB3' : '#FF857A');
+  const categoryBgColor = categoryColor;
   const IconComp = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
   const paymentLabel = getPaymentLabel(item.payment_mode);
   const expenseColor = colors.isDark ? colors.peachCoral : '#E05345';
@@ -86,7 +86,7 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
       <View style={[styles.iconContainer, { backgroundColor: categoryBgColor }]}>
-        <IconComp size={22} color={categoryColor} />
+        <IconComp size={22} color="#000000" strokeWidth={2.2} />
       </View>
       <View style={styles.transactionMiddle}>
         <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -116,8 +116,7 @@ interface GullakRowItemProps {
 
 const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors }) => {
   const sourceLabel = item.source === 'income' ? 'From Income' : 'External Deposit';
-  const iconColor = colors.isDark ? colors.mintGreen : colors.mintGreenDark;
-  const iconBg = colors.isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft;
+  const iconBg = '#ADEBB3';
 
   const hasNote = Boolean(item.note && item.note.trim().length > 0);
   const mainTitle = hasNote ? item.note!.trim() : 'Gullak Deposit';
@@ -143,7 +142,7 @@ const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors })
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
       <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
-        <PiggyBankCoinIcon size={22} color={iconColor} />
+        <PiggyBankCoinIcon size={22} color="#000000" />
       </View>
       <View style={styles.transactionMiddle}>
         <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -561,11 +560,13 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         )}
 
         {/* Filter Pills — bouncy sliding pill */}
-        <BouncyCategoryFilter
-          options={[{ id: null, name: 'All' }, ...categories]}
-          value={selectedCategoryId}
-          onChange={setSelectedCategoryId}
-        />
+        <View style={[styles.filterWrapper, isSearchVisible && styles.filterWrapperSearchOpen]}>
+          <BouncyCategoryFilter
+            options={[{ id: null, name: 'All' }, ...categories]}
+            value={selectedCategoryId}
+            onChange={setSelectedCategoryId}
+          />
+        </View>
 
         {/* Transaction List */}
         <SectionList
@@ -627,6 +628,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: Spacing.block,
+    marginBottom: Spacing.element,
   },
   headerTitle: {
     fontSize: 36,
@@ -643,6 +645,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+  },
+  filterWrapper: {
+    marginTop: 24,
+    marginBottom: Spacing.element,
+  },
+  filterWrapperSearchOpen: {
+    marginTop: Spacing.element,
   },
   searchContainer: {
     flexDirection: 'row',

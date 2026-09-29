@@ -34,7 +34,30 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSi
   };
 
   const isBackspace = item === 'backspace';
-  const isOperator = item === '+' || item === '−' || item === '×' || item === '÷';
+  const isOperator = item === '+' || item === '−' || item === '-' || item === '×' || item === '÷' || item === '/' || item === '*';
+
+  // Operators (÷, ×, −, +) are enlarged significantly for bold, easy-to-read visibility
+  const operatorFontSize = fontSize !== undefined ? Math.round(fontSize * 1.45) : 32;
+  const currentFontSize = isOperator ? operatorFontSize : (fontSize ?? 22);
+
+  // Backspace icon size
+  const deleteIconSize = fontSize !== undefined ? Math.round(fontSize * 1.15) : 24;
+
+  const bgColor = isBackspace
+    ? colors.keypadDeleteBg
+    : isOperator
+    ? colors.keypadOperatorBg
+    : colors.keypadNumberBg;
+
+  const borderColor = isBackspace
+    ? colors.keypadDeleteBorder
+    : isOperator
+    ? colors.keypadOperatorBorder
+    : colors.keypadNumberBorder;
+
+  const textColor = isOperator
+    ? colors.keypadOperatorText
+    : colors.keypadNumberText;
 
   return (
     <Pressable
@@ -47,29 +70,27 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSi
         style={[
           styles.keyButton,
           {
-            borderColor: isOperator && isDark ? 'rgba(184, 224, 200, 0.25)' : colors.borderSubtle,
-            backgroundColor: isBackspace
-              ? colors.peachSoft
-              : isOperator
-              ? (isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft)
-              : colors.cardSubtle,
+            backgroundColor: bgColor,
+            borderColor: borderColor,
             transform: [{ scale }],
           },
           height !== undefined && { height },
         ]}
       >
         {isBackspace ? (
-          <Delete size={fontSize !== undefined ? Math.round(fontSize * 0.9) : 20} color={colors.peachCoral} />
+          <Delete
+            size={deleteIconSize}
+            color={colors.keypadDeleteIcon}
+            strokeWidth={2.2}
+          />
         ) : (
           <Text
             style={[
               styles.keyText,
               {
-                color: isOperator
-                  ? (isDark ? colors.mintGreen : colors.mintGreenDark)
-                  : colors.textPrimary,
+                color: textColor,
+                fontSize: currentFontSize,
               },
-              fontSize !== undefined && { fontSize },
             ]}
           >
             {item}
@@ -96,5 +117,7 @@ const styles = StyleSheet.create({
   keyText: {
     fontSize: 22,
     fontFamily: FontFamily.bold,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });

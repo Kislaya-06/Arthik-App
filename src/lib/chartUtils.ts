@@ -84,7 +84,7 @@ export interface PreparedSegment {
 export function prepareCategorySegments(
   categories: Array<{ id: string; name: string; amount: number; percentage: number }>,
   totalAmount: number,
-  palette: string[],
+  palette: readonly string[],
   size: number,
   strokeWidth: number
 ): PreparedSegment[] {
@@ -107,7 +107,7 @@ export function prepareCategorySegments(
 
     return {
       ...cat,
-      color: palette[index % palette.length],
+      color: (cat as any).color || palette[index % palette.length],
       fraction,
       arcLength,
       startAngle,
@@ -259,9 +259,9 @@ export function generateFullAnnulusPath(
  * uniform gaps, and smooth rounded corners.
  */
 export function prepareCategoryBlockSegments(
-  categories: Array<{ id: string; name: string; amount: number; percentage: number }>,
+  categories: Array<{ id: string; name: string; amount: number; percentage: number; color?: string }>,
   totalAmount: number,
-  palette: string[],
+  palette: readonly string[],
   size: number = 220,
   strokeWidth: number = 28,
   gapDeg: number = 5,
@@ -280,7 +280,7 @@ export function prepareCategoryBlockSegments(
     const path = generateFullAnnulusPath(cx, cy, rInner, rOuter);
     return [{
       ...singleCat,
-      color: palette[0] || '#B8E0C8',
+      color: singleCat.color || palette[0] || '#FF857A',
       fraction: 1,
       startAngle: -90,
       endAngle: 270,
@@ -326,7 +326,7 @@ export function prepareCategoryBlockSegments(
 
     return {
       ...cat,
-      color: palette[i % palette.length],
+      color: cat.color || palette[i % palette.length],
       fraction: totalAmount > 0 ? cat.amount / totalAmount : 0,
       startAngle,
       endAngle,
@@ -365,7 +365,7 @@ export interface PreparedBlockSweepSegment {
 export function prepareBlockSweepSegments(
   categories: Array<{ id: string; name: string; amount: number; percentage: number }>,
   totalAmount: number,
-  palette: string[],
+  palette: readonly string[],
   size: number = 220,
   strokeWidth: number = 26,
   gapDeg: number = 6
@@ -383,7 +383,7 @@ export function prepareBlockSweepSegments(
     const strokeArcLength = Math.max(0.1, circumference - strokeWidth);
     return [{
       ...categories[0],
-      color: palette[0] || '#B8E0C8',
+      color: (categories[0] as any).color || palette[0] || '#FF857A',
       fraction: 1,
       strokeStartAngle: -90 + capAngleDeg,
       strokeArcLength,
@@ -467,7 +467,7 @@ export function prepareBlockSweepSegments(
 
     return {
       ...cat,
-      color: palette[i % palette.length],
+      color: (cat as any).color || palette[i % palette.length],
       fraction: totalAmount > 0 ? cat.amount / totalAmount : 0,
       strokeStartAngle,
       strokeArcLength,

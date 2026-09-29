@@ -36,8 +36,8 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const category = categories.find(c => c.id === categoryId);
   const CategoryIcon = getCategoryIcon(category?.icon || '');
-  const categoryColor = category?.color || '#94A3B8';
-  const categoryBgColor = categoryColor + '33';
+  const categoryColor = category?.color || '#ADEBB3';
+  const categoryBgColor = categoryColor;
 
   const categoryExpenses = useMemo(() =>
     expenses
@@ -124,8 +124,8 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerCenter}>
-          <View style={[styles.headerIconBadge, { backgroundColor: categoryBgColor }]}>
-            <CategoryIcon size={20} color={categoryColor} />
+          <View style={[styles.headerIconBadge, { backgroundColor: categoryColor }]}>
+            <CategoryIcon size={20} color="#000000" strokeWidth={2.2} />
           </View>
           <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             {category.name}

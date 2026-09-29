@@ -26,6 +26,16 @@ export interface ThemeColors {
   chartTrack: string;
   danger: string;
   isDark: boolean;
+  // Keypad tokens
+  keypadNumberBg: string;
+  keypadNumberBorder: string;
+  keypadNumberText: string;
+  keypadOperatorBg: string;
+  keypadOperatorBorder: string;
+  keypadOperatorText: string;
+  keypadDeleteBg: string;
+  keypadDeleteBorder: string;
+  keypadDeleteIcon: string;
 }
 
 export const LightColors: ThemeColors = {
@@ -56,6 +66,15 @@ export const LightColors: ThemeColors = {
   chartTrack: '#E8E9EE',
   danger: '#EF4444',
   isDark: false,
+  keypadNumberBg: '#E2E8F0',
+  keypadNumberBorder: '#CBD5E1',
+  keypadNumberText: '#0F172A',
+  keypadOperatorBg: '#ADEBB3',
+  keypadOperatorBorder: '#95DDA0',
+  keypadOperatorText: '#000000',
+  keypadDeleteBg: '#FF857A',
+  keypadDeleteBorder: '#E87A70',
+  keypadDeleteIcon: '#000000',
 };
 
 export const DarkColors: ThemeColors = {
@@ -86,6 +105,15 @@ export const DarkColors: ThemeColors = {
   chartTrack: '#243248', // dark donut chart track
   danger: '#F87171',
   isDark: true,
+  keypadNumberBg: '#334155',
+  keypadNumberBorder: '#475569',
+  keypadNumberText: '#FFFFFF',
+  keypadOperatorBg: '#ADEBB3',
+  keypadOperatorBorder: '#8ED696',
+  keypadOperatorText: '#000000',
+  keypadDeleteBg: '#FF857A',
+  keypadDeleteBorder: '#E57065',
+  keypadDeleteIcon: '#000000',
 };
 
 /**
@@ -155,6 +183,101 @@ export const Theme = {
   fontSize: FontSize,
   fonts: FontFamily,
   controls: ControlHeight,
+};
+
+/**
+ * Curated Category Color Palette (26 distinct, vibrant colors)
+ * Derived from user-provided palettes and lively modern design tokens.
+ */
+export const CATEGORY_PALETTE = [
+  '#FF857A', // Coral Pink (Food & Drinks)
+  '#EBAEE6', // Soft Lilac (Shopping)
+  '#4A90D9', // Sky Blue (Transport)
+  '#F4A460', // Warm Sand (Bills & Utilities)
+  '#9988A1', // Dusty Lavender (Entertainment)
+  '#E35336', // Terracotta Red (Health)
+  '#ADEBB3', // Pastel Mint Green (Others)
+  '#00A699', // Airbnb Teal
+  '#FFA726', // Warm Amber
+  '#FFD3AC', // Peach Cream
+  '#38BDF8', // Vivid Sky Cyan
+  '#F472B6', // Rose Pink
+  '#10B981', // Emerald Green
+  '#6366F1', // Royal Indigo
+  '#FB923C', // Sunset Tangerine
+  '#D946EF', // Vibrant Fuchsia
+  '#06B6D4', // Electric Cyan
+  '#8B5CF6', // Soft Violet
+  '#84CC16', // Lime Spark
+  '#F43F5E', // Rose Coral
+  '#F59E0B', // Warm Gold
+  '#14B8A6', // Mint Teal
+  '#3B82F6', // Blue Ribbon
+  '#A0522D', // Sienna Brown
+  '#6B403C', // Deep Coffee Brown
+  '#F5F5DC', // Soft Beige
+] as const;
+
+/**
+ * Converts HSL values to a 6-character Hex string (e.g. #RRGGBB).
+ */
+export const hslToHex = (h: number, s: number, l: number): string => {
+  const sNorm = s / 100;
+  const lNorm = l / 100;
+  const a = sNorm * Math.min(lNorm, 1 - lNorm);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = lNorm - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+};
+
+/**
+ * Automatically picks the next available unique color for a new category.
+ * First checks unused colors from the curated CATEGORY_PALETTE.
+ * If all curated colors are already taken, dynamically generates a fresh,
+ * harmonious, non-colliding pastel-modern color using the golden angle HSL formula.
+ */
+export const getNextCategoryColor = (existingCategories: Array<{ color?: string }>): string => {
+  const used = new Set(
+    existingCategories
+      .map((c) => c.color?.toUpperCase().trim())
+      .filter((c): c is string => Boolean(c))
+  );
+
+  const unusedFromPalette = CATEGORY_PALETTE.find((c) => !used.has(c.toUpperCase()));
+  if (unusedFromPalette) {
+    return unusedFromPalette;
+  }
+
+  // Curate a fresh, unique vibrant pastel color if all curated palette colors are taken
+  const total = existingCategories.length;
+  for (let i = 0; i < 60; i++) {
+    const hue = Math.round(((total + i) * 137.508) % 360); // golden angle distribution
+    const curatedColor = hslToHex(hue, 75, 65);
+    if (!used.has(curatedColor.toUpperCase())) {
+      return curatedColor;
+    }
+  }
+
+  return CATEGORY_PALETTE[total % CATEGORY_PALETTE.length];
+};
+
+/**
+ * Returns '#000000' or '#FFFFFF' depending on the perceived luminance of the background hex.
+ */
+export const getContrastTextColor = (hex?: string): string => {
+  if (!hex || hex.length < 6) return '#000000';
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16) || 0;
+  const g = parseInt(clean.substring(2, 4), 16) || 0;
+  const b = parseInt(clean.substring(4, 6), 16) || 0;
+  // Perceived luminance formula (YIQ)
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 135 ? '#000000' : '#FFFFFF';
 };
 
 

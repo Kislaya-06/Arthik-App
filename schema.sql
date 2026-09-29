@@ -283,13 +283,13 @@ BEGIN
     );
 
     INSERT INTO public.categories (user_id, name, icon, color, is_default) VALUES
-    (new.id, 'Food & Drinks', 'Utensils', '#F4B8AE', true),
-    (new.id, 'Shopping', 'ShoppingBag', '#B8E0C8', true),
-    (new.id, 'Transport', 'Car', '#93C5FD', true),
-    (new.id, 'Bills & Utilities', 'FileText', '#FCD34D', true),
-    (new.id, 'Entertainment', 'Film', '#C084FC', true),
-    (new.id, 'Health', 'HeartPulse', '#F87171', true),
-    (new.id, 'Others', 'DollarSign', '#94A3B8', true);
+    (new.id, 'Food & Drinks', 'Utensils', '#FF857A', true),
+    (new.id, 'Shopping', 'ShoppingBag', '#EBAEE6', true),
+    (new.id, 'Transport', 'Car', '#4A90D9', true),
+    (new.id, 'Bills & Utilities', 'FileText', '#F4A460', true),
+    (new.id, 'Entertainment', 'Film', '#9988A1', true),
+    (new.id, 'Health', 'HeartPulse', '#E35336', true),
+    (new.id, 'Others', 'DollarSign', '#ADEBB3', true);
 
     RETURN NEW;
 END;
@@ -454,4 +454,15 @@ TO authenticated
 USING ((select auth.uid()) = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_gullak_deposits_user ON public.gullak_deposits (user_id, date);
+
+-- ------------------------------------------------------------------------------
+-- 11. Category Color Normalization (Lively Color Palette v1.2.4)
+-- ------------------------------------------------------------------------------
+UPDATE public.categories SET color = '#FF857A' WHERE name = 'Food & Drinks' AND color = '#F4B8AE';
+UPDATE public.categories SET color = '#EBAEE6' WHERE name = 'Shopping' AND color = '#B8E0C8';
+UPDATE public.categories SET color = '#4A90D9' WHERE name = 'Transport' AND color = '#93C5FD';
+UPDATE public.categories SET color = '#F4A460' WHERE name = 'Bills & Utilities' AND color = '#FCD34D';
+UPDATE public.categories SET color = '#9988A1' WHERE name = 'Entertainment' AND color = '#C084FC';
+UPDATE public.categories SET color = '#E35336' WHERE name = 'Health' AND color = '#F87171';
+UPDATE public.categories SET color = '#ADEBB3' WHERE name = 'Others' AND color = '#94A3B8';
 
