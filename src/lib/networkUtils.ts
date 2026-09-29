@@ -7,7 +7,7 @@ export const isNetworkFailure = (error: any): boolean => {
   const msg = typeof error.message === 'string' ? error.message.toLowerCase() : '';
   if (error.name === 'AbortError' || msg.includes('aborted')) return true;
   if (error.name === 'AuthRetryableFetchError' || error.__isAuthRetryableFetchError) return true;
-  if (error.name === 'TypeError' && msg.includes('network request failed')) return true;
+  if (msg.includes('network request failed') || msg.includes('timeout') || msg.includes('timed out')) return true;
   const status = error.status ?? error.statusCode ?? (error.code !== undefined ? Number(error.code) : undefined);
   return status === 0 || (typeof status === 'number' && status >= 500 && status < 600);
 };

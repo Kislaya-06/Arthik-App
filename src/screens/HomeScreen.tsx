@@ -8,7 +8,12 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
+  Vibration,
+  GestureResponderEvent,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -17,6 +22,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, ChevronRight, User } from 'lucide-react-native';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
+import { TelegramPullIndicator } from '../components/TelegramPullIndicator';
 import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod } from '../lib/homeCalculations';
@@ -25,11 +31,11 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { round2 } from '../lib/formatters';
 import { isIncomeTransaction } from '../lib/paymentUtils';
-import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
@@ -73,7 +79,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
   const categories = useCategoryStore((s) => s.categories);
   const insets = useSafeAreaInsets();
-  const handleScroll = useScrollDirection();
+  const showNavBar = useNavBarStore((s) => s.showNavBar);
+
+  // Animated scroll position for gradient fade between header and list
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false }
+  );
+
+  const gradientFadeOpacity = scrollY.interpolate({
+    inputRange: [0, 16],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const handleTriggerHistory = useCallback(() => {
+    try {
+      Vibration.vibrate(20);
+    } catch {}
+    navigation.navigate('History');
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    }, 200);
+  }, [navigation]);
 
   const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
   const [todayKey, setTodayKey] = useState(() => format(new Date(), 'yyyy-MM-dd'));
@@ -111,10 +142,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
+      // Ensure bottom nav bar is ALWAYS visible on HomeScreen
+      if (!useNavBarStore.getState().isVisible) {
+        showNavBar();
+      }
       const nowKey = format(new Date(), 'yyyy-MM-dd');
       setTodayKey((prev) => (prev !== nowKey ? nowKey : prev));
       loadData(false);
-    }, [loadData])
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    }, [loadData, showNavBar])
   );
 
   const onRefresh = useCallback(async () => {
@@ -264,14 +300,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
+
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          {
-            paddingTop: insets.top + 16,
-            paddingBottom: insets.bottom + 100,
-          },
+          { paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -279,102 +314,148 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={colors.mintGreen}
+            colors={[colors.mintGreen, '#15803D']}
+            progressViewOffset={insets.top + 8}
           />
         }
+        stickyHeaderIndices={[0]}
         onScroll={handleScroll}
-        scrollEventThrottle={32}
+        scrollEventThrottle={16}
       >
-        {/* ── Header ── */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerGreeting}>
-            <Text style={[styles.helloText, { color: colors.textSecondary }]}>Hello</Text>
-            <Text
-              style={[
-                styles.nameText,
-                { color: colors.textPrimary, fontSize: nameFontSize },
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >
-              {firstName}
-            </Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable
-              style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('Notifications' as any)}
-            >
-              <Bell size={20} color={colors.textPrimary} />
-              {unreadCount > 0 && <View style={styles.badgeDot} />}
-            </Pressable>
-            <Pressable
-              style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('Profile' as any)}
-            >
-              <User size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* ── Segmented Filter Toggle ── */}
-        <View style={styles.filterToggleWrapper}>
-          <BouncyFilterToggle
-            value={activeFilter}
-            onChange={setActiveFilter}
-            options={FILTERS}
+        {/* ── Child 0: Fixed Top Section (Screenshot 1 + Recent Transactions Header) ── */}
+        <View
+          style={[
+            styles.fixedTopSection,
+            { paddingTop: insets.top + 10 },
+          ]}
+        >
+          {/* Solid background covering the top portion ONLY (leaves bottom 24px transparent for dissolve gradient) */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: colors.background,
+                bottom: 24,
+              },
+            ]}
+            pointerEvents="none"
           />
-        </View>
-        <View style={styles.filterDateRow}>
-          <Text style={[styles.filterDateLabel, { color: colors.textMuted }]}>
-            {filterDateLabel}
-          </Text>
-          {activeFilter === 'Daily' && todayBudget === 0 && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('Savings' as any)}
-              style={styles.setLimitAffordance}
-            >
-              <Text style={[styles.setLimitDot, { color: colors.textMuted }]}>•</Text>
-              <Text style={[styles.setLimitText, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
-                Set daily limit ›
+
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerGreeting}>
+              <Text style={[styles.helloText, { color: colors.textSecondary }]}>Hello</Text>
+              <Text
+                style={[
+                  styles.nameText,
+                  { color: colors.textPrimary, fontSize: nameFontSize },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {firstName}
               </Text>
+            </View>
+            <View style={styles.headerActions}>
+              <Pressable
+                style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => navigation.navigate('Notifications' as any)}
+              >
+                <Bell size={20} color={colors.textPrimary} />
+                {unreadCount > 0 && <View style={styles.badgeDot} />}
+              </Pressable>
+              <Pressable
+                style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => navigation.navigate('Profile' as any)}
+              >
+                <User size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Segmented Filter Toggle */}
+          <View style={styles.filterToggleWrapper}>
+            <BouncyFilterToggle
+              value={activeFilter}
+              onChange={setActiveFilter}
+              options={FILTERS}
+            />
+          </View>
+          <View style={styles.filterDateRow}>
+            <Text style={[styles.filterDateLabel, { color: colors.textMuted }]}>
+              {filterDateLabel}
+            </Text>
+            {activeFilter === 'Daily' && todayBudget === 0 && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('Savings' as any)}
+                style={styles.setLimitAffordance}
+              >
+                <Text style={[styles.setLimitDot, { color: colors.textMuted }]}>•</Text>
+                <Text style={[styles.setLimitText, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
+                  Set daily limit ›
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Branded Hero Card */}
+          <BrandedHeroCard
+            primaryLabel={primaryLabel}
+            primaryAmount={primaryAmount}
+            primarySubtext={primarySubtext}
+            displaySpent={displaySpent}
+            totalAvailable={totalAvailable}
+            periodSpent={periodSpent}
+            isOverBudgetPeriod={isOverBudgetPeriod}
+            activeFilter={activeFilter}
+            todayBudget={todayBudget}
+            todayRemaining={todayRemaining}
+            todayRecordSpent={todayRecordSpent}
+            isOverBudget={isOverBudget}
+            colors={colors}
+            isDark={isDark}
+            onNavigateSavings={() => navigation.navigate('Savings' as any)}
+          />
+
+          {/* Recent Transactions Section Header (Sticky with Top Section) */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent transactions</Text>
+            <TouchableOpacity
+              style={[styles.seeAllBtn, { borderColor: colors.border }]}
+              onPress={() => navigation.navigate('History')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.seeAllText, { color: colors.textSecondary }]}>See All</Text>
+              <ChevronRight size={14} color={colors.textSecondary} />
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
 
-        {/* ── Branded Hero Card ── */}
-        <BrandedHeroCard
-          primaryLabel={primaryLabel}
-          primaryAmount={primaryAmount}
-          primarySubtext={primarySubtext}
-          displaySpent={displaySpent}
-          totalAvailable={totalAvailable}
-          periodSpent={periodSpent}
-          isOverBudgetPeriod={isOverBudgetPeriod}
-          activeFilter={activeFilter}
-          todayBudget={todayBudget}
-          todayRemaining={todayRemaining}
-          todayRecordSpent={todayRecordSpent}
-          isOverBudget={isOverBudget}
-          colors={colors}
-          isDark={isDark}
-          onNavigateSavings={() => navigation.navigate('Savings' as any)}
-        />
-
-        {/* ── Recent Transactions ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent transactions</Text>
-          <TouchableOpacity
-            style={[styles.seeAllBtn, { borderColor: colors.border }]}
-            onPress={() => navigation.navigate('History')}
-            activeOpacity={0.75}
+          {/* Dissolve Gradient Fade: The bottom 24px is transparent with only this SVG gradient overlay */}
+          <Animated.View
+            style={[
+              styles.gradientFadeWrapper,
+              { opacity: gradientFadeOpacity },
+            ]}
+            pointerEvents="none"
           >
-            <Text style={[styles.seeAllText, { color: colors.textSecondary }]}>See All</Text>
-            <ChevronRight size={14} color={colors.textSecondary} />
-          </TouchableOpacity>
+            <Svg height={24} width="100%">
+              <Defs>
+                <LinearGradient id="recentHeaderFade" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <Stop offset="0%" stopColor={colors.background} stopOpacity={1} />
+                  <Stop offset="25%" stopColor={colors.background} stopOpacity={0.9} />
+                  <Stop offset="50%" stopColor={colors.background} stopOpacity={0.65} />
+                  <Stop offset="75%" stopColor={colors.background} stopOpacity={0.3} />
+                  <Stop offset="100%" stopColor={colors.background} stopOpacity={0} />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height={24} fill="url(#recentHeaderFade)" />
+            </Svg>
+          </Animated.View>
         </View>
 
+        {/* ── Child 1: Scrollable Transactions List & Telegram Pull Indicator ── */}
         {recentTx.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
@@ -418,6 +499,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </StaggerRow>
               );
             })}
+
+            {/* Telegram Pull Indicator & Round Arrow Button */}
+            <TelegramPullIndicator
+              onTrigger={handleTriggerHistory}
+              colors={colors}
+              isDark={isDark}
+            />
           </View>
         )}
       </ScrollView>
@@ -434,7 +522,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
+  },
+
+  // Fixed Top Section (sticky header index 0)
+  fixedTopSection: {
     paddingHorizontal: Spacing.gutter,
+    zIndex: 10,
+    position: 'relative',
   },
 
   // Header
@@ -496,7 +591,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: Spacing.block,
+    marginTop: 14,
+    marginBottom: 16,
   },
   filterDateLabel: {
     fontSize: 13,
@@ -520,17 +616,18 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
   },
 
-
   // Section header
-  sectionHeader: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: Spacing.section,
+    marginTop: Spacing.block,
+    paddingBottom: 2,
   },
   sectionTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: 22,
     fontFamily: FontFamily.bold,
+    letterSpacing: -0.2,
   },
   seeAllBtn: {
     flexDirection: 'row',
@@ -545,8 +642,16 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     marginRight: Spacing.micro,
   },
+  gradientFadeWrapper: {
+    marginHorizontal: -Spacing.gutter,
+    height: 24,
+    zIndex: 11,
+  },
+
+  // Transaction scroll list
   recentTxList: {
-    marginTop: Spacing.block,
+    paddingHorizontal: Spacing.gutter,
+    paddingTop: 2,
   },
 
   // Empty state
@@ -554,6 +659,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 40,
     paddingBottom: Spacing.surface,
+    paddingHorizontal: Spacing.gutter,
   },
   emptyText: {
     fontSize: 15,

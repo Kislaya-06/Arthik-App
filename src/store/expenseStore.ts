@@ -810,9 +810,11 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       await AsyncStorage.setItem(getCachedStorageKey(user.id), JSON.stringify(reconciledFetched));
       useDailyBudgetStore.getState().syncWithExpenses(combined);
     } catch (e: any) {
-      if (__DEV__) console.error('Error fetching expenses:', e);
       if (isNetworkFailure(e)) {
+        if (__DEV__) console.warn('Network unavailable while fetching expenses, falling back to cache:', e?.message || e);
         useNetworkStore.getState().setOffline(true);
+      } else {
+        if (__DEV__) console.error('Error fetching expenses:', e);
       }
       // Offline fallback: load cached expenses if available
       try {

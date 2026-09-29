@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  ScrollView, SectionList, RefreshControl, Platform,
+  ScrollView, SectionList, RefreshControl, Platform, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -49,51 +49,59 @@ interface TransactionRowItemProps {
 
 const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
   const isIncome = isIncomeTransaction(item, category);
-  const categoryName = category?.name || (isIncome ? 'Money Added' : 'Unknown');
+  const categoryName = category?.name || (isIncome ? 'Money Added' : 'Other');
   const categoryColor = category?.color || (isIncome ? colors.mintGreen : '#F4B8AE');
   const categoryBgColor = categoryColor + '30';
   const IconComp = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
-  const PaymentIcon = getPaymentIcon(item.payment_mode);
   const paymentLabel = getPaymentLabel(item.payment_mode);
   const expenseColor = colors.isDark ? colors.peachCoral : '#E05345';
   const incomeColor = colors.isDark ? colors.mintGreen : colors.mintGreenDark;
   const amountColor = isIncome ? incomeColor : expenseColor;
+
+  const hasNote = Boolean(item.note && item.note.trim().length > 0);
+  const mainTitle = hasNote ? item.note!.trim() : categoryName;
+  const subtitle = hasNote ? `${categoryName} · ${paymentLabel}` : paymentLabel;
+
+  const timeOrDateStr = useMemo(() => {
+    try {
+      if (item.created_at) {
+        return format(parseISO(item.created_at), 'h:mm a');
+      }
+      return format(parseISO(item.expense_date), 'd MMM');
+    } catch {
+      return item.expense_date;
+    }
+  }, [item.created_at, item.expense_date]);
 
   return (
     <Pressable
       style={[
         styles.transactionRow,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle,
+          borderBottomColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
         },
       ]}
       onPress={() => onPress(item.id)}
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
       <View style={[styles.iconContainer, { backgroundColor: categoryBgColor }]}>
-        <IconComp size={20} color={categoryColor} />
+        <IconComp size={22} color={categoryColor} />
       </View>
       <View style={styles.transactionMiddle}>
-        <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
-          {categoryName}
+        <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+          {mainTitle}
         </Text>
-        {!!item.note && (
-          <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
-            {item.note}
-          </Text>
-        )}
+        <Text style={[styles.transactionSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          {subtitle}
+        </Text>
       </View>
       <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: amountColor, fontFamily: FontFamily.bold }]}>
+        <Text style={[styles.transactionAmount, { color: amountColor }]}>
           {isIncome ? `+${formatCurrency(Math.abs(item.amount))}` : `−${formatCurrency(Math.abs(item.amount))}`}
         </Text>
-        <View style={styles.paymentModeRow}>
-          <PaymentIcon size={12} color={colors.textSecondary} />
-          <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            {paymentLabel}
-          </Text>
-        </View>
+        <Text style={[styles.transactionTime, { color: colors.textMuted }]}>
+          {timeOrDateStr}
+        </Text>
       </View>
     </Pressable>
   );
@@ -110,38 +118,47 @@ const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors })
   const iconColor = colors.isDark ? colors.mintGreen : colors.mintGreenDark;
   const iconBg = colors.isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft;
 
+  const hasNote = Boolean(item.note && item.note.trim().length > 0);
+  const mainTitle = hasNote ? item.note!.trim() : 'Gullak Deposit';
+  const subtitle = hasNote ? `Gullak · ${sourceLabel}` : sourceLabel;
+
+  const dateStr = useMemo(() => {
+    try {
+      return format(parseISO(item.date), 'd MMM');
+    } catch {
+      return item.date;
+    }
+  }, [item.date]);
+
   return (
     <Pressable
       style={[
         styles.transactionRow,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle,
+          borderBottomColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
         },
       ]}
       onPress={() => onPress(item.id)}
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
       <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
-        <PiggyBankCoinIcon size={20} color={iconColor} />
+        <PiggyBankCoinIcon size={22} color={iconColor} />
       </View>
       <View style={styles.transactionMiddle}>
-        <Text style={[styles.transactionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
-          {item.note || 'Gullak Deposit'}
+        <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+          {mainTitle}
         </Text>
-        <Text style={[styles.transactionNote, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
-          {sourceLabel}
+        <Text style={[styles.transactionSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          {subtitle}
         </Text>
       </View>
       <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: colors.isDark ? colors.mintGreen : colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
+        <Text style={[styles.transactionAmount, { color: colors.isDark ? colors.mintGreen : colors.mintGreenDark }]}>
           {`+${formatCurrency(Math.abs(item.amount))}`}
         </Text>
-        <View style={styles.paymentModeRow}>
-          <Text style={[styles.paymentModeText, { color: colors.textSecondary, fontFamily: FontFamily.medium, marginLeft: 0 }]}>
-            Gullak
-          </Text>
-        </View>
+        <Text style={[styles.transactionTime, { color: colors.textMuted }]}>
+          {dateStr}
+        </Text>
       </View>
     </Pressable>
   );
@@ -174,11 +191,30 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     await Promise.all([fetchExpenses(), fetchCategories()]);
   }, [fetchExpenses, fetchCategories]);
 
+  const enterAnim = useRef(new Animated.Value(0)).current;
+
   useFocusEffect(
     useCallback(() => {
       loadData(false);
-    }, [loadData]),
+      enterAnim.setValue(0);
+      Animated.spring(enterAnim, {
+        toValue: 1,
+        tension: 65,
+        friction: 9,
+        useNativeDriver: true,
+      }).start();
+    }, [loadData, enterAnim]),
   );
+
+  const screenSlideAnim = enterAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [50, 0],
+  });
+
+  const screenFadeAnim = enterAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.15, 1],
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -485,7 +521,15 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.container}>
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            opacity: screenFadeAnim,
+            transform: [{ translateY: screenSlideAnim }],
+          },
+        ]}
+      >
 
         {/* Header Row */}
         <View style={styles.header}>
@@ -595,7 +639,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           ListEmptyComponent={renderEmptyState}
         />
 
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -676,48 +720,46 @@ const styles = StyleSheet.create({
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    paddingHorizontal: 18,
+    paddingHorizontal: 4,
     paddingVertical: 12,
-    marginBottom: 10,
-    overflow: 'hidden',
+    borderBottomWidth: 1,
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   transactionMiddle: {
     flex: 1,
     marginLeft: 14,
+    justifyContent: 'center',
   },
   transactionTitle: {
-    fontSize: FontSize.body,
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
+    letterSpacing: -0.2,
   },
-  transactionNote: {
+  transactionSubtitle: {
     fontSize: 13,
-    marginTop: 2,
+    fontFamily: FontFamily.medium,
+    marginTop: 3,
   },
   transactionRight: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: Spacing.group,
+    marginLeft: 12,
   },
   transactionAmount: {
-    fontSize: FontSize.body,
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
     fontVariant: ['tabular-nums'],
   },
-  paymentModeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  paymentModeText: {
+  transactionTime: {
     fontSize: 12,
-    marginLeft: Spacing.micro,
+    fontFamily: FontFamily.medium,
+    marginTop: 3,
   },
   emptyContainer: {
     flex: 1,

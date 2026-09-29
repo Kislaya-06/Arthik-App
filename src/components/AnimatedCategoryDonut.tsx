@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Pressable } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Path, Defs, Mask, G } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
-import { prepareBlockSweepSegments, PreparedBlockSweepSegment } from '../lib/chartUtils';
+import { prepareCategoryBlockSegments, PreparedBlockSegment } from '../lib/chartUtils';
 import { formatCurrency } from '../lib/formatters';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -20,6 +20,8 @@ export interface AnimatedCategoryDonutProps {
   trackColor?: string;
   triggerKey?: string | number;
   isFocused?: boolean;
+  selectedId?: string | null;
+  onSelectCategory?: (id: string | null) => void;
 }
 
 export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
@@ -28,41 +30,61 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   topCategory,
   palette,
   size = 220,
-  strokeWidth = 26,
+  strokeWidth = 28,
   isDark,
   textColorPrimary,
   textColorSecondary,
   trackColor,
   triggerKey,
   isFocused = true,
+  selectedId: propSelectedId,
+  onSelectCategory,
 }) => {
-  const radius = (size - strokeWidth) / 2;
   const center = size / 2;
+  const rOuter = size / 2 - 2;
+  const rInner = rOuter - strokeWidth;
+  const trackRadius = rOuter - strokeWidth / 2;
+  const circumference = 2 * Math.PI * trackRadius;
 
-  // Selected category interaction (defaults to null -> topCategory shown)
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Selected category interaction (supports controlled and uncontrolled modes)
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
+  const selectedId = propSelectedId !== undefined ? propSelectedId : internalSelectedId;
 
   // Smooth clockwise sweep animation driver (0 to 1)
   const sweepAnim = useRef(new Animated.Value(0)).current;
   const centerOpacity = useRef(new Animated.Value(1)).current;
+  const [isSweeping, setIsSweeping] = useState(true);
 
-  // Prepare block-wise sweep segments (separate blocks with rounded caps and 6deg gaps)
+  // Prepare modern annular sector segments with flat radial dividers & rounded corners
   const preparedSegments = useMemo(
-    () => prepareBlockSweepSegments(categories, totalAmount, palette, size, strokeWidth, 6),
+    () => prepareCategoryBlockSegments(categories, totalAmount, palette, size, strokeWidth, 5, 6),
     [categories, totalAmount, palette, size, strokeWidth]
   );
+
+  const handleToggleSelect = useCallback((id: string) => {
+    const next = selectedId === id ? null : id;
+    if (onSelectCategory) {
+      onSelectCategory(next);
+    } else {
+      setInternalSelectedId(next);
+    }
+  }, [selectedId, onSelectCategory]);
 
   // Trigger smooth round sweep on mount, on period change, and on screen focus
   useEffect(() => {
     if (!isFocused) {
-      // Screen is not focused (in background).
-      // Immediately reset animations so when user returns, the first frame is at 0, not 100%.
       sweepAnim.setValue(0);
       centerOpacity.setValue(0);
+      setIsSweeping(false);
       return;
     }
 
-    setSelectedId(null);
+    if (onSelectCategory) {
+      onSelectCategory(null);
+    } else {
+      setInternalSelectedId(null);
+    }
+    setIsSweeping(true);
     sweepAnim.setValue(0);
     centerOpacity.setValue(0.3);
 
@@ -81,35 +103,39 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
       }),
     ]);
 
-    animation.start();
+    animation.start(({ finished }) => {
+      if (finished) {
+        setIsSweeping(false);
+      }
+    });
 
     return () => {
       animation.stop();
     };
-  }, [isFocused, triggerKey, sweepAnim, centerOpacity]);
+  }, [isFocused, triggerKey, sweepAnim, centerOpacity, onSelectCategory]);
 
   const selectedCategory = useMemo(() => {
     if (!selectedId) return null;
     return categories.find((c) => c.id === selectedId) || null;
   }, [selectedId, categories]);
 
-  const handleToggleSelect = useCallback((id: string) => {
-    setSelectedId((prev) => (prev === id ? null : id));
-  }, []);
-
   const defaultTrackColor = isDark
     ? 'rgba(255, 255, 255, 0.06)'
     : 'rgba(0, 0, 0, 0.05)';
 
-  // Active display details for center
-  const displayLabel = selectedCategory ? 'Selected' : 'Top spend';
-  const displayTitle = selectedCategory?.name || topCategory?.name || 'No spend';
-  const displayPercentage = selectedCategory
-    ? `${selectedCategory.percentage}%`
-    : topCategory
-    ? `${topCategory.percentage}%`
-    : '0%';
-  const displaySubAmount = selectedCategory ? formatCurrency(selectedCategory.amount) : null;
+  // Active display details for center (non-redundant, uncluttered, beautifully balanced UX)
+  const isAnySelected = selectedCategory !== null;
+  const displayLabel = isAnySelected ? 'Selected' : 'Categories';
+  const displayTitle = isAnySelected
+    ? formatCurrency(selectedCategory.amount)
+    : `${categories.length}`;
+  const displaySubtext = isAnySelected
+    ? `${selectedCategory.percentage}% of total`
+    : categories.length > 0
+    ? 'Tap to inspect'
+    : 'No expenses';
+
+  const maskId = `donut_sweep_${String(triggerKey || 'k').replace(/[^a-zA-Z0-9]/g, '_')}`;
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
@@ -118,52 +144,63 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
         <Circle
           cx={center}
           cy={center}
-          r={radius}
+          r={trackRadius}
           stroke={trackColor || defaultTrackColor}
           strokeWidth={strokeWidth}
           fill="none"
         />
       </Svg>
 
-      {/* Active block-wise category slices sweeping smoothly clockwise */}
+      {/* Modern annular wedge segments with smooth clockwise sweep */}
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        {preparedSegments.map((seg) => {
-          const offsetAnim = sweepAnim.interpolate({
-            inputRange: seg.offsetInterpolation.inputRange,
-            outputRange: seg.offsetInterpolation.outputRange,
-            extrapolate: 'clamp',
-          });
+        {isSweeping && (
+          <Defs>
+            <Mask id={maskId}>
+              <Circle cx={center} cy={center} r={size} fill="#000000" />
+              <AnimatedCircle
+                cx={center}
+                cy={center}
+                r={trackRadius}
+                stroke="#FFFFFF"
+                strokeWidth={strokeWidth + 4}
+                strokeDasharray={`${circumference} ${circumference}`}
+                strokeDashoffset={sweepAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [circumference, 0],
+                  extrapolate: 'clamp',
+                })}
+                strokeLinecap="butt"
+                fill="none"
+                rotation={-90}
+                origin={`${center}, ${center}`}
+              />
+            </Mask>
+          </Defs>
+        )}
 
-          const opacityAnim = sweepAnim.interpolate({
-            inputRange: seg.opacityInterpolation.inputRange,
-            outputRange: seg.opacityInterpolation.outputRange,
-            extrapolate: 'clamp',
-          });
+        <G mask={isSweeping ? `url(#${maskId})` : undefined}>
+          {preparedSegments.map((seg) => {
+            const isSelected = selectedId === seg.id;
+            const opacity = isSelected ? 1 : isAnySelected ? 0.22 : 1;
 
-          const isSelected = selectedId === seg.id;
-          const currentStrokeWidth = isSelected ? strokeWidth + 3 : strokeWidth;
-
-          return (
-            <AnimatedCircle
-              key={seg.id}
-              cx={center}
-              cy={center}
-              r={radius}
-              stroke={seg.color}
-              strokeWidth={currentStrokeWidth}
-              strokeDasharray={seg.strokeDasharray}
-              strokeDashoffset={offsetAnim}
-              strokeLinecap="round"
-              fill="none"
-              transform={seg.transform}
-              opacity={opacityAnim}
-              onPress={() => handleToggleSelect(seg.id)}
-            />
-          );
-        })}
+            return (
+              <Path
+                key={seg.id}
+                d={seg.path}
+                fill={seg.color}
+                fillRule="evenodd"
+                opacity={opacity}
+                stroke={isSelected ? (isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.25)') : 'none'}
+                strokeWidth={isSelected ? 1.5 : 0}
+                strokeLinejoin="round"
+                onPress={() => handleToggleSelect(seg.id)}
+              />
+            );
+          })}
+        </G>
       </Svg>
 
-      {/* Center Top Spend summary */}
+      {/* Center Categories count / Selected Category summary */}
       <Animated.View
         style={[
           styles.chartCenterContent,
@@ -172,7 +209,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
         pointerEvents="box-none"
       >
         <Pressable
-          onPress={() => selectedId && setSelectedId(null)}
+          onPress={() => selectedId && handleToggleSelect(selectedId)}
           style={styles.centerPressable}
         >
           <Text
@@ -185,35 +222,32 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
           </Text>
           <Text
             style={[
-              styles.chartCenterTitle,
-              { color: textColorPrimary, fontFamily: FontFamily.bold },
+              styles.chartCenterAmount,
+              {
+                color: textColorPrimary,
+                fontFamily: FontFamily.bold,
+                fontSize: isAnySelected ? 18 : 24,
+              },
             ]}
-            numberOfLines={2}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {displayTitle}
           </Text>
           <Text
             style={[
-              styles.chartCenterValue,
+              styles.chartCenterSubtext,
               {
-                color: isDark ? '#B8E0C8' : '#3E8A5E',
-                fontFamily: FontFamily.bold,
+                color: isAnySelected ? (isDark ? '#B8E0C8' : '#2D7A4D') : textColorSecondary,
+                fontFamily: isAnySelected ? FontFamily.bold : FontFamily.medium,
+                fontSize: isAnySelected ? 11 : 10,
               },
             ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
-            {displayPercentage}
+            {displaySubtext}
           </Text>
-          {displaySubAmount && (
-            <Text
-              style={[
-                styles.chartCenterSubAmount,
-                { color: textColorSecondary, fontFamily: FontFamily.medium },
-              ]}
-              numberOfLines={1}
-            >
-              {displaySubAmount}
-            </Text>
-          )}
         </Pressable>
       </Animated.View>
     </View>
@@ -229,34 +263,29 @@ const styles = StyleSheet.create({
   chartCenterContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    maxWidth: 160,
+    paddingHorizontal: 8,
+    maxWidth: 104,
   },
   centerPressable: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   chartCenterLabel: {
-    fontSize: 11,
-    letterSpacing: 0.5,
+    fontSize: 9,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
-  chartCenterTitle: {
-    fontSize: 17,
+  chartCenterAmount: {
     textAlign: 'center',
     marginBottom: 2,
     includeFontPadding: false,
   },
-  chartCenterValue: {
-    fontSize: 15,
+  chartCenterSubtext: {
+    textAlign: 'center',
     includeFontPadding: false,
-  },
-  chartCenterSubAmount: {
-    fontSize: 11,
-    marginTop: 2,
-    opacity: 0.85,
   },
 });
 
 export default AnimatedCategoryDonut;
+

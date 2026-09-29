@@ -1,17 +1,18 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Sparkles, AlertCircle, Coins, Trash2 } from 'lucide-react-native';
+import { Sparkles, AlertCircle, Coins } from 'lucide-react-native';
 import { format, isYesterday, parseISO } from 'date-fns';
 
 import { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { formatCurrency } from '../lib/formatters';
-import { Spacing, FontSize, FontFamily, BorderRadius } from '../config/theme';
+import { FontFamily } from '../config/theme';
 
 export interface SavingsRecordRowProps {
   rec?: DailyRecord;
   deposit?: GullakDeposit;
+  onPress?: () => void;
   onDeleteDeposit?: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
@@ -20,6 +21,7 @@ export interface SavingsRecordRowProps {
 const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   rec,
   deposit,
+  onPress,
   onDeleteDeposit,
   colors,
   isDark,
@@ -42,169 +44,177 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     }
   }, [rec?.date, deposit?.date, isDeposit]);
 
+  const mainTitle = useMemo(() => {
+    if (isDeposit) {
+      return deposit!.note?.trim() || 'Deposit to Gullak';
+    }
+    return dateLabel;
+  }, [isDeposit, deposit, dateLabel]);
+
+  const subtitle = useMemo(() => {
+    if (isDeposit) {
+      return `Manual Deposit · ${dateLabel}`;
+    }
+    if (isUnknown) {
+      return `Spent ${formatCurrency(rec!.spent)} (Budget untracked)`;
+    }
+    return `Spent ${formatCurrency(rec!.spent)} of ${formatCurrency(rec!.budget)}`;
+  }, [isDeposit, dateLabel, isUnknown, rec]);
+
+  const incomeGreen = isDark ? colors.mintGreen : colors.mintGreenDark;
+  const warningRed = isDark ? colors.peachCoral : '#DC2626';
+
+  const { amountText, amountColor, statusText, statusColor } = useMemo(() => {
+    if (isDeposit) {
+      return {
+        amountText: `+${formatCurrency(deposit!.amount)}`,
+        amountColor: incomeGreen,
+        statusText: 'Manual',
+        statusColor: colors.textMuted,
+      };
+    }
+    if (isSaved) {
+      return {
+        amountText: `+${formatCurrency(rec!.saved)}`,
+        amountColor: incomeGreen,
+        statusText: 'Saved 🎉',
+        statusColor: incomeGreen,
+      };
+    }
+    if (isExceeded) {
+      const overAmount = rec!.spent - rec!.budget;
+      return {
+        amountText: `−${formatCurrency(overAmount)}`,
+        amountColor: warningRed,
+        statusText: 'Over budget',
+        statusColor: warningRed,
+      };
+    }
+    if (isUnknown) {
+      return {
+        amountText: '—',
+        amountColor: colors.textMuted,
+        statusText: 'Untracked',
+        statusColor: colors.textMuted,
+      };
+    }
+    return {
+      amountText: '₹0',
+      amountColor: colors.textSecondary,
+      statusText: 'Exact budget',
+      statusColor: colors.textMuted,
+    };
+  }, [isDeposit, isSaved, isExceeded, isUnknown, deposit, rec, incomeGreen, warningRed, colors.textMuted, colors.textSecondary]);
+
+  const iconBg = useMemo(() => {
+    if (isDeposit || isSaved) {
+      return isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft;
+    }
+    if (isExceeded) {
+      return isDark ? 'rgba(239, 68, 68, 0.18)' : '#FEE2E2';
+    }
+    return colors.cardSubtle;
+  }, [isDeposit, isSaved, isExceeded, isDark, colors.mintGreenSoft, colors.cardSubtle]);
+
+  const isInteractive = Boolean(onPress || onDeleteDeposit);
+  const ContainerComponent = isInteractive ? TouchableOpacity : View;
+
   return (
-    <View
+    <ContainerComponent
       style={[
-        styles.recordCard,
+        styles.recordRow,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          borderWidth: isDark ? 1 : 0,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
         },
       ]}
+      activeOpacity={0.7}
+      onPress={onPress}
+      onLongPress={onDeleteDeposit}
     >
-      <View style={styles.recordLeft}>
-        <View
-          style={[
-            styles.recordIconBox,
-            {
-              backgroundColor: isDeposit || isSaved
-                ? colors.mintGreenSoft
-                : isExceeded
-                ? isDark
-                  ? 'rgba(239, 68, 68, 0.2)'
-                  : '#FEE2E2'
-                : colors.cardSubtle,
-            },
-          ]}
-        >
-          {isDeposit ? (
-            <PiggyBankCoinIcon size={20} color={colors.mintGreenDark} />
-          ) : isSaved ? (
-            <Sparkles size={20} color={colors.mintGreenDark} />
-          ) : isExceeded ? (
-            <AlertCircle size={20} color="#DC2626" />
-          ) : (
-            <Coins size={20} color={colors.textSecondary} />
-          )}
-        </View>
-        <View style={styles.recordDetails}>
-          <Text style={[styles.recordDateText, { color: colors.textPrimary }]}>
-            {isDeposit ? (deposit!.note || 'Deposit to Gullak') : dateLabel}
-          </Text>
-          <Text style={[styles.recordSubText, { color: colors.textSecondary }]}>
-            {isDeposit
-              ? `Manual Deposit • ${dateLabel}`
-              : isUnknown
-              ? `Spent ${formatCurrency(rec!.spent)} (Budget untracked)`
-              : `Spent ${formatCurrency(rec!.spent)} of ${formatCurrency(rec!.budget)}`}
-          </Text>
-        </View>
+      <View style={[styles.recordIconBox, { backgroundColor: iconBg }]}>
+        {isDeposit ? (
+          <PiggyBankCoinIcon size={22} color={incomeGreen} />
+        ) : isSaved ? (
+          <Sparkles size={22} color={incomeGreen} />
+        ) : isExceeded ? (
+          <AlertCircle size={22} color="#DC2626" />
+        ) : (
+          <Coins size={22} color={colors.textSecondary} />
+        )}
+      </View>
+
+      <View style={styles.recordDetails}>
+        <Text style={[styles.recordTitleText, { color: colors.textPrimary }]} numberOfLines={1}>
+          {mainTitle}
+        </Text>
+        <Text style={[styles.recordSubText, { color: colors.textSecondary }]} numberOfLines={1}>
+          {subtitle}
+        </Text>
       </View>
 
       <View style={styles.recordRightRow}>
-        {/* Savings Pill */}
-        <View
-          style={[
-            styles.recordSavedPill,
-            {
-              backgroundColor: isDeposit || isSaved
-                ? colors.mintGreenSoft
-                : isExceeded
-                ? isDark
-                  ? 'rgba(239, 68, 68, 0.15)'
-                  : '#FEF2F2'
-                : colors.cardSubtle,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.recordSavedText,
-              {
-                color: isDeposit || isSaved
-                  ? colors.mintGreenDark
-                  : isExceeded
-                  ? '#DC2626'
-                  : colors.textSecondary,
-              },
-            ]}
-          >
-            {isDeposit
-              ? `+${formatCurrency(deposit!.amount)}`
-              : isSaved
-              ? `+${formatCurrency(rec!.saved)} Saved 🎉`
-              : isExceeded
-              ? `Over by ${formatCurrency(rec!.spent - rec!.budget)}`
-              : isUnknown
-              ? `Untracked`
-              : `Exact Budget (₹0)`}
+        <View style={styles.recordAmountCol}>
+          <Text style={[styles.recordAmount, { color: amountColor }]}>
+            {amountText}
+          </Text>
+          <Text style={[styles.recordStatusText, { color: statusColor }]}>
+            {statusText}
           </Text>
         </View>
-
-        {isDeposit && onDeleteDeposit && (
-          <TouchableOpacity
-            onPress={onDeleteDeposit}
-            hitSlop={12}
-            style={styles.deleteBtn}
-          >
-            <Trash2 size={14} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
       </View>
-    </View>
+    </ContainerComponent>
   );
 };
 
 export const SavingsRecordRow = React.memo(SavingsRecordRowBase);
 
 const styles = StyleSheet.create({
-  recordCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 18,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  recordLeft: {
+  recordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.group,
-    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
   },
   recordIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recordDetails: {
     flex: 1,
+    marginLeft: 14,
+    justifyContent: 'center',
   },
-  recordDateText: {
-    fontSize: FontSize.bodySmall,
+  recordTitleText: {
+    fontSize: 16,
     fontFamily: FontFamily.bold,
+    letterSpacing: -0.2,
   },
   recordSubText: {
-    fontSize: FontSize.caption,
+    fontSize: 13,
     fontFamily: FontFamily.medium,
-    marginTop: Spacing.nano,
-  },
-  recordSavedPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  recordSavedText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
+    marginTop: 3,
   },
   recordRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.element,
-  },
-  deleteBtn: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
+    marginLeft: 12,
+  },
+  recordAmountCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  recordAmount: {
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  recordStatusText: {
+    fontSize: 12,
+    fontFamily: FontFamily.semibold,
+    marginTop: 3,
   },
 });

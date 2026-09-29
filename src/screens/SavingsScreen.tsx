@@ -36,12 +36,21 @@ import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { DepositGullakModal } from '../components/DepositGullakModal';
+import { CompositeScreenProps } from '@react-navigation/native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { TabParamList, RootStackParamList } from '../types';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 
+type SavingsScreenProps = CompositeScreenProps<
+  BottomTabScreenProps<TabParamList, 'Savings'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
 // ─── Main Savings Screen ──────────────────────────────────────────────────────
-export const SavingsScreen: React.FC = () => {
+export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const handleScroll = useScrollDirection();
@@ -550,12 +559,10 @@ export const SavingsScreen: React.FC = () => {
 
           <Text style={[styles.settingsDesc, { color: colors.textSecondary }]}>
             {isAutoRenew && dailyBudgetAmount > 0
-              ? 'Auto-Add is ON: Every day at midnight, ₹' +
-                dailyBudgetAmount +
-                ' is added automatically. Whatever you do not spend rolls over into your Daily Savings Gullak.'
+              ? 'Auto-adds daily allowance and saves unspent money to Gullak.'
               : isAutoRenew
-              ? 'Auto-Add is ON: Set your default allowance below to start automatic daily budgeting.'
-              : 'Manual Mode: Auto-add is turned off. You can set your daily budget manually.'}
+              ? 'Set your daily allowance below to start automatic budgeting.'
+              : 'Manual mode: Set your daily budget whenever you want.'}
           </Text>
 
           <TouchableOpacity
@@ -683,6 +690,11 @@ export const SavingsScreen: React.FC = () => {
               key={item.id}
               rec={item.dailyRecord}
               deposit={item.deposit}
+              onPress={
+                item.deposit
+                  ? () => navigation.navigate('GullakDepositDetail', { depositId: item.deposit!.id })
+                  : undefined
+              }
               onDeleteDeposit={
                 item.deposit
                   ? () => handleDeleteDeposit(item.deposit!.id, item.deposit!.amount)

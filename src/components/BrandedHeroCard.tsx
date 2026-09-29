@@ -1,10 +1,12 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   LayoutChangeEvent,
+  Animated,
+  Easing,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react-native';
@@ -12,6 +14,7 @@ import { DonutChart } from './DonutChart';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
+import { parseChipNumber } from '../lib/homeCalculations';
 
 export type BrandedHeroCardProps = {
   primaryLabel: string;
@@ -151,6 +154,109 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
+  // ── Rolling number animation for all values (Remaining, Income, Expense, Chips) ──
+  const countAnim = useRef(new Animated.Value(0)).current;
+  const [displayPrimaryAmount, setDisplayPrimaryAmount] = useState(0);
+  const [displayTotalAvailable, setDisplayTotalAvailable] = useState(0);
+  const [displayPeriodSpent, setDisplayPeriodSpent] = useState(0);
+  const [displaySubtextParts, setDisplaySubtextParts] = useState<string[]>(() => {
+    const parsedChips = subtextParts.map((p) => parseChipNumber(p));
+    return parsedChips.map((parsed, idx) => {
+      if (!parsed) return subtextParts[idx];
+      return `${parsed.prefix}0${parsed.suffix}`;
+    });
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    countAnim.setValue(0);
+    setDisplayPrimaryAmount(0);
+    setDisplayTotalAvailable(0);
+    setDisplayPeriodSpent(0);
+
+    const parsedChips = subtextParts.map((p) => parseChipNumber(p));
+    if (parsedChips.length > 0) {
+      setDisplaySubtextParts(
+        parsedChips.map((parsed, idx) => {
+          if (!parsed) return subtextParts[idx];
+          return `${parsed.prefix}0${parsed.suffix}`;
+        })
+      );
+    } else {
+      setDisplaySubtextParts([]);
+    }
+
+    const animation = Animated.timing(countAnim, {
+      toValue: 1,
+      duration: 480,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
+
+    const listenerId = countAnim.addListener(({ value }) => {
+      if (!isMounted) return;
+
+      // Primary Amount (Total Remaining)
+      const hasPrimaryDec = !Number.isInteger(primaryAmount);
+      const curPrimary = hasPrimaryDec
+        ? Math.round(primaryAmount * value * 10) / 10
+        : Math.round(primaryAmount * value);
+      setDisplayPrimaryAmount(curPrimary);
+
+      // Total Available (Income)
+      const hasIncomeDec = !Number.isInteger(totalAvailable);
+      const curIncome = hasIncomeDec
+        ? Math.round(totalAvailable * value * 10) / 10
+        : Math.round(totalAvailable * value);
+      setDisplayTotalAvailable(curIncome);
+
+      // Period Spent (Expense)
+      const hasExpenseDec = !Number.isInteger(periodSpent);
+      const curExpense = hasExpenseDec
+        ? Math.round(periodSpent * value * 10) / 10
+        : Math.round(periodSpent * value);
+      setDisplayPeriodSpent(curExpense);
+
+      // Chips (budget, income, deposits)
+      if (parsedChips.length > 0) {
+        setDisplaySubtextParts(
+          parsedChips.map((parsed, idx) => {
+            if (!parsed) return subtextParts[idx];
+            const curChip = parsed.hasDecimals
+              ? Math.round(parsed.numericValue * value * 10) / 10
+              : Math.round(parsed.numericValue * value);
+            const formatted = curChip.toLocaleString('en-IN', {
+              maximumFractionDigits: parsed.hasDecimals ? 1 : 0,
+            });
+            return `${parsed.prefix}${formatted}${parsed.suffix}`;
+          })
+        );
+      }
+    });
+
+    animation.start(({ finished }) => {
+      if (finished && isMounted) {
+        setDisplayPrimaryAmount(primaryAmount);
+        setDisplayTotalAvailable(totalAvailable);
+        setDisplayPeriodSpent(periodSpent);
+        setDisplaySubtextParts(subtextParts);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      countAnim.removeListener(listenerId);
+      animation.stop();
+    };
+  }, [
+    activeFilter,
+    primaryAmount,
+    totalAvailable,
+    periodSpent,
+    primarySubtext,
+    countAnim,
+  ]);
+
   return (
     <View style={styles.outerWrapper}>
       {/* ── Main Container (Measures Content) ── */}
@@ -196,12 +302,12 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {formatCurrency(primaryAmount)}
+              {formatCurrency(displayPrimaryAmount)}
             </Text>
 
-            {subtextParts.length > 0 && (
+            {displaySubtextParts.length > 0 && (
               <View style={styles.subtextContainer}>
-                {subtextParts.map((part, idx) => (
+                {displaySubtextParts.map((part, idx) => (
                   <View
                     key={idx}
                     style={[
@@ -237,7 +343,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                   numberOfLines={1}
                   adjustsFontSizeToFit
                 >
-                  {`+${formatCurrency(totalAvailable)}`}
+                  {`+${formatCurrency(displayTotalAvailable)}`}
                 </Text>
                 <View style={styles.trendChipIncome}>
                   <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
@@ -256,7 +362,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                   numberOfLines={1}
                   adjustsFontSizeToFit
                 >
-                  {`−${formatCurrency(periodSpent)}`}
+                  {`−${formatCurrency(displayPeriodSpent)}`}
                 </Text>
                 <View style={styles.trendChipExpense}>
                   <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
@@ -305,6 +411,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             spentColor={isOverBudgetPeriod ? '#EF4444' : '#E05A47'}
             textColor={isOverBudgetPeriod ? '#EF4444' : textColorPrimary}
             subtextColor={textColorSecondary}
+            triggerKey={activeFilter}
           />
         </View>
       </View>

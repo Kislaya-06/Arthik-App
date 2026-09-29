@@ -227,3 +227,28 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     isBudgetConfigured,
   };
 };
+
+export interface ParsedChipNumber {
+  prefix: string;
+  numericValue: number;
+  suffix: string;
+  hasDecimals: boolean;
+}
+
+/**
+ * Parses numeric currency components from a chip string for ticker animation.
+ * e.g. "₹19,750 budget" -> prefix: "₹", numericValue: 19750, suffix: " budget", hasDecimals: false
+ * e.g. "+₹2,823.8 income" -> prefix: "+₹", numericValue: 2823.8, suffix: " income", hasDecimals: true
+ */
+export function parseChipNumber(chipStr: string): ParsedChipNumber | null {
+  if (!chipStr) return null;
+  const match = chipStr.match(/^(.*?₹\s?)([0-9,]+(?:\.[0-9]+)?)(.*)$/);
+  if (!match) return null;
+  const prefix = match[1];
+  const rawNum = match[2].replace(/,/g, '');
+  const suffix = match[3];
+  const numericValue = parseFloat(rawNum);
+  if (isNaN(numericValue)) return null;
+  const hasDecimals = match[2].includes('.');
+  return { prefix, numericValue, suffix, hasDecimals };
+}
