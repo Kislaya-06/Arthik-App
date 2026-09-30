@@ -131,9 +131,10 @@ export function getProrationPreview(
     return null;
   }
 
-  const proratedAmount = round2((amount * remainingDays) / bounds.totalDays);
-  const periodWord = targetCadence === 'weekly' ? 'hafte' : 'mahine';
-  const previewText = `Is ${periodWord} ke bache ${remainingDays} din ka budget: ₹${formatAmountWithCommas(String(proratedAmount))}`;
+  const proratedAmount = Math.round((amount * remainingDays) / bounds.totalDays);
+  const periodWord = targetCadence === 'weekly' ? 'week' : 'month';
+  const dayWord = remainingDays === 1 ? 'day' : 'days';
+  const previewText = `Budget for remaining ${remainingDays} ${dayWord} this ${periodWord}: ₹${formatAmountWithCommas(String(proratedAmount))}`;
 
   return {
     isProrated: true,

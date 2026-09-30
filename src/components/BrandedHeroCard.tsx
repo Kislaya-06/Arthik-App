@@ -375,15 +375,13 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           <View style={[styles.topSection, { paddingRight: podSize + GAP + 6 }]}>
             {/* Label & Amount */}
             <Text style={[styles.primaryLabel, { color: textColorSecondary }]}>
-              {isBudgetModeEnabled ? primaryLabel : pureMetrics.title}
+              {effectivePrimaryLabel}
             </Text>
             <Text
               style={[
                 styles.primaryAmount,
                 {
-                  color: isBudgetModeEnabled
-                    ? (isOverBudgetPeriod ? colors.danger : textColorPrimary)
-                    : (pureMetrics.isDeficit ? colors.danger : textColorPrimary),
+                  color: effectiveIsOver ? colors.danger : textColorPrimary,
                 },
               ]}
               numberOfLines={1}
@@ -401,13 +399,13 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                     key={idx}
                     style={[
                       styles.subtextChip,
-                      isOverBudgetPeriod && { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
+                      effectiveIsOver && { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
                     ]}
                   >
                     <Text
                       style={[
                         styles.subtextChipText,
-                        { color: isOverBudgetPeriod ? '#DC2626' : textColorPrimary },
+                        { color: effectiveIsOver ? '#DC2626' : textColorPrimary },
                       ]}
                       numberOfLines={1}
                     >

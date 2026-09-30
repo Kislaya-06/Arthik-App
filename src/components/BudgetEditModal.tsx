@@ -10,7 +10,7 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import { X, Check, Clock } from 'lucide-react-native';
+import { X, Check, Clock, Sparkles } from 'lucide-react-native';
 import { format, parseISO, addDays } from 'date-fns';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -38,10 +38,10 @@ export interface BudgetEditModalProps {
   onClose: () => void;
 }
 
-const CADENCE_OPTIONS: Array<{ key: BudgetCadence; label: string; icon: string }> = [
-  { key: 'daily', label: 'Daily', icon: '☀️' },
-  { key: 'weekly', label: 'Weekly', icon: '📅' },
-  { key: 'monthly', label: 'Monthly', icon: '🗓' },
+const CADENCE_OPTIONS: Array<{ key: BudgetCadence; label: string }> = [
+  { key: 'daily', label: 'Daily' },
+  { key: 'weekly', label: 'Weekly' },
+  { key: 'monthly', label: 'Monthly' },
 ];
 
 const KEYPAD_ROWS = [
@@ -393,7 +393,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                     styles.cadenceSlidingPill,
                     {
                       width: segmentWidth,
-                      backgroundColor: isDark ? colors.card : '#FFFFFF',
+                      backgroundColor: colors.mintGreen,
                       transform: [{ translateX }],
                     },
                   ]}
@@ -413,12 +413,12 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                       style={[
                         styles.cadenceSegmentText,
                         {
-                          color: isSelected ? colors.textPrimary : colors.textSecondary,
+                          color: isSelected ? colors.forestGreen : colors.textSecondary,
                           fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
                         },
                       ]}
                     >
-                      {`${opt.icon} ${opt.label}`}
+                      {opt.label}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -453,13 +453,23 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 style={[
                   styles.prorationCard,
                   {
-                    backgroundColor: colors.mintGreenSoft,
-                    borderColor: isDark ? 'rgba(184, 224, 200, 0.3)' : colors.mintGreen,
+                    backgroundColor: isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5E9',
+                    borderColor: isDark ? 'rgba(184, 224, 200, 0.35)' : '#A5D6A7',
                   },
                 ]}
               >
-                <Text style={[styles.prorationText, { color: colors.forestGreen }]}>
-                  {`✨ ${prorationPreview.previewText}`}
+                <Sparkles
+                  size={14}
+                  color={isDark ? '#6EE7B7' : '#15803D'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.prorationText,
+                    { color: isDark ? '#6EE7B7' : '#15803D' },
+                  ]}
+                >
+                  {prorationPreview.previewText}
                 </Text>
               </View>
             )}
@@ -628,8 +638,10 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   prorationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.group,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: BorderRadius.input,
     borderWidth: 1,
     marginBottom: Spacing.group,
@@ -637,6 +649,8 @@ const styles = StyleSheet.create({
   prorationText: {
     fontSize: 12,
     fontFamily: FontFamily.semibold,
+    flex: 1,
+    lineHeight: 16,
   },
   keypadContainer: {
     marginBottom: Spacing.surface,

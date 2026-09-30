@@ -98,14 +98,24 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(getProrationPreview('weekly', 7000, '2026-10-05', '2026-10-04')).toBeNull();
     });
 
-    it('calculates prorated weekly budget and Hindi preview for partial week', () => {
+    it('calculates prorated weekly budget and English preview for partial week', () => {
       // 2026-10-02 is Friday; week ends Sunday 2026-10-04 (3 days remaining: Fri, Sat, Sun)
       const preview = getProrationPreview('weekly', 7000, '2026-10-02', '2026-10-01');
       expect(preview).not.toBeNull();
       expect(preview?.isProrated).toBe(true);
       expect(preview?.remainingDays).toBe(3);
       expect(preview?.proratedAmount).toBe(3000); // 7000 * 3/7 = 3000
-      expect(preview?.previewText).toBe('Is hafte ke bache 3 din ka budget: ₹3,000');
+      expect(preview?.previewText).toBe('Budget for remaining 3 days this week: ₹3,000');
+    });
+
+    it('calculates prorated weekly budget with singular day when 1 day remains', () => {
+      // 2026-10-04 is Sunday; week ends Sunday 2026-10-04 (1 day remaining: Sun)
+      const preview = getProrationPreview('weekly', 700, '2026-10-04', '2026-10-03');
+      expect(preview).not.toBeNull();
+      expect(preview?.isProrated).toBe(true);
+      expect(preview?.remainingDays).toBe(1);
+      expect(preview?.proratedAmount).toBe(100); // 700 * 1/7 = 100
+      expect(preview?.previewText).toBe('Budget for remaining 1 day this week: ₹100');
     });
 
     it('calculates prorated monthly budget for mid-month switch', () => {
@@ -115,7 +125,7 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.isProrated).toBe(true);
       expect(preview?.remainingDays).toBe(16);
       expect(preview?.proratedAmount).toBe(16000); // 31000 * 16 / 31 = 16000
-      expect(preview?.previewText).toBe('Is mahine ke bache 16 din ka budget: ₹16,000');
+      expect(preview?.previewText).toBe('Budget for remaining 16 days this month: ₹16,000');
     });
   });
 

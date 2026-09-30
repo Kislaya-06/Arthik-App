@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { formatCadenceRolloverStrip } from '../src/lib/budgetModeUtils';
 
 /**
  * Re-export of the concentric socket card path builder for unit testing path generation geometry
@@ -270,4 +271,69 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
       expect(result.totalSpent).toBe(0);
     });
   });
+
+  describe('formatCadenceRolloverStrip', () => {
+    it('returns empty string for null summary or daily cadence', () => {
+      expect(formatCadenceRolloverStrip(null, 'weekly')).toBe('');
+      expect(
+        formatCadenceRolloverStrip(
+          {
+            cadence: 'weekly',
+            periodStart: '2026-10-05',
+            periodEnd: '2026-10-11',
+            activeStart: '2026-10-05',
+            activeEnd: '2026-10-11',
+            budget: 5000,
+            spent: 2000,
+            remaining: 3000,
+            isOver: false,
+            overBy: 0,
+            rolloverLabelDate: '2026-10-11',
+          },
+          'daily'
+        )
+      ).toBe('');
+    });
+
+    it('formats weekly rollover strip for on-track and over budget states', () => {
+      const onTrack = {
+        cadence: 'weekly' as const,
+        periodStart: '2026-10-05',
+        periodEnd: '2026-10-11',
+        activeStart: '2026-10-05',
+        activeEnd: '2026-10-11',
+        budget: 7000,
+        spent: 4500,
+        remaining: 2500,
+        isOver: false,
+        overBy: 0,
+        rolloverLabelDate: '2026-10-11',
+      };
+      expect(formatCadenceRolloverStrip(onTrack, 'weekly')).toBe('₹2,500 Sunday ke baad Gullak mein');
+
+      const overBudget = { ...onTrack, isOver: true, overBy: 800 };
+      expect(formatCadenceRolloverStrip(overBudget, 'weekly')).toBe('Over by ₹800 this week');
+    });
+
+    it('formats monthly rollover strip for on-track and over budget states', () => {
+      const onTrack = {
+        cadence: 'monthly' as const,
+        periodStart: '2026-10-01',
+        periodEnd: '2026-10-31',
+        activeStart: '2026-10-01',
+        activeEnd: '2026-10-31',
+        budget: 30000,
+        spent: 18000,
+        remaining: 12000,
+        isOver: false,
+        overBy: 0,
+        rolloverLabelDate: '2026-10-31',
+      };
+      expect(formatCadenceRolloverStrip(onTrack, 'monthly')).toBe('₹12,000 month-end ke baad Gullak mein');
+
+      const overBudget = { ...onTrack, isOver: true, overBy: 2500 };
+      expect(formatCadenceRolloverStrip(overBudget, 'monthly')).toBe('Over by ₹2,500 this month');
+    });
+  });
 });
+
