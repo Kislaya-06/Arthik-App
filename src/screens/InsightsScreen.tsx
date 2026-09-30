@@ -8,7 +8,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Svg, { Polyline } from 'react-native-svg';
+import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
   TrendingUp, TrendingDown, CheckSquare, Wallet, CreditCard,
   ChevronLeft, ChevronRight,
@@ -29,9 +29,11 @@ import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, CATEGORY_PALETTE } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
 import { CashFlowChart } from '../components/CashFlowChart';
+import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
 import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../lib/chartUtils';
 
@@ -184,7 +186,7 @@ const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
           hitSlop={12}
           style={[navStyles.arrowBtn, isAtOldest && navStyles.arrowDisabled]}
         >
-          <ChevronLeft size={16} color={isAtOldest ? 'rgba(255,255,255,0.25)' : '#FFFFFF'} />
+          <ChevronLeft size={16} color={isAtOldest ? 'rgba(60,35,35,0.25)' : '#2D1E1E'} />
         </Pressable>
 
         <View style={navStyles.labelBlock}>
@@ -200,7 +202,7 @@ const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
           hitSlop={12}
           style={[navStyles.arrowBtn, isAtCurrent && navStyles.arrowDisabled]}
         >
-          <ChevronRight size={16} color={isAtCurrent ? 'rgba(255,255,255,0.25)' : '#FFFFFF'} />
+          <ChevronRight size={16} color={isAtCurrent ? 'rgba(60,35,35,0.25)' : '#2D1E1E'} />
         </Pressable>
       </View>
 
@@ -221,7 +223,7 @@ const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
                   navStyles.dot,
                   { width: i === activeDotIndex ? 16 : 6 },
                   {
-                    backgroundColor: `rgba(255,255,255,${dotOpacity.toFixed(2)})`,
+                    backgroundColor: `rgba(60,35,35,${dotOpacity.toFixed(2)})`,
                     transform: [{ scale: dotScale }],
                   },
                 ]}
@@ -254,12 +256,12 @@ const navStyles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(60,35,35,0.06)',
   },
   arrowDisabled: { opacity: 0.35 },
   labelBlock: { alignItems: 'center', minWidth: 175 },
-  dateLabel: { fontSize: FontSize.cta, color: '#FFFFFF' },
-  subLabel: { fontSize: FontSize.bodySmall, color: 'rgba(255,255,255,0.6)', marginTop: Spacing.nano },
+  dateLabel: { fontSize: FontSize.cta, color: '#2D1E1E' },
+  subLabel: { fontSize: FontSize.bodySmall, color: 'rgba(60,35,35,0.6)', marginTop: Spacing.nano },
   dotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -274,7 +276,7 @@ const navStyles = StyleSheet.create({
     top: 0,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2D1E1E',
   },
 });
 
@@ -618,25 +620,12 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             Insights
           </Text>
-          <View style={[styles.segmentedControl, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {(['Weekly', 'Monthly', 'Yearly'] as Period[]).map((p) => {
-              const isActive = period === p;
-              return (
-                <Pressable
-                  key={p}
-                  style={[styles.segmentBtn, isActive && { backgroundColor: colors.mintGreen }]}
-                  onPress={() => handlePeriodChange(p)}
-                >
-                  <Text style={[
-                    styles.segmentText,
-                    { color: isActive ? colors.forestGreen : colors.textSecondary },
-                    { fontFamily: isActive ? FontFamily.bold : FontFamily.medium },
-                  ]}>
-                    {p}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={{ flex: 1, marginLeft: Spacing.group }}>
+            <BouncyFilterToggle
+              value={period}
+              onChange={handlePeriodChange}
+              options={['Weekly', 'Monthly', 'Yearly']}
+            />
           </View>
         </View>
 
@@ -646,15 +635,27 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           style={[
             styles.heroCard,
             {
-              backgroundColor: isDark ? colors.card : '#1A2B4C',
               borderWidth: isDark ? 1 : 0,
               borderColor: colors.border,
             },
           ]}
         >
+          {/* Gradient Background */}
+          <View style={StyleSheet.absoluteFill}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id="heroGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <Stop offset="0%" stopColor="#F07167" />
+                  <Stop offset="100%" stopColor="#FED0A8" />
+                </LinearGradient>
+              </Defs>
+              <Rect width="100%" height="100%" fill="url(#heroGradient)" />
+            </Svg>
+          </View>
+
           {/* Decorative background circles */}
-          <View style={[styles.heroCircle1, { backgroundColor: isDark ? '#1A263B' : '#2A3C64' }]} />
-          <View style={[styles.heroCircle2, { backgroundColor: isDark ? '#1A263B' : '#2A3C64' }]} />
+          <View style={[styles.heroCircle1, { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]} />
+          <View style={[styles.heroCircle2, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
 
           <Text style={[styles.heroLabel, { fontFamily: FontFamily.bold }]}>
             TOTAL SPENT {periodLabel}
@@ -670,29 +671,17 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.heroComparisonRow}>
             <View style={styles.trendBadge}>
               {isIncrease
-                ? <TrendingUp size={12} color="#F4B8AE" />
-                : <TrendingDown size={12} color="#B8E0C8" />
+                ? <TrendingUp size={12} color="#3E2723" />
+                : <TrendingDown size={12} color="#3E2723" />
               }
               <Text style={[
                 styles.trendText,
-                { color: isIncrease ? '#F4B8AE' : '#B8E0C8', fontFamily: FontFamily.bold },
+                { color: '#3E2723', fontFamily: FontFamily.bold },
               ]}>
                 {trendLabel}
               </Text>
             </View>
 
-            <View style={styles.sparklineContainer}>
-              <Svg width="100" height="30" viewBox="0 0 100 30">
-                <Polyline
-                  points={isIncrease ? '0,25 20,20 40,28 60,15 80,10 100,5' : '0,5 20,10 40,8 60,20 80,15 100,25'}
-                  fill="none"
-                  stroke="#4A5A78"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </View>
           </View>
 
           {/* Period navigator: arrows + date label + pagination dots */}
@@ -910,35 +899,43 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               Quick Insights
             </Text>
 
-            <View style={styles.quickInsightsGrid}>
-              <View style={[styles.insightCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-                <View style={[styles.insightIconBadge, { backgroundColor: colors.peachSoft }]}>
-                  <CategoryInsightIcon size={20} color="#E8956A" />
+            <View style={styles.quickInsightsList}>
+              <View style={styles.quickInsightRow}>
+                <GradientIconBadge size={48} color={topCategory?.color || '#F07167'} isDark={isDark}>
+                  {({ iconColor }) => <CategoryInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
+                </GradientIconBadge>
+                <View style={styles.quickInsightTextWrapper}>
+                  <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
+                    Most Spent On
+                  </Text>
+                  <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
+                    {topCategory?.name || 'N/A'}
+                  </Text>
                 </View>
-                <Text style={[styles.insightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  Most Spent On
-                </Text>
-                <Text style={[styles.insightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                  {topCategory?.name || 'N/A'}
-                </Text>
-                <Text style={[styles.insightAmount, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  {topCategory ? formatCurrency(topCategory.amount) : '-'}
-                </Text>
+                <View style={styles.quickInsightAmountWrapper}>
+                  <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                    {topCategory ? formatCurrency(topCategory.amount) : '-'}
+                  </Text>
+                </View>
               </View>
 
-              <View style={[styles.insightCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-                <View style={[styles.insightIconBadge, { backgroundColor: colors.mintGreenSoft }]}>
-                  <PaymentInsightIcon size={20} color="#4CAF7D" />
+              <View style={[styles.quickInsightRow, { marginTop: Spacing.group }]}>
+                <GradientIconBadge size={48} color={colors.isDark ? colors.mintGreen : '#4CAF7D'} isDark={isDark}>
+                  {({ iconColor }) => <PaymentInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
+                </GradientIconBadge>
+                <View style={styles.quickInsightTextWrapper}>
+                  <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
+                    Top Payment
+                  </Text>
+                  <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
+                    {topPaymentData.mode}
+                  </Text>
                 </View>
-                <Text style={[styles.insightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  Top Payment
-                </Text>
-                <Text style={[styles.insightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                  {topPaymentData.mode}
-                </Text>
-                <Text style={[styles.insightAmount, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  {topPaymentData.percentage}% of txns
-                </Text>
+                <View style={styles.quickInsightAmountWrapper}>
+                  <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                    {topPaymentData.percentage}% of txns
+                  </Text>
+                </View>
               </View>
             </View>
           </>
@@ -995,20 +992,20 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: -80, right: 40,
     width: 150, height: 150, borderRadius: 75, opacity: 0.3,
   },
-  heroLabel: { fontSize: FontSize.caption, color: '#8A93AB', letterSpacing: 1, textTransform: 'uppercase' },
+  heroLabel: { fontSize: FontSize.caption, color: 'rgba(60, 35, 35, 0.8)', letterSpacing: 1, textTransform: 'uppercase' },
   heroAmountRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.micro },
-  heroCurrency: { fontSize: 24, color: '#FFFFFF', marginRight: 6 },
-  heroAmount: { fontSize: 48, color: '#FFFFFF' },
+  heroCurrency: { fontSize: 24, color: '#2D1E1E', marginRight: 6 },
+  heroAmount: { fontSize: 48, color: '#2D1E1E' },
   heroComparisonRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.element,
   },
   trendBadge: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: BorderRadius.pill,
+    backgroundColor: 'rgba(60, 35, 35, 0.08)', borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.group, paddingVertical: 6, gap: Spacing.micro,
   },
   trendText: { fontSize: FontSize.caption },
-  sparklineContainer: { width: 100, height: 30 },
+
   sectionTitle: { fontSize: FontSize.sectionTitle, marginTop: Spacing.section, marginBottom: Spacing.gutter },
   byCategoryRow: {
     flexDirection: 'row',
@@ -1054,13 +1051,11 @@ const styles = StyleSheet.create({
   legendSubtext: { fontSize: FontSize.bodySmall, marginTop: Spacing.nano },
   emptyState: { alignItems: 'center', marginTop: Spacing.section },
   emptyStateText: { fontSize: FontSize.body },
-  quickInsightsGrid: { flexDirection: 'row', gap: Spacing.block },
-  insightCard: { flex: 1, borderRadius: BorderRadius.card, padding: Spacing.surface, borderWidth: 1 },
-  insightIconBadge: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.block,
-  },
-  insightLabel: { fontSize: FontSize.caption },
-  insightValue: { fontSize: 18, marginTop: Spacing.micro },
-  insightAmount: { fontSize: FontSize.bodySmall, marginTop: Spacing.nano },
+  quickInsightsList: { marginTop: Spacing.micro },
+  quickInsightRow: { flexDirection: 'row', alignItems: 'center' },
+  quickInsightTextWrapper: { flex: 1, marginLeft: Spacing.group, justifyContent: 'center' },
+  quickInsightLabel: { fontSize: FontSize.caption, marginBottom: 2 },
+  quickInsightValue: { fontSize: FontSize.body },
+  quickInsightAmountWrapper: { alignItems: 'flex-end', justifyContent: 'center' },
+  quickInsightAmount: { fontSize: FontSize.body },
 });

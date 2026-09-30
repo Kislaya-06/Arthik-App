@@ -29,6 +29,7 @@ import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { MoneyHelpBadge, MoneyExplainerModal } from '../components/MoneyExplainerModal';
 import { formatCadenceBudgetSubtitle } from '../lib/budgetModeUtils';
+import { AnimatedToggle } from '../components/AnimatedToggle';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -597,11 +598,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {budgetSubtitle}
               </Text>
             </Pressable>
-            <Switch
+            <AnimatedToggle
               value={isBudgetModeEnabled}
               onValueChange={handleToggleBudgetMode}
-              trackColor={{ false: colors.border, true: colors.mintGreen }}
-              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -634,11 +633,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Notifications
             </Text>
-            <Switch
+            <AnimatedToggle
               value={notificationsEnabled}
               onValueChange={handleToggleNotifications}
-              trackColor={{ false: colors.border, true: colors.mintGreen }}
-              thumbColor={colors.white}
             />
           </View>
 
@@ -650,13 +647,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Dark Mode
             </Text>
-            <Switch
+            <AnimatedToggle
               value={isDark}
               onValueChange={(val) => {
                 setThemeMode(val ? 'dark' : 'light');
               }}
-              trackColor={{ false: colors.border, true: colors.mintGreen }}
-              thumbColor={colors.white}
             />
           </View>
 
@@ -673,11 +668,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 Fingerprint or Device PIN
               </Text>
             </View>
-            <Switch
+            <AnimatedToggle
               value={isAppLockEnabled}
               onValueChange={handleToggleAppLock}
-              trackColor={{ false: colors.border, true: colors.mintGreen }}
-              thumbColor={colors.white}
             />
           </View>
 

@@ -166,6 +166,11 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 - Imperative navigation uses `navigationRef`. Guard back buttons with `navigation.canGoBack()`.
 - `BottomNavBar` is a custom floating capsule bar driven by `navBarStore` + `useScrollDirection`.
 
+## 9.9 Icon Badges & Gullak Icons (Design Language Invariant)
+- **Always use `GradientIconBadge`**: All category, feature, and transactional icons (including Gullak, PiggyBank, Savings, and category rows) must use `GradientIconBadge` from `src/components/GradientIconBadge` with dynamic `iconColor`.
+- **Gullak Theme**: Gullak deposits, milestone cards, and detail headers must use `GradientIconBadge` with `color="#ADEBB3"` and `PiggyBankCoinIcon` (e.g. `({ iconColor }) => <PiggyBankCoinIcon size={...} color={iconColor} />`).
+- **Never use plain flat circles**: Do NOT create ad-hoc flat circular containers (`backgroundColor: iconBg`, `borderRadius: width / 2`, etc.) for feature or transaction icons. Always use `GradientIconBadge`.
+
 ---
 
 # 10. Notifications

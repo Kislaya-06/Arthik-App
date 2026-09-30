@@ -15,7 +15,7 @@ const FILTER_PADDING = 4;
 const TOGGLE_HEIGHT = 48;
 
 interface FilterSegmentItemProps {
-  label: Filter;
+  label: string;
   isActive: boolean;
   onPress: () => void;
   activeColor: string;
@@ -79,17 +79,19 @@ const FilterSegmentItem: React.FC<FilterSegmentItemProps> = ({
   );
 };
 
-export interface BouncyFilterToggleProps {
-  value: Filter;
-  onChange: (filter: Filter) => void;
-  options: readonly Filter[];
+export interface BouncyFilterToggleProps<T extends string> {
+  value: T;
+  onChange: (filter: T) => void;
+  options: readonly T[];
+  style?: any;
 }
 
-export const BouncyFilterToggle: React.FC<BouncyFilterToggleProps> = ({
+export function BouncyFilterToggle<T extends string>({
   value,
   onChange,
   options,
-}) => {
+  style,
+}: BouncyFilterToggleProps<T>) {
   const { colors, isDark } = useTheme();
   const initialWidth = Dimensions.get('window').width - Spacing.gutter * 2;
   const [containerWidth, setContainerWidth] = useState(initialWidth);
@@ -131,6 +133,7 @@ export const BouncyFilterToggle: React.FC<BouncyFilterToggleProps> = ({
           borderColor: colors.border,
           padding: FILTER_PADDING,
         },
+        style,
       ]}
     >
       {/* Sliding Bouncy Pill */}

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Trophy, Calendar, ChevronRight } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
+import { GradientIconBadge } from './GradientIconBadge';
 import {
   ThemeColors,
   FontFamily,
@@ -33,7 +34,6 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
     bestStreakInYear,
   } = metrics;
 
-  const iconBg = isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft;
   const iconColor = isDark ? colors.mintGreen : colors.mintGreenDark;
 
   return (
@@ -49,9 +49,9 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
       {/* ── Card Header ── */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <View style={[styles.iconPod, { backgroundColor: iconBg }]}>
-            <PiggyBankCoinIcon size={22} color={iconColor} />
-          </View>
+          <GradientIconBadge size={44} color="#ADEBB3" isDark={isDark}>
+            {({ iconColor: badgeIconColor }) => <PiggyBankCoinIcon size={22} color={badgeIconColor} />}
+          </GradientIconBadge>
           <View style={styles.titleColumn}>
             <Text style={[styles.title, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Savings & Gullak
@@ -95,24 +95,28 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
         </Text>
       </View>
 
-      {/* ── Highlights Grid: Best Month & Best Streak ── */}
-      <View style={styles.statsGrid}>
-        {/* Box 1: Best Month */}
-        <View
-          style={[
-            styles.statBox,
-            {
-              backgroundColor: isDark ? colors.cardSubtle : '#F8FAFC',
-              borderColor: isDark ? colors.borderSubtle : colors.borderSubtle,
-            },
-          ]}
-        >
-          <View style={[styles.statIconBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : '#E8F5EE' }]}>
-            <Calendar size={14} color={iconColor} />
+      {/* ── Divider Line (like Recent Transactions) ── */}
+      <View
+        style={[
+          styles.dividerLine,
+          {
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+          },
+        ]}
+      />
+
+      {/* ── Highlights: Peak Month & Best Streak (Seamless, Non-boxy) ── */}
+      <View style={styles.highlightsRow}>
+        {/* Highlight 1: Peak Month */}
+        <View style={styles.highlightCol}>
+          <View style={styles.highlightLabelRow}>
+            <View style={[styles.statIconBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.16)' : '#E8F5EE' }]}>
+              <Calendar size={15} color={iconColor} strokeWidth={2.2} />
+            </View>
+            <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: FontFamily.semibold }]}>
+              Peak Month
+            </Text>
           </View>
-          <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            Peak Month
-          </Text>
           <Text
             style={[styles.statValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
             numberOfLines={1}
@@ -124,22 +128,24 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
           </Text>
         </View>
 
-        {/* Box 2: Best Streak */}
+        {/* Subtle Vertical Divider */}
         <View
           style={[
-            styles.statBox,
-            {
-              backgroundColor: isDark ? colors.cardSubtle : '#F8FAFC',
-              borderColor: isDark ? colors.borderSubtle : colors.borderSubtle,
-            },
+            styles.verticalDivider,
+            { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
           ]}
-        >
-          <View style={[styles.statIconBadge, { backgroundColor: isDark ? 'rgba(244, 184, 174, 0.15)' : '#FDEEEC' }]}>
-            <Trophy size={14} color={isDark ? '#F4B8AE' : '#E8956A'} />
+        />
+
+        {/* Highlight 2: Best Streak */}
+        <View style={styles.highlightCol}>
+          <View style={styles.highlightLabelRow}>
+            <View style={[styles.statIconBadge, { backgroundColor: isDark ? 'rgba(244, 184, 174, 0.16)' : '#FDEEEC' }]}>
+              <Trophy size={15} color={isDark ? '#F4B8AE' : '#E8956A'} strokeWidth={2.2} />
+            </View>
+            <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: FontFamily.semibold }]}>
+              Best Streak
+            </Text>
           </View>
-          <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            Best Streak
-          </Text>
           <Text
             style={[styles.statValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
             numberOfLines={1}
@@ -172,16 +178,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  iconPod: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.group,
-  },
   titleColumn: {
     flex: 1,
+    marginLeft: Spacing.group,
   },
   title: {
     fontSize: 18,
@@ -203,7 +202,6 @@ const styles = StyleSheet.create({
   },
   heroMetricContainer: {
     marginTop: Spacing.block,
-    marginBottom: Spacing.block,
   },
   heroLabel: {
     fontSize: FontSize.caption,
@@ -225,15 +223,23 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     marginTop: Spacing.nano,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: Spacing.group,
+  dividerLine: {
+    height: 1,
+    width: '100%',
+    marginVertical: Spacing.surface,
   },
-  statBox: {
+  highlightsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  highlightCol: {
     flex: 1,
-    borderRadius: BorderRadius.card,
-    borderWidth: 1,
-    padding: Spacing.group,
+  },
+  highlightLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.element,
+    marginBottom: 6,
   },
   statIconBadge: {
     width: 28,
@@ -241,17 +247,23 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.element,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 14,
+    letterSpacing: 0.2,
   },
   statValue: {
-    fontSize: 15,
-    marginTop: 2,
+    fontSize: 20,
+    letterSpacing: -0.2,
   },
   statSubtext: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 3,
+  },
+  verticalDivider: {
+    width: 1,
+    height: 60,
+    marginHorizontal: Spacing.group,
+    alignSelf: 'center',
   },
 });

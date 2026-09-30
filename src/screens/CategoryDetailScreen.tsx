@@ -8,6 +8,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 
 import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
@@ -15,7 +17,7 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { formatCurrency } from '../lib/formatters';
-import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
+import { getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
@@ -53,50 +55,61 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const renderItem = useCallback(({ item }: { item: Expense }) => {
     const isIncome = isIncomeTransaction(item, category);
-    const PaymentIcon = getPaymentIcon(item.payment_mode);
+    const categoryName = category?.name || (isIncome ? 'Money Added' : 'Other');
+    const catColor = category?.color || (isIncome ? '#ADEBB3' : '#FF857A');
+    const IconComp = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
     const paymentLabel = getPaymentLabel(item.payment_mode);
-    const dateStr = format(parseISO(item.expense_date), 'd MMM yyyy');
-    const amountLabel = isIncome ? `+${formatCurrency(item.amount)}` : formatCurrency(item.amount);
-    const amountColor = isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : colors.textPrimary;
+    
+    const expenseColor = isDark ? colors.peachCoral : '#E05345';
+    const incomeColor = isDark ? colors.mintGreen : colors.mintGreenDark;
+    const amountColor = isIncome ? incomeColor : expenseColor;
+
+    const hasNote = Boolean(item.note && item.note.trim().length > 0);
+    const mainTitle = hasNote ? item.note!.trim() : categoryName;
+    const subtitle = hasNote ? `${categoryName} · ${paymentLabel}` : paymentLabel;
+
+    let timeOrDateStr = item.expense_date;
+    try {
+      if (item.created_at) {
+        timeOrDateStr = format(parseISO(item.created_at), 'h:mm a');
+      } else {
+        timeOrDateStr = format(parseISO(item.expense_date), 'd MMM');
+      }
+    } catch {}
 
     return (
       <Pressable
         style={[
-          styles.expenseRow,
+          styles.transactionRow,
           {
-            backgroundColor: colors.card,
-            borderColor: colors.borderSubtle,
+            borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
           }
         ]}
         onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
+        android_ripple={{ color: colors.cardSubtle, borderless: false }}
       >
-        <View style={styles.expenseLeft}>
-          <Text style={[styles.expenseAmount, { color: amountColor, fontFamily: FontFamily.bold }]}>
-            {amountLabel}
+        <GradientIconBadge size={48} color={catColor} isDark={isDark}>
+          {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
+        </GradientIconBadge>
+        <View style={styles.transactionMiddle}>
+          <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+            {mainTitle}
           </Text>
-          {!!item.note && (
-            <Text
-              style={[styles.expenseNote, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
-              numberOfLines={1}
-            >
-              {item.note}
-            </Text>
-          )}
+          <Text style={[styles.transactionSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+            {subtitle}
+          </Text>
         </View>
-        <View style={styles.expenseRight}>
-          <Text style={[styles.expenseDate, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            {dateStr}
+        <View style={styles.transactionRight}>
+          <Text style={[styles.transactionAmount, { color: amountColor }]}>
+            {isIncome ? `+${formatCurrency(Math.abs(item.amount))}` : `−${formatCurrency(Math.abs(item.amount))}`}
           </Text>
-          <View style={styles.paymentRow}>
-            <PaymentIcon size={12} color={colors.textTertiary} />
-            <Text style={[styles.paymentLabel, { color: colors.textTertiary, fontFamily: FontFamily.medium }]}>
-              {paymentLabel}
-            </Text>
-          </View>
+          <Text style={[styles.transactionTime, { color: colors.textMuted }]}>
+            {timeOrDateStr}
+          </Text>
         </View>
       </Pressable>
     );
-  }, [navigation, colors]);
+  }, [navigation, category, colors, isDark]);
 
   if (!category) {
     return (
@@ -138,13 +151,26 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
       {/* Summary Card */}
       <View style={[
         styles.summaryCard,
-        isDark && {
-          backgroundColor: colors.card,
+        {
+          backgroundColor: categoryColor,
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)',
           borderWidth: 1,
-          borderColor: colors.borderSubtle,
         }
       ]}>
-        {/* Decorative circles */}
+        {/* Gradient Overlay for 3D effect */}
+        <View style={StyleSheet.absoluteFill}>
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="catCardGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                <Stop offset="0%" stopColor="#000000" stopOpacity={0.05} />
+                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.3} />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#catCardGrad)" />
+          </Svg>
+        </View>
+
+        {/* Decorative circles from InsightsScreen */}
         <View style={styles.summaryCircle1} />
         <View style={styles.summaryCircle2} />
 
@@ -245,7 +271,6 @@ const styles = StyleSheet.create({
 
   // Summary Card
   summaryCard: {
-    backgroundColor: '#1A2B4C',
     borderRadius: BorderRadius.cardLarge,
     padding: Spacing.gutter,
     marginTop: Spacing.gutter,
@@ -259,8 +284,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: '#2A3C64',
-    opacity: 0.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   summaryCircle2: {
     position: 'absolute',
@@ -269,14 +293,13 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#2A3C64',
-    opacity: 0.3,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   summaryLabel: {
     fontSize: FontSize.caption,
-    color: '#8A93AB',
     letterSpacing: 1,
     textTransform: 'uppercase',
+    color: 'rgba(60, 35, 35, 0.8)',
   },
   summaryAmountRow: {
     flexDirection: 'row',
@@ -284,18 +307,18 @@ const styles = StyleSheet.create({
     marginTop: Spacing.element,
   },
   summaryCurrency: {
-    fontSize: 20,
-    color: '#FFFFFF',
+    fontSize: 24,
     marginRight: Spacing.micro,
+    color: '#2D1E1E',
   },
   summaryAmount: {
-    fontSize: 40,
-    color: '#FFFFFF',
+    fontSize: 48,
+    color: '#2D1E1E',
   },
   summaryCount: {
     fontSize: FontSize.bodySmall,
-    color: '#8A93AB',
     marginTop: Spacing.element,
+    color: 'rgba(45, 30, 30, 0.7)',
   },
 
   // Section
@@ -308,48 +331,43 @@ const styles = StyleSheet.create({
   listContent: {
   },
 
-  // Expense Row
-  expenseRow: {
+  // Transaction Row (History style)
+  transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-    borderColor: '#F0F1F4',
-    paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.row,
-    marginBottom: Spacing.group,
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
-  expenseLeft: {
+  transactionMiddle: {
     flex: 1,
-    marginRight: Spacing.group,
+    marginLeft: 14,
+    justifyContent: 'center',
   },
-  expenseAmount: {
-    fontSize: FontSize.body,
-    color: '#1A2B4C',
+  transactionTitle: {
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
+    letterSpacing: -0.2,
   },
-  expenseNote: {
+  transactionSubtitle: {
     fontSize: 13,
-    color: '#8A8FA3',
-    marginTop: Spacing.nano,
+    fontFamily: FontFamily.medium,
+    marginTop: 3,
   },
-  expenseRight: {
+  transactionRight: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
-  expenseDate: {
-    fontSize: 13,
-    color: '#8A8FA3',
+  transactionAmount: {
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
+    fontVariant: ['tabular-nums'],
   },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: Spacing.micro,
-    gap: Spacing.micro,
-  },
-  paymentLabel: {
-    fontSize: FontSize.caption,
-    color: '#B0B4C0',
+  transactionTime: {
+    fontSize: 12,
+    fontFamily: FontFamily.medium,
+    marginTop: 3,
   },
 
   // Empty

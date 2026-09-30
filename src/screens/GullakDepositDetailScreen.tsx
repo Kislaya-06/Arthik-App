@@ -10,6 +10,7 @@ import { useTheme } from '../store/themeStore';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Trash2 } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
@@ -94,8 +95,10 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
       >
         {/* Amount Hero */}
         <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          <View style={[styles.heroIconWrap, { backgroundColor: colors.mintGreenSoft }]}>
-            <PiggyBankCoinIcon size={32} color={colors.mintGreenDark} />
+          <View style={{ marginBottom: Spacing.block }}>
+            <GradientIconBadge size={80} color="#ADEBB3" isDark={isDark}>
+              {({ iconColor }) => <PiggyBankCoinIcon size={38} color={iconColor} />}
+            </GradientIconBadge>
           </View>
           <View style={styles.currencyRow}>
             <Text style={[styles.currencySymbol, { color: colors.mintGreenDark }]}>₹</Text>

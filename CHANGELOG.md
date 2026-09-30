@@ -20,9 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Embedded Touchpoints:** Integrated badges directly in `BudgetEditModal` (header & proration preview), `DepositGullakModal` (source options & header), `ProfileScreen` (Budget Mode switch & pause confirmation modal), and `SavingsScreen` (Gullak title).
 - **Interactive Bottom Sheet Polish:** Upgraded `MoneyExplainerModal` with smooth Android scrolling responsiveness, tap-anywhere backdrop dismissal, and sleek diagonal 3-stop SVG gradients on badges.
 
-### 🎨 UI/UX Refinements (Insights Navigator & Notifications)
+### 🎨 UI/UX Refinements (Insights Navigator, Toggles & Visuals)
+- **Profile Screen Animated Toggles (`AnimatedToggle`):** Replaced standard OS switches with a custom compact rolling-ball toggle with smooth spring physics, internal ON/OFF state indicators, and signature mint green accents.
+- **Insights Screen Bouncy Pill Controls:** Upgraded Weekly / Monthly / Yearly filter tabs to the bouncy tactile pill component matching the Home screen design language.
+- **Spending Flow Chart Unified Gradients:** Upgraded weekly spending bars with a seamless vertical SVG linear gradient matching monthly charts with consistent opacity across all active days.
+- **Category Detail History Style & Gradient Cards:** Enhanced Category Detail screen hero card with dynamic category-tinted gradients and restyled transaction items into cohesive, premium history-style rows.
 - **Insights Period Navigator Date Range:** Cleaned up duplicate date labels in the Insights period navigator. Replaced the two stacked redundant labels with a single, elegant bold date range (e.g. `14 – 20 Sep 2026`) centered between navigation chevrons.
 - **Notifications Screen Spacing:** Added comfortable breathing room (`Spacing.row`, 14px) between circular notification type badges and notification text.
+- **GradientIconBadge Design Invariant:** Standardized all Gullak, Savings, and category icons across `YearlySavingsMilestoneCard` and `GullakDepositDetailScreen` to use `GradientIconBadge` with `#ADEBB3` and dynamic SVG theme fills, removing legacy flat circle containers. Documented as an invariant in `AGENTS.md` (Section 9.9).
+- **Cash Flow Chart Redesign:** Redesigned `CashFlowChart` to match the seamless Yearly Milestones pattern. Eliminated boxy `weekPod` background containers, unboxed the Executive Net Cash Flow summary, added an elegant 1px horizontal divider, and introduced subtle vertical gradients (`#C0EED0` → `#5EBF80` for Money In, `#FCD3CC` → `#E5735B` for Money Out) on animated dual pill bars while preserving compact proportions.
 
 ### 🚀 Budget Modes & Multi-Cadence Budget Engine (Pure Mode, Daily, Weekly, Monthly)
 

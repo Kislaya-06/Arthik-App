@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
 import {
   ThemeColors,
@@ -16,7 +17,7 @@ import {
   BorderRadius,
 } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
-import { calculatePillFillHeight, getSpendingFlowFillColor } from '../lib/chartUtils';
+import { calculatePillFillHeight } from '../lib/chartUtils';
 
 export interface SpendingDayData {
   day: string;
@@ -64,10 +65,10 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
   // Entrance animation whenever data / triggerKey changes
   useEffect(() => {
     animValue.setValue(0);
-    Animated.timing(animValue, {
+    Animated.spring(animValue, {
       toValue: 1,
-      duration: 450,
-      easing: Easing.out(Easing.cubic),
+      tension: 60,
+      friction: 8,
       useNativeDriver: false,
     }).start();
   }, [triggerKey]);
@@ -77,16 +78,11 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
     return Math.max(...data.map((d) => d.amount), 0);
   }, [data]);
 
+  const gradStart = isDark ? '#ADEBB3' : '#7CD49A';
+  const gradEnd = isDark ? '#3DA862' : '#2E8C4A';
+
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isDark ? colors.borderSubtle : colors.border,
-        },
-      ]}
-    >
+    <View style={styles.card}>
       {/* ── Card Header ── */}
       <View style={styles.headerRow}>
         <View style={styles.titleContainer}>
@@ -138,7 +134,6 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
       <View style={styles.chartContainer}>
         {data.map((d) => {
           const isPeak = maxDay?.day === d.day && d.amount > 0;
-          const ratio = maxAmount > 0 ? d.amount / maxAmount : 0;
           const targetHeight = calculatePillFillHeight(
             d.amount,
             maxAmount,
@@ -146,18 +141,10 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
             MIN_FILL_HEIGHT
           );
 
-          const animatedHeight = animValue.interpolate({
+          const animatedTranslateY = animValue.interpolate({
             inputRange: [0, 1],
-            outputRange: [0, targetHeight],
+            outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetHeight],
           });
-
-          const fillColor = getSpendingFlowFillColor(
-            ratio,
-            isPeak,
-            isDark,
-            colors.mintGreen,
-            colors.mintGreenDark
-          );
 
           return (
             <Pressable
@@ -180,18 +167,34 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
                   },
                 ]}
               >
-                {/* Inner animated fill pill */}
+                {/* Inner animated fill pill with SVG gradient mask */}
                 {d.amount > 0 ? (
                   <Animated.View
                     style={[
                       styles.fillBar,
                       {
                         width: trackWidth,
-                        height: animatedHeight,
-                        backgroundColor: fillColor,
+                        height: DEFAULT_TRACK_HEIGHT,
+                        transform: [{ translateY: animatedTranslateY }],
                       },
                     ]}
-                  />
+                  >
+                    <Svg width={trackWidth} height={DEFAULT_TRACK_HEIGHT}>
+                      <Defs>
+                        <LinearGradient id={`grad_${d.day}`} x1="0" y1="0" x2="0" y2="1">
+                          <Stop offset="0" stopColor={gradStart} />
+                          <Stop offset="1" stopColor={gradEnd} />
+                        </LinearGradient>
+                      </Defs>
+                      <Rect
+                        width={trackWidth}
+                        height={DEFAULT_TRACK_HEIGHT}
+                        rx={trackWidth / 2}
+                        ry={trackWidth / 2}
+                        fill={`url(#grad_${d.day})`}
+                      />
+                    </Svg>
+                  </Animated.View>
                 ) : null}
               </View>
 
@@ -235,9 +238,7 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.cardLarge,
-    padding: Spacing.surface,
-    borderWidth: 1,
+    paddingVertical: Spacing.surface,
     marginTop: Spacing.section,
   },
   headerRow: {
