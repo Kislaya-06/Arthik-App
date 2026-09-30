@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { useNotificationStore, AppNotification } from '../store/notificationStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
@@ -52,18 +53,18 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const getIcon = (type: AppNotification['type']) => {
+  const getIcon = (type: AppNotification['type'], iconColor = '#1A2B4C') => {
     switch (type) {
       case 'budget_exceeded':
-        return <AlertCircle size={20} color="#000000" strokeWidth={2.2} />;
+        return <AlertCircle size={20} color={iconColor} strokeWidth={2.2} />;
       case 'budget_warning':
-        return <AlertTriangle size={20} color="#000000" strokeWidth={2.2} />;
+        return <AlertTriangle size={20} color={iconColor} strokeWidth={2.2} />;
       case 'savings_rollover':
-        return <Sparkles size={20} color="#000000" strokeWidth={2.2} />;
+        return <Sparkles size={20} color={iconColor} strokeWidth={2.2} />;
       case 'daily_reminder':
-        return <Coins size={20} color="#000000" strokeWidth={2.2} />;
+        return <Coins size={20} color={iconColor} strokeWidth={2.2} />;
       default:
-        return <Bell size={20} color="#000000" strokeWidth={2.2} />;
+        return <Bell size={20} color={iconColor} strokeWidth={2.2} />;
     }
   };
 
@@ -186,9 +187,9 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.7}
                 onPress={() => handleNotificationPress(n)}
               >
-                <View style={[styles.notifIconWrap, { backgroundColor: getIconBg(n.type) }]}>
-                  {getIcon(n.type)}
-                </View>
+                <GradientIconBadge size={44} color={getIconBg(n.type)} isDark={isDark}>
+                  {({ iconColor }) => getIcon(n.type, iconColor)}
+                </GradientIconBadge>
 
                 <View style={styles.notifContent}>
                   <View style={styles.notifTitleRow}>

@@ -13,6 +13,7 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
 import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
@@ -85,9 +86,9 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
       onPress={() => onPress(item.id)}
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
-      <View style={[styles.iconContainer, { backgroundColor: categoryBgColor }]}>
-        <IconComp size={22} color="#000000" strokeWidth={2.2} />
-      </View>
+      <GradientIconBadge size={48} color={categoryBgColor} isDark={colors.isDark}>
+        {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
+      </GradientIconBadge>
       <View style={styles.transactionMiddle}>
         <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
           {mainTitle}
@@ -141,9 +142,9 @@ const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors })
       onPress={() => onPress(item.id)}
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
-      <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
-        <PiggyBankCoinIcon size={22} color="#000000" />
-      </View>
+      <GradientIconBadge size={48} color={iconBg} isDark={colors.isDark}>
+        {({ iconColor }) => <PiggyBankCoinIcon size={22} color={iconColor} />}
+      </GradientIconBadge>
       <View style={styles.transactionMiddle}>
         <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
           {mainTitle}
