@@ -25,3 +25,35 @@ export type TabParamList = {
   Savings: undefined;
   Insights: undefined;
 };
+
+// ─── Budget Modes & Cadence Types (Oct 2026) ─────────────────────────────────
+
+export type BudgetCadence = 'daily' | 'weekly' | 'monthly';
+
+export interface BudgetPlanChange {
+  id: string;
+  userId: string;
+  effectiveFrom: string; // 'yyyy-MM-dd'
+  isEnabled: boolean;
+  cadence: BudgetCadence;
+  amount: number;
+  createdAt?: string;
+}
+
+export type BudgetPeriodStatus = 'saved' | 'missed' | 'even' | 'unknown';
+
+export interface BudgetPeriodRecord {
+  id: string;
+  userId: string;
+  cadence: 'weekly' | 'monthly';
+  periodStart: string; // 'yyyy-MM-dd'
+  periodEnd: string;   // 'yyyy-MM-dd'
+  activeStart: string; // 'yyyy-MM-dd'
+  activeEnd: string;   // 'yyyy-MM-dd'
+  budgetAmount: number;
+  spentAmount: number;
+  amountSaved: number;
+  status: BudgetPeriodStatus;
+  isProrated: boolean;
+  createdAt?: string;
+}
