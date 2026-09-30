@@ -2,9 +2,18 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { format, subDays } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
 import { Expense } from './expenseStore';
 import { useNotificationStore } from './notificationStore';
+
+const getUserCreatedAtLocalDate = (createdAt?: string | null): string | undefined => {
+  if (!createdAt) return undefined;
+  try {
+    return format(parseISO(createdAt), 'yyyy-MM-dd');
+  } catch {
+    return createdAt.split('T')[0]?.trim();
+  }
+};
 
 let expenseGetter: (() => Expense[]) | null = null;
 export const registerExpenseGetter = (getter: () => Expense[]) => {
@@ -633,7 +642,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
         }
 
-        const userCreatedAtStr = currentUser?.created_at?.split('T')[0]?.trim();
+        const userCreatedAtStr = getUserCreatedAtLocalDate(currentUser?.created_at);
         const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
         // Only add gap-fill for days that already have an existing record OR have real expenses.
@@ -1033,7 +1042,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const records = { ...get().dailyRecords };
 
           const currentUser = useAuthStore.getState().user;
-          const userCreatedAtStr = currentUser?.created_at?.split('T')[0]?.trim();
+          const userCreatedAtStr = getUserCreatedAtLocalDate(currentUser?.created_at);
 
           // ------------------------------------------------------------------------------------
           // SELF-HEALING RECOVERY (Fix for OTA Update Bug where user budget was reset to 500)

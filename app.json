@@ -54,13 +54,13 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "Interactive Cash Flow & Insights 📊",
+        "title": "Insights & Timezone Alignment 📊",
         "highlights": [
-          "Interactive 4-week Cash Flow chart with executive Net Flow & In/Out breakdown",
-          "One-tap deep navigation from Weekly Cash Flow pods directly to History",
-          "Seamless History auto-scroll to exact transaction dates",
-          "Weekly Spending Flow and Yearly Gullak milestones visualization",
-          "Refined typography, circular action badges, and calibrated zero-state gauge indicators"
+          "Instant Insights data display across Weekly, Monthly, and Yearly for new users",
+          "Aligned with Indian Timezone (IST) for accurate local day boundaries",
+          "Strict Monday-to-Sunday weekly cycle and full calendar month (1st to 30/31st) tracking",
+          "Preserved mid-month onboarding view with seamless data aggregation",
+          "Full support for backdated expenses in spending analytics"
         ]
       }
     }
