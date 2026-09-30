@@ -21,6 +21,7 @@ import { format, parseISO, startOfWeek, startOfMonth, eachDayOfInterval } from '
 import { formatCurrency, round2 } from './formatters';
 import { DailyRecord } from './budgetCalculations';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
+import { isIncomeTransaction } from './transactionUtils';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
 
@@ -252,3 +253,81 @@ export function parseChipNumber(chipStr: string): ParsedChipNumber | null {
   const hasDecimals = match[2].includes('.');
   return { prefix, numericValue, suffix, hasDecimals };
 }
+
+/**
+ * Returns the filter-specific header title for Pure Mode (budget mode disabled).
+ * - Daily: "Spent Today"
+ * - Weekly: "This Week's Expense"
+ * - Monthly: "This Month's Expense"
+ * - All: "All-Time Expense"
+ */
+export const getPureHeroTitle = (activeFilter: string): string => {
+  switch (activeFilter) {
+    case 'Daily':
+      return 'Spent Today';
+    case 'Weekly':
+      return "This Week's Expense";
+    case 'Monthly':
+      return "This Month's Expense";
+    case 'All':
+      return 'All-Time Expense';
+    default:
+      return 'Expense';
+  }
+};
+
+export interface PureHeroMetrics {
+  title: string;
+  totalExpense: number;
+  inflow: number;
+  outflow: number;
+  net: number;
+}
+
+/**
+ * Calculates pure mode hero metrics: total expense (big number), inflow, outflow, and net cashflow.
+ */
+export const calculatePureHeroMetrics = (
+  activeFilter: string,
+  totalIncome: number,
+  totalSpent: number
+): PureHeroMetrics => {
+  const inflow = round2(Math.max(0, totalIncome));
+  const outflow = round2(Math.max(0, totalSpent));
+  const net = round2(inflow - outflow);
+  return {
+    title: getPureHeroTitle(activeFilter),
+    totalExpense: outflow,
+    inflow,
+    outflow,
+    net,
+  };
+};
+
+export interface ExpenseTotals {
+  totalIncome: number;
+  totalSpent: number;
+}
+
+/**
+ * Aggregates a list of expenses into totalIncome and totalSpent.
+ * Extracted from HomeScreen to resolve accumulation logic leakage (.scratch/home/issues/05).
+ */
+export const calculateExpenseTotals = (
+  expenses: Array<{ amount: number | string; category_id?: string | null; type?: string }>,
+  catMap: Record<string, { name?: string; is_income?: boolean } | undefined>
+): ExpenseTotals => {
+  let income = 0;
+  let spent = 0;
+  for (let i = 0; i < expenses.length; i++) {
+    const e = expenses[i];
+    const cat = e.category_id ? catMap[e.category_id] : undefined;
+    const isIncome = isIncomeTransaction(e, cat);
+    if (isIncome) income += Number(e.amount) || 0;
+    else spent += Number(e.amount) || 0;
+  }
+  return {
+    totalIncome: round2(income),
+    totalSpent: round2(spent),
+  };
+};

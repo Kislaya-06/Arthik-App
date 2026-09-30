@@ -24,7 +24,7 @@ import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { TelegramPullIndicator } from '../components/TelegramPullIndicator';
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
-import { calculatePeriodSummary, getExternalDepositsInPeriod } from '../lib/homeCalculations';
+import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals } from '../lib/homeCalculations';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -171,21 +171,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [expenses, activeFilter, referenceDate]
   );
 
-  const { totalIncome, totalSpent } = useMemo(() => {
-    let income = 0;
-    let spent = 0;
-    for (let i = 0; i < filtered.length; i++) {
-      const e = filtered[i];
-      const cat = e.category_id ? catMap[e.category_id] : undefined;
-      const isIncome = isIncomeTransaction(e, cat);
-      if (isIncome) income += Number(e.amount) || 0;
-      else spent += Number(e.amount) || 0;
-    }
-    return {
-      totalIncome: round2(income),
-      totalSpent: round2(spent),
-    };
-  }, [filtered, catMap]);
+  const { totalIncome, totalSpent } = useMemo(
+    () => calculateExpenseTotals(filtered, catMap),
+    [filtered, catMap]
+  );
 
   type UnifiedTxItem =
     | { kind: 'expense'; data: Expense; date: string; created_at: string }
@@ -397,6 +386,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             colors={colors}
             isDark={isDark}
             onNavigateSavings={() => navigation.navigate('Savings' as any)}
+            periodIncome={periodIncome}
           />
 
           {/* Recent Transactions Section Header (Sticky with Top Section) */}

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   formatCurrency,
+  formatCompactCurrency,
   formatAmountWithCommas,
   cleanAmountString,
   formatDate,
@@ -163,5 +164,45 @@ describe('formatDate', () => {
     // In Arthik, dates are stored as 'yyyy-MM-dd'.
     // parseISO('2025-07-15') ensures it parses at midnight local time, preventing day shift.
     expect(formatDate('2025-07-15')).toBe('15 Jul, 2025');
+  });
+});
+
+describe('formatCompactCurrency', () => {
+  it('formats zero as ₹0', () => {
+    expect(formatCompactCurrency(0)).toBe('₹0');
+    expect(formatCompactCurrency(0, { showPlus: true })).toBe('₹0');
+    expect(formatCompactCurrency(NaN)).toBe('₹0');
+  });
+
+  it('formats amounts under 1,000 as whole rupee amounts', () => {
+    expect(formatCompactCurrency(450)).toBe('₹450');
+    expect(formatCompactCurrency(450, { showPlus: true })).toBe('+₹450');
+    expect(formatCompactCurrency(-450)).toBe('−₹450');
+  });
+
+  it('formats thousands with k suffix and 1 decimal place', () => {
+    expect(formatCompactCurrency(5000)).toBe('₹5.0k');
+    expect(formatCompactCurrency(5000, { showPlus: true })).toBe('+₹5.0k');
+    expect(formatCompactCurrency(-2200)).toBe('−₹2.2k');
+    expect(formatCompactCurrency(2200)).toBe('₹2.2k');
+  });
+
+  it('supports trimTrailingZero option for clean whole numbers', () => {
+    expect(formatCompactCurrency(5000, { trimTrailingZero: true })).toBe('₹5k');
+    expect(formatCompactCurrency(5200, { trimTrailingZero: true })).toBe('₹5.2k');
+    expect(formatCompactCurrency(100000, { trimTrailingZero: true })).toBe('₹1L');
+  });
+
+  it('formats lakhs with L suffix', () => {
+    expect(formatCompactCurrency(100000)).toBe('₹1.0L');
+    expect(formatCompactCurrency(125000)).toBe('₹1.3L');
+    expect(formatCompactCurrency(125000, { showPlus: true })).toBe('+₹1.3L');
+    expect(formatCompactCurrency(-125000)).toBe('−₹1.3L');
+  });
+
+  it('formats crores with Cr suffix', () => {
+    expect(formatCompactCurrency(10000000)).toBe('₹1.0Cr');
+    expect(formatCompactCurrency(15000000, { showPlus: true })).toBe('+₹1.5Cr');
+    expect(formatCompactCurrency(-15000000)).toBe('−₹1.5Cr');
   });
 });

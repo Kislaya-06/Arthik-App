@@ -89,6 +89,17 @@ describe('BrandedHeroCard Concentric Circular Socket Geometry Engine', () => {
     // Cradle arc radius must exactly match Rcradle = 48
     expect(path).toContain(`A ${Rcradle},${Rcradle} 0 0 0`);
   });
+
+  it('correctly builds concentric cradle arc for 98px DualRingChart pod in Pure Mode', () => {
+    const podSize = 98;
+    const gap = 8;
+    const Rcradle = podSize / 2 + gap; // 49 + 8 = 57
+    const path = buildNotchedCardPath(360, 210, 24, podSize, gap);
+
+    expect(path).toBeTruthy();
+    expect(path).toContain(`A ${Rcradle},${Rcradle} 0 0 0`);
+    expect(path.endsWith('Z')).toBe(true);
+  });
 });
 
 import { parseChipNumber } from '../src/lib/homeCalculations';
@@ -157,5 +168,77 @@ describe('parseChipNumber parser engine', () => {
   it('safely returns null for empty or non-numeric chip', () => {
     expect(parseChipNumber('')).toBeNull();
     expect(parseChipNumber('No budget set')).toBeNull();
+  });
+});
+
+import {
+  getPureHeroTitle,
+  calculatePureHeroMetrics,
+  calculateExpenseTotals,
+} from '../src/lib/homeCalculations';
+
+describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () => {
+  describe('getPureHeroTitle', () => {
+    it('returns exact titles per spec for each filter', () => {
+      expect(getPureHeroTitle('Daily')).toBe('Spent Today');
+      expect(getPureHeroTitle('Weekly')).toBe("This Week's Expense");
+      expect(getPureHeroTitle('Monthly')).toBe("This Month's Expense");
+      expect(getPureHeroTitle('All')).toBe('All-Time Expense');
+      expect(getPureHeroTitle('Custom')).toBe('Expense');
+    });
+  });
+
+  describe('calculatePureHeroMetrics', () => {
+    it('correctly calculates metrics for Daily with positive net cash flow', () => {
+      const metrics = calculatePureHeroMetrics('Daily', 5000, 2200);
+      expect(metrics.title).toBe('Spent Today');
+      expect(metrics.totalExpense).toBe(2200);
+      expect(metrics.inflow).toBe(5000);
+      expect(metrics.outflow).toBe(2200);
+      expect(metrics.net).toBe(2800); // Inflow - Outflow
+    });
+
+    it('correctly calculates metrics for Weekly with negative net cash flow (deficit)', () => {
+      const metrics = calculatePureHeroMetrics('Weekly', 1000, 2500);
+      expect(metrics.title).toBe("This Week's Expense");
+      expect(metrics.totalExpense).toBe(2500);
+      expect(metrics.inflow).toBe(1000);
+      expect(metrics.outflow).toBe(2500);
+      expect(metrics.net).toBe(-1500);
+    });
+
+    it('correctly handles zero income and zero expense', () => {
+      const metrics = calculatePureHeroMetrics('Monthly', 0, 0);
+      expect(metrics.title).toBe("This Month's Expense");
+      expect(metrics.totalExpense).toBe(0);
+      expect(metrics.inflow).toBe(0);
+      expect(metrics.outflow).toBe(0);
+      expect(metrics.net).toBe(0);
+    });
+  });
+
+  describe('calculateExpenseTotals (.scratch/home/issues/05 characterization)', () => {
+    it('correctly splits and sums income and expense transactions', () => {
+      const expenses = [
+        { amount: 500, category_id: 'cat-food', type: 'expense' },
+        { amount: 2000, category_id: 'cat-salary', type: 'income' },
+        { amount: 150.5, category_id: 'cat-chai', type: 'expense' },
+      ];
+      const catMap = {
+        'cat-food': { name: 'Food', is_income: false },
+        'cat-salary': { name: 'Salary', is_income: true },
+        'cat-chai': { name: 'Snacks', is_income: false },
+      };
+
+      const result = calculateExpenseTotals(expenses, catMap);
+      expect(result.totalIncome).toBe(2000);
+      expect(result.totalSpent).toBe(650.5);
+    });
+
+    it('handles empty expense list safely', () => {
+      const result = calculateExpenseTotals([], {});
+      expect(result.totalIncome).toBe(0);
+      expect(result.totalSpent).toBe(0);
+    });
   });
 });
