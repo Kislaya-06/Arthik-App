@@ -162,7 +162,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
               { color: colors.textSecondary, fontFamily: FontFamily.medium },
             ]}
           >
-            Daily budget updates, remaining balance alerts, and savings rollover celebrations will appear here.
+            Budget updates, balance alerts, and savings celebrations will appear here.
           </Text>
         </View>
       ) : (
