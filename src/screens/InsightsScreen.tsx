@@ -280,6 +280,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings || 0);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
@@ -529,9 +530,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       currentInterval.end,
       Object.values(dailyRecords),
       gullakDeposits,
-      totalAccumulatedSavings
+      totalAccumulatedSavings,
+      Object.values(budgetPeriods)
     );
-  }, [period, currentInterval, dailyRecords, gullakDeposits, totalAccumulatedSavings]);
+  }, [period, currentInterval, dailyRecords, gullakDeposits, totalAccumulatedSavings, budgetPeriods]);
 
   const topPaymentData = useMemo(() => {
     const counts: Record<string, number> = {};

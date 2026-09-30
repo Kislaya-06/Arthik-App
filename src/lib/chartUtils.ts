@@ -815,7 +815,8 @@ export function computeYearlyGullakMilestones(
   yearEnd: Date,
   dailyRecords: Array<{ date: string; saved: number; status: string }>,
   gullakDeposits: Array<{ date: string; amount: number }>,
-  allTimeGullakSavings: number
+  allTimeGullakSavings: number,
+  budgetPeriods?: Array<{ activeStart: string; amountSaved: number; status: string }>
 ): YearlyGullakMetrics {
   const startStr = format(yearStart, 'yyyy-MM-dd');
   const endStr = format(yearEnd, 'yyyy-MM-dd');
@@ -841,6 +842,17 @@ export function computeYearlyGullakMilestones(
       monthSavings[m] = (monthSavings[m] || 0) + r.saved;
     } else {
       currentStreak = 0;
+    }
+  }
+
+  // Include weekly and monthly period savings
+  if (budgetPeriods && budgetPeriods.length > 0) {
+    for (const p of budgetPeriods) {
+      if (p.activeStart >= startStr && p.activeStart <= endStr && p.amountSaved > 0) {
+        rolloverSum += p.amountSaved;
+        const m = format(parseISO(p.activeStart), 'MMMM');
+        monthSavings[m] = (monthSavings[m] || 0) + p.amountSaved;
+      }
     }
   }
 

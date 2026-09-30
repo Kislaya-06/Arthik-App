@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Sparkles, AlertCircle, Coins, ChevronRight } from 'lucide-react-native';
 import { format, isYesterday, parseISO } from 'date-fns';
 
-import { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
+import { DailyRecord, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { formatCurrency } from '../lib/formatters';
@@ -12,6 +12,7 @@ import { FontFamily } from '../config/theme';
 export interface SavingsRecordRowProps {
   rec?: DailyRecord;
   deposit?: GullakDeposit;
+  period?: BudgetPeriodRecord;
   onPress?: () => void;
   onDeleteDeposit?: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
@@ -21,17 +22,39 @@ export interface SavingsRecordRowProps {
 const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   rec,
   deposit,
+  period,
   onPress,
   onDeleteDeposit,
   colors,
   isDark,
 }) => {
-  const isDeposit = !!deposit;
-  const isSaved = !isDeposit && !!rec && rec.saved > 0 && rec.status !== 'unknown';
-  const isExceeded = !isDeposit && !!rec && rec.status === 'exceeded';
-  const isUnknown = !isDeposit && !!rec && rec.status === 'unknown';
+  const isPeriod = !!period;
+  const isDeposit = !isPeriod && !!deposit;
+  const isSaved = isPeriod
+    ? (period.status === 'saved' || period.amountSaved > 0)
+    : !isDeposit && !!rec && rec.saved > 0 && rec.status !== 'unknown';
+  const isExceeded = isPeriod
+    ? period.status === 'missed'
+    : !isDeposit && !!rec && rec.status === 'exceeded';
+  const isUnknown = isPeriod
+    ? period.status === 'unknown'
+    : !isDeposit && !!rec && rec.status === 'unknown';
 
   const dateLabel = useMemo(() => {
+    if (isPeriod && period) {
+      try {
+        const startD = parseISO(period.activeStart || period.periodStart);
+        if (period.cadence === 'weekly') {
+          return `Week of ${format(startD, 'd MMM')}`;
+        }
+        if (period.cadence === 'monthly') {
+          return format(startD, 'MMMM yyyy');
+        }
+        return format(startD, 'd MMM yyyy');
+      } catch {
+        return period.periodStart;
+      }
+    }
     const rawDate = deposit?.date || rec?.date;
     if (!rawDate) return '';
     try {
@@ -42,7 +65,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     } catch {
       return rawDate;
     }
-  }, [rec?.date, deposit?.date, isDeposit]);
+  }, [isPeriod, period, rec?.date, deposit?.date, isDeposit]);
 
   const mainTitle = useMemo(() => {
     if (isDeposit) {
@@ -52,6 +75,9 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   }, [isDeposit, deposit, dateLabel]);
 
   const subtitle = useMemo(() => {
+    if (isPeriod && period) {
+      return `Spent ${formatCurrency(period.spentAmount)} of ${formatCurrency(period.budgetAmount)}`;
+    }
     if (isDeposit) {
       return `Manual Deposit · ${dateLabel}`;
     }
@@ -59,12 +85,45 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       return `Spent ${formatCurrency(rec!.spent)} (Budget untracked)`;
     }
     return `Spent ${formatCurrency(rec!.spent)} of ${formatCurrency(rec!.budget)}`;
-  }, [isDeposit, dateLabel, isUnknown, rec]);
+  }, [isPeriod, period, isDeposit, dateLabel, isUnknown, rec]);
 
   const incomeGreen = isDark ? colors.mintGreen : colors.mintGreenDark;
   const warningRed = isDark ? colors.peachCoral : '#DC2626';
 
   const { amountText, amountColor, statusText, statusColor } = useMemo(() => {
+    if (isPeriod && period) {
+      if (isSaved) {
+        return {
+          amountText: `+${formatCurrency(period.amountSaved)}`,
+          amountColor: incomeGreen,
+          statusText: 'Saved 🎉',
+          statusColor: incomeGreen,
+        };
+      }
+      if (isExceeded) {
+        const overAmount = period.spentAmount - period.budgetAmount;
+        return {
+          amountText: `−${formatCurrency(Math.max(0, overAmount))}`,
+          amountColor: warningRed,
+          statusText: 'Over budget',
+          statusColor: warningRed,
+        };
+      }
+      if (period.status === 'even') {
+        return {
+          amountText: '₹0',
+          amountColor: colors.textSecondary,
+          statusText: 'Budget met',
+          statusColor: colors.textMuted,
+        };
+      }
+      return {
+        amountText: '—',
+        amountColor: colors.textMuted,
+        statusText: 'Untracked',
+        statusColor: colors.textMuted,
+      };
+    }
     if (isDeposit) {
       return {
         amountText: `+${formatCurrency(deposit!.amount)}`,
@@ -104,7 +163,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       statusText: 'Exact budget',
       statusColor: colors.textMuted,
     };
-  }, [isDeposit, isSaved, isExceeded, isUnknown, deposit, rec, incomeGreen, warningRed, colors.textMuted, colors.textSecondary]);
+  }, [isPeriod, period, isDeposit, isSaved, isExceeded, isUnknown, deposit, rec, incomeGreen, warningRed, colors.textMuted, colors.textSecondary]);
 
   const iconBg = useMemo(() => {
     if (isDeposit || isSaved) {

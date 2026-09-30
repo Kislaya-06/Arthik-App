@@ -31,7 +31,7 @@ import { useTheme } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
-import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
+import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
@@ -84,6 +84,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
   const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
+  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
 
   const handleDeleteDeposit = useCallback((id: string, amount: number) => {
     Alert.alert(
@@ -107,6 +109,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
       date: dep.date,
       deposit: dep,
       dailyRecord: undefined,
+      period: undefined as BudgetPeriodRecord | undefined,
     }));
   }, [gullakDeposits]);
 
@@ -120,15 +123,32 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
       date: rec.date,
       dailyRecord: rec,
       deposit: undefined as GullakDeposit | undefined,
+      period: undefined as BudgetPeriodRecord | undefined,
     }));
+
+    const periodItems = Object.values(budgetPeriods)
+      .filter((p) => p.status === 'saved' || p.status === 'missed' || p.status === 'even' || p.amountSaved > 0)
+      .map((p) => ({
+        id: `period_${p.id || p.periodStart}`,
+        type: 'period' as const,
+        date: p.activeEnd || p.periodEnd || p.periodStart,
+        dailyRecord: undefined,
+        deposit: undefined as GullakDeposit | undefined,
+        period: p,
+      }));
 
     const matchingDeposits = depositItems.filter((d) => {
       if (activeFilter === 'All') return true;
       return isDateInPeriod(d.date, activeFilter === 'This Week' ? 'week' : 'month', new Date());
     });
 
-    return [...dailyItems, ...matchingDeposits].sort((a, b) => b.date.localeCompare(a.date));
-  }, [activeFilter, filteredRecords, depositItems]);
+    const matchingPeriods = periodItems.filter((p) => {
+      if (activeFilter === 'All') return true;
+      return isDateInPeriod(p.date, activeFilter === 'This Week' ? 'week' : 'month', new Date());
+    });
+
+    return [...dailyItems, ...matchingPeriods, ...matchingDeposits].sort((a, b) => b.date.localeCompare(a.date));
+  }, [activeFilter, filteredRecords, depositItems, budgetPeriods]);
 
   const [visibleRecordsCount, setVisibleRecordsCount] = useState(INITIAL_RECORDS_COUNT);
 
@@ -259,7 +279,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
               Savings & Gullak
             </Text>
             <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>
-              Daily Savings
+              {budgetCadence === 'weekly' ? 'Weekly Savings' : budgetCadence === 'monthly' ? 'Monthly Savings' : 'Daily Savings'}
             </Text>
           </View>
 
@@ -277,7 +297,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           >
             <StreakFlame streak={effectiveStreak} size={18} />
             <Text style={[styles.streakBadgeText, { color: '#E05638' }]}>
-              {effectiveStreak} Day Streak
+              {effectiveStreak} {budgetCadence === 'weekly' ? (effectiveStreak === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (effectiveStreak === 1 ? 'Month' : 'Months') : (effectiveStreak === 1 ? 'Day' : 'Days')} Streak
             </Text>
           </TouchableOpacity>
         </View>
@@ -300,7 +320,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                 Total Lifetime Savings
               </Text>
               <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
-                Your Daily Gullak
+                Your {budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily'} Gullak
               </Text>
             </View>
             <TouchableOpacity
@@ -325,7 +345,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             <Text style={[styles.heroHelperText, { color: isOverBudget ? colors.danger : colors.textSecondary }]}>
               {isOverBudget
                 ? `🚨 -${formatCurrency(overAmount)} deducted today from Gullak`
-                : 'Auto-saved from unspent daily allowance'}
+                : `Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
             </Text>
           </View>
 
@@ -348,7 +368,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   Best Streak
                 </Text>
                 <Text style={[styles.heroStatValue, { color: colors.textPrimary }]}>
-                  {effectiveBestStreak} {effectiveBestStreak === 1 ? 'Day' : 'Days'}
+                  {effectiveBestStreak} {budgetCadence === 'weekly' ? (effectiveBestStreak === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (effectiveBestStreak === 1 ? 'Month' : 'Months') : (effectiveBestStreak === 1 ? 'Day' : 'Days')}
                 </Text>
               </View>
             </View>
@@ -367,10 +387,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
               </View>
               <View style={styles.heroStatTextWrap}>
                 <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>
-                  Saved Days
+                  {budgetCadence === 'weekly' ? 'Saved Weeks' : budgetCadence === 'monthly' ? 'Saved Months' : 'Saved Days'}
                 </Text>
                 <Text style={[styles.heroStatValue, { color: colors.textPrimary }]}>
-                  {savedDaysCount} {savedDaysCount === 1 ? 'Day' : 'Days'}
+                  {savedDaysCount} {budgetCadence === 'weekly' ? (savedDaysCount === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (savedDaysCount === 1 ? 'Month' : 'Months') : (savedDaysCount === 1 ? 'Day' : 'Days')}
                 </Text>
               </View>
             </View>
@@ -428,10 +448,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           <View style={styles.todayHeader}>
             <View>
               <Text style={[styles.todayDateText, { color: colors.textSecondary }]}>
-                Today, {format(new Date(), 'd MMMM')}
+                {budgetCadence === 'weekly' ? 'This Week' : budgetCadence === 'monthly' ? 'This Month' : `Today, ${format(new Date(), 'd MMMM')}`}
               </Text>
               <Text style={[styles.todayTitleText, { color: colors.textPrimary }]}>
-                Today's Allowance
+                {budgetCadence === 'weekly' ? "This Week's Budget" : budgetCadence === 'monthly' ? "This Month's Budget" : "Today's Allowance"}
               </Text>
             </View>
 
@@ -540,8 +560,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             {isOverBudget
               ? `🚨 ${formatCurrency(overAmount)} deducted from your Gullak`
               : todayBudget > 0
-              ? `✨ Save ${formatCurrency(todaySaved)} if unspent today`
-              : 'Set a daily budget to start saving in Gullak'}
+              ? `✨ Save ${formatCurrency(todaySaved)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
+              : `Set a ${budgetCadence === 'weekly' ? 'weekly' : budgetCadence === 'monthly' ? 'monthly' : 'daily'} budget to start saving in Gullak`}
           </Text>
         </Animated.View>
         )}
@@ -561,7 +581,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             <View style={styles.settingsTitleRow}>
               <Settings size={20} color={colors.textPrimary} />
               <Text style={[styles.settingsTitle, { color: colors.textPrimary }]}>
-                Daily Budget Mode
+                {budgetCadence === 'weekly' ? 'Weekly Budget Mode' : budgetCadence === 'monthly' ? 'Monthly Budget Mode' : 'Daily Budget Mode'}
               </Text>
             </View>
 
@@ -575,10 +595,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
           <Text style={[styles.settingsDesc, { color: colors.textSecondary }]}>
             {isAutoRenew && dailyBudgetAmount > 0
-              ? 'Auto-adds daily allowance and saves unspent money to Gullak.'
+              ? `Auto-adds ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'} and saves unspent money to Gullak.`
               : isAutoRenew
-              ? 'Set your daily allowance below to start automatic budgeting.'
-              : 'Manual mode: Set your daily budget whenever you want.'}
+              ? `Set your ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'} below to start automatic budgeting.`
+              : `Manual mode: Set your ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily budget'} whenever you want.`}
           </Text>
 
           <TouchableOpacity
@@ -594,7 +614,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           >
             <View>
               <Text style={[styles.changeAmountSub, { color: colors.textSecondary }]}>
-                Default Daily Allowance
+                Default {budgetCadence === 'weekly' ? 'Weekly Budget' : budgetCadence === 'monthly' ? 'Monthly Budget' : 'Daily Allowance'}
               </Text>
               <View style={styles.currencyRow}>
                 {dailyBudgetAmount > 0 ? (
@@ -652,7 +672,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
         {/* ── Day-by-Day Savings History ── */}
         <View style={styles.historySectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Day-by-Day Savings History
+            {budgetCadence === 'weekly' ? 'Week-by-Week Savings History' : budgetCadence === 'monthly' ? 'Month-by-Month Savings History' : 'Day-by-Day Savings History'}
           </Text>
         </View>
 
@@ -697,7 +717,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               {activeFilter === 'Deposits'
                 ? 'Tap "Deposit to Gullak" above to add extra savings or cash directly into your jar.'
-                : 'At the end of each day, any unspent balance from your daily budget will automatically roll into your Savings Gullak and appear right here!'}
+                : `At the end of each ${budgetCadence === 'weekly' ? 'week' : budgetCadence === 'monthly' ? 'month' : 'day'}, any unspent balance from your budget will automatically roll into your Savings Gullak and appear right here!`}
             </Text>
           </View>
         ) : (
@@ -707,6 +727,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                 key={item.id}
                 rec={item.dailyRecord}
                 deposit={item.deposit}
+                period={item.period}
                 onPress={
                   item.deposit
                     ? () => navigation.navigate('GullakDepositDetail', { depositId: item.deposit!.id })

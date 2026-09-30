@@ -1,47 +1,118 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   Modal,
   TouchableOpacity,
   Alert,
   Animated,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
-import { X, Check } from 'lucide-react-native';
+import { X, Check, Clock } from 'lucide-react-native';
+import { format, parseISO, addDays } from 'date-fns';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
-import { formatAmountWithCommas, cleanAmountString, formatCurrency } from '../lib/formatters';
+import {
+  formatAmountWithCommas,
+  cleanAmountString,
+  formatCurrency,
+} from '../lib/formatters';
+import { applyKeypadPress } from '../lib/amountKeypad';
+import {
+  formatEffectiveFrom,
+  getProrationPreview,
+} from '../lib/budgetModeUtils';
+import { computeEffectiveFrom } from '../lib/budgetPeriods';
+import { BudgetCadence } from '../types';
+import { KeyButton } from './KeyButton';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 export interface BudgetEditModalProps {
   visible: boolean;
   mode?: 'recurring';
-  initialAmount: number;
+  initialAmount?: number;
+  initialCadence?: BudgetCadence;
   onClose: () => void;
 }
 
+const CADENCE_OPTIONS: Array<{ key: BudgetCadence; label: string; icon: string }> = [
+  { key: 'daily', label: 'Daily', icon: '☀️' },
+  { key: 'weekly', label: 'Weekly', icon: '📅' },
+  { key: 'monthly', label: 'Monthly', icon: '🗓' },
+];
+
+const KEYPAD_ROWS = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['.', '0', 'backspace'],
+];
+
 export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   visible,
-  initialAmount,
+  initialAmount = 0,
+  initialCadence,
   onClose,
 }) => {
-  const { colors } = useTheme();
-  const [inputBudget, setInputBudget] = useState('');
+  const { colors, isDark } = useTheme();
   const sheetAnim = useRef(new Animated.Value(0)).current;
 
+  // Store state
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
-  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
+  const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
+  const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
+  const pendingChange = useDailyBudgetStore((s) => s.getPendingPlanChange());
+
+  // Store actions
   const setDailyBudget = useDailyBudgetStore((s) => s.setDailyBudget);
   const scheduleNextDailyBudget = useDailyBudgetStore((s) => s.scheduleNextDailyBudget);
+  const setWeeklyBudget = useDailyBudgetStore((s) => s.setWeeklyBudget);
+  const setMonthlyBudget = useDailyBudgetStore((s) => s.setMonthlyBudget);
+  const setBudgetCadence = useDailyBudgetStore((s) => s.setBudgetCadence);
+  const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
+  const cancelPendingPlanChange = useDailyBudgetStore((s) => s.cancelPendingPlanChange);
 
-  // Sync internal input string whenever modal becomes visible or initialAmount changes
+  // Local form state
+  const [selectedCadence, setSelectedCadence] = useState<BudgetCadence>(
+    initialCadence || budgetCadence || 'daily'
+  );
+  const [amountStr, setAmountStr] = useState('');
+
+  // 3-Segment sliding pill animation
+  const cadenceIndex = CADENCE_OPTIONS.findIndex((c) => c.key === selectedCadence);
+  const slideAnim = useRef(new Animated.Value(cadenceIndex >= 0 ? cadenceIndex : 0)).current;
+  const [toggleWidth, setToggleWidth] = useState(0);
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: cadenceIndex >= 0 ? cadenceIndex : 0,
+      tension: 70,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [cadenceIndex, slideAnim]);
+
+  // Sync state on modal open
   useEffect(() => {
     if (visible) {
-      const rawVal = initialAmount > 0 ? String(initialAmount) : '';
-      setInputBudget(rawVal ? formatAmountWithCommas(rawVal) : '');
+      const activeCadence = initialCadence || budgetCadence || 'daily';
+      setSelectedCadence(activeCadence);
+
+      const defaultAmount =
+        initialAmount > 0
+          ? initialAmount
+          : activeCadence === 'weekly'
+          ? weeklyBudgetAmount
+          : activeCadence === 'monthly'
+          ? monthlyBudgetAmount
+          : dailyBudgetAmount;
+
+      setAmountStr(defaultAmount > 0 ? String(defaultAmount) : '');
       sheetAnim.setValue(0);
       Animated.spring(sheetAnim, {
         toValue: 1,
@@ -50,26 +121,114 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
         useNativeDriver: true,
       }).start();
     }
-  }, [visible, initialAmount, sheetAnim]);
+  }, [
+    visible,
+    initialAmount,
+    initialCadence,
+    budgetCadence,
+    dailyBudgetAmount,
+    weeklyBudgetAmount,
+    monthlyBudgetAmount,
+    sheetAnim,
+  ]);
+
+  // When cadence segment changes, prefill that cadence's existing configured budget
+  const handleSelectCadence = useCallback(
+    (newCadence: BudgetCadence) => {
+      setSelectedCadence(newCadence);
+      const existingForCadence =
+        newCadence === 'weekly'
+          ? weeklyBudgetAmount
+          : newCadence === 'monthly'
+          ? monthlyBudgetAmount
+          : dailyBudgetAmount;
+      if (existingForCadence > 0) {
+        setAmountStr(String(existingForCadence));
+      }
+    },
+    [dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount]
+  );
+
+  const handleKeyPress = useCallback((val: string) => {
+    setAmountStr((prev) =>
+      applyKeypadPress(prev, val, { maxIntegerDigits: 8, maxDecimals: 2 })
+    );
+  }, []);
+
+  const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [visible]);
+
+  // Compute effective date
+  const effectiveFromStr = useMemo(() => {
+    if (!isBudgetModeEnabled) {
+      return todayStr;
+    }
+    if (selectedCadence !== budgetCadence) {
+      return computeEffectiveFrom('cadence_switch', todayStr, { currentOwner: budgetCadence });
+    }
+    if (selectedCadence === 'daily') {
+      return format(addDays(parseISO(todayStr), 1), 'yyyy-MM-dd');
+    }
+    if (selectedCadence === 'weekly') {
+      return computeEffectiveFrom('weekly_amount', todayStr);
+    }
+    return computeEffectiveFrom('monthly_amount', todayStr);
+  }, [isBudgetModeEnabled, selectedCadence, budgetCadence, todayStr]);
+
+  const effectiveFromLabel = useMemo(() => {
+    return formatEffectiveFrom(effectiveFromStr, todayStr, selectedCadence, !isBudgetModeEnabled);
+  }, [effectiveFromStr, todayStr, selectedCadence, isBudgetModeEnabled]);
+
+  const evaluatedAmount = useMemo(() => {
+    const clean = cleanAmountString(amountStr);
+    const parsed = parseFloat(clean);
+    return isNaN(parsed) ? 0 : parsed;
+  }, [amountStr]);
+
+  // One-line proration preview (D4)
+  const prorationPreview = useMemo(() => {
+    if (evaluatedAmount <= 0) return null;
+    return getProrationPreview(selectedCadence, evaluatedAmount, effectiveFromStr, todayStr);
+  }, [selectedCadence, evaluatedAmount, effectiveFromStr, todayStr]);
 
   const handleSave = useCallback(() => {
-    const num = parseFloat(cleanAmountString(inputBudget));
-    if (isNaN(num) || num < 0) {
+    if (evaluatedAmount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a budget amount greater than ₹0.');
+      return;
+    }
+    if (evaluatedAmount > 100_000_000) {
+      Alert.alert('Limit Exceeded', 'Budget amount cannot exceed ₹10,00,00,000.');
+      return;
+    }
+
+    if (!isBudgetModeEnabled) {
+      // First enable: applies today
+      if (selectedCadence === 'daily') {
+        setDailyBudget(evaluatedAmount);
+      } else if (selectedCadence === 'weekly') {
+        setWeeklyBudget(evaluatedAmount);
+      } else {
+        setMonthlyBudget(evaluatedAmount);
+      }
+      setBudgetCadence(selectedCadence);
+      setBudgetModeEnabled(true);
       onClose();
       return;
     }
 
-    // If daily budget mode is ON and already configured, schedule for tomorrow
-    if (isAutoRenew && dailyBudgetAmount > 0 && num !== dailyBudgetAmount) {
+    // Already enabled: changing cadence
+    if (selectedCadence !== budgetCadence) {
       Alert.alert(
-        'Change Daily Budget?',
-        `Your new daily budget (${formatCurrency(num)}) will take effect tomorrow at 12:00 AM. Today's budget (${formatCurrency(dailyBudgetAmount)}) will remain active.\n\nDo you want to confirm?`,
+        'Switch Cadence?',
+        `Switching to ${selectedCadence.toUpperCase()} budget (${formatCurrency(evaluatedAmount)}) will take effect ${effectiveFromLabel}.\n\nDo you want to confirm?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Yes, Change',
+            text: 'Yes, Switch',
             onPress: () => {
-              scheduleNextDailyBudget(num);
+              if (selectedCadence === 'daily') setDailyBudget(evaluatedAmount);
+              else if (selectedCadence === 'weekly') setWeeklyBudget(evaluatedAmount);
+              else setMonthlyBudget(evaluatedAmount);
+              setBudgetCadence(selectedCadence);
               onClose();
             },
           },
@@ -78,18 +237,56 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       return;
     }
 
-    // Setting for the first time, when mode is OFF, or same amount
-    setDailyBudget(num);
+    // Same cadence: updating amount
+    if (selectedCadence === 'daily') {
+      if (dailyBudgetAmount > 0 && evaluatedAmount !== dailyBudgetAmount) {
+        Alert.alert(
+          'Change Daily Budget?',
+          `Your new daily budget (${formatCurrency(evaluatedAmount)}) will take effect tomorrow at 12:00 AM. Today's budget (${formatCurrency(dailyBudgetAmount)}) remains active.\n\nDo you want to confirm?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Yes, Change',
+              onPress: () => {
+                scheduleNextDailyBudget(evaluatedAmount);
+                onClose();
+              },
+            },
+          ]
+        );
+        return;
+      }
+      setDailyBudget(evaluatedAmount);
+    } else if (selectedCadence === 'weekly') {
+      setWeeklyBudget(evaluatedAmount);
+    } else {
+      setMonthlyBudget(evaluatedAmount);
+    }
     onClose();
-  }, [inputBudget, isAutoRenew, dailyBudgetAmount, setDailyBudget, scheduleNextDailyBudget, onClose]);
+  }, [
+    evaluatedAmount,
+    isBudgetModeEnabled,
+    selectedCadence,
+    budgetCadence,
+    dailyBudgetAmount,
+    effectiveFromLabel,
+    setDailyBudget,
+    setWeeklyBudget,
+    setMonthlyBudget,
+    setBudgetCadence,
+    setBudgetModeEnabled,
+    scheduleNextDailyBudget,
+    onClose,
+  ]);
+
+  const segmentWidth = toggleWidth > 0 ? (toggleWidth - 8) / 3 : 0;
+  const translateX = slideAnim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [0, segmentWidth, segmentWidth * 2],
+  });
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <Animated.View
           style={[
@@ -115,54 +312,205 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
             },
           ]}
         >
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              {dailyBudgetAmount > 0 ? 'Change Daily Budget' : 'Set Daily Budget'}
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                {isBudgetModeEnabled ? 'Change Budget Plan' : 'Set Smart Budget'}
+              </Text>
+              <TouchableOpacity onPress={onClose} hitSlop={10}>
+                <X size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Subtitle / Effective From Notice */}
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              {effectiveFromLabel}
             </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={10}>
-              <X size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
 
-          <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-            {dailyBudgetAmount > 0
-              ? 'New daily budget takes effect tomorrow at 12:00 AM. Today’s allowance remains active.'
-              : 'How much would you like to budget for daily spending?'}
-          </Text>
+            {/* Pending Plan Change Banner (if exists) */}
+            {pendingChange && (
+              <View
+                style={[
+                  styles.pendingBanner,
+                  {
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7',
+                    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#F59E0B',
+                  },
+                ]}
+              >
+                <Clock size={16} color="#D97706" style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.pendingBannerTitle, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                    Scheduled Change Pending
+                  </Text>
+                  <Text style={[styles.pendingBannerSubtitle, { color: isDark ? '#FDE68A' : '#78350F' }]}>
+                    {`${pendingChange.cadence.charAt(0).toUpperCase() + pendingChange.cadence.slice(1)} · ${formatCurrency(pendingChange.amount)} (${formatEffectiveFrom(pendingChange.effectiveFrom, todayStr, pendingChange.cadence)})`}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.cancelPendingBtn}
+                  onPress={() => {
+                    Alert.alert(
+                      'Cancel Scheduled Change?',
+                      'Do you want to discard this pending budget change?',
+                      [
+                        { text: 'Keep', style: 'cancel' },
+                        {
+                          text: 'Yes, Cancel',
+                          style: 'destructive',
+                          onPress: cancelPendingPlanChange,
+                        },
+                      ]
+                    );
+                  }}
+                  hitSlop={6}
+                >
+                  <Text style={styles.cancelPendingText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-          <View style={[styles.modalInputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-            <Text style={[styles.modalCurrencySign, { color: colors.textPrimary }]}>₹</Text>
-            <TextInput
-              style={[styles.modalTextInput, { color: colors.textPrimary }]}
-              keyboardType="numeric"
-              value={inputBudget}
-              onChangeText={(val) => setInputBudget(formatAmountWithCommas(val))}
-              placeholder="500"
-              placeholderTextColor={colors.textSecondary}
-              autoFocus
-            />
-          </View>
-
-          <View style={styles.modalActionRow}>
-            <TouchableOpacity
-              style={[styles.modalCancelBtn, { borderColor: colors.border }]}
-              onPress={onClose}
+            {/* 3-Segment Cadence Toggle (Bouncy pill) */}
+            <View
+              style={[
+                styles.cadenceToggleContainer,
+                {
+                  backgroundColor: isDark ? colors.cardSubtle : 'rgba(0, 0, 0, 0.04)',
+                  borderColor: colors.borderSubtle,
+                },
+              ]}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w > 0 && Math.abs(w - toggleWidth) > 1) {
+                  setToggleWidth(w);
+                }
+              }}
             >
-              <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
+              {segmentWidth > 0 && (
+                <Animated.View
+                  style={[
+                    styles.cadenceSlidingPill,
+                    {
+                      width: segmentWidth,
+                      backgroundColor: isDark ? colors.card : '#FFFFFF',
+                      transform: [{ translateX }],
+                    },
+                  ]}
+                />
+              )}
 
-            <TouchableOpacity
-              style={[styles.modalSaveBtn, { backgroundColor: colors.mintGreen }]}
-              onPress={handleSave}
+              {CADENCE_OPTIONS.map((opt) => {
+                const isSelected = selectedCadence === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={styles.cadenceSegment}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectCadence(opt.key)}
+                  >
+                    <Text
+                      style={[
+                        styles.cadenceSegmentText,
+                        {
+                          color: isSelected ? colors.textPrimary : colors.textSecondary,
+                          fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
+                        },
+                      ]}
+                    >
+                      {`${opt.icon} ${opt.label}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Prominent Amount Display Row */}
+            <View
+              style={[
+                styles.modalInputRow,
+                { backgroundColor: colors.inputBg, borderColor: colors.border },
+              ]}
             >
-              <Check size={18} color={colors.forestGreen} style={{ marginRight: 6 }} />
-              <Text style={[styles.modalSaveText, { color: colors.forestGreen }]}>
-                Save Budget
+              <Text style={[styles.modalCurrencySign, { color: colors.mintGreenDark }]}>₹</Text>
+              <Text
+                style={[
+                  styles.modalAmountDisplay,
+                  {
+                    color: amountStr ? colors.textPrimary : colors.textSecondary,
+                  },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {amountStr ? formatAmountWithCommas(amountStr) : '0'}
               </Text>
-            </TouchableOpacity>
-          </View>
+            </View>
+
+            {/* Proration Preview (One-liner if partial period created) */}
+            {prorationPreview && (
+              <View
+                style={[
+                  styles.prorationCard,
+                  {
+                    backgroundColor: colors.mintGreenSoft,
+                    borderColor: isDark ? 'rgba(184, 224, 200, 0.3)' : colors.mintGreen,
+                  },
+                ]}
+              >
+                <Text style={[styles.prorationText, { color: colors.forestGreen }]}>
+                  {`✨ ${prorationPreview.previewText}`}
+                </Text>
+              </View>
+            )}
+
+            {/* Tactile Keypad */}
+            <View style={styles.keypadContainer}>
+              {KEYPAD_ROWS.map((row, rIdx) => (
+                <View key={rIdx} style={styles.keypadRow}>
+                  {row.map((k) => (
+                    <View key={k} style={styles.keypadKeyWrapper}>
+                      <KeyButton
+                        item={k}
+                        onPress={handleKeyPress}
+                        height={46}
+                        fontSize={20}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>
+
+            {/* Actions: Cancel & Save */}
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
+                onPress={onClose}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveBtn,
+                  {
+                    backgroundColor: evaluatedAmount > 0 ? colors.mintGreen : colors.cardSubtle,
+                    opacity: evaluatedAmount > 0 ? 1 : 0.6,
+                  },
+                ]}
+                onPress={handleSave}
+                disabled={evaluatedAmount <= 0}
+              >
+                <Check size={18} color={colors.forestGreen} style={{ marginRight: 6 }} />
+                <Text style={[styles.modalSaveText, { color: colors.forestGreen }]}>
+                  Save Budget
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
@@ -172,22 +520,23 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.gutter,
   },
   modalContent: {
     width: '100%',
-    borderRadius: BorderRadius.card,
-    padding: 22,
+    maxHeight: '92%',
+    borderRadius: BorderRadius.cardLarge,
+    padding: 20,
     borderWidth: 1,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.element,
+    marginBottom: Spacing.nano,
   },
   modalTitle: {
     fontSize: FontSize.cta,
@@ -196,8 +545,68 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     fontSize: 13,
     fontFamily: FontFamily.medium,
-    marginBottom: 18,
+    marginBottom: Spacing.group,
     lineHeight: 18,
+  },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.input,
+    borderWidth: 1,
+    marginBottom: Spacing.group,
+  },
+  pendingBannerTitle: {
+    fontSize: 12,
+    fontFamily: FontFamily.bold,
+  },
+  pendingBannerSubtitle: {
+    fontSize: 11,
+    fontFamily: FontFamily.medium,
+    marginTop: 1,
+  },
+  cancelPendingBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    marginLeft: 8,
+  },
+  cancelPendingText: {
+    fontSize: 11,
+    fontFamily: FontFamily.bold,
+    color: '#DC2626',
+  },
+  cadenceToggleContainer: {
+    flexDirection: 'row',
+    borderRadius: BorderRadius.pill,
+    padding: 4,
+    borderWidth: 1,
+    position: 'relative',
+    marginBottom: Spacing.surface,
+  },
+  cadenceSlidingPill: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    bottom: 4,
+    borderRadius: BorderRadius.pill,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  cadenceSegment: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  cadenceSegmentText: {
+    fontSize: 13,
   },
   modalInputRow: {
     flexDirection: 'row',
@@ -205,18 +614,40 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.input,
     borderWidth: 1,
     paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.group,
-    marginBottom: Spacing.surface,
+    paddingVertical: Spacing.element,
+    marginBottom: Spacing.group,
   },
   modalCurrencySign: {
-    fontSize: 22,
+    fontSize: 26,
     fontFamily: FontFamily.bold,
     marginRight: 6,
   },
-  modalTextInput: {
+  modalAmountDisplay: {
     flex: 1,
-    fontSize: 22,
+    fontSize: 26,
     fontFamily: FontFamily.bold,
+  },
+  prorationCard: {
+    paddingHorizontal: Spacing.group,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.input,
+    borderWidth: 1,
+    marginBottom: Spacing.group,
+  },
+  prorationText: {
+    fontSize: 12,
+    fontFamily: FontFamily.semibold,
+  },
+  keypadContainer: {
+    marginBottom: Spacing.surface,
+    gap: 6,
+  },
+  keypadRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  keypadKeyWrapper: {
+    flex: 1,
   },
   modalActionRow: {
     flexDirection: 'row',

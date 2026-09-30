@@ -14,9 +14,11 @@ import { DonutChart } from './DonutChart';
 import { DualRingChart } from './DualRingChart';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
-import { formatCurrency, round2 } from '../lib/formatters';
+import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { parseChipNumber, calculatePureHeroMetrics } from '../lib/homeCalculations';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { PeriodSummaryInfo } from '../lib/budgetPeriods';
+import { formatCadenceRolloverStrip } from '../lib/budgetModeUtils';
 
 export type BrandedHeroCardProps = {
   primaryLabel: string;
@@ -35,6 +37,7 @@ export type BrandedHeroCardProps = {
   isDark: boolean;
   onNavigateSavings: () => void;
   periodIncome?: number;
+  cadencePeriodSummary?: PeriodSummaryInfo | null;
 };
 
 // Corner & layout geometry constants
@@ -110,6 +113,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   isDark,
   onNavigateSavings,
   periodIncome,
+  cadencePeriodSummary,
 }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: DEFAULT_WIDTH,
@@ -117,8 +121,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   });
 
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
+  const isCadenceMode = isBudgetModeEnabled && budgetCadence !== 'daily';
   const podSize = isBudgetModeEnabled ? POD_SIZE_BUDGET : POD_SIZE_PURE;
-  const showRollover = isBudgetModeEnabled && activeFilter === 'Daily' && todayBudget > 0;
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -145,6 +150,59 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     [activeFilter, pureInflow, periodSpent]
   );
 
+  // Cadence-aware primary values for D8:
+  const effectivePrimaryLabel = useMemo(() => {
+    if (!isBudgetModeEnabled) return pureMetrics.title;
+    if (isCadenceMode && cadencePeriodSummary) {
+      if (budgetCadence === 'weekly') {
+        return cadencePeriodSummary.isOver ? 'Over this week' : 'Left this week';
+      }
+      return cadencePeriodSummary.isOver ? 'Over this month' : 'Left this month';
+    }
+    return primaryLabel;
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, pureMetrics.title, primaryLabel]);
+
+  const effectivePrimaryAmount = useMemo(() => {
+    if (!isBudgetModeEnabled) return pureMetrics.totalRemaining;
+    if (isCadenceMode && cadencePeriodSummary) {
+      return cadencePeriodSummary.isOver ? cadencePeriodSummary.overBy : cadencePeriodSummary.remaining;
+    }
+    return primaryAmount;
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, pureMetrics.totalRemaining, primaryAmount]);
+
+  const effectiveIsOver = useMemo(() => {
+    if (!isBudgetModeEnabled) return pureMetrics.isDeficit;
+    if (isCadenceMode && cadencePeriodSummary) {
+      return cadencePeriodSummary.isOver;
+    }
+    return isOverBudgetPeriod;
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, pureMetrics.isDeficit, isOverBudgetPeriod]);
+
+  const effectiveSubtext = useMemo(() => {
+    if (!isBudgetModeEnabled) return null;
+    if (isCadenceMode && cadencePeriodSummary) {
+      return `Spent ₹${formatAmountWithCommas(String(cadencePeriodSummary.spent))} of ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}`;
+    }
+    return primarySubtext;
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, primarySubtext]);
+
+  const showRollover = useMemo(() => {
+    if (!isBudgetModeEnabled) return false;
+    if (isCadenceMode) {
+      return cadencePeriodSummary !== null && cadencePeriodSummary !== undefined && cadencePeriodSummary.budget > 0;
+    }
+    return activeFilter === 'Daily' && todayBudget > 0;
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, activeFilter, todayBudget]);
+
+  const rolloverStripText = useMemo(() => {
+    if (isCadenceMode && cadencePeriodSummary) {
+      return formatCadenceRolloverStrip(cadencePeriodSummary, budgetCadence);
+    }
+    return isOverBudget
+      ? `Over limit by ${formatCurrency(todayRecordSpent - todayBudget)} today`
+      : `${formatCurrency(todayRemaining)} rolls over to Gullak tonight`;
+  }, [isCadenceMode, cadencePeriodSummary, budgetCadence, isOverBudget, todayRecordSpent, todayBudget, todayRemaining]);
+
   // Curated Card Colors (Mint Green signature card)
   // Contrast: Dark Navy typography on Mint Green (#B8E0C8) provides 9.8:1 AAA contrast
   const mintBase = colors.mintGreen; // #B8E0C8
@@ -154,9 +212,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   // Split breakdown into distinct, atomic micro-chips for effortless scanning (Budget mode only)
   const subtextParts = useMemo(() => {
-    if (!primarySubtext) return [];
-    if (primarySubtext.includes(' + ')) {
-      return primarySubtext.split(' + ').map((part, index) => {
+    if (!effectiveSubtext) return [];
+    if (effectiveSubtext.includes(' + ')) {
+      return effectiveSubtext.split(' + ').map((part, index) => {
         const trimmed = part.trim();
         if (index > 0 && !trimmed.startsWith('+')) {
           return `+${trimmed}`;
@@ -164,8 +222,8 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         return trimmed;
       });
     }
-    return [primarySubtext.trim()];
-  }, [primarySubtext]);
+    return [effectiveSubtext.trim()];
+  }, [effectiveSubtext]);
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
@@ -208,7 +266,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       useNativeDriver: false,
     });
 
-    const targetPrimary = isBudgetModeEnabled ? primaryAmount : pureMetrics.totalRemaining;
+    const targetPrimary = isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining;
     const targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
     const targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
 
@@ -269,10 +327,10 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     };
   }, [
     activeFilter,
-    primaryAmount,
+    effectivePrimaryAmount,
     totalAvailable,
     periodSpent,
-    primarySubtext,
+    effectiveSubtext,
     countAnim,
     isBudgetModeEnabled,
     pureMetrics.totalExpense,

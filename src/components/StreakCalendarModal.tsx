@@ -10,15 +10,24 @@ import {
   TouchableWithoutFeedback,
   Animated,
   Easing,
+  ScrollView,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, X, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { format, isToday as checkIsToday, parseISO } from 'date-fns';
 import { useTheme } from '../store/themeStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';
+import { useExpenseStore } from '../store/expenseStore';
+import { useCategoryStore, Category } from '../store/categoryStore';
 import { supabase } from '../config/supabase';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
-import { formatCurrency } from '../lib/formatters';
+import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
+import { isIncomeTransaction } from '../lib/paymentUtils';
+import {
+  buildWeeklyStreakCards,
+  buildMonthlyStreakMatrix,
+  formatCadenceStreakLabel,
+} from '../lib/budgetModeUtils';
 import { StreakFlame } from './StreakFlame';
 
 interface StreakCalendarModalProps {
@@ -48,8 +57,14 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   const { colors, isDark } = useTheme();
   const savingsStreak = useDailyBudgetStore((s) => s.savingsStreak);
   const bestStreak = useDailyBudgetStore((s) => s.bestStreak);
+  const bestStreakByCadence = useDailyBudgetStore((s) => s.bestStreakByCadence);
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
+  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
+  const planChanges = useDailyBudgetStore((s) => s.planChanges);
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const currentUser = useAuthStore((s) => s.user);
+  const expenses = useExpenseStore((s) => s.expenses);
+  const categories = useCategoryStore((s) => s.categories);
 
   // Month viewing state
   const [viewingDate, setViewingDate] = useState<Date>(new Date());
@@ -95,17 +110,91 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
     }
   }, [activeTooltip, tooltipAnim]);
 
-  // Month navigation handlers
-  const handlePrevMonth = () => {
+  const catMap = useMemo(() => {
+    const m: Record<string, Category> = {};
+    for (const c of categories) m[c.id] = c;
+    return m;
+  }, [categories]);
+
+  const spentByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (let i = 0; i < expenses.length; i++) {
+      const e = expenses[i];
+      const cat = e.category_id ? catMap[e.category_id] : undefined;
+      if (isIncomeTransaction(e, cat)) continue;
+      const cleanDate = e.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      map[cleanDate] = (map[cleanDate] || 0) + (Number(e.amount) || 0);
+    }
+    return map;
+  }, [expenses, catMap]);
+
+  const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+
+  const weeklyCards = useMemo(() => {
+    if (budgetCadence !== 'weekly') return [];
+    return buildWeeklyStreakCards(planChanges, budgetPeriods, spentByDate, todayStr, 8);
+  }, [budgetCadence, planChanges, budgetPeriods, spentByDate, todayStr]);
+
+  const monthlyCells = useMemo(() => {
+    if (budgetCadence !== 'monthly') return [];
+    return buildMonthlyStreakMatrix(planChanges, budgetPeriods, spentByDate, todayStr, viewingYear);
+  }, [budgetCadence, planChanges, budgetPeriods, spentByDate, todayStr, viewingYear]);
+
+  const currentCadenceBest = bestStreakByCadence?.[budgetCadence] ?? bestStreak;
+  const streakPillUnit = budgetCadence === 'weekly' ? 'w' : budgetCadence === 'monthly' ? 'm' : 'd';
+
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulseAnim]);
+
+  const isCurrentYear = viewingYear >= now.getFullYear();
+
+  // Period navigation handlers
+  const handlePrevPeriod = () => {
     setActiveTooltip(null);
-    setViewingDate(new Date(viewingYear, viewingMonth - 1, 1));
+    if (budgetCadence === 'daily') {
+      setViewingDate(new Date(viewingYear, viewingMonth - 1, 1));
+    } else if (budgetCadence === 'monthly') {
+      setViewingDate(new Date(viewingYear - 1, 0, 1));
+    }
   };
 
-  const handleNextMonth = () => {
-    if (isCurrentMonth) return;
+  const handleNextPeriod = () => {
     setActiveTooltip(null);
-    setViewingDate(new Date(viewingYear, viewingMonth + 1, 1));
+    if (budgetCadence === 'daily') {
+      if (isCurrentMonth) return;
+      setViewingDate(new Date(viewingYear, viewingMonth + 1, 1));
+    } else if (budgetCadence === 'monthly') {
+      if (isCurrentYear) return;
+      setViewingDate(new Date(viewingYear + 1, 0, 1));
+    }
   };
+
+  const isNextDisabled =
+    budgetCadence === 'daily'
+      ? isCurrentMonth
+      : budgetCadence === 'monthly'
+      ? isCurrentYear
+      : true;
+
+  const periodNavTitle = useMemo(() => {
+    if (budgetCadence === 'daily') {
+      return format(viewingDate, 'MMMM yyyy');
+    }
+    if (budgetCadence === 'weekly') {
+      return 'Last 8 weeks';
+    }
+    return String(viewingYear);
+  }, [budgetCadence, viewingDate, viewingYear]);
 
   // Fetch or retrieve cached data for the current viewing month
   const loadMonthData = useCallback(async () => {
@@ -327,7 +416,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                       { color: colors.textSecondary },
                     ]}
                   >
-                    SAVINGS & STREAK
+                    SAVINGS & STREAK • BEST: {formatCadenceStreakLabel(currentCadenceBest, budgetCadence).toUpperCase()}
                   </Text>
                   <Text
                     style={[
@@ -352,7 +441,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   >
                     <StreakFlame streak={savingsStreak} size={15} />
                     <Text style={[styles.streakPillText, { color: '#E05638' }]}>
-                      {savingsStreak}d
+                      {savingsStreak}{streakPillUnit}
                     </Text>
                   </View>
 
@@ -372,21 +461,22 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                 </View>
               </View>
 
-              {/* Month Navigation Row */}
+              {/* Month / Period Navigation Row */}
               <View style={styles.monthNavRow}>
                 <Pressable
-                  onPress={handlePrevMonth}
+                  disabled={budgetCadence === 'weekly'}
+                  onPress={handlePrevPeriod}
                   hitSlop={8}
                   style={({ pressed }) => [
                     styles.navArrow,
                     {
                       backgroundColor: colors.cardSubtle,
                       borderColor: colors.borderSubtle,
-                      opacity: pressed ? 0.7 : 1,
+                      opacity: budgetCadence === 'weekly' ? 0.25 : pressed ? 0.7 : 1,
                     },
                   ]}
                 >
-                  <ChevronLeft size={18} color={colors.textPrimary} />
+                  <ChevronLeft size={18} color={budgetCadence === 'weekly' ? colors.textMuted : colors.textPrimary} />
                 </Pressable>
 
                 <View style={styles.monthLabelWrap}>
@@ -396,32 +486,34 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                       { color: colors.textPrimary },
                     ]}
                   >
-                    {format(viewingDate, 'MMMM yyyy')}
+                    {periodNavTitle}
                   </Text>
-                  {loading && (
+                  {loading && budgetCadence === 'daily' && (
                     <ActivityIndicator size="small" color={colors.mintGreenDark} style={{ marginLeft: 6 }} />
                   )}
                 </View>
 
                 <Pressable
-                  disabled={isCurrentMonth}
-                  onPress={handleNextMonth}
+                  disabled={isNextDisabled}
+                  onPress={handleNextPeriod}
                   hitSlop={8}
                   style={({ pressed }) => [
                     styles.navArrow,
                     {
                       backgroundColor: colors.cardSubtle,
                       borderColor: colors.borderSubtle,
-                      opacity: isCurrentMonth ? 0.3 : pressed ? 0.7 : 1,
+                      opacity: isNextDisabled ? 0.25 : pressed ? 0.7 : 1,
                     },
                   ]}
                 >
-                  <ChevronRight size={18} color={isCurrentMonth ? colors.textMuted : colors.textPrimary} />
+                  <ChevronRight size={18} color={isNextDisabled ? colors.textMuted : colors.textPrimary} />
                 </Pressable>
               </View>
 
-              {/* Days of Week Header */}
-              <View style={styles.daysOfWeekRow}>
+              {budgetCadence === 'daily' && (
+                <>
+                  {/* Days of Week Header */}
+                  <View style={styles.daysOfWeekRow}>
                 {DAYS_OF_WEEK.map((d, index) => (
                   <View key={index} style={styles.dayOfWeekCell}>
                     <Text
@@ -603,6 +695,256 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   </Text>
                 </View>
               </View>
+            </>
+          )}
+
+          {/* Weekly Cadence: Vertical Week Cards */}
+          {budgetCadence === 'weekly' && (
+            <>
+              <ScrollView
+                style={styles.weeklyScroll}
+                contentContainerStyle={styles.weeklyScrollContent}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled
+              >
+                {weeklyCards.map((card) => {
+                  const isSaved = card.status === 'saved' || card.status === 'on_track';
+                  const isMissed = card.status === 'missed' || card.status === 'over';
+                  const isPaused = card.status === 'paused';
+
+                  const badgeBg = isPaused
+                    ? isDark ? 'rgba(148, 163, 184, 0.15)' : '#F1F5F9'
+                    : isMissed
+                    ? isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2'
+                    : isSaved
+                    ? isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5'
+                    : isDark ? 'rgba(148, 163, 184, 0.1)' : '#F8FAFC';
+
+                  const badgeColor = isPaused
+                    ? colors.textMuted
+                    : isMissed
+                    ? '#EF4444'
+                    : isSaved
+                    ? colors.mintGreenDark
+                    : colors.textSecondary;
+
+                  return (
+                    <View
+                      key={card.key}
+                      style={[
+                        styles.weekCard,
+                        {
+                          backgroundColor: card.isCurrentWeek
+                            ? isDark ? 'rgba(16, 185, 129, 0.08)' : '#F0FDF4'
+                            : colors.cardSubtle,
+                          borderColor: card.isCurrentWeek
+                            ? colors.mintGreen
+                            : colors.borderSubtle,
+                        },
+                      ]}
+                    >
+                      <View style={styles.weekCardHeader}>
+                        <View style={styles.weekCardMeta}>
+                          <Text style={[styles.weekCardTitle, { color: colors.textPrimary }]}>
+                            {card.weekLabel}
+                          </Text>
+                          <Text style={[styles.weekCardSubtitle, { color: colors.textMuted }]}>
+                            {card.dateRange}
+                          </Text>
+                        </View>
+
+                        {card.isCurrentWeek ? (
+                          <Animated.View
+                            style={[
+                              styles.weekBadge,
+                              { backgroundColor: badgeBg, opacity: pulseAnim },
+                            ]}
+                          >
+                            <Text style={[styles.weekBadgeText, { color: badgeColor, fontFamily: FontFamily.bold }]}>
+                              {card.badgeText}
+                            </Text>
+                          </Animated.View>
+                        ) : (
+                          <View style={[styles.weekBadge, { backgroundColor: badgeBg }]}>
+                            <Text style={[styles.weekBadgeText, { color: badgeColor, fontFamily: FontFamily.semibold }]}>
+                              {card.badgeText}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Micro progress bar */}
+                      {!isPaused && card.budget > 0 && (
+                        <View style={styles.microProgressWrap}>
+                          <View style={[styles.microProgressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0' }]}>
+                            <View
+                              style={[
+                                styles.microProgressFill,
+                                {
+                                  width: `${Math.min(100, Math.round(card.progressRatio * 100))}%`,
+                                  backgroundColor: isMissed ? '#EF4444' : colors.mintGreen,
+                                },
+                              ]}
+                            />
+                          </View>
+                          <View style={styles.microProgressMeta}>
+                            <Text style={[styles.microProgressLabel, { color: colors.textMuted }]}>
+                              Spent {formatCurrency(card.spent)} of {formatCurrency(card.budget)}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Weekly Legend */}
+              <View style={[styles.legendRow, { borderTopColor: colors.borderSubtle }]}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#B8E0C8' }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                    On Track / Saved
+                  </Text>
+                </View>
+
+                <View style={styles.legendDivider} />
+
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#E08A8A' }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                    Over
+                  </Text>
+                </View>
+
+                <View style={styles.legendDivider} />
+
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.textMuted }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                    Paused
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Monthly Cadence: 12-Month Matrix */}
+          {budgetCadence === 'monthly' && (
+            <>
+              <View style={styles.monthlyGrid}>
+                {monthlyCells.map((cell) => {
+                  const isCurrent = cell.status === 'current';
+                  const isFuture = cell.status === 'future';
+                  const isPaused = cell.status === 'paused';
+                  const isSaved = cell.status === 'saved';
+                  const isMissed = cell.status === 'missed';
+
+                  return (
+                    <View
+                      key={cell.monthKey}
+                      style={[
+                        styles.monthCell,
+                        {
+                          backgroundColor: isCurrent
+                            ? isDark ? 'rgba(16, 185, 129, 0.08)' : '#F0FDF4'
+                            : colors.cardSubtle,
+                          borderColor: isCurrent
+                            ? colors.mintGreen
+                            : colors.borderSubtle,
+                          opacity: isFuture ? 0.35 : 1,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.monthCellName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                        {cell.monthName}
+                      </Text>
+
+                      {isSaved && (
+                        <View style={[styles.monthCellBadge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' }]}>
+                          <Text style={[styles.monthCellBadgeText, { color: colors.mintGreenDark }]}>
+                            +₹{cell.amountSaved >= 1000 ? `${(cell.amountSaved / 1000).toFixed(cell.amountSaved % 1000 === 0 ? 0 : 1)}k` : cell.amountSaved}
+                          </Text>
+                        </View>
+                      )}
+
+                      {isMissed && (
+                        <View style={[styles.monthCellBadge, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2' }]}>
+                          <Text style={[styles.monthCellBadgeText, { color: '#EF4444' }]}>
+                            Missed
+                          </Text>
+                        </View>
+                      )}
+
+                      {isPaused && (
+                        <Text style={[styles.monthCellPausedText, { color: colors.textMuted }]}>
+                          Paused
+                        </Text>
+                      )}
+
+                      {isCurrent && (
+                        <View style={styles.monthCellCurrentWrap}>
+                          <Text
+                            style={[
+                              styles.monthCellCurrentText,
+                              { color: cell.spent > cell.budget && cell.budget > 0 ? '#EF4444' : colors.mintGreenDark },
+                            ]}
+                          >
+                            {cell.badgeText}
+                          </Text>
+                          {cell.budget > 0 && (
+                            <View style={[styles.microProgressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0', height: 3, marginTop: 3 }]}>
+                              <View
+                                style={[
+                                  styles.microProgressFill,
+                                  {
+                                    width: `${Math.min(100, Math.round(cell.progressRatio * 100))}%`,
+                                    backgroundColor: cell.spent > cell.budget && cell.budget > 0 ? '#EF4444' : colors.mintGreen,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          )}
+                        </View>
+                      )}
+
+                      {(isFuture || cell.status === 'untracked') && (
+                        <Text style={[styles.monthCellFutureText, { color: colors.textMuted }]}>—</Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Monthly Legend */}
+              <View style={[styles.legendRow, { borderTopColor: colors.borderSubtle }]}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#B8E0C8' }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                    Saved / On Track
+                  </Text>
+                </View>
+
+                <View style={styles.legendDivider} />
+
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#E08A8A' }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                    Missed / Over
+                  </Text>
+                </View>
+
+                <View style={styles.legendDivider} />
+
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.textMuted }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                    Paused
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -799,5 +1141,111 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: BorderRadius.pill,
     backgroundColor: 'rgba(148, 163, 184, 0.4)',
+  },
+  weeklyScroll: {
+    maxHeight: 310,
+    marginBottom: Spacing.group,
+  },
+  weeklyScrollContent: {
+    gap: Spacing.element,
+    paddingVertical: 2,
+  },
+  weekCard: {
+    borderRadius: BorderRadius.card,
+    borderWidth: 1,
+    padding: Spacing.group,
+  },
+  weekCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weekCardMeta: {
+    flex: 1,
+    marginRight: Spacing.element,
+  },
+  weekCardTitle: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
+  },
+  weekCardSubtitle: {
+    fontSize: 11,
+    fontFamily: FontFamily.regular,
+    marginTop: 1,
+  },
+  weekBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.pill,
+  },
+  weekBadgeText: {
+    fontSize: 11,
+  },
+  microProgressWrap: {
+    marginTop: Spacing.element,
+  },
+  microProgressTrack: {
+    height: 5,
+    borderRadius: 2.5,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  microProgressFill: {
+    height: '100%',
+    borderRadius: 2.5,
+  },
+  microProgressMeta: {
+    marginTop: 3,
+  },
+  microProgressLabel: {
+    fontSize: 10,
+    fontFamily: FontFamily.medium,
+  },
+  monthlyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.group,
+  },
+  monthCell: {
+    width: '31%',
+    height: 68,
+    borderRadius: BorderRadius.input,
+    borderWidth: 1,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  monthCellName: {
+    fontSize: 13,
+  },
+  monthCellBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.pill,
+    marginTop: 3,
+  },
+  monthCellBadgeText: {
+    fontSize: 10,
+    fontFamily: FontFamily.bold,
+  },
+  monthCellPausedText: {
+    fontSize: 10,
+    fontFamily: FontFamily.regular,
+    marginTop: 4,
+  },
+  monthCellCurrentWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  monthCellCurrentText: {
+    fontSize: 10,
+    fontFamily: FontFamily.bold,
+  },
+  monthCellFutureText: {
+    fontSize: 12,
+    marginTop: 3,
   },
 });

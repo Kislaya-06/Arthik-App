@@ -95,6 +95,12 @@ import {
   BudgetPeriodRecord,
   BudgetPeriodStatus,
 } from '../types';
+export type {
+  BudgetCadence,
+  BudgetPlanChange,
+  BudgetPeriodRecord,
+  BudgetPeriodStatus,
+};
 import {
   computeEffectiveFrom,
   upsertPendingChange,
@@ -107,6 +113,7 @@ import {
   StreakUnit,
 } from '../lib/budgetPeriods';
 import { differenceInCalendarDays } from 'date-fns';
+import { formatEffectiveFrom } from '../lib/budgetModeUtils';
 
 export const getPendingSettingsKey = (userId: string) => `@arthik_pending_settings_${userId}`;
 export const getPendingGullakAddsKey = (userId: string) => `@arthik_pending_gullak_adds_${userId}`;
@@ -376,6 +383,7 @@ interface DailyBudgetState {
   setMonthlyBudget: (amount: number) => void;
   getPendingPlanChange: () => BudgetPlanChange | null;
   getEffectiveFromLabel: (change?: BudgetPlanChange | null) => string;
+  cancelPendingPlanChange: () => void;
   uploadPendingBudgetPeriods: () => Promise<void>;
   syncPendingPlanChanges: () => Promise<void>;
 }
@@ -962,17 +970,38 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const target = change || get().getPendingPlanChange();
         if (!target) return '';
         const todayStr = getTodayDateStr();
-        const d = parseISO(target.effectiveFrom);
-        const diff = differenceInCalendarDays(d, parseISO(todayStr));
-        if (diff === 0) return 'Effective Today';
-        if (diff === 1) return 'Effective Tomorrow';
-        if (target.cadence === 'weekly') {
-          return `Effective Monday (${format(d, 'd MMM')})`;
+        return formatEffectiveFrom(target.effectiveFrom, todayStr, target.cadence);
+      },
+
+      cancelPendingPlanChange: () => {
+        const todayStr = getTodayDateStr();
+        const pending = get().getPendingPlanChange();
+        if (!pending) return;
+
+        const remainingChanges = (get().planChanges || []).filter(
+          (c) => c.effectiveFrom <= todayStr
+        );
+        set({
+          planChanges: remainingChanges,
+          scheduledNextDailyBudget: null,
+          scheduledBudgetSetDate: null,
+        });
+
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          const key = getPendingPlanChangesKey(currentUser.id);
+          getStoredList<BudgetPlanChange>(key).then((list) => {
+            const updated = list.filter((c) => c.effectiveFrom <= todayStr);
+            setStoredList(key, updated);
+          });
+
+          supabase
+            .from('budget_plan_changes')
+            .delete()
+            .eq('user_id', currentUser.id)
+            .eq('effective_from', pending.effectiveFrom)
+            .then(() => {});
         }
-        if (target.cadence === 'monthly') {
-          return `Effective ${format(d, 'd MMM')}`;
-        }
-        return `Effective ${format(d, 'd MMM')}`;
       },
 
       uploadPendingBudgetPeriods: async () => {
