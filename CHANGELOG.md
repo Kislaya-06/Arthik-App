@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 💰 Historical Active Budget Inflow Preservation in Pure Mode
+
+- **Real Inflow Accounting When Budget Mode is Turned OFF:** Past daily budget allowances (e.g. ₹250/day or ₹500/day funded into the user's spending pool while Budget Mode was active) are now strictly preserved in all-time, monthly, and weekly Inflow in Pure Mode. Turning off Budget Mode pauses future daily allowances from today onwards without deleting the real funds the user deposited and allocated during active past days.
+- **Accurate Pure Mode Cash Flow & Dual Concentric Rings:** Updated `BrandedHeroCard` and `calculatePeriodSummary` so Pure Mode Hero metrics (Inflow, Outflow, Net, and DualRingChart) reflect the full lifetime and period cash pool (`Historical Active Budget Allowances + Transaction Income + External Deposits`), accurately projecting savings and spending percentage without cash dropouts.
+
+
 ### 🐛 Insights Data & Indian Timezone Alignment
 
 - **Instant Insights Display for New Users:** Fixed an issue where new users saw empty weekly, monthly, and yearly analytics after spending money due to restrictive `user.created_at` timestamp filtering and UTC offset skew.

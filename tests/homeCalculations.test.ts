@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePeriodSummary, PeriodCalculationParams, getExternalDepositsInPeriod } from '../src/lib/homeCalculations';
+import { format, parseISO, subDays } from 'date-fns';
+import {
+  calculatePeriodSummary,
+  PeriodCalculationParams,
+  getExternalDepositsInPeriod,
+  calculatePureHeroMetrics,
+} from '../src/lib/homeCalculations';
 import { DailyRecord } from '../src/lib/budgetCalculations';
 
 describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
@@ -461,4 +467,145 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(allSum).toBe(2400);
     });
   });
+
+  describe('Historical Active Budget Allowance Preservation (Mixed Mode)', () => {
+    it('preserves past 15 days of active ₹250 allowance when Budget Mode is turned OFF on Day 16', () => {
+      // 15 days: 2026-09-01 to 2026-09-15 had active daily records with budget: 250
+      const dailyRecords: Record<string, any> = {};
+      for (let day = 1; day <= 15; day++) {
+        const dStr = `2026-09-${String(day).padStart(2, '0')}`;
+        dailyRecords[dStr] = {
+          date: dStr,
+          budget: 250,
+          spent: 100,
+          saved: 150,
+          isFinalized: true,
+          status: 'saved',
+        };
+      }
+
+      // Day 16 (Today): User toggles Budget Mode OFF (isAutoRenew: false, todayBudget: 0)
+      const refDate = parseISO('2026-09-16');
+      const monthlyResult = calculatePeriodSummary({
+        activeFilter: 'Monthly',
+        dailyBudgetAmount: 250,
+        isAutoRenew: false, // Mode is OFF
+        todayBudget: 0,     // Today has no budget allowance
+        dailyRecords,
+        totalIncome: 500,   // ₹500 transaction income
+        totalSpent: 1600,   // Total spent across the month so far
+        filtered: [{ expense_date: '2026-09-01' }],
+        userCreatedAtStr: '2026-09-01',
+        referenceDate: refDate,
+      });
+
+      // 15 days * ₹250 = ₹3,750 historical funded allowance + ₹500 transaction income = ₹4,250
+      expect(monthlyResult.totalAvailable).toBe(4250);
+      expect(monthlyResult.displaySpent).toBe(1600);
+      expect(monthlyResult.periodSpent).toBe(1600);
+
+      // On Daily filter for Day 16 (Today), mode is OFF so today allowance is 0
+      const dailyResult = calculatePeriodSummary({
+        activeFilter: 'Daily',
+        dailyBudgetAmount: 250,
+        isAutoRenew: false, // Mode is OFF
+        todayBudget: 0,
+        dailyRecords,
+        totalIncome: 100,   // ₹100 income today
+        totalSpent: 50,     // ₹50 spent today
+        filtered: [{ expense_date: '2026-09-16' }],
+        userCreatedAtStr: '2026-09-01',
+        referenceDate: refDate,
+      });
+
+      // Daily Inflow today is only today's income (₹100), no daily budget allowance for today
+      expect(dailyResult.totalAvailable).toBe(100);
+      expect(dailyResult.displaySpent).toBe(50);
+    });
+
+    it('preserves ₹20,000 active budget pool on All filter when mode is OFF (Screenshot 2 scenario)', () => {
+      // 40 days of ₹500 budget = ₹20,000
+      const dailyRecords: Record<string, any> = {};
+      for (let day = 1; day <= 40; day++) {
+        const d = format(subDays(parseISO('2026-09-30'), day), 'yyyy-MM-dd');
+        dailyRecords[d] = {
+          date: d,
+          budget: 500,
+          spent: 50,
+          saved: 450,
+          isFinalized: true,
+          status: 'saved',
+        };
+      }
+
+      // Mode is OFF today (2026-09-30)
+      const refDate = parseISO('2026-09-30');
+      const allResult = calculatePeriodSummary({
+        activeFilter: 'All',
+        dailyBudgetAmount: 500,
+        isAutoRenew: false, // Mode is OFF
+        todayBudget: 0,
+        dailyRecords,
+        totalIncome: 2823.8, // User's transaction income
+        totalSpent: 2204,    // User's expense
+        filtered: [{ expense_date: '2026-08-20' }],
+        userCreatedAtStr: '2026-08-20',
+        referenceDate: refDate,
+      });
+
+      // Total Available (Inflow) MUST include the ₹20,000 funded in real life + ₹2,823.8 income
+      expect(allResult.totalAvailable).toBe(22823.8);
+      expect(allResult.periodSpent).toBe(2204);
+
+      // Verify Pure Hero Metrics projection
+      const pureMetrics = calculatePureHeroMetrics('All', allResult.totalAvailable, allResult.periodSpent);
+      expect(pureMetrics.title).toBe('All-Time Expense');
+      expect(pureMetrics.totalExpense).toBe(2204);
+      expect(pureMetrics.inflow).toBe(22823.8);
+      expect(pureMetrics.outflow).toBe(2204);
+      expect(pureMetrics.net).toBe(20619.8);
+    });
+
+    it('accumulates historical budget from planChanges when past days have no explicit dailyRecords', () => {
+      // Plan was active daily ₹300 from 2026-09-01, disabled on 2026-09-11
+      const planChanges: any[] = [
+        {
+          id: 'p1',
+          cadence: 'daily',
+          amount: 300,
+          isEnabled: true,
+          effectiveFrom: '2026-09-01',
+          createdAt: '2026-09-01T00:00:00Z',
+        },
+        {
+          id: 'p2',
+          cadence: 'daily',
+          amount: 300,
+          isEnabled: false, // disabled
+          effectiveFrom: '2026-09-11',
+          createdAt: '2026-09-11T00:00:00Z',
+        },
+      ];
+
+      const refDate = parseISO('2026-09-15');
+      const result = calculatePeriodSummary({
+        activeFilter: 'Monthly',
+        dailyBudgetAmount: 300,
+        isAutoRenew: false,
+        todayBudget: 0,
+        dailyRecords: {}, // No stored records
+        totalIncome: 0,
+        totalSpent: 500,
+        filtered: [],
+        userCreatedAtStr: '2026-09-01',
+        referenceDate: refDate,
+        planChanges,
+      });
+
+      // 10 active days (Sept 1 to Sept 10) * ₹300 = ₹3,000. Sept 11-15 are disabled (0).
+      expect(result.totalAvailable).toBe(3000);
+      expect(result.periodSpent).toBe(500);
+    });
+  });
 });
+

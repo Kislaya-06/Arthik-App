@@ -100,6 +100,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const planChanges = useDailyBudgetStore((s) => s.planChanges);
 
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
@@ -260,8 +261,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         userCreatedAtStr,
         referenceDate,
         externalDepositsInPeriod,
+        planChanges,
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges]
   );
 
   // Date range label shown below filter pills for quick orientation
@@ -386,7 +388,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             colors={colors}
             isDark={isDark}
             onNavigateSavings={() => navigation.navigate('Savings' as any)}
-            periodIncome={periodIncome}
           />
 
           {/* Recent Transactions Section Header (Sticky with Top Section) */}

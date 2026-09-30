@@ -137,8 +137,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     return buildNotchedCardPath(dimensions.width, h, CORNER_RADIUS, podSize, GAP);
   }, [dimensions.width, dimensions.height, podSize]);
 
-  // Pure mode calculation from pure domain function
-  const pureInflow = periodIncome !== undefined ? periodIncome : totalAvailable;
+  // In Pure Mode, inflow represents all funds deposited/received into the account during this period:
+  // (Historical active daily budget allowances + Transaction Income + External deposits)
+  const pureInflow = totalAvailable;
   const pureMetrics = useMemo(
     () => calculatePureHeroMetrics(activeFilter, pureInflow, periodSpent),
     [activeFilter, pureInflow, periodSpent]

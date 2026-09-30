@@ -22,6 +22,8 @@ import { formatCurrency, round2 } from './formatters';
 import { DailyRecord } from './budgetCalculations';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { isIncomeTransaction } from './transactionUtils';
+import { resolvePlanForDate } from './budgetPeriods';
+import { BudgetPlanChange } from '../types';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
 
@@ -64,6 +66,7 @@ export interface PeriodCalculationParams {
   userCreatedAtStr?: string;
   referenceDate: Date;
   externalDepositsInPeriod?: number;
+  planChanges?: BudgetPlanChange[];
 }
 
 export interface PeriodSummary {
@@ -100,6 +103,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     userCreatedAtStr,
     referenceDate,
     externalDepositsInPeriod = 0,
+    planChanges,
   } = params;
 
   const isBudgetConfigured = isAutoRenew && dailyBudgetAmount > 0;
@@ -145,6 +149,11 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       const cleanD = d.split('T')[0]?.trim();
       if (cleanD) candidateDates.push(cleanD);
     });
+    if (planChanges && planChanges.length > 0) {
+      planChanges.forEach((c) => {
+        if (c.effectiveFrom) candidateDates.push(c.effectiveFrom);
+      });
+    }
     candidateDates.sort();
     const earliestDateStr = candidateDates[0];
     const startDate = parseISO(earliestDateStr);
@@ -162,6 +171,12 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     } else if (dailyRecords[d]) {
       if (dailyRecords[d].status !== 'unknown') {
         periodBudget += Number(dailyRecords[d].budget) || 0;
+      }
+    } else if (planChanges && planChanges.length > 0) {
+      // Past day in the period governed by plan changes
+      const plan = resolvePlanForDate(planChanges, d);
+      if (plan && plan.isEnabled && plan.cadence === 'daily') {
+        periodBudget += Number(plan.amount) || 0;
       }
     } else {
       // Past day in the period where no record was stored
@@ -289,10 +304,10 @@ export interface PureHeroMetrics {
  */
 export const calculatePureHeroMetrics = (
   activeFilter: string,
-  totalIncome: number,
+  totalInflow: number,
   totalSpent: number
 ): PureHeroMetrics => {
-  const inflow = round2(Math.max(0, totalIncome));
+  const inflow = round2(Math.max(0, totalInflow));
   const outflow = round2(Math.max(0, totalSpent));
   const net = round2(inflow - outflow);
   return {
