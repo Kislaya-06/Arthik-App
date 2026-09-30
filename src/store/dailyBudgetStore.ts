@@ -89,13 +89,43 @@ const getUserCreatedAtStr = (): string | undefined =>
   useAuthStore.getState().user?.created_at?.split('T')[0]?.trim();
 
 
+import {
+  BudgetCadence,
+  BudgetPlanChange,
+  BudgetPeriodRecord,
+  BudgetPeriodStatus,
+} from '../types';
+import {
+  computeEffectiveFrom,
+  upsertPendingChange,
+  resolvePlanForDate,
+  getDateOwner,
+  buildPeriodsToFinalize,
+  getCurrentPeriodSummary,
+  isDailyGovernedDate,
+  computeCadenceStreak,
+  StreakUnit,
+} from '../lib/budgetPeriods';
+import { differenceInCalendarDays } from 'date-fns';
+
 export const getPendingSettingsKey = (userId: string) => `@arthik_pending_settings_${userId}`;
 export const getPendingGullakAddsKey = (userId: string) => `@arthik_pending_gullak_adds_${userId}`;
 export const getPendingGullakDeletesKey = (userId: string) => `@arthik_pending_gullak_deletes_${userId}`;
+export const getPendingPlanChangesKey = (userId: string) => `@arthik_pending_plan_changes_${userId}`;
+export const getPendingBudgetPeriodsKey = (userId: string) => `@arthik_pending_budget_periods_${userId}`;
+
+export interface ProfileSettingsPatch {
+  daily_budget?: number;
+  is_auto_renew?: boolean;
+  is_budget_mode_enabled?: boolean;
+  budget_cadence?: string;
+  weekly_budget?: number;
+  monthly_budget?: number;
+}
 
 export const savePendingSettingsOffline = async (
   userId: string,
-  patch: { daily_budget?: number; is_auto_renew?: boolean }
+  patch: ProfileSettingsPatch
 ) => {
   try {
     const key = getPendingSettingsKey(userId);
@@ -110,7 +140,7 @@ export const savePendingSettingsOffline = async (
 
 export const clearPendingSettingsOffline = async (
   userId: string,
-  keysToClear?: ('daily_budget' | 'is_auto_renew')[]
+  keysToClear?: (keyof ProfileSettingsPatch)[]
 ) => {
   try {
     const key = getPendingSettingsKey(userId);
@@ -130,6 +160,26 @@ export const clearPendingSettingsOffline = async (
   } catch (e) {
     if (__DEV__) console.log('Error clearing pending settings offline:', e);
   }
+};
+
+export const savePendingPlanChangeOffline = async (
+  userId: string,
+  change: BudgetPlanChange
+): Promise<void> => {
+  const key = getPendingPlanChangesKey(userId);
+  const list = await getStoredList<BudgetPlanChange>(key);
+  const filtered = list.filter((c) => c.effectiveFrom !== change.effectiveFrom);
+  await setStoredList(key, [...filtered, change]);
+};
+
+export const savePendingBudgetPeriodOffline = async (
+  userId: string,
+  period: BudgetPeriodRecord
+): Promise<void> => {
+  const key = getPendingBudgetPeriodsKey(userId);
+  const list = await getStoredList<BudgetPeriodRecord>(key);
+  const filtered = list.filter((p) => p.id !== period.id);
+  await setStoredList(key, [...filtered, period]);
 };
 
 export type GullakDepositSource = 'income' | 'external';
@@ -178,16 +228,96 @@ const savePendingGullakDelete = async (userId: string, depositId: string): Promi
 const computeMetrics = (
   records: Record<string, DailyRecord>,
   deposits?: GullakDeposit[],
-  userCreatedAt?: string
+  userCreatedAt?: string,
+  budgetPeriods?: Record<string, BudgetPeriodRecord>,
+  currentCadence: BudgetCadence = 'daily',
+  existingBestStreakByCadence?: Record<BudgetCadence, number>
 ) => {
-  const manual = deposits && Array.isArray(deposits) ? deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0) : 0;
-  return calculateSavingsMetrics(
+  const manual =
+    deposits && Array.isArray(deposits)
+      ? deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0)
+      : 0;
+
+  const dailyMetrics = calculateSavingsMetrics(
     records,
     getTodayDateStr(),
     userCreatedAt ?? getUserCreatedAtStr(),
     new Date(),
     manual
   );
+
+  let periodsSaved = 0;
+  const periodsList = budgetPeriods ? Object.values(budgetPeriods) : [];
+  for (const p of periodsList) {
+    periodsSaved += Number(p.amountSaved) || 0;
+  }
+  periodsSaved = round2(periodsSaved);
+
+  const totalAccumulatedSavings = round2(dailyMetrics.totalAccumulatedSavings + periodsSaved);
+
+  const todayStr = getTodayDateStr();
+  const uCreatedAt = userCreatedAt ?? getUserCreatedAtStr();
+
+  const units: StreakUnit[] = [];
+
+  const dailyList = Object.values(records)
+    .filter((r) => r.isFinalized && r.date < todayStr && (!uCreatedAt || r.date >= uCreatedAt))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  for (const r of dailyList) {
+    const status: BudgetPeriodStatus =
+      r.status === 'saved'
+        ? 'saved'
+        : r.status === 'exceeded'
+        ? 'missed'
+        : r.status === 'even'
+        ? 'even'
+        : 'unknown';
+    units.push({
+      cadence: 'daily',
+      status,
+      key: `daily_${r.date}`,
+      date: r.date,
+      amountSaved: r.saved,
+    });
+  }
+
+  for (const p of periodsList) {
+    units.push({
+      cadence: p.cadence,
+      status: p.status,
+      key: p.id,
+      date: p.activeStart,
+      amountSaved: p.amountSaved,
+    });
+  }
+
+  units.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  const { currentStreak, bestByCadence } = computeCadenceStreak(units, currentCadence);
+
+  const mergedBestByCadence: Record<BudgetCadence, number> = {
+    daily: Math.max(bestByCadence.daily, existingBestStreakByCadence?.daily || 0, dailyMetrics.bestStreak),
+    weekly: Math.max(bestByCadence.weekly, existingBestStreakByCadence?.weekly || 0),
+    monthly: Math.max(bestByCadence.monthly, existingBestStreakByCadence?.monthly || 0),
+  };
+
+  const savingsStreak =
+    currentCadence === 'daily' && periodsList.length === 0
+      ? dailyMetrics.savingsStreak
+      : currentStreak;
+
+  const bestStreak =
+    currentCadence === 'daily' && periodsList.length === 0
+      ? dailyMetrics.bestStreak
+      : mergedBestByCadence[currentCadence];
+
+  return {
+    totalAccumulatedSavings,
+    savingsStreak,
+    bestStreak,
+    bestStreakByCadence: mergedBestByCadence,
+  };
 };
 
 interface DailyBudgetState {
@@ -210,6 +340,18 @@ interface DailyBudgetState {
   scheduledNextDailyBudget: number | null;
   scheduledBudgetSetDate: string | null;
 
+  // --- Budget Modes & Multi-Cadence (Oct 2026) ---
+  isBudgetModeEnabled: boolean;
+  budgetCadence: BudgetCadence;
+  weeklyBudgetAmount: number;
+  monthlyBudgetAmount: number;
+  planChanges: BudgetPlanChange[];
+  budgetPeriods: Record<string, BudgetPeriodRecord>; // keyed by `${cadence}_${activeStart}`
+  bestStreakByCadence: Record<BudgetCadence, number>;
+  lastPeriodWarningKey: string | null;
+  lastPeriodExceededKey: string | null;
+  lastPeriodRolloverKey: string | null;
+
   // Actions
   setDailyBudget: (amount: number) => void;
   scheduleNextDailyBudget: (amount: number) => void;
@@ -226,6 +368,16 @@ interface DailyBudgetState {
   resetDailyBudget: () => void;
   getTodayRecord: () => DailyRecord;
   getPastRecordsList: () => DailyRecord[];
+
+  // --- Multi-Cadence Actions & Selectors ---
+  setBudgetModeEnabled: (enabled: boolean) => void;
+  setBudgetCadence: (cadence: BudgetCadence) => void;
+  setWeeklyBudget: (amount: number) => void;
+  setMonthlyBudget: (amount: number) => void;
+  getPendingPlanChange: () => BudgetPlanChange | null;
+  getEffectiveFromLabel: (change?: BudgetPlanChange | null) => string;
+  uploadPendingBudgetPeriods: () => Promise<void>;
+  syncPendingPlanChanges: () => Promise<void>;
 }
 
 const getTodayDateStr = () => format(new Date(), 'yyyy-MM-dd');
@@ -247,6 +399,18 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       lastRolloverNotifiedDate: null,
       scheduledNextDailyBudget: null,
       scheduledBudgetSetDate: null,
+
+      // --- Budget Modes & Multi-Cadence (Oct 2026) ---
+      isBudgetModeEnabled: false,
+      budgetCadence: 'daily',
+      weeklyBudgetAmount: 0,
+      monthlyBudgetAmount: 0,
+      planChanges: [],
+      budgetPeriods: {},
+      bestStreakByCadence: { daily: 0, weekly: 0, monthly: 0 },
+      lastPeriodWarningKey: null,
+      lastPeriodExceededKey: null,
+      lastPeriodRolloverKey: null,
 
       getTodayRecord: () => {
         const todayStr = getTodayDateStr();
@@ -300,20 +464,46 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           };
         }
 
-        const metrics = computeMetrics(records, get().gullakDeposits);
+        let updatedChanges = get().planChanges;
+        let newPlanChange: BudgetPlanChange | null = null;
+        const currentUser = useAuthStore.getState().user;
+        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily') {
+          newPlanChange = {
+            id: Crypto.randomUUID(),
+            userId: currentUser?.id || '',
+            effectiveFrom: todayStr,
+            isEnabled: true,
+            cadence: 'daily',
+            amount: cleanAmount,
+            createdAt: new Date().toISOString(),
+          };
+          updatedChanges = upsertPendingChange(updatedChanges, newPlanChange);
+        }
+
+        const metrics = computeMetrics(
+          records,
+          get().gullakDeposits,
+          undefined,
+          get().budgetPeriods,
+          get().budgetCadence,
+          get().bestStreakByCadence
+        );
 
         set({
           dailyBudgetAmount: cleanAmount,
           isAutoRenew: willAutoRenew,
           dailyRecords: records,
+          planChanges: updatedChanges,
           ...metrics,
         });
 
         // Sync to Supabase profiles with offline queue (P0.13)
         try {
-          const currentUser = useAuthStore.getState().user;
           if (currentUser) {
             savePendingSettingsOffline(currentUser.id, { daily_budget: cleanAmount, is_auto_renew: willAutoRenew });
+            if (newPlanChange) {
+              savePendingPlanChangeOffline(currentUser.id, newPlanChange);
+            }
             supabase
               .from('profiles')
               .update({ daily_budget: cleanAmount, is_auto_renew: willAutoRenew })
@@ -328,6 +518,28 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 },
                 () => {}
               );
+
+            if (newPlanChange) {
+              supabase
+                .from('budget_plan_changes')
+                .upsert(
+                  {
+                    id: newPlanChange.id,
+                    user_id: currentUser.id,
+                    effective_from: newPlanChange.effectiveFrom,
+                    is_enabled: newPlanChange.isEnabled,
+                    cadence: newPlanChange.cadence,
+                    amount: newPlanChange.amount,
+                    created_at: newPlanChange.createdAt,
+                  },
+                  { onConflict: 'user_id,effective_from' }
+                )
+                .then(({ error }) => {
+                  if (!error) {
+                    get().syncPendingPlanChanges();
+                  }
+                });
+            }
           }
         } catch (e) {
           // Ignore offline / auth errors
@@ -360,7 +572,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           };
         }
 
-        const metrics = computeMetrics(records, get().gullakDeposits);
+        const metrics = computeMetrics(
+          records,
+          get().gullakDeposits,
+          undefined,
+          get().budgetPeriods,
+          get().budgetCadence,
+          get().bestStreakByCadence
+        );
 
         set({
           isAutoRenew: enabled,
@@ -407,6 +626,393 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           scheduledNextDailyBudget: null,
           scheduledBudgetSetDate: null,
         });
+      },
+
+      setBudgetModeEnabled: (enabled: boolean) => {
+        const todayStr = getTodayDateStr();
+        const currentUser = useAuthStore.getState().user;
+        const effectiveFrom = computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr);
+
+        const cadence = get().budgetCadence;
+        const amount =
+          cadence === 'weekly'
+            ? get().weeklyBudgetAmount
+            : cadence === 'monthly'
+            ? get().monthlyBudgetAmount
+            : get().dailyBudgetAmount;
+
+        const newChange: BudgetPlanChange = {
+          id: Crypto.randomUUID(),
+          userId: currentUser?.id || '',
+          effectiveFrom,
+          isEnabled: enabled,
+          cadence,
+          amount,
+          createdAt: new Date().toISOString(),
+        };
+
+        const updatedChanges = upsertPendingChange(get().planChanges, newChange);
+        const records = { ...get().dailyRecords };
+
+        if (!enabled && records[todayStr] && !records[todayStr].isFinalized) {
+          records[todayStr] = {
+            ...records[todayStr],
+            budget: 0,
+            saved: 0,
+            status: 'unknown',
+          };
+        }
+
+        const metrics = computeMetrics(
+          records,
+          get().gullakDeposits,
+          undefined,
+          get().budgetPeriods,
+          cadence,
+          get().bestStreakByCadence
+        );
+
+        set({
+          isBudgetModeEnabled: enabled,
+          planChanges: updatedChanges,
+          dailyRecords: records,
+          ...metrics,
+        });
+
+        if (currentUser) {
+          savePendingSettingsOffline(currentUser.id, { is_budget_mode_enabled: enabled });
+          savePendingPlanChangeOffline(currentUser.id, newChange);
+
+          supabase
+            .from('profiles')
+            .update({ is_budget_mode_enabled: enabled })
+            .eq('id', currentUser.id)
+            .then(({ error }) => {
+              if (!error) {
+                clearPendingSettingsOffline(currentUser.id, ['is_budget_mode_enabled']);
+              }
+            });
+
+          supabase
+            .from('budget_plan_changes')
+            .upsert(
+              {
+                id: newChange.id,
+                user_id: currentUser.id,
+                effective_from: newChange.effectiveFrom,
+                is_enabled: newChange.isEnabled,
+                cadence: newChange.cadence,
+                amount: newChange.amount,
+                created_at: newChange.createdAt,
+              },
+              { onConflict: 'user_id,effective_from' }
+            )
+            .then(({ error }) => {
+              if (!error) {
+                get().syncPendingPlanChanges();
+              }
+            });
+        }
+      },
+
+      setBudgetCadence: (cadence: BudgetCadence) => {
+        const todayStr = getTodayDateStr();
+        const currentUser = useAuthStore.getState().user;
+        const currentOwner = getDateOwner(get().planChanges, todayStr);
+        const effectiveFrom = computeEffectiveFrom('cadence_switch', todayStr, { currentOwner });
+
+        const amount =
+          cadence === 'weekly'
+            ? get().weeklyBudgetAmount
+            : cadence === 'monthly'
+            ? get().monthlyBudgetAmount
+            : get().dailyBudgetAmount;
+
+        const newChange: BudgetPlanChange = {
+          id: Crypto.randomUUID(),
+          userId: currentUser?.id || '',
+          effectiveFrom,
+          isEnabled: get().isBudgetModeEnabled,
+          cadence,
+          amount,
+          createdAt: new Date().toISOString(),
+        };
+
+        const updatedChanges = upsertPendingChange(get().planChanges, newChange);
+        const metrics = computeMetrics(
+          get().dailyRecords,
+          get().gullakDeposits,
+          undefined,
+          get().budgetPeriods,
+          cadence,
+          get().bestStreakByCadence
+        );
+
+        set({
+          budgetCadence: cadence,
+          planChanges: updatedChanges,
+          ...metrics,
+        });
+
+        if (currentUser) {
+          savePendingSettingsOffline(currentUser.id, { budget_cadence: cadence });
+          savePendingPlanChangeOffline(currentUser.id, newChange);
+
+          supabase
+            .from('profiles')
+            .update({ budget_cadence: cadence })
+            .eq('id', currentUser.id)
+            .then(({ error }) => {
+              if (!error) {
+                clearPendingSettingsOffline(currentUser.id, ['budget_cadence']);
+              }
+            });
+
+          supabase
+            .from('budget_plan_changes')
+            .upsert(
+              {
+                id: newChange.id,
+                user_id: currentUser.id,
+                effective_from: newChange.effectiveFrom,
+                is_enabled: newChange.isEnabled,
+                cadence: newChange.cadence,
+                amount: newChange.amount,
+                created_at: newChange.createdAt,
+              },
+              { onConflict: 'user_id,effective_from' }
+            )
+            .then(({ error }) => {
+              if (!error) {
+                get().syncPendingPlanChanges();
+              }
+            });
+        }
+      },
+
+      setWeeklyBudget: (amount: number) => {
+        const cleanAmount = Math.max(0, round2(amount));
+        const todayStr = getTodayDateStr();
+        const currentUser = useAuthStore.getState().user;
+        const effectiveFrom = computeEffectiveFrom('weekly_amount', todayStr);
+
+        let updatedChanges = get().planChanges;
+        let newChange: BudgetPlanChange | null = null;
+
+        if (get().budgetCadence === 'weekly' && get().isBudgetModeEnabled) {
+          newChange = {
+            id: Crypto.randomUUID(),
+            userId: currentUser?.id || '',
+            effectiveFrom,
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: cleanAmount,
+            createdAt: new Date().toISOString(),
+          };
+          updatedChanges = upsertPendingChange(updatedChanges, newChange);
+        }
+
+        set({
+          weeklyBudgetAmount: cleanAmount,
+          planChanges: updatedChanges,
+        });
+
+        if (currentUser) {
+          savePendingSettingsOffline(currentUser.id, { weekly_budget: cleanAmount });
+          if (newChange) {
+            savePendingPlanChangeOffline(currentUser.id, newChange);
+          }
+
+          supabase
+            .from('profiles')
+            .update({ weekly_budget: cleanAmount })
+            .eq('id', currentUser.id)
+            .then(({ error }) => {
+              if (!error) {
+                clearPendingSettingsOffline(currentUser.id, ['weekly_budget']);
+              }
+            });
+
+          if (newChange) {
+            supabase
+              .from('budget_plan_changes')
+              .upsert(
+                {
+                  id: newChange.id,
+                  user_id: currentUser.id,
+                  effective_from: newChange.effectiveFrom,
+                  is_enabled: newChange.isEnabled,
+                  cadence: newChange.cadence,
+                  amount: newChange.amount,
+                  created_at: newChange.createdAt,
+                },
+                { onConflict: 'user_id,effective_from' }
+              )
+              .then(({ error }) => {
+                if (!error) {
+                  get().syncPendingPlanChanges();
+                }
+              });
+          }
+        }
+      },
+
+      setMonthlyBudget: (amount: number) => {
+        const cleanAmount = Math.max(0, round2(amount));
+        const todayStr = getTodayDateStr();
+        const currentUser = useAuthStore.getState().user;
+        const effectiveFrom = computeEffectiveFrom('monthly_amount', todayStr);
+
+        let updatedChanges = get().planChanges;
+        let newChange: BudgetPlanChange | null = null;
+
+        if (get().budgetCadence === 'monthly' && get().isBudgetModeEnabled) {
+          newChange = {
+            id: Crypto.randomUUID(),
+            userId: currentUser?.id || '',
+            effectiveFrom,
+            isEnabled: true,
+            cadence: 'monthly',
+            amount: cleanAmount,
+            createdAt: new Date().toISOString(),
+          };
+          updatedChanges = upsertPendingChange(updatedChanges, newChange);
+        }
+
+        set({
+          monthlyBudgetAmount: cleanAmount,
+          planChanges: updatedChanges,
+        });
+
+        if (currentUser) {
+          savePendingSettingsOffline(currentUser.id, { monthly_budget: cleanAmount });
+          if (newChange) {
+            savePendingPlanChangeOffline(currentUser.id, newChange);
+          }
+
+          supabase
+            .from('profiles')
+            .update({ monthly_budget: cleanAmount })
+            .eq('id', currentUser.id)
+            .then(({ error }) => {
+              if (!error) {
+                clearPendingSettingsOffline(currentUser.id, ['monthly_budget']);
+              }
+            });
+
+          if (newChange) {
+            supabase
+              .from('budget_plan_changes')
+              .upsert(
+                {
+                  id: newChange.id,
+                  user_id: currentUser.id,
+                  effective_from: newChange.effectiveFrom,
+                  is_enabled: newChange.isEnabled,
+                  cadence: newChange.cadence,
+                  amount: newChange.amount,
+                  created_at: newChange.createdAt,
+                },
+                { onConflict: 'user_id,effective_from' }
+              )
+              .then(({ error }) => {
+                if (!error) {
+                  get().syncPendingPlanChanges();
+                }
+              });
+          }
+        }
+      },
+
+      getPendingPlanChange: () => {
+        const todayStr = getTodayDateStr();
+        const future = (get().planChanges || []).filter((c) => c.effectiveFrom > todayStr);
+        if (future.length === 0) return null;
+        future.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+        return future[0];
+      },
+
+      getEffectiveFromLabel: (change?: BudgetPlanChange | null) => {
+        const target = change || get().getPendingPlanChange();
+        if (!target) return '';
+        const todayStr = getTodayDateStr();
+        const d = parseISO(target.effectiveFrom);
+        const diff = differenceInCalendarDays(d, parseISO(todayStr));
+        if (diff === 0) return 'Effective Today';
+        if (diff === 1) return 'Effective Tomorrow';
+        if (target.cadence === 'weekly') {
+          return `Effective Monday (${format(d, 'd MMM')})`;
+        }
+        if (target.cadence === 'monthly') {
+          return `Effective ${format(d, 'd MMM')}`;
+        }
+        return `Effective ${format(d, 'd MMM')}`;
+      },
+
+      uploadPendingBudgetPeriods: async () => {
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser) return;
+        const key = getPendingBudgetPeriodsKey(currentUser.id);
+        const list = await getStoredList<BudgetPeriodRecord>(key);
+        if (list.length === 0) return;
+
+        const syncedIds: string[] = [];
+        for (const p of list) {
+          try {
+            const { error } = await supabase.from('budget_periods').upsert(
+              {
+                id: p.id,
+                user_id: currentUser.id,
+                cadence: p.cadence,
+                period_start: p.periodStart,
+                period_end: p.periodEnd,
+                active_start: p.activeStart,
+                active_end: p.activeEnd,
+                budget_amount: p.budgetAmount,
+                spent_amount: p.spentAmount,
+                amount_saved: p.amountSaved,
+                status: p.status,
+                is_prorated: p.isProrated,
+                created_at: p.createdAt || new Date().toISOString(),
+              },
+              { onConflict: 'user_id,cadence,active_start' }
+            );
+            if (!error) syncedIds.push(p.id);
+          } catch {}
+        }
+        if (syncedIds.length > 0) {
+          await setStoredList(key, list.filter((p) => !syncedIds.includes(p.id)));
+        }
+      },
+
+      syncPendingPlanChanges: async () => {
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser) return;
+        const key = getPendingPlanChangesKey(currentUser.id);
+        const list = await getStoredList<BudgetPlanChange>(key);
+        if (list.length === 0) return;
+
+        const syncedIds: string[] = [];
+        for (const c of list) {
+          try {
+            const { error } = await supabase.from('budget_plan_changes').upsert(
+              {
+                id: c.id,
+                user_id: currentUser.id,
+                effective_from: c.effectiveFrom,
+                is_enabled: c.isEnabled,
+                cadence: c.cadence,
+                amount: c.amount,
+                created_at: c.createdAt || new Date().toISOString(),
+              },
+              { onConflict: 'user_id,effective_from' }
+            );
+            if (!error) syncedIds.push(c.id);
+          } catch {}
+        }
+        if (syncedIds.length > 0) {
+          await setStoredList(key, list.filter((c) => !syncedIds.includes(c.id)));
+        }
       },
 
       addGullakDeposit: (amount: number, note?: string, source: GullakDepositSource = 'external') => {
@@ -541,7 +1147,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         records[todayStr] = todayRecord;
 
         // Check for smart alerts & trigger native phone notifications
-        if (todayRecord.budget > 0) {
+        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && todayRecord.budget > 0) {
           const ratio = todaySpent / todayRecord.budget;
           const remaining = Math.max(0, todayRecord.budget - todaySpent);
           const notifStore = useNotificationStore.getState();
@@ -589,10 +1195,69 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               set({ lastWarningNotifiedDate: todayStr });
             }
           }
+        } else if (get().isBudgetModeEnabled && (get().budgetCadence === 'weekly' || get().budgetCadence === 'monthly')) {
+          const spentByDate = computeSpentByDate(expenses, isIncomeFn);
+          const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr);
+          if (summary && summary.budget > 0) {
+            const ratio = summary.spent / summary.budget;
+            const notifStore = useNotificationStore.getState();
+            const periodKey = `${summary.cadence}_${summary.periodStart}`;
+
+            if (ratio >= 1) {
+              if (get().lastPeriodExceededKey !== periodKey) {
+                const title = `🚨 ${summary.cadence === 'weekly' ? 'Weekly' : 'Monthly'} Budget Exceeded!`;
+                const body = `You spent ${formatCurrency(summary.spent)} of your ${formatCurrency(summary.budget)} limit (exceeded by ${formatCurrency(summary.overBy)}).`;
+
+                notifStore.addNotification({
+                  id: `alert_exceeded_${periodKey}`,
+                  title,
+                  message: body,
+                  type: 'budget_exceeded',
+                  data: { date: todayStr, periodKey, amount: summary.spent, remaining: 0 },
+                });
+
+                triggerDeviceNotification(title, body, {
+                  type: 'budget_exceeded',
+                  screen: 'Savings',
+                  date: todayStr,
+                });
+
+                set({ lastPeriodExceededKey: periodKey });
+              }
+            } else if (ratio >= 0.8) {
+              if (get().lastPeriodWarningKey !== periodKey) {
+                const title = `⚠️ 80% ${summary.cadence === 'weekly' ? 'Weekly' : 'Monthly'} Budget Reached`;
+                const body = `You've used ${Math.round(ratio * 100)}% of your ${summary.cadence} budget. Only ${formatCurrency(summary.remaining)} left to spend!`;
+
+                notifStore.addNotification({
+                  id: `alert_warning_80_${periodKey}`,
+                  title,
+                  message: body,
+                  type: 'budget_warning',
+                  data: { date: todayStr, periodKey, amount: summary.spent, remaining: summary.remaining },
+                });
+
+                triggerDeviceNotification(title, body, {
+                  type: 'budget_warning',
+                  screen: 'Savings',
+                  date: todayStr,
+                });
+
+                set({ lastPeriodWarningKey: periodKey });
+              }
+            }
+          }
         }
 
         if (hasTodayChanged) {
-          const metrics = computeMetrics(records, get().gullakDeposits);
+          const metrics = computeMetrics(
+            records,
+            get().gullakDeposits,
+            undefined,
+            get().budgetPeriods,
+            get().budgetCadence,
+            get().bestStreakByCadence
+          );
           set({ dailyRecords: records, ...metrics });
         }
 
@@ -659,6 +1324,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         // 3. For every past date, verify if spent or saved or status changed (e.g. after edit/delete)
         for (const d of pastDates) {
+          // D2: Daily loop only processes dates governed by 'daily'
+          if (!isDailyGovernedDate(get().planChanges, d)) {
+            // If a daily record does NOT already exist, do NOT create one for dates owned by weekly/monthly/paused!
+            if (!records[d]) {
+              continue;
+            }
+          }
+
           const isPreAccount = Boolean(userCreatedAtStr && d < userCreatedAtStr);
           if (isPreAccount) {
             // Backdated entry from before user account creation: do not create auto-renew daily record
@@ -795,7 +1468,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               lastRolloverNotifiedDate: get().lastRolloverNotifiedDate,
             });
 
-            if (shouldNotify) {
+            if (get().isBudgetModeEnabled && shouldNotify) {
               const title = '🎉 Savings Gullak Deposit!';
               const body = `Superb! You saved ${formatCurrency(saved)} yesterday. It has been deposited into your Savings Gullak!`;
 
@@ -818,8 +1491,92 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
         }
 
+        // 4. Multi-cadence period finalization (weekly / monthly)
+        const periodsToFinalize = buildPeriodsToFinalize(
+          get().planChanges,
+          spentByDate,
+          todayStr,
+          Object.keys(get().budgetPeriods),
+          userCreatedAtStr
+        );
+
+        if (periodsToFinalize.length > 0) {
+          const periods = { ...get().budgetPeriods };
+          for (const p of periodsToFinalize) {
+            periods[p.id] = p;
+            updated = true;
+
+            // Sync to Supabase budget_periods with offline queue
+            if (currentUser) {
+              savePendingBudgetPeriodOffline(currentUser.id, p);
+              supabase
+                .from('budget_periods')
+                .upsert(
+                  {
+                    id: p.id,
+                    user_id: currentUser.id,
+                    cadence: p.cadence,
+                    period_start: p.periodStart,
+                    period_end: p.periodEnd,
+                    active_start: p.activeStart,
+                    active_end: p.activeEnd,
+                    budget_amount: p.budgetAmount,
+                    spent_amount: p.spentAmount,
+                    amount_saved: p.amountSaved,
+                    status: p.status,
+                    is_prorated: p.isProrated,
+                    created_at: p.createdAt || new Date().toISOString(),
+                  },
+                  { onConflict: 'user_id,cadence,active_start' }
+                )
+                .then(({ error }) => {
+                  if (!error) {
+                    // Synced successfully
+                  }
+                });
+            }
+
+            // Rollover notification (D10)
+            if (
+              get().isBudgetModeEnabled &&
+              p.amountSaved > 0 &&
+              !skipRolloverNotification &&
+              areExpensesLoaded() &&
+              get().lastPeriodRolloverKey !== p.id
+            ) {
+              const cadenceLabel = p.cadence === 'weekly' ? 'Weekly' : 'Monthly';
+              const title = `🎉 ${cadenceLabel} Savings Gullak Deposit!`;
+              const body = `Superb! You saved ${formatCurrency(p.amountSaved)} in your last ${p.cadence} period. It has been deposited into your Savings Gullak!`;
+
+              useNotificationStore.getState().addNotification({
+                id: `rollover_${p.id}`,
+                title,
+                message: body,
+                type: 'savings_rollover',
+                data: { periodId: p.id, cadence: p.cadence, amount: p.amountSaved },
+              });
+
+              triggerDeviceNotification(title, body, {
+                type: 'savings_rollover',
+                screen: 'Savings',
+                date: p.activeEnd,
+              });
+
+              set({ lastPeriodRolloverKey: p.id });
+            }
+          }
+          set({ budgetPeriods: periods });
+        }
+
         // Compute savings metrics using shared helper
-        const metrics = computeMetrics(records, get().gullakDeposits);
+        const metrics = computeMetrics(
+          records,
+          get().gullakDeposits,
+          userCreatedAtStr,
+          get().budgetPeriods,
+          get().budgetCadence,
+          get().bestStreakByCadence
+        );
 
         if (
           updated ||
@@ -884,6 +1641,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (hasUpdates) {
           set({ dailyRecords: records });
         }
+
+        // Also upload pending budget periods and pending plan changes
+        await get().uploadPendingBudgetPeriods();
+        await get().syncPendingPlanChanges();
       },
 
       syncPendingGullakDeposits: async () => {
@@ -958,7 +1719,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const todayStr = getTodayDateStr();
 
           // Check pending settings key (P0.13)
-          let pendingSettings: { daily_budget?: number; is_auto_renew?: boolean } = {};
+          let pendingSettings: ProfileSettingsPatch = {};
           try {
             const stored = await AsyncStorage.getItem(getPendingSettingsKey(userId));
             if (stored) pendingSettings = JSON.parse(stored);
@@ -969,12 +1730,30 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             const records = { ...get().dailyRecords };
             let resolvedBudget = get().dailyBudgetAmount;
             let resolvedAutoRenew = get().isAutoRenew;
+            let resolvedBudgetModeEnabled = get().isBudgetModeEnabled;
+            let resolvedCadence: BudgetCadence = get().budgetCadence;
+            let resolvedWeeklyBudget = get().weeklyBudgetAmount;
+            let resolvedMonthlyBudget = get().monthlyBudgetAmount;
+
             if (pendingSettings.daily_budget !== undefined) {
               resolvedBudget = pendingSettings.daily_budget;
             }
             if (pendingSettings.is_auto_renew !== undefined) {
               resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
             }
+            if (pendingSettings.is_budget_mode_enabled !== undefined) {
+              resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
+            }
+            if (pendingSettings.budget_cadence !== undefined) {
+              resolvedCadence = pendingSettings.budget_cadence as BudgetCadence;
+            }
+            if (pendingSettings.weekly_budget !== undefined) {
+              resolvedWeeklyBudget = pendingSettings.weekly_budget;
+            }
+            if (pendingSettings.monthly_budget !== undefined) {
+              resolvedMonthlyBudget = pendingSettings.monthly_budget;
+            }
+
             if (!records[todayStr]) {
               const todayBudget = resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
               records[todayStr] = {
@@ -986,26 +1765,61 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 status: 'active',
               };
             }
-            const metrics = computeMetrics(records, get().gullakDeposits);
+            const metrics = computeMetrics(
+              records,
+              get().gullakDeposits,
+              undefined,
+              get().budgetPeriods,
+              resolvedCadence,
+              get().bestStreakByCadence
+            );
             set({
               dailyRecords: records,
               dailyBudgetAmount: resolvedBudget,
               isAutoRenew: resolvedAutoRenew,
+              isBudgetModeEnabled: resolvedBudgetModeEnabled,
+              budgetCadence: resolvedCadence,
+              weeklyBudgetAmount: resolvedWeeklyBudget,
+              monthlyBudgetAmount: resolvedMonthlyBudget,
               ...metrics,
               hydratedForUserId: userId,
             });
             return;
           }
 
-          // 1. Fetch user's profile settings (daily_budget, is_auto_renew) with timeout
-          const { data: profileData } = await Promise.race([
-            supabase
-              .from('profiles')
-              .select('daily_budget, is_auto_renew')
-              .eq('id', userId)
-              .maybeSingle(),
-            new Promise<{ data: null }>((r) => setTimeout(() => r({ data: null }), 3500)),
+          // 1. Fetch user profile, logs, plan changes, and budget periods in parallel with timeout
+          const [profileRes, logsRes, plansRes, periodsRes] = await Promise.race([
+            Promise.all([
+              supabase
+                .from('profiles')
+                .select('daily_budget, is_auto_renew, is_budget_mode_enabled, budget_cadence, weekly_budget, monthly_budget')
+                .eq('id', userId)
+                .maybeSingle(),
+              supabase
+                .from('daily_savings_log')
+                .select('date, amount_saved, spent_amount, status, budget_amount')
+                .eq('user_id', userId)
+                .order('date', { ascending: true }),
+              supabase
+                .from('budget_plan_changes')
+                .select('id, effective_from, is_enabled, cadence, amount, created_at')
+                .eq('user_id', userId)
+                .order('effective_from', { ascending: true }),
+              supabase
+                .from('budget_periods')
+                .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, created_at')
+                .eq('user_id', userId)
+                .order('active_start', { ascending: true }),
+            ]),
+            new Promise<[any, any, any, any]>((r) =>
+              setTimeout(() => r([{ data: null }, { data: null }, { data: null }, { data: null }]), 3500)
+            ),
           ]);
+
+          const profileData = profileRes?.data;
+          const logsData = logsRes?.data;
+          const plansData = plansRes?.data;
+          const periodsData = periodsRes?.data;
 
           let resolvedBudget = get().dailyBudgetAmount || 100;
           let resolvedAutoRenew = get().isAutoRenew;
@@ -1041,15 +1855,86 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             resolvedAutoRenew = false;
           }
 
-          // 2. Fetch past daily savings logs from Supabase with timeout
-          const { data: logsData } = await Promise.race([
-            supabase
-              .from('daily_savings_log')
-              .select('date, amount_saved, spent_amount, status, budget_amount')
-              .eq('user_id', userId)
-              .order('date', { ascending: true }),
-            new Promise<{ data: null }>((r) => setTimeout(() => r({ data: null }), 3500)),
-          ]);
+          // Resolve 4 new profile columns
+          let resolvedBudgetModeEnabled = get().isBudgetModeEnabled;
+          if (pendingSettings.is_budget_mode_enabled !== undefined) {
+            resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
+          } else if (profileData && profileData.is_budget_mode_enabled !== null && profileData.is_budget_mode_enabled !== undefined) {
+            resolvedBudgetModeEnabled = Boolean(profileData.is_budget_mode_enabled);
+          }
+
+          let resolvedCadence: BudgetCadence = get().budgetCadence || 'daily';
+          if (pendingSettings.budget_cadence !== undefined) {
+            resolvedCadence = pendingSettings.budget_cadence as BudgetCadence;
+          } else if (profileData && profileData.budget_cadence) {
+            resolvedCadence = profileData.budget_cadence as BudgetCadence;
+          }
+
+          let resolvedWeeklyBudget = get().weeklyBudgetAmount || 0;
+          if (pendingSettings.weekly_budget !== undefined) {
+            resolvedWeeklyBudget = pendingSettings.weekly_budget;
+          } else if (profileData && profileData.weekly_budget !== null && profileData.weekly_budget !== undefined) {
+            resolvedWeeklyBudget = Math.max(0, round2(Number(profileData.weekly_budget)));
+          }
+
+          let resolvedMonthlyBudget = get().monthlyBudgetAmount || 0;
+          if (pendingSettings.monthly_budget !== undefined) {
+            resolvedMonthlyBudget = pendingSettings.monthly_budget;
+          } else if (profileData && profileData.monthly_budget !== null && profileData.monthly_budget !== undefined) {
+            resolvedMonthlyBudget = Math.max(0, round2(Number(profileData.monthly_budget)));
+          }
+
+          // Process plan changes
+          let resolvedPlanChanges: BudgetPlanChange[] = [];
+          if (plansData && plansData.length > 0) {
+            resolvedPlanChanges = plansData.map((p: any) => ({
+              id: p.id,
+              userId,
+              effectiveFrom: p.effective_from,
+              isEnabled: Boolean(p.is_enabled),
+              cadence: p.cadence as BudgetCadence,
+              amount: Number(p.amount) || 0,
+              createdAt: p.created_at,
+            }));
+          } else {
+            resolvedPlanChanges = get().planChanges || [];
+          }
+          const pendingChangesKey = getPendingPlanChangesKey(userId);
+          const pendingChanges = await getStoredList<BudgetPlanChange>(pendingChangesKey);
+          if (pendingChanges.length > 0) {
+            for (const pc of pendingChanges) {
+              resolvedPlanChanges = upsertPendingChange(resolvedPlanChanges, pc);
+            }
+          }
+
+          // Process budget periods
+          let resolvedPeriods: Record<string, BudgetPeriodRecord> = { ...get().budgetPeriods };
+          if (periodsData && periodsData.length > 0) {
+            for (const p of periodsData) {
+              resolvedPeriods[p.id] = {
+                id: p.id,
+                userId,
+                cadence: p.cadence as 'weekly' | 'monthly',
+                periodStart: p.period_start,
+                periodEnd: p.period_end,
+                activeStart: p.active_start,
+                activeEnd: p.active_end,
+                budgetAmount: Number(p.budget_amount) || 0,
+                spentAmount: Number(p.spent_amount) || 0,
+                amountSaved: Number(p.amount_saved) || 0,
+                status: p.status as BudgetPeriodStatus,
+                isProrated: Boolean(p.is_prorated),
+                createdAt: p.created_at,
+              };
+            }
+          }
+          const pendingPeriodsKey = getPendingBudgetPeriodsKey(userId);
+          const pendingPeriods = await getStoredList<BudgetPeriodRecord>(pendingPeriodsKey);
+          if (pendingPeriods.length > 0) {
+            for (const bp of pendingPeriods) {
+              resolvedPeriods[bp.id] = bp;
+            }
+          }
 
           const records = { ...get().dailyRecords };
 
@@ -1193,8 +2078,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             }
           }
 
-
-
           // Ensure today's record exists if not present
           if (!records[todayStr]) {
             const todayBudget = resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
@@ -1265,11 +2148,24 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
 
           // 3. Recalculate metrics from combined records
-          const metrics = computeMetrics(records, resolvedDeposits, userCreatedAtStr);
+          const metrics = computeMetrics(
+            records,
+            resolvedDeposits,
+            userCreatedAtStr,
+            resolvedPeriods,
+            resolvedCadence,
+            get().bestStreakByCadence
+          );
 
           set({
             dailyBudgetAmount: resolvedBudget,
             isAutoRenew: resolvedAutoRenew,
+            isBudgetModeEnabled: resolvedBudgetModeEnabled,
+            budgetCadence: resolvedCadence,
+            weeklyBudgetAmount: resolvedWeeklyBudget,
+            monthlyBudgetAmount: resolvedMonthlyBudget,
+            planChanges: resolvedPlanChanges,
+            budgetPeriods: resolvedPeriods,
             dailyRecords: records,
             gullakDeposits: resolvedDeposits,
             ownerUserId: userId,
@@ -1305,6 +2201,18 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           lastRolloverNotifiedDate: null,
           scheduledNextDailyBudget: null,
           scheduledBudgetSetDate: null,
+
+          // --- Budget Modes & Multi-Cadence (Oct 2026) ---
+          isBudgetModeEnabled: false,
+          budgetCadence: 'daily',
+          weeklyBudgetAmount: 0,
+          monthlyBudgetAmount: 0,
+          planChanges: [],
+          budgetPeriods: {},
+          bestStreakByCadence: { daily: 0, weekly: 0, monthly: 0 },
+          lastPeriodWarningKey: null,
+          lastPeriodExceededKey: null,
+          lastPeriodRolloverKey: null,
         });
         AsyncStorage.removeItem('arthik-daily-budget-storage-v2').catch(() => {});
       },
@@ -1312,6 +2220,38 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
     {
       name: 'arthik-daily-budget-storage-v2',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 3,
+      migrate: (persistedState: any, version: number) => {
+        if (!persistedState) return persistedState;
+        if (version < 3) {
+          const isAutoRenew = Boolean(persistedState.isAutoRenew);
+          const deposits = persistedState.gullakDeposits || [];
+          const records = persistedState.dailyRecords || {};
+          const hasSavedRecord = Object.values(records).some(
+            (r: any) => r && (r.status === 'saved' || (r.saved && r.saved > 0))
+          );
+          const inferredModeEnabled = isAutoRenew || deposits.length > 0 || hasSavedRecord;
+
+          return {
+            ...persistedState,
+            isBudgetModeEnabled: persistedState.isBudgetModeEnabled ?? inferredModeEnabled,
+            budgetCadence: persistedState.budgetCadence ?? 'daily',
+            weeklyBudgetAmount: persistedState.weeklyBudgetAmount ?? 0,
+            monthlyBudgetAmount: persistedState.monthlyBudgetAmount ?? 0,
+            planChanges: persistedState.planChanges ?? [],
+            budgetPeriods: persistedState.budgetPeriods ?? {},
+            bestStreakByCadence: persistedState.bestStreakByCadence ?? {
+              daily: persistedState.bestStreak || 0,
+              weekly: 0,
+              monthly: 0,
+            },
+            lastPeriodWarningKey: persistedState.lastPeriodWarningKey ?? null,
+            lastPeriodExceededKey: persistedState.lastPeriodExceededKey ?? null,
+            lastPeriodRolloverKey: persistedState.lastPeriodRolloverKey ?? null,
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );
