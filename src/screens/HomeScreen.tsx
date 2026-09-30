@@ -99,6 +99,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
 
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
@@ -365,7 +366,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={[styles.filterDateLabel, { color: colors.textMuted }]}>
               {filterDateLabel}
             </Text>
-            {activeFilter === 'Daily' && todayBudget === 0 && (
+            {isBudgetModeEnabled && activeFilter === 'Daily' && todayBudget === 0 && (
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('Savings' as any)}

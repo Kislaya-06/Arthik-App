@@ -11,6 +11,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { useNavBarStore } from '../store/navBarStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { Spacing, FontFamily } from '../config/theme';
@@ -230,7 +231,18 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
   const { colors, isDark } = useTheme();
   const { isVisible } = useNavBarStore();
   const insets = useSafeAreaInsets();
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const translateY = useRef(new Animated.Value(0)).current;
+  const savingsAnim = useRef(new Animated.Value(isBudgetModeEnabled ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(savingsAnim, {
+      toValue: isBudgetModeEnabled ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [isBudgetModeEnabled, savingsAnim]);
 
   const bottomOffset = insets.bottom > 0 ? insets.bottom + 6 : 20;
 
@@ -331,12 +343,38 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 
         {/* Right Wing: Savings & Insights (flex: 1, space-around) */}
         <View style={styles.tabWing}>
-          <CapsuleTabItem
-            icon={PiggyBankCoinIcon}
-            label="Savings"
-            active={state.index === getRouteIndex('Savings')}
-            onPress={onPressSavings}
-          />
+          <Animated.View
+            style={{
+              opacity: savingsAnim.interpolate({
+                inputRange: [0, 0.4, 1],
+                outputRange: [0, 0, 1],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  scale: savingsAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+              maxWidth: savingsAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 100],
+                extrapolate: 'clamp',
+              }),
+              overflow: 'hidden',
+            }}
+            pointerEvents={isBudgetModeEnabled ? 'auto' : 'none'}
+          >
+            <CapsuleTabItem
+              icon={PiggyBankCoinIcon}
+              label="Savings"
+              active={state.index === getRouteIndex('Savings')}
+              onPress={onPressSavings}
+            />
+          </Animated.View>
           <CapsuleTabItem
             icon={BarChart2}
             label="Insights"
