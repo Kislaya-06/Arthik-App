@@ -11,10 +11,11 @@ import {
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react-native';
 import { DonutChart } from './DonutChart';
+import { DualRingChart } from './DualRingChart';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
-import { formatCurrency } from '../lib/formatters';
-import { parseChipNumber } from '../lib/homeCalculations';
+import { formatCurrency, round2 } from '../lib/formatters';
+import { parseChipNumber, calculatePureHeroMetrics } from '../lib/homeCalculations';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 
 export type BrandedHeroCardProps = {
@@ -33,12 +34,14 @@ export type BrandedHeroCardProps = {
   colors: ThemeColors;
   isDark: boolean;
   onNavigateSavings: () => void;
+  periodIncome?: number;
 };
 
 // Corner & layout geometry constants
 const DEFAULT_WIDTH = 340;
 const CORNER_RADIUS = 24;
-const POD_SIZE = 94;
+const POD_SIZE_BUDGET = 94;
+const POD_SIZE_PURE = 98;
 const GAP = 8;
 
 /**
@@ -46,7 +49,7 @@ const GAP = 8;
  * The cutout follows the exact same circular curvature as the chart pod with an equidistant gap,
  * eliminating any flat corners under the circle.
  */
-function buildNotchedCardPath(
+export function buildNotchedCardPath(
   w: number,
   h: number,
   r: number,
@@ -106,11 +109,16 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   colors,
   isDark,
   onNavigateSavings,
+  periodIncome,
 }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: DEFAULT_WIDTH,
     height: 0,
   });
+
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const podSize = isBudgetModeEnabled ? POD_SIZE_BUDGET : POD_SIZE_PURE;
+  const showRollover = isBudgetModeEnabled && activeFilter === 'Daily' && todayBudget > 0;
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -126,11 +134,15 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   const cardPath = useMemo(() => {
     const h = dimensions.height > 0 ? dimensions.height : 210;
-    return buildNotchedCardPath(dimensions.width, h, CORNER_RADIUS, POD_SIZE, GAP);
-  }, [dimensions.width, dimensions.height]);
+    return buildNotchedCardPath(dimensions.width, h, CORNER_RADIUS, podSize, GAP);
+  }, [dimensions.width, dimensions.height, podSize]);
 
-  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
-  const showRollover = isBudgetModeEnabled && activeFilter === 'Daily' && todayBudget > 0;
+  // Pure mode calculation from pure domain function
+  const pureInflow = periodIncome !== undefined ? periodIncome : totalAvailable;
+  const pureMetrics = useMemo(
+    () => calculatePureHeroMetrics(activeFilter, pureInflow, periodSpent),
+    [activeFilter, pureInflow, periodSpent]
+  );
 
   // Curated Card Colors (Mint Green signature card)
   // Contrast: Dark Navy typography on Mint Green (#B8E0C8) provides 9.8:1 AAA contrast
@@ -139,7 +151,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   const textColorPrimary = '#1A2B4C';
   const textColorSecondary = 'rgba(26, 43, 76, 0.65)';
 
-  // Split breakdown into distinct, atomic micro-chips for effortless scanning
+  // Split breakdown into distinct, atomic micro-chips for effortless scanning (Budget mode only)
   const subtextParts = useMemo(() => {
     if (!primarySubtext) return [];
     if (primarySubtext.includes(' + ')) {
@@ -156,7 +168,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
-  // ── Rolling number animation for all values (Remaining, Income, Expense, Chips) ──
+  // ── Rolling number animation for all values (Remaining/Expense, Income, Expense, Chips) ──
   const countAnim = useRef(new Animated.Value(0)).current;
   const [displayPrimaryAmount, setDisplayPrimaryAmount] = useState(0);
   const [displayTotalAvailable, setDisplayTotalAvailable] = useState(0);
@@ -195,31 +207,35 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       useNativeDriver: false,
     });
 
+    const targetPrimary = isBudgetModeEnabled ? primaryAmount : pureMetrics.totalExpense;
+    const targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
+    const targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
+
     const listenerId = countAnim.addListener(({ value }) => {
       if (!isMounted) return;
 
-      // Primary Amount (Total Remaining)
-      const hasPrimaryDec = !Number.isInteger(primaryAmount);
+      // Primary Amount (Total Remaining in Budget Mode, Total Expense in Pure Mode)
+      const hasPrimaryDec = !Number.isInteger(targetPrimary);
       const curPrimary = hasPrimaryDec
-        ? Math.round(primaryAmount * value * 10) / 10
-        : Math.round(primaryAmount * value);
+        ? Math.round(targetPrimary * value * 10) / 10
+        : Math.round(targetPrimary * value);
       setDisplayPrimaryAmount(curPrimary);
 
-      // Total Available (Income)
-      const hasIncomeDec = !Number.isInteger(totalAvailable);
+      // Total Available / Inflow
+      const hasIncomeDec = !Number.isInteger(targetIncome);
       const curIncome = hasIncomeDec
-        ? Math.round(totalAvailable * value * 10) / 10
-        : Math.round(totalAvailable * value);
+        ? Math.round(targetIncome * value * 10) / 10
+        : Math.round(targetIncome * value);
       setDisplayTotalAvailable(curIncome);
 
-      // Period Spent (Expense)
-      const hasExpenseDec = !Number.isInteger(periodSpent);
+      // Period Spent / Outflow
+      const hasExpenseDec = !Number.isInteger(targetSpent);
       const curExpense = hasExpenseDec
-        ? Math.round(periodSpent * value * 10) / 10
-        : Math.round(periodSpent * value);
+        ? Math.round(targetSpent * value * 10) / 10
+        : Math.round(targetSpent * value);
       setDisplayPeriodSpent(curExpense);
 
-      // Chips (budget, income, deposits)
+      // Chips (budget mode only)
       if (parsedChips.length > 0) {
         setDisplaySubtextParts(
           parsedChips.map((parsed, idx) => {
@@ -238,9 +254,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
     animation.start(({ finished }) => {
       if (finished && isMounted) {
-        setDisplayPrimaryAmount(primaryAmount);
-        setDisplayTotalAvailable(totalAvailable);
-        setDisplayPeriodSpent(periodSpent);
+        setDisplayPrimaryAmount(targetPrimary);
+        setDisplayTotalAvailable(targetIncome);
+        setDisplayPeriodSpent(targetSpent);
         setDisplaySubtextParts(subtextParts);
       }
     });
@@ -257,7 +273,14 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     periodSpent,
     primarySubtext,
     countAnim,
+    isBudgetModeEnabled,
+    pureMetrics.totalExpense,
+    pureMetrics.inflow,
+    pureMetrics.outflow,
   ]);
+
+  const displayNet = round2(displayTotalAvailable - displayPeriodSpent);
+  const isNetPositive = displayNet >= 0;
 
   return (
     <View style={styles.outerWrapper}>
@@ -290,24 +313,29 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         {/* ── Inner Content ── */}
         <View style={styles.cardInner}>
           {/* Top Section: Constrained width to clear the notched chart pod */}
-          <View style={styles.topSection}>
+          <View style={[styles.topSection, { paddingRight: podSize + GAP + 6 }]}>
             {/* Label & Amount */}
             <Text style={[styles.primaryLabel, { color: textColorSecondary }]}>
-              {primaryLabel}
+              {isBudgetModeEnabled ? primaryLabel : pureMetrics.title}
             </Text>
             <Text
               style={[
                 styles.primaryAmount,
-                { color: isOverBudgetPeriod ? colors.danger : textColorPrimary },
+                {
+                  color: isBudgetModeEnabled
+                    ? (isOverBudgetPeriod ? colors.danger : textColorPrimary)
+                    : textColorPrimary,
+                },
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {formatCurrency(displayPrimaryAmount)}
+              {formatCurrency(isBudgetModeEnabled ? displayPrimaryAmount : displayPeriodSpent)}
             </Text>
 
-            {displaySubtextParts.length > 0 && (
+            {/* Subtext Chips (Budget mode only) */}
+            {isBudgetModeEnabled && displaySubtextParts.length > 0 && (
               <View style={styles.subtextContainer}>
                 {displaySubtextParts.map((part, idx) => (
                   <View
@@ -332,48 +360,119 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             )}
           </View>
 
-          {/* ── Inflow & Outflow: Unboxed 2-Column Layout (Matching User Ref) ── */}
-          <View style={styles.metricsRow}>
-            {/* Income Column */}
-            <View style={styles.metricCol}>
-              <Text style={styles.metricColLabel}>
-                {`${filterLabelPrefix} Income`}
-              </Text>
-              <View style={styles.metricAmountRow}>
-                <Text
-                  style={[styles.metricAmount, { color: textColorPrimary }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {`+${formatCurrency(displayTotalAvailable)}`}
+          {/* ── Inflow & Outflow / Net Footer Row ── */}
+          {isBudgetModeEnabled ? (
+            /* Budget Mode: 2-Column Unboxed Layout */
+            <View style={styles.metricsRow}>
+              {/* Income Column */}
+              <View style={styles.metricCol}>
+                <Text style={styles.metricColLabel}>
+                  {`${filterLabelPrefix} Income`}
                 </Text>
-                <View style={styles.trendChipIncome}>
-                  <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
+                <View style={styles.metricAmountRow}>
+                  <Text
+                    style={[styles.metricAmount, { color: textColorPrimary }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {`+${formatCurrency(displayTotalAvailable)}`}
+                  </Text>
+                  <View style={styles.trendChipIncome}>
+                    <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Expense Column */}
+              <View style={styles.metricCol}>
+                <Text style={styles.metricColLabel}>
+                  {`${filterLabelPrefix} Expense`}
+                </Text>
+                <View style={styles.metricAmountRow}>
+                  <Text
+                    style={[styles.metricAmount, { color: textColorPrimary }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {`−${formatCurrency(displayPeriodSpent)}`}
+                  </Text>
+                  <View style={styles.trendChipExpense}>
+                    <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
+                  </View>
                 </View>
               </View>
             </View>
+          ) : (
+            /* Pure Mode: 3-Column Footer Row (Inflow +₹, Outflow −₹, Net sign-aware) */
+            <View style={styles.metricsRow}>
+              {/* Inflow Column */}
+              <View style={styles.pureMetricCol}>
+                <Text style={styles.metricColLabel}>Inflow</Text>
+                <View style={styles.metricAmountRow}>
+                  <Text
+                    style={[styles.pureMetricAmount, { color: textColorPrimary }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {`+${formatCurrency(displayTotalAvailable)}`}
+                  </Text>
+                  <View style={styles.trendChipIncome}>
+                    <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
+                  </View>
+                </View>
+              </View>
 
-            {/* Expense Column */}
-            <View style={styles.metricCol}>
-              <Text style={styles.metricColLabel}>
-                {`${filterLabelPrefix} Expense`}
-              </Text>
-              <View style={styles.metricAmountRow}>
-                <Text
-                  style={[styles.metricAmount, { color: textColorPrimary }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {`−${formatCurrency(displayPeriodSpent)}`}
-                </Text>
-                <View style={styles.trendChipExpense}>
-                  <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
+              {/* Outflow Column */}
+              <View style={styles.pureMetricCol}>
+                <Text style={styles.metricColLabel}>Outflow</Text>
+                <View style={styles.metricAmountRow}>
+                  <Text
+                    style={[styles.pureMetricAmount, { color: textColorPrimary }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {`−${formatCurrency(displayPeriodSpent)}`}
+                  </Text>
+                  <View style={styles.trendChipExpense}>
+                    <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Net Column (Sign-Aware) */}
+              <View style={styles.pureMetricCol}>
+                <Text style={styles.metricColLabel}>Net</Text>
+                <View style={styles.metricAmountRow}>
+                  <Text
+                    style={[
+                      styles.pureMetricAmount,
+                      { color: isNetPositive ? '#15803D' : '#DC2626' },
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {isNetPositive
+                      ? `+${formatCurrency(displayNet)}`
+                      : `−${formatCurrency(Math.abs(displayNet))}`}
+                  </Text>
+                  <View
+                    style={isNetPositive ? styles.trendChipIncome : styles.trendChipExpense}
+                  >
+                    {isNetPositive ? (
+                      <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
+                    ) : (
+                      <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
+                    )}
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
+          )}
 
-          {/* Daily Gullak Rollover Strip */}
+          {/* Daily Gullak Rollover Strip (Budget mode only) */}
           {showRollover && (
             <TouchableOpacity
               activeOpacity={0.75}
@@ -396,25 +495,37 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           style={[
             styles.chartPod,
             {
+              width: podSize,
+              height: podSize,
+              borderRadius: podSize / 2,
               backgroundColor: mintBase,
               borderColor: cardBorderColor,
             },
           ]}
-          pointerEvents="none"
+          pointerEvents={isBudgetModeEnabled ? 'none' : 'auto'}
         >
-          <DonutChart
-            size={82}
-            strokeWidth={9.5}
-            spent={displaySpent}
-            total={Math.max(totalAvailable, displaySpent)}
-            colors={colors}
-            trackColor="rgba(255, 255, 255, 0.65)"
-            baseColor="rgba(255, 255, 255, 0.92)"
-            spentColor={isOverBudgetPeriod ? '#EF4444' : '#E05A47'}
-            textColor={isOverBudgetPeriod ? '#EF4444' : textColorPrimary}
-            subtextColor={textColorSecondary}
-            triggerKey={activeFilter}
-          />
+          {isBudgetModeEnabled ? (
+            <DonutChart
+              size={82}
+              strokeWidth={9.5}
+              spent={displaySpent}
+              total={Math.max(totalAvailable, displaySpent)}
+              colors={colors}
+              trackColor="rgba(255, 255, 255, 0.65)"
+              baseColor="rgba(255, 255, 255, 0.92)"
+              spentColor={isOverBudgetPeriod ? '#EF4444' : '#E05A47'}
+              textColor={isOverBudgetPeriod ? '#EF4444' : textColorPrimary}
+              subtextColor={textColorSecondary}
+              triggerKey={activeFilter}
+            />
+          ) : (
+            <DualRingChart
+              size={podSize}
+              income={displayTotalAvailable}
+              spent={displayPeriodSpent}
+              isDark={isDark}
+            />
+          )}
         </View>
       </View>
     </View>
@@ -441,8 +552,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   topSection: {
-    // Leave room on the right for the enlarged notched chart pod
-    paddingRight: POD_SIZE + GAP + 6,
     minHeight: 84,
     justifyContent: 'center',
   },
@@ -484,6 +593,10 @@ const styles = StyleSheet.create({
   metricCol: {
     flex: 1,
   },
+  pureMetricCol: {
+    flex: 1,
+    minWidth: 0,
+  },
   metricColLabel: {
     fontSize: 12,
     fontFamily: FontFamily.medium,
@@ -497,6 +610,11 @@ const styles = StyleSheet.create({
   },
   metricAmount: {
     fontSize: 18,
+    fontFamily: FontFamily.bold,
+    includeFontPadding: false,
+  },
+  pureMetricAmount: {
+    fontSize: 15,
     fontFamily: FontFamily.bold,
     includeFontPadding: false,
   },
@@ -537,9 +655,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: POD_SIZE,
-    height: POD_SIZE,
-    borderRadius: POD_SIZE / 2,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

@@ -11,6 +11,7 @@ import {
   computeMonthlyWeeksData,
   computeMonthlyCashFlowData,
   computeYearlyGullakMilestones,
+  computeDualRingState,
 } from '../src/lib/chartUtils';
 
 describe('Circular Donut Chart Sweep Math Engine', () => {
@@ -516,6 +517,121 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
         expect(metrics.bestStreakInYear).toBe(0);
         expect(metrics.milestone.progressRatio).toBe(0);
         expect(metrics.milestone.remainingAmount).toBe(1000);
+      });
+    });
+  });
+
+  describe('computeDualRingState (Table D9 Specification)', () => {
+    describe('D9 Row 1: 0 Income, 0 Spent (New Account / Empty Period)', () => {
+      it('returns faint tracks for both rings and ₹0 center text', () => {
+        const state = computeDualRingState(0, 0);
+        expect(state.outerProgress).toBe(0);
+        expect(state.innerProgress).toBe(0);
+        expect(state.outerColor).toBe('#10B981');
+        expect(state.innerColor).toBe('#E05A47');
+        expect(state.centerPrimary).toBe('₹0');
+        expect(state.centerSecondary).toBeUndefined();
+        expect(state.centerText).toBe('₹0');
+        expect(state.percentage).toBeNull();
+        expect(state.isOverIncome).toBe(false);
+        expect(state.accessibilityLabel).toBe('No income and no expenses. ₹0.');
+      });
+
+      it('handles negative or NaN inputs cleanly as zero', () => {
+        const state = computeDualRingState(-50, NaN);
+        expect(state.outerProgress).toBe(0);
+        expect(state.innerProgress).toBe(0);
+        expect(state.centerPrimary).toBe('₹0');
+      });
+    });
+
+    describe('D9 Row 2: 0 Income, >0 Spent (Expense Only, No Percentage / Zero Division)', () => {
+      it('returns faint outer track, 100% coral inner ring, and compact spent amount with "spent" suffix', () => {
+        const state = computeDualRingState(0, 500);
+        expect(state.outerProgress).toBe(0);
+        expect(state.innerProgress).toBe(1);
+        expect(state.outerColor).toBe('#10B981');
+        expect(state.innerColor).toBe('#E05A47');
+        expect(state.centerPrimary).toBe('₹500');
+        expect(state.centerSecondary).toBe('spent');
+        expect(state.centerText).toBe('₹500 spent');
+        expect(state.percentage).toBeNull();
+        expect(state.isOverIncome).toBe(true);
+        expect(state.accessibilityLabel).toContain('Income ₹0');
+        expect(state.accessibilityLabel).toContain('spent ₹500');
+      });
+
+      it('formats thousands with compact k suffix', () => {
+        const state = computeDualRingState(0, 2500);
+        expect(state.centerPrimary).toBe('₹2.5k');
+        expect(state.centerText).toBe('₹2.5k spent');
+        expect(state.percentage).toBeNull();
+        expect(state.innerProgress).toBe(1);
+      });
+    });
+
+    describe('D9 Row 3: >0 Income, ≤ income Spent (Within Budget / Normal Spending)', () => {
+      it('returns 100% outer mint, proportional coral inner ring, and percentage spent', () => {
+        const state = computeDualRingState(1000, 450);
+        expect(state.outerProgress).toBe(1);
+        expect(state.innerProgress).toBe(0.45);
+        expect(state.outerColor).toBe('#10B981');
+        expect(state.innerColor).toBe('#E05A47');
+        expect(state.percentage).toBe(45);
+        expect(state.centerPrimary).toBe('45%');
+        expect(state.centerSecondary).toBe('spent');
+        expect(state.centerText).toBe('45% spent');
+        expect(state.isOverIncome).toBe(false);
+      });
+
+      it('handles 0 spent with positive income correctly', () => {
+        const state = computeDualRingState(5000, 0);
+        expect(state.outerProgress).toBe(1);
+        expect(state.innerProgress).toBe(0);
+        expect(state.percentage).toBe(0);
+        expect(state.centerPrimary).toBe('0%');
+        expect(state.centerSecondary).toBe('spent');
+        expect(state.centerText).toBe('0% spent');
+        expect(state.isOverIncome).toBe(false);
+      });
+
+      it('handles exactly 100% spent (spent === income) correctly', () => {
+        const state = computeDualRingState(2000, 2000);
+        expect(state.outerProgress).toBe(1);
+        expect(state.innerProgress).toBe(1);
+        expect(state.percentage).toBe(100);
+        expect(state.centerPrimary).toBe('100%');
+        expect(state.centerSecondary).toBe('spent');
+        expect(state.innerColor).toBe('#E05A47'); // Coral at 100%, not red
+        expect(state.isOverIncome).toBe(false);
+      });
+    });
+
+    describe('D9 Row 4: >0 Income, > income Spent (Over Budget / Deficit)', () => {
+      it('returns 100% outer mint, 100% red inner ring, and over-income percentage', () => {
+        const state = computeDualRingState(1000, 1250);
+        expect(state.outerProgress).toBe(1);
+        expect(state.innerProgress).toBe(1); // Capped at 1.0 arc
+        expect(state.outerColor).toBe('#10B981');
+        expect(state.innerColor).toBe('#EF4444'); // Red when over
+        expect(state.percentage).toBe(125);
+        expect(state.centerPrimary).toBe('125%');
+        expect(state.centerSecondary).toBe('spent');
+        expect(state.centerText).toBe('125% spent');
+        expect(state.isOverIncome).toBe(true);
+        expect(state.accessibilityLabel).toContain('Over income');
+      });
+
+      it('caps display at 999%+ when percentage exceeds 999%', () => {
+        const state = computeDualRingState(100, 1500); // 1500%
+        expect(state.outerProgress).toBe(1);
+        expect(state.innerProgress).toBe(1);
+        expect(state.innerColor).toBe('#EF4444');
+        expect(state.percentage).toBe(1500);
+        expect(state.centerPrimary).toBe('999%+');
+        expect(state.centerSecondary).toBe('spent');
+        expect(state.centerText).toBe('999%+ spent');
+        expect(state.isOverIncome).toBe(true);
       });
     });
   });

@@ -81,3 +81,44 @@ export const cleanAmountString = (val: string): string => {
   return val.replace(/,/g, '');
 };
 
+export interface CompactCurrencyOptions {
+  showPlus?: boolean;
+  trimTrailingZero?: boolean;
+}
+
+/**
+ * Compact Rupee formatter for tight badges and chart centers (e.g. ₹500, +₹5.0k, −₹2.2k, ₹1.2L, ₹1.5Cr).
+ * Uses Indian numbering scale: k (thousand), L (lakh), Cr (crore).
+ * Negative values use unicode minus '−' (\u2212).
+ */
+export const formatCompactCurrency = (
+  n: number,
+  options?: CompactCurrencyOptions
+): string => {
+  const val = Number(n) || 0;
+  const isNeg = val < 0;
+  const abs = Math.abs(val);
+
+  let formattedNum: string;
+  let suffix = '';
+
+  if (abs >= 10000000) {
+    const raw = (abs / 10000000).toFixed(1);
+    formattedNum = options?.trimTrailingZero ? raw.replace(/\.0$/, '') : raw;
+    suffix = 'Cr';
+  } else if (abs >= 100000) {
+    const raw = (abs / 100000).toFixed(1);
+    formattedNum = options?.trimTrailingZero ? raw.replace(/\.0$/, '') : raw;
+    suffix = 'L';
+  } else if (abs >= 1000) {
+    const raw = (abs / 1000).toFixed(1);
+    formattedNum = options?.trimTrailingZero ? raw.replace(/\.0$/, '') : raw;
+    suffix = 'k';
+  } else {
+    formattedNum = `${Math.round(abs)}`;
+  }
+
+  const sign = isNeg ? '−' : (options?.showPlus && val > 0 ? '+' : '');
+  return `${sign}₹${formattedNum}${suffix}`;
+};
+
