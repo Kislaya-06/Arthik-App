@@ -9,6 +9,8 @@ Read this fully before touching code. If a rule here conflicts with a user instr
 
 Arthik is a personal finance, expense and daily-savings tracking app.
 
+**Core Financial Principle (CRITICAL)**: Every single rupee in Arthik is **REAL MONEY** — nothing is virtual, fake, or gamified. When a user sets a daily allowance (e.g. ₹250 or ₹500/day), they are transferring and allocating real cash into their spending pool in real life. If a user turns Budget Mode OFF (switching to Pure Mode), past active days' allowances represent real money deposited into the account and must NEVER be wiped out, ignored, or vanished from historical cashflow or all-time Inflow. Always calculate all metrics with this real-money invariant.
+
 | Layer | Tech |
 | --- | --- |
 | Framework | React Native 0.86 + Expo SDK 57 (`expo-dev-client`, no Expo Go) |
@@ -118,6 +120,7 @@ Work with surgical precision:
 
 # 8. Dates, Money & Formatting
 
+- **REAL MONEY INVARIANT (FOUNDATIONAL RULE)**: Every rupee tracked in Arthik is **real money**. No balance, budget allowance, or deposit is virtual or play money. Daily budget allowances set by the user represent real cash funded into their account on those days. If Budget Mode is switched OFF (Pure Mode), past active days' allowances remain real deposited funds in all-time, monthly, and weekly Inflow — never delete, vanish, or ignore them.
 - Store/compare dates as `yyyy-MM-dd` strings. Parse with `parseISO`, never `new Date('...')`.
 - Use `date-fns` (`format`, `isToday`, `isYesterday`, `subDays`) for date math.
 - Render money only through `formatCurrency` / `formatAmountWithCommas` from `src/lib/formatters.ts` (`₹`, Indian grouping). Never inline `toLocaleString`.
@@ -215,6 +218,7 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 
 # 15. Data Integrity
 
+- **Real-Money Invariant**: All funds (budget allowances, incomes, deposits, expenses) represent real user capital. Never drop, ignore, or zero out historical budget pools or deposited allowances when modes toggle or settings change.
 - Never silently delete or overwrite user data. Destructive actions require user confirmation.
 - Preserve offline queueing and sync behavior.
 - Validate inputs at boundaries (amounts, auth forms, deep links).
