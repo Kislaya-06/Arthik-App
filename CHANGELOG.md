@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Insights Data & Indian Timezone Alignment
+
+- **Instant Insights Display for New Users:** Fixed an issue where new users saw empty weekly, monthly, and yearly analytics after spending money due to restrictive `user.created_at` timestamp filtering and UTC offset skew.
+- **Indian Timezone (IST) & Local Date Parsing:** Replaced raw UTC string splitting on account creation timestamps with `format(parseISO(createdAt), 'yyyy-MM-dd')`, preventing midnight timezone boundary slips.
+- **Calendar Rhythm Alignment:** Confirmed strict Monday-to-Sunday weekly cycles and standard 1st-to-30th/31st (and leap year Feb 28th/29th) monthly views. Mid-month onboardings retain full calendar structure while immediately charting real spending.
+- **Backdated Transaction Inclusion:** Non-income transactions logged with historical dates prior to or on signup day are now reliably included in Insights spending analytics.
+
 ### 🎨 Vibrant Category Palettes, Keypad Polish & Spacing Refinements
 
 - **Curated 26-Color Category Palette & Unique Color Auto-Assignment:** Expanded category styling with a curated 26-color modern palette (`CATEGORY_PALETTE`). Adding a new category now automatically assigns the next unused color from the palette, and dynamically synthesizes harmonious, golden-angle pastel hues when all palette colors are in use.

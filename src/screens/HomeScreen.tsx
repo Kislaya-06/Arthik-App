@@ -156,7 +156,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return m;
   }, [categories]);
 
-  const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
+  const userCreatedAtStr = useMemo(() => {
+    if (!user?.created_at) return undefined;
+    try {
+      return format(parseISO(user.created_at), 'yyyy-MM-dd');
+    } catch {
+      return user.created_at.split('T')[0]?.trim();
+    }
+  }, [user?.created_at]);
 
   const filtered = useMemo(
     () => filterExpenses(expenses, activeFilter, referenceDate, userCreatedAtStr),

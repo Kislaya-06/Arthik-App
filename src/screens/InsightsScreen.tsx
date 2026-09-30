@@ -21,7 +21,6 @@ import {
 
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
-import { useAuthStore } from '../store/authStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { TabParamList, RootStackParamList } from '../types';
@@ -33,7 +32,7 @@ import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
 import { CashFlowChart } from '../components/CashFlowChart';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
-import { computeMonthlyWeeksData, computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../lib/chartUtils';
+import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../lib/chartUtils';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -280,7 +279,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords || {});
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings || 0);
-  const user = useAuthStore((s) => s.user);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
@@ -331,12 +329,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   // This ensures period navigation and pagination dots only exist for periods with real user activity.
   const earliestExpenseDate = useMemo<Date | null>(() => {
     let earliest: string | null = null;
-    const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
     for (const exp of expenses) {
       if (!exp.expense_date) continue;
       const cleanDate = exp.expense_date.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat)) continue;
       if (!earliest || cleanDate < earliest) {
@@ -344,7 +340,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       }
     }
     return earliest ? parseISO(earliest) : null;
-  }, [expenses, categories, user?.created_at]);
+  }, [expenses, categories]);
 
   const minOff = useMemo(
     () => computeMinOffset(period, earliestExpenseDate),
@@ -422,7 +418,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     let curr = 0;
     let prev = 0;
     const catTotals: Record<string, number> = {};
-    const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
 
     for (const exp of expenses) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
@@ -430,7 +425,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
 
       const date = parseISO(cleanDate);
       if (isWithinInterval(date, currentInterval)) {
@@ -443,7 +437,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     return { currentTotal: curr, previousTotal: prev, categoryTotals: catTotals };
-  }, [expenses, categories, currentInterval, previousInterval, user?.created_at]);
+  }, [expenses, categories, currentInterval, previousInterval]);
 
   const { percentageChange, isIncrease } = useMemo(() => {
     if (previousTotal === 0) return { percentageChange: currentTotal > 0 ? 100 : 0, isIncrease: true };
@@ -492,14 +486,12 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       };
     });
 
-    const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
     for (const exp of expenses) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
 
       const date = parseISO(cleanDate);
       if (isWithinInterval(date, weekInterval)) {
@@ -511,12 +503,11 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
     const maxDay = data.reduce((max, d) => (d.amount > max.amount ? d : max), data[0]);
     return { weeklyData: data, maxWeekDay: maxDay.amount > 0 ? maxDay : null };
-  }, [expenses, categories, period, offset, user?.created_at]);
+  }, [expenses, categories, period, offset]);
 
   // Monthly week-by-week cash flow (Money In vs Money Out)
   const monthlyCashFlowData = useMemo(() => {
     if (period !== 'Monthly') return { weeks: [], totalIncome: 0, totalSpent: 0, maxAmount: 0 };
-    const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
     return computeMonthlyCashFlowData(
       currentInterval.start,
       currentInterval.end,
@@ -525,10 +516,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       (exp) => {
         const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
         return isIncomeTransaction(exp, cat);
-      },
-      userCreatedAtStr
+      }
     );
-  }, [period, currentInterval, expenses, gullakDeposits, categories, user?.created_at]);
+  }, [period, currentInterval, expenses, gullakDeposits, categories]);
 
   // Yearly Gullak savings & milestone metrics
   const yearlyGullakMetrics = useMemo(() => {
@@ -545,12 +535,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const topPaymentData = useMemo(() => {
     const counts: Record<string, number> = {};
     let total = 0;
-    const userCreatedAtStr = user?.created_at?.split('T')[0]?.trim();
 
     for (const exp of expenses) {
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
 
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
         counts[exp.payment_mode] = (counts[exp.payment_mode] || 0) + 1;
