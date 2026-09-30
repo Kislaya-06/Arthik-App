@@ -67,8 +67,8 @@ export function formatCadenceBudgetSubtitle(
 }
 
 /**
- * Formats "effective from" copy for UI:
- * e.g. "Aaj se lagu hoga", "Kal (Thu, 2 Oct) se lagu hoga", "Agle Monday (6 Oct) se lagu hoga", "1 Nov se lagu hoga".
+ * Formats "effective from" copy for UI in clear, concise English:
+ * e.g. "Takes effect today", "Takes effect tomorrow (Thu, 2 Oct)", "Takes effect next Monday (6 Oct)", "Takes effect on 1 Nov".
  */
 export function formatEffectiveFrom(
   effectiveFromStr: string,
@@ -77,27 +77,27 @@ export function formatEffectiveFrom(
   isFirstEnable: boolean = false
 ): string {
   if (isFirstEnable || effectiveFromStr === todayStr) {
-    return 'Aaj se lagu hoga';
+    return 'Takes effect today';
   }
   const d = parseISO(effectiveFromStr);
   const today = parseISO(todayStr);
   const diffDays = differenceInCalendarDays(d, today);
 
   if (diffDays === 1) {
-    return `Kal (${format(d, 'EEE, d MMM')}) se lagu hoga`;
+    return `Takes effect tomorrow (${format(d, 'EEE, d MMM')})`;
   }
   if (cadence === 'weekly') {
-    return `Agle Monday (${format(d, 'd MMM')}) se lagu hoga`;
+    return `Takes effect next Monday (${format(d, 'd MMM')})`;
   }
   if (cadence === 'monthly') {
-    return `${format(d, 'd MMM')} se lagu hoga`;
+    return `Takes effect on ${format(d, 'd MMM')}`;
   }
-  return `${format(d, 'd MMM')} se lagu hoga`;
+  return `Takes effect on ${format(d, 'd MMM')}`;
 }
 
 /**
  * Returns proration preview info if the change creates a partial period.
- * e.g. "Is hafte ke bache 3 din ka budget: ₹3,000"
+ * e.g. "Prorated allowance: ₹143 for remaining 4 days"
  */
 export interface ProrationPreview {
   isProrated: boolean;
@@ -105,6 +105,7 @@ export interface ProrationPreview {
   totalDays: number;
   proratedAmount: number;
   previewText: string;
+  explanationText: string;
 }
 
 export function getProrationPreview(
@@ -132,9 +133,13 @@ export function getProrationPreview(
   }
 
   const proratedAmount = Math.round((amount * remainingDays) / bounds.totalDays);
-  const periodWord = targetCadence === 'weekly' ? 'week' : 'month';
   const dayWord = remainingDays === 1 ? 'day' : 'days';
-  const previewText = `Budget for remaining ${remainingDays} ${dayWord} this ${periodWord}: ₹${formatAmountWithCommas(String(proratedAmount))}`;
+  const previewText = `Prorated allowance: ₹${formatAmountWithCommas(String(proratedAmount))} for remaining ${remainingDays} ${dayWord}`;
+
+  const formattedFull = formatAmountWithCommas(String(amount));
+  const explanationText = targetCadence === 'weekly'
+    ? `Spend up to ₹${formatAmountWithCommas(String(proratedAmount))} until Sunday. Unspent money rolls into Gullak on Sunday night, then your full ₹${formattedFull}/week starts on Monday.`
+    : `Spend up to ₹${formatAmountWithCommas(String(proratedAmount))} until month-end. Unspent money rolls into Gullak on the last day, then your full ₹${formattedFull}/month starts next month.`;
 
   return {
     isProrated: true,
@@ -142,6 +147,7 @@ export function getProrationPreview(
     totalDays: bounds.totalDays,
     proratedAmount,
     previewText,
+    explanationText,
   };
 }
 
@@ -160,7 +166,7 @@ export function formatCadenceStreakLabel(streak: number, cadence: BudgetCadence)
 
 /**
  * Formats the rollover strip text for the Hero Card in weekly/monthly budget mode.
- * e.g. "₹2,300 Sunday ke baad Gullak mein" or "Over by ₹400 this week"
+ * e.g. "₹2,300 rolls over to Gullak on Sunday" or "Over by ₹400 this week"
  */
 export function formatCadenceRolloverStrip(
   summary: PeriodSummaryInfo | null,
@@ -173,13 +179,13 @@ export function formatCadenceRolloverStrip(
     if (summary.isOver) {
       return `Over by ${formatCurrency(summary.overBy)} this week`;
     }
-    return `${formatCurrency(summary.remaining)} Sunday ke baad Gullak mein`;
+    return `${formatCurrency(summary.remaining)} rolls over to Gullak on Sunday`;
   }
   if (cadence === 'monthly') {
     if (summary.isOver) {
       return `Over by ${formatCurrency(summary.overBy)} this month`;
     }
-    return `${formatCurrency(summary.remaining)} month-end ke baad Gullak mein`;
+    return `${formatCurrency(summary.remaining)} rolls over to Gullak at month end`;
   }
   return '';
 }

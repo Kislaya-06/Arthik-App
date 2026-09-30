@@ -67,23 +67,23 @@ describe('budgetModeUtils (pure helpers)', () => {
   });
 
   describe('formatEffectiveFrom', () => {
-    it('returns "Aaj se lagu hoga" if isFirstEnable or effective date is today', () => {
-      expect(formatEffectiveFrom('2026-10-01', '2026-10-01', 'daily', true)).toBe('Aaj se lagu hoga');
-      expect(formatEffectiveFrom('2026-10-01', '2026-10-01', 'weekly', false)).toBe('Aaj se lagu hoga');
+    it('returns "Takes effect today" if isFirstEnable or effective date is today', () => {
+      expect(formatEffectiveFrom('2026-10-01', '2026-10-01', 'daily', true)).toBe('Takes effect today');
+      expect(formatEffectiveFrom('2026-10-01', '2026-10-01', 'weekly', false)).toBe('Takes effect today');
     });
 
     it('returns tomorrow label for next day change', () => {
       // 2026-10-02 is Friday
-      expect(formatEffectiveFrom('2026-10-02', '2026-10-01', 'daily')).toBe('Kal (Fri, 2 Oct) se lagu hoga');
+      expect(formatEffectiveFrom('2026-10-02', '2026-10-01', 'daily')).toBe('Takes effect tomorrow (Fri, 2 Oct)');
     });
 
     it('returns next Monday copy for weekly amount changes', () => {
       // 2026-10-05 is Monday
-      expect(formatEffectiveFrom('2026-10-05', '2026-10-01', 'weekly')).toBe('Agle Monday (5 Oct) se lagu hoga');
+      expect(formatEffectiveFrom('2026-10-05', '2026-10-01', 'weekly')).toBe('Takes effect next Monday (5 Oct)');
     });
 
     it('returns 1st of month copy for monthly amount changes', () => {
-      expect(formatEffectiveFrom('2026-11-01', '2026-10-15', 'monthly')).toBe('1 Nov se lagu hoga');
+      expect(formatEffectiveFrom('2026-11-01', '2026-10-15', 'monthly')).toBe('Takes effect on 1 Nov');
     });
   });
 
@@ -98,14 +98,17 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(getProrationPreview('weekly', 7000, '2026-10-05', '2026-10-04')).toBeNull();
     });
 
-    it('calculates prorated weekly budget and English preview for partial week', () => {
+    it('calculates prorated weekly budget and English preview with explanation for partial week', () => {
       // 2026-10-02 is Friday; week ends Sunday 2026-10-04 (3 days remaining: Fri, Sat, Sun)
       const preview = getProrationPreview('weekly', 7000, '2026-10-02', '2026-10-01');
       expect(preview).not.toBeNull();
       expect(preview?.isProrated).toBe(true);
       expect(preview?.remainingDays).toBe(3);
       expect(preview?.proratedAmount).toBe(3000); // 7000 * 3/7 = 3000
-      expect(preview?.previewText).toBe('Budget for remaining 3 days this week: ₹3,000');
+      expect(preview?.previewText).toBe('Prorated allowance: ₹3,000 for remaining 3 days');
+      expect(preview?.explanationText).toBe(
+        'Spend up to ₹3,000 until Sunday. Unspent money rolls into Gullak on Sunday night, then your full ₹7,000/week starts on Monday.'
+      );
     });
 
     it('calculates prorated weekly budget with singular day when 1 day remains', () => {
@@ -115,7 +118,10 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.isProrated).toBe(true);
       expect(preview?.remainingDays).toBe(1);
       expect(preview?.proratedAmount).toBe(100); // 700 * 1/7 = 100
-      expect(preview?.previewText).toBe('Budget for remaining 1 day this week: ₹100');
+      expect(preview?.previewText).toBe('Prorated allowance: ₹100 for remaining 1 day');
+      expect(preview?.explanationText).toBe(
+        'Spend up to ₹100 until Sunday. Unspent money rolls into Gullak on Sunday night, then your full ₹700/week starts on Monday.'
+      );
     });
 
     it('calculates prorated monthly budget for mid-month switch', () => {
@@ -125,7 +131,10 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.isProrated).toBe(true);
       expect(preview?.remainingDays).toBe(16);
       expect(preview?.proratedAmount).toBe(16000); // 31000 * 16 / 31 = 16000
-      expect(preview?.previewText).toBe('Budget for remaining 16 days this month: ₹16,000');
+      expect(preview?.previewText).toBe('Prorated allowance: ₹16,000 for remaining 16 days');
+      expect(preview?.explanationText).toBe(
+        'Spend up to ₹16,000 until month-end. Unspent money rolls into Gullak on the last day, then your full ₹31,000/month starts next month.'
+      );
     });
   });
 
@@ -160,7 +169,7 @@ describe('budgetModeUtils (pure helpers)', () => {
         overBy: 0,
         rolloverLabelDate: '2026-10-04',
       };
-      expect(formatCadenceRolloverStrip(summaryOnTrack, 'weekly')).toBe('₹2,300 Sunday ke baad Gullak mein');
+      expect(formatCadenceRolloverStrip(summaryOnTrack, 'weekly')).toBe('₹2,300 rolls over to Gullak on Sunday');
 
       const summaryOver = {
         ...summaryOnTrack,
@@ -186,7 +195,7 @@ describe('budgetModeUtils (pure helpers)', () => {
         overBy: 0,
         rolloverLabelDate: '2026-10-31',
       };
-      expect(formatCadenceRolloverStrip(summaryMonthly, 'monthly')).toBe('₹10,000 month-end ke baad Gullak mein');
+      expect(formatCadenceRolloverStrip(summaryMonthly, 'monthly')).toBe('₹10,000 rolls over to Gullak at month end');
     });
   });
 

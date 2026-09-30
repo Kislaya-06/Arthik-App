@@ -217,9 +217,13 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
     // Already enabled: changing cadence
     if (selectedCadence !== budgetCadence) {
+      const prorationNote = prorationPreview
+        ? `\n\nFor the remaining ${prorationPreview.remainingDays} ${prorationPreview.remainingDays === 1 ? 'day' : 'days'}, you will have a prorated spending allowance of ${formatCurrency(prorationPreview.proratedAmount)}. Any unspent amount rolls into your Gullak.`
+        : '';
+
       Alert.alert(
         'Switch Cadence?',
-        `Switching to ${selectedCadence.toUpperCase()} budget (${formatCurrency(evaluatedAmount)}) will take effect ${effectiveFromLabel}.\n\nDo you want to confirm?`,
+        `Switching to ${selectedCadence.toUpperCase()} budget (${formatCurrency(evaluatedAmount)}) will ${effectiveFromLabel.toLowerCase()}.${prorationNote}\n\nDo you want to confirm?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -448,6 +452,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
             </View>
 
             {/* Proration Preview (One-liner if partial period created) */}
+            {/* Proration Preview (Prorated allowance + crystal clear explanation) */}
             {prorationPreview && (
               <View
                 style={[
@@ -458,18 +463,28 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                   },
                 ]}
               >
-                <Sparkles
-                  size={14}
-                  color={isDark ? '#6EE7B7' : '#15803D'}
-                  style={{ marginRight: 6 }}
-                />
+                <View style={styles.prorationHeaderRow}>
+                  <Sparkles
+                    size={14}
+                    color={isDark ? '#6EE7B7' : '#15803D'}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.prorationTitle,
+                      { color: isDark ? '#6EE7B7' : '#15803D' },
+                    ]}
+                  >
+                    {prorationPreview.previewText}
+                  </Text>
+                </View>
                 <Text
                   style={[
-                    styles.prorationText,
-                    { color: isDark ? '#6EE7B7' : '#15803D' },
+                    styles.prorationExplanation,
+                    { color: isDark ? colors.textSecondary : '#4B5563' },
                   ]}
                 >
-                  {prorationPreview.previewText}
+                  {prorationPreview.explanationText}
                 </Text>
               </View>
             )}
@@ -638,19 +653,27 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   prorationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: Spacing.group,
     paddingVertical: 10,
     borderRadius: BorderRadius.input,
     borderWidth: 1,
     marginBottom: Spacing.group,
+    gap: 4,
   },
-  prorationText: {
+  prorationHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  prorationTitle: {
     fontSize: 12,
-    fontFamily: FontFamily.semibold,
+    fontFamily: FontFamily.bold,
     flex: 1,
-    lineHeight: 16,
+  },
+  prorationExplanation: {
+    fontSize: 11,
+    fontFamily: FontFamily.medium,
+    lineHeight: 15,
+    paddingLeft: 20,
   },
   keypadContainer: {
     marginBottom: Spacing.surface,

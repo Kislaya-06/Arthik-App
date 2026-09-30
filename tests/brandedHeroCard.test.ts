@@ -309,7 +309,7 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
         overBy: 0,
         rolloverLabelDate: '2026-10-11',
       };
-      expect(formatCadenceRolloverStrip(onTrack, 'weekly')).toBe('₹2,500 Sunday ke baad Gullak mein');
+      expect(formatCadenceRolloverStrip(onTrack, 'weekly')).toBe('₹2,500 rolls over to Gullak on Sunday');
 
       const overBudget = { ...onTrack, isOver: true, overBy: 800 };
       expect(formatCadenceRolloverStrip(overBudget, 'weekly')).toBe('Over by ₹800 this week');
@@ -329,7 +329,7 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
         overBy: 0,
         rolloverLabelDate: '2026-10-31',
       };
-      expect(formatCadenceRolloverStrip(onTrack, 'monthly')).toBe('₹12,000 month-end ke baad Gullak mein');
+      expect(formatCadenceRolloverStrip(onTrack, 'monthly')).toBe('₹12,000 rolls over to Gullak at month end');
 
       const overBudget = { ...onTrack, isOver: true, overBy: 2500 };
       expect(formatCadenceRolloverStrip(overBudget, 'monthly')).toBe('Over by ₹2,500 this month');
