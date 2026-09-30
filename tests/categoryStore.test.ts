@@ -163,6 +163,21 @@ describe('categoryStore (Seam: useCategoryStore)', () => {
 
       expect(mockSupabaseSelect).not.toHaveBeenCalled();
     });
+
+    it('gracefully handles network error or timeout without throwing and leaves cached categories intact', async () => {
+      mockSupabaseSelect.mockReturnValueOnce({
+        or: vi.fn().mockResolvedValue({ data: null, error: new Error('Category fetch timeout') }),
+      } as any);
+
+      const cachedCategories = [
+        { id: 'cat_cached_1', user_id: TEST_USER_ID, name: 'Groceries', icon: 'ShoppingBag', color: '#10B981', is_default: false },
+      ];
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cachedCategories));
+
+      await expect(useCategoryStore.getState().fetchCategories(true)).resolves.not.toThrow();
+      expect(useCategoryStore.getState().loading).toBe(false);
+      expect(useCategoryStore.getState().categories.length).toBeGreaterThan(0);
+    });
   });
 
   describe('Slice 4: Adding Categories', () => {

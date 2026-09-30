@@ -187,13 +187,14 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         .select('*')
         .or(`user_id.is.null,user_id.eq.${user.id}`);
       const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('Category fetch timeout') }), 3500)
+        setTimeout(() => resolve({ data: null, error: new Error('Category fetch timeout') }), 5000)
       );
 
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
-      if (error) throw error;
-      if (data) {
+      if (error) {
+        if (__DEV__) console.log('Notice: Category network fetch failed or timed out; relying on cached categories:', error.message || error);
+      } else if (data) {
         const { updated, changedCategories } = normalizeCategoryColors(data);
         set({ categories: updated, isFetched: true });
         await AsyncStorage.setItem(cacheKey, JSON.stringify(updated));
@@ -215,7 +216,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         }
       }
     } catch (e) {
-      if (__DEV__) console.error('Error fetching categories:', e);
+      if (__DEV__) console.log('Error fetching categories:', e);
     } finally {
       set({ loading: false });
     }
