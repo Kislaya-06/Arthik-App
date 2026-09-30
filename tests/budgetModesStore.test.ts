@@ -458,4 +458,43 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       expect(state.lastPeriodRolloverKey).toBeNull();
     });
   });
+
+  describe('7. Cancel Pending Plan Change', () => {
+    it('cancels future pending plan change and reverts scheduled state', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        scheduledNextDailyBudget: 800,
+        scheduledBudgetSetDate: todayStr,
+        planChanges: [
+          {
+            id: 'c-past',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: true,
+            cadence: 'daily',
+            amount: 500,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'c-future',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2099-10-01',
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 7000,
+            createdAt: '2026-09-30T00:00:00Z',
+          },
+        ],
+      });
+
+      expect(useDailyBudgetStore.getState().getPendingPlanChange()).not.toBeNull();
+      useDailyBudgetStore.getState().cancelPendingPlanChange();
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.getPendingPlanChange()).toBeNull();
+      expect(state.scheduledNextDailyBudget).toBeNull();
+      expect(state.planChanges).toHaveLength(1);
+      expect(state.planChanges[0].id).toBe('c-past');
+    });
+  });
 });

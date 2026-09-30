@@ -518,6 +518,21 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
         expect(metrics.milestone.progressRatio).toBe(0);
         expect(metrics.milestone.remainingAmount).toBe(1000);
       });
+
+      it('includes budget period savings (weekly/monthly) into annual rollover totals', () => {
+        const yearStart = new Date(2026, 0, 1);
+        const yearEnd = new Date(2026, 11, 31);
+        const budgetPeriods = [
+          { activeStart: '2026-03-01', amountSaved: 5000, status: 'saved' },
+          { activeStart: '2026-03-15', amountSaved: 3000, status: 'saved' },
+        ];
+
+        const metrics = computeYearlyGullakMilestones(yearStart, yearEnd, [], [], 8000, budgetPeriods);
+        expect(metrics.totalSavedInYear).toBe(8000);
+        expect(metrics.annualRolloverSavings).toBe(8000);
+        expect(metrics.bestSavingsMonth.month).toBe('March');
+        expect(metrics.bestSavingsMonth.amount).toBe(8000);
+      });
     });
   });
 

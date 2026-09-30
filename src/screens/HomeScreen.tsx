@@ -25,6 +25,7 @@ import { TelegramPullIndicator } from '../components/TelegramPullIndicator';
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals } from '../lib/homeCalculations';
+import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -100,6 +101,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
 
   const notifications = useNotificationStore((s) => s.notifications);
@@ -235,6 +237,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     () => getExternalDepositsInPeriod(gullakDeposits, activeFilter, referenceDate),
     [gullakDeposits, activeFilter, referenceDate]
   );
+
+  const spentByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (let i = 0; i < expenses.length; i++) {
+      const e = expenses[i];
+      const cat = e.category_id ? catMap[e.category_id] : undefined;
+      if (isIncomeTransaction(e, cat)) continue;
+      const cleanDate = e.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      map[cleanDate] = (map[cleanDate] || 0) + (Number(e.amount) || 0);
+    }
+    return map;
+  }, [expenses, catMap]);
+
+  const cadencePeriodSummary = useMemo(() => {
+    if (!isBudgetModeEnabled || budgetCadence === 'daily') return null;
+    return getCurrentPeriodSummary(planChanges, spentByDate, todayKey);
+  }, [isBudgetModeEnabled, budgetCadence, planChanges, spentByDate, todayKey]);
 
   // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
   // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
@@ -385,6 +405,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             todayRemaining={todayRemaining}
             todayRecordSpent={todayRecordSpent}
             isOverBudget={isOverBudget}
+            cadencePeriodSummary={cadencePeriodSummary}
             colors={colors}
             isDark={isDark}
             onNavigateSavings={() => navigation.navigate('Savings' as any)}
