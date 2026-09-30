@@ -179,41 +179,70 @@ import {
 
 describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () => {
   describe('getPureHeroTitle', () => {
-    it('returns exact titles per spec for each filter', () => {
-      expect(getPureHeroTitle('Daily')).toBe('Spent Today');
-      expect(getPureHeroTitle('Weekly')).toBe("This Week's Expense");
-      expect(getPureHeroTitle('Monthly')).toBe("This Month's Expense");
-      expect(getPureHeroTitle('All')).toBe('All-Time Expense');
-      expect(getPureHeroTitle('Custom')).toBe('Expense');
+    it('returns Remaining titles when user has positive balance', () => {
+      expect(getPureHeroTitle('Daily')).toBe('Daily Remaining');
+      expect(getPureHeroTitle('Weekly')).toBe('Weekly Remaining');
+      expect(getPureHeroTitle('Monthly')).toBe('Monthly Remaining');
+      expect(getPureHeroTitle('All')).toBe('Total Remaining');
+    });
+
+    it('returns Deficit titles when user has overspent', () => {
+      expect(getPureHeroTitle('Daily', true, true)).toBe('Daily Deficit');
+      expect(getPureHeroTitle('Weekly', true, true)).toBe('Weekly Deficit');
+      expect(getPureHeroTitle('Monthly', true, true)).toBe('Monthly Deficit');
+      expect(getPureHeroTitle('All', true, true)).toBe('Total Deficit');
+    });
+
+    it('returns Spent titles when user has zero inflow', () => {
+      expect(getPureHeroTitle('Daily', false, false)).toBe('Spent Today');
+      expect(getPureHeroTitle('Weekly', false, false)).toBe('Weekly Spent');
+      expect(getPureHeroTitle('Monthly', false, false)).toBe('Monthly Spent');
+      expect(getPureHeroTitle('All', false, false)).toBe('Total Spent');
     });
   });
 
   describe('calculatePureHeroMetrics', () => {
-    it('correctly calculates metrics for Daily with positive net cash flow', () => {
+    it('correctly calculates metrics for Daily with positive remaining balance', () => {
       const metrics = calculatePureHeroMetrics('Daily', 5000, 2200);
-      expect(metrics.title).toBe('Spent Today');
+      expect(metrics.title).toBe('Daily Remaining');
+      expect(metrics.totalRemaining).toBe(2800);
       expect(metrics.totalExpense).toBe(2200);
       expect(metrics.inflow).toBe(5000);
       expect(metrics.outflow).toBe(2200);
       expect(metrics.net).toBe(2800); // Inflow - Outflow
+      expect(metrics.isDeficit).toBe(false);
     });
 
     it('correctly calculates metrics for Weekly with negative net cash flow (deficit)', () => {
       const metrics = calculatePureHeroMetrics('Weekly', 1000, 2500);
-      expect(metrics.title).toBe("This Week's Expense");
+      expect(metrics.title).toBe('Weekly Deficit');
+      expect(metrics.totalRemaining).toBe(1500); // Deficit amount
       expect(metrics.totalExpense).toBe(2500);
       expect(metrics.inflow).toBe(1000);
       expect(metrics.outflow).toBe(2500);
       expect(metrics.net).toBe(-1500);
+      expect(metrics.isDeficit).toBe(true);
     });
 
     it('correctly handles zero income and zero expense', () => {
       const metrics = calculatePureHeroMetrics('Monthly', 0, 0);
-      expect(metrics.title).toBe("This Month's Expense");
+      expect(metrics.title).toBe('Monthly Spent');
+      expect(metrics.totalRemaining).toBe(0);
       expect(metrics.totalExpense).toBe(0);
       expect(metrics.inflow).toBe(0);
       expect(metrics.outflow).toBe(0);
       expect(metrics.net).toBe(0);
+      expect(metrics.isDeficit).toBe(false);
+    });
+
+    it('correctly projects user screenshot scenario (All filter, Inflow ₹26,203.8, Outflow ₹1,617)', () => {
+      const metrics = calculatePureHeroMetrics('All', 26203.8, 1617);
+      expect(metrics.title).toBe('Total Remaining');
+      expect(metrics.totalRemaining).toBe(24586.8);
+      expect(metrics.inflow).toBe(26203.8);
+      expect(metrics.outflow).toBe(1617);
+      expect(metrics.net).toBe(24586.8);
+      expect(metrics.isDeficit).toBe(false);
     });
   });
 

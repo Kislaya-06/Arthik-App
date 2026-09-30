@@ -559,7 +559,8 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
 
       // Verify Pure Hero Metrics projection
       const pureMetrics = calculatePureHeroMetrics('All', allResult.totalAvailable, allResult.periodSpent);
-      expect(pureMetrics.title).toBe('All-Time Expense');
+      expect(pureMetrics.title).toBe('Total Remaining');
+      expect(pureMetrics.totalRemaining).toBe(20619.8);
       expect(pureMetrics.totalExpense).toBe(2204);
       expect(pureMetrics.inflow).toBe(22823.8);
       expect(pureMetrics.outflow).toBe(2204);

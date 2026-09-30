@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 💰 Historical Active Budget Inflow Preservation in Pure Mode
+### 💰 Historical Active Budget Inflow & Pure Mode Remaining Alignment
 
-- **Real Inflow Accounting When Budget Mode is Turned OFF:** Past daily budget allowances (e.g. ₹250/day or ₹500/day funded into the user's spending pool while Budget Mode was active) are now strictly preserved in all-time, monthly, and weekly Inflow in Pure Mode. Turning off Budget Mode pauses future daily allowances from today onwards without deleting the real funds the user deposited and allocated during active past days.
-- **Accurate Pure Mode Cash Flow & Dual Concentric Rings:** Updated `BrandedHeroCard` and `calculatePeriodSummary` so Pure Mode Hero metrics (Inflow, Outflow, Net, and DualRingChart) reflect the full lifetime and period cash pool (`Historical Active Budget Allowances + Transaction Income + External Deposits`), accurately projecting savings and spending percentage without cash dropouts.
+- **Pure Mode Hero Card Shows Remaining Balance at Top:** In Pure Mode, the primary hero amount now displays the remaining available balance ("Kitna bacha hua hai" / Net: Total Remaining, Monthly Remaining, Weekly Remaining, Daily Remaining), matching user financial expectations across all filters. Overspent periods display deficit amounts in alert red.
+- **Clean 2-Column Footer (Inflow & Outflow):** Removed the redundant "Net" column from the Pure Mode footer since the net remaining amount is prominently showcased as the primary hero number. The footer now cleanly presents **Inflow** (+₹) and **Outflow** (−₹) in a balanced 2-column layout.
+- **Preserved Gullak / Budget Mode Invariants:** Zero changes made to Budget Mode (Gullak mode), preserving all rollover, subtext chips, and daily allowances intact.
+- **Real Inflow Accounting When Budget Mode is Turned OFF:** Past daily budget allowances (e.g. ₹250/day or ₹500/day funded into the user's spending pool while Budget Mode was active) are strictly preserved in all-time, monthly, and weekly Inflow in Pure Mode. Turning off Budget Mode pauses future daily allowances from today onwards without deleting the real funds the user deposited and allocated during active past days.
 
 
 ### 🐛 Insights Data & Indian Timezone Alignment

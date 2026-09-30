@@ -271,36 +271,35 @@ export function parseChipNumber(chipStr: string): ParsedChipNumber | null {
 
 /**
  * Returns the filter-specific header title for Pure Mode (budget mode disabled).
- * - Daily: "Spent Today"
- * - Weekly: "This Week's Expense"
- * - Monthly: "This Month's Expense"
- * - All: "All-Time Expense"
+ * Projects "Remaining" when user has a positive balance, "Deficit" when overspent, or "Spent" when zero inflow.
+ * - Daily: "Daily Remaining" / "Daily Deficit" / "Spent Today"
+ * - Weekly: "Weekly Remaining" / "Weekly Deficit" / "Weekly Spent"
+ * - Monthly: "Monthly Remaining" / "Monthly Deficit" / "Monthly Spent"
+ * - All: "Total Remaining" / "Total Deficit" / "Total Spent"
  */
-export const getPureHeroTitle = (activeFilter: string): string => {
-  switch (activeFilter) {
-    case 'Daily':
-      return 'Spent Today';
-    case 'Weekly':
-      return "This Week's Expense";
-    case 'Monthly':
-      return "This Month's Expense";
-    case 'All':
-      return 'All-Time Expense';
-    default:
-      return 'Expense';
+export const getPureHeroTitle = (activeFilter: string, isDeficit = false, hasInflow = true): string => {
+  const prefix = activeFilter === 'Daily' ? 'Daily' : (activeFilter === 'All' ? 'Total' : activeFilter);
+  if (!hasInflow) {
+    return activeFilter === 'Daily' ? 'Spent Today' : `${prefix} Spent`;
   }
+  if (isDeficit) {
+    return `${prefix} Deficit`;
+  }
+  return `${prefix} Remaining`;
 };
 
 export interface PureHeroMetrics {
   title: string;
+  totalRemaining: number;
   totalExpense: number;
   inflow: number;
   outflow: number;
   net: number;
+  isDeficit: boolean;
 }
 
 /**
- * Calculates pure mode hero metrics: total expense (big number), inflow, outflow, and net cashflow.
+ * Calculates pure mode hero metrics: total remaining (big number), inflow, outflow, and net cashflow.
  */
 export const calculatePureHeroMetrics = (
   activeFilter: string,
@@ -310,12 +309,28 @@ export const calculatePureHeroMetrics = (
   const inflow = round2(Math.max(0, totalInflow));
   const outflow = round2(Math.max(0, totalSpent));
   const net = round2(inflow - outflow);
+  const isDeficit = outflow > inflow && inflow > 0;
+  const hasInflow = inflow > 0;
+
+  let totalRemaining: number;
+  if (!hasInflow) {
+    totalRemaining = outflow;
+  } else if (isDeficit) {
+    totalRemaining = round2(outflow - inflow);
+  } else {
+    totalRemaining = net;
+  }
+
+  const title = getPureHeroTitle(activeFilter, isDeficit, hasInflow);
+
   return {
-    title: getPureHeroTitle(activeFilter),
+    title,
+    totalRemaining,
     totalExpense: outflow,
     inflow,
     outflow,
     net,
+    isDeficit,
   };
 };
 

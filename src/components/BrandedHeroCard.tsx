@@ -208,7 +208,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       useNativeDriver: false,
     });
 
-    const targetPrimary = isBudgetModeEnabled ? primaryAmount : pureMetrics.totalExpense;
+    const targetPrimary = isBudgetModeEnabled ? primaryAmount : pureMetrics.totalRemaining;
     const targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
     const targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
 
@@ -325,14 +325,14 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                 {
                   color: isBudgetModeEnabled
                     ? (isOverBudgetPeriod ? colors.danger : textColorPrimary)
-                    : textColorPrimary,
+                    : (pureMetrics.isDeficit ? colors.danger : textColorPrimary),
                 },
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {formatCurrency(isBudgetModeEnabled ? displayPrimaryAmount : displayPeriodSpent)}
+              {formatCurrency(displayPrimaryAmount)}
             </Text>
 
             {/* Subtext Chips (Budget mode only) */}
@@ -404,17 +404,16 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               </View>
             </View>
           ) : (
-            /* Pure Mode: 3-Column Footer Row (Inflow +₹, Outflow −₹, Net sign-aware) */
+            /* Pure Mode: 2-Column Footer Row (Inflow +₹, Outflow −₹) */
             <View style={styles.metricsRow}>
               {/* Inflow Column */}
-              <View style={styles.pureMetricCol}>
+              <View style={styles.metricCol}>
                 <Text style={styles.metricColLabel}>Inflow</Text>
                 <View style={styles.metricAmountRow}>
                   <Text
-                    style={[styles.pureMetricAmount, { color: textColorPrimary }]}
+                    style={[styles.metricAmount, { color: textColorPrimary }]}
                     numberOfLines={1}
                     adjustsFontSizeToFit
-                    minimumFontScale={0.7}
                   >
                     {`+${formatCurrency(displayTotalAvailable)}`}
                   </Text>
@@ -425,48 +424,18 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               </View>
 
               {/* Outflow Column */}
-              <View style={styles.pureMetricCol}>
+              <View style={styles.metricCol}>
                 <Text style={styles.metricColLabel}>Outflow</Text>
                 <View style={styles.metricAmountRow}>
                   <Text
-                    style={[styles.pureMetricAmount, { color: textColorPrimary }]}
+                    style={[styles.metricAmount, { color: textColorPrimary }]}
                     numberOfLines={1}
                     adjustsFontSizeToFit
-                    minimumFontScale={0.7}
                   >
                     {`−${formatCurrency(displayPeriodSpent)}`}
                   </Text>
                   <View style={styles.trendChipExpense}>
                     <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
-                  </View>
-                </View>
-              </View>
-
-              {/* Net Column (Sign-Aware) */}
-              <View style={styles.pureMetricCol}>
-                <Text style={styles.metricColLabel}>Net</Text>
-                <View style={styles.metricAmountRow}>
-                  <Text
-                    style={[
-                      styles.pureMetricAmount,
-                      { color: isNetPositive ? '#15803D' : '#DC2626' },
-                    ]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.7}
-                  >
-                    {isNetPositive
-                      ? `+${formatCurrency(displayNet)}`
-                      : `−${formatCurrency(Math.abs(displayNet))}`}
-                  </Text>
-                  <View
-                    style={isNetPositive ? styles.trendChipIncome : styles.trendChipExpense}
-                  >
-                    {isNetPositive ? (
-                      <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
-                    ) : (
-                      <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
-                    )}
                   </View>
                 </View>
               </View>
