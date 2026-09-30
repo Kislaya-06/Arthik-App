@@ -44,7 +44,7 @@ describe('budgetModeUtils (pure helpers)', () => {
   describe('formatCadenceBudgetSubtitle', () => {
     it('returns explanation string when mode is OFF', () => {
       expect(formatCadenceBudgetSubtitle(false, 'daily', 500)).toBe(
-        'Sirf kharcha track karo — koi limit nahi'
+        'Track expenses with no limits'
       );
     });
 

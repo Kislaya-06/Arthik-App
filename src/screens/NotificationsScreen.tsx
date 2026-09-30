@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { useNotificationStore, AppNotification } from '../store/notificationStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
@@ -89,7 +90,12 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       notif.type === 'savings_rollover' ||
       notif.type === 'daily_reminder'
     ) {
-      navigation.navigate('Savings' as any);
+      const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
+      if (!isBudgetModeEnabled || notif.type === 'daily_reminder') {
+        navigation.navigate('AppTabs', { screen: 'Home' });
+      } else {
+        navigation.navigate('Savings' as any);
+      }
     }
   };
 
