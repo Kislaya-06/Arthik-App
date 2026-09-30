@@ -406,6 +406,47 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(state.dailyRecords).toEqual({});
       expect(state.gullakDeposits).toEqual([]);
       expect(state.totalAccumulatedSavings).toBe(0);
+      expect(state.dailyBudgetAmount).toBe(100);
+      expect(state.isAutoRenew).toBe(false);
+    });
+  });
+
+  describe('Slice 6: New User Daily Budget Mode Defaults', () => {
+    it('initializes new user with daily budget mode OFF and default allowance 100', () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      const state = useDailyBudgetStore.getState();
+
+      expect(state.dailyBudgetAmount).toBe(100);
+      expect(state.isAutoRenew).toBe(false);
+
+      const todayRec = state.getTodayRecord();
+      expect(todayRec.budget).toBe(0);
+      expect(todayRec.status).toBe('unknown');
+    });
+
+    it('keeps isAutoRenew false when updating allowance if mode is currently OFF', () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      expect(useDailyBudgetStore.getState().isAutoRenew).toBe(false);
+
+      useDailyBudgetStore.getState().setDailyBudget(200);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.dailyBudgetAmount).toBe(200);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.getTodayRecord().budget).toBe(0);
+    });
+
+    it('activates daily allowance correctly when user explicitly toggles auto-renew ON', () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      expect(useDailyBudgetStore.getState().isAutoRenew).toBe(false);
+
+      useDailyBudgetStore.getState().toggleAutoRenew(true);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(100);
+      expect(state.getTodayRecord().budget).toBe(100);
+      expect(state.getTodayRecord().status).toBe('active');
     });
   });
 });

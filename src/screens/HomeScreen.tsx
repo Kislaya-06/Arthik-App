@@ -22,7 +22,7 @@ import { Bell, ChevronRight, User } from 'lucide-react-native';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { TelegramPullIndicator } from '../components/TelegramPullIndicator';
-import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod } from '../lib/homeCalculations';
 import { useAuthStore } from '../store/authStore';
@@ -166,8 +166,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }, [user?.created_at]);
 
   const filtered = useMemo(
-    () => filterExpenses(expenses, activeFilter, referenceDate, userCreatedAtStr),
-    [expenses, activeFilter, userCreatedAtStr, todayKey]
+    () => filterExpenses(expenses, activeFilter, referenceDate),
+    [expenses, activeFilter, referenceDate]
   );
 
   const { totalIncome, totalSpent } = useMemo(() => {
@@ -241,8 +241,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
 
   const externalDepositsInPeriod = useMemo(
-    () => getExternalDepositsInPeriod(gullakDeposits, activeFilter, referenceDate, userCreatedAtStr),
-    [gullakDeposits, activeFilter, referenceDate, userCreatedAtStr]
+    () => getExternalDepositsInPeriod(gullakDeposits, activeFilter, referenceDate),
+    [gullakDeposits, activeFilter, referenceDate]
   );
 
   // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
@@ -277,17 +277,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Date range label shown below filter pills for quick orientation
   const filterDateLabel = useMemo(() => {
     const t = referenceDate;
-    if (activeFilter === 'All') return userCreatedAtStr ? `Since ${format(parseISO(userCreatedAtStr), 'd MMM yyyy')}` : 'All time';
+    if (activeFilter === 'All') return 'All time';
     if (activeFilter === 'Daily') return format(t, 'EEEE, d MMM');
-    const periodStart = format(activeFilter === 'Weekly' ? startOfWeek(t, { weekStartsOn: 1 }) : startOfMonth(t), 'yyyy-MM-dd');
-    const startStr = (userCreatedAtStr && userCreatedAtStr > periodStart) ? userCreatedAtStr : periodStart;
-    const start = parseISO(startStr);
-    if (startStr === format(t, 'yyyy-MM-dd')) return format(t, 'd MMM');
-    const sameMonth = format(start, 'M') === format(t, 'M');
-    return activeFilter === 'Monthly'
-      ? `${format(start, 'd')}\u2013${format(t, 'd MMM yyyy')}`
-      : sameMonth ? `${format(start, 'd')}\u2013${format(t, 'd MMM')}` : `${format(start, 'd MMM')} \u2013 ${format(t, 'd MMM')}`;
-  }, [activeFilter, referenceDate, userCreatedAtStr]);
+    if (activeFilter === 'Weekly') {
+      const start = startOfWeek(t, { weekStartsOn: 1 });
+      const end = endOfWeek(t, { weekStartsOn: 1 });
+      const sameMonth = format(start, 'M') === format(end, 'M');
+      return sameMonth ? `${format(start, 'd')}\u2013${format(end, 'd MMM')}` : `${format(start, 'd MMM')} \u2013 ${format(end, 'd MMM')}`;
+    }
+    const start = startOfMonth(t);
+    const end = endOfMonth(t);
+    return `${format(start, 'd')}\u2013${format(end, 'd MMM yyyy')}`;
+  }, [activeFilter, referenceDate]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

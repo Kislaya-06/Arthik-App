@@ -235,7 +235,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
     (set, get) => ({
       ownerUserId: null,
       hydratedForUserId: null,
-      dailyBudgetAmount: 0,
+      dailyBudgetAmount: 100,
       isAutoRenew: false,
       dailyRecords: {},
       gullakDeposits: [],
@@ -263,7 +263,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           return records[todayStr];
         }
 
-        return buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
+        const def = buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
+        if (!get().isAutoRenew) {
+          return {
+            ...def,
+            status: 'unknown',
+          };
+        }
+        return def;
       },
 
       getPastRecordsList: () => {
@@ -276,7 +283,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const cleanAmount = Math.max(0, round2(amount));
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
-        const willAutoRenew = cleanAmount > 0 ? true : false;
+        const currentAutoRenew = get().isAutoRenew;
+        const willAutoRenew = cleanAmount > 0 ? currentAutoRenew : false;
 
         if (willAutoRenew) {
           const existing = records[todayStr];
@@ -999,34 +1007,38 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             new Promise<{ data: null }>((r) => setTimeout(() => r({ data: null }), 3500)),
           ]);
 
-          let resolvedBudget = get().dailyBudgetAmount;
+          let resolvedBudget = get().dailyBudgetAmount || 100;
           let resolvedAutoRenew = get().isAutoRenew;
           // Track whether Supabase returned the migration-default 500 so self-healing can fire
-          // even on fresh installs where local state is already 0 (and resolvedBudget gets set to 0).
+          // even on fresh installs where local state is already default (and resolvedBudget gets set).
           let remoteBudgetWasMigrationDefault = false;
 
           if (pendingSettings.daily_budget !== undefined) {
             resolvedBudget = pendingSettings.daily_budget;
           } else if (profileData && profileData.daily_budget !== null && profileData.daily_budget !== undefined) {
             const remoteBudget = Math.max(0, round2(Number(profileData.daily_budget)));
-            // Guard: Remote is the migration default 500 AND local has a different value (including 0 = fresh install).
+            // Guard: Remote is the migration default 500 AND local has a different value (including fresh install).
             // In both cases the self-healing recovery block below will infer the real budget from savings logs,
             // so we defer — leave resolvedBudget as whatever local already has and let recovery overwrite if needed.
             if (remoteBudget === 500) {
               remoteBudgetWasMigrationDefault = true;
               // Keep local value for now; self-healing block below will fix it from savings log history
-              resolvedBudget = get().dailyBudgetAmount; // may be 0 on fresh install — overwritten by recovery
-            } else {
+              resolvedBudget = get().dailyBudgetAmount || 100;
+            } else if (remoteBudget > 0) {
               resolvedBudget = remoteBudget;
+            } else {
+              resolvedBudget = get().dailyBudgetAmount || 100;
             }
+          } else {
+            resolvedBudget = get().dailyBudgetAmount || 100;
           }
 
           if (pendingSettings.is_auto_renew !== undefined) {
             resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
           } else if (profileData && profileData.is_auto_renew !== null && profileData.is_auto_renew !== undefined) {
             resolvedAutoRenew = Boolean(profileData.is_auto_renew);
-          } else if (resolvedBudget > 0) {
-            resolvedAutoRenew = true;
+          } else {
+            resolvedAutoRenew = false;
           }
 
           // 2. Fetch past daily savings logs from Supabase with timeout
@@ -1111,11 +1123,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
 
           // If remote was 500 and no non-500 candidate was found, restore 500
-          if (remoteBudgetWasMigrationDefault && resolvedBudget === 0) {
+          if (remoteBudgetWasMigrationDefault && (resolvedBudget === 0 || resolvedBudget === 100)) {
             resolvedBudget = 500;
-          }
-          if (resolvedBudget > 0 && profileData?.is_auto_renew !== false && !pendingSettings.is_auto_renew) {
-            resolvedAutoRenew = true;
           }
 
           if (logsData && logsData.length > 0) {
@@ -1284,7 +1293,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         set({
           ownerUserId: null,
           hydratedForUserId: null,
-          dailyBudgetAmount: 0,
+          dailyBudgetAmount: 100,
           isAutoRenew: false,
           dailyRecords: {},
           gullakDeposits: [],

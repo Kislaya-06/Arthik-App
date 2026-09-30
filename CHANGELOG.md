@@ -12,9 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 Insights Data & Indian Timezone Alignment
 
 - **Instant Insights Display for New Users:** Fixed an issue where new users saw empty weekly, monthly, and yearly analytics after spending money due to restrictive `user.created_at` timestamp filtering and UTC offset skew.
+- **Home Screen Spending & Date Alignment for New Users:** Removed restrictive `userCreatedAtStr` boundary filtering from `filterExpenses` and `getExternalDepositsInPeriod` on the Home Screen. New users can now see their spending, donut chart progress, and accurate period totals across Daily, Weekly, Monthly, and All time without dropouts.
+- **New User Daily Budget Mode & Allowance Defaults:** Configured Daily Budget Mode (`isAutoRenew`) to default strictly to OFF (`false`) for new users, with the template daily allowance set to ₹100. Removed forced auto-renew switches in profile hydration and budget updates so manual budgeting mode remains active until explicitly toggled ON.
 - **Indian Timezone (IST) & Local Date Parsing:** Replaced raw UTC string splitting on account creation timestamps with `format(parseISO(createdAt), 'yyyy-MM-dd')`, preventing midnight timezone boundary slips.
 - **Calendar Rhythm Alignment:** Confirmed strict Monday-to-Sunday weekly cycles and standard 1st-to-30th/31st (and leap year Feb 28th/29th) monthly views. Mid-month onboardings retain full calendar structure while immediately charting real spending.
-- **Backdated Transaction Inclusion:** Non-income transactions logged with historical dates prior to or on signup day are now reliably included in Insights spending analytics.
+- **Backdated Transaction Inclusion:** Non-income transactions logged with historical dates prior to or on signup day are now reliably included in Insights and Home Screen spending analytics.
 
 ### 🎨 Vibrant Category Palettes, Keypad Polish & Spacing Refinements
 

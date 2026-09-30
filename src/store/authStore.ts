@@ -172,8 +172,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       first_name: firstName ?? profile?.first_name ?? '',
       last_name: lastName !== undefined ? lastName : (profile?.last_name || ''),
       email: user.email || profile?.email || '',
-      daily_budget: settings?.daily_budget !== undefined ? settings.daily_budget : profile?.daily_budget,
-      is_auto_renew: settings?.is_auto_renew !== undefined ? settings.is_auto_renew : profile?.is_auto_renew,
+      daily_budget: settings?.daily_budget !== undefined ? settings.daily_budget : (profile?.daily_budget ?? 100),
+      is_auto_renew: settings?.is_auto_renew !== undefined ? settings.is_auto_renew : (profile?.is_auto_renew ?? false),
     };
 
     // Optimistic: update local state + cache immediately so UI reflects change without waiting for network

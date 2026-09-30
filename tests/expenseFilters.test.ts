@@ -31,20 +31,18 @@ describe('filterExpenses - Pure Expense Filter', () => {
     });
   });
 
-  describe('Registration boundary', () => {
-    const USER_CREATED = '2026-09-16'; // Registered on Wednesday
-
-    it('excludes expenses on dates strictly before registration date', () => {
-      // Weekly would normally include Monday 14 and Wednesday 16 and Friday 18.
-      // But Monday 14 is before user created date (2026-09-16).
-      const result = filterExpenses(mockExpenses, 'Weekly', REF_DATE, USER_CREATED);
+  describe('Calendar week and month preservation for new users', () => {
+    it('preserves all expenses within the calendar week, including backdated days', () => {
+      // Weekly includes Monday 14, Wednesday 16, and Friday 18.
+      // Even if user joined mid-week (e.g. Wednesday 16), all expenses in the week are preserved.
+      const result = filterExpenses(mockExpenses, 'Weekly', REF_DATE);
       const ids = result.map((e) => e.id);
 
-      expect(ids).toContain('1'); // Sept 18
-      expect(ids).toContain('2'); // Sept 18 (ISO)
-      expect(ids).toContain('3'); // Sept 16
-      expect(ids).not.toContain('4'); // Sept 14 (pre-registration!)
-      expect(ids).not.toContain('5'); // Sept 13 (pre-registration!)
+      expect(ids).toContain('1'); // Sept 18 (Fri)
+      expect(ids).toContain('2'); // Sept 18 (Fri ISO)
+      expect(ids).toContain('3'); // Sept 16 (Wed)
+      expect(ids).toContain('4'); // Sept 14 (Mon)
+      expect(ids).not.toContain('5'); // Sept 13 (Previous Sunday - previous week!)
     });
   });
 

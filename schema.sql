@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     first_name TEXT NOT NULL,
     last_name TEXT,
     email TEXT NOT NULL,
-    daily_budget NUMERIC(12, 2) DEFAULT 0,
+    daily_budget NUMERIC(12, 2) DEFAULT 100.00,
     is_auto_renew BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

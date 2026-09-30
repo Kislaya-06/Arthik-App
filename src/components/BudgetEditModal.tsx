@@ -33,6 +33,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const sheetAnim = useRef(new Animated.Value(0)).current;
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
+  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
   const setDailyBudget = useDailyBudgetStore((s) => s.setDailyBudget);
   const scheduleNextDailyBudget = useDailyBudgetStore((s) => s.scheduleNextDailyBudget);
 
@@ -58,8 +59,8 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       return;
     }
 
-    // If daily budget is already configured and user is changing it
-    if (dailyBudgetAmount > 0 && num !== dailyBudgetAmount) {
+    // If daily budget mode is ON and already configured, schedule for tomorrow
+    if (isAutoRenew && dailyBudgetAmount > 0 && num !== dailyBudgetAmount) {
       Alert.alert(
         'Change Daily Budget?',
         `Your new daily budget (${formatCurrency(num)}) will take effect tomorrow at 12:00 AM. Today's budget (${formatCurrency(dailyBudgetAmount)}) will remain active.\n\nDo you want to confirm?`,
@@ -77,10 +78,10 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       return;
     }
 
-    // Setting for the first time or same amount
+    // Setting for the first time, when mode is OFF, or same amount
     setDailyBudget(num);
     onClose();
-  }, [inputBudget, dailyBudgetAmount, setDailyBudget, scheduleNextDailyBudget, onClose]);
+  }, [inputBudget, isAutoRenew, dailyBudgetAmount, setDailyBudget, scheduleNextDailyBudget, onClose]);
 
   return (
     <Modal
