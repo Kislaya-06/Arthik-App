@@ -19,6 +19,7 @@ import { useDailyBudgetStore, GullakDepositSource } from '../store/dailyBudgetSt
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon, AnimatedPiggyBank } from './PiggyBankCoinIcon';
 import { KeyButton } from './KeyButton';
+import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { formatAmountWithCommas, formatCurrency } from '../lib/formatters';
 import {
   applyKeypadPress,
@@ -51,6 +52,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const [source, setSource] = useState<GullakDepositSource>('external');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [showExplainer, setShowExplainer] = useState(false);
   const [isCelebrating, setIsCelebrating] = useState(false);
   const celebrationScale = useRef(new Animated.Value(0.8)).current;
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
@@ -161,9 +163,16 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     <PiggyBankCoinIcon size={20} color={colors.mintGreenDark} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                      Deposit to Gullak
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                        Deposit to Gullak
+                      </Text>
+                      <MoneyHelpBadge
+                        size={18}
+                        style={{ marginLeft: Spacing.element }}
+                        onPress={() => setShowExplainer(true)}
+                      />
+                    </View>
                     <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
                       Choose where the money comes from
                     </Text>
@@ -194,9 +203,16 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 </View>
                 <View style={styles.sourceTextWrap}>
                   <View style={styles.sourceTitleRow}>
-                    <Text style={[styles.sourceTitle, { color: colors.textPrimary }]}>
-                      From Income
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.sourceTitle, { color: colors.textPrimary }]}>
+                        From Income
+                      </Text>
+                      <MoneyHelpBadge
+                        size={16}
+                        style={{ marginLeft: 6 }}
+                        onPress={() => setShowExplainer(true)}
+                      />
+                    </View>
                     <View style={[styles.badgePill, { backgroundColor: colors.mintGreenSoft }]}>
                       <Text style={[styles.badgeText, { color: isDark ? colors.mintGreen : colors.forestGreen }]}>
                         {formatCurrency(availableIncome)} avail.
@@ -237,9 +253,16 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 </View>
                 <View style={styles.sourceTextWrap}>
                   <View style={styles.sourceTitleRow}>
-                    <Text style={[styles.sourceTitle, { color: colors.textPrimary }]}>
-                      Add New Money
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.sourceTitle, { color: colors.textPrimary }]}>
+                        Add New Money
+                      </Text>
+                      <MoneyHelpBadge
+                        size={16}
+                        style={{ marginLeft: 6 }}
+                        onPress={() => setShowExplainer(true)}
+                      />
+                    </View>
                     <View
                       style={[
                         styles.badgePill,
@@ -293,9 +316,16 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     <ArrowLeft size={16} color={colors.textPrimary} />
                   </TouchableOpacity>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                      {source === 'income' ? 'From Income' : 'Add New Money'}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                        {source === 'income' ? 'From Income' : 'Add New Money'}
+                      </Text>
+                      <MoneyHelpBadge
+                        size={18}
+                        style={{ marginLeft: Spacing.element }}
+                        onPress={() => setShowExplainer(true)}
+                      />
+                    </View>
                     <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
                       {source === 'income'
                         ? 'Moving tracked income into Gullak'
@@ -554,6 +584,12 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
           )}
         </View>
       </KeyboardAvoidingView>
+
+      <MoneyExplainerModal
+        visible={showExplainer}
+        topic="deposit_sources"
+        onClose={() => setShowExplainer(false)}
+      />
     </Modal>
   );
 };

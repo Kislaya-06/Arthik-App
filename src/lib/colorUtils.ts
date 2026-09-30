@@ -81,3 +81,36 @@ export function getBadgeGradientColors(baseHex: string, isDark = false): {
     iconColor,
   };
 }
+
+/**
+ * Calculates a lightened, non-glaring 3-stop diagonal gradient specifically for selected category pills.
+ * Softens raw saturated colors by 20-38% with a gentle gradient, eliminating eye strain in dark mode
+ * while maintaining the category's unique color identity.
+ */
+export function getCategoryChipGradient(chipColor: string, isDark = false): {
+  startColor: string;
+  midColor: string;
+  endColor: string;
+  strokeColor: string;
+  contentColor: string;
+} {
+  const clean = (chipColor || '#ADEBB3').trim();
+  const isLightBg = getContrastTextColor(clean) === '#000000';
+
+  // Lightened gradient stops: start is luminous pastel, mid is soft, end is gently softened base
+  const startColor = tintColor(clean, isDark ? 0.38 : 0.30);
+  const midColor = tintColor(clean, isDark ? 0.20 : 0.14);
+  const endColor = tintColor(clean, isDark ? 0.06 : 0.02);
+
+  const strokeColor = isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0, 0, 0, 0.08)';
+  const contentColor = isLightBg ? '#1A2B4C' : '#FFFFFF';
+
+  return {
+    startColor,
+    midColor,
+    endColor,
+    strokeColor,
+    contentColor,
+  };
+}
+

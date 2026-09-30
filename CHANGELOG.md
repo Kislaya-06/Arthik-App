@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 💡 Contextual Money Explainer Badges & Pop-Up Guides
+- **Tactile Exclamation Badges (`MoneyHelpBadge`):** Placed intuitive, animated circular exclamation badges (`(!)`) at high-friction financial decision points across the app to proactively eliminate user confusion about what happens to their real money.
+- **Interactive Explainer Modal (`MoneyExplainerModal`):** Added a native animated bottom-sheet explainer covering 5 core money topics with structured bullet cards, visual status tags, reassuring icons, and practical financial tips:
+  1. *Cadence Switching (`cadence_switch`):* Explains how past days are rolled into Gullak, how remaining days get a fair prorated allowance, and when the new cycle begins.
+  2. *Pausing Budget Mode (`budget_pause`):* Confirms that Gullak savings stay 100% safe, past allowances remain in Inflow, and daily limits simply pause.
+  3. *Deposit Sources (`deposit_sources`):* Clarifies the exact difference between "From Income" (internal allocation without inflating balance) vs "Add New Money" (fresh external funds).
+  4. *Gullak Rollover (`rollover_savings`):* Explains midnight and period-end automated rollovers, streak math, and deficit handling.
+  5. *Pure Mode Balance (`pure_mode_balance`):* Details how Total Inflow, Outflow, and Remaining Balance are calculated.
+- **Embedded Touchpoints:** Integrated badges directly in `BudgetEditModal` (header & proration preview), `DepositGullakModal` (source options & header), `ProfileScreen` (Budget Mode switch & pause confirmation modal), and `SavingsScreen` (Gullak title).
+- **Interactive Bottom Sheet Polish:** Upgraded `MoneyExplainerModal` with smooth Android scrolling responsiveness, tap-anywhere backdrop dismissal, and sleek diagonal 3-stop SVG gradients on badges.
+
+### 🎨 UI/UX Refinements (Insights Navigator & Notifications)
+- **Insights Period Navigator Date Range:** Cleaned up duplicate date labels in the Insights period navigator. Replaced the two stacked redundant labels with a single, elegant bold date range (e.g. `14 – 20 Sep 2026`) centered between navigation chevrons.
+- **Notifications Screen Spacing:** Added comfortable breathing room (`Spacing.row`, 14px) between circular notification type badges and notification text.
+
 ### 🚀 Budget Modes & Multi-Cadence Budget Engine (Pure Mode, Daily, Weekly, Monthly)
 
 - **Pure Expense Tracking Mode**: Introduced Pure Mode as the default experience for new users, providing distraction-free spending and income tracking without spending limits, daily allowances, or Gullak savings. Features a streamlined 4-tab floating navigation bar and route guards preventing unauthorized navigation to Savings.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert,
-  Modal, TextInput, ActivityIndicator,
+  Modal, TextInput, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,7 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { formatCurrency } from '../lib/formatters';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { BudgetEditModal } from '../components/BudgetEditModal';
+import { MoneyHelpBadge, MoneyExplainerModal } from '../components/MoneyExplainerModal';
 import { formatCadenceBudgetSubtitle } from '../lib/budgetModeUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
@@ -47,6 +48,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const isSupported = useAppLockStore((s) => s.isSupported);
   const isEnrolled = useAppLockStore((s) => s.isEnrolled);
   const setAppLockEnabled = useAppLockStore((s) => s.setAppLockEnabled);
+  const [showMoneyExplainer, setShowMoneyExplainer] = useState(false);
 
   // Smart Budget & Gullak mode state
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
@@ -327,6 +329,17 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               Your Gullak balance ({formatCurrency(totalAccumulatedSavings)}) and streaks are safe. You can resume anytime.
             </Text>
 
+            <TouchableOpacity
+              onPress={() => setShowMoneyExplainer(true)}
+              style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.element, marginBottom: Spacing.group }}
+              activeOpacity={0.7}
+            >
+              <MoneyHelpBadge size={16} onPress={() => setShowMoneyExplainer(true)} />
+              <Text style={{ marginLeft: 6, fontSize: 13, color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.bold }}>
+                See what happens to your funds
+              </Text>
+            </TouchableOpacity>
+
             <View style={styles.modalActions}>
               <Pressable
                 style={[styles.modalBtn, { backgroundColor: colors.cardSubtle, borderColor: colors.border, borderWidth: 1 }]}
@@ -570,9 +583,16 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               }}
               disabled={!isBudgetModeEnabled}
             >
-              <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                Smart Budget & Gullak
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                  Smart Budget & Gullak
+                </Text>
+                <MoneyHelpBadge
+                  size={16}
+                  style={{ marginLeft: 6 }}
+                  onPress={() => setShowMoneyExplainer(true)}
+                />
+              </View>
               <Text style={[styles.budgetModeSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                 {budgetSubtitle}
               </Text>
@@ -719,6 +739,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         </Pressable>
 
       </ScrollView>
+
+      <MoneyExplainerModal
+        visible={showMoneyExplainer}
+        topic="budget_pause"
+        onClose={() => setShowMoneyExplainer(false)}
+      />
     </View>
   );
 };

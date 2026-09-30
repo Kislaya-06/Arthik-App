@@ -507,9 +507,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             >
               <PiggyBankCoinIcon size={16} color="#15803D" />
               <Text style={[styles.rolloverText, { color: textColorPrimary }]} numberOfLines={1}>
-                {isOverBudget
-                  ? `Over limit by ${formatCurrency(todayRecordSpent - todayBudget)} today`
-                  : `${formatCurrency(todayRemaining)} rolls over to Gullak tonight`}
+                {rolloverStripText}
               </Text>
               <ChevronRight size={14} color={textColorSecondary} />
             </TouchableOpacity>

@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
 import { formatAmountWithCommas } from '../lib/formatters';
 import { getCategoryIcon } from '../lib/iconUtils';
+import { getCategoryChipGradient } from '../lib/colorUtils';
 import { useTheme } from '../store/themeStore';
 import { useFormKeyboard } from '../hooks/useFormKeyboard';
 import {
@@ -48,14 +49,18 @@ const KEYPAD_ROWS = [
 ];
 
 // ─── Animated Category Chip ─────────────────────────────────────────────────
+let chipGradCounter = 0;
+
 const CategoryChipItem: React.FC<{
   category: Category;
   isSelected: boolean;
   isPlaceholder: boolean;
   onSelect: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
-}> = ({ category, isSelected, isPlaceholder, onSelect, colors }) => {
+  isDark: boolean;
+}> = ({ category, isSelected, isPlaceholder, onSelect, colors, isDark }) => {
   const scale = useRef(new Animated.Value(1)).current;
+  const [chipHeight, setChipHeight] = useState(0);
   const IconComp = getCategoryIcon(category.icon);
 
   useEffect(() => {
@@ -68,7 +73,25 @@ const CategoryChipItem: React.FC<{
   }, [isSelected, scale]);
 
   const chipColor = category.color || colors.mintGreen;
-  const contentColor = isSelected ? getContrastTextColor(chipColor) : colors.textPrimary;
+
+  const { startColor, midColor, endColor, contentColor } = useMemo(() => {
+    if (!isSelected) {
+      return {
+        startColor: '',
+        midColor: '',
+        endColor: '',
+        contentColor: colors.textPrimary,
+      };
+    }
+    return getCategoryChipGradient(chipColor, isDark);
+  }, [chipColor, isSelected, isDark, colors.textPrimary]);
+
+  const gradId = useMemo(() => {
+    chipGradCounter = (chipGradCounter + 1) % 1000000;
+    return `chip_grad_${(category.id || 'c').replace(/[^a-zA-Z0-9]/g, '')}_${chipGradCounter}`;
+  }, [category.id]);
+
+  const pillRadius = chipHeight > 0 ? Math.round(chipHeight / 2) : 20;
 
   return (
     <Pressable
@@ -78,15 +101,41 @@ const CategoryChipItem: React.FC<{
       }}
     >
       <Animated.View
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0 && h !== chipHeight) {
+            setChipHeight(h);
+          }
+        }}
         style={[
           styles.categoryChip,
           isSelected
-            ? { backgroundColor: chipColor, borderColor: chipColor }
+            ? { backgroundColor: midColor, borderColor: midColor }
             : { backgroundColor: colors.card, borderColor: colors.border },
           isPlaceholder && { opacity: 0.45 },
           { transform: [{ scale }] },
         ]}
       >
+        {isSelected && (
+          <Svg style={StyleSheet.absoluteFill}>
+            <Defs>
+              <LinearGradient id={gradId} x1="10%" y1="0%" x2="90%" y2="100%">
+                <Stop offset="0%" stopColor={startColor} />
+                <Stop offset="50%" stopColor={midColor} />
+                <Stop offset="100%" stopColor={endColor} />
+              </LinearGradient>
+            </Defs>
+            <Rect
+              x={0}
+              y={0}
+              width="100%"
+              height="100%"
+              rx={pillRadius}
+              ry={pillRadius}
+              fill={`url(#${gradId})`}
+            />
+          </Svg>
+        )}
         <IconComp
           size={16}
           color={contentColor}
@@ -95,8 +144,7 @@ const CategoryChipItem: React.FC<{
         <Text
           style={[
             styles.categoryChipText,
-            { color: contentColor },
-            { fontFamily: FontFamily.bold },
+            { color: contentColor, fontFamily: FontFamily.bold },
           ]}
         >
           {category.name}
@@ -480,6 +528,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                           hideKeypad();
                         }}
                         colors={colors}
+                        isDark={isDark}
                       />
                     );
                   })}
@@ -914,6 +963,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.block,
     paddingVertical: 10,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   categoryChipText: {
     fontSize: FontSize.bodySmall,

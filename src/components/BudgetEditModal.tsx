@@ -28,6 +28,7 @@ import {
 import { computeEffectiveFrom } from '../lib/budgetPeriods';
 import { BudgetCadence } from '../types';
 import { KeyButton } from './KeyButton';
+import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 export interface BudgetEditModalProps {
@@ -82,6 +83,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     initialCadence || budgetCadence || 'daily'
   );
   const [amountStr, setAmountStr] = useState('');
+  const [showMoneyExplainer, setShowMoneyExplainer] = useState(false);
 
   // 3-Segment sliding pill animation
   const cadenceIndex = CADENCE_OPTIONS.findIndex((c) => c.key === selectedCadence);
@@ -319,9 +321,16 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
           <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                {isBudgetModeEnabled ? 'Change Budget Plan' : 'Set Smart Budget'}
-              </Text>
+              <View style={styles.modalTitleRow}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  {isBudgetModeEnabled ? 'Change Budget Plan' : 'Set Smart Budget'}
+                </Text>
+                <MoneyHelpBadge
+                  style={{ marginLeft: Spacing.element }}
+                  onPress={() => setShowMoneyExplainer(true)}
+                  highlight={Boolean(prorationPreview)}
+                />
+              </View>
               <TouchableOpacity onPress={onClose} hitSlop={10}>
                 <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -463,21 +472,32 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                   },
                 ]}
               >
-                <View style={styles.prorationHeaderRow}>
-                  <Sparkles
-                    size={14}
-                    color={isDark ? '#6EE7B7' : '#15803D'}
-                    style={{ marginRight: 6 }}
+                <TouchableOpacity
+                  style={styles.prorationHeaderRow}
+                  activeOpacity={0.75}
+                  onPress={() => setShowMoneyExplainer(true)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <Sparkles
+                      size={14}
+                      color={isDark ? '#6EE7B7' : '#15803D'}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.prorationTitle,
+                        { color: isDark ? '#6EE7B7' : '#15803D' },
+                      ]}
+                    >
+                      {prorationPreview.previewText}
+                    </Text>
+                  </View>
+                  <MoneyHelpBadge
+                    size={18}
+                    onPress={() => setShowMoneyExplainer(true)}
+                    highlight={true}
                   />
-                  <Text
-                    style={[
-                      styles.prorationTitle,
-                      { color: isDark ? '#6EE7B7' : '#15803D' },
-                    ]}
-                  >
-                    {prorationPreview.previewText}
-                  </Text>
-                </View>
+                </TouchableOpacity>
                 <Text
                   style={[
                     styles.prorationExplanation,
@@ -538,6 +558,12 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
           </ScrollView>
         </Animated.View>
       </View>
+
+      <MoneyExplainerModal
+        visible={showMoneyExplainer}
+        topic="cadence_switch"
+        onClose={() => setShowMoneyExplainer(false)}
+      />
     </Modal>
   );
 };
@@ -562,6 +588,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.nano,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: Spacing.element,
   },
   modalTitle: {
     fontSize: FontSize.cta,

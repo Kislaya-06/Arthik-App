@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { tintColor, shadeColor, getBadgeGradientColors } from '../src/lib/colorUtils';
+import { tintColor, shadeColor, getBadgeGradientColors, getCategoryChipGradient } from '../src/lib/colorUtils';
 
 describe('colorUtils', () => {
   describe('tintColor', () => {
@@ -66,4 +66,25 @@ describe('colorUtils', () => {
       expect(fallback.iconColor).toBe('#1A2B4C');
     });
   });
+
+  describe('getCategoryChipGradient', () => {
+    it('creates lightened, soft pastel gradient for selected category pills', () => {
+      const chipGradient = getCategoryChipGradient('#FF857A', true);
+      // Softened top-left luminous highlight
+      expect(chipGradient.startColor).toBe('#FFB3AD');
+      // Softened center
+      expect(chipGradient.midColor).toBe('#FF9D95');
+      // Gently softened base
+      expect(chipGradient.endColor).toBe('#FF8C82');
+      // Uses brand navy #1A2B4C for soft legibility without harsh eye strain
+      expect(chipGradient.contentColor).toBe('#1A2B4C');
+      expect(chipGradient.strokeColor).toBe('rgba(255, 255, 255, 0.22)');
+    });
+
+    it('uses white contentColor for dark category colors', () => {
+      const darkChip = getCategoryChipGradient('#1A2B4C', true);
+      expect(darkChip.contentColor).toBe('#FFFFFF');
+    });
+  });
 });
+

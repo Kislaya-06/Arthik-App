@@ -36,6 +36,12 @@ export interface ThemeColors {
   keypadDeleteBg: string;
   keypadDeleteBorder: string;
   keypadDeleteIcon: string;
+  // Money badge gradient tokens
+  moneyBadgeGradStart: string;
+  moneyBadgeGradMid: string;
+  moneyBadgeGradEnd: string;
+  moneyBadgeBorder: string;
+  moneyBadgeText: string;
 }
 
 export const LightColors: ThemeColors = {
@@ -75,6 +81,11 @@ export const LightColors: ThemeColors = {
   keypadDeleteBg: '#FF857A',
   keypadDeleteBorder: '#E87A70',
   keypadDeleteIcon: '#000000',
+  moneyBadgeGradStart: '#FDE68A',
+  moneyBadgeGradMid: '#FBBF24',
+  moneyBadgeGradEnd: '#F59E0B',
+  moneyBadgeBorder: 'rgba(217, 119, 6, 0.35)',
+  moneyBadgeText: '#1A2B4C',
 };
 
 export const DarkColors: ThemeColors = {
@@ -114,6 +125,11 @@ export const DarkColors: ThemeColors = {
   keypadDeleteBg: '#FF857A',
   keypadDeleteBorder: '#E57065',
   keypadDeleteIcon: '#000000',
+  moneyBadgeGradStart: '#FEF08A',
+  moneyBadgeGradMid: '#F59E0B',
+  moneyBadgeGradEnd: '#D97706',
+  moneyBadgeBorder: 'rgba(252, 211, 77, 0.45)',
+  moneyBadgeText: '#1A2B4C',
 };
 
 /**

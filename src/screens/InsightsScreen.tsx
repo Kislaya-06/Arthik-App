@@ -17,6 +17,7 @@ import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
   subWeeks, subMonths, subYears, addDays,
   isWithinInterval, isBefore, startOfDay, parseISO, format,
+  isSameMonth, isSameYear,
 } from 'date-fns';
 
 import { useExpenseStore } from '../store/expenseStore';
@@ -83,8 +84,16 @@ function buildDateLabel(period: Period, offset: number): string {
   if (offset === 0) return period === 'Weekly' ? 'This Week' : period === 'Monthly' ? 'This Month' : 'This Year';
   if (offset === -1) return period === 'Weekly' ? 'Last Week' : period === 'Monthly' ? 'Last Month' : 'Last Year';
   const { start, end } = buildInterval(period, offset);
-  if (period === 'Weekly') return `${format(start, 'd MMM')} – ${format(end, 'd MMM')}`;
-  return period === 'Monthly' ? format(start, 'MMM yyyy') : format(start, 'yyyy');
+  if (period === 'Weekly') {
+    if (isSameMonth(start, end) && isSameYear(start, end)) {
+      return `${format(start, 'd')} – ${format(end, 'd MMM yyyy')}`;
+    }
+    if (isSameYear(start, end)) {
+      return `${format(start, 'd MMM')} – ${format(end, 'd MMM yyyy')}`;
+    }
+    return `${format(start, 'd MMM yyyy')} – ${format(end, 'd MMM yyyy')}`;
+  }
+  return period === 'Monthly' ? format(start, 'MMMM yyyy') : format(start, 'yyyy');
 }
 
 /**
@@ -248,7 +257,7 @@ const navStyles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
   arrowDisabled: { opacity: 0.35 },
-  labelBlock: { alignItems: 'center', minWidth: 150 },
+  labelBlock: { alignItems: 'center', minWidth: 175 },
   dateLabel: { fontSize: FontSize.cta, color: '#FFFFFF' },
   subLabel: { fontSize: FontSize.bodySmall, color: 'rgba(255,255,255,0.6)', marginTop: Spacing.nano },
   dotsRow: {
@@ -362,15 +371,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     // Navigator main label, e.g. "This Week" / "Last Week" / "15 – 21 Sep"
     const dLabel = buildDateLabel(period, offset);
 
-    // Sub-label date range shown beneath the main label for older periods
-    let sLabel = '';
-    if (offset <= -2) {
-      if (period === 'Weekly') {
-        sLabel = `${format(current.start, 'd MMM')} – ${format(current.end, 'd MMM yyyy')}`;
-      } else if (period === 'Monthly') {
-        sLabel = format(current.start, 'MMMM yyyy');
-      }
-    }
+    // Sub-label date range: kept empty because dateLabel now cleanly formats the complete date range in one line
+    const sLabel = '';
 
     return {
       currentInterval: current,

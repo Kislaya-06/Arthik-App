@@ -291,6 +291,7 @@ const styles = StyleSheet.create({
   },
   notifContent: {
     flex: 1,
+    marginLeft: 14,
     justifyContent: 'center',
   },
   notifTitleRow: {

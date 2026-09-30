@@ -37,6 +37,7 @@ import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { DepositGullakModal } from '../components/DepositGullakModal';
+import { MoneyHelpBadge, MoneyExplainerModal } from '../components/MoneyExplainerModal';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -81,6 +82,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
   const [depositModalVisible, setDepositModalVisible] = useState(false);
+  const [explainerVisible, setExplainerVisible] = useState(false);
 
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
   const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
@@ -319,9 +321,16 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
               <Text style={[styles.heroSub, { color: colors.textSecondary }]}>
                 Total Lifetime Savings
               </Text>
-              <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
-                Your {budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily'} Gullak
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+                  Your {budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily'} Gullak
+                </Text>
+                <MoneyHelpBadge
+                  size={18}
+                  style={{ marginLeft: Spacing.element }}
+                  onPress={() => setExplainerVisible(true)}
+                />
+              </View>
             </View>
             <TouchableOpacity
               activeOpacity={0.75}
@@ -783,6 +792,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
       <DepositGullakModal
         visible={depositModalVisible}
         onClose={() => setDepositModalVisible(false)}
+      />
+
+      {/* ── Money Explainer Modal ── */}
+      <MoneyExplainerModal
+        visible={explainerVisible}
+        topic="rollover_savings"
+        onClose={() => setExplainerVisible(false)}
       />
     </View>
   );
