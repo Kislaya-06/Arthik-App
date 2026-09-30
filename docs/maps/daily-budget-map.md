@@ -439,3 +439,44 @@ During the audit, several non-obvious design decisions, heuristics, and potentia
    - `hydrateFromSupabase` triggers `checkAndRollover(currentExpenses, true)` with `skipRolloverNotification = true`.
    - In `App.tsx` (lines 116–120), `fetchExpenses()` and `hydrateFromSupabase()` run in `Promise.all`.
    - *Uncertainty*: If `fetchExpenses()` finishes first, `useExpenseStore` calls `syncWithExpenses()` before `hydrateFromSupabase()` sets `hydratedForUserId`. Line 422 blocks execution (`if (get().hydratedForUserId !== currentUser.id) return;`). Then `hydrateFromSupabase()` finishes and calls `checkAndRollover(currentExpenses, true)` which skips notifications. If `syncWithExpenses` is not subsequently re-invoked, does the user miss yesterday's rollover celebration notification entirely?
+
+---
+
+## 8. Multi-Cadence Budget Modes Architecture (v1.2.5+)
+
+With the introduction of Budget Modes, the store orchestrates two high-level tracking modes and three budget cadences:
+
+### 8.1 Mode Shell & Navigation Gating
+- **Pure Mode (`isBudgetModeEnabled: false`)**:
+  - Default for all new accounts.
+  - Limits bottom navigation bar to 4 tabs (`Home`, `History`, `Add`, `Insights`).
+  - Guards all direct navigation attempts to `'Savings'` via `resolveSavingsRoute(isBudgetModeEnabled, routeType)`, safely falling back to `'Home'`.
+  - Suppresses all budget warning, limit exceeded, and rollover notifications.
+  - Preserves past active budget allowances in all-time, monthly, and weekly Inflow metrics (Real-Money Invariant).
+- **Budget Mode (`isBudgetModeEnabled: true`)**:
+  - Enables the 5th `'Savings'` tab with fluid spring entrance/exit.
+  - Supports user-selectable cadences: `'daily'`, `'weekly'`, `'monthly'`.
+
+### 8.2 Plan Changes Timeline (`src/lib/budgetPeriods.ts`)
+- Instead of mutating today's budget abruptly, budget and cadence adjustments create a `BudgetPlanChange` row with `effectiveFrom = tomorrowStr` (or next standard boundary).
+- `buildPlanSlices(planChanges, todayStr, userCreatedAtStr)` divides the user's timeline into non-overlapping active slices `[activeStart, activeEnd]`, preventing double-counting across cadence transitions.
+- Mid-period switches are prorated via `calculateProratedBudget(fullBudget, cadence, activeStart, activeEnd)`:
+  $$\text{Prorated Budget} = \text{round}\left(\frac{\text{Budget}}{\text{Days in Cycle}} \times \text{Remaining Active Days}\right)$$
+
+### 8.3 Multi-Cadence Period Finalization (`checkAndRollover`)
+- **Daily Cadence**: Finalizes yesterday's record in `dailyRecords` (`daily_savings_log` in Supabase) at midnight.
+- **Weekly Cadence**: Completed weeks (Monday to Sunday) are evaluated by `buildPeriodsToFinalize`, upserted to `budget_periods`, and rolled over into Gullak accumulated savings.
+- **Monthly Cadence**: Completed calendar months (1st to month-end) are evaluated, upserted to `budget_periods`, and rolled over.
+- During weekly and monthly cadences, no `dailyRecords` are generated for intermediate days.
+
+### 8.4 Offline Queueing & Cross-Session Sync
+- **Plan Changes**: Queued in `@arthik_pending_plan_changes_${userId}` until synced with Supabase `budget_plan_changes`.
+- **Budget Periods**: Queued in `@arthik_pending_budget_periods_${userId}` until upserted to Supabase `budget_periods`.
+- **Mode & Cadence Settings**: Queued in `@arthik_pending_settings_${userId}` (`is_budget_mode_enabled`, `budget_cadence`, `daily_budget`, `weekly_budget`, `monthly_budget`) until synced to `profiles`.
+
+### 8.5 Period Notification Deduplication
+- **Warnings (80%)**: Emitted once per period and deduped by `lastPeriodWarningKey: ${cadence}_${periodStart}`.
+- **Limit Exceeded (100%)**: Emitted once per period and deduped by `lastPeriodExceededKey: ${cadence}_${periodStart}`.
+- **Rollover**: Emitted once per finalized period and deduped by `lastPeriodRolloverKey: periodId`.
+- **Sign-Out Reset**: All cadence-aware keys and queues are cleared on user sign-out via `registerStoreResetCallback`.
+

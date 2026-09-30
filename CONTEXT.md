@@ -227,3 +227,43 @@ Unified Payments Interface instant digital transfer (`'upi'`). Icon: `CheckSquar
 Credit or debit card transaction (`'card'`). Icon: `CreditCard` (lucide-react-native). Permitted for expenses; excluded in UI for income additions.
 - *Code location*: `src/lib/paymentUtils.ts` (`getPaymentIcon`, `getPaymentLabel`), `src/screens/ExpenseFormScreen.tsx`
 - *_Avoid_*: Credit Card, Debit Card, Plastic
+
+---
+
+### 7. Budget Modes & Multi-Cadence Periods
+
+**Pure Mode**:
+The default expense tracking mode (`isBudgetModeEnabled: false`) where users record expenses and income freely without daily allowances, spending limits, or Gullak savings. The bottom navigation renders 4 tabs (`Home`, `History`, `Add`, `Insights`) and the Home screen shows an Inflow/Outflow cashflow overview with a concentric `DualRingChart`.
+- *Code location*: `src/store/dailyBudgetStore.ts` (`isBudgetModeEnabled: false`), `src/components/BottomNavBar.tsx`, `src/components/DualRingChart.tsx`
+- *_Avoid_*: Free Mode, Basic Mode, No-Budget Mode
+
+**Budget Mode**:
+The structured financial discipline mode (`isBudgetModeEnabled: true`) where users define a spending allowance across a chosen cadence (`daily`, `weekly`, or `monthly`), track remaining balances, earn savings into their digital Gullak at period rollover, and maintain savings streaks. The bottom navigation dynamically shows 5 tabs (including `Savings`).
+- *Code location*: `src/store/dailyBudgetStore.ts` (`isBudgetModeEnabled: true`), `src/screens/SavingsScreen.tsx`
+- *_Avoid_*: Gullak Mode, Allowance Mode, Hard Mode
+
+**Cadence**:
+The recurring calendar cycle defining how a budget is measured and renewed: `'daily'` (day-by-day), `'weekly'` (Monday 00:00 to Sunday 23:59:59), or `'monthly'` (1st of month to month-end).
+- *Code location*: `src/lib/budgetPeriods.ts` (`BudgetCadence` type), `src/store/dailyBudgetStore.ts` (`budgetCadence`)
+- *_Avoid_*: Frequency, Interval, Periodicity
+
+**Budget Period**:
+A structured period window (`BudgetPeriod`) representing an active or finalized cadence cycle. Records the cadence, calendar bounds (`periodStart` to `periodEnd`), effective active bounds (`activeStart` to `activeEnd`), allocated budget (`budgetAmount`), total non-income spending (`spentAmount`), amount rolled over to Gullak (`amountSaved`), status (`saved`, `exceeded`, `even`), and proration flag (`isProrated`).
+- *Code location*: `src/lib/budgetPeriods.ts` (`BudgetPeriod` interface, `buildPeriodsToFinalize`, `getCurrentPeriodSummary`), `src/store/dailyBudgetStore.ts` (`budgetPeriods`)
+- *_Avoid_*: Cycle, Budget Block, Spending Window
+
+**Active Slice**:
+The continuous date interval `[activeStart, activeEnd]` within a calendar period during which a specific budget plan was active. Slices prevent overlapping, account for mid-period plan switches, and ensure no day or rupee is double-counted.
+- *Code location*: `src/lib/budgetPeriods.ts` (`buildPlanSlices`, `walkPlanSlices`)
+- *_Avoid_*: Active Segment, Sub-period, Time Slice
+
+**Proration**:
+The fair, proportional allocation of a weekly or monthly budget when a plan change takes effect partway through a calendar cycle (`proratedBudget = Math.round((fullBudget / totalDaysInCycle) * remainingDays)`).
+- *Code location*: `src/lib/budgetPeriods.ts` (`calculateProratedBudget`, `getProrationPreview`), `src/lib/budgetModeUtils.ts` (`formatProrationPreview`)
+- *_Avoid_*: Partial Budget, Scaled Budget, Fractional Allowance
+
+**Paused**:
+The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red.
+- *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`getWeeklyStreakCards`, `getMonthlyStreakGrid`)
+- *_Avoid_*: Stopped, Inactive, Broken, Skipped
+

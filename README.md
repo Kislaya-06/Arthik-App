@@ -27,14 +27,16 @@
 
 ## ✨ Features
 
-- 🐷 **Daily Budget & Smart Gullak (`SavingsScreen`)** — Configure a daily spending allowance. At midnight, unspent allowance automatically rolls over into your digital **Gullak** (savings reserve). If daily spending exceeds your budget, the deficit is deducted from accumulated savings, keeping net totals 100% truthful.
-- 🔥 **Savings Streaks & Visual Calendar** — Track consecutive days stayed within budget with active streak counters and all-time best streak tracking. Includes a monthly streak calendar modal (`StreakCalendarModal`). Untracked days act as neutral bridges so taking a break never unfairly breaks your streak.
+- ⚡ **Pure Expense Tracking Mode** — Track spending and income with zero artificial limits or allowances. Features a clean 4-tab interface and concentric Dual Ring chart (Inflow vs. Outflow) with one-tap percentage/cashflow toggling.
+- 🎯 **Multi-Cadence Budget Modes (Daily, Weekly, Monthly)** — Tailor budgeting to your lifestyle. Set a daily allowance, a weekly target (Monday to Sunday), or a monthly budget. Features fair day-count proration for mid-cycle switches and "effective from tomorrow" discipline.
+- 🐷 **Smart Gullak & Automatic Period Rollover** — At the end of every active cycle (daily midnight, weekly Sunday night, monthly month-end), unspent funds roll over automatically into your digital **Gullak** (savings reserve). Deficits from overspending are reconciled transparently, keeping net capital 100% truthful.
+- 🔥 **Adaptive Savings Streaks & Visual Calendar** — Track consecutive periods stayed within budget with active streak counters scaled to your active cadence (days, weeks, months). Features adaptive dot grids, weekly summary cards, and 12-month matrices in `StreakCalendarModal`. Paused intervals act as neutral bridges so taking a break never penalizes you.
 - 📶 **Offline-First Resilience** — Log, edit, and delete transactions with zero latency even without internet connectivity. Changes are queued in `AsyncStorage` and automatically synced to Supabase when reconnected, with status banners (`OfflineBanner` and `SyncFailedBanner`) keeping you informed.
 - 🎨 **Adaptive Dark & Light Themes** — Full system-wide theme support using Arthik's curated palette: mint green (`#B8E0C8`), peach coral (`#F4B8AE`), and deep navy surfaces (`#1A2B4C` / `#0B111E`).
-- 📊 **Real-Time Financial Dashboard** — Home screen overview featuring dynamic greeting typography, remaining allowance tracking, zero-state-aware donut charts, and instant period filters (Today, Week, Month, All).
+- 📊 **Real-Time Financial Dashboard** — Home screen overview featuring dynamic greeting typography, remaining allowance tracking, concentric dual rings, and instant period filters (Today, Week, Month, All).
 - 📝 **Tactile Expense & Income Logging** — Quick transaction entry with custom spring-animated numeric keypad (with decoupled integer and decimal paise limits), payment mode tags (Cash, UPI, Card), and category assignment.
 - 📈 **Visual Insights & History** — Searchable, chronologically grouped transaction history and analytical spending breakdowns across weekly, monthly, and all-time intervals.
-- 🔔 **Smart Daily Reminders** — Local notifications scheduled via `expo-notifications` to remind you to log expenses and check your daily savings rollover.
+- 🔔 **Smart Cadence-Aware Reminders** — Local notifications scheduled via `expo-notifications` for 80% and 100% budget thresholds, savings rollovers, and friendly evening expense reminders.
 - 🔒 **Secure Authentication** — Email/password signup, Google OAuth, session persistence via Supabase Auth (PKCE flow), and complete account deletion compliance.
 
 ---

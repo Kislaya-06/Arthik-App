@@ -1350,16 +1350,18 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           get().setDailyBudget(scheduled);
           set({ scheduledNextDailyBudget: null, scheduledBudgetSetDate: null });
 
-          const title = '✨ Daily Budget Updated!';
-          const body = `Your new daily budget of ${formatCurrency(scheduled)} is now active.`;
-          useNotificationStore.getState().addNotification({
-            id: `scheduled_budget_${todayStr}`,
-            title,
-            message: body,
-            type: 'budget_warning',
-            data: { date: todayStr, amount: scheduled },
-          });
-          triggerDeviceNotification(title, body, { type: 'budget_warning', screen: 'Savings', date: todayStr });
+          if (get().isBudgetModeEnabled) {
+            const title = '✨ Daily Budget Updated!';
+            const body = `Your new daily budget of ${formatCurrency(scheduled)} is now active.`;
+            useNotificationStore.getState().addNotification({
+              id: `scheduled_budget_${todayStr}`,
+              title,
+              message: body,
+              type: 'budget_warning',
+              data: { date: todayStr, amount: scheduled },
+            });
+            triggerDeviceNotification(title, body, { type: 'budget_warning', screen: 'Savings', date: todayStr });
+          }
         }
 
         const isIncomeFn = buildCategoryClassifier();

@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ArrowLeft, Search, X, ChevronDown, ChevronUp,
-  HelpCircle, PiggyBank, Flame, Wallet, ShieldCheck, Calendar,
+  HelpCircle, PiggyBank, Flame, Wallet, ShieldCheck, Calendar, Sparkles,
 } from 'lucide-react-native';
 
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
@@ -20,13 +20,14 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Faq'>;
-type Category = 'All' | 'Daily Budget' | 'Gullak & Savings' | 'Streak & Rules' | 'Income & Expenses' | 'Offline & Privacy';
+type Category = 'All' | 'Budget Modes' | 'Daily Budget' | 'Gullak & Savings' | 'Streak & Rules' | 'Income & Expenses' | 'Offline & Privacy';
 
 const CATEGORIES: Category[] = [
-  'All', 'Daily Budget', 'Gullak & Savings', 'Streak & Rules', 'Income & Expenses', 'Offline & Privacy',
+  'All', 'Budget Modes', 'Daily Budget', 'Gullak & Savings', 'Streak & Rules', 'Income & Expenses', 'Offline & Privacy',
 ];
 
 const ICONS: Record<string, any> = {
+  'Budget Modes': Sparkles,
   'Daily Budget': Calendar,
   'Gullak & Savings': PiggyBank,
   'Streak & Rules': Flame,
@@ -35,9 +36,21 @@ const ICONS: Record<string, any> = {
 };
 
 const FAQ_DATA = [
+  // Budget Modes
+  ['bm_1', 'Budget Modes', 'What is Pure mode?',
+   'Pure Mode is a streamlined expense tracker focused solely on tracking your spending and income without spending limits, daily allowances, or Gullak savings. The bottom navigation has 4 tabs and the Home screen shows your overall cashflow with an Inflow/Outflow ring. You can switch to Budget Mode anytime in your Profile.'],
+  ['bm_2', 'Budget Modes', 'How do weekly and monthly budgets work?',
+   'Instead of a daily allowance, you can set a target budget for the entire week (Monday to Sunday) or calendar month. Your active balance tracks what remains for that period. At the end of the week or month, any unspent budget automatically rolls over into your Savings Gullak.'],
+  ['bm_3', 'Budget Modes', 'When does money go to Gullak?',
+   'Unspent money rolls over into your Gullak when a budget period ends:\n• Daily: Every midnight (12:00 AM) for yesterday’s savings.\n• Weekly: Every Sunday midnight (11:59:59 PM) for the week’s savings.\n• Monthly: At the end of the last day of each month.\nYou can also deposit custom cash into your Gullak manually anytime from the Savings screen.'],
+  ['bm_4', 'Budget Modes', 'What happens when I switch cadence mid-week?',
+   'When switching between cadences (e.g. from Daily to Weekly, or Weekly to Monthly), the change takes effect starting tomorrow at 12:00 AM. Any partial period until the next standard cycle is prorated fairly based on remaining days, ensuring your budget math remains continuous with zero double-counting.'],
+  ['bm_5', 'Budget Modes', 'Is my Gullak safe if I turn Budget Mode off?',
+   'Yes, 100%! All money in your Gullak represents real accumulated savings and is permanently preserved in your account. Turning Budget Mode off simply hides the Savings tab and pauses active budget tracking. Whenever you re-enable Budget Mode, your Gullak balance, deposit history, and past savings remain intact.'],
+
   // Daily Budget
   ['db_1', 'Daily Budget', 'When does my Daily Budget renew each day?',
-   'If Auto-Renew is turned on, your default daily allowance from your Profile is automatically allocated at midnight (12:00 AM) for the new day.'],
+   'If Auto-Renew is turned on in Daily cadence, your default daily allowance from your Profile is automatically allocated at midnight (12:00 AM) for the new day.'],
   ['db_2', 'Daily Budget', 'When does a changed Daily Budget take effect?',
    'Your new daily budget takes effect starting tomorrow at 12:00 AM. Today’s active allowance remains unchanged to maintain daily spending discipline and preserve accurate tracking.'],
   ['db_3', 'Daily Budget', 'What happens if I spend less than my Daily Budget?',
@@ -45,17 +58,17 @@ const FAQ_DATA = [
 
   // Gullak & Savings
   ['gs_1', 'Gullak & Savings', 'How does money get deposited into my Gullak?',
-   'Money is added to your Gullak in two ways:\n\n1. Automatic Daily Rollover: Unspent daily allowance rolls over automatically every midnight.\n2. Manual Deposit: Tap "Deposit to Gullak" on the Savings screen to deposit custom savings anytime.'],
+   'Money is added to your Gullak in two ways:\n\n1. Automatic Period Rollover: Unspent funds roll over automatically at the end of your active period (daily at midnight, weekly on Sunday night, or monthly on the last day).\n2. Manual Deposit: Tap "Deposit to Gullak" on the Savings screen to deposit custom savings anytime.'],
   ['gs_2', 'Gullak & Savings', 'What happens if I overspend my Daily Budget?',
-   'If your expenses exceed your daily budget, the overspent amount is deducted directly from your Gullak balance as an overspending penalty. Your savings for the day become ₹0 and your savings streak resets.'],
+   'If your expenses exceed your budget allowance, the overspent amount is deducted directly from your Gullak balance as an overspending penalty. Your savings for that period become ₹0 and your savings streak resets.'],
   ['gs_3', 'Gullak & Savings', 'How can I delete a Gullak deposit?',
    'On the Savings screen, scroll down to the history section and select the "Deposits" filter. Tap any manual deposit row to remove it.'],
 
   // Streak & Rules
   ['sr_1', 'Streak & Rules', 'How do savings streaks work and when do they break?',
-   '• Increases: Every day you stay within your budget and save money (Saved > 0).\n• Resets to 0: If you exceed your budget, save ₹0 on an active day, or miss tracking on a budgeted day.'],
+   '• Increases: Every finalized period (day, week, or month) you stay within your budget and save money (Saved > 0).\n• Resets to 0: If you exceed your budget, save ₹0 on an active period, or miss tracking during an active budget.'],
   ['sr_2', 'Streak & Rules', 'What do the different colors mean on the Streak Calendar?',
-   '🟢 Green: Stayed within budget and saved money.\n🔴 Red: Budget exceeded (overspent).\n⚪ Gray: Untracked day (no daily budget was active).'],
+   '🟢 Green: Stayed within budget and saved money.\n🔴 Red: Budget exceeded (overspent).\n⚪ Gray: Untracked or paused period (no budget was active).'],
 
   // Income & Expenses
   ['ie_1', 'Income & Expenses', 'Why does adding Income not increase my Daily Budget?',
@@ -81,7 +94,7 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState<Category>('All');
-  const [expandedId, setExpandedId] = useState<string | null>('db_1');
+  const [expandedId, setExpandedId] = useState<string | null>('bm_1');
 
   const toggleExpand = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

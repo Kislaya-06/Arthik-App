@@ -158,9 +158,9 @@ export async function scheduleDailyReminder(hour = 20, minute = 0): Promise<void
 
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🌙 Daily Budget Check-in',
-        body: 'Check your spending today and see how much you saved in your Gullak!',
-        data: { type: 'daily_reminder', screen: 'Savings' },
+        title: '🌙 Daily Expense Reminder',
+        body: 'Take a moment to record your spending today and keep your finances clear!',
+        data: { type: 'daily_reminder', screen: 'Home' },
         sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),

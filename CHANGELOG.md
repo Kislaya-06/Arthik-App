@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🚀 Budget Modes & Multi-Cadence Budget Engine (Pure Mode, Daily, Weekly, Monthly)
+
+- **Pure Expense Tracking Mode**: Introduced Pure Mode as the default experience for new users, providing distraction-free spending and income tracking without spending limits, daily allowances, or Gullak savings. Features a streamlined 4-tab floating navigation bar and route guards preventing unauthorized navigation to Savings.
+- **Concentric Dual Ring Chart (`DualRingChart`)**: Beautiful Inflow (outer mint ring) and Outflow (inner coral/red ring) chart on the Home screen with tap-to-toggle between `% spent` and compact `+₹Inflow / −₹Outflow` figures, supporting zero-state and overspent edge cases.
+- **Multi-Cadence Budget Selection**: Budget Mode now supports three distinct cadences: **☀️ Daily**, **📅 Weekly** (Monday to Sunday), and **🗓 Monthly** (1st of month to month-end).
+- **Discipline-Preserving Plan Scheduling & Proration**: Budget amount and cadence adjustments take effect starting tomorrow at 12:00 AM (or next period boundary), ensuring active cycles are never abruptly broken. Mid-period switches feature automatic day-count proration with transparent preview and one-tap cancellation of pending changes.
+- **Adaptive Streak Calendar & Period Finalization**: Streak tracking dynamically scales to the active cadence (`days`, `weeks`, `months`). Includes weekly performance cards and 12-month matrices in `StreakCalendarModal`. Paused intervals are shown with neutral badges that never break streaks.
+- **Cadence-Aware Period Rollover & Notifications**: Unspent funds roll over into the digital Gullak at the end of each period (daily midnight, weekly Sunday night, monthly month-end). Notifications trigger at 80% and 100% thresholds once per period with deduplicated keys across re-renders and rehydrations. Pure Mode suppresses all budget warnings while preserving the evening daily expense check-in.
+- **Interactive FAQ & Documentation**: Added a dedicated "Budget Modes" category in the in-app FAQ covering Pure Mode, weekly/monthly cycles, Gullak safety, proration, and cadence switching. Updated architectural maps (`docs/maps/daily-budget-map.md`), added ADR 0010 (`docs/adr/0010-budget-cadence-periods.md`), and updated `CONTEXT.md`.
+
 ### 💰 Historical Active Budget Inflow & Pure Mode Remaining Alignment
 
 - **Pure Mode Hero Card Shows Remaining Balance at Top:** In Pure Mode, the primary hero amount now displays the remaining available balance ("Kitna bacha hua hai" / Net: Total Remaining, Monthly Remaining, Weekly Remaining, Daily Remaining), matching user financial expectations across all filters. Overspent periods display deficit amounts in alert red.

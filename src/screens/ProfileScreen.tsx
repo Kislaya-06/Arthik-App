@@ -224,7 +224,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
     Alert.alert(
       "Are you absolutely sure?",
-      "This is your final confirmation. All your recorded expenses, daily budgets, savings, and custom categories will be completely erased. This action cannot be undone.",
+      "This is your final confirmation. All your recorded expenses, budgets, savings, and custom categories will be completely erased. This action cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -418,7 +418,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               Delete Account
             </Text>
             <Text style={[styles.deleteModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              This action is permanent and cannot be undone. All your recorded expenses, daily budgets, savings, and custom categories will be completely erased.
+              This action is permanent and cannot be undone. All your recorded expenses, budgets, savings, and custom categories will be completely erased.
             </Text>
 
             <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>

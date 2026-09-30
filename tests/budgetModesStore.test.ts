@@ -497,4 +497,135 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       expect(state.planChanges[0].id).toBe('c-past');
     });
   });
+
+  describe('8. Notifications Deduplication & Mode Guarding', () => {
+    it('mode OFF prevents scheduled next daily budget notifications from firing', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'daily',
+        scheduledNextDailyBudget: 600,
+        scheduledBudgetSetDate: '2026-09-01',
+      });
+
+      useDailyBudgetStore.getState().checkAndRollover([]);
+
+      expect(mockAddNotification).not.toHaveBeenCalled();
+      expect(mockTriggerDeviceNotification).not.toHaveBeenCalled();
+    });
+
+    it('weekly budget fires 80% warning and 100% exceeded notifications once per period, and dedupes on re-sync', () => {
+      const mondayStr = '2026-09-28';
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: true,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 10000,
+        planChanges: [
+          {
+            id: 'plan-w-notif',
+            userId: 'user_modes_test_1',
+            effectiveFrom: mondayStr,
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 10000,
+            createdAt: '2026-09-28T00:00:00Z',
+          },
+        ],
+        lastPeriodWarningKey: null,
+        lastPeriodExceededKey: null,
+      });
+
+      const warningExpenses: Expense[] = [
+        { id: 'exp-w1', user_id: 'user_modes_test_1', amount: 8500, expense_date: mondayStr, payment_mode: 'upi' },
+      ];
+
+      // 1. First sync triggers 80% warning
+      useDailyBudgetStore.getState().syncWithExpenses(warningExpenses);
+
+      expect(mockAddNotification).toHaveBeenCalledTimes(1);
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: `alert_warning_80_weekly_${mondayStr}`,
+          type: 'budget_warning',
+        })
+      );
+      expect(useDailyBudgetStore.getState().lastPeriodWarningKey).toBe(`weekly_${mondayStr}`);
+
+      // 2. Re-sync with same or slightly more expenses (< 100%) does NOT re-trigger warning
+      const moreExpenses: Expense[] = [
+        ...warningExpenses,
+        { id: 'exp-w2', user_id: 'user_modes_test_1', amount: 500, expense_date: mondayStr, payment_mode: 'cash' },
+      ];
+      useDailyBudgetStore.getState().syncWithExpenses(moreExpenses);
+      expect(mockAddNotification).toHaveBeenCalledTimes(1);
+
+      // 3. Exceeding 100% triggers exceeded notification
+      const exceededExpenses: Expense[] = [
+        ...moreExpenses,
+        { id: 'exp-w3', user_id: 'user_modes_test_1', amount: 2000, expense_date: mondayStr, payment_mode: 'card' },
+      ];
+      useDailyBudgetStore.getState().syncWithExpenses(exceededExpenses);
+
+      expect(mockAddNotification).toHaveBeenCalledTimes(2);
+      expect(mockAddNotification).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          id: `alert_exceeded_weekly_${mondayStr}`,
+          type: 'budget_exceeded',
+        })
+      );
+      expect(useDailyBudgetStore.getState().lastPeriodExceededKey).toBe(`weekly_${mondayStr}`);
+
+      // 4. Subsequent sync does NOT duplicate exceeded notification
+      useDailyBudgetStore.getState().syncWithExpenses(exceededExpenses);
+      expect(mockAddNotification).toHaveBeenCalledTimes(2);
+    });
+
+    it('weekly rollover notification fires once per finalized period and dedupes across runs', () => {
+      const historicalPlan = {
+        id: 'plan-hist',
+        userId: 'user_modes_test_1',
+        effectiveFrom: '2026-09-21',
+        isEnabled: true,
+        cadence: 'weekly' as const,
+        amount: 7000,
+        createdAt: '2026-09-21T00:00:00Z',
+      };
+
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: true,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 7000,
+        planChanges: [historicalPlan],
+        dailyRecords: {},
+        budgetPeriods: {},
+        lastPeriodRolloverKey: null,
+      });
+
+      const expenses: Expense[] = [
+        { id: 'w-exp', user_id: 'user_modes_test_1', amount: 4000, expense_date: '2026-09-23', payment_mode: 'upi' },
+      ];
+
+      // First run: finalizes and fires rollover notification
+      useDailyBudgetStore.getState().checkAndRollover(expenses);
+
+      expect(mockAddNotification).toHaveBeenCalledTimes(1);
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'rollover_weekly_2026-09-21',
+          type: 'savings_rollover',
+        })
+      );
+      expect(useDailyBudgetStore.getState().lastPeriodRolloverKey).toBe('weekly_2026-09-21');
+
+      // Second run: does not fire again
+      useDailyBudgetStore.getState().checkAndRollover(expenses);
+      expect(mockAddNotification).toHaveBeenCalledTimes(1);
+    });
+  });
 });
+
