@@ -14,6 +14,7 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import { getCategoryIcon } from '../lib/iconUtils';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
@@ -100,9 +101,9 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         { borderBottomColor: colors.borderSubtle },
         isLast && styles.lastCategoryRow
       ]}>
-        <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-          <IconComponent size={20} color="#000000" strokeWidth={2.2} />
-        </View>
+        <GradientIconBadge size={44} color={item.color} isDark={isDark}>
+          {({ iconColor }) => <IconComponent size={20} color={iconColor} strokeWidth={2.2} />}
+        </GradientIconBadge>
         <View style={styles.categoryMiddle}>
           <Text style={[styles.categoryName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             {item.name}

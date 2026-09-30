@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { GullakDeposit } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
+import { GradientIconBadge } from './GradientIconBadge';
 import { formatCurrency } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
@@ -43,9 +44,9 @@ const GullakDepositRowBase: React.FC<GullakDepositRowProps> = ({ deposit, colors
         },
       ]}
     >
-      <View style={[styles.txIconContainer, { backgroundColor: bg }]}>
-        <PiggyBankCoinIcon size={22} color="#000000" />
-      </View>
+      <GradientIconBadge size={48} color={bg} isDark={isDark}>
+        {({ iconColor }) => <PiggyBankCoinIcon size={22} color={iconColor} />}
+      </GradientIconBadge>
       <View style={styles.txMiddle}>
         <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
           {mainTitle}

@@ -14,6 +14,7 @@ import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
@@ -119,9 +120,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Category Icon Badge */}
           <View style={styles.badgeContainer}>
-            <View style={[styles.badgeOuter, { backgroundColor: categoryColor }]}>
-              <CategoryIcon size={44} color="#000000" strokeWidth={2.2} />
-            </View>
+            <GradientIconBadge size={88} color={categoryColor} isDark={isDark}>
+              {({ iconColor }) => <CategoryIcon size={44} color={iconColor} strokeWidth={2.2} />}
+            </GradientIconBadge>
             <Text style={[styles.badgeText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
               {category?.name || (isIncome ? 'Money Added' : 'Unknown')}
             </Text>

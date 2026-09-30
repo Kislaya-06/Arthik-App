@@ -6,6 +6,7 @@ import { Expense } from '../store/expenseStore';
 import { Category } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
+import { GradientIconBadge } from './GradientIconBadge';
 import { formatCurrency } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
@@ -64,9 +65,9 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
         },
       ]}
     >
-      <View style={[styles.txIconContainer, { backgroundColor: bg }]}>
-        <IconComp size={22} color="#000000" strokeWidth={2.2} />
-      </View>
+      <GradientIconBadge size={48} color={bg} isDark={isDark}>
+        {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
+      </GradientIconBadge>
       <View style={styles.txMiddle}>
         <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
           {mainTitle}

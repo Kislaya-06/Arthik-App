@@ -6,6 +6,7 @@ import { format, isYesterday, parseISO } from 'date-fns';
 import { DailyRecord, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
+import { GradientIconBadge } from './GradientIconBadge';
 import { formatCurrency } from '../lib/formatters';
 import { FontFamily } from '../config/theme';
 
@@ -190,17 +191,19 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       onPress={onPress}
       onLongPress={onDeleteDeposit}
     >
-      <View style={[styles.recordIconBox, { backgroundColor: iconBg }]}>
-        {isDeposit ? (
-          <PiggyBankCoinIcon size={22} color="#000000" />
-        ) : isSaved ? (
-          <Sparkles size={22} color="#000000" strokeWidth={2.2} />
-        ) : isExceeded ? (
-          <AlertCircle size={22} color="#000000" strokeWidth={2.2} />
-        ) : (
-          <Coins size={22} color="#000000" strokeWidth={2.2} />
+      <GradientIconBadge size={44} color={iconBg} isDark={isDark}>
+        {({ iconColor }) => (
+          isDeposit ? (
+            <PiggyBankCoinIcon size={22} color={iconColor} />
+          ) : isSaved ? (
+            <Sparkles size={22} color={iconColor} strokeWidth={2.2} />
+          ) : isExceeded ? (
+            <AlertCircle size={22} color={iconColor} strokeWidth={2.2} />
+          ) : (
+            <Coins size={22} color={iconColor} strokeWidth={2.2} />
+          )
         )}
-      </View>
+      </GradientIconBadge>
 
       <View style={styles.recordDetails}>
         <Text style={[styles.recordTitleText, { color: colors.textPrimary }]} numberOfLines={1}>
