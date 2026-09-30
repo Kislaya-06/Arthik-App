@@ -279,6 +279,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords || {});
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings || 0);
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
@@ -890,7 +891,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             )}
 
             {/* ── Yearly Savings & Gullak Milestones Section ── */}
-            {period === 'Yearly' && yearlyGullakMetrics && (
+            {isBudgetModeEnabled && period === 'Yearly' && yearlyGullakMetrics && (
               <YearlySavingsMilestoneCard
                 metrics={yearlyGullakMetrics}
                 yearLabel={format(currentInterval.start, 'yyyy')}

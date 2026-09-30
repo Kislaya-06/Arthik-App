@@ -22,6 +22,7 @@ import { OfflineBanner } from './src/components/OfflineBanner';
 import { SyncFailedBanner } from './src/components/SyncFailedBanner';
 import { useNetworkStore } from './src/store/networkStore';
 import { checkAppVersionStatus, VersionCheckResult } from './src/lib/versionCheck';
+import { resolveSavingsRoute } from './src/lib/budgetModeUtils';
 import { UpdateRequiredScreen } from './src/screens/UpdateRequiredScreen';
 import { useAppLockStore } from './src/store/appLockStore';
 import { AppLockOverlay } from './src/components/AppLockOverlay';
@@ -86,13 +87,17 @@ export default function App() {
 
     // Handle user tapping on a device notification in notification shade
     const unregisterNotif = registerNotificationResponseListener((data) => {
-      if (
+      const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
+      if (data?.type === 'daily_reminder') {
+        navigateTo('Home' as any);
+      } else if (
         data?.screen === 'Savings' ||
         data?.type === 'budget_warning' ||
         data?.type === 'budget_exceeded' ||
         data?.type === 'savings_rollover'
       ) {
-        navigateTo('Savings' as any);
+        const target = resolveSavingsRoute(isBudgetModeEnabled, data?.type);
+        navigateTo(target as any);
       } else {
         navigateTo('Notifications' as any);
       }

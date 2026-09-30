@@ -15,6 +15,7 @@ import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
 import { parseChipNumber } from '../lib/homeCalculations';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 
 export type BrandedHeroCardProps = {
   primaryLabel: string;
@@ -128,7 +129,8 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     return buildNotchedCardPath(dimensions.width, h, CORNER_RADIUS, POD_SIZE, GAP);
   }, [dimensions.width, dimensions.height]);
 
-  const showRollover = activeFilter === 'Daily' && todayBudget > 0;
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const showRollover = isBudgetModeEnabled && activeFilter === 'Daily' && todayBudget > 0;
 
   // Curated Card Colors (Mint Green signature card)
   // Contrast: Dark Navy typography on Mint Green (#B8E0C8) provides 9.8:1 AAA contrast

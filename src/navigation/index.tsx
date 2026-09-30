@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme, useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -7,6 +7,7 @@ import { RootStackParamList } from '../types';
 import { handleAuthDeepLink } from '../lib/authLinkHandler';
 import { navigationRef, navigateTo } from './navigationRef';
 import { useTheme } from '../store/themeStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 
 // Import Screens
 import { SplashScreen } from '../screens/SplashScreen';
@@ -38,6 +39,31 @@ const Tab = createBottomTabNavigator();
 
 const renderTabBar = (props: BottomTabBarProps) => <BottomNavBar {...props} />;
 
+const GuardedSavingsScreen: React.FC<any> = (props) => {
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const navigation = props.navigation;
+
+  React.useEffect(() => {
+    if (!isBudgetModeEnabled) {
+      navigation.navigate('Home');
+    }
+  }, [isBudgetModeEnabled, navigation]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isBudgetModeEnabled) {
+        navigation.navigate('Home');
+      }
+    }, [isBudgetModeEnabled, navigation])
+  );
+
+  if (!isBudgetModeEnabled) {
+    return null;
+  }
+
+  return <SavingsScreen {...props} />;
+};
+
 function TabNavigator() {
   return (
     <Tab.Navigator
@@ -49,7 +75,7 @@ function TabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen as React.ComponentType<any>} />
       <Tab.Screen name="History" component={HistoryScreen as React.ComponentType<any>} />
-      <Tab.Screen name="Savings" component={SavingsScreen as React.ComponentType<any>} />
+      <Tab.Screen name="Savings" component={GuardedSavingsScreen as React.ComponentType<any>} />
       <Tab.Screen name="Insights" component={InsightsScreen as React.ComponentType<any>} />
     </Tab.Navigator>
   );
@@ -146,7 +172,7 @@ export function AppNavigation({
         <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />
         <Stack.Screen name="AddEditCategory" component={AddEditCategoryScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="Savings" component={SavingsScreen as React.ComponentType<any>} />
+        <Stack.Screen name="Savings" component={GuardedSavingsScreen as React.ComponentType<any>} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Faq" component={FaqScreen} />
       </Stack.Navigator>

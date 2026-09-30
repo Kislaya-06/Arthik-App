@@ -23,6 +23,11 @@ import { useScrollDirection } from '../hooks/useScrollDirection';
 import { scheduleDailyReminder, cancelDailyReminder } from '../lib/notificationService';
 import { useAppLockStore } from '../store/appLockStore';
 import { useOtaStore } from '../store/otaStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { formatCurrency } from '../lib/formatters';
+import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
+import { BudgetEditModal } from '../components/BudgetEditModal';
+import { formatCadenceBudgetSubtitle } from '../lib/budgetModeUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -42,6 +47,59 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const isSupported = useAppLockStore((s) => s.isSupported);
   const isEnrolled = useAppLockStore((s) => s.isEnrolled);
   const setAppLockEnabled = useAppLockStore((s) => s.setAppLockEnabled);
+
+  // Smart Budget & Gullak mode state
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
+  const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
+  const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
+  const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
+  const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
+  const savingsStreak = useDailyBudgetStore((s) => s.savingsStreak);
+  const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
+
+  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+
+  const currentCadenceAmount =
+    budgetCadence === 'weekly'
+      ? weeklyBudgetAmount
+      : budgetCadence === 'monthly'
+      ? monthlyBudgetAmount
+      : dailyBudgetAmount;
+
+  const budgetSubtitle = formatCadenceBudgetSubtitle(
+    isBudgetModeEnabled,
+    budgetCadence,
+    currentCadenceAmount
+  );
+
+  const handleToggleBudgetMode = (val: boolean) => {
+    if (!val) {
+      if (totalAccumulatedSavings > 0 || savingsStreak > 0) {
+        Alert.alert(
+          'Smart Budget & Gullak Paused',
+          `Aapka Gullak balance (${formatCurrency(totalAccumulatedSavings)}) aur streaks 100% safe hain! Jab bhi aap is mode ko wapas ON karenge, aapki savings aur streaks wahin se resume ho jayengi.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Turn Off Anyway',
+              style: 'destructive',
+              onPress: async () => {
+                await setBudgetModeEnabled(false);
+              },
+            },
+          ]
+        );
+      } else {
+        setBudgetModeEnabled(false);
+      }
+    } else {
+      setBudgetModeEnabled(true);
+      if (currentCadenceAmount <= 0) {
+        setBudgetModalVisible(true);
+      }
+    }
+  };
 
   const handleToggleAppLock = async (val: boolean) => {
     if (val && !isSupported && !isEnrolled) {
@@ -247,6 +305,13 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
+      {/* Budget Edit Modal */}
+      <BudgetEditModal
+        visible={budgetModalVisible}
+        initialAmount={currentCadenceAmount}
+        onClose={() => setBudgetModalVisible(false)}
+      />
+
       {/* Edit Profile Modal */}
       <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
         <Pressable style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]} onPress={() => setEditVisible(false)}>
@@ -444,6 +509,40 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               Edit Profile
             </Text>
           </Pressable>
+        </View>
+
+        {/* Smart Budget & Gullak Card */}
+        <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
+            BUDGET & SAVINGS
+          </Text>
+          <View style={styles.budgetModeRow}>
+            <View style={[styles.iconContainer, { backgroundColor: isBudgetModeEnabled ? (isDark ? 'rgba(184, 224, 200, 0.16)' : '#E8F5EE') : colors.cardSubtle }]}>
+              <PiggyBankCoinIcon size={20} color={isBudgetModeEnabled ? colors.forestGreen : colors.textSecondary} />
+            </View>
+            <Pressable
+              style={styles.budgetModeTextWrap}
+              onPress={() => {
+                if (isBudgetModeEnabled) {
+                  setBudgetModalVisible(true);
+                }
+              }}
+              disabled={!isBudgetModeEnabled}
+            >
+              <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                Smart Budget & Gullak
+              </Text>
+              <Text style={[styles.budgetModeSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                {budgetSubtitle}
+              </Text>
+            </Pressable>
+            <Switch
+              value={isBudgetModeEnabled}
+              onValueChange={handleToggleBudgetMode}
+              trackColor={{ false: colors.border, true: colors.mintGreen }}
+              thumbColor={colors.white}
+            />
+          </View>
         </View>
 
         {/* Account Settings Card */}
@@ -813,5 +912,19 @@ const styles = StyleSheet.create({
   deleteErrorText: {
     fontSize: FontSize.bodySmall,
     marginTop: Spacing.micro,
+  },
+  budgetModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.block,
+  },
+  budgetModeTextWrap: {
+    flex: 1,
+    marginRight: Spacing.element,
+  },
+  budgetModeSubtitle: {
+    fontSize: FontSize.bodySmall,
+    marginTop: Spacing.nano,
   },
 });
