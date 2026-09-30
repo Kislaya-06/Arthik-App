@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  Switch,
   TouchableOpacity,
   Animated,
   Alert,
@@ -17,15 +16,18 @@ import {
   Trophy,
   Calendar,
   Sparkles,
-  Settings,
   Plus,
   Clock,
   X,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-react-native';
 import { format } from 'date-fns';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { StreakFlame } from '../components/StreakFlame';
+import { AnimatedToggle } from '../components/AnimatedToggle';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
@@ -83,6 +85,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
   const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [explainerVisible, setExplainerVisible] = useState(false);
+  const [heroCardSize, setHeroCardSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [allowanceCardSize, setAllowanceCardSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
   const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
@@ -175,31 +179,17 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     saved: todaySaved,
   } = todayMetrics;
 
-  // Today's Allowance Card visibility & bouncy spring animation when Daily Budget Mode is toggled
-  const cardAnim = useRef(new Animated.Value(isAutoRenew ? 1 : 0)).current;
-  const [shouldRenderTodayCard, setShouldRenderTodayCard] = useState(isAutoRenew);
-
-  useEffect(() => {
-    if (isAutoRenew) {
-      setShouldRenderTodayCard(true);
-      Animated.spring(cardAnim, {
-        toValue: 1,
-        tension: 70,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(cardAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) {
-          setShouldRenderTodayCard(false);
-        }
-      });
-    }
-  }, [isAutoRenew, cardAnim]);
+  // Scheduled budget cancellation handler
+  const handleCancelScheduled = useCallback(() => {
+    Alert.alert(
+      'Cancel Scheduled Budget',
+      'Are you sure you want to cancel the scheduled budget change for tomorrow?',
+      [
+        { text: 'No', style: 'cancel' },
+        { text: 'Yes, Cancel', style: 'destructive', onPress: cancelScheduledNextDailyBudget },
+      ]
+    );
+  }, [cancelScheduledNextDailyBudget]);
 
   // ─── Priority 1 Animations: Piggy Bounce, Flame Breathe & Progress Fill ────
   const heroPiggyScale = useRef(new Animated.Value(1)).current;
@@ -233,7 +223,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (shouldRenderTodayCard) {
+    if (isAutoRenew) {
       Animated.timing(progressAnim, {
         toValue: Math.min(1, Math.max(0, progressRatio)),
         duration: 500,
@@ -241,7 +231,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
         useNativeDriver: false,
       }).start();
     }
-  }, [shouldRenderTodayCard, progressRatio, progressAnim]);
+  }, [isAutoRenew, progressRatio, progressAnim]);
 
   const animatedProgressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -309,20 +299,51 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           style={[
             styles.heroCard,
             {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderWidth: isDark ? 1 : 0,
+              backgroundColor: '#581C87',
+              borderColor: 'rgba(255, 255, 255, 0.12)',
+              borderWidth: 1,
+              overflow: 'hidden',
+              elevation: isDark ? 0 : 2,
             },
           ]}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (width > 0 && height > 0 && (width !== heroCardSize.width || height !== heroCardSize.height)) {
+              setHeroCardSize({ width, height });
+            }
+          }}
         >
+          {/* Violet Premium Background Gradient */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg
+              width={heroCardSize.width || '100%'}
+              height={heroCardSize.height || '100%'}
+              style={StyleSheet.absoluteFill}
+            >
+              <Defs>
+                <SvgLinearGradient id="gullakCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#8B5CF6" />
+                  <Stop offset="100%" stopColor="#581C87" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect
+                x="0"
+                y="0"
+                width={heroCardSize.width || '100%'}
+                height={heroCardSize.height || '100%'}
+                fill="url(#gullakCardGrad)"
+              />
+            </Svg>
+          </View>
+
           {/* Header Row: Title on Left, Piggy Icon Badge on Right */}
           <View style={styles.heroTopRow}>
             <View style={styles.heroTitleWrap}>
-              <Text style={[styles.heroSub, { color: colors.textSecondary }]}>
+              <Text style={[styles.heroSub, { color: 'rgba(255, 255, 255, 0.8)' }]}>
                 Total Lifetime Savings
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+                <Text style={[styles.heroTitle, { color: '#FFFFFF' }]}>
                   Your {budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily'} Gullak
                 </Text>
                 <MoneyHelpBadge
@@ -335,10 +356,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             <TouchableOpacity
               activeOpacity={0.75}
               onPress={triggerPiggyBounce}
-              style={[styles.heroIconWrap, { backgroundColor: colors.mintGreenSoft }]}
+              style={[styles.heroIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}
             >
               <Animated.View style={{ transform: [{ scale: heroPiggyScale }] }}>
-                <PiggyBankCoinIcon size={24} color={colors.mintGreenDark} />
+                <PiggyBankCoinIcon size={28} color="#FFFFFF" />
               </Animated.View>
             </TouchableOpacity>
           </View>
@@ -346,59 +367,48 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           {/* Large currency amount with strict alignItems: 'center' per project rule */}
           <View style={styles.heroAmountBlock}>
             <View style={styles.currencyRow}>
-              <Text style={[styles.currencySymbol, { color: colors.mintGreenDark }]}>₹</Text>
-              <Text style={[styles.heroAmount, { color: colors.textPrimary }]}>
+              <Text style={[styles.currencySymbol, { color: 'rgba(255, 255, 255, 0.85)' }]}>₹</Text>
+              <Text style={[styles.heroAmount, { color: '#FFFFFF' }]}>
                 {totalAccumulatedSavings.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </Text>
             </View>
-            <Text style={[styles.heroHelperText, { color: isOverBudget ? colors.danger : colors.textSecondary }]}>
+            <Text style={[styles.heroHelperText, { color: isOverBudget ? '#FCA5A5' : 'rgba(255, 255, 255, 0.8)' }]}>
               {isOverBudget
                 ? `🚨 -${formatCurrency(overAmount)} deducted today from Gullak`
                 : `Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
             </Text>
           </View>
 
-          {/* Balanced 2-Column Stat Tiles */}
-          <View style={styles.heroStatsRow}>
-            <View
-              style={[
-                styles.heroStatTile,
-                {
-                  backgroundColor: colors.cardSubtle,
-                  borderColor: colors.borderSubtle,
-                },
-              ]}
-            >
-              <View style={[styles.heroStatIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
-                <Trophy size={14} color="#F59E0B" />
-              </View>
+          {/* Unboxed Minimal Stat Row */}
+          <View style={[styles.heroStatsRow, { marginTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 10 }]}>
+            {/* Best Streak */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <GradientIconBadge size={28} color="#FFFFFF" isDark={isDark}>
+                {({ iconColor }) => <Trophy size={14} color={iconColor} />}
+              </GradientIconBadge>
               <View style={styles.heroStatTextWrap}>
-                <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>
+                <Text style={[styles.heroStatLabel, { color: 'rgba(255, 255, 255, 0.7)' }]}>
                   Best Streak
                 </Text>
-                <Text style={[styles.heroStatValue, { color: colors.textPrimary }]}>
+                <Text style={[styles.heroStatValue, { color: '#FFFFFF' }]}>
                   {effectiveBestStreak} {budgetCadence === 'weekly' ? (effectiveBestStreak === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (effectiveBestStreak === 1 ? 'Month' : 'Months') : (effectiveBestStreak === 1 ? 'Day' : 'Days')}
                 </Text>
               </View>
             </View>
 
-            <View
-              style={[
-                styles.heroStatTile,
-                {
-                  backgroundColor: colors.cardSubtle,
-                  borderColor: colors.borderSubtle,
-                },
-              ]}
-            >
-              <View style={[styles.heroStatIconWrap, { backgroundColor: colors.mintGreenSoft }]}>
-                <Sparkles size={14} color={colors.mintGreenDark} />
-              </View>
+            {/* Vertical Divider */}
+            <View style={{ width: 1, height: '80%', backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center' }} />
+
+            {/* Saved Days */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <GradientIconBadge size={28} color="#FFFFFF" isDark={isDark}>
+                {({ iconColor }) => <Sparkles size={14} color={iconColor} />}
+              </GradientIconBadge>
               <View style={styles.heroStatTextWrap}>
-                <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>
+                <Text style={[styles.heroStatLabel, { color: 'rgba(255, 255, 255, 0.7)' }]}>
                   {budgetCadence === 'weekly' ? 'Saved Weeks' : budgetCadence === 'monthly' ? 'Saved Months' : 'Saved Days'}
                 </Text>
-                <Text style={[styles.heroStatValue, { color: colors.textPrimary }]}>
+                <Text style={[styles.heroStatValue, { color: '#FFFFFF' }]}>
                   {savedDaysCount} {budgetCadence === 'weekly' ? (savedDaysCount === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (savedDaysCount === 1 ? 'Month' : 'Months') : (savedDaysCount === 1 ? 'Day' : 'Days')}
                 </Text>
               </View>
@@ -410,273 +420,366 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             style={[
               styles.depositCtaBtn,
               {
-                backgroundColor: colors.mintGreenSoft,
-                borderColor: isDark ? 'rgba(184, 224, 200, 0.25)' : colors.mintGreen,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#FFFFFF',
+                marginTop: 12,
               },
             ]}
             onPress={() => setDepositModalVisible(true)}
             activeOpacity={0.75}
           >
-            <Plus size={16} color={colors.mintGreenDark} />
-            <Text style={[styles.depositCtaBtnText, { color: colors.mintGreenDark }]}>
+            <Plus size={17} color="#5B21B6" />
+            <Text style={[styles.depositCtaBtnText, { color: '#5B21B6' }]}>
               Deposit to Gullak
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── Today's Live Allowance Tracker Card (visible only when Daily Budget Mode is ON) ── */}
-        {shouldRenderTodayCard && (
-          <Animated.View
-            style={[
-              styles.todayCard,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                borderWidth: isDark ? 1 : 0,
-                opacity: cardAnim,
-                transform: [
-                  {
-                    scale: cardAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.92, 1],
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                  {
-                    translateY: cardAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [-12, 0],
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-          {/* Header */}
-          <View style={styles.todayHeader}>
-            <View>
-              <Text style={[styles.todayDateText, { color: colors.textSecondary }]}>
-                {budgetCadence === 'weekly' ? 'This Week' : budgetCadence === 'monthly' ? 'This Month' : `Today, ${format(new Date(), 'd MMMM')}`}
-              </Text>
-              <Text style={[styles.todayTitleText, { color: colors.textPrimary }]}>
-                {budgetCadence === 'weekly' ? "This Week's Budget" : budgetCadence === 'monthly' ? "This Month's Budget" : "Today's Allowance"}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor:
-                    todayBudget === 0
-                      ? isDark
-                        ? 'rgba(156, 163, 175, 0.2)'
-                        : '#F3F4F6'
-                      : isOverBudget
-                      ? isDark
-                        ? 'rgba(239, 68, 68, 0.2)'
-                        : '#FEE2E2'
-                      : progressRatio >= 0.8
-                      ? isDark
-                        ? 'rgba(245, 158, 11, 0.2)'
-                        : '#FEF3C7'
-                      : colors.mintGreenSoft,
-                },
-              ]}
+        {/* ── Unified Daily Allowance & Budget Mode Hub ── */}
+        <View
+          style={[
+            styles.unifiedBudgetCard,
+            {
+              backgroundColor: '#581C87',
+              borderColor: 'rgba(255, 255, 255, 0.12)',
+              borderWidth: 1,
+              overflow: 'hidden',
+              elevation: isDark ? 0 : 2,
+            },
+          ]}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (width > 0 && height > 0 && (width !== allowanceCardSize.width || height !== allowanceCardSize.height)) {
+              setAllowanceCardSize({ width, height });
+            }
+          }}
+        >
+          {/* Violet Gradient Backdrop matching Gullak Hero Card */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg
+              key={`allowance_${allowanceCardSize.width}_${allowanceCardSize.height}`}
+              width={allowanceCardSize.width || '100%'}
+              height={allowanceCardSize.height ? allowanceCardSize.height + 4 : '100%'}
+              style={StyleSheet.absoluteFill}
             >
-              <Text
+              <Defs>
+                <SvgLinearGradient id="allowanceCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#8B5CF6" />
+                  <Stop offset="100%" stopColor="#581C87" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect
+                x="0"
+                y="0"
+                width={allowanceCardSize.width || '100%'}
+                height={allowanceCardSize.height ? allowanceCardSize.height + 4 : '100%'}
+                fill="url(#allowanceCardGrad)"
+              />
+            </Svg>
+          </View>
+
+          {/* Row 1: Title + Date Pill inline left, Status indicator right */}
+          <View style={styles.ucTopRow}>
+            <View style={styles.ucTitleRow}>
+              <Text style={[styles.ucTitle, { color: '#FFFFFF' }]}>
+                {budgetCadence === 'weekly'
+                  ? 'Weekly Budget'
+                  : budgetCadence === 'monthly'
+                  ? 'Monthly Budget'
+                  : 'Daily Allowance'}
+              </Text>
+              <View
                 style={[
-                  styles.statusBadgeText,
+                  styles.ucDateBadge,
                   {
-                    color:
-                      todayBudget === 0
-                        ? colors.textSecondary
-                        : isOverBudget
-                        ? '#DC2626'
-                        : progressRatio >= 0.8
-                        ? '#D97706'
-                        : colors.mintGreenDark,
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
                   },
                 ]}
               >
-                {todayBudget === 0
-                  ? 'Feature Off'
-                  : isOverBudget
-                  ? 'Over Budget 🚨'
-                  : progressRatio >= 0.8
-                  ? 'Almost Full ⚠️'
-                  : 'On Track 👍'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Today's Remaining & Spent Summary */}
-          <View style={styles.todayNumbersRow}>
-            <View style={styles.todayNumberBlock}>
-              <Text style={[styles.todayNumberLabel, { color: colors.textSecondary }]}>
-                {isOverBudget ? 'Exceeded By' : 'Remaining to Spend'}
-              </Text>
-              <View style={styles.currencyRow}>
-                <Text
-                  style={[
-                    styles.smallCurrencySymbol,
-                    { color: isOverBudget ? '#DC2626' : colors.mintGreenDark },
-                  ]}
-                >
-                  ₹
-                </Text>
-                <Text
-                  style={[
-                    styles.todayMainNumber,
-                    { color: isOverBudget ? '#DC2626' : colors.textPrimary },
-                  ]}
-                >
-                  {(isOverBudget ? overAmount : todayRemaining).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                <Text style={[styles.ucDateBadgeText, { color: '#FFFFFF' }]}>
+                  {budgetCadence === 'weekly'
+                    ? 'This week'
+                    : budgetCadence === 'monthly'
+                    ? 'This month'
+                    : format(new Date(), 'd MMM')}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.todaySubNumbers}>
-              <Text style={[styles.subNumberSpent, { color: colors.textPrimary }]}>
-                Spent {formatCurrency(todaySpent)}
-              </Text>
-              <Text style={[styles.subNumberBudget, { color: colors.textSecondary }]}>
-                of {formatCurrency(todayBudget)} budget
-              </Text>
-            </View>
+            {/* Unboxed High-Visibility Status Indicator */}
+            {isAutoRenew && todayBudget > 0 && (
+              <View style={styles.ucStatusRow}>
+                <View
+                  style={[
+                    styles.ucStatusDot,
+                    {
+                      backgroundColor: isOverBudget
+                        ? '#F87171'
+                        : progressRatio >= 0.8
+                        ? '#FBBF24'
+                        : '#FFFFFF',
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.ucStatusText,
+                    {
+                      color: isOverBudget
+                        ? '#FCA5A5'
+                        : progressRatio >= 0.8
+                        ? '#FDE68A'
+                        : '#FFFFFF',
+                    },
+                  ]}
+                >
+                  {isOverBudget ? 'Over budget' : progressRatio >= 0.8 ? 'Near limit' : 'On track'}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* Sleek 6px Progress Bar */}
-          <View style={[styles.progressBarTrack, { backgroundColor: colors.chartTrack }]}>
-            <Animated.View
-              style={[
-                styles.progressBarFill,
-                {
-                  width: animatedProgressWidth,
-                  backgroundColor: isOverBudget
-                    ? '#EF4444'
-                    : progressRatio >= 0.8
-                    ? '#F59E0B'
-                    : colors.mintGreen,
-                },
-              ]}
-            />
-          </View>
-
-          {/* Single Meaningful Status Hint */}
-          <Text style={[styles.progressHint, { color: isOverBudget ? colors.danger : colors.textSecondary }]}>
-            {isOverBudget
-              ? `🚨 ${formatCurrency(overAmount)} deducted from your Gullak`
-              : todayBudget > 0
-              ? `✨ Save ${formatCurrency(todaySaved)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
-              : `Set a ${budgetCadence === 'weekly' ? 'weekly' : budgetCadence === 'monthly' ? 'monthly' : 'daily'} budget to start saving in Gullak`}
-          </Text>
-        </Animated.View>
-        )}
-
-        {/* ── Auto-Renew vs Manual Settings Card ── */}
-        <View
-          style={[
-            styles.settingsCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderWidth: isDark ? 1 : 0,
-            },
-          ]}
-        >
-          <View style={styles.settingsHeader}>
-            <View style={styles.settingsTitleRow}>
-              <Settings size={20} color={colors.textPrimary} />
-              <Text style={[styles.settingsTitle, { color: colors.textPrimary }]}>
-                {budgetCadence === 'weekly' ? 'Weekly Budget Mode' : budgetCadence === 'monthly' ? 'Monthly Budget Mode' : 'Daily Budget Mode'}
-              </Text>
-            </View>
-
-            <Switch
-              value={isAutoRenew}
-              onValueChange={handleToggleAutoRenew}
-              trackColor={{ false: colors.chartTrack, true: colors.mintGreen }}
-              thumbColor={isAutoRenew ? colors.forestGreen : '#f4f3f4'}
-            />
-          </View>
-
-          <Text style={[styles.settingsDesc, { color: colors.textSecondary }]}>
-            {isAutoRenew && dailyBudgetAmount > 0
-              ? `Auto-adds ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'} and saves unspent money to Gullak.`
-              : isAutoRenew
-              ? `Set your ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'} below to start automatic budgeting.`
-              : `Manual mode: Set your ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily budget'} whenever you want.`}
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.changeAmountBtn,
-              {
-                backgroundColor: colors.cardSubtle,
-                borderColor: colors.border,
-              },
-            ]}
-            onPress={() => openBudgetModal('recurring')}
-            activeOpacity={0.75}
-          >
-            <View>
-              <Text style={[styles.changeAmountSub, { color: colors.textSecondary }]}>
-                Default {budgetCadence === 'weekly' ? 'Weekly Budget' : budgetCadence === 'monthly' ? 'Monthly Budget' : 'Daily Allowance'}
-              </Text>
-              <View style={styles.currencyRow}>
-                {dailyBudgetAmount > 0 ? (
-                  <>
-                    <Text style={[styles.smallCurrencySymbol, { color: colors.textPrimary }]}>₹</Text>
-                    <Text style={[styles.changeAmountText, { color: colors.textPrimary }]}>
-                      {dailyBudgetAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[styles.changeAmountText, { color: colors.textSecondary, fontSize: FontSize.body }]}>
-                    Not Set
+          {/* Body: Active or Paused */}
+          {isAutoRenew ? (
+            <View style={styles.ucBody}>
+              {/* Row 2: Hero Amount & Budget Change */}
+              <View style={styles.ucHeroRow}>
+                <View style={styles.ucHeroLeft}>
+                  <Text
+                    style={[
+                      styles.ucHeroLabel,
+                      { color: isOverBudget ? '#FCA5A5' : 'rgba(255, 255, 255, 0.75)' },
+                    ]}
+                  >
+                    {isOverBudget ? 'EXCEEDED BY' : 'LEFT TO SPEND'}
                   </Text>
-                )}
-              </View>
-            </View>
-            <View style={[styles.editPill, { backgroundColor: colors.mintGreenSoft }]}>
-              <Text style={[styles.editPillText, { color: colors.mintGreenDark }]}>
-                {dailyBudgetAmount > 0 ? 'Change' : 'Set Limit'}
-              </Text>
-            </View>
-          </TouchableOpacity>
+                  <View style={styles.ucAmountRow}>
+                    <Text
+                      style={[
+                        styles.ucHeroCurrencySymbol,
+                        { color: isOverBudget ? '#FCA5A5' : '#FFFFFF' },
+                      ]}
+                    >
+                      ₹
+                    </Text>
+                    <Text
+                      style={[
+                        styles.ucHeroAmount,
+                        { color: isOverBudget ? '#FCA5A5' : '#FFFFFF' },
+                      ]}
+                    >
+                      {(isOverBudget ? overAmount : todayRemaining).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </Text>
+                  </View>
+                </View>
 
-          {/* Scheduled Tomorrow Budget Banner */}
-          {scheduledNextDailyBudget !== null && scheduledNextDailyBudget > 0 && (
-            <View style={[styles.scheduledBanner, { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }]}>
-              <Clock size={16} color={colors.mintGreenDark} style={{ marginRight: Spacing.element }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.scheduledBannerTitle, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
-                  Tomorrow's Budget Scheduled
+                {/* Right Column: Sleek Unboxed Change Action Link */}
+                <View style={styles.ucHeroRight}>
+                  <TouchableOpacity
+                    onPress={() => openBudgetModal('recurring')}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    style={styles.ucChangeLink}
+                  >
+                    <Text style={styles.ucChangeLinkText}>
+                      Change
+                    </Text>
+                    <ChevronRight size={14} color="#FFFFFF" strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Row 3: Progress Bar */}
+              <View
+                style={[
+                  styles.ucProgressTrack,
+                  { backgroundColor: 'rgba(255, 255, 255, 0.18)' },
+                ]}
+                accessibilityLabel={`Spent ${formatCurrency(todaySpent)} of ${formatCurrency(todayBudget)} budget`}
+                accessibilityRole="progressbar"
+              >
+                <Animated.View style={[styles.ucProgressFill, { width: animatedProgressWidth }]}>
+                  <Svg width="100%" height="100%" preserveAspectRatio="none">
+                    <Defs>
+                      <SvgLinearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
+                        <Stop
+                          offset="0"
+                          stopColor={isOverBudget ? '#EF4444' : progressRatio >= 0.8 ? '#FCD34D' : '#FFFFFF'}
+                          stopOpacity={1}
+                        />
+                        <Stop
+                          offset="1"
+                          stopColor={isOverBudget ? '#B91C1C' : progressRatio >= 0.8 ? '#F59E0B' : '#E2E8F0'}
+                          stopOpacity={1}
+                        />
+                      </SvgLinearGradient>
+                    </Defs>
+                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#barGrad)" />
+                  </Svg>
+                </Animated.View>
+              </View>
+
+              {/* Under-bar spending split */}
+              <View style={styles.ucProgressLabels}>
+                <Text style={[styles.ucProgressLabelText, { color: 'rgba(255, 255, 255, 0.75)' }]}>
+                  Spent <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(todaySpent)}</Text>
                 </Text>
-                <Text style={[styles.scheduledBannerSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                  {formatCurrency(scheduledNextDailyBudget)} will take effect at 12:00 AM
+                <Text style={[styles.ucProgressLabelText, { color: 'rgba(255, 255, 255, 0.75)' }]}>
+                  <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(todayBudget)}</Text> budget
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert(
-                    'Cancel Scheduled Budget',
-                    'Are you sure you want to cancel the scheduled budget change for tomorrow?',
-                    [
-                      { text: 'No', style: 'cancel' },
-                      { text: 'Yes, Cancel', style: 'destructive', onPress: cancelScheduledNextDailyBudget },
-                    ]
-                  );
-                }}
-                hitSlop={8}
+
+              {/* Scheduled Tomorrow Budget Banner (if active) */}
+              {scheduledNextDailyBudget !== null && scheduledNextDailyBudget > 0 && (
+                <View style={[styles.scheduledBanner, { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderColor: 'rgba(255, 255, 255, 0.25)' }]}>
+                  <Clock size={15} color="#FFFFFF" style={{ marginRight: Spacing.element }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.scheduledBannerTitle, { color: '#FFFFFF', fontFamily: FontFamily.bold }]}>
+                      Tomorrow's Budget: {formatCurrency(scheduledNextDailyBudget)}
+                    </Text>
+                    <Text style={[styles.scheduledBannerSubtitle, { color: 'rgba(255, 255, 255, 0.8)', fontFamily: FontFamily.medium }]}>
+                      Takes effect at 12:00 AM
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={handleCancelScheduled} hitSlop={8}>
+                    <X size={16} color="rgba(255, 255, 255, 0.8)" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Row 4: Dedicated Auto-save Feature Capsule */}
+              <View
+                style={[
+                  styles.ucAutoSaveCapsule,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                ]}
               >
-                <X size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
+                <View style={styles.ucAutoSaveLeft}>
+                  <GradientIconBadge size={40} color="#FFFFFF" isDark={isDark}>
+                    {({ iconColor }) => <PiggyBankCoinIcon size={20} color={iconColor} />}
+                  </GradientIconBadge>
+                  <View style={styles.ucAutoSaveTextWrap}>
+                    <Text style={[styles.ucAutoSaveLabel, { color: '#FFFFFF' }]}>
+                      Auto-save unspent to Gullak
+                    </Text>
+                    <Text style={[styles.ucFooterHint, { color: isOverBudget ? '#FCA5A5' : 'rgba(255, 255, 255, 0.85)' }]}>
+                      {isOverBudget
+                        ? `${formatCurrency(overAmount)} deducted from Gullak`
+                        : todayBudget > 0
+                        ? `Save ${formatCurrency(todaySaved)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
+                        : 'Set a limit to start saving'}
+                    </Text>
+                  </View>
+                </View>
+                <AnimatedToggle
+                  value={isAutoRenew}
+                  onValueChange={handleToggleAutoRenew}
+                  width={52}
+                  height={26}
+                  onColor="#FFFFFF"
+                />
+              </View>
+            </View>
+          ) : (
+            /* Paused State */
+            <View style={styles.ucBody}>
+              <View
+                style={[
+                  styles.pausedStateBox,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                ]}
+              >
+                <View style={styles.pausedStateTop}>
+                  <View style={[styles.pausedIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                    <Sparkles size={16} color="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.pausedTitle, { color: '#FFFFFF' }]}>
+                      {budgetCadence === 'weekly'
+                        ? 'Weekly Budget Paused'
+                        : budgetCadence === 'monthly'
+                        ? 'Monthly Budget Paused'
+                        : 'Daily Allowance Paused'}
+                    </Text>
+                    <Text style={[styles.pausedDesc, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+                      Auto-rollover to Gullak is paused. All your past savings stay 100% safe.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.pausedDivider, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]} />
+
+                <View style={styles.pausedBottomRow}>
+                  <View>
+                    <Text style={[styles.pausedSubLabel, { color: 'rgba(255, 255, 255, 0.75)' }]}>
+                      Configured {budgetCadence === 'weekly' ? 'Weekly Budget' : budgetCadence === 'monthly' ? 'Monthly Budget' : 'Daily Allowance'}
+                    </Text>
+                    <Text style={[styles.pausedAmountText, { color: '#FFFFFF' }]}>
+                      {dailyBudgetAmount > 0 ? formatCurrency(dailyBudgetAmount) : 'Not Set'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.pausedActionBtn,
+                      {
+                        backgroundColor: '#FFFFFF',
+                        borderColor: '#FFFFFF',
+                      },
+                    ]}
+                    onPress={() => openBudgetModal('recurring')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.pausedActionBtnText, { color: '#581C87' }]}>
+                      {dailyBudgetAmount > 0 ? 'Change' : 'Set Limit'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Auto-save toggle capsule to re-enable */}
+              <View
+                style={[
+                  styles.ucAutoSaveCapsule,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    marginTop: Spacing.group,
+                  },
+                ]}
+              >
+                <View style={styles.ucAutoSaveLeft}>
+                  <GradientIconBadge size={40} color="#FFFFFF" isDark={isDark}>
+                    {({ iconColor }) => <PiggyBankCoinIcon size={20} color={iconColor} />}
+                  </GradientIconBadge>
+                  <View style={styles.ucAutoSaveTextWrap}>
+                    <Text style={[styles.ucAutoSaveLabel, { color: '#FFFFFF' }]}>
+                      Auto-save unspent to Gullak
+                    </Text>
+                    <Text style={[styles.ucFooterHint, { color: 'rgba(255, 255, 255, 0.85)' }]}>
+                      Turn on to resume daily rollover into Gullak
+                    </Text>
+                  </View>
+                </View>
+                <AnimatedToggle
+                  value={isAutoRenew}
+                  onValueChange={handleToggleAutoRenew}
+                  width={52}
+                  height={26}
+                  onColor="#FFFFFF"
+                />
+              </View>
             </View>
           )}
         </View>
+
 
         {/* ── Day-by-Day Savings History ── */}
         <View style={styles.historySectionHeader}>
@@ -848,9 +951,11 @@ const styles = StyleSheet.create({
 
   // Hero Card
   heroCard: {
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 14,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
@@ -861,7 +966,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 2,
   },
   heroTitleWrap: {
     justifyContent: 'center',
@@ -869,22 +974,22 @@ const styles = StyleSheet.create({
   heroSub: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginBottom: Spacing.nano,
+    marginBottom: 1,
   },
   heroTitle: {
     fontSize: 17,
     fontFamily: FontFamily.bold,
   },
   heroIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroAmountBlock: {
-    marginTop: Spacing.nano,
-    marginBottom: Spacing.block,
+    marginTop: 0,
+    marginBottom: 8,
   },
   // Strict rule: wrapping row container has alignItems: 'center'
   currencyRow: {
@@ -901,8 +1006,9 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   heroHelperText: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: FontFamily.medium,
+    lineHeight: 18,
     marginTop: 3,
   },
   heroStatsRow: {
@@ -939,68 +1045,202 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
 
-  // Today's Allowance Card
-  todayCard: {
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+  // Unified Budget & Allowance Card
+  unifiedBudgetCard: {
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+    marginBottom: Spacing.block,
   },
-  todayHeader: {
+  // Top Row: Title + Date Pill left, Status Pill right
+  ucTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  todayDateText: {
+  ucTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 1,
+  },
+  ucTitle: {
+    fontSize: 15,
+    fontFamily: FontFamily.bold,
+    letterSpacing: -0.2,
+  },
+  ucDateBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  ucDateBadgeText: {
     fontSize: 11,
+    fontFamily: FontFamily.semibold,
+  },
+  // Status Indicator (Unboxed, high visibility)
+  ucStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ucStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  ucStatusText: {
+    fontSize: 13,
+    fontFamily: FontFamily.bold,
+    letterSpacing: 0.1,
+  },
+  // Body wrapper
+  ucBody: {
+    gap: 0,
+  },
+  // Hero Amount Row
+  ucHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  ucHeroLeft: {
+    flex: 1,
+  },
+  ucHeroLabel: {
+    fontSize: 10.5,
+    fontFamily: FontFamily.bold,
+    letterSpacing: 0.6,
+    marginBottom: 1,
+  },
+  ucAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ucHeroCurrencySymbol: {
+    fontSize: 20,
+    fontFamily: FontFamily.bold,
+    marginRight: 2,
+  },
+  ucHeroAmount: {
+    fontSize: 28,
+    fontFamily: FontFamily.bold,
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+  },
+  ucHeroRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    paddingBottom: 2,
+  },
+  ucChangeLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 3,
+    paddingHorizontal: 2,
+  },
+  ucChangeLinkText: {
+    fontSize: 13,
+    fontFamily: FontFamily.bold,
+    color: '#FFFFFF',
+  },
+  // Progress Bar
+  ucProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  ucProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  ucProgressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  ucProgressLabelText: {
+    fontSize: 11.5,
     fontFamily: FontFamily.medium,
-    marginBottom: Spacing.nano,
+    fontVariant: ['tabular-nums'],
   },
-  todayTitleText: {
-    fontSize: 17,
+  ucProgressLabelValue: {
     fontFamily: FontFamily.bold,
   },
-  statusBadge: {
+  // Auto-save Feature Capsule
+  ucAutoSaveCapsule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 14,
+    borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: Spacing.micro,
-    borderRadius: 12,
+    paddingVertical: 8,
+    marginTop: 2,
   },
-  statusBadgeText: {
-    fontSize: 11,
+  ucAutoSaveLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    paddingRight: 6,
+  },
+  ucAutoSaveTextWrap: {
+    flex: 1,
+  },
+  ucAutoSaveLabel: {
+    fontSize: 13,
     fontFamily: FontFamily.bold,
+    marginBottom: 2,
+  },
+  ucFooterHint: {
+    fontSize: 12.5,
+    fontFamily: FontFamily.medium,
+    lineHeight: 16,
+  },
+
+  // Unified Active Live Tracker
+  unifiedActiveContent: {
+    marginTop: Spacing.nano,
   },
   todayNumbersRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginTop: Spacing.nano,
     marginBottom: Spacing.group,
   },
   todayNumberBlock: {
     justifyContent: 'center',
   },
   todayNumberLabel: {
-    fontSize: 11,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
     marginBottom: Spacing.nano,
   },
   smallCurrencySymbol: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: FontFamily.bold,
-    marginRight: 3,
+    marginRight: 2,
   },
   todayMainNumber: {
-    fontSize: 28,
+    fontSize: 30,
     fontFamily: FontFamily.bold,
+  },
+  unifiedRightBlock: {
+    alignItems: 'flex-end',
+    gap: Spacing.micro,
   },
   todaySubNumbers: {
     alignItems: 'flex-end',
-    marginBottom: Spacing.nano,
   },
   subNumberSpent: {
     fontSize: 13,
@@ -1008,8 +1248,22 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   subNumberBudget: {
-    fontSize: 11,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
+  },
+  unifiedChangeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.element,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 2,
+    gap: 2,
+  },
+  unifiedChangeText: {
+    fontSize: 11,
+    fontFamily: FontFamily.bold,
   },
 
   // Progress Bar
@@ -1017,15 +1271,16 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 6,
+    marginBottom: Spacing.element,
   },
   progressBarFill: {
     height: '100%',
     borderRadius: 3,
   },
   progressHint: {
-    fontSize: 11,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
+    lineHeight: 16,
   },
 
   // Scheduled Banner
@@ -1033,9 +1288,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.element,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    marginTop: Spacing.element,
+    marginTop: Spacing.group,
   },
   scheduledBannerTitle: {
     fontSize: FontSize.bodySmall,
@@ -1045,57 +1300,63 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // Settings Card
-  settingsCard: {
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: Spacing.block,
+  // Unified Paused State
+  unifiedPausedContent: {
+    marginTop: Spacing.nano,
   },
-  settingsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  settingsTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.element,
-  },
-  settingsTitle: {
-    fontSize: 15,
-    fontFamily: FontFamily.bold,
-  },
-  settingsDesc: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    lineHeight: 17,
-    marginBottom: 10,
-  },
-  changeAmountBtn: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  pausedStateBox: {
+    borderRadius: 16,
     padding: Spacing.group,
-    borderRadius: 14,
     borderWidth: 1,
   },
-  changeAmountSub: {
+  pausedStateTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.group,
+  },
+  pausedIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pausedTitle: {
+    fontSize: 14,
+    fontFamily: FontFamily.bold,
+    marginBottom: 2,
+  },
+  pausedDesc: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
+    lineHeight: 16,
+  },
+  pausedDivider: {
+    height: 1,
+    marginVertical: Spacing.group,
+  },
+  pausedBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pausedSubLabel: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
-    marginBottom: Spacing.nano,
+    marginBottom: 2,
   },
-  changeAmountText: {
-    fontSize: 17,
+  pausedAmountText: {
+    fontSize: 16,
     fontFamily: FontFamily.bold,
   },
-  editPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  pausedActionBtn: {
+    paddingHorizontal: Spacing.group,
+    paddingVertical: 6,
     borderRadius: 10,
+    borderWidth: 1,
   },
-  editPillText: {
-    fontSize: 11,
+  pausedActionBtnText: {
+    fontSize: 12,
     fontFamily: FontFamily.bold,
   },
 
@@ -1156,13 +1417,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 42,
+    height: 46,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
-    marginTop: Spacing.group,
   },
   depositCtaBtnText: {
-    fontSize: FontSize.body,
+    fontSize: 15.5,
     fontFamily: FontFamily.bold,
   },
   seeMoreBtn: {

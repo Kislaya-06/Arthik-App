@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance, ColorSchemeName } from 'react-native';
-import { LightColors, DarkColors, ThemeColors, Theme } from '../config/theme';
+import { LightColors, DarkColors, AmoledColors, ThemeColors, Theme } from '../config/theme';
 
-export type ThemeMode = 'system' | 'light' | 'dark';
+export type ThemeMode = 'system' | 'light' | 'dark' | 'amoled';
 
 interface ThemeState {
   themeMode: ThemeMode;
@@ -32,7 +32,11 @@ export const useThemeStore = create<ThemeState>()(
       toggleTheme: () => {
         const { themeMode, systemScheme } = get();
         const active = themeMode === 'system' ? systemScheme : themeMode;
-        set({ themeMode: active === 'dark' ? 'light' : 'dark' });
+        if (active === 'dark' || active === 'amoled') {
+          set({ themeMode: 'light' });
+        } else {
+          set({ themeMode: 'dark' });
+        }
       },
     }),
     {
@@ -58,13 +62,22 @@ export const useTheme = () => {
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
 
   const effectiveScheme = themeMode === 'system' ? systemScheme : themeMode;
-  const isDark = effectiveScheme === 'dark';
-  const colors: ThemeColors = isDark ? DarkColors : LightColors;
+  const isDark = effectiveScheme === 'dark' || effectiveScheme === 'amoled';
+  const isAmoled = effectiveScheme === 'amoled';
+
+  let colors: ThemeColors = LightColors;
+  if (effectiveScheme === 'amoled') {
+    colors = AmoledColors;
+  } else if (effectiveScheme === 'dark') {
+    colors = DarkColors;
+  }
 
   return {
     colors,
     isDark,
+    isAmoled,
     themeMode,
+    effectiveScheme,
     theme: {
       ...Theme,
       colors,

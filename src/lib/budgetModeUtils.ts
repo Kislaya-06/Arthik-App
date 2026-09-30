@@ -138,8 +138,8 @@ export function getProrationPreview(
 
   const formattedFull = formatAmountWithCommas(String(amount));
   const explanationText = targetCadence === 'weekly'
-    ? `Spend up to ₹${formatAmountWithCommas(String(proratedAmount))} until Sunday. Unspent money rolls into Gullak on Sunday night, then your full ₹${formattedFull}/week starts on Monday.`
-    : `Spend up to ₹${formatAmountWithCommas(String(proratedAmount))} until month-end. Unspent money rolls into Gullak on the last day, then your full ₹${formattedFull}/month starts next month.`;
+    ? `Spend ₹${formatAmountWithCommas(String(proratedAmount))} until Sunday. Unspent rolls to Gullak, and your full ₹${formattedFull}/week starts Monday.`
+    : `Spend ₹${formatAmountWithCommas(String(proratedAmount))} until month-end. Unspent rolls to Gullak, and your full ₹${formattedFull}/month starts next month.`;
 
   return {
     isProrated: true,

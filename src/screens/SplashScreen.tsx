@@ -426,6 +426,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
                   backgroundColor: colors.mintGreen,
                   borderWidth: isDark ? 1 : 0,
                   borderColor: colors.borderSubtle,
+                  shadowColor: isDark ? '#000000' : '#1A2B4C',
                   transform: [{ scale: Animated.multiply(iconEntranceScale, iconPunch) }],
                 },
               ]}
@@ -568,7 +569,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FB',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',

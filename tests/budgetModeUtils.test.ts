@@ -107,7 +107,7 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.proratedAmount).toBe(3000); // 7000 * 3/7 = 3000
       expect(preview?.previewText).toBe('Prorated allowance: ₹3,000 for remaining 3 days');
       expect(preview?.explanationText).toBe(
-        'Spend up to ₹3,000 until Sunday. Unspent money rolls into Gullak on Sunday night, then your full ₹7,000/week starts on Monday.'
+        'Spend ₹3,000 until Sunday. Unspent rolls to Gullak, and your full ₹7,000/week starts Monday.'
       );
     });
 
@@ -120,7 +120,7 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.proratedAmount).toBe(100); // 700 * 1/7 = 100
       expect(preview?.previewText).toBe('Prorated allowance: ₹100 for remaining 1 day');
       expect(preview?.explanationText).toBe(
-        'Spend up to ₹100 until Sunday. Unspent money rolls into Gullak on Sunday night, then your full ₹700/week starts on Monday.'
+        'Spend ₹100 until Sunday. Unspent rolls to Gullak, and your full ₹700/week starts Monday.'
       );
     });
 
@@ -133,7 +133,7 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.proratedAmount).toBe(16000); // 31000 * 16 / 31 = 16000
       expect(preview?.previewText).toBe('Prorated allowance: ₹16,000 for remaining 16 days');
       expect(preview?.explanationText).toBe(
-        'Spend up to ₹16,000 until month-end. Unspent money rolls into Gullak on the last day, then your full ₹31,000/month starts next month.'
+        'Spend ₹16,000 until month-end. Unspent rolls to Gullak, and your full ₹31,000/month starts next month.'
       );
     });
   });

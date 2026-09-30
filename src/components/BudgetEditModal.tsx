@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { X, Check, Clock, Sparkles } from 'lucide-react-native';
 import { format, parseISO, addDays } from 'date-fns';
+import Svg, { Defs, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
@@ -84,6 +85,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   );
   const [amountStr, setAmountStr] = useState('');
   const [showMoneyExplainer, setShowMoneyExplainer] = useState(false);
+  const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   // 3-Segment sliding pill animation
   const cadenceIndex = CADENCE_OPTIONS.findIndex((c) => c.key === selectedCadence);
@@ -298,8 +300,9 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
           style={[
             styles.modalContent,
             {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
+              backgroundColor: '#581C87',
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+              borderWidth: 1,
               opacity: sheetAnim,
               transform: [
                 {
@@ -317,12 +320,42 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
               ],
             },
           ]}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (width > 0 && height > 0 && (width !== modalSize.width || height !== modalSize.height)) {
+              setModalSize({ width, height });
+            }
+          }}
         >
+          {/* Violet Gradient Backdrop matching Gullak Hero Card */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg
+              key={`budget_modal_${modalSize.width}_${modalSize.height}`}
+              width={modalSize.width || '100%'}
+              height={modalSize.height ? modalSize.height + 6 : '100%'}
+              style={StyleSheet.absoluteFill}
+            >
+              <Defs>
+                <SvgLinearGradient id="budgetModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#8B5CF6" />
+                  <Stop offset="100%" stopColor="#581C87" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect
+                x="0"
+                y="0"
+                width={modalSize.width || '100%'}
+                height={modalSize.height ? modalSize.height + 6 : '100%'}
+                fill="url(#budgetModalGrad)"
+              />
+            </Svg>
+          </View>
+
           <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
-                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>
                   {isBudgetModeEnabled ? 'Change Budget Plan' : 'Set Smart Budget'}
                 </Text>
                 <MoneyHelpBadge
@@ -331,13 +364,22 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                   highlight={Boolean(prorationPreview)}
                 />
               </View>
-              <TouchableOpacity onPress={onClose} hitSlop={10}>
-                <X size={20} color={colors.textSecondary} />
+              <TouchableOpacity
+                onPress={onClose}
+                hitSlop={12}
+                style={[
+                  styles.closeBtn,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  },
+                ]}
+              >
+                <X size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
 
             {/* Subtitle / Effective From Notice */}
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+            <Text style={[styles.modalSubtitle, { color: 'rgba(255, 255, 255, 0.75)' }]}>
               {effectiveFromLabel}
             </Text>
 
@@ -347,17 +389,17 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 style={[
                   styles.pendingBanner,
                   {
-                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7',
-                    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#F59E0B',
+                    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+                    borderColor: 'rgba(251, 191, 36, 0.35)',
                   },
                 ]}
               >
-                <Clock size={16} color="#D97706" style={{ marginRight: 8 }} />
+                <Clock size={16} color="#FDE68A" style={{ marginRight: 8 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.pendingBannerTitle, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                  <Text style={[styles.pendingBannerTitle, { color: '#FDE68A' }]}>
                     Scheduled Change Pending
                   </Text>
-                  <Text style={[styles.pendingBannerSubtitle, { color: isDark ? '#FDE68A' : '#78350F' }]}>
+                  <Text style={[styles.pendingBannerSubtitle, { color: 'rgba(255, 255, 255, 0.85)' }]}>
                     {`${pendingChange.cadence.charAt(0).toUpperCase() + pendingChange.cadence.slice(1)} · ${formatCurrency(pendingChange.amount)} (${formatEffectiveFrom(pendingChange.effectiveFrom, todayStr, pendingChange.cadence)})`}
                   </Text>
                 </View>
@@ -389,8 +431,8 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
               style={[
                 styles.cadenceToggleContainer,
                 {
-                  backgroundColor: isDark ? colors.cardSubtle : 'rgba(0, 0, 0, 0.04)',
-                  borderColor: colors.borderSubtle,
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
                 },
               ]}
               onLayout={(e) => {
@@ -406,7 +448,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                     styles.cadenceSlidingPill,
                     {
                       width: segmentWidth,
-                      backgroundColor: colors.mintGreen,
+                      backgroundColor: '#FFFFFF',
                       transform: [{ translateX }],
                     },
                   ]}
@@ -426,7 +468,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                       style={[
                         styles.cadenceSegmentText,
                         {
-                          color: isSelected ? colors.forestGreen : colors.textSecondary,
+                          color: isSelected ? '#581C87' : 'rgba(255, 255, 255, 0.8)',
                           fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
                         },
                       ]}
@@ -442,15 +484,18 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
             <View
               style={[
                 styles.modalInputRow,
-                { backgroundColor: colors.inputBg, borderColor: colors.border },
+                {
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                },
               ]}
             >
-              <Text style={[styles.modalCurrencySign, { color: colors.mintGreenDark }]}>₹</Text>
+              <Text style={[styles.modalCurrencySign, { color: '#FFFFFF' }]}>₹</Text>
               <Text
                 style={[
                   styles.modalAmountDisplay,
                   {
-                    color: amountStr ? colors.textPrimary : colors.textSecondary,
+                    color: amountStr ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
                   },
                 ]}
                 numberOfLines={1}
@@ -460,15 +505,14 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
               </Text>
             </View>
 
-            {/* Proration Preview (One-liner if partial period created) */}
             {/* Proration Preview (Prorated allowance + crystal clear explanation) */}
             {prorationPreview && (
               <View
                 style={[
                   styles.prorationCard,
                   {
-                    backgroundColor: isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5E9',
-                    borderColor: isDark ? 'rgba(184, 224, 200, 0.35)' : '#A5D6A7',
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderColor: 'rgba(255, 255, 255, 0.35)',
                   },
                 ]}
               >
@@ -480,28 +524,23 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                   <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                     <Sparkles
                       size={14}
-                      color={isDark ? '#6EE7B7' : '#15803D'}
+                      color="#FFFFFF"
                       style={{ marginRight: 6 }}
                     />
                     <Text
                       style={[
                         styles.prorationTitle,
-                        { color: isDark ? '#6EE7B7' : '#15803D' },
+                        { color: '#FFFFFF' },
                       ]}
                     >
                       {prorationPreview.previewText}
                     </Text>
                   </View>
-                  <MoneyHelpBadge
-                    size={18}
-                    onPress={() => setShowMoneyExplainer(true)}
-                    highlight={true}
-                  />
                 </TouchableOpacity>
                 <Text
                   style={[
                     styles.prorationExplanation,
-                    { color: isDark ? colors.textSecondary : '#4B5563' },
+                    { color: 'rgba(255, 255, 255, 0.85)' },
                   ]}
                 >
                   {prorationPreview.explanationText}
@@ -530,10 +569,17 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
             {/* Actions: Cancel & Save */}
             <View style={styles.modalActionRow}>
               <TouchableOpacity
-                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
+                style={[
+                  styles.modalCancelBtn,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                ]}
                 onPress={onClose}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
+                <Text style={[styles.modalCancelText, { color: '#FFFFFF' }]}>
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -542,15 +588,26 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 style={[
                   styles.modalSaveBtn,
                   {
-                    backgroundColor: evaluatedAmount > 0 ? colors.mintGreen : colors.cardSubtle,
+                    backgroundColor: evaluatedAmount > 0 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)',
+                    borderColor: evaluatedAmount > 0 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)',
                     opacity: evaluatedAmount > 0 ? 1 : 0.6,
                   },
                 ]}
                 onPress={handleSave}
                 disabled={evaluatedAmount <= 0}
+                activeOpacity={0.8}
               >
-                <Check size={18} color={colors.forestGreen} style={{ marginRight: 6 }} />
-                <Text style={[styles.modalSaveText, { color: colors.forestGreen }]}>
+                <Check
+                  size={18}
+                  color={evaluatedAmount > 0 ? '#581C87' : 'rgba(255, 255, 255, 0.4)'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.modalSaveText,
+                    { color: evaluatedAmount > 0 ? '#581C87' : 'rgba(255, 255, 255, 0.4)' },
+                  ]}
+                >
                   Save Budget
                 </Text>
               </TouchableOpacity>
@@ -582,12 +639,21 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.cardLarge,
     padding: 20,
     borderWidth: 1,
+    position: 'relative',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.nano,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalTitleRow: {
     flexDirection: 'row',
@@ -697,14 +763,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   prorationTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: FontFamily.bold,
     flex: 1,
   },
   prorationExplanation: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: FontFamily.medium,
-    lineHeight: 15,
+    lineHeight: 18,
     paddingLeft: 20,
   },
   keypadContainer: {

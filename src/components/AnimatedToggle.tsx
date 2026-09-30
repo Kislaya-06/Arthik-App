@@ -14,6 +14,8 @@ interface AnimatedToggleProps {
   onValueChange: (val: boolean) => void;
   width?: number;
   height?: number;
+  onColor?: string;
+  offColor?: string;
 }
 
 export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
@@ -21,6 +23,8 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   onValueChange,
   width = 58,
   height = 30,
+  onColor,
+  offColor,
 }) => {
   const { colors, isDark } = useTheme();
 
@@ -63,12 +67,15 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   const trackBg = isDark ? 'rgba(255, 255, 255, 0.1)' : '#F2F2F2';
 
   // Colors based on state
-  const offColor = isDark ? '#666666' : '#C4C4C4';
-  const onColor = colors.mintGreen;
+  const defaultOffColor = isDark ? '#666666' : '#C4C4C4';
+  const defaultOnColor = colors.mintGreen;
+
+  const actualOffColor = offColor || defaultOffColor;
+  const actualOnColor = onColor || defaultOnColor;
 
   const thumbColor = animValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [offColor, onColor],
+    outputRange: [actualOffColor, actualOnColor],
   });
 
   const translateX = animValue.interpolate({
@@ -119,7 +126,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
             {
               right: padding + 4,
               opacity: textOpacityOff,
-              color: offColor,
+              color: actualOffColor,
             },
           ]}
         >
@@ -133,7 +140,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
             {
               left: padding + 5,
               opacity: textOpacityOn,
-              color: onColor,
+              color: actualOnColor,
             },
           ]}
         >

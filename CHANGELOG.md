@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🖤 AMOLED Pure Black Theme & 3-Theme Selector
+- **True AMOLED Theme (`AmoledColors`):** Implemented a pure black (`#000000`) flagship AMOLED theme optimized for OLED/AMOLED battery saving and high contrast:
+  - Base canvas set to pitch black (`#000000`).
+  - Elevated card surfaces at `#0A0A0A` with crisp `#1F1F1F` borders.
+  - Brilliant `#FFFFFF` primary typography with signature mint green and peach coral accents.
+  - Floating bottom navigation bar styled in true AMOLED black (`#050505`).
+- **3-Option Theme Selector on Profile:** Replaced the two-state Dark Mode toggle with a tactile 3-choice selector (Light, Dark, and AMOLED) with a highlighted "Recommended" badge on AMOLED.
+- **Dynamic Splash Screen Theme Adaptation:** Animated splash screen now inherits the user's chosen theme (Light, Dark, or AMOLED) seamlessly, rendering in pitch black `#000000` when AMOLED is selected.
+
 ### 💡 Contextual Money Explainer Badges & Pop-Up Guides
 - **Tactile Exclamation Badges (`MoneyHelpBadge`):** Placed intuitive, animated circular exclamation badges (`(!)`) at high-friction financial decision points across the app to proactively eliminate user confusion about what happens to their real money.
 - **Interactive Explainer Modal (`MoneyExplainerModal`):** Added a native animated bottom-sheet explainer covering 5 core money topics with structured bullet cards, visual status tags, reassuring icons, and practical financial tips:
@@ -21,12 +30,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Interactive Bottom Sheet Polish:** Upgraded `MoneyExplainerModal` with smooth Android scrolling responsiveness, tap-anywhere backdrop dismissal, and sleek diagonal 3-stop SVG gradients on badges.
 
 ### 🎨 UI/UX Refinements (Insights Navigator, Toggles & Visuals)
+- **Premium Total Lifetime Savings Card (`SavingsScreen`):** Overhauled the main Gullak hero card into a premium layout matching fintech standards:
+  - **Vibrant Violet Gradient:** Replaced the flat standard background with a rich, full-bleed SVG violet-to-deep-purple linear gradient backdrop.
+  - **Seamless Full-Bleed Gradient & Shadow Fix:** Fixed the bottom cut-off and black line artifact by backing the card with a rich purple foundation (`#581C87`), exact dynamic `onLayout` dimension tracking for SVG rendering, and removing Android dark-mode elevation shadows.
+  - **Tactile Thickened Deposit CTA Button:** Thickened the "Deposit to Gullak" pill button vertically to 46dp (with 15.5pt bold text and 17dp icon) and balanced card vertical padding to 16dp/15dp, restoring a prominent, solid, and clickable feel.
+  - **Glassmorphic Touchpoints & Badges:** Transformed the PiggyBankCoinIcon container into an enlarged, prominent circular glass badge (48x48dp with 28dp icon) with subtle white-transparent overlays (`rgba(255, 255, 255, 0.15)`), enhancing visual hierarchy and elegance over the deep background.
+  - **Enhanced Legibility for Auto-Saved Subtitle:** Increased the size and line height of the auto-saved unspent allowance helper line for effortless reading at a glance.
+  - **Unboxed Minimalist Stats:** Removed the heavy boxed containers for "Best Streak" and "Saved Days" in favor of an elegant, single-row unboxed layout separated by a clean vertical divider line.
+  - **High-Contrast Typography:** Repainted typography and numerical amounts to pure white and soft light-grays for striking legibility.
+- **Deposit to Gullak Modal Theme Unification (`DepositGullakModal`):** Styled the deposit source selection and deposit flow modal with the signature violet-to-deep-purple SVG linear gradient:
+  - **High-Contrast Curated Badges:** Redesigned the "From Income" pill in soft glowing mint (`#ADEBB3`) and "Add New Money" pill in vibrant sky blue (`#BFDBFE`) over frosted glass, ensuring maximum legibility without changing card dimensions.
+  - **Frosted Glass Actions & Typography:** Replaced standard backgrounds with crisp white typography, frosted action pills, and white-bordered primary action buttons.
+- **Change Budget Plan Modal Theme Unification (`BudgetEditModal`):** Applied the signature violet-to-deep-purple SVG linear gradient (`#8B5CF6` to `#581C87`) to the budget configuration and cadence modal:
+  - **Full-Bleed Violet Gradient Backdrop:** Backed the modal with a rich purple foundation (`#581C87`) and full-bleed SVG gradient for seamless visual cohesion with the Savings screen and Deposit modal.
+  - **Dynamic Layout Tracking & Zero Cutoffs:** Added dynamic `onLayout` dimension tracking and keyed SVG rendering so that when cadence switches to Weekly or Monthly (and proration cards expand the modal height), the gradient stretches dynamically to the exact bottom edge without any sharp lines or dark cutoffs.
+  - **Frosted Glass Cadence Selector:** Styled the 3-segment Daily / Weekly / Monthly toggle with a frosted background (`rgba(255, 255, 255, 0.12)`), luminous `#ADEBB3` active sliding pill, and bold dark forest text (`#14532D`).
+  - **Luminous Amount Input:** Framed the hero amount in frosted glass with a glowing `#ADEBB3` currency sign and crisp white tabular numerals.
+  - **Decluttered Explainer Badge:** Removed the duplicate `(!)` badge from the Prorated allowance card, retaining a single, clear `MoneyHelpBadge` in the modal header for clean hierarchy.
+  - **Refined Actions & Keypad:** Added a circular frosted close button, frosted cancel action pill, and bold mint `Save Budget` button with clear contrast.
+- **Premium Unified Daily Allowance Card (`SavingsScreen`):** Redesigned the allowance and budget hub into an ultra-premium, compact fintech card avoiding generic AI slop:
+  - **Matching Violet SVG Gradient & Seamless Bottom:** Applied the exact same violet-to-deep-purple SVG linear gradient (`#8B5CF6` to `#581C87`) with dynamic `onLayout` card measurement, completely eliminating the dark horizontal band artifact at the bottom of the card.
+  - **Strictly Compact Form Factor:** Preserved compact vertical padding and density without enlarging the card dimensions.
+  - **Unboxed High-Visibility Status Indicator:** Removed the boxed outline pill around "On track" / "Near limit" / "Over budget", enlarging the status text and luminous dot for immediate readability.
+  - **Clean Amount Baseline & Decluttering:** Removed redundant `of ₹250` text beside the amount, freeing up visual breathing room and aligning the hero balance with a sleek, unboxed mint `Change ›` action link.
+  - **Enlarged Gullak Icon & Subtitle Typography:** Boosted `GradientIconBadge` size to 34dp (17dp `PiggyBankCoinIcon`) and increased the font size and weight of the auto-saved unspent allowance helper text.
+  - **Frosted Glass Styling for Active & Paused States:** Upgraded progress track, spending split, and auto-save capsules with frosted glass overlays (`rgba(255, 255, 255, 0.12)`) and crisp white typography in both active and paused states.
 - **Profile Screen Animated Toggles (`AnimatedToggle`):** Replaced standard OS switches with a custom compact rolling-ball toggle with smooth spring physics, internal ON/OFF state indicators, and signature mint green accents.
 - **Insights Screen Bouncy Pill Controls:** Upgraded Weekly / Monthly / Yearly filter tabs to the bouncy tactile pill component matching the Home screen design language.
 - **Spending Flow Chart Unified Gradients:** Upgraded weekly spending bars with a seamless vertical SVG linear gradient matching monthly charts with consistent opacity across all active days.
 - **Category Detail History Style & Gradient Cards:** Enhanced Category Detail screen hero card with dynamic category-tinted gradients and restyled transaction items into cohesive, premium history-style rows.
 - **Insights Period Navigator Date Range:** Cleaned up duplicate date labels in the Insights period navigator. Replaced the two stacked redundant labels with a single, elegant bold date range (e.g. `14 – 20 Sep 2026`) centered between navigation chevrons.
 - **Notifications Screen Spacing:** Added comfortable breathing room (`Spacing.row`, 14px) between circular notification type badges and notification text.
+- **Deposit to Gullak Modal Redesign (`DepositGullakModal`):** Overhauled the deposit source selection modal to completely remove nested box containers, eliminate overlapping exclamation badges, and adopt an unboxed premium list aesthetic:
+  - Unboxed the two source options ("From Income" and "Add New Money") into seamless interactive rows separated by an elegant inset hairline divider.
+  - Eliminated the redundant exclamation help badge inside the rows to prevent title wrapping and badge pill overlap, keeping the primary `MoneyHelpBadge` in the header.
+  - Standardized icons with metallic-sheen `GradientIconBadge` (size 44 Gullak theme `#ADEBB3` with `PiggyBankCoinIcon`, size 48 `#4CAF7D` with `Wallet`, and size 48 `#3B82F6` with `PlusCircle`).
+  - Added a silky smooth spring scale & translateY entrance animation (`sheetAnim`) and soft-surfaced Cancel pill button.
 - **GradientIconBadge Design Invariant:** Standardized all Gullak, Savings, and category icons across `YearlySavingsMilestoneCard` and `GullakDepositDetailScreen` to use `GradientIconBadge` with `#ADEBB3` and dynamic SVG theme fills, removing legacy flat circle containers. Documented as an invariant in `AGENTS.md` (Section 9.9).
 - **Cash Flow Chart Redesign:** Redesigned `CashFlowChart` to match the seamless Yearly Milestones pattern. Eliminated boxy `weekPod` background containers, unboxed the Executive Net Cash Flow summary, added an elegant 1px horizontal divider, and introduced subtle vertical gradients (`#C0EED0` → `#5EBF80` for Money In, `#FCD3CC` → `#E5735B` for Money Out) on animated dual pill bars while preserving compact proportions.
 

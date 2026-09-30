@@ -54,13 +54,13 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "Premium UI & Animated Toggles ✨",
+        "title": "AMOLED Theme & UI Refinements 🖤",
         "highlights": [
-          "Custom rolling-ball animated toggles with smooth spring physics on Profile",
-          "Tactile bouncy filter pills on Insights (Weekly, Monthly, Yearly)",
-          "Unified green gradient spending flow bars with consistent peak clarity",
-          "Category Detail screen with tinted gradient hero card & clean history-style rows",
-          "Contextual money explainer guides and pop-up assistance badges"
+          "True AMOLED pure black theme with battery saving and high contrast",
+          "3-theme picker on Profile (Light, Dark, and AMOLED Recommended)",
+          "Dynamic splash screen theme adaptation for seamless visual continuity",
+          "Refined Gullak hero & allowance cards with premium violet gradient and clear contrast",
+          "Shortened proration allowance guidance with improved legibility"
         ]
       }
     }

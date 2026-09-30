@@ -132,6 +132,50 @@ export const DarkColors: ThemeColors = {
   moneyBadgeText: '#1A2B4C',
 };
 
+export const AmoledColors: ThemeColors = {
+  background: '#000000', // pure AMOLED pitch black (0% emission)
+  backgroundLight: '#080808',
+  card: '#0A0A0A', // elevated surface on AMOLED pure black
+  cardSubtle: '#121212', // secondary surface & pills
+  inputBg: '#121212', // inputs & search bars
+  gradientStart: '#000000',
+  gradientEnd: '#000000',
+  textPrimary: '#FFFFFF', // crisp brilliant white
+  textSecondary: '#A1A1AA', // muted neutral zinc
+  textMuted: '#71717A',
+  textTertiary: '#52525B',
+  mintGreen: '#B8E0C8', // signature mint accent
+  mint: '#B8E0C8',
+  mintGreenDark: '#65A882',
+  mintDark: '#65A882',
+  mintGreenSoft: 'rgba(184, 224, 200, 0.12)',
+  peachCoral: '#F4B8AE', // vibrant coral accent
+  coral: '#F4B8AE',
+  peachSoft: 'rgba(244, 184, 174, 0.14)',
+  forestGreen: '#1A2B4C',
+  white: '#FFFFFF',
+  border: '#1F1F1F', // crisp dark border defining surfaces against #000000
+  borderSubtle: '#141414',
+  navBarBg: '#050505', // floating bottom bar surface
+  chartTrack: '#1A1A1A',
+  danger: '#F87171',
+  isDark: true,
+  keypadNumberBg: '#141414',
+  keypadNumberBorder: '#262626',
+  keypadNumberText: '#FFFFFF',
+  keypadOperatorBg: '#ADEBB3',
+  keypadOperatorBorder: '#8ED696',
+  keypadOperatorText: '#000000',
+  keypadDeleteBg: '#FF857A',
+  keypadDeleteBorder: '#E57065',
+  keypadDeleteIcon: '#000000',
+  moneyBadgeGradStart: '#FEF08A',
+  moneyBadgeGradMid: '#F59E0B',
+  moneyBadgeGradEnd: '#D97706',
+  moneyBadgeBorder: 'rgba(252, 211, 77, 0.45)',
+  moneyBadgeText: '#1A2B4C',
+};
+
 /**
  * Spacing tokens (in pixels)
  * Role-based semantic scale derived from recurring layout conventions.

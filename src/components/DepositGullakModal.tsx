@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 import { X, Check, ArrowLeft, Wallet, PlusCircle, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 
 import { useDailyBudgetStore, GullakDepositSource } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon, AnimatedPiggyBank } from './PiggyBankCoinIcon';
+import { GradientIconBadge } from './GradientIconBadge';
 import { KeyButton } from './KeyButton';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { formatAmountWithCommas, formatCurrency } from '../lib/formatters';
@@ -53,9 +55,11 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [showExplainer, setShowExplainer] = useState(false);
+  const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isCelebrating, setIsCelebrating] = useState(false);
   const celebrationScale = useRef(new Animated.Value(0.8)).current;
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
+  const sheetAnim = useRef(new Animated.Value(0)).current;
 
   const addGullakDeposit = useDailyBudgetStore((s) => s.addGullakDeposit);
   const availableIncome = useDailyBudgetStore((s) => s.getAvailableIncomeBalance());
@@ -69,8 +73,15 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
       setIsCelebrating(false);
       celebrationScale.setValue(0.8);
       celebrationOpacity.setValue(0);
+      sheetAnim.setValue(0);
+      Animated.spring(sheetAnim, {
+        toValue: 1,
+        tension: 70,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
     }
-  }, [visible, celebrationScale, celebrationOpacity]);
+  }, [visible, celebrationScale, celebrationOpacity, sheetAnim]);
 
   const {
     result: evaluatedAmount,
@@ -139,32 +150,78 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
         style={[
           styles.modalOverlay,
           {
-            paddingTop: insets.top + (step === 'source' ? 44 : 16),
+            paddingTop: insets.top,
+            paddingBottom: Math.max(insets.bottom, Spacing.element),
           },
         ]}
       >
-        <View
+        <Animated.View
           style={[
             styles.modalContent,
             {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderWidth: isDark ? 1 : 0,
+              backgroundColor: '#581C87',
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+              borderWidth: 1,
+              transform: [
+                {
+                  translateY: sheetAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+                {
+                  scale: sheetAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.95, 1],
+                  }),
+                },
+              ],
+              opacity: sheetAnim,
             },
           ]}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (width > 0 && height > 0 && (width !== modalSize.width || height !== modalSize.height)) {
+              setModalSize({ width, height });
+            }
+          }}
         >
+          {/* Violet Gradient Backdrop matching Gullak Hero Card */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg
+              key={`deposit_modal_${modalSize.width}_${modalSize.height}`}
+              width={modalSize.width || '100%'}
+              height={modalSize.height ? modalSize.height + 6 : '100%'}
+              style={StyleSheet.absoluteFill}
+            >
+              <Defs>
+                <SvgLinearGradient id="depositModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#8B5CF6" />
+                  <Stop offset="100%" stopColor="#581C87" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect
+                x="0"
+                y="0"
+                width={modalSize.width || '100%'}
+                height={modalSize.height ? modalSize.height + 6 : '100%'}
+                fill="url(#depositModalGrad)"
+              />
+            </Svg>
+          </View>
+
           {step === 'source' ? (
             /* STEP 1: SELECT SOURCE */
             <>
               {/* Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.titleWithIcon}>
-                  <View style={[styles.headerIconWrap, { backgroundColor: colors.mintGreenSoft }]}>
-                    <PiggyBankCoinIcon size={20} color={colors.mintGreenDark} />
-                  </View>
+                  <GradientIconBadge size={44} color="#ADEBB3" isDark={isDark}>
+                    {({ iconColor }) => <PiggyBankCoinIcon size={22} color={iconColor} />}
+                  </GradientIconBadge>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                      <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>
                         Deposit to Gullak
                       </Text>
                       <MoneyHelpBadge
@@ -173,123 +230,133 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                         onPress={() => setShowExplainer(true)}
                       />
                     </View>
-                    <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    <Text style={[styles.modalSubtitle, { color: 'rgba(255, 255, 255, 0.8)' }]}>
                       Choose where the money comes from
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-                  <X size={20} color={colors.textSecondary} />
+                <TouchableOpacity
+                  onPress={onClose}
+                  hitSlop={12}
+                  style={[
+                    styles.closeBtn,
+                    {
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    },
+                  ]}
+                >
+                  <X size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
               {/* Source Option 1: From Income */}
               <TouchableOpacity
-                style={[
-                  styles.sourceCard,
-                  {
-                    backgroundColor: colors.cardSubtle,
-                    borderColor: colors.border,
-                  },
-                ]}
+                style={styles.sourceRow}
                 onPress={() => {
                   setSource('income');
                   setStep('amount');
                 }}
                 activeOpacity={0.7}
               >
-                <View style={[styles.sourceIconWrap, { backgroundColor: colors.mintGreenSoft }]}>
-                  <Wallet size={20} color={colors.mintGreenDark} />
-                </View>
+                <GradientIconBadge size={48} color="#4CAF7D" isDark={isDark}>
+                  {({ iconColor }) => <Wallet size={22} color={iconColor} strokeWidth={2.2} />}
+                </GradientIconBadge>
                 <View style={styles.sourceTextWrap}>
                   <View style={styles.sourceTitleRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.sourceTitle, { color: colors.textPrimary }]}>
-                        From Income
-                      </Text>
-                      <MoneyHelpBadge
-                        size={16}
-                        style={{ marginLeft: 6 }}
-                        onPress={() => setShowExplainer(true)}
-                      />
-                    </View>
-                    <View style={[styles.badgePill, { backgroundColor: colors.mintGreenSoft }]}>
-                      <Text style={[styles.badgeText, { color: isDark ? colors.mintGreen : colors.forestGreen }]}>
+                    <Text style={[styles.sourceTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
+                      From Income
+                    </Text>
+                    <View
+                      style={[
+                        styles.badgePill,
+                        {
+                          backgroundColor: 'rgba(173, 235, 179, 0.18)',
+                          borderColor: 'rgba(173, 235, 179, 0.45)',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          { color: '#ADEBB3' },
+                        ]}
+                        numberOfLines={1}
+                      >
                         {formatCurrency(availableIncome)} avail.
                       </Text>
                     </View>
                   </View>
-                  <Text style={[styles.sourceDesc, { color: colors.textSecondary }]}>
+                  <Text style={[styles.sourceDesc, { color: 'rgba(255, 255, 255, 0.75)' }]}>
                     Use tracked earnings. Keeps your All budget unchanged.
                   </Text>
                 </View>
-                <ChevronRight size={18} color={colors.textSecondary} />
+                <ChevronRight size={18} color="rgba(255, 255, 255, 0.7)" strokeWidth={2.2} />
               </TouchableOpacity>
+
+              {/* Inset Hairline Divider */}
+              <View
+                style={[
+                  styles.rowDivider,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  },
+                ]}
+              />
 
               {/* Source Option 2: Add New Money */}
               <TouchableOpacity
-                style={[
-                  styles.sourceCard,
-                  {
-                    backgroundColor: colors.cardSubtle,
-                    borderColor: colors.border,
-                  },
-                ]}
+                style={styles.sourceRow}
                 onPress={() => {
                   setSource('external');
                   setStep('amount');
                 }}
                 activeOpacity={0.7}
               >
-                <View
-                  style={[
-                    styles.sourceIconWrap,
-                    {
-                      backgroundColor: isDark ? 'rgba(96, 165, 250, 0.15)' : 'rgba(59, 130, 246, 0.1)',
-                    },
-                  ]}
-                >
-                  <PlusCircle size={20} color={isDark ? '#93C5FD' : '#2563EB'} />
-                </View>
+                <GradientIconBadge size={48} color="#3B82F6" isDark={isDark}>
+                  {({ iconColor }) => <PlusCircle size={22} color={iconColor} strokeWidth={2.2} />}
+                </GradientIconBadge>
                 <View style={styles.sourceTextWrap}>
                   <View style={styles.sourceTitleRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.sourceTitle, { color: colors.textPrimary }]}>
-                        Add New Money
-                      </Text>
-                      <MoneyHelpBadge
-                        size={16}
-                        style={{ marginLeft: 6 }}
-                        onPress={() => setShowExplainer(true)}
-                      />
-                    </View>
+                    <Text style={[styles.sourceTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
+                      Add New Money
+                    </Text>
                     <View
                       style={[
                         styles.badgePill,
                         {
-                          backgroundColor: isDark ? 'rgba(96, 165, 250, 0.15)' : 'rgba(59, 130, 246, 0.1)',
+                          backgroundColor: 'rgba(147, 197, 253, 0.22)',
+                          borderColor: 'rgba(147, 197, 253, 0.45)',
                         },
                       ]}
                     >
-                      <Text style={[styles.badgeText, { color: isDark ? '#93C5FD' : '#2563EB' }]}>
+                      <Text
+                        style={[styles.badgeText, { color: '#BFDBFE' }]}
+                        numberOfLines={1}
+                      >
                         New Funds
                       </Text>
                     </View>
                   </View>
-                  <Text style={[styles.sourceDesc, { color: colors.textSecondary }]}>
+                  <Text style={[styles.sourceDesc, { color: 'rgba(255, 255, 255, 0.75)' }]}>
                     Fresh cash, bonus, or savings. Adds to your available balance.
                   </Text>
                 </View>
-                <ChevronRight size={18} color={colors.textSecondary} />
+                <ChevronRight size={18} color="rgba(255, 255, 255, 0.7)" strokeWidth={2.2} />
               </TouchableOpacity>
 
               {/* Cancel Button */}
               <TouchableOpacity
-                style={[styles.fullWidthCancelBtn, { borderColor: colors.border }]}
+                style={[
+                  styles.fullWidthCancelBtn,
+                  {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                ]}
                 onPress={onClose}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
+                <Text style={[styles.modalCancelText, { color: '#FFFFFF' }]}>
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -311,13 +378,19 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                       setStep('source');
                     }}
                     hitSlop={8}
-                    style={[styles.stepBackBtn, { backgroundColor: colors.cardSubtle, borderColor: colors.border }]}
+                    style={[
+                      styles.stepBackBtn,
+                      {
+                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                      },
+                    ]}
                   >
-                    <ArrowLeft size={16} color={colors.textPrimary} />
+                    <ArrowLeft size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                      <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>
                         {source === 'income' ? 'From Income' : 'Add New Money'}
                       </Text>
                       <MoneyHelpBadge
@@ -326,15 +399,24 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                         onPress={() => setShowExplainer(true)}
                       />
                     </View>
-                    <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    <Text style={[styles.modalSubtitle, { color: 'rgba(255, 255, 255, 0.8)' }]}>
                       {source === 'income'
                         ? 'Moving tracked income into Gullak'
                         : 'Adding external funds to Gullak'}
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-                  <X size={20} color={colors.textSecondary} />
+                <TouchableOpacity
+                  onPress={onClose}
+                  hitSlop={12}
+                  style={[
+                    styles.closeBtn,
+                    {
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    },
+                  ]}
+                >
+                  <X size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
@@ -344,10 +426,12 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   styles.infoBanner,
                   {
                     backgroundColor: isExceedingIncome
-                      ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2')
-                      : (source === 'income' ? colors.mintGreenSoft : colors.cardSubtle),
-                    borderColor: isExceedingIncome ? '#EF4444' : 'transparent',
-                    borderWidth: isExceedingIncome ? 1 : 0,
+                      ? 'rgba(239, 68, 68, 0.25)'
+                      : 'rgba(255, 255, 255, 0.12)',
+                    borderColor: isExceedingIncome
+                      ? '#EF4444'
+                      : 'rgba(255, 255, 255, 0.2)',
+                    borderWidth: 1,
                   },
                 ]}
               >
@@ -356,8 +440,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     styles.infoBannerText,
                     {
                       color: isExceedingIncome
-                        ? (isDark ? '#FCA5A5' : '#DC2626')
-                        : (source === 'income' ? (isDark ? colors.mintGreen : colors.forestGreen) : colors.textSecondary),
+                        ? '#FCA5A5'
+                        : '#FFFFFF',
                     },
                   ]}
                 >
@@ -376,8 +460,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 style={[
                   styles.modalInputRow,
                   {
-                    backgroundColor: colors.inputBg,
-                    borderColor: isExceedingIncome ? '#EF4444' : colors.border,
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: isExceedingIncome ? '#EF4444' : 'rgba(255, 255, 255, 0.2)',
                   },
                 ]}
               >
@@ -386,10 +470,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     styles.modalCurrencySign,
                     {
                       color: isExceedingIncome
-                        ? '#EF4444'
-                        : isDark
-                        ? colors.mintGreen
-                        : colors.mintGreenDark,
+                        ? '#FCA5A5'
+                        : '#ADEBB3',
                     },
                   ]}
                 >
@@ -400,7 +482,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     <Text
                       numberOfLines={1}
                       ellipsizeMode="head"
-                      style={[styles.expressionSubText, { color: colors.textSecondary }]}
+                      style={[styles.expressionSubText, { color: 'rgba(255, 255, 255, 0.75)' }]}
                     >
                       {formattedExpression}
                     </Text>
@@ -412,12 +494,10 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                       styles.modalAmountText,
                       {
                         color: isDivisionByZero
-                          ? '#EF4444'
+                          ? '#FCA5A5'
                           : isExceedingIncome
-                          ? '#EF4444'
-                          : (hasOperator ? evaluatedAmount > 0 : amount)
-                          ? colors.textPrimary
-                          : colors.textSecondary,
+                          ? '#FCA5A5'
+                          : '#FFFFFF',
                       },
                     ]}
                   >
@@ -440,12 +520,12 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     style={[
                       styles.presetChip,
                       {
-                        backgroundColor: colors.cardSubtle,
-                        borderColor: colors.borderSubtle,
+                        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
                       },
                     ]}
                   >
-                    <Text style={[styles.presetChipText, { color: colors.textPrimary }]}>
+                    <Text style={[styles.presetChipText, { color: '#FFFFFF' }]}>
                       +₹{preset >= 1000 ? `${preset / 1000}k` : preset}
                     </Text>
                   </TouchableOpacity>
@@ -457,12 +537,12 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     style={[
                       styles.presetChip,
                       {
-                        backgroundColor: colors.mintGreenSoft,
-                        borderColor: colors.mintGreen,
+                        backgroundColor: 'rgba(173, 235, 179, 0.2)',
+                        borderColor: 'rgba(173, 235, 179, 0.45)',
                       },
                     ]}
                   >
-                    <Text style={[styles.presetChipText, { color: isDark ? colors.mintGreen : colors.forestGreen }]}>
+                    <Text style={[styles.presetChipText, { color: '#ADEBB3' }]}>
                       Max
                     </Text>
                   </TouchableOpacity>
@@ -474,15 +554,15 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 style={[
                   styles.noteInput,
                   {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                    color: colors.textPrimary,
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    color: '#FFFFFF',
                   },
                 ]}
                 value={note}
                 onChangeText={setNote}
                 placeholder="Note (e.g. Festival gift, Cash savings)"
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="rgba(255, 255, 255, 0.5)"
                 maxLength={50}
               />
 
@@ -506,14 +586,20 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               {/* Actions */}
               <View style={styles.modalActionRow}>
                 <TouchableOpacity
-                  style={[styles.modalCancelBtn, { borderColor: colors.border }]}
+                  style={[
+                    styles.modalCancelBtn,
+                    {
+                      backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                  ]}
                   onPress={() => {
                     Keyboard.dismiss();
                     setStep('source');
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
+                  <Text style={[styles.modalCancelText, { color: '#FFFFFF' }]}>
                     Back
                   </Text>
                 </TouchableOpacity>
@@ -522,19 +608,20 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   style={[
                     styles.modalSaveBtn,
                     {
-                      backgroundColor: isValidAmount ? colors.mintGreen : colors.cardSubtle,
-                      opacity: isValidAmount ? 1 : 0.6,
+                      backgroundColor: isValidAmount ? '#FFFFFF' : 'rgba(255, 255, 255, 0.12)',
+                      borderColor: isValidAmount ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)',
+                      opacity: isValidAmount ? 1 : 0.5,
                     },
                   ]}
                   onPress={handleDeposit}
                   disabled={!isValidAmount}
                   activeOpacity={0.8}
                 >
-                  <Check size={16} color={isValidAmount ? colors.forestGreen : colors.textSecondary} />
+                  <Check size={18} color={isValidAmount ? '#5B21B6' : 'rgba(255, 255, 255, 0.4)'} />
                   <Text
                     style={[
                       styles.modalSaveText,
-                      { color: isValidAmount ? colors.forestGreen : colors.textSecondary },
+                      { color: isValidAmount ? '#5B21B6' : 'rgba(255, 255, 255, 0.4)' },
                     ]}
                   >
                     Deposit
@@ -551,17 +638,28 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 StyleSheet.absoluteFill,
                 styles.celebrationOverlay,
                 {
-                  backgroundColor: colors.card,
+                  backgroundColor: '#581C87',
                   opacity: celebrationOpacity,
                   transform: [{ scale: celebrationScale }],
                 },
               ]}
               pointerEvents="auto"
             >
-              <View style={[styles.celebrationCircle, { backgroundColor: colors.mintGreenSoft }]}>
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Svg width="100%" height="100%">
+                  <Defs>
+                    <SvgLinearGradient id="celebModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <Stop offset="0%" stopColor="#8B5CF6" />
+                      <Stop offset="100%" stopColor="#581C87" />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Rect width="100%" height="100%" fill="url(#celebModalGrad)" />
+                </Svg>
+              </View>
+              <View style={[styles.celebrationCircle, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
                 <AnimatedPiggyBank
                   size={58}
-                  color={colors.mintGreenDark}
+                  color="#ADEBB3"
                   coinColor="#F59E0B"
                   triggerKey={isCelebrating ? 1 : 0}
                 />
@@ -569,20 +667,20 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               <Text
                 style={[
                   styles.celebrationAmount,
-                  { color: isDark ? colors.mintGreen : colors.mintGreenDark },
+                  { color: '#ADEBB3' },
                 ]}
               >
                 +{formatCurrency(evaluatedAmount)}
               </Text>
-              <Text style={[styles.celebrationTitle, { color: colors.textPrimary }]}>
+              <Text style={[styles.celebrationTitle, { color: '#FFFFFF' }]}>
                 Saved in Gullak!
               </Text>
-              <Text style={[styles.celebrationSub, { color: colors.textSecondary }]}>
+              <Text style={[styles.celebrationSub, { color: 'rgba(255, 255, 255, 0.8)' }]}>
                 {source === 'income' ? 'Allocated from income' : 'Added to your savings'}
               </Text>
             </Animated.View>
           )}
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
 
       <MoneyExplainerModal
@@ -597,21 +695,28 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'flex-start',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.gutter,
   },
   modalContent: {
     width: '100%',
+    maxWidth: 420,
     maxHeight: '92%',
     borderRadius: BorderRadius.cardLarge,
     padding: Spacing.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.25,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
     position: 'relative',
     overflow: 'hidden',
   },
@@ -652,25 +757,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: Spacing.element + 4,
+    marginBottom: Spacing.block,
   },
   titleWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.element,
+    gap: Spacing.group,
     flex: 1,
   },
-  headerIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   stepBackBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -687,24 +785,21 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 32,
     height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sourceCard: {
+  sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: BorderRadius.card,
-    padding: Spacing.element,
-    marginBottom: Spacing.element,
-    gap: Spacing.element,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.micro,
+    gap: Spacing.group,
   },
-  sourceIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
+  rowDivider: {
+    height: 1,
+    marginVertical: 4,
+    marginLeft: 48 + Spacing.group,
   },
   sourceTextWrap: {
     flex: 1,
@@ -713,39 +808,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   sourceTitle: {
     fontSize: FontSize.body,
     fontFamily: FontFamily.bold,
+    flexShrink: 1,
+    marginRight: Spacing.element,
   },
   sourceDesc: {
     fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   badgePill: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    flexShrink: 0,
   },
   badgeText: {
     fontSize: 11,
     fontFamily: FontFamily.bold,
   },
   fullWidthCancelBtn: {
-    height: ControlHeight.row,
+    height: 50,
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.micro,
+    marginTop: Spacing.surface,
   },
   infoBanner: {
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.micro + 2,
-    marginBottom: Spacing.element,
+    paddingVertical: Spacing.element + 2,
+    marginBottom: Spacing.element + 2,
   },
   infoBannerText: {
     fontSize: FontSize.bodySmall,
@@ -788,7 +887,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
-    paddingVertical: 7,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -800,7 +899,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.block,
-    height: 40,
+    height: 44,
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.medium,
     marginBottom: Spacing.element + 2,
@@ -820,7 +919,7 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    height: ControlHeight.row,
+    height: 52,
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
     alignItems: 'center',
@@ -832,7 +931,7 @@ const styles = StyleSheet.create({
   },
   modalSaveBtn: {
     flex: 1.3,
-    height: ControlHeight.row,
+    height: 52,
     borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',

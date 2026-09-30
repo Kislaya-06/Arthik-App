@@ -61,12 +61,15 @@ describe('themeStore (Seam: useThemeStore)', () => {
   });
 
   describe('Slice 2: Explicit Mode Selection (setThemeMode)', () => {
-    it('sets mode to dark, light, or system', () => {
+    it('sets mode to dark, light, amoled, or system', () => {
       useThemeStore.getState().setThemeMode('dark');
       expect(useThemeStore.getState().themeMode).toBe('dark');
 
       useThemeStore.getState().setThemeMode('light');
       expect(useThemeStore.getState().themeMode).toBe('light');
+
+      useThemeStore.getState().setThemeMode('amoled');
+      expect(useThemeStore.getState().themeMode).toBe('amoled');
 
       useThemeStore.getState().setThemeMode('system');
       expect(useThemeStore.getState().themeMode).toBe('system');
@@ -136,4 +139,20 @@ describe('themeStore (Seam: useThemeStore)', () => {
       expect(getContrastTextColor('#000000')).toBe('#FFFFFF');
     });
   });
+
+  describe('Slice 6: AMOLED Mode & AmoledColors', () => {
+    it('has pure black #000000 background and isDark=true for AmoledColors', async () => {
+      const { AmoledColors } = await import('../src/config/theme');
+      expect(AmoledColors.background).toBe('#000000');
+      expect(AmoledColors.isDark).toBe(true);
+      expect(AmoledColors.textPrimary).toBe('#FFFFFF');
+    });
+
+    it('toggles from amoled to light', () => {
+      useThemeStore.setState({ themeMode: 'amoled' });
+      useThemeStore.getState().toggleTheme();
+      expect(useThemeStore.getState().themeMode).toBe('light');
+    });
+  });
 });
+

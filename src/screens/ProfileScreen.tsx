@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
-  Camera, Tag, ChevronRight, Bell, Moon,
+  Camera, Tag, ChevronRight, Bell, Moon, Sun, Sparkles, Palette,
   CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck, HelpCircle
 } from 'lucide-react-native';
 
@@ -39,7 +39,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const syncPendingExpenses = useExpenseStore((s) => s.syncPendingExpenses);
   const isOffline = useNetworkStore((s) => s.isOffline);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { colors, isDark, toggleTheme, setThemeMode } = useTheme();
+  const { colors, isDark, toggleTheme, setThemeMode, themeMode, effectiveScheme } = useTheme();
+  const activeTheme = themeMode === 'system' ? effectiveScheme : themeMode;
   const handleScroll = useScrollDirection();
   const appVersion = Constants.expoConfig?.version ? `v${Constants.expoConfig.version}` : 'v1.2.3';
 
@@ -639,20 +640,110 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          {/* 3. Dark Mode */}
-          <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
-              <Moon size={18} color={colors.textPrimary} />
+          {/* 3. Theme Mode (Light, Dark, AMOLED) */}
+          <View style={[styles.themeSettingContainer, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.themeSettingHeader}>
+              <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+                <Palette size={18} color={colors.textPrimary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                  Theme
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+                  {activeTheme === 'amoled'
+                    ? 'AMOLED (Pure Black)'
+                    : activeTheme === 'dark'
+                    ? 'Dark (Midnight)'
+                    : 'Light (Clean & Bright)'}
+                </Text>
+              </View>
             </View>
-            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              Dark Mode
-            </Text>
-            <AnimatedToggle
-              value={isDark}
-              onValueChange={(val) => {
-                setThemeMode(val ? 'dark' : 'light');
-              }}
-            />
+
+            {/* 3 Theme Choice Cards */}
+            <View style={styles.themeSelectorRow}>
+              {/* 1. Light */}
+              <TouchableOpacity
+                style={[
+                  styles.themeOptionBtn,
+                  {
+                    backgroundColor: activeTheme === 'light' ? (isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5EE') : colors.cardSubtle,
+                    borderColor: activeTheme === 'light' ? colors.mintGreen : colors.borderSubtle,
+                  },
+                ]}
+                onPress={() => setThemeMode('light')}
+                activeOpacity={0.75}
+              >
+                <Sun size={15} color={activeTheme === 'light' ? (isDark ? colors.mintGreen : colors.textPrimary) : colors.textSecondary} />
+                <Text
+                  style={[
+                    styles.themeOptionLabel,
+                    {
+                      color: activeTheme === 'light' ? colors.textPrimary : colors.textSecondary,
+                      fontFamily: activeTheme === 'light' ? FontFamily.bold : FontFamily.medium,
+                    },
+                  ]}
+                >
+                  Light
+                </Text>
+              </TouchableOpacity>
+
+              {/* 2. Dark */}
+              <TouchableOpacity
+                style={[
+                  styles.themeOptionBtn,
+                  {
+                    backgroundColor: activeTheme === 'dark' ? (isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5EE') : colors.cardSubtle,
+                    borderColor: activeTheme === 'dark' ? colors.mintGreen : colors.borderSubtle,
+                  },
+                ]}
+                onPress={() => setThemeMode('dark')}
+                activeOpacity={0.75}
+              >
+                <Moon size={15} color={activeTheme === 'dark' ? colors.mintGreen : colors.textSecondary} />
+                <Text
+                  style={[
+                    styles.themeOptionLabel,
+                    {
+                      color: activeTheme === 'dark' ? colors.textPrimary : colors.textSecondary,
+                      fontFamily: activeTheme === 'dark' ? FontFamily.bold : FontFamily.medium,
+                    },
+                  ]}
+                >
+                  Dark
+                </Text>
+              </TouchableOpacity>
+
+              {/* 3. AMOLED (Recommended) */}
+              <TouchableOpacity
+                style={[
+                  styles.themeOptionBtn,
+                  styles.themeOptionBtnAmoled,
+                  {
+                    backgroundColor: activeTheme === 'amoled' ? (isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5EE') : colors.cardSubtle,
+                    borderColor: activeTheme === 'amoled' ? colors.mintGreen : colors.borderSubtle,
+                  },
+                ]}
+                onPress={() => setThemeMode('amoled')}
+                activeOpacity={0.75}
+              >
+                <View style={styles.amoledBadgeContainer}>
+                  <Text style={styles.amoledBadgeText}>Recommended</Text>
+                </View>
+                <Sparkles size={15} color={activeTheme === 'amoled' ? colors.mintGreen : colors.textSecondary} />
+                <Text
+                  style={[
+                    styles.themeOptionLabel,
+                    {
+                      color: activeTheme === 'amoled' ? colors.textPrimary : colors.textSecondary,
+                      fontFamily: activeTheme === 'amoled' ? FontFamily.bold : FontFamily.medium,
+                    },
+                  ]}
+                >
+                  AMOLED
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* 4. App Lock (Biometric) */}
@@ -861,6 +952,53 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
   },
   versionText: {
+    fontSize: FontSize.bodySmall,
+  },
+
+  // Theme Selector Tokens
+  themeSettingContainer: {
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.block,
+    borderBottomWidth: 1,
+  },
+  themeSettingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.group,
+  },
+  themeSelectorRow: {
+    flexDirection: 'row',
+    gap: Spacing.element,
+    marginTop: 2,
+  },
+  themeOptionBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    position: 'relative',
+  },
+  themeOptionBtnAmoled: {
+    position: 'relative',
+  },
+  amoledBadgeContainer: {
+    position: 'absolute',
+    top: -8,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  amoledBadgeText: {
+    color: '#000000',
+    fontSize: 8.5,
+    fontFamily: FontFamily.bold,
+  },
+  themeOptionLabel: {
     fontSize: FontSize.bodySmall,
   },
 
