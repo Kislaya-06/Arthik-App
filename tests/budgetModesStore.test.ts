@@ -350,6 +350,8 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
 
       const state = useDailyBudgetStore.getState();
       expect(state.isBudgetModeEnabled).toBe(false);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.getTodayRecord().budget).toBe(0);
       // Historical records and deposits must remain intact
       expect(state.gullakDeposits.length).toBe(1);
       expect(state.dailyRecords['2026-09-15']).toBeDefined();

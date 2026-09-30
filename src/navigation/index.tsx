@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme, useFocusEffect } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme, useFocusEffect, CommonActions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -43,18 +43,35 @@ const GuardedSavingsScreen: React.FC<any> = (props) => {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const navigation = props.navigation;
 
+  const redirectToHome = React.useCallback(() => {
+    if (navigationRef.isReady()) {
+      navigationRef.dispatch(
+        CommonActions.navigate({
+          name: 'AppTabs',
+          params: { screen: 'Home' },
+        })
+      );
+    } else {
+      try {
+        navigation.navigate('AppTabs', { screen: 'Home' });
+      } catch {
+        navigation.navigate('Home');
+      }
+    }
+  }, [navigation]);
+
   React.useEffect(() => {
     if (!isBudgetModeEnabled) {
-      navigation.navigate('Home');
+      redirectToHome();
     }
-  }, [isBudgetModeEnabled, navigation]);
+  }, [isBudgetModeEnabled, redirectToHome]);
 
   useFocusEffect(
     React.useCallback(() => {
       if (!isBudgetModeEnabled) {
-        navigation.navigate('Home');
+        redirectToHome();
       }
-    }, [isBudgetModeEnabled, navigation])
+    }, [isBudgetModeEnabled, redirectToHome])
   );
 
   if (!isBudgetModeEnabled) {

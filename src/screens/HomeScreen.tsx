@@ -22,7 +22,7 @@ import { Bell, ChevronRight, User } from 'lucide-react-native';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { TelegramPullIndicator } from '../components/TelegramPullIndicator';
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod } from '../lib/homeCalculations';
 import { useAuthStore } from '../store/authStore';
@@ -215,10 +215,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return 19;
   }, [firstName]);
 
-  const isBudgetConfigured = isAutoRenew && dailyBudgetAmount > 0;
+  const isBudgetConfigured = isBudgetModeEnabled && isAutoRenew && dailyBudgetAmount > 0;
   const todayRecord = useMemo(
     () => getTodayRecord(),
-    [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses, isAutoRenew]
+    [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses, isAutoRenew, isBudgetModeEnabled]
   );
   const todayBudget = isBudgetConfigured ? todayRecord.budget : 0;
   // Calculate today's spent directly from expenses for today to guarantee 0-lag live reactivity
@@ -262,7 +262,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       calculatePeriodSummary({
         activeFilter,
         dailyBudgetAmount,
-        isAutoRenew,
+        isAutoRenew: isBudgetModeEnabled && isAutoRenew,
         todayBudget,
         dailyRecords,
         totalIncome,
@@ -272,13 +272,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         referenceDate,
         externalDepositsInPeriod,
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod]
   );
 
   // Date range label shown below filter pills for quick orientation
   const filterDateLabel = useMemo(() => {
     const t = referenceDate;
-    if (activeFilter === 'All') return 'All time';
+    if (activeFilter === 'All') {
+      if (userCreatedAtStr) {
+        try {
+          const parsed = parseISO(userCreatedAtStr);
+          if (isValid(parsed)) {
+            return `Since ${format(parsed, 'd MMM yyyy')}`;
+          }
+        } catch {
+          // fallback
+        }
+      }
+      return 'All time';
+    }
     if (activeFilter === 'Daily') return format(t, 'EEEE, d MMM');
     if (activeFilter === 'Weekly') {
       const start = startOfWeek(t, { weekStartsOn: 1 });
@@ -289,7 +301,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     const start = startOfMonth(t);
     const end = endOfMonth(t);
     return `${format(start, 'd')}\u2013${format(end, 'd MMM yyyy')}`;
-  }, [activeFilter, referenceDate]);
+  }, [activeFilter, referenceDate, userCreatedAtStr]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -363,21 +375,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             />
           </View>
           <View style={styles.filterDateRow}>
-            <Text style={[styles.filterDateLabel, { color: colors.textMuted }]}>
+            <Text style={[styles.filterDateLabel, { color: colors.textSecondary }]}>
               {filterDateLabel}
             </Text>
-            {isBudgetModeEnabled && activeFilter === 'Daily' && todayBudget === 0 && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('Savings' as any)}
-                style={styles.setLimitAffordance}
-              >
-                <Text style={[styles.setLimitDot, { color: colors.textMuted }]}>•</Text>
-                <Text style={[styles.setLimitText, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
-                  Set daily limit ›
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* Branded Hero Card */}
@@ -550,9 +550,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   filterDateLabel: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.semibold,
-    opacity: 0.65,
+    opacity: 0.85,
     letterSpacing: 0.2,
     textAlign: 'center',
   },

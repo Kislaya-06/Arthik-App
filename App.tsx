@@ -89,7 +89,7 @@ export default function App() {
     const unregisterNotif = registerNotificationResponseListener((data) => {
       const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
       if (data?.type === 'daily_reminder') {
-        navigateTo('Home' as any);
+        navigateTo('AppTabs', { screen: 'Home' });
       } else if (
         data?.screen === 'Savings' ||
         data?.type === 'budget_warning' ||
@@ -97,9 +97,13 @@ export default function App() {
         data?.type === 'savings_rollover'
       ) {
         const target = resolveSavingsRoute(isBudgetModeEnabled, data?.type);
-        navigateTo(target as any);
+        if (target === 'Home') {
+          navigateTo('AppTabs', { screen: 'Home' });
+        } else {
+          navigateTo('Savings');
+        }
       } else {
-        navigateTo('Notifications' as any);
+        navigateTo('Notifications');
       }
     });
 

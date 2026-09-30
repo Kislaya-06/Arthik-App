@@ -44,7 +44,7 @@ export function formatCadenceBudgetSubtitle(
   amount: number
 ): string {
   if (!isBudgetModeEnabled) {
-    return 'Sirf kharcha track karo — koi limit nahi';
+    return 'Track expenses with no limits';
   }
   const cadenceLabel = cadence.charAt(0).toUpperCase() + cadence.slice(1);
   if (!amount || amount <= 0) {

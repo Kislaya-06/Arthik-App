@@ -416,7 +416,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const todayStr = getTodayDateStr();
         const records = get().dailyRecords;
         if (records[todayStr]) {
-          if (!get().isAutoRenew && !records[todayStr].isFinalized) {
+          if ((!get().isAutoRenew || !get().isBudgetModeEnabled) && !records[todayStr].isFinalized) {
             return {
               ...records[todayStr],
               budget: 0,
@@ -427,8 +427,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           return records[todayStr];
         }
 
-        const def = buildDefaultTodayRecord(todayStr, get().isAutoRenew, get().dailyBudgetAmount);
-        if (!get().isAutoRenew) {
+        const def = buildDefaultTodayRecord(todayStr, get().isAutoRenew && get().isBudgetModeEnabled, get().dailyBudgetAmount);
+        if (!get().isAutoRenew || !get().isBudgetModeEnabled) {
           return {
             ...def,
             status: 'unknown',
@@ -583,6 +583,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         set({
           isAutoRenew: enabled,
+          isBudgetModeEnabled: enabled ? true : get().isBudgetModeEnabled,
           dailyRecords: records,
           ...metrics,
         });
@@ -591,15 +592,21 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         try {
           const currentUser = useAuthStore.getState().user;
           if (currentUser) {
-            savePendingSettingsOffline(currentUser.id, { is_auto_renew: enabled });
+            savePendingSettingsOffline(currentUser.id, {
+              is_auto_renew: enabled,
+              ...(enabled ? { is_budget_mode_enabled: true } : {}),
+            });
             supabase
               .from('profiles')
-              .update({ is_auto_renew: enabled })
+              .update({
+                is_auto_renew: enabled,
+                ...(enabled ? { is_budget_mode_enabled: true } : {}),
+              })
               .eq('id', currentUser.id)
               .then(
                 ({ error }) => {
                   if (!error) {
-                    clearPendingSettingsOffline(currentUser.id, ['is_auto_renew']);
+                    clearPendingSettingsOffline(currentUser.id, ['is_auto_renew', ...(enabled ? ['is_budget_mode_enabled' as const] : [])]);
                   } else if (__DEV__) {
                     console.error('Error syncing is_auto_renew to Supabase:', error);
                   }
@@ -661,6 +668,18 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             saved: 0,
             status: 'unknown',
           };
+        } else if (enabled && get().dailyBudgetAmount > 0 && (!records[todayStr] || records[todayStr].budget === 0)) {
+          const budget = get().dailyBudgetAmount;
+          const spent = records[todayStr]?.spent || 0;
+          const { saved } = evaluateDayStatus(budget, spent, budget);
+          records[todayStr] = {
+            date: todayStr,
+            budget,
+            spent,
+            saved,
+            isFinalized: false,
+            status: spent > budget ? 'exceeded' : 'active',
+          };
         }
 
         const metrics = computeMetrics(
@@ -674,22 +693,29 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         set({
           isBudgetModeEnabled: enabled,
+          isAutoRenew: enabled,
           planChanges: updatedChanges,
           dailyRecords: records,
           ...metrics,
         });
 
         if (currentUser) {
-          savePendingSettingsOffline(currentUser.id, { is_budget_mode_enabled: enabled });
+          savePendingSettingsOffline(currentUser.id, {
+            is_budget_mode_enabled: enabled,
+            is_auto_renew: enabled,
+          });
           savePendingPlanChangeOffline(currentUser.id, newChange);
 
           supabase
             .from('profiles')
-            .update({ is_budget_mode_enabled: enabled })
+            .update({
+              is_budget_mode_enabled: enabled,
+              is_auto_renew: enabled,
+            })
             .eq('id', currentUser.id)
             .then(({ error }) => {
               if (!error) {
-                clearPendingSettingsOffline(currentUser.id, ['is_budget_mode_enabled']);
+                clearPendingSettingsOffline(currentUser.id, ['is_budget_mode_enabled', 'is_auto_renew']);
               }
             });
 
@@ -1113,20 +1139,32 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         let todayRecord = records[todayStr];
         let hasTodayChanged = false;
 
-        const baseDaily = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
+        const isBudgetOn = get().isBudgetModeEnabled;
+        const baseDaily = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : undefined;
 
         if (!todayRecord) {
-          const budget = get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0;
+          const budget = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0;
           const { saved } = evaluateDayStatus(budget, todaySpent, baseDaily);
           todayRecord = {
             date: todayStr,
             budget,
             spent: todaySpent,
-            saved,
+            saved: isBudgetOn ? saved : 0,
             isFinalized: false,
-            status: todaySpent > budget && budget > 0 ? 'exceeded' : 'active',
+            status: isBudgetOn ? (todaySpent > budget && budget > 0 ? 'exceeded' : 'active') : 'unknown',
           };
           hasTodayChanged = true;
+        } else if (!isBudgetOn) {
+          if (todayRecord.budget !== 0 || todayRecord.spent !== todaySpent || todayRecord.saved !== 0 || todayRecord.status !== 'unknown') {
+            todayRecord = {
+              ...todayRecord,
+              budget: 0,
+              spent: todaySpent,
+              saved: 0,
+              status: 'unknown',
+            };
+            hasTodayChanged = true;
+          }
         } else {
           const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, baseDaily);
           const newStatus =
@@ -1744,6 +1782,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             if (pendingSettings.is_budget_mode_enabled !== undefined) {
               resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
             }
+            if (resolvedBudgetModeEnabled && !resolvedAutoRenew && resolvedBudget > 0) {
+              resolvedAutoRenew = true;
+            }
             if (pendingSettings.budget_cadence !== undefined) {
               resolvedCadence = pendingSettings.budget_cadence as BudgetCadence;
             }
@@ -1755,14 +1796,21 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             }
 
             if (!records[todayStr]) {
-              const todayBudget = resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
+              const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
               records[todayStr] = {
                 date: todayStr,
                 budget: todayBudget,
                 spent: 0,
                 saved: todayBudget,
                 isFinalized: false,
-                status: 'active',
+                status: resolvedBudgetModeEnabled ? 'active' : 'unknown',
+              };
+            } else if (!resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
+              records[todayStr] = {
+                ...records[todayStr],
+                budget: 0,
+                saved: 0,
+                status: 'unknown',
               };
             }
             const metrics = computeMetrics(
@@ -1861,6 +1909,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
           } else if (profileData && profileData.is_budget_mode_enabled !== null && profileData.is_budget_mode_enabled !== undefined) {
             resolvedBudgetModeEnabled = Boolean(profileData.is_budget_mode_enabled);
+          }
+
+          if (resolvedBudgetModeEnabled && !resolvedAutoRenew && resolvedBudget > 0) {
+            resolvedAutoRenew = true;
           }
 
           let resolvedCadence: BudgetCadence = get().budgetCadence || 'daily';
@@ -2080,18 +2132,25 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
           // Ensure today's record exists if not present
           if (!records[todayStr]) {
-            const todayBudget = resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
+            const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
             records[todayStr] = {
               date: todayStr,
               budget: todayBudget,
               spent: 0,
               saved: todayBudget,
               isFinalized: false,
-              status: 'active',
+              status: resolvedBudgetModeEnabled ? 'active' : 'unknown',
             };
-          } else if (!records[todayStr].isFinalized && records[todayStr].budget === 0 && resolvedAutoRenew && resolvedBudget > 0) {
+          } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized && records[todayStr].budget === 0 && resolvedAutoRenew && resolvedBudget > 0) {
             records[todayStr].budget = resolvedBudget;
             records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
+          } else if (!resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
+            records[todayStr] = {
+              ...records[todayStr],
+              budget: 0,
+              saved: 0,
+              status: 'unknown',
+            };
           }
 
           // 2b. Fetch manual gullak deposits from Supabase with timeout

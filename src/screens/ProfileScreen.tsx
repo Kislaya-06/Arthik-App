@@ -59,6 +59,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
 
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [pauseModalVisible, setPauseModalVisible] = useState(false);
 
   const currentCadenceAmount =
     budgetCadence === 'weekly'
@@ -76,20 +77,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const handleToggleBudgetMode = (val: boolean) => {
     if (!val) {
       if (totalAccumulatedSavings > 0 || savingsStreak > 0) {
-        Alert.alert(
-          'Smart Budget & Gullak Paused',
-          `Aapka Gullak balance (${formatCurrency(totalAccumulatedSavings)}) aur streaks 100% safe hain! Jab bhi aap is mode ko wapas ON karenge, aapki savings aur streaks wahin se resume ho jayengi.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Turn Off Anyway',
-              style: 'destructive',
-              onPress: async () => {
-                await setBudgetModeEnabled(false);
-              },
-            },
-          ]
-        );
+        setPauseModalVisible(true);
       } else {
         setBudgetModeEnabled(false);
       }
@@ -312,6 +300,59 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         onClose={() => setBudgetModalVisible(false)}
       />
 
+      {/* Pause Smart Budget & Gullak Confirmation Modal */}
+      <Modal
+        visible={pauseModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPauseModalVisible(false)}
+      >
+        <Pressable
+          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]}
+          onPress={() => setPauseModalVisible(false)}
+        >
+          <Pressable
+            style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.pauseIconCircle, { backgroundColor: isDark ? 'rgba(244, 184, 174, 0.16)' : '#FDE8E4' }]}>
+              <PiggyBankCoinIcon size={24} color={colors.coral} />
+            </View>
+
+            <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginBottom: Spacing.element }]}>
+              Pause Smart Budget & Gullak?
+            </Text>
+
+            <Text style={[styles.pauseModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+              Your Gullak balance ({formatCurrency(totalAccumulatedSavings)}) and streaks are safe. You can resume anytime.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalBtn, { backgroundColor: colors.cardSubtle, borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => setPauseModalVisible(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalBtn, { backgroundColor: colors.coral }]}
+                onPress={() => {
+                  setPauseModalVisible(false);
+                  setBudgetModeEnabled(false);
+                }}
+              >
+                <Text style={[styles.modalSaveText, { color: colors.white, fontFamily: FontFamily.bold }]}>
+                  Turn Off
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Edit Profile Modal */}
       <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
         <Pressable style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]} onPress={() => setEditVisible(false)}>
@@ -517,8 +558,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             BUDGET & SAVINGS
           </Text>
           <View style={styles.budgetModeRow}>
-            <View style={[styles.iconContainer, { backgroundColor: isBudgetModeEnabled ? (isDark ? 'rgba(184, 224, 200, 0.16)' : '#E8F5EE') : colors.cardSubtle }]}>
-              <PiggyBankCoinIcon size={20} color={isBudgetModeEnabled ? colors.forestGreen : colors.textSecondary} />
+            <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.18)' : '#E8F5EE' }]}>
+              <PiggyBankCoinIcon size={20} color={isDark ? colors.mintGreen : colors.forestGreen} />
             </View>
             <Pressable
               style={styles.budgetModeTextWrap}
@@ -926,5 +967,18 @@ const styles = StyleSheet.create({
   budgetModeSubtitle: {
     fontSize: FontSize.bodySmall,
     marginTop: Spacing.nano,
+  },
+  pauseIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24, // Circle geometry: width / 2
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.element,
+  },
+  pauseModalDesc: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: 20,
+    marginBottom: Spacing.element,
   },
 });

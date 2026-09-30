@@ -226,6 +226,54 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
   );
 });
 
+// ─── Individual Floating Action Button (+) for Pure Mode ─────────────────────
+const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
+  const { colors } = useTheme();
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.88,
+      tension: 70,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      tension: 70,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.individualFabWrapper}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Animated.View
+        renderToHardwareTextureAndroid={true}
+        style={[
+          styles.individualFab,
+          {
+            backgroundColor: colors.mintGreen,
+            shadowColor: colors.mintGreen,
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        <Plus size={24} color={colors.forestGreen} strokeWidth={2.8} />
+      </Animated.View>
+    </Pressable>
+  );
+});
+
 // ─── Main Bottom Navigation Bar Component ───────────────────────────────────
 export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const { colors, isDark } = useTheme();
@@ -233,16 +281,16 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
   const insets = useSafeAreaInsets();
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const translateY = useRef(new Animated.Value(0)).current;
-  const savingsAnim = useRef(new Animated.Value(isBudgetModeEnabled ? 1 : 0)).current;
+  const modeAnim = useRef(new Animated.Value(isBudgetModeEnabled ? 1 : 0)).current;
 
   useEffect(() => {
-    Animated.timing(savingsAnim, {
+    Animated.timing(modeAnim, {
       toValue: isBudgetModeEnabled ? 1 : 0,
-      duration: 220,
+      duration: 240,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
-  }, [isBudgetModeEnabled, savingsAnim]);
+  }, [isBudgetModeEnabled, modeAnim]);
 
   const bottomOffset = insets.bottom > 0 ? insets.bottom + 6 : 20;
 
@@ -303,86 +351,136 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
       ]}
       pointerEvents="box-none"
     >
-      {/* 
-        Continuous Floating Capsule Pill:
-        - Plus (+) button permanently locked at 50% dead-center
-        - Guaranteed buffer zone around Plus button (never touches History or Savings)
-        - Left & Right wings strictly symmetric with smooth expanding capsule animation
-      */}
-      <View
-        renderToHardwareTextureAndroid={true}
-        needsOffscreenAlphaCompositing={true}
+      {/* ── Mode 2 (Budget ON): 5-Tab Unified Pill Bar ── */}
+      <Animated.View
         style={[
-          styles.pillBar,
+          styles.barRow,
           {
-            backgroundColor: colors.navBarBg,
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.18)',
+            opacity: modeAnim,
+            transform: [
+              {
+                scale: modeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.95, 1],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
           },
         ]}
+        pointerEvents={isBudgetModeEnabled ? 'auto' : 'none'}
       >
-        {/* Left Wing: Home & History (flex: 1, space-around) */}
-        <View style={styles.tabWing}>
-          <CapsuleTabItem
-            icon={Home}
-            label="Home"
-            active={state.index === getRouteIndex('Home')}
-            onPress={onPressHome}
-          />
-          <CapsuleTabItem
-            icon={Clock}
-            label="History"
-            active={state.index === getRouteIndex('History')}
-            onPress={onPressHistory}
-          />
-        </View>
+        <View
+          renderToHardwareTextureAndroid={true}
+          needsOffscreenAlphaCompositing={true}
+          style={[
+            styles.pillBar,
+            {
+              backgroundColor: colors.navBarBg,
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.18)',
+            },
+          ]}
+        >
+          {/* Left Wing: Home & History */}
+          <View style={styles.tabWing}>
+            <CapsuleTabItem
+              icon={Home}
+              label="Home"
+              active={state.index === getRouteIndex('Home')}
+              onPress={onPressHome}
+            />
+            <CapsuleTabItem
+              icon={Clock}
+              label="History"
+              active={state.index === getRouteIndex('History')}
+              onPress={onPressHistory}
+            />
+          </View>
 
-        {/* Center Zone: Locked at 50% with permanent clearance buffer */}
-        <View style={styles.centerContainer}>
-          <CenterAddButton onPress={handleAddExpense} />
-        </View>
+          {/* Center Zone: Locked at 50% */}
+          <View style={styles.centerContainer}>
+            <CenterAddButton onPress={handleAddExpense} />
+          </View>
 
-        {/* Right Wing: Savings & Insights (flex: 1, space-around) */}
-        <View style={styles.tabWing}>
-          <Animated.View
-            style={{
-              opacity: savingsAnim.interpolate({
-                inputRange: [0, 0.4, 1],
-                outputRange: [0, 0, 1],
-                extrapolate: 'clamp',
-              }),
-              transform: [
-                {
-                  scale: savingsAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                    extrapolate: 'clamp',
-                  }),
-                },
-              ],
-              maxWidth: savingsAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 100],
-                extrapolate: 'clamp',
-              }),
-              overflow: 'hidden',
-            }}
-            pointerEvents={isBudgetModeEnabled ? 'auto' : 'none'}
-          >
+          {/* Right Wing: Savings & Insights */}
+          <View style={styles.tabWing}>
             <CapsuleTabItem
               icon={PiggyBankCoinIcon}
               label="Savings"
               active={state.index === getRouteIndex('Savings')}
               onPress={onPressSavings}
             />
-          </Animated.View>
-          <CapsuleTabItem
-            icon={BarChart2}
-            label="Insights"
-            active={state.index === getRouteIndex('Insights')}
-            onPress={onPressInsights}
-          />
+            <CapsuleTabItem
+              icon={BarChart2}
+              label="Insights"
+              active={state.index === getRouteIndex('Insights')}
+              onPress={onPressInsights}
+            />
+          </View>
         </View>
-      </View>
+      </Animated.View>
+
+      {/* ── Mode 1 (Pure Mode / Budget OFF): 3-Tab Pill on Left + Individual Circular FAB on Right ── */}
+      <Animated.View
+        style={[
+          styles.barRow,
+          StyleSheet.absoluteFill,
+          {
+            opacity: modeAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 0],
+              extrapolate: 'clamp',
+            }),
+            transform: [
+              {
+                scale: modeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0.95],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          },
+        ]}
+        pointerEvents={!isBudgetModeEnabled ? 'auto' : 'none'}
+      >
+        <View style={styles.pureModeContainer}>
+          {/* 3-Tab Capsule Pill */}
+          <View
+            renderToHardwareTextureAndroid={true}
+            needsOffscreenAlphaCompositing={true}
+            style={[
+              styles.purePillBar,
+              {
+                backgroundColor: colors.navBarBg,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.18)',
+              },
+            ]}
+          >
+            <CapsuleTabItem
+              icon={Home}
+              label="Home"
+              active={state.index === getRouteIndex('Home')}
+              onPress={onPressHome}
+            />
+            <CapsuleTabItem
+              icon={Clock}
+              label="History"
+              active={state.index === getRouteIndex('History')}
+              onPress={onPressHistory}
+            />
+            <CapsuleTabItem
+              icon={BarChart2}
+              label="Insights"
+              active={state.index === getRouteIndex('Insights')}
+              onPress={onPressInsights}
+            />
+          </View>
+
+          {/* Individual Floating Circular FAB (+) */}
+          <IndividualAddButton onPress={handleAddExpense} />
+        </View>
+      </Animated.View>
     </Animated.View>
   );
 };
@@ -393,7 +491,50 @@ const styles = StyleSheet.create({
     left: Spacing.block,
     right: Spacing.block,
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 99,
+  },
+  barRow: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pureModeContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  purePillBar: {
+    width: 188,
+    height: 58,
+    borderRadius: 29,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 10,
+    marginRight: 10,
+  },
+  individualFabWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  individualFab: {
+    width: 58,
+    height: 58,
+    borderRadius: 29, // Circle geometry: width / 2
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
   },
   pillBar: {
     width: '100%',

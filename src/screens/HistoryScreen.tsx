@@ -170,6 +170,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const categories = useCategoryStore((s) => s.categories);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
@@ -230,7 +231,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const filteredAndGroupedExpenses = useMemo<Section[]>(() => {
     let filteredExpenses = expenses;
-    let filteredDeposits = selectedCategoryId ? [] : gullakDeposits;
+    let filteredDeposits = (!isBudgetModeEnabled || selectedCategoryId) ? [] : gullakDeposits;
 
     if (selectedCategoryId) {
       filteredExpenses = filteredExpenses.filter((e) => e.category_id === selectedCategoryId);
@@ -317,7 +318,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         data: sortedData,
       };
     });
-  }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, searchQuery]);
+  }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, searchQuery, isBudgetModeEnabled]);
 
   const targetDate = route.params?.targetDate;
   const targetStartDate = route.params?.startDate;
