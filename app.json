@@ -54,13 +54,13 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "Insights & Timezone Alignment 📊",
+        "title": "Premium UI & Animated Toggles ✨",
         "highlights": [
-          "Instant Insights data display across Weekly, Monthly, and Yearly for new users",
-          "Aligned with Indian Timezone (IST) for accurate local day boundaries",
-          "Strict Monday-to-Sunday weekly cycle and full calendar month (1st to 30/31st) tracking",
-          "Preserved mid-month onboarding view with seamless data aggregation",
-          "Full support for backdated expenses in spending analytics"
+          "Custom rolling-ball animated toggles with smooth spring physics on Profile",
+          "Tactile bouncy filter pills on Insights (Weekly, Monthly, Yearly)",
+          "Unified green gradient spending flow bars with consistent peak clarity",
+          "Category Detail screen with tinted gradient hero card & clean history-style rows",
+          "Contextual money explainer guides and pop-up assistance badges"
         ]
       }
     }

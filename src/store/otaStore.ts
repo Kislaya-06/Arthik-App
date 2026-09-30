@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'UI Polish & Bouncy Filters ✨',
+    title: ota?.title || 'Premium UI & Animated Toggles ✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Scrollable bouncy category filter on History — spring-animated sliding highlight inside a single pill",
-          "Telegram-style unboxed rows for transactions, notifications & savings",
-          "Softer, less intrusive list dividers across all screens",
-          "Deposit rows now show a chevron so you know you can tap to manage them",
-          "Daily Budget Mode description condensed to a single clean line",
+          "Custom rolling-ball animated toggles with smooth spring physics on Profile",
+          "Tactile bouncy filter pills on Insights (Weekly, Monthly, Yearly)",
+          "Unified green gradient spending flow bars with consistent peak clarity",
+          "Category Detail screen with tinted gradient hero card & clean history-style rows",
+          "Contextual money explainer guides and pop-up assistance badges",
         ],
   };
 };
