@@ -150,41 +150,110 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     [activeFilter, pureInflow, periodSpent]
   );
 
-  // Cadence-aware primary values for D8:
+  // Cadence-aware primary values with dynamic non-binding pace guidance:
   const effectivePrimaryLabel = useMemo(() => {
     if (!isBudgetModeEnabled) return pureMetrics.title;
     if (isCadenceMode && cadencePeriodSummary) {
       if (budgetCadence === 'weekly') {
-        return cadencePeriodSummary.isOver ? 'Over this week' : 'Left this week';
+        if (activeFilter === 'Weekly') {
+          return cadencePeriodSummary.isOver ? 'Over this week' : 'Left this week';
+        }
+        if (activeFilter === 'Daily') {
+          return "Today's Spent";
+        }
+        if (activeFilter === 'Monthly') {
+          return 'Projected Monthly Spend';
+        }
+      } else if (budgetCadence === 'monthly') {
+        if (activeFilter === 'Monthly') {
+          return cadencePeriodSummary.isOver ? 'Over this month' : 'Left this month';
+        }
+        if (activeFilter === 'Weekly') {
+          return 'Suggested Weekly Pace';
+        }
+        if (activeFilter === 'Daily') {
+          return "Today's Spent";
+        }
       }
-      return cadencePeriodSummary.isOver ? 'Over this month' : 'Left this month';
     }
     return primaryLabel;
-  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, pureMetrics.title, primaryLabel]);
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, pureMetrics.title, primaryLabel]);
 
   const effectivePrimaryAmount = useMemo(() => {
     if (!isBudgetModeEnabled) return pureMetrics.totalRemaining;
     if (isCadenceMode && cadencePeriodSummary) {
-      return cadencePeriodSummary.isOver ? cadencePeriodSummary.overBy : cadencePeriodSummary.remaining;
+      if (budgetCadence === 'weekly') {
+        if (activeFilter === 'Weekly') {
+          return cadencePeriodSummary.isOver ? cadencePeriodSummary.overBy : cadencePeriodSummary.remaining;
+        }
+        if (activeFilter === 'Daily') {
+          return todayRecordSpent;
+        }
+        if (activeFilter === 'Monthly') {
+          return cadencePeriodSummary.projectedMonthlyBudget ?? Math.round((cadencePeriodSummary.budget / 7) * 31);
+        }
+      } else if (budgetCadence === 'monthly') {
+        if (activeFilter === 'Monthly') {
+          return cadencePeriodSummary.isOver ? cadencePeriodSummary.overBy : cadencePeriodSummary.remaining;
+        }
+        if (activeFilter === 'Weekly') {
+          return cadencePeriodSummary.suggestedWeeklyPace ?? Math.round((cadencePeriodSummary.remaining / cadencePeriodSummary.remainingDays) * 7);
+        }
+        if (activeFilter === 'Daily') {
+          return todayRecordSpent;
+        }
+      }
     }
     return primaryAmount;
-  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, pureMetrics.totalRemaining, primaryAmount]);
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, todayRecordSpent, pureMetrics.totalRemaining, primaryAmount]);
 
   const effectiveIsOver = useMemo(() => {
     if (!isBudgetModeEnabled) return pureMetrics.isDeficit;
     if (isCadenceMode && cadencePeriodSummary) {
-      return cadencePeriodSummary.isOver;
+      if (budgetCadence === 'weekly') {
+        if (activeFilter === 'Weekly') return cadencePeriodSummary.isOver;
+        if (activeFilter === 'Daily') return cadencePeriodSummary.isOver;
+        if (activeFilter === 'Monthly') return false;
+      } else if (budgetCadence === 'monthly') {
+        if (activeFilter === 'Monthly') return cadencePeriodSummary.isOver;
+        if (activeFilter === 'Weekly') return false;
+        if (activeFilter === 'Daily') return cadencePeriodSummary.isOver;
+      }
     }
     return isOverBudgetPeriod;
-  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, pureMetrics.isDeficit, isOverBudgetPeriod]);
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, pureMetrics.isDeficit, isOverBudgetPeriod]);
 
   const effectiveSubtext = useMemo(() => {
     if (!isBudgetModeEnabled) return null;
     if (isCadenceMode && cadencePeriodSummary) {
-      return `Spent ₹${formatAmountWithCommas(String(cadencePeriodSummary.spent))} of ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}`;
+      if (budgetCadence === 'weekly') {
+        if (activeFilter === 'Weekly') {
+          return `Spent ₹${formatAmountWithCommas(String(cadencePeriodSummary.spent))} of ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}`;
+        }
+        if (activeFilter === 'Daily') {
+          return cadencePeriodSummary.isOver
+            ? `Weekly budget exceeded by ₹${formatAmountWithCommas(String(cadencePeriodSummary.overBy))}`
+            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} suggested pace`;
+        }
+        if (activeFilter === 'Monthly') {
+          return `Based on ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}/wk pace for calendar month`;
+        }
+      } else if (budgetCadence === 'monthly') {
+        if (activeFilter === 'Monthly') {
+          return `Spent ₹${formatAmountWithCommas(String(cadencePeriodSummary.spent))} of ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}`;
+        }
+        if (activeFilter === 'Weekly') {
+          return `to stay within ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))} monthly budget`;
+        }
+        if (activeFilter === 'Daily') {
+          return cadencePeriodSummary.isOver
+            ? `Monthly budget exceeded by ₹${formatAmountWithCommas(String(cadencePeriodSummary.overBy))}`
+            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} suggested pace`;
+        }
+      }
     }
     return primarySubtext;
-  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, primarySubtext]);
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, primarySubtext]);
 
   const showRollover = useMemo(() => {
     if (!isBudgetModeEnabled) return false;
@@ -196,12 +265,37 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   const rolloverStripText = useMemo(() => {
     if (isCadenceMode && cadencePeriodSummary) {
+      if (budgetCadence === 'weekly') {
+        if (activeFilter === 'Weekly') {
+          return formatCadenceRolloverStrip(cadencePeriodSummary, 'weekly');
+        }
+        if (activeFilter === 'Daily') {
+          return cadencePeriodSummary.isOver
+            ? `Weekly budget exceeded · 0 daily pace remaining`
+            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day (non-binding)`;
+        }
+        if (activeFilter === 'Monthly') {
+          return `Weekly budget active · ${cadencePeriodSummary.remainingDays} days left this week`;
+        }
+      } else if (budgetCadence === 'monthly') {
+        if (activeFilter === 'Monthly') {
+          return formatCadenceRolloverStrip(cadencePeriodSummary, 'monthly');
+        }
+        if (activeFilter === 'Weekly') {
+          return `${cadencePeriodSummary.remainingDays} days left in month · ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day pace`;
+        }
+        if (activeFilter === 'Daily') {
+          return cadencePeriodSummary.isOver
+            ? `Monthly budget exceeded · 0 daily pace remaining`
+            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day (non-binding)`;
+        }
+      }
       return formatCadenceRolloverStrip(cadencePeriodSummary, budgetCadence);
     }
     return isOverBudget
       ? `Over limit by ${formatCurrency(todayRecordSpent - todayBudget)} today`
       : `${formatCurrency(todayRemaining)} rolls over to Gullak tonight`;
-  }, [isCadenceMode, cadencePeriodSummary, budgetCadence, isOverBudget, todayRecordSpent, todayBudget, todayRemaining]);
+  }, [isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, isOverBudget, todayRecordSpent, todayBudget, todayRemaining]);
 
   // Curated Card Colors (Mint Green signature card)
   // Contrast: Dark Navy typography on Mint Green (#B8E0C8) provides 9.8:1 AAA contrast
@@ -246,9 +340,35 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    const targetPrimary = isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining;
-    const targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
-    const targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
+    let targetPrimary = isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining;
+    let targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
+    let targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
+
+    if (isBudgetModeEnabled && isCadenceMode && cadencePeriodSummary) {
+      if (budgetCadence === 'weekly') {
+        if (activeFilter === 'Weekly') {
+          targetIncome = cadencePeriodSummary.budget;
+          targetSpent = cadencePeriodSummary.spent;
+        } else if (activeFilter === 'Daily') {
+          targetIncome = Math.max(cadencePeriodSummary.suggestedDailyPace, todayRecordSpent);
+          targetSpent = todayRecordSpent;
+        } else if (activeFilter === 'Monthly') {
+          targetIncome = cadencePeriodSummary.projectedMonthlyBudget ?? totalAvailable;
+          targetSpent = periodSpent;
+        }
+      } else if (budgetCadence === 'monthly') {
+        if (activeFilter === 'Monthly') {
+          targetIncome = cadencePeriodSummary.budget;
+          targetSpent = cadencePeriodSummary.spent;
+        } else if (activeFilter === 'Weekly') {
+          targetIncome = cadencePeriodSummary.suggestedWeeklyPace ?? totalAvailable;
+          targetSpent = periodSpent;
+        } else if (activeFilter === 'Daily') {
+          targetIncome = Math.max(cadencePeriodSummary.suggestedDailyPace, todayRecordSpent);
+          targetSpent = todayRecordSpent;
+        }
+      }
+    }
 
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -517,13 +637,13 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             <DonutChart
               size={82}
               strokeWidth={9.5}
-              spent={displaySpent}
-              total={Math.max(totalAvailable, displaySpent)}
+              spent={displayPeriodSpent}
+              total={Math.max(displayTotalAvailable, displayPeriodSpent)}
               colors={colors}
               trackColor="rgba(255, 255, 255, 0.65)"
               baseColor="rgba(255, 255, 255, 0.92)"
-              spentColor={isOverBudgetPeriod ? '#EF4444' : '#E05A47'}
-              textColor={isOverBudgetPeriod ? '#EF4444' : textColorPrimary}
+              spentColor={effectiveIsOver ? '#EF4444' : '#E05A47'}
+              textColor={effectiveIsOver ? '#EF4444' : textColorPrimary}
               subtextColor={textColorSecondary}
               triggerKey={activeFilter}
             />

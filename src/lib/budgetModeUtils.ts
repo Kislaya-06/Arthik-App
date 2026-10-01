@@ -132,20 +132,21 @@ export function getProrationPreview(
     return null;
   }
 
-  const proratedAmount = Math.round((amount * remainingDays) / bounds.totalDays);
   const dayWord = remainingDays === 1 ? 'day' : 'days';
-  const previewText = `Prorated allowance: ₹${formatAmountWithCommas(String(proratedAmount))} for remaining ${remainingDays} ${dayWord}`;
-
+  const suggestedPace = Math.round(amount / remainingDays);
   const formattedFull = formatAmountWithCommas(String(amount));
+  const formattedPace = formatAmountWithCommas(String(suggestedPace));
+
+  const previewText = `Full ₹${formattedFull} budget active for remaining ${remainingDays} ${dayWord}`;
   const explanationText = targetCadence === 'weekly'
-    ? `Spend ₹${formatAmountWithCommas(String(proratedAmount))} until Sunday. Unspent rolls to Gullak, and your full ₹${formattedFull}/week starts Monday.`
-    : `Spend ₹${formatAmountWithCommas(String(proratedAmount))} until month-end. Unspent rolls to Gullak, and your full ₹${formattedFull}/month starts next month.`;
+    ? `Your full ₹${formattedFull}/week budget is 100% active until Sunday without proration. Suggested daily pace: ~₹${formattedPace}/day.`
+    : `Your full ₹${formattedFull}/month budget is 100% active until month-end without proration. Suggested daily pace: ~₹${formattedPace}/day.`;
 
   return {
-    isProrated: true,
+    isProrated: false,
     remainingDays,
     totalDays: bounds.totalDays,
-    proratedAmount,
+    proratedAmount: amount,
     previewText,
     explanationText,
   };

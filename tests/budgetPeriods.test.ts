@@ -448,11 +448,11 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(monthlySlice.cadence).toBe('monthly');
       expect(monthlySlice.activeStart).toBe('2026-10-01');
       expect(monthlySlice.activeEnd).toBe('2026-10-14');
-      expect(monthlySlice.isProrated).toBe(true);
-      // Prorated budget: 15500 * 14 / 31 = 7000
-      expect(monthlySlice.budgetAmount).toBe(7000);
+      expect(monthlySlice.isProrated).toBe(false);
+      // Unprorated full budget: 15500
+      expect(monthlySlice.budgetAmount).toBe(15500);
       expect(monthlySlice.spentAmount).toBe(700);
-      expect(monthlySlice.amountSaved).toBe(6300);
+      expect(monthlySlice.amountSaved).toBe(14800);
       expect(monthlySlice.status).toBe('saved');
     });
 
@@ -489,10 +489,10 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].cadence).toBe('monthly');
       expect(periods[0].activeStart).toBe('2026-10-01');
       expect(periods[0].activeEnd).toBe('2026-10-10');
-      // Prorated budget: 31000 * 10 / 31 = 10000
-      expect(periods[0].budgetAmount).toBe(10000);
+      // Unprorated budget: 31000
+      expect(periods[0].budgetAmount).toBe(31000);
       expect(periods[0].spentAmount).toBe(5000);
-      expect(periods[0].amountSaved).toBe(5000);
+      expect(periods[0].amountSaved).toBe(26000);
     });
 
     it('Transition 3: Weekly -> Monthly (W -> M)', () => {
@@ -528,10 +528,10 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].cadence).toBe('weekly');
       expect(periods[0].activeStart).toBe('2026-10-05');
       expect(periods[0].activeEnd).toBe('2026-10-07');
-      // Prorated: 7000 * 3 / 7 = 3000
-      expect(periods[0].budgetAmount).toBe(3000);
+      // Unprorated budget: 7000
+      expect(periods[0].budgetAmount).toBe(7000);
       expect(periods[0].spentAmount).toBe(1000);
-      expect(periods[0].amountSaved).toBe(2000);
+      expect(periods[0].amountSaved).toBe(6000);
     });
 
     it('Transition 4: Weekly -> Daily (W -> D)', () => {
@@ -565,9 +565,9 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].cadence).toBe('weekly');
       expect(periods[0].activeStart).toBe('2026-10-05');
       expect(periods[0].activeEnd).toBe('2026-10-09');
-      // Prorated: 7000 * 5 / 7 = 5000
-      expect(periods[0].budgetAmount).toBe(5000);
-      expect(periods[0].isProrated).toBe(true);
+      // Unprorated budget: 7000
+      expect(periods[0].budgetAmount).toBe(7000);
+      expect(periods[0].isProrated).toBe(false);
     });
 
     it('Transition 5: Daily -> Weekly (D -> W)', () => {
@@ -602,11 +602,11 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].cadence).toBe('weekly');
       expect(periods[0].activeStart).toBe('2026-10-08');
       expect(periods[0].activeEnd).toBe('2026-10-11');
-      // Prorated: 3500 * 4 / 7 = 2000
-      expect(periods[0].budgetAmount).toBe(2000);
+      // Unprorated budget: 3500
+      expect(periods[0].budgetAmount).toBe(3500);
       expect(periods[0].spentAmount).toBe(1000);
-      expect(periods[0].amountSaved).toBe(1000);
-      expect(periods[0].isProrated).toBe(true);
+      expect(periods[0].amountSaved).toBe(2500);
+      expect(periods[0].isProrated).toBe(false);
     });
 
     it('Transition 6: Daily -> Monthly (D -> M)', () => {
@@ -641,9 +641,9 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].cadence).toBe('monthly');
       expect(periods[0].activeStart).toBe('2026-10-11');
       expect(periods[0].activeEnd).toBe('2026-10-31');
-      // Prorated: 31000 * 21 / 31 = 21000
-      expect(periods[0].budgetAmount).toBe(21000);
-      expect(periods[0].isProrated).toBe(true);
+      // Unprorated budget: 31000
+      expect(periods[0].budgetAmount).toBe(31000);
+      expect(periods[0].isProrated).toBe(false);
     });
   });
 
@@ -759,11 +759,11 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].periodEnd).toBe('2026-10-11');
       expect(periods[0].activeStart).toBe('2026-10-07');
       expect(periods[0].activeEnd).toBe('2026-10-11');
-      expect(periods[0].isProrated).toBe(true);
-      // 5 active days (Wed, Thu, Fri, Sat, Sun): 7000 * 5 / 7 = 5000
-      expect(periods[0].budgetAmount).toBe(5000);
+      expect(periods[0].isProrated).toBe(false);
+      // Unprorated full budget: 7000
+      expect(periods[0].budgetAmount).toBe(7000);
       expect(periods[0].spentAmount).toBe(1000);
-      expect(periods[0].amountSaved).toBe(4000);
+      expect(periods[0].amountSaved).toBe(6000);
       expect(periods[0].status).toBe('saved');
     });
   });
@@ -979,8 +979,8 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(summary).not.toBeNull();
       expect(summary?.activeStart).toBe('2026-10-05');
       expect(summary?.activeEnd).toBe('2026-10-08'); // Truncated to Thursday
-      // Prorated: 4 days (Mon..Thu) out of 7: 7000 * 4 / 7 = 4000
-      expect(summary?.budget).toBe(4000);
+      // Unprorated budget: 7000 (100% full pool)
+      expect(summary?.budget).toBe(7000);
       expect(summary?.rolloverLabelDate).toBe('2026-10-08');
     });
   });
@@ -1141,6 +1141,93 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(res.bestByCadence.daily).toBe(4);
       expect(res.bestByCadence.weekly).toBe(3);
       expect(res.bestByCadence.monthly).toBe(2);
+    });
+  });
+
+  // =========================================================================
+  // 13. Dynamic Non-Binding Pace Guidance & Accurate Calendar Projections
+  // =========================================================================
+  describe('13. Dynamic Non-Binding Pace Guidance & Calendar Projections', () => {
+    it('calculates dynamic suggested daily pace for weekly budget as days and spend advance', () => {
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-05', // Monday
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 7000,
+        },
+      ];
+
+      // On Monday 10-05 (7 days remaining), 0 spent
+      const monSummary = getCurrentPeriodSummary(changes, {}, '2026-10-05');
+      expect(monSummary?.remainingDays).toBe(7);
+      expect(monSummary?.remaining).toBe(7000);
+      expect(monSummary?.suggestedDailyPace).toBe(1000); // 7000 / 7
+
+      // On Friday 10-09 (3 days remaining: Fri, Sat, Sun), 5500 spent
+      const spentByDate = {
+        '2026-10-05': 2000,
+        '2026-10-06': 1500,
+        '2026-10-07': 1000,
+        '2026-10-08': 1000,
+      };
+      const friSummary = getCurrentPeriodSummary(changes, spentByDate, '2026-10-09');
+      expect(friSummary?.remainingDays).toBe(3);
+      expect(friSummary?.spent).toBe(5500);
+      expect(friSummary?.remaining).toBe(1500);
+      expect(friSummary?.suggestedDailyPace).toBe(500); // 1500 / 3 = 500/day
+    });
+
+    it('calculates suggested weekly pace for monthly budget', () => {
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'monthly',
+          amount: 31000,
+        },
+      ];
+
+      // On 10-16 (16 days remaining in October 31-day month), 15000 spent
+      const spent = { '2026-10-05': 15000 };
+      const summary = getCurrentPeriodSummary(changes, spent, '2026-10-16');
+      expect(summary?.remainingDays).toBe(16);
+      expect(summary?.remaining).toBe(16000);
+      expect(summary?.suggestedDailyPace).toBe(1000); // 16000 / 16
+      expect(summary?.suggestedWeeklyPace).toBe(7000); // 1000 * 7
+    });
+
+    it('projects monthly spend accurately based on true calendar month length (28, 29, 30, 31 days)', () => {
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-01-01',
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 7000,
+        },
+      ];
+
+      // October (31 days)
+      const octSummary = getCurrentPeriodSummary(changes, {}, '2026-10-15');
+      expect(octSummary?.projectedMonthlyBudget).toBe(31000); // (7000/7) * 31
+
+      // November (30 days)
+      const novSummary = getCurrentPeriodSummary(changes, {}, '2026-11-15');
+      expect(novSummary?.projectedMonthlyBudget).toBe(30000); // (7000/7) * 30
+
+      // February 2026 (non-leap year, 28 days)
+      const feb2026Summary = getCurrentPeriodSummary(changes, {}, '2026-02-15');
+      expect(feb2026Summary?.projectedMonthlyBudget).toBe(28000); // (7000/7) * 28
+
+      // February 2028 (leap year, 29 days)
+      const feb2028Summary = getCurrentPeriodSummary(changes, {}, '2028-02-15');
+      expect(feb2028Summary?.projectedMonthlyBudget).toBe(29000); // (7000/7) * 29
     });
   });
 });

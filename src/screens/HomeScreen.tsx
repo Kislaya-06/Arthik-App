@@ -23,6 +23,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, ChevronRight, User } from 'lucide-react-native';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
+import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
 import { TelegramPullIndicator } from '../components/TelegramPullIndicator';
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
@@ -93,7 +94,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('History');
   }, [navigation]);
 
-  const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
+  const [activeFilter, setActiveFilter] = useState<Filter>(() => {
+    const isBudgetEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
+    const cadence = useDailyBudgetStore.getState().budgetCadence;
+    if (!isBudgetEnabled) return 'Daily';
+    if (cadence === 'weekly') return 'Weekly';
+    if (cadence === 'monthly') return 'Monthly';
+    return 'Daily';
+  });
   const [todayKey, setTodayKey] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const referenceDate = useMemo(() => parseISO(todayKey), [todayKey]);
 
@@ -113,6 +121,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
+  const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
+  const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
+  const setWeeklyBudget = useDailyBudgetStore((s) => s.setWeeklyBudget);
+  const setMonthlyBudget = useDailyBudgetStore((s) => s.setMonthlyBudget);
+  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
+  const lastRenewedPeriodKey = useDailyBudgetStore((s) => s.lastRenewedPeriodKey);
+  const setLastRenewedPeriodKey = useDailyBudgetStore((s) => s.setLastRenewedPeriodKey);
+
+  // Align activeFilter to active cadence on mount or hydration if not yet switched
+  const hasAlignedCadenceFilter = useRef(false);
+  useEffect(() => {
+    if (!hasAlignedCadenceFilter.current && isBudgetModeEnabled) {
+      hasAlignedCadenceFilter.current = true;
+      const target: Filter =
+        budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily';
+      setActiveFilter(target);
+    }
+  }, [isBudgetModeEnabled, budgetCadence]);
 
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
@@ -265,6 +291,60 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (!isBudgetModeEnabled || budgetCadence === 'daily') return null;
     return getCurrentPeriodSummary(planChanges, spentByDate, todayKey);
   }, [isBudgetModeEnabled, budgetCadence, planChanges, spentByDate, todayKey]);
+
+  // Period Renewal Modal coordination
+  const [renewalModalDismissed, setRenewalModalDismissed] = useState(false);
+
+  const currentPeriodKey = useMemo(() => {
+    if (!cadencePeriodSummary) return null;
+    return `${cadencePeriodSummary.cadence}_${cadencePeriodSummary.periodStart}`;
+  }, [cadencePeriodSummary]);
+
+  const shouldShowRenewalModal = useMemo(() => {
+    if (!isBudgetModeEnabled) return false;
+    if (budgetCadence === 'daily') return false;
+    if (!cadencePeriodSummary || !currentPeriodKey) return false;
+    if (renewalModalDismissed) return false;
+    if (lastRenewedPeriodKey === currentPeriodKey) return false;
+    return true;
+  }, [isBudgetModeEnabled, budgetCadence, cadencePeriodSummary, currentPeriodKey, lastRenewedPeriodKey, renewalModalDismissed]);
+
+  const previousRolloverSavings = useMemo(() => {
+    if (!cadencePeriodSummary) return 0;
+    const targetCadence = cadencePeriodSummary.cadence;
+    const pastPeriods = Object.values(budgetPeriods).filter(
+      (p) => p.cadence === targetCadence && p.periodEnd <= cadencePeriodSummary.periodStart && p.amountSaved > 0
+    );
+    if (pastPeriods.length === 0) return 0;
+    pastPeriods.sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
+    return pastPeriods[0].amountSaved;
+  }, [cadencePeriodSummary, budgetPeriods]);
+
+  const handleConfirmKeepRenewal = useCallback(async () => {
+    if (currentPeriodKey) {
+      await setLastRenewedPeriodKey(currentPeriodKey);
+    }
+    setRenewalModalDismissed(true);
+  }, [currentPeriodKey, setLastRenewedPeriodKey]);
+
+  const handleChangeBudgetRenewal = useCallback(async (newAmount: number) => {
+    if (budgetCadence === 'weekly') {
+      setWeeklyBudget(newAmount);
+    } else if (budgetCadence === 'monthly') {
+      setMonthlyBudget(newAmount);
+    }
+    if (currentPeriodKey) {
+      await setLastRenewedPeriodKey(currentPeriodKey);
+    }
+    setRenewalModalDismissed(true);
+  }, [budgetCadence, currentPeriodKey, setLastRenewedPeriodKey, setWeeklyBudget, setMonthlyBudget]);
+
+  const handleCloseRenewalModal = useCallback(async () => {
+    if (currentPeriodKey) {
+      await setLastRenewedPeriodKey(currentPeriodKey);
+    }
+    setRenewalModalDismissed(true);
+  }, [currentPeriodKey, setLastRenewedPeriodKey]);
 
   // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
   // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
@@ -489,6 +569,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      <PeriodRenewalModal
+        visible={shouldShowRenewalModal}
+        cadence={budgetCadence === 'monthly' ? 'monthly' : 'weekly'}
+        budgetAmount={
+          cadencePeriodSummary?.budget ||
+          (budgetCadence === 'monthly' ? monthlyBudgetAmount : weeklyBudgetAmount)
+        }
+        isAutoRenew={isAutoRenew}
+        periodStart={cadencePeriodSummary?.periodStart || ''}
+        periodEnd={cadencePeriodSummary?.periodEnd || ''}
+        rolloverSavings={previousRolloverSavings}
+        onConfirmKeep={handleConfirmKeepRenewal}
+        onChangeBudget={handleChangeBudgetRenewal}
+        onClose={handleCloseRenewalModal}
+      />
     </View>
   );
 };

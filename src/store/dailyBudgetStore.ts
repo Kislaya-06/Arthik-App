@@ -120,6 +120,7 @@ export const getPendingGullakAddsKey = (userId: string) => `@arthik_pending_gull
 export const getPendingGullakDeletesKey = (userId: string) => `@arthik_pending_gullak_deletes_${userId}`;
 export const getPendingPlanChangesKey = (userId: string) => `@arthik_pending_plan_changes_${userId}`;
 export const getPendingBudgetPeriodsKey = (userId: string) => `@arthik_pending_budget_periods_${userId}`;
+export const getLastRenewedPeriodKey = (userId: string) => `@arthik_last_renewed_period_${userId}`;
 
 export interface ProfileSettingsPatch {
   daily_budget?: number;
@@ -370,6 +371,7 @@ interface DailyBudgetState {
   lastPeriodWarningKey: string | null;
   lastPeriodExceededKey: string | null;
   lastPeriodRolloverKey: string | null;
+  lastRenewedPeriodKey: string | null;
 
   // Actions
   setDailyBudget: (amount: number) => void;
@@ -398,6 +400,7 @@ interface DailyBudgetState {
   cancelPendingPlanChange: () => void;
   uploadPendingBudgetPeriods: () => Promise<void>;
   syncPendingPlanChanges: () => Promise<void>;
+  setLastRenewedPeriodKey: (key: string) => Promise<void>;
 }
 
 const getTodayDateStr = () => format(new Date(), 'yyyy-MM-dd');
@@ -431,6 +434,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       lastPeriodWarningKey: null,
       lastPeriodExceededKey: null,
       lastPeriodRolloverKey: null,
+      lastRenewedPeriodKey: null,
 
       getTodayRecord: () => {
         const todayStr = getTodayDateStr();
@@ -1079,6 +1083,17 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
         if (syncedIds.length > 0) {
           await setStoredList(key, list.filter((c) => !syncedIds.includes(c.id)));
+        }
+      },
+
+      setLastRenewedPeriodKey: async (key: string) => {
+        set({ lastRenewedPeriodKey: key });
+        const currentUser = useAuthStore.getState().user;
+        const uid = currentUser?.id || get().ownerUserId;
+        if (uid) {
+          try {
+            await AsyncStorage.setItem(getLastRenewedPeriodKey(uid), key);
+          } catch {}
         }
       },
 
@@ -2272,6 +2287,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             gullakDeposits: resolvedDeposits,
             ownerUserId: userId,
             hydratedForUserId: userId,
+            lastRenewedPeriodKey: await (async () => {
+              try {
+                return await AsyncStorage.getItem(getLastRenewedPeriodKey(userId));
+              } catch {
+                return null;
+              }
+            })(),
             ...metrics,
           });
 
@@ -2315,8 +2337,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           lastPeriodWarningKey: null,
           lastPeriodExceededKey: null,
           lastPeriodRolloverKey: null,
+          lastRenewedPeriodKey: null,
         });
         AsyncStorage.removeItem('arthik-daily-budget-storage-v2').catch(() => {});
+        const prevUid = get().ownerUserId;
+        if (prevUid) {
+          AsyncStorage.removeItem(getLastRenewedPeriodKey(prevUid)).catch(() => {});
+        }
       },
     }),
     {
@@ -2350,6 +2377,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             lastPeriodWarningKey: persistedState.lastPeriodWarningKey ?? null,
             lastPeriodExceededKey: persistedState.lastPeriodExceededKey ?? null,
             lastPeriodRolloverKey: persistedState.lastPeriodRolloverKey ?? null,
+            lastRenewedPeriodKey: persistedState.lastRenewedPeriodKey ?? null,
           };
         }
         return persistedState;

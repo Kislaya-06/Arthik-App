@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 💎 Unprorated Cadence Engine, Dynamic Pace Guidance & Period Renewal
+- **Luminous Warm Coral Over-Budget Alerts (`SavingsScreen`):** Replaced saturated `#EF4444` on the violet Allowance Card with high-luminance Warm Coral (`#FF7A6E` / `#FF8A80`), completely resolving optical vibration ("chub raha hai") and clashing against violet gradients while achieving 5.5:1+ WCAG AA contrast.
+- **100% Real-Money Invariant (Zero Proration):** Completely eliminated mathematical budget slicing. Mid-period budget activations allocate the entire budget pool intact (e.g. ₹30,000 or ₹7,000) without fractional reductions.
+- **Dynamic Non-Binding Pace Suggestions (`BrandedHeroCard`):**
+  - Weekly and Monthly users viewing the **Daily** tab see today's actual spend alongside live suggested daily pace (`remainingBudget / remainingDays`) and non-binding guidance disclaimer.
+  - Monthly users viewing the **Weekly** tab see suggested weekly pace to stay within their monthly budget.
+  - Weekly users viewing the **Monthly** tab see projected monthly spend dynamically calculated from actual calendar days in the active month (`(weeklyBudget / 7) * daysInMonth`, accurately reflecting 28, 29, 30, or 31 days).
+- **Cadence-Default Home Screen Tab (`HomeScreen`):** App launches directly on the tab matching user's active cadence (`Daily` $\to$ Daily, `Weekly` $\to$ Weekly, `Monthly` $\to$ Monthly).
+- **Adaptive Allowance Card (`SavingsScreen`):** Card title and date bounds adapt dynamically to the user's cadence (*"Weekly Allowance"*, *"Monthly Allowance"*, with date badges like *"29 Sep – 5 Oct"*). Over-budget turns progress bar full-width luminous coral.
+- **Unified Period Renewal Bottom Sheet (`PeriodRenewalModal`):** Elegant linework bottom sheet appearing at the start of a new week or month for Weekly and Monthly users:
+  - **Auto-Renew ON:** Celebrates Gullak rollover savings and confirms renewed budget with 1-tap *"Keep ₹X"* and *"Change Budget"*.
+  - **Auto-Renew OFF:** Prompts setting the budget with quick presets and tactile numeric keypad.
+
 ### 💰 Income Protection for Overspending & Gullak Integrity
 - **Income Buffer for Overspend:** Overspending from daily/weekly/monthly allowances is now absorbed by available income first before any deduction is made from Gullak savings (`calculateSavingsMetrics` and `dailyBudgetStore`).
 - **Gullak Card Helper Protection:** The main "Your Daily Gullak" hero card no longer shows overspend penalty text; it consistently displays positive lifetime savings context.

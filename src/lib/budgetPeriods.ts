@@ -26,6 +26,7 @@ import {
   addMonths,
   differenceInCalendarDays,
   eachDayOfInterval,
+  getDaysInMonth,
 } from 'date-fns';
 import { round2 } from './formatters';
 import {
@@ -62,6 +63,11 @@ export interface PeriodSummaryInfo {
   isOver: boolean;
   overBy: number;
   rolloverLabelDate: string;
+  // Dynamic Non-Binding Pace Suggestions & Calendar-Month Projections:
+  remainingDays: number;
+  suggestedDailyPace: number;
+  suggestedWeeklyPace?: number;
+  projectedMonthlyBudget?: number;
 }
 
 export interface StreakUnit {
@@ -333,10 +339,8 @@ export function buildPeriodsToFinalize(
       continue;
     }
 
-    const activeDays =
-      differenceInCalendarDays(parseISO(slice.activeEnd), parseISO(slice.activeStart)) + 1;
-    const budgetAmount = round2((slice.amount * activeDays) / slice.totalDays);
-    const isProrated = activeDays < slice.totalDays;
+    const budgetAmount = slice.amount;
+    const isProrated = false;
 
     // Sum spend in active slice
     let spentAmount = 0;
@@ -435,9 +439,8 @@ export function getCurrentPeriodSummary(
     fwd = addDays(fwd, 1);
   }
 
-  const activeDays =
-    differenceInCalendarDays(parseISO(activeEnd), parseISO(activeStart)) + 1;
-  const budget = round2((fullAmount * activeDays) / bounds.totalDays);
+  // 100% Real Money Invariant: Budget pool is fully intact without proration
+  const budget = fullAmount;
 
   // Sum spend from activeStart to todayStr
   let spent = 0;
@@ -455,6 +458,27 @@ export function getCurrentPeriodSummary(
   const isOver = spent > budget && budget > 0;
   const overBy = round2(isOver ? spent - budget : 0);
 
+  // Dynamic Pace Suggestions (Non-binding guidance):
+  const today = parseISO(todayStr);
+  const periodEndDate = parseISO(bounds.end);
+  const remainingDays = Math.max(1, differenceInCalendarDays(periodEndDate, today) + 1);
+
+  // Suggested Daily Pace to stay within budget
+  const suggestedDailyPace = Math.round(remaining / remainingDays);
+
+  // If Monthly mode: Suggested Weekly Pace
+  let suggestedWeeklyPace: number | undefined;
+  if (owner === 'monthly') {
+    suggestedWeeklyPace = Math.round((remaining / remainingDays) * 7);
+  }
+
+  // If Weekly mode: Projected Monthly Budget based on actual calendar days in current month (28, 29, 30, or 31 days)
+  let projectedMonthlyBudget: number | undefined;
+  if (owner === 'weekly') {
+    const daysInMonth = getDaysInMonth(today);
+    projectedMonthlyBudget = Math.round((fullAmount / 7) * daysInMonth);
+  }
+
   return {
     cadence: owner,
     periodStart: bounds.start,
@@ -467,6 +491,10 @@ export function getCurrentPeriodSummary(
     isOver,
     overBy,
     rolloverLabelDate: activeEnd,
+    remainingDays,
+    suggestedDailyPace,
+    suggestedWeeklyPace,
+    projectedMonthlyBudget,
   };
 }
 

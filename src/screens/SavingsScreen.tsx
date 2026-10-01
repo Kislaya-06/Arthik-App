@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react-native';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { GradientIconBadge } from '../components/GradientIconBadge';
@@ -34,6 +34,10 @@ import { formatCurrency, round2 } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
+import { useExpenseStore } from '../store/expenseStore';
+import { useCategoryStore, Category } from '../store/categoryStore';
+import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
+import { isIncomeTransaction } from '../lib/paymentUtils';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
@@ -49,6 +53,9 @@ import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 const INITIAL_RECORDS_COUNT = 8;
 const RECORDS_PAGE_SIZE = 8;
+
+const OVER_BUDGET_CORAL = '#FF7A6E';
+const OVER_BUDGET_CORAL_DOT = '#FF6B5E';
 
 type SavingsScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Savings'>,
@@ -93,6 +100,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const planChanges = useDailyBudgetStore((s) => s.planChanges);
+  const expenses = useExpenseStore((s) => s.expenses);
+  const categories = useCategoryStore((s) => s.categories);
 
   const handleDeleteDeposit = useCallback((id: string, amount: number) => {
     Alert.alert(
@@ -180,21 +191,85 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     saved: todaySaved,
   } = todayMetrics;
 
+  const catMap = useMemo(() => {
+    const m: Record<string, Category> = {};
+    for (let i = 0; i < categories.length; i++) {
+      m[categories[i].id] = categories[i];
+    }
+    return m;
+  }, [categories]);
+
+  const spentByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (let i = 0; i < expenses.length; i++) {
+      const e = expenses[i];
+      const cat = e.category_id ? catMap[e.category_id] : undefined;
+      if (isIncomeTransaction(e, cat)) continue;
+      const cleanDate = e.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      map[cleanDate] = (map[cleanDate] || 0) + (Number(e.amount) || 0);
+    }
+    return map;
+  }, [expenses, catMap]);
+
+  const todayKey = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+
+  const cadencePeriodSummary = useMemo(() => {
+    if (!isBudgetModeEnabled || budgetCadence === 'daily') return null;
+    return getCurrentPeriodSummary(planChanges, spentByDate, todayKey);
+  }, [isBudgetModeEnabled, budgetCadence, planChanges, spentByDate, todayKey]);
+
+  const isCadenceMode = isBudgetModeEnabled && budgetCadence !== 'daily';
+
+  const cardTitle = useMemo(() => {
+    if (budgetCadence === 'weekly') return 'Weekly Allowance';
+    if (budgetCadence === 'monthly') return 'Monthly Allowance';
+    return 'Daily Allowance';
+  }, [budgetCadence]);
+
+  const cardDateBadge = useMemo(() => {
+    if (budgetCadence === 'weekly' && cadencePeriodSummary) {
+      try {
+        const start = parseISO(cadencePeriodSummary.periodStart);
+        const end = parseISO(cadencePeriodSummary.periodEnd);
+        return `${format(start, 'd MMM')} – ${format(end, 'd MMM')}`;
+      } catch {
+        return 'This week';
+      }
+    }
+    if (budgetCadence === 'monthly' && cadencePeriodSummary) {
+      try {
+        const start = parseISO(cadencePeriodSummary.periodStart);
+        return format(start, 'MMMM yyyy');
+      } catch {
+        return 'This month';
+      }
+    }
+    return format(new Date(), 'd MMM');
+  }, [budgetCadence, cadencePeriodSummary]);
+
+  const cardBudget = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.budget : todayBudget;
+  const cardSpent = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.spent : todaySpent;
+  const cardRemaining = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.remaining : todayRemaining;
+  const cardIsOver = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.isOver : isOverBudget;
+  const cardOverAmount = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.overBy : overAmount;
+  const cardProgressRatio = cardBudget > 0 ? cardSpent / cardBudget : 0;
+
   const overspendHint = useMemo(() => {
-    if (!isOverBudget) {
-      return todayBudget > 0
-        ? `Save ${formatCurrency(todaySaved)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
+    if (!cardIsOver) {
+      return cardBudget > 0
+        ? `Save ${formatCurrency(cardRemaining)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
         : 'Set a limit to start saving';
     }
-    if (availableIncome >= overAmount) {
-      return `${formatCurrency(overAmount)} deducted from Income`;
+    if (availableIncome >= cardOverAmount) {
+      return `${formatCurrency(cardOverAmount)} deducted from Income`;
     } else if (availableIncome > 0) {
-      const fromGullak = round2(overAmount - availableIncome);
+      const fromGullak = round2(cardOverAmount - availableIncome);
       return `${formatCurrency(availableIncome)} from Income, ${formatCurrency(fromGullak)} from Gullak`;
     } else {
-      return `${formatCurrency(overAmount)} deducted from Gullak`;
+      return `${formatCurrency(cardOverAmount)} deducted from Gullak`;
     }
-  }, [isOverBudget, todayBudget, todaySaved, budgetCadence, availableIncome, overAmount]);
+  }, [cardIsOver, cardBudget, cardRemaining, budgetCadence, availableIncome, cardOverAmount]);
 
   // Scheduled budget cancellation handler
   const handleCancelScheduled = useCallback(() => {
@@ -242,13 +317,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   useEffect(() => {
     if (isAutoRenew) {
       Animated.timing(progressAnim, {
-        toValue: isOverBudget ? 1 : Math.min(1, Math.max(0, progressRatio)),
+        toValue: cardIsOver ? 1 : Math.min(1, Math.max(0, cardProgressRatio)),
         duration: 500,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
     }
-  }, [isAutoRenew, progressRatio, isOverBudget, progressAnim]);
+  }, [isAutoRenew, cardProgressRatio, cardIsOver, progressAnim]);
 
   const animatedProgressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -497,11 +572,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           <View style={styles.ucTopRow}>
             <View style={styles.ucTitleRow}>
               <Text style={[styles.ucTitle, { color: '#FFFFFF' }]}>
-                {budgetCadence === 'weekly'
-                  ? 'Weekly Budget'
-                  : budgetCadence === 'monthly'
-                  ? 'Monthly Budget'
-                  : 'Daily Allowance'}
+                {cardTitle}
               </Text>
               <View
                 style={[
@@ -513,25 +584,21 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                 ]}
               >
                 <Text style={[styles.ucDateBadgeText, { color: '#FFFFFF' }]}>
-                  {budgetCadence === 'weekly'
-                    ? 'This week'
-                    : budgetCadence === 'monthly'
-                    ? 'This month'
-                    : format(new Date(), 'd MMM')}
+                  {cardDateBadge}
                 </Text>
               </View>
             </View>
 
             {/* Unboxed High-Visibility Status Indicator */}
-            {isAutoRenew && todayBudget > 0 && (
+            {isAutoRenew && cardBudget > 0 && (
               <View style={styles.ucStatusRow}>
                 <View
                   style={[
                     styles.ucStatusDot,
                     {
-                      backgroundColor: isOverBudget
-                        ? '#EF4444'
-                        : progressRatio >= 0.8
+                      backgroundColor: cardIsOver
+                        ? OVER_BUDGET_CORAL_DOT
+                        : cardProgressRatio >= 0.8
                         ? '#FBBF24'
                         : '#FFFFFF',
                     },
@@ -541,15 +608,15 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   style={[
                     styles.ucStatusText,
                     {
-                      color: isOverBudget
-                        ? '#EF4444'
-                        : progressRatio >= 0.8
+                      color: cardIsOver
+                        ? OVER_BUDGET_CORAL
+                        : cardProgressRatio >= 0.8
                         ? '#FDE68A'
                         : '#FFFFFF',
                     },
                   ]}
                 >
-                  {isOverBudget ? 'Over budget' : progressRatio >= 0.8 ? 'Near limit' : 'On track'}
+                  {cardIsOver ? 'Over budget' : cardProgressRatio >= 0.8 ? 'Near limit' : 'On track'}
                 </Text>
               </View>
             )}
@@ -564,16 +631,16 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   <Text
                     style={[
                       styles.ucHeroLabel,
-                      { color: isOverBudget ? '#EF4444' : 'rgba(255, 255, 255, 0.75)' },
+                      { color: cardIsOver ? OVER_BUDGET_CORAL : 'rgba(255, 255, 255, 0.75)' },
                     ]}
                   >
-                    {isOverBudget ? 'EXCEEDED BY' : 'LEFT TO SPEND'}
+                    {cardIsOver ? 'EXCEEDED BY' : 'LEFT TO SPEND'}
                   </Text>
                   <View style={styles.ucAmountRow}>
                     <Text
                       style={[
                         styles.ucHeroCurrencySymbol,
-                        { color: isOverBudget ? '#EF4444' : '#FFFFFF' },
+                        { color: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF' },
                       ]}
                     >
                       ₹
@@ -581,10 +648,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     <Text
                       style={[
                         styles.ucHeroAmount,
-                        { color: isOverBudget ? '#EF4444' : '#FFFFFF' },
+                        { color: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF' },
                       ]}
                     >
-                      {(isOverBudget ? overAmount : todayRemaining).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      {(cardIsOver ? cardOverAmount : cardRemaining).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </Text>
                   </View>
                 </View>
@@ -611,7 +678,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   styles.ucProgressTrack,
                   { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
                 ]}
-                accessibilityLabel={`Spent ${formatCurrency(todaySpent)} of ${formatCurrency(todayBudget)} budget`}
+                accessibilityLabel={`Spent ${formatCurrency(cardSpent)} of ${formatCurrency(cardBudget)} budget`}
                 accessibilityRole="progressbar"
               >
                 <Animated.View
@@ -619,7 +686,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     styles.ucProgressFill,
                     {
                       width: animatedProgressWidth,
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF',
                     },
                   ]}
                 />
@@ -628,10 +695,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
               {/* Under-bar spending split */}
               <View style={styles.ucProgressLabels}>
                 <Text style={[styles.ucProgressLabelText, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                  Spent <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(todaySpent)}</Text>
+                  Spent <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(cardSpent)}</Text>
                 </Text>
                 <Text style={[styles.ucProgressLabelText, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                  <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(todayBudget)}</Text> budget
+                  <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(cardBudget)}</Text> budget
                 </Text>
               </View>
 
@@ -667,7 +734,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                       style={[
                         styles.ucFooterHint,
                         {
-                          color: isOverBudget ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
+                          color: isOverBudget ? OVER_BUDGET_CORAL : 'rgba(255, 255, 255, 0.85)',
                           fontFamily: isOverBudget ? FontFamily.semibold : FontFamily.medium,
                         },
                       ]}

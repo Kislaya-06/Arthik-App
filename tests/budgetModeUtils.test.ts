@@ -98,42 +98,42 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(getProrationPreview('weekly', 7000, '2026-10-05', '2026-10-04')).toBeNull();
     });
 
-    it('calculates prorated weekly budget and English preview with explanation for partial week', () => {
+    it('calculates unprorated weekly budget and English preview with pace guidance for partial week', () => {
       // 2026-10-02 is Friday; week ends Sunday 2026-10-04 (3 days remaining: Fri, Sat, Sun)
       const preview = getProrationPreview('weekly', 7000, '2026-10-02', '2026-10-01');
       expect(preview).not.toBeNull();
-      expect(preview?.isProrated).toBe(true);
+      expect(preview?.isProrated).toBe(false);
       expect(preview?.remainingDays).toBe(3);
-      expect(preview?.proratedAmount).toBe(3000); // 7000 * 3/7 = 3000
-      expect(preview?.previewText).toBe('Prorated allowance: ₹3,000 for remaining 3 days');
+      expect(preview?.proratedAmount).toBe(7000); // 100% real money intact
+      expect(preview?.previewText).toBe('Full ₹7,000 budget active for remaining 3 days');
       expect(preview?.explanationText).toBe(
-        'Spend ₹3,000 until Sunday. Unspent rolls to Gullak, and your full ₹7,000/week starts Monday.'
+        'Your full ₹7,000/week budget is 100% active until Sunday without proration. Suggested daily pace: ~₹2,333/day.'
       );
     });
 
-    it('calculates prorated weekly budget with singular day when 1 day remains', () => {
+    it('calculates unprorated weekly budget with singular day when 1 day remains', () => {
       // 2026-10-04 is Sunday; week ends Sunday 2026-10-04 (1 day remaining: Sun)
       const preview = getProrationPreview('weekly', 700, '2026-10-04', '2026-10-03');
       expect(preview).not.toBeNull();
-      expect(preview?.isProrated).toBe(true);
+      expect(preview?.isProrated).toBe(false);
       expect(preview?.remainingDays).toBe(1);
-      expect(preview?.proratedAmount).toBe(100); // 700 * 1/7 = 100
-      expect(preview?.previewText).toBe('Prorated allowance: ₹100 for remaining 1 day');
+      expect(preview?.proratedAmount).toBe(700); // 100% real money intact
+      expect(preview?.previewText).toBe('Full ₹700 budget active for remaining 1 day');
       expect(preview?.explanationText).toBe(
-        'Spend ₹100 until Sunday. Unspent rolls to Gullak, and your full ₹700/week starts Monday.'
+        'Your full ₹700/week budget is 100% active until Sunday without proration. Suggested daily pace: ~₹700/day.'
       );
     });
 
-    it('calculates prorated monthly budget for mid-month switch', () => {
+    it('calculates unprorated monthly budget for mid-month switch with pace guidance', () => {
       // 2026-10-16: October has 31 days. Remaining from 16 to 31 = 16 days.
       const preview = getProrationPreview('monthly', 31000, '2026-10-16', '2026-10-15');
       expect(preview).not.toBeNull();
-      expect(preview?.isProrated).toBe(true);
+      expect(preview?.isProrated).toBe(false);
       expect(preview?.remainingDays).toBe(16);
-      expect(preview?.proratedAmount).toBe(16000); // 31000 * 16 / 31 = 16000
-      expect(preview?.previewText).toBe('Prorated allowance: ₹16,000 for remaining 16 days');
+      expect(preview?.proratedAmount).toBe(31000); // 100% real money intact
+      expect(preview?.previewText).toBe('Full ₹31,000 budget active for remaining 16 days');
       expect(preview?.explanationText).toBe(
-        'Spend ₹16,000 until month-end. Unspent rolls to Gullak, and your full ₹31,000/month starts next month.'
+        'Your full ₹31,000/month budget is 100% active until month-end without proration. Suggested daily pace: ~₹1,938/day.'
       );
     });
   });
@@ -168,6 +168,8 @@ describe('budgetModeUtils (pure helpers)', () => {
         isOver: false,
         overBy: 0,
         rolloverLabelDate: '2026-10-04',
+        remainingDays: 3,
+        suggestedDailyPace: 767,
       };
       expect(formatCadenceRolloverStrip(summaryOnTrack, 'weekly')).toBe('₹2,300 rolls over to Gullak on Sunday');
 
@@ -194,6 +196,8 @@ describe('budgetModeUtils (pure helpers)', () => {
         isOver: false,
         overBy: 0,
         rolloverLabelDate: '2026-10-31',
+        remainingDays: 15,
+        suggestedDailyPace: 667,
       };
       expect(formatCadenceRolloverStrip(summaryMonthly, 'monthly')).toBe('₹10,000 rolls over to Gullak at month end');
     });

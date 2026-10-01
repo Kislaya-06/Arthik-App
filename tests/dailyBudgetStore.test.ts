@@ -448,5 +448,16 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(state.getTodayRecord().budget).toBe(100);
       expect(state.getTodayRecord().status).toBe('active');
     });
+
+    it('sets and persists lastRenewedPeriodKey, and clears it on reset', async () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      expect(useDailyBudgetStore.getState().lastRenewedPeriodKey).toBeNull();
+
+      await useDailyBudgetStore.getState().setLastRenewedPeriodKey('weekly_2026-10-05');
+      expect(useDailyBudgetStore.getState().lastRenewedPeriodKey).toBe('weekly_2026-10-05');
+
+      useDailyBudgetStore.getState().resetDailyBudget();
+      expect(useDailyBudgetStore.getState().lastRenewedPeriodKey).toBeNull();
+    });
   });
 });

@@ -289,6 +289,8 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
             isOver: false,
             overBy: 0,
             rolloverLabelDate: '2026-10-11',
+            remainingDays: 7,
+            suggestedDailyPace: 429,
           },
           'daily'
         )
@@ -308,6 +310,8 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
         isOver: false,
         overBy: 0,
         rolloverLabelDate: '2026-10-11',
+        remainingDays: 4,
+        suggestedDailyPace: 625,
       };
       expect(formatCadenceRolloverStrip(onTrack, 'weekly')).toBe('₹2,500 rolls over to Gullak on Sunday');
 
@@ -328,6 +332,8 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
         isOver: false,
         overBy: 0,
         rolloverLabelDate: '2026-10-31',
+        remainingDays: 16,
+        suggestedDailyPace: 750,
       };
       expect(formatCadenceRolloverStrip(onTrack, 'monthly')).toBe('₹12,000 rolls over to Gullak at month end');
 
