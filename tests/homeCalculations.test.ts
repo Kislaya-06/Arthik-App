@@ -403,7 +403,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.totalAvailable).toBe(1500);
       expect(result.primaryAmount).toBe(1300); // 1500 - 200
       expect(result.primaryLabel).toBe('Remaining to Spend');
-      expect(result.primarySubtext).toBe('₹500 budget + ₹1,000 deposits');
+      expect(result.primarySubtext).toBe('₹500 budget + ₹1,000 deposits to Gullak');
     });
 
     it('displays composite subtext with budget, income, and external deposits in Weekly filter', () => {
@@ -421,7 +421,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       // 2500 + 500 + 1000 = 4000 available
       expect(result.totalAvailable).toBe(4000);
       expect(result.primaryAmount).toBe(2800); // 4000 - 1200
-      expect(result.primarySubtext).toBe('₹2,500 budget (5 days) + ₹500 income + ₹1,000 deposits');
+      expect(result.primarySubtext).toBe('₹2,500 budget (5 days) + ₹500 income + ₹1,000 deposits to Gullak');
     });
 
     it('shows Remaining when user has no budget and no income, but has external deposits', () => {
@@ -439,7 +439,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.totalAvailable).toBe(500);
       expect(result.primaryAmount).toBe(300);
       expect(result.primaryLabel).toBe('Remaining to Spend');
-      expect(result.primarySubtext).toBe('₹500 external deposits');
+      expect(result.primarySubtext).toBe('₹500 deposits to Gullak');
     });
 
     it('getExternalDepositsInPeriod filters correctly by date and source', () => {

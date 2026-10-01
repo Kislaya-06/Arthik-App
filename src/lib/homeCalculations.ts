@@ -212,7 +212,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       const parts: string[] = [];
       parts.push(`${formatCurrency(budgetPool)} budget${daysSuffix}`);
       if (income > 0) parts.push(`${formatCurrency(income)} income`);
-      if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(externalDepositsInPeriod)} deposits`);
+      if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(externalDepositsInPeriod)} deposits to Gullak`);
       if (parts.length > 1) {
         subtext = parts.join(' + ');
       } else {
@@ -221,9 +221,9 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       }
     } else if (externalDepositsInPeriod > 0) {
       if (income > 0) {
-        subtext = `${formatCurrency(income)} income + ${formatCurrency(externalDepositsInPeriod)} deposits`;
+        subtext = `${formatCurrency(income)} income + ${formatCurrency(externalDepositsInPeriod)} deposits to Gullak`;
       } else {
-        subtext = `${formatCurrency(externalDepositsInPeriod)} external deposits`;
+        subtext = `${formatCurrency(externalDepositsInPeriod)} deposits to Gullak`;
       }
     }
   }

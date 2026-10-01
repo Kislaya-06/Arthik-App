@@ -14,10 +14,7 @@ import {
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { useTheme } from '../store/themeStore';
 import { RootStackParamList } from '../types';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { configureLayoutAnimation } from '../lib/animationUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Faq'>;
 type Category = 'All' | 'Budget Modes' | 'Daily Budget' | 'Gullak & Savings' | 'Streak & Rules' | 'Income & Expenses' | 'Offline & Privacy';
@@ -97,7 +94,7 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
   const [expandedId, setExpandedId] = useState<string | null>('bm_1');
 
   const toggleExpand = (id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    configureLayoutAnimation(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedId((prev) => (prev === id ? null : id));
   };
 

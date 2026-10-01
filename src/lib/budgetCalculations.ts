@@ -31,7 +31,8 @@ export const calculateSavingsMetrics = (
   todayStr: string,
   userCreatedAtStr: string | undefined,
   referenceDate: Date,
-  manualDeposits: number = 0
+  manualDeposits: number = 0,
+  availableIncome: number = 0
 ): SavingsMetrics => {
   let totalSaved = 0;
   let totalOverspent = 0;
@@ -62,8 +63,11 @@ export const calculateSavingsMetrics = (
     totalOverspent += (todayRec.spent - todayRec.budget);
   }
 
+  // Deduct from income first! Only overspent amount exceeding available income touches Gullak savings
+  const effectiveOverspent = Math.max(0, round2(totalOverspent - Math.max(0, availableIncome)));
+
   // Net accumulated savings cannot drop below 0 (includes manual Gullak deposits)
-  const netSavings = Math.max(0, round2(totalSaved - totalOverspent + manualDeposits));
+  const netSavings = Math.max(0, round2(totalSaved - effectiveOverspent + manualDeposits));
 
   const confirmedSavedDays = Object.values(records).filter(
     (r) => r.isFinalized && r.date < todayStr && r.status === 'saved' && (r.saved || 0) > 0 && (!userCreatedAt || r.date >= userCreatedAt)

@@ -30,7 +30,7 @@ import { StreakFlame } from '../components/StreakFlame';
 import { AnimatedToggle } from '../components/AnimatedToggle';
 
 import { useTheme } from '../store/themeStore';
-import { formatCurrency } from '../lib/formatters';
+import { formatCurrency, round2 } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
@@ -80,6 +80,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     budgetModal,
     openBudgetModal,
     closeBudgetModal,
+    availableIncome,
   } = useSavingsDashboard();
 
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
@@ -179,6 +180,22 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     saved: todaySaved,
   } = todayMetrics;
 
+  const overspendHint = useMemo(() => {
+    if (!isOverBudget) {
+      return todayBudget > 0
+        ? `Save ${formatCurrency(todaySaved)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
+        : 'Set a limit to start saving';
+    }
+    if (availableIncome >= overAmount) {
+      return `${formatCurrency(overAmount)} deducted from Income`;
+    } else if (availableIncome > 0) {
+      const fromGullak = round2(overAmount - availableIncome);
+      return `${formatCurrency(availableIncome)} from Income, ${formatCurrency(fromGullak)} from Gullak`;
+    } else {
+      return `${formatCurrency(overAmount)} deducted from Gullak`;
+    }
+  }, [isOverBudget, todayBudget, todaySaved, budgetCadence, availableIncome, overAmount]);
+
   // Scheduled budget cancellation handler
   const handleCancelScheduled = useCallback(() => {
     Alert.alert(
@@ -225,13 +242,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   useEffect(() => {
     if (isAutoRenew) {
       Animated.timing(progressAnim, {
-        toValue: Math.min(1, Math.max(0, progressRatio)),
+        toValue: isOverBudget ? 1 : Math.min(1, Math.max(0, progressRatio)),
         duration: 500,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
     }
-  }, [isAutoRenew, progressRatio, progressAnim]);
+  }, [isAutoRenew, progressRatio, isOverBudget, progressAnim]);
 
   const animatedProgressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -372,10 +389,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                 {totalAccumulatedSavings.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </Text>
             </View>
-            <Text style={[styles.heroHelperText, { color: isOverBudget ? '#FCA5A5' : 'rgba(255, 255, 255, 0.8)' }]}>
-              {isOverBudget
-                ? `🚨 -${formatCurrency(overAmount)} deducted today from Gullak`
-                : `Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
+            <Text style={[styles.heroHelperText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+              {`Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
             </Text>
           </View>
 
@@ -515,7 +530,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     styles.ucStatusDot,
                     {
                       backgroundColor: isOverBudget
-                        ? '#F87171'
+                        ? '#EF4444'
                         : progressRatio >= 0.8
                         ? '#FBBF24'
                         : '#FFFFFF',
@@ -527,7 +542,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     styles.ucStatusText,
                     {
                       color: isOverBudget
-                        ? '#FCA5A5'
+                        ? '#EF4444'
                         : progressRatio >= 0.8
                         ? '#FDE68A'
                         : '#FFFFFF',
@@ -549,7 +564,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   <Text
                     style={[
                       styles.ucHeroLabel,
-                      { color: isOverBudget ? '#FCA5A5' : 'rgba(255, 255, 255, 0.75)' },
+                      { color: isOverBudget ? '#EF4444' : 'rgba(255, 255, 255, 0.75)' },
                     ]}
                   >
                     {isOverBudget ? 'EXCEEDED BY' : 'LEFT TO SPEND'}
@@ -558,7 +573,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     <Text
                       style={[
                         styles.ucHeroCurrencySymbol,
-                        { color: isOverBudget ? '#FCA5A5' : '#FFFFFF' },
+                        { color: isOverBudget ? '#EF4444' : '#FFFFFF' },
                       ]}
                     >
                       ₹
@@ -566,7 +581,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     <Text
                       style={[
                         styles.ucHeroAmount,
-                        { color: isOverBudget ? '#FCA5A5' : '#FFFFFF' },
+                        { color: isOverBudget ? '#EF4444' : '#FFFFFF' },
                       ]}
                     >
                       {(isOverBudget ? overAmount : todayRemaining).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
@@ -574,18 +589,18 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   </View>
                 </View>
 
-                {/* Right Column: Sleek Unboxed Change Action Link */}
+                {/* Right Column: Highlighted Change Action Button */}
                 <View style={styles.ucHeroRight}>
                   <TouchableOpacity
                     onPress={() => openBudgetModal('recurring')}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    style={styles.ucChangeLink}
+                    activeOpacity={0.75}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.ucChangeBtn}
                   >
-                    <Text style={styles.ucChangeLinkText}>
+                    <Text style={styles.ucChangeBtnText}>
                       Change
                     </Text>
-                    <ChevronRight size={14} color="#FFFFFF" strokeWidth={2.5} />
+                    <ChevronRight size={13} color="#FFFFFF" strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -594,30 +609,20 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
               <View
                 style={[
                   styles.ucProgressTrack,
-                  { backgroundColor: 'rgba(255, 255, 255, 0.18)' },
+                  { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
                 ]}
                 accessibilityLabel={`Spent ${formatCurrency(todaySpent)} of ${formatCurrency(todayBudget)} budget`}
                 accessibilityRole="progressbar"
               >
-                <Animated.View style={[styles.ucProgressFill, { width: animatedProgressWidth }]}>
-                  <Svg width="100%" height="100%" preserveAspectRatio="none">
-                    <Defs>
-                      <SvgLinearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
-                        <Stop
-                          offset="0"
-                          stopColor={isOverBudget ? '#EF4444' : progressRatio >= 0.8 ? '#FCD34D' : '#FFFFFF'}
-                          stopOpacity={1}
-                        />
-                        <Stop
-                          offset="1"
-                          stopColor={isOverBudget ? '#B91C1C' : progressRatio >= 0.8 ? '#F59E0B' : '#E2E8F0'}
-                          stopOpacity={1}
-                        />
-                      </SvgLinearGradient>
-                    </Defs>
-                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#barGrad)" />
-                  </Svg>
-                </Animated.View>
+                <Animated.View
+                  style={[
+                    styles.ucProgressFill,
+                    {
+                      width: animatedProgressWidth,
+                      backgroundColor: '#FFFFFF',
+                    },
+                  ]}
+                />
               </View>
 
               {/* Under-bar spending split */}
@@ -648,16 +653,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                 </View>
               )}
 
-              {/* Row 4: Dedicated Auto-save Feature Capsule */}
-              <View
-                style={[
-                  styles.ucAutoSaveCapsule,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                ]}
-              >
+              {/* Row 4: Dedicated Auto-save Feature Row (Unboxed) */}
+              <View style={styles.ucAutoSaveCapsule}>
                 <View style={styles.ucAutoSaveLeft}>
                   <GradientIconBadge size={40} color="#FFFFFF" isDark={isDark}>
                     {({ iconColor }) => <PiggyBankCoinIcon size={20} color={iconColor} />}
@@ -666,12 +663,16 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     <Text style={[styles.ucAutoSaveLabel, { color: '#FFFFFF' }]}>
                       Auto-save unspent to Gullak
                     </Text>
-                    <Text style={[styles.ucFooterHint, { color: isOverBudget ? '#FCA5A5' : 'rgba(255, 255, 255, 0.85)' }]}>
-                      {isOverBudget
-                        ? `${formatCurrency(overAmount)} deducted from Gullak`
-                        : todayBudget > 0
-                        ? `Save ${formatCurrency(todaySaved)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
-                        : 'Set a limit to start saving'}
+                    <Text
+                      style={[
+                        styles.ucFooterHint,
+                        {
+                          color: isOverBudget ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
+                          fontFamily: isOverBudget ? FontFamily.semibold : FontFamily.medium,
+                        },
+                      ]}
+                    >
+                      {overspendHint}
                     </Text>
                   </View>
                 </View>
@@ -1138,15 +1139,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: 2,
   },
-  ucChangeLink: {
+  ucChangeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingVertical: 3,
-    paddingHorizontal: 2,
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  ucChangeLinkText: {
-    fontSize: 13,
+  ucChangeBtnText: {
+    fontSize: 12.5,
     fontFamily: FontFamily.bold,
     color: '#FFFFFF',
   },
@@ -1176,16 +1181,14 @@ const styles = StyleSheet.create({
   ucProgressLabelValue: {
     fontFamily: FontFamily.bold,
   },
-  // Auto-save Feature Capsule
+  // Auto-save Feature Row (Unboxed)
   ucAutoSaveCapsule: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 2,
+    paddingHorizontal: 0,
+    paddingVertical: 6,
+    marginTop: 4,
   },
   ucAutoSaveLeft: {
     flexDirection: 'row',

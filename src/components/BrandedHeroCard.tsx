@@ -15,7 +15,7 @@ import { DualRingChart } from './DualRingChart';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
-import { parseChipNumber, calculatePureHeroMetrics } from '../lib/homeCalculations';
+import { calculatePureHeroMetrics } from '../lib/homeCalculations';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { PeriodSummaryInfo } from '../lib/budgetPeriods';
 import { formatCadenceRolloverStrip } from '../lib/budgetModeUtils';
@@ -117,7 +117,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: DEFAULT_WIDTH,
-    height: 0,
+    height: 250,
   });
 
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
@@ -138,7 +138,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   }, []);
 
   const cardPath = useMemo(() => {
-    const h = dimensions.height > 0 ? dimensions.height : 210;
+    const h = dimensions.height > 0 ? dimensions.height : 250;
     return buildNotchedCardPath(dimensions.width, h, CORNER_RADIUS, podSize, GAP);
   }, [dimensions.width, dimensions.height, podSize]);
 
@@ -227,96 +227,77 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
-  // ── Rolling number animation for all values (Remaining/Expense, Income, Expense, Chips) ──
+  // ── Smooth number transition for all values (Remaining/Expense, Income, Expense) ──
+  const prevPrimaryRef = useRef(isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining);
+  const prevIncomeRef = useRef(isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow);
+  const prevSpentRef = useRef(isBudgetModeEnabled ? periodSpent : pureMetrics.outflow);
+  const isFirstRender = useRef(true);
+
   const countAnim = useRef(new Animated.Value(0)).current;
-  const [displayPrimaryAmount, setDisplayPrimaryAmount] = useState(0);
-  const [displayTotalAvailable, setDisplayTotalAvailable] = useState(0);
-  const [displayPeriodSpent, setDisplayPeriodSpent] = useState(0);
-  const [displaySubtextParts, setDisplaySubtextParts] = useState<string[]>(() => {
-    const parsedChips = subtextParts.map((p) => parseChipNumber(p));
-    return parsedChips.map((parsed, idx) => {
-      if (!parsed) return subtextParts[idx];
-      return `${parsed.prefix}0${parsed.suffix}`;
-    });
-  });
+  const [displayPrimaryAmount, setDisplayPrimaryAmount] = useState(
+    () => (isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining)
+  );
+  const [displayTotalAvailable, setDisplayTotalAvailable] = useState(
+    () => (isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow)
+  );
+  const [displayPeriodSpent, setDisplayPeriodSpent] = useState(
+    () => (isBudgetModeEnabled ? periodSpent : pureMetrics.outflow)
+  );
 
   useEffect(() => {
     let isMounted = true;
-    countAnim.setValue(0);
-    setDisplayPrimaryAmount(0);
-    setDisplayTotalAvailable(0);
-    setDisplayPeriodSpent(0);
-
-    const parsedChips = subtextParts.map((p) => parseChipNumber(p));
-    if (parsedChips.length > 0) {
-      setDisplaySubtextParts(
-        parsedChips.map((parsed, idx) => {
-          if (!parsed) return subtextParts[idx];
-          return `${parsed.prefix}0${parsed.suffix}`;
-        })
-      );
-    } else {
-      setDisplaySubtextParts([]);
-    }
-
-    const animation = Animated.timing(countAnim, {
-      toValue: 1,
-      duration: 480,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    });
-
     const targetPrimary = isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining;
     const targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
     const targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
 
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      prevPrimaryRef.current = targetPrimary;
+      prevIncomeRef.current = targetIncome;
+      prevSpentRef.current = targetSpent;
+      setDisplayPrimaryAmount(targetPrimary);
+      setDisplayTotalAvailable(targetIncome);
+      setDisplayPeriodSpent(targetSpent);
+      return;
+    }
+
+    const startPrimary = prevPrimaryRef.current;
+    const startIncome = prevIncomeRef.current;
+    const startSpent = prevSpentRef.current;
+
+    if (startPrimary === targetPrimary && startIncome === targetIncome && startSpent === targetSpent) {
+      return;
+    }
+
+    countAnim.setValue(0);
+    const animation = Animated.timing(countAnim, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
+
     const listenerId = countAnim.addListener(({ value }) => {
       if (!isMounted) return;
 
-      // Primary Amount (Total Remaining in Budget Mode, Total Expense in Pure Mode)
-      const hasPrimaryDec = !Number.isInteger(targetPrimary);
-      const curPrimary = hasPrimaryDec
-        ? Math.round(targetPrimary * value * 10) / 10
-        : Math.round(targetPrimary * value);
+      const curPrimary = round2(startPrimary + (targetPrimary - startPrimary) * value);
       setDisplayPrimaryAmount(curPrimary);
 
-      // Total Available / Inflow
-      const hasIncomeDec = !Number.isInteger(targetIncome);
-      const curIncome = hasIncomeDec
-        ? Math.round(targetIncome * value * 10) / 10
-        : Math.round(targetIncome * value);
+      const curIncome = round2(startIncome + (targetIncome - startIncome) * value);
       setDisplayTotalAvailable(curIncome);
 
-      // Period Spent / Outflow
-      const hasExpenseDec = !Number.isInteger(targetSpent);
-      const curExpense = hasExpenseDec
-        ? Math.round(targetSpent * value * 10) / 10
-        : Math.round(targetSpent * value);
-      setDisplayPeriodSpent(curExpense);
-
-      // Chips (budget mode only)
-      if (parsedChips.length > 0) {
-        setDisplaySubtextParts(
-          parsedChips.map((parsed, idx) => {
-            if (!parsed) return subtextParts[idx];
-            const curChip = parsed.hasDecimals
-              ? Math.round(parsed.numericValue * value * 10) / 10
-              : Math.round(parsed.numericValue * value);
-            const formatted = curChip.toLocaleString('en-IN', {
-              maximumFractionDigits: parsed.hasDecimals ? 1 : 0,
-            });
-            return `${parsed.prefix}${formatted}${parsed.suffix}`;
-          })
-        );
-      }
+      const curSpent = round2(startSpent + (targetSpent - startSpent) * value);
+      setDisplayPeriodSpent(curSpent);
     });
 
     animation.start(({ finished }) => {
       if (finished && isMounted) {
+        prevPrimaryRef.current = targetPrimary;
+        prevIncomeRef.current = targetIncome;
+        prevSpentRef.current = targetSpent;
         setDisplayPrimaryAmount(targetPrimary);
         setDisplayTotalAvailable(targetIncome);
         setDisplayPeriodSpent(targetSpent);
-        setDisplaySubtextParts(subtextParts);
       }
     });
 
@@ -324,6 +305,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       isMounted = false;
       countAnim.removeListener(listenerId);
       animation.stop();
+      prevPrimaryRef.current = targetPrimary;
+      prevIncomeRef.current = targetIncome;
+      prevSpentRef.current = targetSpent;
     };
   }, [
     activeFilter,
@@ -331,9 +315,8 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     totalAvailable,
     periodSpent,
     effectiveSubtext,
-    countAnim,
     isBudgetModeEnabled,
-    pureMetrics.totalExpense,
+    pureMetrics.totalRemaining,
     pureMetrics.inflow,
     pureMetrics.outflow,
   ]);
@@ -348,8 +331,10 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         {/* ── SVG Notched Background ── */}
         {dimensions.width > 0 && dimensions.height > 0 && (
           <Svg
-            width={dimensions.width}
-            height={dimensions.height}
+            width="100%"
+            height="100%"
+            viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+            preserveAspectRatio="none"
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           >
@@ -392,9 +377,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             </Text>
 
             {/* Subtext Chips (Budget mode only) */}
-            {isBudgetModeEnabled && displaySubtextParts.length > 0 && (
+            {isBudgetModeEnabled && subtextParts.length > 0 && (
               <View style={styles.subtextContainer}>
-                {displaySubtextParts.map((part, idx) => (
+                {subtextParts.map((part, idx) => (
                   <View
                     key={idx}
                     style={[
@@ -592,19 +577,19 @@ const styles = StyleSheet.create({
   subtextContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 5,
-    marginTop: 8,
+    gap: 6,
+    marginTop: 9,
   },
   subtextChip: {
     backgroundColor: 'rgba(26, 43, 76, 0.08)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   subtextChipText: {
-    fontSize: 11,
-    fontFamily: FontFamily.medium,
-    color: 'rgba(26, 43, 76, 0.85)',
+    fontSize: 12.5,
+    fontFamily: FontFamily.semibold,
+    color: 'rgba(26, 43, 76, 0.88)',
     includeFontPadding: false,
   },
   // Inflow & Outflow unboxed layout matching user reference

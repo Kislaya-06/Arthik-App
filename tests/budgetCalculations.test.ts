@@ -174,6 +174,14 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
       // 300 saved yesterday - 200 today live overspent = 100
       expect(metricsOverspend.totalAccumulatedSavings).toBe(100);
 
+      // When user has available income >= 200 (e.g. 500), income absorbs overspend; Gullak remains intact at 300
+      const metricsWithIncome = calculateSavingsMetrics(recordsWithLiveOverspend, TODAY_STR, USER_CREATED, FIXED_REF_DATE, 0, 500);
+      expect(metricsWithIncome.totalAccumulatedSavings).toBe(300);
+
+      // When available income covers part (e.g. 150 of 200), only remaining 50 is deducted from Gullak => 250
+      const metricsPartialIncome = calculateSavingsMetrics(recordsWithLiveOverspend, TODAY_STR, USER_CREATED, FIXED_REF_DATE, 0, 150);
+      expect(metricsPartialIncome.totalAccumulatedSavings).toBe(250);
+
       const recordsWithLiveSaving: Record<string, DailyRecord> = {
         '2026-09-17': {
           date: '2026-09-17',

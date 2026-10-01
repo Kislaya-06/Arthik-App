@@ -9,6 +9,8 @@ import {
   Pressable,
   Animated,
   Vibration,
+  Platform,
+  LayoutAnimation,
   GestureResponderEvent,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -39,6 +41,7 @@ import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
+import { configureLayoutAnimation } from '../lib/animationUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 type HomeScreenProps = CompositeScreenProps<
@@ -93,6 +96,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState<Filter>('Daily');
   const [todayKey, setTodayKey] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const referenceDate = useMemo(() => parseISO(todayKey), [todayKey]);
+
+  const handleFilterChange = useCallback((newFilter: Filter) => {
+    if (newFilter !== activeFilter) {
+      configureLayoutAnimation(LayoutAnimation.Presets.easeInEaseOut);
+      setActiveFilter(newFilter);
+    }
+  }, [activeFilter]);
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
@@ -381,7 +391,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <View style={styles.filterToggleWrapper}>
             <BouncyFilterToggle
               value={activeFilter}
-              onChange={setActiveFilter}
+              onChange={handleFilterChange}
               options={FILTERS}
             />
           </View>

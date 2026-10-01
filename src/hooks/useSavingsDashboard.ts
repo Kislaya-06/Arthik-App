@@ -23,6 +23,7 @@ export interface UseSavingsDashboardReturn {
   effectiveStreak: number;
   effectiveBestStreak: number;
   savedDaysCount: number;
+  availableIncome: number;
   todayRecord: DailyRecord;
   todayMetrics: TodayMetrics;
 
@@ -67,6 +68,14 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
   const getPastRecordsList = useDailyBudgetStore((s) => s.getPastRecordsList);
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
+  const expenses = useExpenseStore((s) => s.expenses);
+
+  const availableIncome = useMemo(
+    () => getAvailableIncomeBalance(),
+    [getAvailableIncomeBalance, expenses, gullakDeposits]
+  );
 
   // Modal state
   const [budgetModal, setBudgetModal] = useState<{
@@ -184,5 +193,6 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
     budgetModal,
     openBudgetModal,
     closeBudgetModal,
+    availableIncome,
   };
 }

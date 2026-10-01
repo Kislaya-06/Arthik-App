@@ -238,19 +238,31 @@ const computeMetrics = (
   userCreatedAt?: string,
   budgetPeriods?: Record<string, BudgetPeriodRecord>,
   currentCadence: BudgetCadence = 'daily',
-  existingBestStreakByCadence?: Record<BudgetCadence, number>
+  existingBestStreakByCadence?: Record<BudgetCadence, number>,
+  availableIncome?: number
 ) => {
   const manual =
     deposits && Array.isArray(deposits)
       ? deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0)
       : 0;
 
+  let incomeAvail = availableIncome;
+  if (incomeAvail === undefined) {
+    const isIncomeFn = buildCategoryClassifier();
+    const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isIncomeFn(e) ? (Number(e.amount) || 0) : 0), 0);
+    const incomeDeposits = (deposits && Array.isArray(deposits))
+      ? deposits.reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0)
+      : 0;
+    incomeAvail = round2(Math.max(0, totalIncome - incomeDeposits));
+  }
+
   const dailyMetrics = calculateSavingsMetrics(
     records,
     getTodayDateStr(),
     userCreatedAt ?? getUserCreatedAtStr(),
     new Date(),
-    manual
+    manual,
+    incomeAvail
   );
 
   let periodsSaved = 0;

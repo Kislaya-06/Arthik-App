@@ -317,7 +317,7 @@ describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
       // totalAvailable = 2500 + 1000 + 1500 = 5000
       expect(summary.totalAvailable).toBe(5000);
       expect(summary.primaryAmount).toBe(4600); // 5000 - 400 spent
-      expect(summary.primarySubtext).toBe('₹2,500 budget + ₹1,000 income + ₹1,500 deposits');
+      expect(summary.primarySubtext).toBe('₹2,500 budget + ₹1,000 income + ₹1,500 deposits to Gullak');
 
       // Verify Weekly filter includes daysSuffix: " (5 days)"
       const weeklySummary = calculatePeriodSummary({
@@ -327,7 +327,7 @@ describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
         externalDepositsInPeriod: externalDeposits,
       });
       expect(weeklySummary.totalAvailable).toBe(5000);
-      expect(weeklySummary.primarySubtext).toBe('₹2,500 budget (5 days) + ₹1,000 income + ₹1,500 deposits');
+      expect(weeklySummary.primarySubtext).toBe('₹2,500 budget (5 days) + ₹1,000 income + ₹1,500 deposits to Gullak');
     });
 
     it('handles User Persona B (NO daily allowance) with external deposits', () => {
@@ -356,7 +356,7 @@ describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
       expect(summary.totalAvailable).toBe(2000);
       expect(summary.primaryAmount).toBe(1650); // 2000 - 350 spent
       expect(summary.primaryLabel).toBe('Remaining to Spend');
-      expect(summary.primarySubtext).toBe('₹2,000 external deposits');
+      expect(summary.primarySubtext).toBe('₹2,000 deposits to Gullak');
     });
 
     it('handles User Persona B (NO daily allowance) with both income and external deposits', () => {
@@ -374,7 +374,7 @@ describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
       // totalAvailable = 0 budget + 1200 income + 800 deposits = 2000
       expect(summary.totalAvailable).toBe(2000);
       expect(summary.primaryAmount).toBe(1500); // 2000 - 500 spent
-      expect(summary.primarySubtext).toBe('₹1,200 income + ₹800 deposits');
+      expect(summary.primarySubtext).toBe('₹1,200 income + ₹800 deposits to Gullak');
     });
 
     it('correctly filters external deposits across Daily, Weekly, Monthly, and All windows', () => {

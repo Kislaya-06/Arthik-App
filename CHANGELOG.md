@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 💰 Income Protection for Overspending & Gullak Integrity
+- **Income Buffer for Overspend:** Overspending from daily/weekly/monthly allowances is now absorbed by available income first before any deduction is made from Gullak savings (`calculateSavingsMetrics` and `dailyBudgetStore`).
+- **Gullak Card Helper Protection:** The main "Your Daily Gullak" hero card no longer shows overspend penalty text; it consistently displays positive lifetime savings context.
+- **Allowance Card Deduction Clarification:** When overspending occurs, the Allowance Card's footer now explicitly states `₹... deducted from Income` whenever available income covers the excess expenditure.
+- **Hero Card Chips Enhancement:** Renamed external deposit subtext chip from `deposits` to `deposits to Gullak` for immediate user clarity, and enlarged the chip size, padding, and font across Daily, Weekly, Monthly, and All time views.
+
 ### 🖤 AMOLED Pure Black Theme & 3-Theme Selector
 - **True AMOLED Theme (`AmoledColors`):** Implemented a pure black (`#000000`) flagship AMOLED theme optimized for OLED/AMOLED battery saving and high contrast:
   - Base canvas set to pitch black (`#000000`).
@@ -48,6 +54,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Luminous Amount Input:** Framed the hero amount in frosted glass with a glowing `#ADEBB3` currency sign and crisp white tabular numerals.
   - **Decluttered Explainer Badge:** Removed the duplicate `(!)` badge from the Prorated allowance card, retaining a single, clear `MoneyHelpBadge` in the modal header for clean hierarchy.
   - **Refined Actions & Keypad:** Added a circular frosted close button, frosted cancel action pill, and bold mint `Save Budget` button with clear contrast.
+- **Allowance Card Button, Colors & Progress Bar Refinements (`SavingsScreen`):**
+  - **Thematic Vivid Red for Over-Budget State:** Aligned all over-budget indicators with the app's official theme danger red (`#EF4444`):
+    - Over-budget status dot and "Over budget" text are rendered in high-saturation `#EF4444`.
+    - Hero amount (e.g. `₹10`) and "EXCEEDED BY" label now use bold `#EF4444` rather than faded peach/salmon.
+    - Deduction hint (e.g. `₹10 deducted from Income` / `₹10 deducted from Gullak`) is now rendered in matching `#EF4444` with semibold typography for unmistakable feedback.
+  - **Unboxed Auto-Save Feature Row:** Removed the translucent box container surrounding "Auto-save unspent to Gullak" for a clean, cohesive, and unboxed presentation.
+  - **Highlighted "Change >" Action Button:** Transferred the tactile translucent button styling onto the `Change >` action with a frosted white background (`rgba(255, 255, 255, 0.16)`), subtle border, and rounded corners so it reads clearly as an interactive button.
+  - **Clean White Progress Bar:** Replaced the red progress bar fill with a solid, high-contrast pure white (`#FFFFFF`) fill.
+  - **100% Full-Width Fill on Overspend:** Progress bar now expands across the full 100% width of the track when over budget (rather than stopping halfway when exceeded).
+- **Fluid Filter Height Transitions & New Architecture Warning Fix (`HomeScreen`, `FaqScreen` & `BrandedHeroCard`):**
+  - **New Architecture LayoutAnimation Safe Helper (`animationUtils.ts`):** Created `configureLayoutAnimation` and `enableLayoutAnimationOnAndroid` guarded against Fabric (`nativeFabricUIManager`), eliminating the repetitive `WARN setLayoutAnimationEnabledExperimental is currently a no-op in the New Architecture` warnings while preserving native layout animations across both Old and New Architectures.
+  - **Native Layout Animation:** Enabled `configureLayoutAnimation` when switching between `All`, `Daily`, `Weekly`, and `Monthly` time filters, giving smooth, fluid card height expansion and contraction without sudden snaps.
+  - **Responsive SVG Background Scaling:** Styled the notched card SVG with responsive 100% dimensions, dynamic `viewBox`, and `preserveAspectRatio="none"` so the background seamlessly tracks the card's native frame during transitions without visual tearing or black gaps.
+  - **Zero-Blink Number Interpolation:** Replaced the count-to-zero animation with smooth previous-to-target numerical interpolation and direct chip rendering, completely eliminating the 0-flash and layout flicker on filter switches.
 - **Premium Unified Daily Allowance Card (`SavingsScreen`):** Redesigned the allowance and budget hub into an ultra-premium, compact fintech card avoiding generic AI slop:
   - **Matching Violet SVG Gradient & Seamless Bottom:** Applied the exact same violet-to-deep-purple SVG linear gradient (`#8B5CF6` to `#581C87`) with dynamic `onLayout` card measurement, completely eliminating the dark horizontal band artifact at the bottom of the card.
   - **Strictly Compact Form Factor:** Preserved compact vertical padding and density without enlarging the card dimensions.
