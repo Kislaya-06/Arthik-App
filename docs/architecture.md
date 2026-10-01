@@ -8,7 +8,11 @@
 
 ## 1. System Overview
 
-Arthik is a single-user personal finance app for Android. It tracks daily expenses, income, and automatically accumulates unspent daily budget into a savings pot called the **Gullak**. The app is built to work fully offline and sync to Supabase when connectivity is available.
+Arthik is a single-user personal finance mobile app for Android. It operates under two high-level operational modes:
+1. **Pure Mode (`is_budget_mode_enabled: false`)**: Pure, unconstrained expense and income tracking with a 4-tab interface, cashflow overview, and concentric Dual Ring chart.
+2. **Budget Mode (`is_budget_mode_enabled: true`)**: Structured financial discipline across three cadences (**Daily**, **Weekly**, **Monthly**), dynamic non-binding pace suggestions, automatic period rollovers into a digital **Gullak** (savings reserve), and next-day cadence switching.
+
+Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real-Money Invariant**: every rupee tracked represents real money in the user's possession. Outflows cannot be created if available liquidity is zero, and mid-cycle switches preserve unspent capital without artificial proration or premature Gullak dumps. The app is built offline-first and syncs to Supabase when connectivity is available.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -42,10 +46,10 @@ Arthik is a single-user personal finance app for Android. It tracks daily expens
 | **Navigation** | Screen routing, typed params | `src/navigation/index.tsx`, `src/navigation/navigationRef.ts`, `src/types/index.ts` |
 | **Screens** | UI render + dispatch store actions | `src/screens/**` |
 | **Stores** | Business logic, Supabase I/O, offline queues, derived state | `src/store/**` |
-| **Pure Helpers** | Stateless calculations, formatters, classifiers | `src/lib/**` |
-| **Components** | Shared UI atoms | `src/components/**` |
-| **Config** | Supabase client, design tokens | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests | `tests/**` |
+| **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` |
+| **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**` |
+| **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
+| **Tests** | Vitest unit tests (36 files, 606 tests) | `tests/**` |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
 ### Strict boundary rule
@@ -61,12 +65,12 @@ Nine Zustand stores. Each owns a well-defined domain.
 |---|---|---|---|
 | `authStore` | Session, user profile, sign-in/out | No | — (orchestrates resets) |
 | `expenseStore` | Transaction CRUD, offline queues, sync | No (manual AsyncStorage) | ✅ `resetExpenses` |
-| `dailyBudgetStore` | Daily budget, rollover, Gullak, streak | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
+| `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
 | `categoryStore` | User categories, placeholders, cache | No (manual AsyncStorage) | ✅ `resetCategories` |
 | `notificationStore` | In-app notification list, unread count | No (manual AsyncStorage) | ✅ `clearNotifications` |
 | `networkStore` | Online/offline flag, banner state | No | — |
 | `navBarStore` | Bottom navigation bar visibility | No | — |
-| `themeStore` | Light / dark / system theme | No (reads `Appearance`) | — |
+| `themeStore` | Light / dark / amoled theme | No (reads `Appearance` / AsyncStorage) | — |
 | `appLockStore` | Biometric gate, lock/unlock state | No (manual AsyncStorage) | ✅ `reset` |
 
 ### Cross-store wiring (no circular imports)
@@ -125,6 +129,7 @@ Optimistic update in Zustand state (pending: true)
 | `@arthik_failed_sync_<userId>` | Permanently failed items |
 | `@arthik_cached_expenses_<userId>` | Cold-start expense cache |
 | `@arthik_cached_categories_<userId>` | Cold-start category cache |
+| `@arthik_pending_settings_<userId>` | Pending profile budget changes |
 | `@arthik_app_lock_enabled` | Global biometric lock preference |
 | `@arthik_app_lock_enabled_<userId>` | Per-user biometric lock preference |
 | `arthik-daily-budget-storage-v2` | Persisted Zustand daily budget slice |
@@ -150,39 +155,53 @@ App boot (App.tsx: auth state listener fires)
 
 ---
 
-## 6. Daily Budget & Gullak Engine
+## 6. Budget Modes, Cadence Periods & Gullak Engine
 
-The financial heart of the app. See [daily-budget-map.md](maps/daily-budget-map.md) for the full function catalog.
+See [`docs/adr/0010-budget-cadence-periods.md`](adr/0010-budget-cadence-periods.md), [`docs/adr/0011-zero-proration-and-digital-vault-spending-guard.md`](adr/0011-zero-proration-and-digital-vault-spending-guard.md), and [`docs/maps/daily-budget-map.md`](maps/daily-budget-map.md).
 
-### Day status state machine
+### 6.1 Multi-Cadence Budget Architecture
+Arthik supports three distinct budget cadences:
+- **Daily**: Day-by-day allowance renewed each midnight.
+- **Weekly**: Calendar weeks starting Monday 00:00:00 and ending Sunday 23:59:59.
+- **Monthly**: Calendar months starting on the 1st and ending on the final calendar day (28, 29, 30, or 31 days).
+
+### 6.2 Zero-Proration Policy & Dynamic Pacing Guidance
+Entered budgets are **never scaled down or prorated** due to mid-cycle starts or switches. The full user-entered budget becomes active immediately for the remainder of the period (`isProrated: false`). Dynamic non-binding guidance is calculated by `getCurrentPeriodSummary`:
+- **Daily Pace**: `remainingBudget / remainingDays`
+- **Weekly Pace**: `(remainingBudget / remainingDays) * 7`
+- **Projected Monthly Budget**: `(weeklyBudget / 7) * daysInMonth`
+
+### 6.3 Next-Day Cadence Switching & Carry-Forward Engine
+- Switching cadences takes effect **tomorrow at 12:00 AM (00:00:00)** (`computeEffectiveFrom`), allowing today's budget and transactions to conclude cleanly under the active plan.
+- **Zero Mid-Cycle Gullak Dumps (Golden Invariant)**: Mid-cycle cadence switching carries unspent funds forward into the new cadence rather than prematurely dumping them into Gullak (`amountSaved = 0`).
+- **Carry-Forward Modes**:
+  - **Additive (`'additive'`)**: Remaining balance is added on top of the target budget ceiling (`targetBudget + carriedOverAmount`). Default.
+  - **Allocation (`'allocation'`)**: Carried funds provide a pre-funded headstart toward the target budget ceiling.
+- **Deficit Isolation**: Overspent periods are settled from available income/Gullak reserves; they clamp to 0 (`Math.max(0, ...)`) and never carry negative debt into a new cadence.
+
+### 6.4 Natural Cycle Rollover vs. Mid-Cycle Switches
+Gullak savings deposits happen **exclusively upon the natural completion of a full cycle**:
+- Daily at 23:59:59 $\to$ unspent daily allowance saved to Gullak.
+- Weekly on Sunday at 23:59:59 $\to$ unspent weekly allowance saved to Gullak.
+- Monthly at month-end 23:59:59 $\to$ unspent monthly allowance saved to Gullak.
+
+### 6.5 Digital Vault Spending Guard
+Arthik operates as a financial bank vault (`src/lib/vaultSpendingGuard.ts`):
+- If total net liquid funds (active cadence allowance + logged income + external savings) equal ₹0, outflow (expense) creation is blocked at the input boundary (`canAddExpense: false`).
+- Users are prompted to add income or configure their allowance before spending money that does not exist.
+- Overspending against a single cadence limit is permitted when backed by available income or liquid reserves.
+
+### 6.6 Gullak Total Accumulated Savings Formula
 
 ```
-     ┌──────────────────────────────────────────────────────┐
-     │   ACTIVE (today, not yet finalized)                  │
-     │   spent <= budget                                    │
-     └──────────────────────────┬───────────────────────────┘
-                                │ midnight (checkAndRollover)
-             ┌──────────────────┼────────────────────────────┐
-             ▼                  ▼                            ▼
-          SAVED              EXCEEDED                      EVEN
-     (saved > 0)          (spent > budget)         (spent == budget)
-          │                    │                            │
-          └──────────── Finalized, locked ──────────────────┘
-                               │
-                          UNKNOWN (budget == 0 or untracked day)
+totalAccumulatedSavings = Σ(DailyRecord.saved for finalized days)
+                        + Σ(BudgetPeriodRecord.amountSaved for finalized weekly/monthly periods)
+                        + Σ(GullakDeposit.amount for all deposits)
+                        − Σ(DailyRecord overspend not covered by income)
 ```
+Overspending from allowances is absorbed by available income first before any deduction from Gullak savings.
 
-### Gullak total accumulated savings formula
-
-```
-totalAccumulatedSavings = Σ(DailyRecord.saved for all finalized days)
-                        + Σ(GullakDeposit.amount for all manual deposits)
-                        − Σ(DailyRecord overspend for exceeded days)
-```
-
-Computed by `calculateSavingsMetrics` in `src/lib/budgetCalculations.ts`.
-
-### Income classification (unified, single engine)
+### 6.7 Income classification (unified, single engine)
 
 See [ADR 0008](adr/0008-unified-income-classification.md). Single function `isIncomeTransaction(item, category)` in `src/lib/paymentUtils.ts` is used everywhere:
 1. Check `item.type === 'income'` → true
@@ -209,8 +228,10 @@ See [ADR 0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md).
 ## 8. Navigation
 
 React Navigation v7 with:
-- **Root Stack**: `NativeStack` — Splash, Auth, Onboarding, ProfileSetup, ResetPassword, ExpenseForm, ExpenseDetail, CategoryDetail, ManageCategories, AddEditCategory, Notifications, Profile
-- **Tab Navigator** (inside Root Stack): Home, History, Insights, Savings (custom `BottomNavBar`)
+- **Root Stack**: `NativeStack` — `Splash`, `Auth`, `Onboarding`, `ProfileSetup`, `ResetPassword`, `ExpenseForm`, `ExpenseDetail`, `CategoryDetail`, `ManageCategories`, `AddEditCategory`, `Notifications`, `Profile`, `GullakDepositDetailScreen`, `FaqScreen`
+- **Tab Navigator** (inside Root Stack):
+  - **Pure Mode**: 4 tabs (`Home`, `History`, `Add`, `Insights`). Direct attempts to access `Savings` safely redirect to `Home`.
+  - **Budget Mode**: 5 tabs (`Home`, `Savings`, `Add`, `History`, `Insights`) with smooth capsule bar transition.
 
 All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`). Imperative navigation via `navigationRef`.
 
@@ -218,10 +239,10 @@ All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`).
 
 ## 9. UI System
 
-- **Theme**: `src/config/theme.ts` — `LightColors`, `DarkColors`, `Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`. Active theme via `themeStore`.
+- **Theme**: `src/config/theme.ts` — `LightColors`, `DarkColors` (with true AMOLED obsidian `DarkColors.amoled`), `Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`. 3-theme picker supported on Profile (Light, Dark, AMOLED).
 - **Fonts**: Quicksand (400/500/600/700) via `@expo-google-fonts/quicksand`.
-- **Icons**: `lucide-react-native` (1.24+).
-- **Charts**: `react-native-svg` (15.15).
+- **Icons**: `lucide-react-native` (1.24+). Feature icons and badges strictly utilize `GradientIconBadge`.
+- **Charts**: `react-native-svg` (15.15) — Concentric Dual Ring chart, animated donut rings, and gradient flow bars.
 - **Safe Area**: `useSafeAreaInsets` from `react-native-safe-area-context`. Never `SafeAreaView` from `react-native`.
 - **Bottom Nav**: Custom floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`.
 
@@ -248,28 +269,46 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v1.2.4**: 18 test files, 308 tests, ~645 ms.
+**Coverage as of v1.2.4**: 36 test files, 606 tests, ~1.5s execution time.
 
 | Test file | What it covers |
 |---|---|
-| `expenseStore.test.ts` | Offline queue add/update/delete, optimistic pending, sync on reconnect, user isolation, sign-out reset |
-| `dailyBudgetStore.test.ts` | Rollover finalization (saved/exceeded), hydration guard, gullak deposits, store reset |
-| `categoryStore.test.ts` | CRUD, ordering, user isolation, sign-out reset |
-| `appLockStore.test.ts` | Biometric toggle, persistence, sign-out reset |
+| `amountKeypad.test.ts` | Calculator operators, ceiling limits, backspace, decimal paise parsing |
+| `animationUtils.test.ts` | Spring physics, layout transitions, easing curves |
+| `appLockStore.test.ts` | Biometric toggle, persistence, multi-user isolation, sign-out reset |
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
+| `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
+| `brandedHeroCard.test.ts` | Branded hero card metrics, dynamic pace presentation, non-binding hints |
+| `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`exceeded`/`even`/`unknown`), duplicate prevention |
+| `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, persistence |
+| `budgetModeUtils.test.ts` | Unprorated pacing previews, calendar streak cards, monthly matrices |
+| `budgetPeriods.test.ts` | Period timeline engine, active slices, finalization, idempotency |
+| `budgetUtils.test.ts` | Budget resolution helpers, fallback logic, allowance math |
+| `cadenceSwitch.test.ts` | Next-day switch planning, Additive vs Allocation carry-forward, capacity limits |
+| `categoryStore.test.ts` | CRUD, ordering, user isolation, orphan prevention, sign-out reset |
+| `chartUtils.test.ts` | SVG donut sweep calculations, flow bar coordinate mapping, color palettes |
+| `colorUtils.test.ts` | Dynamic hex resolution, contrast math, gradient pairs |
+| `dailyBudgetStore.test.ts` | Rollover finalization, hydration guard, Gullak deposits, store reset |
+| `dateFilters.test.ts` | Date range boundary logic, ISO string manipulation |
+| `deepLinkGuard.test.ts` | Session fixation prevention, deep link validation |
+| `expenseFilters.test.ts` | Transaction filtering, category sorting, payment mode slices |
+| `expenseStore.test.ts` | Offline queues (create/update/delete), optimistic pending, reconnect sync |
+| `financialCorrectnessMatrix.test.ts` | 16-scenario financial matrix: zero proration, switches, mutations, boundary math |
+| `formatters.test.ts` | `formatCurrency`, `formatAmountWithCommas`, `round2`, Indian numbering |
+| `gullakDeposits.test.ts` | Income vs external Gullak deposits, balance limits, timeline logs |
+| `homeCalculations.test.ts` | Home screen derived metrics, live spent, remaining balance |
+| `homeSpendingNewUser.test.ts` | Cold-start user calculations, zero-data rendering guards |
+| `insightsData.test.ts` | Analytical aggregations across weekly, monthly, and yearly intervals |
+| `moneyExplainerContent.test.ts` | Explainer modal copy resolution, cadence help topic routing |
+| `networkUtils.test.ts` | NetInfo state listener, reconnect queue trigger |
+| `noteSuggestions.test.ts` | Autocomplete ranking by recency, frequency, and category affinity |
 | `notificationStore.test.ts` | Add/dedup/cap-50, read status, multi-user isolation |
-| `themeStore.test.ts` | Light/dark/system toggle, Appearance listener |
-| `paymentAndIconUtils.test.ts` | Payment labels/icons, income classification, icon fallback |
-| `budgetCalculations.test.ts` | Full suite: streaks, rollover, status evaluation, `shouldIgnoreDuplicates` |
-| `amountKeypad.test.ts` | Calculator operators, ceiling limits, backspace |
-| `formatters.test.ts` | `formatCurrency`, `formatAmountWithCommas`, `round2` |
-| `homeCalculations.test.ts` | Home screen derived metrics |
-| `budgetUtils.test.ts` | Budget resolution helpers |
-| `expenseFilters.test.ts` | Filter/sort correctness |
-| `dateFilters.test.ts` | Date range filter logic |
-| `noteSuggestions.test.ts` | Suggestion ranking |
-| `deepLinkGuard.test.ts` | Session fixation guard |
-| `versionCheck.test.ts` | Semver comparison, update-required logic |
+| `offlineStartup.test.ts` | Offline cold-launch boot sequence without network access |
+| `paymentAndIconUtils.test.ts` | Payment labels/icons, unified income classification (`isIncomeTransaction`) |
+| `streakFlame.test.ts` | Streak counter tiers, milestone badge triggers, flame stages |
+| `themeStore.test.ts` | Light/dark/AMOLED toggle, Appearance listener, persistence |
+| `vaultSpendingGuard.test.ts` | Digital Vault Spending Guard, net liquidity evaluation, inflow blockers |
+| `versionCheck.test.ts` | Semver comparison, update-required screen gating |
 
 ---
 
@@ -286,3 +325,5 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0007](adr/0007-income-classification-divergence.md) | Dual-engine income divergence | **Superseded by 0008** |
 | [0008](adr/0008-unified-income-classification.md) | Unified income classification | Active |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest unit test coverage policy | Active |
+| [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011) |
+| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active |

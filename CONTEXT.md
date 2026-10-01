@@ -259,12 +259,12 @@ The continuous date interval `[activeStart, activeEnd]` within a calendar period
 
 **Non-Prorated Budget (Zero-Proration Policy)**:
 The architectural invariant that a user's entered budget amount is NEVER scaled down or prorated simply because they configured or switched it mid-cycle. The user-entered amount represents 100% real cash allocated into their active spending pool. Dynamic pacing (e.g. suggested daily pace) is computed strictly for non-binding informational guidance.
-- *Code location*: `src/lib/budgetModeUtils.ts` (`getProrationPreview`), `src/lib/budgetPeriods.ts` (`getCurrentPeriodSummary`)
+- *Code location*: `src/lib/budgetModeUtils.ts` (`getUnproratedPacingPreview`), `src/lib/budgetPeriods.ts` (`getCurrentPeriodSummary`, `isProrated: false`), `docs/adr/0011-zero-proration-and-digital-vault-spending-guard.md`
 - *_Avoid_*: Prorated Allowance, Scaled Budget, Fractional Allowance
 
 **Zero-Balance Spending Guard (Digital Bank Vault Invariant)**:
-The strict invariant that Arthik functions as a financial vault: a user cannot execute an outflow (expense) if their total available liquid funds (allocated budget allowance + logged incomes + reserves) equal zero. Attempting to add an expense with zero available inflow blocks creation and prompts the user to fund their account first. Overspending against a single cadence limit is permitted only when backed by available funds/income elsewhere.
-- *Code location*: `src/screens/ExpenseFormScreen.tsx`, `src/store/expenseStore.ts`
+The strict invariant that Arthik functions as a financial vault: a user cannot execute an outflow (expense) if their total available liquid funds (allocated budget allowance + logged incomes + reserves) equal zero. Attempting to add an expense with zero available inflow blocks creation at the input boundary and prompts the user to fund their account first. Overspending against a single cadence limit is permitted only when backed by available funds/income elsewhere.
+- *Code location*: `src/lib/vaultSpendingGuard.ts` (`calculateVaultLiquidity`), `src/components/VaultSpendingGuardModal.tsx`, `src/hooks/useExpenseForm.ts`, `src/screens/ExpenseFormScreen.tsx`
 - *_Avoid_*: Overdraft, Negative Balance Creation, Phantom Outflow
 
 **Natural Cycle Rollover**:
@@ -288,4 +288,49 @@ The streak evaluation unit matching the active cadence: Daily evaluates consecut
 The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red.
 - *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`getWeeklyStreakCards`, `getMonthlyStreakGrid`)
 - *_Avoid_*: Stopped, Inactive, Broken, Skipped
+
+---
+
+### 8. Database Entities & Schema Mapping
+
+The source of truth for all database tables, columns, constraints, and Row Level Security policies is [`schema.sql`](./schema.sql). All tables enforce strict multi-tenant isolation via `auth.uid() = user_id`.
+
+**`profiles`**:
+User profile metadata and active budget configuration.
+- Columns: `id` (PK, matches `auth.users`), `first_name`, `last_name`, `email`, `daily_budget`, `is_auto_renew`, `is_budget_mode_enabled`, `budget_cadence` (`'daily' | 'weekly' | 'monthly'`), `weekly_budget`, `monthly_budget`, `created_at`.
+- *Code location*: `src/store/authStore.ts`, `src/store/dailyBudgetStore.ts`, `schema.sql` (lines 11–49, 504–518)
+
+**`categories`**:
+Global default categories (seeded on user signup) and custom user-created categories.
+- Columns: `id`, `user_id`, `name`, `icon`, `color`, `is_default`, `created_at`.
+- Constraints: Orphan prevention via `ON DELETE SET NULL`.
+- *Code location*: `src/store/categoryStore.ts`, `schema.sql` (lines 53–102)
+
+**`expenses`**:
+Individual monetary transactions (both expenses and income).
+- Columns: `id`, `user_id`, `amount`, `category_id`, `payment_mode` (`'cash' | 'upi' | 'card'`), `expense_date`, `type` (`'expense' | 'income'`), `note`, `created_at`.
+- *Code location*: `src/store/expenseStore.ts`, `schema.sql` (lines 105–158)
+
+**`daily_savings_log`**:
+Finalized records for past daily calendar dates.
+- Columns: `id`, `user_id`, `date` (`DATE`), `budget`, `spent`, `saved`, `status` (`'saved' | 'missed' | 'even' | 'unknown'`), `created_at`.
+- *Code location*: `src/store/dailyBudgetStore.ts`, `schema.sql` (lines 161–212)
+
+**`budget_plan_changes`**:
+Audit log and timeline of budget plan changes, cadence switches, amounts, and carry-forward allocations.
+- Columns: `id`, `user_id`, `effective_from` (`DATE`), `is_enabled`, `cadence`, `amount`, `carry_mode` (`'additive' | 'allocation'`), `carried_over_amount`, `created_at`.
+- Constraint: `UNIQUE (user_id, effective_from)`.
+- *Code location*: `src/lib/budgetPeriods.ts`, `src/lib/cadenceSwitch.ts`, `schema.sql` (lines 520–566, 606–607)
+
+**`budget_periods`** *(Code entity: `BudgetPeriodRecord`)*:
+Finalized weekly and monthly governed accounting periods.
+- Columns: `id`, `user_id`, `cadence` (`'weekly' | 'monthly'`), `period_start`, `period_end`, `active_start`, `active_end`, `budget_amount`, `spent_amount`, `amount_saved`, `status` (`'saved' | 'missed' | 'even' | 'unknown'`), `is_prorated` (`BOOLEAN`, strictly `false` for unprorated engine), `carried_over_amount`, `carry_mode`, `created_at`.
+- Constraint: `UNIQUE (user_id, cadence, active_start)`.
+- *Code location*: `src/lib/budgetPeriods.ts`, `src/store/dailyBudgetStore.ts`, `schema.sql` (lines 568–638)
+
+**`gullak_deposits`**:
+Direct deposits credited to the Gullak savings reserve.
+- Columns: `id`, `user_id`, `amount`, `source` (`'income' | 'external'`), `note`, `deposit_date`, `created_at`.
+- *Code location*: `src/store/dailyBudgetStore.ts`, `src/components/DepositGullakModal.tsx`, `schema.sql` (lines 450–499)
+
 

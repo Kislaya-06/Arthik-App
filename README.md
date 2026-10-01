@@ -28,16 +28,18 @@
 ## ✨ Features
 
 - ⚡ **Pure Expense Tracking Mode** — Track spending and income with zero artificial limits or allowances. Features a clean 4-tab interface and concentric Dual Ring chart (Inflow vs. Outflow) with one-tap percentage/cashflow toggling.
-- 🎯 **Multi-Cadence Budget Modes (Daily, Weekly, Monthly)** — Tailor budgeting to your lifestyle. Set a daily allowance, a weekly target (Monday to Sunday), or a monthly budget. Features fair day-count proration for mid-cycle switches and "effective from tomorrow" discipline.
-- 🐷 **Smart Gullak & Automatic Period Rollover** — At the end of every active cycle (daily midnight, weekly Sunday night, monthly month-end), unspent funds roll over automatically into your digital **Gullak** (savings reserve). Deficits from overspending are reconciled transparently, keeping net capital 100% truthful.
+- 🎯 **Multi-Cadence Budget Modes (Daily, Weekly, Monthly)** — Tailor budgeting to your lifestyle. Set a daily allowance, a weekly target (Monday to Sunday), or a monthly budget. Features a **100% unprorated real-money engine** with dynamic non-binding daily/weekly pacing guidance.
+- 🔄 **Next-Day Cadence Switching & Carry-Forward** — Seamlessly switch cadences with next-day midnight activation (00:00:00). User-guided carry-forward modes (**Additive** vs. **Allocation**) preserve unspent balances without premature Gullak dumps, complete with capacity warnings.
+- 🛡️ **Digital Vault Spending Guard** — Enforces real-money vault discipline: if net liquid funds (active budget + logged income + savings) are ₹0, expense outflow creation is blocked at the input boundary.
+- 🐷 **Smart Gullak & Automatic Period Rollover** — At the end of every active cycle (daily midnight, weekly Sunday night, monthly month-end), unspent funds roll over automatically into your digital **Gullak** (savings reserve). Mid-cycle switches carry forward cleanly.
 - 🔥 **Adaptive Savings Streaks & Visual Calendar** — Track consecutive periods stayed within budget with active streak counters scaled to your active cadence (days, weeks, months). Features adaptive dot grids, weekly summary cards, and 12-month matrices in `StreakCalendarModal`. Paused intervals act as neutral bridges so taking a break never penalizes you.
 - 📶 **Offline-First Resilience** — Log, edit, and delete transactions with zero latency even without internet connectivity. Changes are queued in `AsyncStorage` and automatically synced to Supabase when reconnected, with status banners (`OfflineBanner` and `SyncFailedBanner`) keeping you informed.
-- 🎨 **Adaptive Dark & Light Themes** — Full system-wide theme support using Arthik's curated palette: mint green (`#B8E0C8`), peach coral (`#F4B8AE`), and deep navy surfaces (`#1A2B4C` / `#0B111E`).
+- 🎨 **Adaptive Themes with AMOLED Mode** — Full system-wide 3-theme support: Light, Dark, and true battery-saving AMOLED Pure Black (`DarkColors.amoled`) using Arthik's curated mint green (`#B8E0C8`), peach coral (`#F4B8AE`), and deep obsidian surfaces.
 - 📊 **Real-Time Financial Dashboard** — Home screen overview featuring dynamic greeting typography, remaining allowance tracking, concentric dual rings, and instant period filters (Today, Week, Month, All).
 - 📝 **Tactile Expense & Income Logging** — Quick transaction entry with custom spring-animated numeric keypad (with decoupled integer and decimal paise limits), payment mode tags (Cash, UPI, Card), and category assignment.
 - 📈 **Visual Insights & History** — Searchable, chronologically grouped transaction history and analytical spending breakdowns across weekly, monthly, and all-time intervals.
 - 🔔 **Smart Cadence-Aware Reminders** — Local notifications scheduled via `expo-notifications` for 80% and 100% budget thresholds, savings rollovers, and friendly evening expense reminders.
-- 🔒 **Secure Authentication** — Email/password signup, Google OAuth, session persistence via Supabase Auth (PKCE flow), and complete account deletion compliance.
+- 🔒 **Biometric App Lock & Secure Auth** — Fingerprint/Face/Device PIN lock gate, email/password signup, Google OAuth, session persistence via Supabase Auth (PKCE flow), and complete account deletion compliance.
 
 ---
 
@@ -61,19 +63,19 @@
 
 ```text
 src/
-├── components/   # Floating BottomNavBar, CustomDatePickerModal, DonutChart,
-│                 # TransactionRow, ErrorBoundary, OfflineBanner, SyncFailedBanner
+├── components/   # Floating BottomNavBar, BrandedHeroCard, CadenceSwitchModal,
+│                 # VaultSpendingGuardModal, DonutChart, TransactionRow, OfflineBanner
 ├── config/       # Supabase client & environment, Theme tokens (LightColors / DarkColors)
-├── hooks/        # UI & presentation hooks (useExpenseForm, useScrollDirection, etc.)
-├── lib/          # Pure domain logic (budgetCalculations, homeCalculations, dateFilters,
-│                 # expenseFilters, amountKeypad, formatters, notificationService)
+├── hooks/        # Presentation hooks (useExpenseForm, useSavingsDashboard, useScrollDirection)
+├── lib/          # Pure domain logic (budgetPeriods, cadenceSwitch, vaultSpendingGuard,
+│                 # budgetCalculations, homeCalculations, dateFilters, amountKeypad, formatters)
 ├── navigation/   # Root stack, Tab navigator, navigationRef
 ├── screens/      # Home, Savings, History, Insights, ExpenseForm, ManageCategories,
-│                 # Profile, Notifications, Auth, Splash, Onboarding
+│                 # Profile, Notifications, Auth, Splash, Onboarding, FaqScreen
 ├── store/        # Zustand stores (dailyBudgetStore, expenseStore, categoryStore,
 │                 # authStore, networkStore, themeStore, notificationStore, appLockStore)
 └── types/        # TypeScript route navigation & entity interfaces
-tests/            # Vitest unit tests (18 files, 308 tests)
+tests/            # Vitest unit tests (36 files, 606 tests)
 ```
 
 ---
@@ -84,9 +86,10 @@ This repository follows documented coding standards and domain models:
 
 - [`AGENTS.md`](./AGENTS.md) — Operational guidelines, coding standards, design tokens, test coverage rules, and safety invariants for developers and AI pair programmers.
 - [`CONTEXT.md`](./CONTEXT.md) — Single-context domain model, business rules, entity relationships, and core architectural invariants.
+- [`GLOSSARY.md`](./GLOSSARY.md) — Alphabetized quick reference for core domain terminology and architectural invariants.
 - [`docs/architecture.md`](./docs/architecture.md) — System architecture: layer map, stores, offline write path, startup sequence, Gullak engine, auth, and test inventory.
 - [`docs/prd.md`](./docs/prd.md) — Product Requirements Document: full feature inventory, constraints, UX principles, roadmap, and technical risks.
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (9 ADRs) capturing the rationale behind key architectural and design choices.
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (11 ADRs) capturing the rationale behind key architectural and design choices.
 
 ---
 
@@ -151,10 +154,13 @@ This repository follows documented coding standards and domain models:
 
 Core tables in Supabase PostgreSQL (all protected by Row Level Security scoped to `auth.uid()`):
 
-- **`profiles`** — User profile metadata, daily budget configuration (`daily_budget`, `is_auto_renew`), and registration timestamp.
+- **`profiles`** — User profile metadata, budget configuration (`daily_budget`, `weekly_budget`, `monthly_budget`, `budget_cadence`, `is_budget_mode_enabled`, `is_auto_renew`), and registration timestamp.
 - **`categories`** — Expense categories (global defaults + user-created custom categories with icons and colors).
 - **`expenses`** — Individual transaction records (amount, category, payment mode, date, type, note).
 - **`daily_savings_log`** — Finalized daily records (amount saved, amount spent, budget allocated, settlement status).
+- **`budget_plan_changes`** — Timeline of budget cadence changes, amounts, effective dates, and carry-forward modes (`additive`, `allocation`).
+- **`budget_periods`** — Finalized weekly and monthly governed periods (period bounds, active slice bounds, unprorated budget, spend, Gullak savings, status).
+- **`gullak_deposits`** — Savings deposits from tracked income or external windfalls directly into the Gullak reserve.
 
 See [`schema.sql`](./schema.sql) for full table definitions, constraints, triggers, and RLS policies.
 

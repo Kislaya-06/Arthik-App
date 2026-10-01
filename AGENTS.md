@@ -37,22 +37,24 @@ schema.sql              # Supabase DDL + RLS policies (source of truth for DB)
 CHANGELOG.md            # user-facing change log — keep updated
 tests/                  # Vitest unit tests (run with npm test)
 src/
-├── components/   BottomNavBar, CustomDatePickerModal, KeyButton, ErrorBoundary,
-│                 OfflineBanner, SyncFailedBanner, StreakCalendarModal, GoogleIcon, PiggyBankCoinIcon
+├── components/   BottomNavBar, BrandedHeroCard, CadenceSwitchModal, VaultSpendingGuardModal,
+│                 PeriodRenewalModal, CustomDatePickerModal, ErrorBoundary, OfflineBanner, SyncFailedBanner,
+│                 StreakCalendarModal, GradientIconBadge, PiggyBankCoinIcon
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
-├── hooks/        useScrollDirection.ts
-├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts,
-│                 notificationService.ts, authLinkHandler.ts, budgetCalculations.ts, amountKeypad.ts
+├── hooks/        useExpenseForm.ts, useSavingsDashboard.ts, useScrollDirection.ts
+├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
+│                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationService.ts, authLinkHandler.ts,
+│                 budgetCalculations.ts, amountKeypad.ts, budgetModeUtils.ts
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History, Insights,
-│                 Savings, ExpenseForm, ExpenseDetail, CategoryDetail,
-│                 ManageCategories, AddEditCategory, Notifications, Profile, ResetPassword
+│                 Savings, ExpenseForm, ExpenseDetail, CategoryDetail, ManageCategories,
+│                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq
 ├── store/        authStore, expenseStore, categoryStore, dailyBudgetStore,
 │                 notificationStore, networkStore, navBarStore, themeStore, appLockStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
-**High blast-radius files**: `dailyBudgetStore.ts`, `expenseStore.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `budgetCalculations.ts`.
+**High blast-radius files**: `dailyBudgetStore.ts`, `expenseStore.ts`, `budgetPeriods.ts`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `budgetCalculations.ts`.
 > **File inspection rule**: Inspect ONLY the relevant sections/functions needed for the current task. Do NOT scan entire files or read whole files end-to-end unless the task strictly requires it.
 
 ---

@@ -52,99 +52,109 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Note suggestions | Autocomplete from recent notes, ranked by recency + frequency + category affinity |
 | Offline logging | Fully functional offline; syncs on reconnect |
 
-### 4.2 Daily Budget & Gullak ✅ Shipped
+### 4.2 Multi-Cadence Budgeting & Smart Gullak ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Recurring Allowance | User sets a daily budget (₹/day). Auto-applies each morning when Auto-Renew is on. |
-| Day's Allowance override | Override today's budget without changing the profile baseline |
-| Top-up | Add extra budget to today without changing the profile baseline |
-| Daily Savings auto-rollover | 100% of unspent allowance rolls into the Gullak at midnight |
-| Gullak (accumulated savings) | Lifetime sum of all daily savings + manual deposits − overspending |
-| Manual Gullak Deposit | User can manually deposit extra funds (salary, gifts) directly into the Gullak |
-| Savings streak | Consecutive past days with `saved > 0`; resets on exceeded or even days |
-| Day status | Active / Saved / Exceeded / Even / Unknown |
+| Pure Mode vs Budget Mode | Pure Mode provides unconstrained expense tracking; Budget Mode activates multi-cadence spending limits, Gullak savings rollovers, and a 5th navigation tab (`Savings`). |
+| Multi-Cadence Budgets | User can configure spending allowances across three native cadences: **Daily**, **Weekly** (Mon–Sun), or **Monthly** (1st to month-end). |
+| Zero-Proration Policy | Budgets configured mid-period are 100% active immediately without fractional day slicing (`isProrated: false`). |
+| Dynamic Pace Guidance | Non-binding guidance: suggested daily pace (`remaining / remainingDays`), suggested weekly pace, and projected monthly spend based on actual 28, 29, 30, or 31 month days. |
+| Next-Day Cadence Switch | Cadence switches schedule for tomorrow at 12:00 AM (00:00:00) so today's budget concludes cleanly under the active plan. |
+| Carry-Forward Engine | Unspent funds carry forward on mid-cycle switch via **Additive** (added to target budget) or **Allocation** (headstart towards target budget) modes. |
+| Gullak Rollover Protection | Unspent allowance rolls into Gullak **strictly upon natural cycle completion** (Daily at 23:59:59, Weekly on Sunday at 23:59:59, Monthly at month-end). Mid-cycle switches carry forward with zero Gullak dumps. |
+| Deficit Isolation | Overspending is settled from available income/Gullak reserves; carried forward deficit is clamped to 0 so new cadences start clean. |
+| Digital Vault Spending Guard | Expense creation blocked at input boundary if total available liquidity (allowance + income + reserves) equals zero. |
+| Gullak (accumulated savings) | Lifetime sum of all natural cycle savings + manual deposits − uncovered overspending. |
+| Manual Gullak Deposit | Add savings directly into Gullak from tracked income or fresh external windfalls. |
+| Cadence-Native Streak | Tracks consecutive saved periods in units matching active cadence (days, weeks, months). Paused intervals act as neutral bridges. |
 
 ### 4.3 Home Screen ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Hero card | Dual-arc donut chart: today's income pool vs. spent. Remaining allowance centered. |
-| Period filters | Daily, Weekly, Monthly, All — all show unified income/spent/balance |
-| Live today's spent | Updates instantly on every transaction without refresh |
-| Gullak rollover strip | Shows tonight's projected savings accumulation |
-| Budget progress | Live 80% and 100% threshold notifications |
+| Dynamic Hero Mode | **Pure Mode**: Concentric Dual Ring chart (Inflow vs. Outflow) with 1-tap cashflow/percentage toggle. **Budget Mode**: Branded Hero Card with dynamic pace suggestions. |
+| Cadence-Default Tab | App opens directly on the tab matching user's active cadence (`Daily` $\to$ Daily, `Weekly` $\to$ Weekly, `Monthly` $\to$ Monthly). |
+| Period filters | Daily, Weekly, Monthly, All — unified income, spent, and balance across all time horizons. |
+| Live today's spent | Updates instantly on every transaction without refresh. |
+| Budget progress alerts | Live 80% and 100% threshold notifications. |
 
 ### 4.4 Savings Screen ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Gullak balance | Total accumulated savings headline |
-| Savings timeline | Chronological list of past saved days + manual deposits |
-| Filter | All / This Week / This Month / Deposits |
-| Streak Calendar | Visual calendar (StreakCalendarModal) showing saved/missed/neutral days |
-| Deposit management | Add and remove manual Gullak deposits |
+| Gullak balance | Total accumulated savings headline with PiggyBank badge. |
+| Dynamic Allowance Card | Displays active cadence bounds (e.g. *"29 Sep – 5 Oct"*), unspent balance, paused auto-renew hints, and luminous warm coral over-budget alerts. |
+| Scheduled Switch Banner | Unboxed, luminous banner displaying countdown to 12:00 AM, target amount, and 1-tap cancel. |
+| Savings timeline | Chronological list of past saved days + weekly/monthly periods + manual deposits. |
+| Filter | All / This Week / This Month / Deposits. |
+| Streak Calendar | Visual calendar (StreakCalendarModal) showing saved/missed/neutral days and monthly matrices. |
+| Deposit management | Add and remove manual Gullak deposits. |
 
 ### 4.5 History Screen ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Transaction list | All transactions grouped by date, descending |
-| Search & filter | Filter by date range, category, payment mode |
-| Inline edit | Tap any transaction to open ExpenseDetail → Edit |
+| Transaction list | All transactions grouped by date, descending. |
+| Search & filter | Filter by date range, category, payment mode. |
+| Inline edit | Tap any transaction to open ExpenseDetail → Edit. |
 
 ### 4.6 Insights Screen ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Period navigation | Weekly / Monthly / Yearly with elastic hero card |
-| Category breakdown | Spending split by category |
-| Timeline dots | Dynamic bounds derived from earliest transaction (no phantom dots) |
+| Period navigation | Weekly / Monthly / Yearly with tactile bouncy filter pills. |
+| Category breakdown | Spending split by category with dynamic palettes. |
+| Spending flow chart | Consistent green gradient flow bars with peak clarity. |
+| Timeline dots | Dynamic bounds derived from earliest transaction (no phantom dots). |
 
 ### 4.7 Categories ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Default categories | 7 system-seeded categories per user on signup |
-| Custom categories | User-created with icon + color |
-| Category deletion | Blocked if expenses are attached (orphan prevention) |
-| Offline category cache | Available on cold start without network |
+| Default categories | 7 system-seeded categories per user on signup. |
+| Custom categories | User-created with icon + color. |
+| Category deletion | Blocked if expenses are attached (orphan prevention). |
+| Offline category cache | Available on cold start without network. |
 
 ### 4.8 Auth & Account ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Email magic link | Passwordless sign-in |
-| Google OAuth | One-tap sign-in |
-| Password reset | Deep-link flow with ResetPassword screen |
-| Profile setup | Name + daily budget on first login |
-| Account deletion | Two-step: email confirmation + final alert |
+| Email magic link | Passwordless sign-in. |
+| Google OAuth | One-tap sign-in. |
+| Password reset | Deep-link flow with ResetPassword screen. |
+| Profile setup | Name + budget setup on first login. |
+| Account deletion | Two-step: email confirmation + final alert. |
 
 ### 4.9 Security & Privacy ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| Biometric App Lock | Fingerprint / Face / Device PIN gate on launch and background resume |
-| RLS enforcement | All Supabase tables scoped to `auth.uid()` |
-| Deep link guard | Session fixation prevention on auth callbacks |
-| Android backup disabled | `allowBackup: false` prevents ADB extraction |
-| Category tenant isolation | `category_id` FK checked against user's own categories or system defaults |
+| Digital Vault Spending Guard | Enforces real-money discipline; blocks expense creation when net liquidity is zero. |
+| Biometric App Lock | Fingerprint / Face / Device PIN gate on launch and background resume. |
+| RLS enforcement | All Supabase tables scoped to `auth.uid()`. |
+| Deep link guard | Session fixation prevention on auth callbacks. |
+| Android backup disabled | `allowBackup: false` prevents ADB extraction. |
+| Category tenant isolation | `category_id` FK checked against user's own categories or system defaults. |
 
-### 4.10 Notifications ✅ Shipped
-
-| Feature | Detail |
-|---|---|
-| 80% budget alert | Push notification when today's spending hits 80% of allowance |
-| 100% budget alert | Push notification when today's spending hits or exceeds allowance |
-| In-app notification list | Notification screen with read/unread state, timestamps |
-
-### 4.11 OTA & Versioning ✅ Shipped
+### 4.10 Notifications & Explainer Guides ✅ Shipped
 
 | Feature | Detail |
 |---|---|
-| OTA updates | Branded in-app update modal with What's New highlights |
-| Update Required screen | Non-dismissible screen for legacy app versions (controlled via `app_config` table) |
-| EAS Build | APK via `preview` profile, AAB via `production` |
+| 80% & 100% budget alerts | Push notifications when spending reaches threshold. |
+| In-app notification list | Notification screen with read/unread state, timestamps. |
+| Contextual Explainer Guides | In-app modal guides explaining pacing preview, rollover mechanics, and carry-forward rules. |
+| Help Centre (FAQ) | Complete Help Centre screen (`FaqScreen`) answering common budget and savings questions in clear English. |
+
+### 4.11 Themes, OTA & Versioning ✅ Shipped
+
+| Feature | Detail |
+|---|---|
+| 3-Theme System | Light, Dark, and battery-saving AMOLED Pure Black (`DarkColors.amoled`) with 3-theme picker on Profile. |
+| OTA updates | Branded in-app update modal with What's New highlights (`OtaUpdateModal`). |
+| Update Required screen | Non-dismissible screen for legacy app versions (controlled via `app_config` table). |
+| EAS Build | APK via `preview` profile, AAB via `production`. |
 
 ---
 

@@ -25,10 +25,9 @@ Budget Mode supports three distinct cadences:
 ### D3: Effective from Tomorrow for Plan Changes
 To prevent retroactive churn, maintain financial discipline, and preserve current-period progress, any change to a user's budget amount or cadence takes effect starting **tomorrow at 12:00 AM** (or the next period boundary). First-time enablement from Pure Mode takes effect immediately ("Today"). Users can review and cancel pending scheduled changes at any time prior to midnight.
 
-### D4: Proration for Mid-Period Switches
-When switching cadences or modifying a budget mid-cycle, partial periods are calculated via standard day-count proration:
-$$\text{Prorated Budget} = \text{round}\left(\frac{\text{Full Budget}}{\text{Total Days in Cycle}} \times \text{Remaining Active Days}\right)$$
-This ensures fair targets without requiring users to wait until month-end or Monday to adjust their financial strategy.
+### D4: Proration for Mid-Period Switches [SUPERSEDED BY ADR 0011]
+> **Status:** Superseded by [ADR 0011 (Zero-Proration Policy and Digital Vault Spending Guard)](0011-zero-proration-and-digital-vault-spending-guard.md).
+Originally, partial periods were calculated via fractional day-count proration. However, to preserve the foundational **Real-Money Invariant** (every rupee allocated represents real money transferred into a spending pool), proration was completely deprecated. User-entered budgets are 100% active immediately without fractional reduction, while dynamic pacing (`suggestedDailyPace = remaining / remainingDays`) is presented strictly as non-binding guidance.
 
 ### D5: Continuous Active Slices
 The timeline engine (`src/lib/budgetPeriods.ts`) walks the chronological list of `planChanges` and decomposes the user's history into non-overlapping active slices `[activeStart, activeEnd]`. Each day belongs to at most one slice, preventing overlapping and eliminating double-counting across cadence transitions.

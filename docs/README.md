@@ -22,6 +22,7 @@ Engineering documentation for the **Arthik** personal finance app.
 | [`architecture.md`](architecture.md) | **System architecture** — layer map, stores, offline path, startup sequence, Gullak engine, auth, navigation, test architecture. Start here for any structural question. |
 | [`prd.md`](prd.md) | **Product Requirements Document** — feature inventory, constraints, UX principles, roadmap, technical risks. |
 | [`adr/`](adr/) | **Architecture Decision Records** — why key architectural choices were made. Read ADRs that touch the area you're working in before making changes. |
+| [`plans/`](plans/) | **Technical Implementation Specs** — architecture blueprints and implementation specifications for unified budgeting and cadence engines. |
 | [`maps/`](maps/) | **Deep technical maps** — detailed function-level analysis of complex files. Read before editing hot files. |
 | [`agents/`](agents/) | **Agent tooling** — instructions for how agent skills interact with this repo's issue tracker, triage labels, and domain docs. |
 
@@ -40,6 +41,8 @@ Engineering documentation for the **Arthik** personal finance app.
 | [0007](adr/0007-income-classification-divergence.md) | Dual-Engine Income Classification Divergence | **Superseded by 0008** |
 | [0008](adr/0008-unified-income-classification.md) | Unified Income Classification via isIncomeTransaction | Active |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest Unit Test Coverage for Store & Library Seams | Active |
+| [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011) |
+| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active |
 
 ---
 
@@ -54,7 +57,7 @@ Engineering documentation for the **Arthik** personal finance app.
 ## How to Add an ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0009`.
+2. Next available number after `0011`.
 3. Sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the ADR supersedes an older one, add a `## Status: Superseded by NNNN` to the old ADR.
 5. Add the new ADR to the index table above and to `docs/architecture.md §12`.
