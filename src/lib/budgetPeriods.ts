@@ -11,7 +11,7 @@
  * - Week strictly starts on Monday (weekStartsOn: 1).
  * - Financial amounts rounded via round2 from formatters.
  * - Single-owner principle (D2): every date belongs to exactly one owner ('paused' | 'daily' | 'weekly' | 'monthly').
- * - Prorated budgets (D4): budget = round2(fullBudget * activeDays / totalDaysInPeriod).
+ * - Zero-Proration Policy: budget is 100% active immediately without fractional day scaling.
  */
 
 import {
@@ -214,7 +214,7 @@ interface PeriodSlice {
  * - Walks from the earliest non-daily/non-paused governed date to yesterday.
  * - Groups consecutive dates with the same owner AND same calendar period AND same amount into an active slice.
  * - Finalizable if: todayStr > periodEnd OR (slice ended early due to switch/disable AND todayStr > activeEnd).
- * - Prorated budget (D4): budget = round2(amount * activeDays / totalDaysInPeriod).
+ * - Zero-Proration Policy: budget = full user-entered amount (+ additive carry-over if any).
  * - Skips already finalized keys and dates before userCreatedAtStr.
  */
 export function buildPeriodsToFinalize(

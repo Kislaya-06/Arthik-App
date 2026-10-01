@@ -56,6 +56,7 @@ supabase/.temp/
 .idea/
 .agent/
 .agents/
+.scratch/
 
 # Media & Brag Video Assets
 Arthik/

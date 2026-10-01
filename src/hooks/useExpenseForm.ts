@@ -4,7 +4,7 @@ import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format, parseISO } from 'date-fns';
 
-import { RootStackParamList } from '../types';
+import { RootStackParamList, VaultLiquidityInfo } from '../types';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -15,6 +15,8 @@ import {
   formatExpressionWithCommas,
 } from '../lib/amountKeypad';
 import { getNoteSuggestions } from '../lib/noteSuggestions';
+import { calculateVaultLiquidity } from '../lib/vaultSpendingGuard';
+import { isIncomeTransaction } from '../lib/paymentUtils';
 
 export const MAX_NOTE_WORDS = 50;
 export const MAX_NOTE_CHARS = 250;
@@ -48,6 +50,10 @@ export interface UseExpenseFormReturn {
   isSubmitting: boolean;
   isSaveEnabled: boolean;
   showDatePicker: boolean;
+  showVaultGuard: boolean;
+  setShowVaultGuard: (show: boolean) => void;
+  vaultLiquidity: VaultLiquidityInfo;
+  isBudgetModeEnabled: boolean;
 
   // Category Store Status
   categories: Category[];
@@ -67,6 +73,7 @@ export interface UseExpenseFormReturn {
   noteSuggestions: string[];
   handleSelectNoteSuggestion: (suggestion: string) => void;
 }
+
 
 export function useExpenseForm({ route, navigation }: UseExpenseFormParams): UseExpenseFormReturn {
   const isEdit = route.name === 'EditExpense';
@@ -89,6 +96,73 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showVaultGuard, setShowVaultGuard] = useState(false);
+
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
+  const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
+  const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
+  const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
+  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+
+  const catMap = useMemo(() => {
+    const map: Record<string, Category> = {};
+    for (let i = 0; i < categories.length; i++) {
+      map[categories[i].id] = categories[i];
+    }
+    return map;
+  }, [categories]);
+
+  const { totalIncome, totalExpenses } = useMemo(() => {
+    let inc = 0;
+    let exp = 0;
+    for (let i = 0; i < expenses.length; i++) {
+      const e = expenses[i];
+      const cat = e.category_id ? catMap[e.category_id] : undefined;
+      const amt = Number(e.amount) || 0;
+      if (isIncomeTransaction(e, cat)) {
+        inc += amt;
+      } else {
+        exp += amt;
+      }
+    }
+    return { totalIncome: inc, totalExpenses: exp };
+  }, [expenses, catMap]);
+
+  const externalGullakSum = useMemo(() => {
+    let sum = 0;
+    for (let i = 0; i < gullakDeposits.length; i++) {
+      sum += Number(gullakDeposits[i].amount) || 0;
+    }
+    return sum;
+  }, [gullakDeposits]);
+
+  const vaultLiquidity = useMemo(
+    () =>
+      calculateVaultLiquidity({
+        isBudgetModeEnabled,
+        budgetCadence,
+        dailyBudgetAmount,
+        weeklyBudgetAmount,
+        monthlyBudgetAmount,
+        totalIncome,
+        totalExpenses,
+        externalGullakDeposits: externalGullakSum,
+        isAutoRenew,
+      }),
+    [
+      isBudgetModeEnabled,
+      budgetCadence,
+      dailyBudgetAmount,
+      weeklyBudgetAmount,
+      monthlyBudgetAmount,
+      totalIncome,
+      totalExpenses,
+      externalGullakSum,
+      isAutoRenew,
+    ]
+  );
 
   const hasPrefilled = useRef(false);
 
@@ -197,6 +271,12 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     let categoryIdToSave = transactionType === 'income' ? null : selectedCategoryId;
 
     if (transactionType === 'expense') {
+      // ─── Digital Vault Spending Guard (ADR 0011 / Clip 5-8) ─────────────
+      if (!isEdit && !vaultLiquidity.canAddExpense) {
+        setShowVaultGuard(true);
+        return;
+      }
+
       if (areCategoriesPlaceholder) {
         Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
         return;
@@ -289,6 +369,10 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     isSubmitting,
     isSaveEnabled,
     showDatePicker,
+    showVaultGuard,
+    setShowVaultGuard,
+    vaultLiquidity,
+    isBudgetModeEnabled,
     categories,
     isCategoriesLoading,
     areCategoriesPlaceholder,

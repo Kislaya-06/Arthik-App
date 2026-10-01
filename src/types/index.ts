@@ -56,8 +56,30 @@ export interface BudgetPeriodRecord {
   spentAmount: number;
   amountSaved: number;
   status: BudgetPeriodStatus;
+  /**
+   * Under Arthik's Zero-Proration Policy, newly finalized periods are always false
+   * (budget is 100% active and never scaled down). Historical rows may retain true.
+   */
   isProrated: boolean;
   carriedOverAmount?: number;
   carryMode?: 'additive' | 'allocation';
   createdAt?: string;
 }
+
+export interface UnproratedPacingInfo {
+  remainingDays: number;
+  totalDays: number;
+  fullBudget: number;
+  suggestedDailyPace: number;
+  previewText: string;
+  explanationText: string;
+}
+
+export interface VaultLiquidityInfo {
+  totalVaultLiquidity: number;
+  canAddExpense: boolean;
+  activeCadenceAllowance: number;
+  availableIncome: number;
+  reason?: string;
+}
+

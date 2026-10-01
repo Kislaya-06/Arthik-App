@@ -13,6 +13,7 @@ import {
 } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
+import { VaultSpendingGuardModal } from '../components/VaultSpendingGuardModal';
 import { BouncyTypeToggle } from '../components/BouncyTypeToggle';
 import {
   BouncyPaymentToggle,
@@ -191,6 +192,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     isSubmitting,
     isSaveEnabled,
     showDatePicker,
+    showVaultGuard,
+    setShowVaultGuard,
+    vaultLiquidity,
+    isBudgetModeEnabled,
     categories,
     isCategoriesLoading,
     areCategoriesPlaceholder,
@@ -708,6 +713,17 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           maxDate={new Date()}
           onConfirm={handleDateConfirm}
           onClose={() => setShowDatePicker(false)}
+        />
+
+        <VaultSpendingGuardModal
+          visible={showVaultGuard}
+          onClose={() => setShowVaultGuard(false)}
+          onAddIncomeFirst={() => {
+            setShowVaultGuard(false);
+            onTypeChange('income');
+          }}
+          isBudgetMode={isBudgetModeEnabled}
+          totalVaultLiquidity={vaultLiquidity.totalVaultLiquidity}
         />
 
         {/* Paid Via / Added Via Toggle */}

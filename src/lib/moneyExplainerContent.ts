@@ -35,16 +35,16 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
     items: [
       {
         tag: 'Past Days Protected',
-        title: 'Past savings are preserved',
+        title: 'Zero Gullak Deposit on Mid-Cycle Switch',
         description:
-          'Days already completed in your current cycle are closed. Any unspent allowance rolls directly into your Gullak as real savings tonight.',
+          'Completed days are preserved. Any unspent allowance from your current cycle carries forward safely into your new cycle instead of rolling into Gullak today.',
         iconName: 'shield',
       },
       {
-        tag: 'Fair Proration',
-        title: 'Prorated allowance for remaining days',
+        tag: 'Real-Money Invariant',
+        title: '100% Full Budget Active (No Proration)',
         description:
-          'For the days remaining until the next cycle boundary, you get a proportionate spending allowance so your daily routine is never disrupted.',
+          'In Arthik, every rupee is real money. Your entered budget is never prorated or scaled down mid-period. The full pool is active immediately, and unspent funds roll forward.',
         iconName: 'calendar',
       },
       {

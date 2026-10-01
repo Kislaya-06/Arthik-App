@@ -1,6 +1,7 @@
 import { parseISO, addDays, format, differenceInCalendarDays } from 'date-fns';
 import { BudgetCadence, BudgetPeriodRecord } from '../types';
 import { getPeriodBounds } from './budgetPeriods';
+import { formatAmountWithCommas } from './formatters';
 
 export type CadenceCarryMode = 'additive' | 'allocation';
 
@@ -82,7 +83,7 @@ export function checkCadenceCapacity(params: {
       remainingDays: days,
       maxSafeWeeklyAmount,
       warningMessage: isExceeding
-        ? `Your remaining monthly budget is ₹${remaining.toLocaleString('en-IN')} for ${days} days. Setting ₹${targetAmount.toLocaleString('en-IN')}/week requires approx ₹${Math.round(requiredForRemainingPeriod).toLocaleString('en-IN')}, which exceeds your available allowance.`
+        ? `Your remaining monthly budget is ₹${formatAmountWithCommas(String(remaining))} for ${days} days. Setting ₹${formatAmountWithCommas(String(targetAmount))}/week requires approx ₹${formatAmountWithCommas(String(Math.round(requiredForRemainingPeriod)))}, which exceeds your available allowance.`
         : undefined,
     };
   }
@@ -98,7 +99,7 @@ export function checkCadenceCapacity(params: {
       remainingDays: days,
       maxSafeDailyAmount,
       warningMessage: isExceeding
-        ? `Your remaining monthly budget is ₹${remaining.toLocaleString('en-IN')} for ${days} days. Setting ₹${targetAmount.toLocaleString('en-IN')}/day requires ₹${Math.round(requiredForRemainingPeriod).toLocaleString('en-IN')}, which exceeds your available allowance.`
+        ? `Your remaining monthly budget is ₹${formatAmountWithCommas(String(remaining))} for ${days} days. Setting ₹${formatAmountWithCommas(String(targetAmount))}/day requires ₹${formatAmountWithCommas(String(Math.round(requiredForRemainingPeriod)))}, which exceeds your available allowance.`
         : undefined,
     };
   }
@@ -114,7 +115,7 @@ export function checkCadenceCapacity(params: {
       remainingDays: days,
       maxSafeDailyAmount,
       warningMessage: isExceeding
-        ? `Your remaining weekly budget is ₹${remaining.toLocaleString('en-IN')} for ${days} days. Setting ₹${targetAmount.toLocaleString('en-IN')}/day exceeds your current weekly pool.`
+        ? `Your remaining weekly budget is ₹${formatAmountWithCommas(String(remaining))} for ${days} days. Setting ₹${formatAmountWithCommas(String(targetAmount))}/day exceeds your current weekly pool.`
         : undefined,
     };
   }

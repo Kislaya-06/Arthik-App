@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🎨 Post-Implementation UX & Financial Correctness Hardening
+- **Cadence-Aware Paused Auto-Renew Display (`SavingsScreen`):** Paused state on the Allowance Card now dynamically resolves and displays the active cadence's configured amount (`weeklyBudgetAmount` / `monthlyBudgetAmount` / `dailyBudgetAmount`) and cadence-appropriate rollover hints instead of falling back to daily budget.
+- **Accurate Past Expense Deletion Alerts (`ExpenseDetailScreen`):** Replaced unconditional Gullak refund promises with cadence-aware restore notifications (restoring funds to active spending pool for weekly/monthly modes or updating past daily budget/savings).
+- **Theme-Compliant Cadence Switch Actions (`CadenceSwitchModal`):** Replaced hardcoded purple hex colors (`#8E6CFF`) with semantic theme tokens (`colors.forestGreen` / `colors.mintGreen`), added full accessibility roles (`radio`, `button`) and labels, and enabled 1-tap "Set Safe Budget" pills for both daily and weekly target over-capacity states.
+- **Context-Sensitive Explainer Dialog (`BudgetEditModal`):** Dynamically passes pacing preview vs rollover explainer topics, eliminating confusing cadence switch topics for first-time setup users.
+- **Pure Mode Liquidity Clarity (`VaultSpendingGuardModal`):** Updated copy to clarify available balance rather than misleadingly claiming zero logged income for returning users.
+- **Indian Number Grouping Formatting Strictness:** Replaced raw `toLocaleString` calls across `SavingsScreen`, `ExpenseDetailScreen`, and `cadenceSwitch.ts` with `formatAmountWithCommas` in accordance with Rule 8.
+
+### 🛡️ Digital Vault Spending Guard & Zero-Proration Unified Budgeting Architecture
+- **Digital Vault Spending Guard (`VaultSpendingGuardModal`):** Arthik enforces real-money discipline as a digital financial vault. If total available liquidity (active cadence allowance + logged income + external savings) is ₹0, expense outflow creation is blocked at the input boundary. Opens an informative, unboxed bottom sheet with a 1-tap `+ Add Income First` action.
+- **Pure Mode Inflow Protection:** Pure Mode users with ₹0 income balance cannot create artificial negative outflows out of thin air.
+- **Zero-Proration Architecture Enforcement:** Deprecated all legacy fractional day division formulas across `budgetPeriods.ts`, `budgetModeUtils.ts`, `BudgetEditModal.tsx`, `FaqScreen.tsx`, and `moneyExplainerContent.ts`. User-entered budgets remain 100% active immediately with non-binding daily pacing guidance.
+- **Same-Cadence Budget Edit Confirmation Dialogs:** Editing Weekly or Monthly budget amounts while already on that cadence prompts a clear timing confirmation informing the user of the exact upcoming Monday or 1st of month activation date.
+- **Past Expense Deletion Ripple Preview:** Deleting an expense from a past date alerts the user that funds will be returned to that past day's budget and credited into their Gullak savings balance.
+- **Pure Calculation Engine Unit Tests (`tests/vaultSpendingGuard.test.ts`):** 11 comprehensive unit test cases verifying pure mode blocks, budget mode allowances, income reserves, and overspending waterfall allowances.
+
 ### 🔄 Next-Day Cadence Switching Engine & Carry-Forward Modes (Issue #6, PR #7)
 - **Zero Mid-Cycle Gullak Dumps (Golden Invariant):** Mid-cycle cadence switching strictly preserves unspent funds in the user's spending pool rather than dumping them prematurely into the Gullak (`gullakDeposit: 0`). Gullak deposits now strictly occur when a period naturally completes (Sunday midnight for weekly, month-end midnight for monthly, day-end for daily).
 - **Next-Day Activation (00:00:00):** Cadence switches schedule for tomorrow midnight (`addDays(today, 1)`), allowing today's budget and transactions to conclude cleanly under the active plan without retro-active split confusion.

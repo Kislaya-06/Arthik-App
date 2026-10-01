@@ -577,7 +577,7 @@ CREATE TABLE IF NOT EXISTS public.budget_periods (
     spent_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
     amount_saved NUMERIC(12, 2) NOT NULL DEFAULT 0,
     status TEXT NOT NULL,
-    is_prorated BOOLEAN NOT NULL DEFAULT FALSE,
+    is_prorated BOOLEAN NOT NULL DEFAULT FALSE, -- Zero-Proration Policy: Always false for newly finalized periods
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_user_cadence_active_start UNIQUE (user_id, cadence, active_start)
 );

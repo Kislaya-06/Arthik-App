@@ -99,21 +99,25 @@ export function formatEffectiveFrom(
  * Returns proration preview info if the change creates a partial period.
  * e.g. "Prorated allowance: ₹143 for remaining 4 days"
  */
-export interface ProrationPreview {
-  isProrated: boolean;
+export interface UnproratedPacingInfo {
   remainingDays: number;
   totalDays: number;
-  proratedAmount: number;
+  fullBudget: number;
+  suggestedDailyPace: number;
   previewText: string;
   explanationText: string;
+  isProrated: boolean;
+  proratedAmount: number; // backwards-compatible alias to fullBudget
 }
 
-export function getProrationPreview(
+export type ProrationPreview = UnproratedPacingInfo;
+
+export function getUnproratedPacingPreview(
   targetCadence: BudgetCadence,
   amount: number,
   effectiveFromStr: string,
   todayStr: string
-): ProrationPreview | null {
+): UnproratedPacingInfo | null {
   if (!amount || amount <= 0 || targetCadence === 'daily') {
     return null;
   }
@@ -146,11 +150,16 @@ export function getProrationPreview(
     isProrated: false,
     remainingDays,
     totalDays: bounds.totalDays,
+    fullBudget: amount,
+    suggestedDailyPace: suggestedPace,
     proratedAmount: amount,
     previewText,
     explanationText,
   };
 }
+
+export const getProrationPreview = getUnproratedPacingPreview;
+
 
 /**
  * Formats streak unit label per D6 ("5 days" / "3 weeks" / "2 months").

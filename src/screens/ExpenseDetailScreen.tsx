@@ -10,6 +10,8 @@ import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { format, parseISO } from 'date-fns';
+import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
+import { getDateOwner } from '../lib/budgetPeriods';
 import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryIcon } from '../lib/iconUtils';
@@ -52,9 +54,62 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   }
 
   const handleDelete = () => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const cleanDate = expense.expense_date?.split('T')[0]?.trim() || '';
+    const isPastDate = cleanDate !== '' && cleanDate < todayStr;
+
+    if (isPastDate && !isIncome) {
+      const planChanges = useDailyBudgetStore.getState().planChanges;
+      const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
+      const dateOwner = isBudgetModeEnabled ? getDateOwner(planChanges, cleanDate) : 'paused';
+
+      const restoreMessage =
+        dateOwner === 'daily'
+          ? `Deleting this ${formatCurrency(expense.amount)} expense on ${formattedDate} will return ${formatCurrency(expense.amount)} to that day's budget and update your Gullak savings accordingly.\n\nDo you want to continue?`
+          : `Deleting this ${formatCurrency(expense.amount)} expense on ${formattedDate} will restore ${formatCurrency(expense.amount)} back to your available spending pool.\n\nDo you want to continue?`;
+
+      Alert.alert(
+        'Delete Past Expense',
+        restoreMessage,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteExpense(expense.id);
+              useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+              navigation.pop(1);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    if (isPastDate && isIncome) {
+      Alert.alert(
+        'Delete Past Income',
+        `Deleting this ${formatCurrency(expense.amount)} income on ${formattedDate} will reduce your total available income balance.\n\nAre you sure you want to delete?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteExpense(expense.id);
+              useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+              navigation.pop(1);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(
-      'Delete Expense',
-      'Are you sure you want to delete this expense?',
+      isIncome ? 'Delete Income' : 'Delete Expense',
+      `Are you sure you want to delete this ${isIncome ? 'income transaction' : 'expense'}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -66,7 +121,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             navigation.pop(1);
           },
         },
-      ],
+      ]
     );
   };
 
@@ -133,7 +188,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={styles.amountRow}>
               <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>₹</Text>
               <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                {expense.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                {formatAmountWithCommas(expense.amount.toFixed(2).replace(/\.00$/, ''))}
               </Text>
             </View>
           </View>

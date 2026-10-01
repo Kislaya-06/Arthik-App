@@ -52,6 +52,9 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const activeAccent = isDark ? colors.mintGreen : colors.forestGreen;
+  const activeBg = isDark ? 'rgba(184, 224, 200, 0.12)' : 'rgba(27, 77, 62, 0.07)';
+
   const [carryMode, setCarryMode] = useState<CadenceCarryMode>('additive');
   const [targetAmount, setTargetAmount] = useState<number>(initialTargetAmount);
 
@@ -100,7 +103,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
     });
   }, [currentCadence, targetCadence, currentBudget, currentSpent, targetAmount, carryMode, todayStr]);
 
-  const handleApplySafeWeekly = useCallback((amount: number) => {
+  const handleApplySafeAmount = useCallback((amount: number) => {
     setTargetAmount(amount);
   }, []);
 
@@ -175,6 +178,8 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               ]}
               onPress={onClose}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
             >
               <X size={18} color={colors.textPrimary} />
             </TouchableOpacity>
@@ -219,7 +224,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               <View style={styles.infoRow}>
                 <ShieldCheck size={14} color="#4CAF50" style={{ marginRight: 6 }} />
                 <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                  Gullak deposits only occur on natural cycle ends. Your unspent money carries forward safely.
+                  Zero Gullak Deposit: Gullak deposits only occur on natural cycle ends. Your unspent money carries forward 100% safely.
                 </Text>
               </View>
             </View>
@@ -238,7 +243,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                 <View style={styles.warningHeader}>
                   <AlertTriangle size={16} color="#FF7A6E" style={{ marginRight: 6 }} />
                   <Text style={[styles.warningTitle, { color: '#FF7A6E' }]}>
-                    Exceeds Remaining Monthly Budget
+                    Exceeds Remaining {currentLabel} Budget
                   </Text>
                 </View>
                 <Text style={[styles.warningBody, { color: colors.textPrimary }]}>
@@ -249,11 +254,24 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   <TouchableOpacity
                     style={styles.safeActionPill}
                     activeOpacity={0.8}
-                    onPress={() => handleApplySafeWeekly(plan.validation.maxSafeWeeklyAmount!)}
+                    onPress={() => handleApplySafeAmount(plan.validation.maxSafeWeeklyAmount!)}
                   >
                     <Sparkles size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
                     <Text style={styles.safeActionText}>
                       Set Safe Budget: {formatCurrency(plan.validation.maxSafeWeeklyAmount)}/week
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {plan.validation.maxSafeDailyAmount !== undefined && (
+                  <TouchableOpacity
+                    style={styles.safeActionPill}
+                    activeOpacity={0.8}
+                    onPress={() => handleApplySafeAmount(plan.validation.maxSafeDailyAmount!)}
+                  >
+                    <Sparkles size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.safeActionText}>
+                      Set Safe Budget: {formatCurrency(plan.validation.maxSafeDailyAmount)}/day
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -275,15 +293,13 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     {
                       backgroundColor:
                         carryMode === 'additive'
-                          ? isDark
-                            ? 'rgba(142, 108, 255, 0.15)'
-                            : 'rgba(142, 108, 255, 0.08)'
+                          ? activeBg
                           : isDark
                           ? 'rgba(255, 255, 255, 0.03)'
                           : '#FAFAFA',
                       borderColor:
                         carryMode === 'additive'
-                          ? '#8E6CFF'
+                          ? activeAccent
                           : isDark
                           ? 'rgba(255, 255, 255, 0.08)'
                           : 'rgba(0, 0, 0, 0.06)',
@@ -291,12 +307,15 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   ]}
                   activeOpacity={0.8}
                   onPress={() => setCarryMode('additive')}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: carryMode === 'additive' }}
+                  accessibilityLabel={`Additive Pool, expand limit to ${formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}`}
                 >
                   <View style={styles.modeCardHeader}>
                     <View style={styles.modeIconTitleRow}>
                       <Layers
                         size={16}
-                        color={carryMode === 'additive' ? '#8E6CFF' : colors.textSecondary}
+                        color={carryMode === 'additive' ? activeAccent : colors.textSecondary}
                         style={{ marginRight: 8 }}
                       />
                       <Text
@@ -312,10 +331,12 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                       style={[
                         styles.radioCircle,
                         carryMode === 'additive' && styles.radioCircleActive,
-                        { borderColor: carryMode === 'additive' ? '#8E6CFF' : colors.textSecondary },
+                        { borderColor: carryMode === 'additive' ? activeAccent : colors.textSecondary },
                       ]}
                     >
-                      {carryMode === 'additive' && <View style={styles.radioInner} />}
+                      {carryMode === 'additive' && (
+                        <View style={[styles.radioInner, { backgroundColor: activeAccent }]} />
+                      )}
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
@@ -334,15 +355,13 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     {
                       backgroundColor:
                         carryMode === 'allocation'
-                          ? isDark
-                            ? 'rgba(142, 108, 255, 0.15)'
-                            : 'rgba(142, 108, 255, 0.08)'
+                          ? activeBg
                           : isDark
                           ? 'rgba(255, 255, 255, 0.03)'
                           : '#FAFAFA',
                       borderColor:
                         carryMode === 'allocation'
-                          ? '#8E6CFF'
+                          ? activeAccent
                           : isDark
                           ? 'rgba(255, 255, 255, 0.08)'
                           : 'rgba(0, 0, 0, 0.06)',
@@ -350,12 +369,15 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   ]}
                   activeOpacity={0.8}
                   onPress={() => setCarryMode('allocation')}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: carryMode === 'allocation' }}
+                  accessibilityLabel={`Remaining Allocation, keep fixed cap at ${formatCurrency(plan.targetBudgetAmount)}`}
                 >
                   <View style={styles.modeCardHeader}>
                     <View style={styles.modeIconTitleRow}>
                       <PieChart
                         size={16}
-                        color={carryMode === 'allocation' ? '#8E6CFF' : colors.textSecondary}
+                        color={carryMode === 'allocation' ? activeAccent : colors.textSecondary}
                         style={{ marginRight: 8 }}
                       />
                       <Text
@@ -371,10 +393,12 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                       style={[
                         styles.radioCircle,
                         carryMode === 'allocation' && styles.radioCircleActive,
-                        { borderColor: carryMode === 'allocation' ? '#8E6CFF' : colors.textSecondary },
+                        { borderColor: carryMode === 'allocation' ? activeAccent : colors.textSecondary },
                       ]}
                     >
-                      {carryMode === 'allocation' && <View style={styles.radioInner} />}
+                      {carryMode === 'allocation' && (
+                        <View style={[styles.radioInner, { backgroundColor: activeAccent }]} />
+                      )}
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
@@ -415,6 +439,8 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               ]}
               onPress={onClose}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
             >
               <Text style={[styles.cancelText, { color: colors.textPrimary }]}>Cancel</Text>
             </TouchableOpacity>
@@ -423,14 +449,16 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               style={[
                 styles.confirmBtn,
                 {
-                  backgroundColor: '#8E6CFF',
+                  backgroundColor: activeAccent,
                 },
               ]}
               onPress={handleConfirm}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Confirm Switch"
             >
-              <Check size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.confirmText}>Confirm Switch</Text>
+              <Check size={18} color={isDark ? colors.forestGreen : '#FFFFFF'} style={{ marginRight: 6 }} />
+              <Text style={[styles.confirmText, { color: isDark ? colors.forestGreen : '#FFFFFF' }]}>Confirm Switch</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -583,7 +611,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.group,
   },
   modeOptionCardActive: {
-    borderColor: '#8E6CFF',
+    borderWidth: 1.5,
   },
   modeCardHeader: {
     flexDirection: 'row',
@@ -612,14 +640,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioCircleActive: {
-    borderColor: '#8E6CFF',
-  },
+  radioCircleActive: {},
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#8E6CFF',
   },
   activationCard: {
     borderRadius: BorderRadius.card,

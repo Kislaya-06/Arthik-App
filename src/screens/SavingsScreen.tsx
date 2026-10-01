@@ -30,7 +30,7 @@ import { StreakFlame } from '../components/StreakFlame';
 import { AnimatedToggle } from '../components/AnimatedToggle';
 
 import { useTheme } from '../store/themeStore';
-import { formatCurrency, round2 } from '../lib/formatters';
+import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
@@ -99,6 +99,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
   const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
+  const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
+  const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
@@ -653,7 +655,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                         { color: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF' },
                       ]}
                     >
-                      {(cardIsOver ? cardOverAmount : cardRemaining).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      {formatAmountWithCommas(String(Math.round(cardIsOver ? cardOverAmount : cardRemaining)))}
                     </Text>
                   </View>
                 </View>
@@ -835,7 +837,9 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                       Configured {budgetCadence === 'weekly' ? 'Weekly Budget' : budgetCadence === 'monthly' ? 'Monthly Budget' : 'Daily Allowance'}
                     </Text>
                     <Text style={[styles.pausedAmountText, { color: '#FFFFFF' }]}>
-                      {dailyBudgetAmount > 0 ? formatCurrency(dailyBudgetAmount) : 'Not Set'}
+                      {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0
+                        ? formatCurrency(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount)
+                        : 'Not Set'}
                     </Text>
                   </View>
 
@@ -851,7 +855,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     activeOpacity={0.75}
                   >
                     <Text style={[styles.pausedActionBtnText, { color: '#581C87' }]}>
-                      {dailyBudgetAmount > 0 ? 'Change' : 'Set Limit'}
+                      {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0 ? 'Change' : 'Set Limit'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -877,7 +881,11 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                       Auto-save unspent to Gullak
                     </Text>
                     <Text style={[styles.ucFooterHint, { color: 'rgba(255, 255, 255, 0.85)' }]}>
-                      Turn on to resume daily rollover into Gullak
+                      {budgetCadence === 'weekly'
+                        ? 'Turn on to resume weekly rollover into Gullak'
+                        : budgetCadence === 'monthly'
+                        ? 'Turn on to resume monthly rollover into Gullak'
+                        : 'Turn on to resume daily rollover into Gullak'}
                     </Text>
                   </View>
                 </View>

@@ -29,6 +29,7 @@ import {
 } from '../lib/budgetModeUtils';
 import { computeEffectiveFrom, getPeriodBounds } from '../lib/budgetPeriods';
 import { BudgetCadence } from '../types';
+import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { KeyButton } from './KeyButton';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { CadenceSwitchModal } from './CadenceSwitchModal';
@@ -220,6 +221,16 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     return getProrationPreview(selectedCadence, evaluatedAmount, effectiveFromStr, todayStr);
   }, [selectedCadence, evaluatedAmount, effectiveFromStr, todayStr]);
 
+  const explainerTopic: MoneyExplainerTopic = useMemo(() => {
+    if (selectedCadence !== budgetCadence && isBudgetModeEnabled) {
+      return 'cadence_switch';
+    }
+    if (prorationPreview) {
+      return 'cadence_switch';
+    }
+    return 'rollover_savings';
+  }, [selectedCadence, budgetCadence, isBudgetModeEnabled, prorationPreview]);
+
   const handleSave = useCallback(() => {
     if (evaluatedAmount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a budget amount greater than ₹0.');
@@ -272,8 +283,42 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       }
       setDailyBudget(evaluatedAmount);
     } else if (selectedCadence === 'weekly') {
+      if (weeklyBudgetAmount > 0 && evaluatedAmount !== weeklyBudgetAmount) {
+        Alert.alert(
+          'Change Weekly Budget?',
+          `Your new budget of ${formatCurrency(evaluatedAmount)} will take effect next Monday at 12:00 AM. Your current budget (${formatCurrency(weeklyBudgetAmount)}) stays active until Sunday.\n\nDo you want to confirm?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Yes, Change',
+              onPress: () => {
+                setWeeklyBudget(evaluatedAmount);
+                onClose();
+              },
+            },
+          ]
+        );
+        return;
+      }
       setWeeklyBudget(evaluatedAmount);
     } else {
+      if (monthlyBudgetAmount > 0 && evaluatedAmount !== monthlyBudgetAmount) {
+        Alert.alert(
+          'Change Monthly Budget?',
+          `Your new budget of ${formatCurrency(evaluatedAmount)} will take effect on the 1st of next month at 12:00 AM. Your current budget (${formatCurrency(monthlyBudgetAmount)}) stays active until then.\n\nDo you want to confirm?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Yes, Change',
+              onPress: () => {
+                setMonthlyBudget(evaluatedAmount);
+                onClose();
+              },
+            },
+          ]
+        );
+        return;
+      }
       setMonthlyBudget(evaluatedAmount);
     }
     onClose();
@@ -283,6 +328,8 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     selectedCadence,
     budgetCadence,
     dailyBudgetAmount,
+    weeklyBudgetAmount,
+    monthlyBudgetAmount,
     effectiveFromLabel,
     setDailyBudget,
     setWeeklyBudget,
@@ -624,7 +671,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
       <MoneyExplainerModal
         visible={showMoneyExplainer}
-        topic="cadence_switch"
+        topic={explainerTopic}
         onClose={() => setShowMoneyExplainer(false)}
       />
 

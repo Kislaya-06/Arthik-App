@@ -860,6 +860,48 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(secondRun.length).toBe(0);
     });
 
+    it('sets amountSaved = 0 on premature cadence switch slice while recording unspent in carriedOverAmount', () => {
+      // User on weekly budget 7000 from Monday 2026-10-05.
+      // Switches to daily starting Friday 2026-10-09.
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-05',
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 7000,
+        },
+        {
+          id: '2',
+          userId: 'u1',
+          effectiveFrom: '2026-10-09',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 500,
+        },
+      ];
+
+      // Finalized on Friday 2026-10-09 (yesterday was Thursday 2026-10-08)
+      const periods = buildPeriodsToFinalize(
+        changes,
+        { '2026-10-05': 1000, '2026-10-06': 1000 },
+        '2026-10-09',
+        new Set<string>()
+      );
+
+      expect(periods.length).toBe(1);
+      expect(periods[0].cadence).toBe('weekly');
+      expect(periods[0].activeStart).toBe('2026-10-05');
+      expect(periods[0].activeEnd).toBe('2026-10-08');
+      expect(periods[0].budgetAmount).toBe(7000);
+      expect(periods[0].spentAmount).toBe(2000);
+      // GOLDEN INVARIANT: Premature switch slice deposits 0 into Gullak!
+      expect(periods[0].amountSaved).toBe(0);
+      // Unspent amount is assigned to carriedOverAmount
+      expect(periods[0].carriedOverAmount).toBe(5000);
+    });
+
     it('does not finalize an active period before it ends', () => {
       // Month of October 2026: on 2026-10-15, October is still ongoing
       const changes: BudgetPlanChange[] = [

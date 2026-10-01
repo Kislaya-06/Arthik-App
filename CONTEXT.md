@@ -257,10 +257,32 @@ The continuous date interval `[activeStart, activeEnd]` within a calendar period
 - *Code location*: `src/lib/budgetPeriods.ts` (`buildPlanSlices`, `walkPlanSlices`)
 - *_Avoid_*: Active Segment, Sub-period, Time Slice
 
-**Proration**:
-The fair, proportional allocation of a weekly or monthly budget when a plan change takes effect partway through a calendar cycle (`proratedBudget = Math.round((fullBudget / totalDaysInCycle) * remainingDays)`).
-- *Code location*: `src/lib/budgetPeriods.ts` (`calculateProratedBudget`, `getProrationPreview`), `src/lib/budgetModeUtils.ts` (`formatProrationPreview`)
-- *_Avoid_*: Partial Budget, Scaled Budget, Fractional Allowance
+**Non-Prorated Budget (Zero-Proration Policy)**:
+The architectural invariant that a user's entered budget amount is NEVER scaled down or prorated simply because they configured or switched it mid-cycle. The user-entered amount represents 100% real cash allocated into their active spending pool. Dynamic pacing (e.g. suggested daily pace) is computed strictly for non-binding informational guidance.
+- *Code location*: `src/lib/budgetModeUtils.ts` (`getProrationPreview`), `src/lib/budgetPeriods.ts` (`getCurrentPeriodSummary`)
+- *_Avoid_*: Prorated Allowance, Scaled Budget, Fractional Allowance
+
+**Zero-Balance Spending Guard (Digital Bank Vault Invariant)**:
+The strict invariant that Arthik functions as a financial vault: a user cannot execute an outflow (expense) if their total available liquid funds (allocated budget allowance + logged incomes + reserves) equal zero. Attempting to add an expense with zero available inflow blocks creation and prompts the user to fund their account first. Overspending against a single cadence limit is permitted only when backed by available funds/income elsewhere.
+- *Code location*: `src/screens/ExpenseFormScreen.tsx`, `src/store/expenseStore.ts`
+- *_Avoid_*: Overdraft, Negative Balance Creation, Phantom Outflow
+
+**Natural Cycle Rollover**:
+The transfer of unspent budget funds into the digital Gullak reserve that occurs exclusively upon the natural completion of a full calendar cycle (Daily at 23:59:59, Weekly on Sunday at 23:59:59, Monthly at month-end). Terminating or switching a cadence mid-period does NOT trigger a Gullak deposit.
+- *Code location*: `src/lib/budgetPeriods.ts` (`buildPeriodsToFinalize`), `src/store/dailyBudgetStore.ts` (`checkAndRollover`)
+- *_Avoid_*: Premature Deposit, Mid-Cycle Rollover, Cutoff Deposit
+
+**Cadence Switch Carry-Forward**:
+The mechanism by which unspent funds from a prematurely terminated cadence transfer into the newly active cadence context starting tomorrow at 00:00:00. Supported in two modes:
+- **Additive (`'additive'`)**: Carried funds are added on top of the target budget ceiling (`targetBudget + carriedOverAmount`). Default mode.
+- **Allocation (`'allocation'`)**: Carried funds provide a pre-funded headstart toward the target budget ceiling (`targetBudget`).
+- *Code location*: `src/lib/cadenceSwitch.ts` (`calculateCadenceCarryForward`, `buildCadenceSwitchPlan`), `src/components/CadenceSwitchModal.tsx`
+- *_Avoid_*: Rollover Transfer, Switch Deposit, Remainder Flush
+
+**Cadence-Native Streak**:
+The streak evaluation unit matching the active cadence: Daily evaluates consecutive saved days, Weekly evaluates consecutive saved weeks (Monday–Sunday), and Monthly evaluates consecutive saved calendar months. Mid-period daily variations do not break a Weekly or Monthly streak.
+- *Code location*: `src/lib/budgetPeriods.ts` (`computeCadenceStreak`), `src/store/dailyBudgetStore.ts` (`bestStreakByCadence`)
+- *_Avoid_*: Universal Daily Streak, Pace Streak
 
 **Paused**:
 The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red.

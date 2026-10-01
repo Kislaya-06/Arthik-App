@@ -54,13 +54,13 @@
       },
       "otaUpdate": {
         "version": "1.2.4",
-        "title": "AMOLED Theme & UI Refinements 🖤",
+        "title": "Unified Budgeting & Digital Vault 💎",
         "highlights": [
-          "True AMOLED pure black theme with battery saving and high contrast",
-          "3-theme picker on Profile (Light, Dark, and AMOLED Recommended)",
-          "Dynamic splash screen theme adaptation for seamless visual continuity",
-          "Refined Gullak hero & allowance cards with premium violet gradient and clear contrast",
-          "Shortened proration allowance guidance with improved legibility"
+          "100% unprorated real-money budget allocation for daily, weekly, and monthly cadences",
+          "Next-day cadence switching with user-selected carry-forward modes (Additive vs Allocation)",
+          "Gullak rollover preservation: mid-cycle switches carry forward without premature dumps",
+          "Digital Vault Spending Guard: blocks negative outflow when available liquidity is zero",
+          "Dynamic non-binding pace suggestions across Daily, Weekly, and Monthly views"
         ]
       }
     }
