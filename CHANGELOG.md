@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🎨 Theme & Visual Experience
+- **Default AMOLED Theme for New Installs:** Set pure black AMOLED mode as the default initial theme (`themeMode: 'amoled'`) for fresh app downloads and new users, delivering maximum energy efficiency and visual contrast out of the box while allowing one-tap switching to Light, Dark, or System mode in Profile.
+
 ### 🎨 Post-Implementation UX & Financial Correctness Hardening
 - **Cadence-Aware Paused Auto-Renew Display (`SavingsScreen`):** Paused state on the Allowance Card now dynamically resolves and displays the active cadence's configured amount (`weeklyBudgetAmount` / `monthlyBudgetAmount` / `dailyBudgetAmount`) and cadence-appropriate rollover hints instead of falling back to daily budget.
 - **Accurate Past Expense Deletion Alerts (`ExpenseDetailScreen`):** Replaced unconditional Gullak refund promises with cadence-aware restore notifications (restoring funds to active spending pool for weekly/monthly modes or updating past daily budget/savings).

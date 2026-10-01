@@ -22,7 +22,7 @@ const getInitialSystemScheme = (): 'light' | 'dark' => {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      themeMode: 'system',
+      themeMode: 'amoled',
       systemScheme: getInitialSystemScheme(),
 
       setThemeMode: (themeMode: ThemeMode) => set({ themeMode }),

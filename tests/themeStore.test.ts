@@ -47,15 +47,15 @@ describe('themeStore (Seam: useThemeStore)', () => {
     vi.clearAllMocks();
     setScheme('light');
     useThemeStore.setState({
-      themeMode: 'system',
+      themeMode: 'amoled',
       systemScheme: 'light',
     });
   });
 
   describe('Slice 1: Default State', () => {
-    it('initializes with themeMode="system" and system scheme from Appearance', () => {
+    it('initializes with themeMode="amoled" and system scheme from Appearance', () => {
       const state = useThemeStore.getState();
-      expect(state.themeMode).toBe('system');
+      expect(state.themeMode).toBe('amoled');
       expect(state.systemScheme).toBe('light');
     });
   });
