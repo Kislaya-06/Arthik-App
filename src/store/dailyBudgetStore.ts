@@ -392,7 +392,14 @@ interface DailyBudgetState {
 
   // --- Multi-Cadence Actions & Selectors ---
   setBudgetModeEnabled: (enabled: boolean) => void;
-  setBudgetCadence: (cadence: BudgetCadence) => void;
+  setBudgetCadence: (
+    cadence: BudgetCadence,
+    options?: {
+      amount?: number;
+      carryMode?: 'additive' | 'allocation';
+      carriedOverAmount?: number;
+    }
+  ) => void;
   setWeeklyBudget: (amount: number) => void;
   setMonthlyBudget: (amount: number) => void;
   getPendingPlanChange: () => BudgetPlanChange | null;
@@ -765,14 +772,23 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
       },
 
-      setBudgetCadence: (cadence: BudgetCadence) => {
+      setBudgetCadence: (
+        cadence: BudgetCadence,
+        options?: {
+          amount?: number;
+          carryMode?: 'additive' | 'allocation';
+          carriedOverAmount?: number;
+        }
+      ) => {
         const todayStr = getTodayDateStr();
         const currentUser = useAuthStore.getState().user;
         const currentOwner = getDateOwner(get().planChanges, todayStr);
         const effectiveFrom = computeEffectiveFrom('cadence_switch', todayStr, { currentOwner });
 
         const amount =
-          cadence === 'weekly'
+          options?.amount !== undefined
+            ? Math.max(0, round2(options.amount))
+            : cadence === 'weekly'
             ? get().weeklyBudgetAmount
             : cadence === 'monthly'
             ? get().monthlyBudgetAmount
@@ -785,6 +801,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           isEnabled: get().isBudgetModeEnabled,
           cadence,
           amount,
+          carryMode: options?.carryMode,
+          carriedOverAmount: options?.carriedOverAmount,
           createdAt: new Date().toISOString(),
         };
 
@@ -800,6 +818,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         set({
           budgetCadence: cadence,
+          ...(cadence === 'weekly' && options?.amount !== undefined ? { weeklyBudgetAmount: options.amount } : {}),
+          ...(cadence === 'monthly' && options?.amount !== undefined ? { monthlyBudgetAmount: options.amount } : {}),
+          ...(cadence === 'daily' && options?.amount !== undefined ? { dailyBudgetAmount: options.amount } : {}),
           planChanges: updatedChanges,
           ...metrics,
         });
@@ -828,6 +849,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 is_enabled: newChange.isEnabled,
                 cadence: newChange.cadence,
                 amount: newChange.amount,
+                carry_mode: newChange.carryMode || null,
+                carried_over_amount: newChange.carriedOverAmount || 0,
                 created_at: newChange.createdAt,
               },
               { onConflict: 'user_id,effective_from' }
@@ -1044,6 +1067,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 amount_saved: p.amountSaved,
                 status: p.status,
                 is_prorated: p.isProrated,
+                carry_mode: p.carryMode || null,
+                carried_over_amount: p.carriedOverAmount || 0,
                 created_at: p.createdAt || new Date().toISOString(),
               },
               { onConflict: 'user_id,cadence,active_start' }
@@ -1074,6 +1099,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 is_enabled: c.isEnabled,
                 cadence: c.cadence,
                 amount: c.amount,
+                carry_mode: c.carryMode || null,
+                carried_over_amount: c.carriedOverAmount || 0,
                 created_at: c.createdAt || new Date().toISOString(),
               },
               { onConflict: 'user_id,effective_from' }
@@ -1621,6 +1648,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                     amount_saved: p.amountSaved,
                     status: p.status,
                     is_prorated: p.isProrated,
+                    carry_mode: p.carryMode || null,
+                    carried_over_amount: p.carriedOverAmount || 0,
                     created_at: p.createdAt || new Date().toISOString(),
                   },
                   { onConflict: 'user_id,cadence,active_start' }
@@ -1908,12 +1937,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 .order('date', { ascending: true }),
               supabase
                 .from('budget_plan_changes')
-                .select('id, effective_from, is_enabled, cadence, amount, created_at')
+                .select('id, effective_from, is_enabled, cadence, amount, carry_mode, carried_over_amount, created_at')
                 .eq('user_id', userId)
                 .order('effective_from', { ascending: true }),
               supabase
                 .from('budget_periods')
-                .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, created_at')
+                .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, carry_mode, carried_over_amount, created_at')
                 .eq('user_id', userId)
                 .order('active_start', { ascending: true }),
             ]),
@@ -2004,6 +2033,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               isEnabled: Boolean(p.is_enabled),
               cadence: p.cadence as BudgetCadence,
               amount: Number(p.amount) || 0,
+              carryMode: p.carry_mode,
+              carriedOverAmount: Number(p.carried_over_amount) || 0,
               createdAt: p.created_at,
             }));
           } else {
@@ -2034,6 +2065,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 amountSaved: Number(p.amount_saved) || 0,
                 status: p.status as BudgetPeriodStatus,
                 isProrated: Boolean(p.is_prorated),
+                carryMode: p.carry_mode,
+                carriedOverAmount: Number(p.carried_over_amount) || 0,
                 createdAt: p.created_at,
               };
             }

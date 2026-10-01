@@ -460,4 +460,50 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(useDailyBudgetStore.getState().lastRenewedPeriodKey).toBeNull();
     });
   });
+
+  describe('Slice 7: Cadence Switching with Carry-Forward Modes (Issue #6)', () => {
+    it('schedules next-day cadence switch with additive carry mode and carried-over amount', () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+
+      useDailyBudgetStore.getState().setBudgetCadence('weekly', {
+        amount: 7000,
+        carryMode: 'additive',
+        carriedOverAmount: 3000,
+      });
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.budgetCadence).toBe('weekly');
+      expect(state.weeklyBudgetAmount).toBe(7000);
+
+      const pending = state.getPendingPlanChange();
+      expect(pending).not.toBeNull();
+      expect(pending?.cadence).toBe('weekly');
+      expect(pending?.amount).toBe(7000);
+      expect(pending?.carryMode).toBe('additive');
+      expect(pending?.carriedOverAmount).toBe(3000);
+    });
+
+    it('schedules next-day cadence switch with allocation carry mode', () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+
+      useDailyBudgetStore.getState().setBudgetCadence('monthly', {
+        amount: 30000,
+        carryMode: 'allocation',
+        carriedOverAmount: 18000,
+      });
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.budgetCadence).toBe('monthly');
+      expect(state.monthlyBudgetAmount).toBe(30000);
+
+      const pending = state.getPendingPlanChange();
+      expect(pending).not.toBeNull();
+      expect(pending?.cadence).toBe('monthly');
+      expect(pending?.amount).toBe(30000);
+      expect(pending?.carryMode).toBe('allocation');
+      expect(pending?.carriedOverAmount).toBe(18000);
+    });
+  });
 });

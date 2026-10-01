@@ -37,6 +37,8 @@ export interface BudgetPlanChange {
   isEnabled: boolean;
   cadence: BudgetCadence;
   amount: number;
+  carryMode?: 'additive' | 'allocation';
+  carriedOverAmount?: number;
   createdAt?: string;
 }
 
@@ -55,5 +57,7 @@ export interface BudgetPeriodRecord {
   amountSaved: number;
   status: BudgetPeriodStatus;
   isProrated: boolean;
+  carriedOverAmount?: number;
+  carryMode?: 'additive' | 'allocation';
   createdAt?: string;
 }

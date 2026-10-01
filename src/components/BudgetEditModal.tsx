@@ -15,6 +15,7 @@ import { format, parseISO, addDays } from 'date-fns';
 import Svg, { Defs, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import {
   formatAmountWithCommas,
@@ -26,10 +27,11 @@ import {
   formatEffectiveFrom,
   getProrationPreview,
 } from '../lib/budgetModeUtils';
-import { computeEffectiveFrom } from '../lib/budgetPeriods';
+import { computeEffectiveFrom, getPeriodBounds } from '../lib/budgetPeriods';
 import { BudgetCadence } from '../types';
 import { KeyButton } from './KeyButton';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
+import { CadenceSwitchModal } from './CadenceSwitchModal';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 export interface BudgetEditModalProps {
@@ -85,7 +87,11 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   );
   const [amountStr, setAmountStr] = useState('');
   const [showMoneyExplainer, setShowMoneyExplainer] = useState(false);
+  const [showCadenceSwitchModal, setShowCadenceSwitchModal] = useState(false);
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+
+  const expenses = useExpenseStore((s) => s.expenses);
+  const todayRecord = useDailyBudgetStore((s) => s.getTodayRecord());
 
   // 3-Segment sliding pill animation
   const cadenceIndex = CADENCE_OPTIONS.findIndex((c) => c.key === selectedCadence);
@@ -161,6 +167,26 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
   const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [visible]);
 
+  const currentCadenceBudget = useMemo(() => {
+    if (budgetCadence === 'daily') return todayRecord.budget || dailyBudgetAmount;
+    if (budgetCadence === 'weekly') return weeklyBudgetAmount;
+    return monthlyBudgetAmount;
+  }, [budgetCadence, todayRecord.budget, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount]);
+
+  const currentCadenceSpent = useMemo(() => {
+    if (budgetCadence === 'daily') return todayRecord.spent || 0;
+    const bounds = getPeriodBounds(budgetCadence, todayStr);
+    return expenses
+      .filter(
+        (e) =>
+          e.type !== 'income' &&
+          e.expense_date &&
+          e.expense_date >= bounds.start &&
+          e.expense_date <= todayStr
+      )
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  }, [budgetCadence, todayRecord.spent, expenses, todayStr]);
+
   // Compute effective date
   const effectiveFromStr = useMemo(() => {
     if (!isBudgetModeEnabled) {
@@ -221,27 +247,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
     // Already enabled: changing cadence
     if (selectedCadence !== budgetCadence) {
-      const prorationNote = prorationPreview
-        ? `\n\nFor the remaining ${prorationPreview.remainingDays} ${prorationPreview.remainingDays === 1 ? 'day' : 'days'}, you will have a prorated spending allowance of ${formatCurrency(prorationPreview.proratedAmount)}. Any unspent amount rolls into your Gullak.`
-        : '';
-
-      Alert.alert(
-        'Switch Cadence?',
-        `Switching to ${selectedCadence.toUpperCase()} budget (${formatCurrency(evaluatedAmount)}) will ${effectiveFromLabel.toLowerCase()}.${prorationNote}\n\nDo you want to confirm?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Yes, Switch',
-            onPress: () => {
-              if (selectedCadence === 'daily') setDailyBudget(evaluatedAmount);
-              else if (selectedCadence === 'weekly') setWeeklyBudget(evaluatedAmount);
-              else setMonthlyBudget(evaluatedAmount);
-              setBudgetCadence(selectedCadence);
-              onClose();
-            },
-          },
-        ]
-      );
+      setShowCadenceSwitchModal(true);
       return;
     }
 
@@ -620,6 +626,24 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
         visible={showMoneyExplainer}
         topic="cadence_switch"
         onClose={() => setShowMoneyExplainer(false)}
+      />
+
+      <CadenceSwitchModal
+        visible={showCadenceSwitchModal}
+        currentCadence={budgetCadence}
+        targetCadence={selectedCadence}
+        initialTargetAmount={evaluatedAmount}
+        currentBudget={currentCadenceBudget}
+        currentSpent={currentCadenceSpent}
+        onConfirmSwitch={({ targetCadence: tc, amount, carryMode, carriedOverAmount }) => {
+          if (tc === 'daily') setDailyBudget(amount);
+          else if (tc === 'weekly') setWeeklyBudget(amount);
+          else setMonthlyBudget(amount);
+          setBudgetCadence(tc, { amount, carryMode, carriedOverAmount });
+          setShowCadenceSwitchModal(false);
+          onClose();
+        }}
+        onClose={() => setShowCadenceSwitchModal(false)}
       />
     </Modal>
   );

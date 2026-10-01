@@ -68,6 +68,9 @@ export interface PeriodSummaryInfo {
   suggestedDailyPace: number;
   suggestedWeeklyPace?: number;
   projectedMonthlyBudget?: number;
+  baseBudget?: number;
+  carriedOverAmount?: number;
+  carryMode?: 'additive' | 'allocation';
 }
 
 export interface StreakUnit {
@@ -313,6 +316,7 @@ export function buildPeriodsToFinalize(
     const isPeriodEnded = todayStr > slice.periodEnd;
 
     let isEarlySliceEnded = false;
+    let isCadenceSwitchEarlyEnd = false;
     if (slice.activeEnd < slice.periodEnd && todayStr > slice.activeEnd) {
       const nextDay = addDays(parseISO(slice.activeEnd), 1);
       const nextDayStr = format(nextDay, 'yyyy-MM-dd');
@@ -327,6 +331,9 @@ export function buildPeriodsToFinalize(
         nextDayBounds.start !== slice.periodStart
       ) {
         isEarlySliceEnded = true;
+        if (nextDayOwner !== slice.owner) {
+          isCadenceSwitchEarlyEnd = true;
+        }
       }
     }
 
@@ -339,7 +346,12 @@ export function buildPeriodsToFinalize(
       continue;
     }
 
-    const budgetAmount = slice.amount;
+    const slicePlan = resolvePlanForDate(changes, slice.activeStart);
+    const baseBudget = slice.amount;
+    const carriedOver = slicePlan?.carriedOverAmount || 0;
+    const carryMode = slicePlan?.carryMode;
+    const budgetAmount =
+      carryMode === 'additive' ? round2(baseBudget + carriedOver) : baseBudget;
     const isProrated = false;
 
     // Sum spend in active slice
@@ -354,8 +366,15 @@ export function buildPeriodsToFinalize(
     }
     spentAmount = round2(spentAmount);
 
-    const amountSaved =
-      budgetAmount <= 0 ? 0 : round2(Math.max(0, budgetAmount - spentAmount));
+    const unspentInSlice = round2(Math.max(0, budgetAmount - spentAmount));
+    // GOLDEN INVARIANT (Audio Clips 1 & 3):
+    // Gullak deposits ONLY happen when a period ends naturally!
+    // If a period slice ends early due to a cadence switch, amountSaved = 0 (Gullak gets 0).
+    const amountSaved = isCadenceSwitchEarlyEnd
+      ? 0
+      : budgetAmount <= 0
+      ? 0
+      : unspentInSlice;
 
     let status: BudgetPeriodStatus;
     if (budgetAmount <= 0) {
@@ -381,6 +400,8 @@ export function buildPeriodsToFinalize(
       amountSaved,
       status,
       isProrated,
+      carriedOverAmount: isCadenceSwitchEarlyEnd ? unspentInSlice : carriedOver,
+      carryMode,
       createdAt: todayStr,
     });
   }
@@ -440,7 +461,10 @@ export function getCurrentPeriodSummary(
   }
 
   // 100% Real Money Invariant: Budget pool is fully intact without proration
-  const budget = fullAmount;
+  const carryMode = plan?.carryMode;
+  const carriedOverAmount = plan?.carriedOverAmount || 0;
+  const budget =
+    carryMode === 'additive' ? round2(fullAmount + carriedOverAmount) : fullAmount;
 
   // Sum spend from activeStart to todayStr
   let spent = 0;
@@ -476,7 +500,8 @@ export function getCurrentPeriodSummary(
   let projectedMonthlyBudget: number | undefined;
   if (owner === 'weekly') {
     const daysInMonth = getDaysInMonth(today);
-    projectedMonthlyBudget = Math.round((fullAmount / 7) * daysInMonth);
+    const dailyAvg = fullAmount / 7;
+    projectedMonthlyBudget = Math.round(dailyAvg * daysInMonth);
   }
 
   return {
@@ -495,6 +520,9 @@ export function getCurrentPeriodSummary(
     suggestedDailyPace,
     suggestedWeeklyPace,
     projectedMonthlyBudget,
+    baseBudget: fullAmount,
+    carriedOverAmount,
+    carryMode,
   };
 }
 

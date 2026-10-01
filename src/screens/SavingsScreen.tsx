@@ -102,6 +102,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
+  const pendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange());
+  const cancelPendingPlanChange = useDailyBudgetStore((s) => s.cancelPendingPlanChange);
   const expenses = useExpenseStore((s) => s.expenses);
   const categories = useCategoryStore((s) => s.categories);
 
@@ -698,7 +700,12 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   Spent <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(cardSpent)}</Text>
                 </Text>
                 <Text style={[styles.ucProgressLabelText, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                  <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(cardBudget)}</Text> budget
+                  <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(cardBudget)}</Text>{' '}
+                  {cadencePeriodSummary?.carriedOverAmount &&
+                  cadencePeriodSummary.carriedOverAmount > 0 &&
+                  cadencePeriodSummary.carryMode === 'additive'
+                    ? `pool (${formatCurrency(cadencePeriodSummary.baseBudget || cardBudget - cadencePeriodSummary.carriedOverAmount)} + ${formatCurrency(cadencePeriodSummary.carriedOverAmount)} carried)`
+                    : 'budget'}
                 </Text>
               </View>
 
@@ -715,6 +722,44 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     </Text>
                   </View>
                   <TouchableOpacity onPress={handleCancelScheduled} hitSlop={8}>
+                    <X size={16} color="rgba(255, 255, 255, 0.8)" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Scheduled Next Cadence Switch Banner (if active) */}
+              {pendingPlanChange && (
+                <View
+                  style={[
+                    styles.scheduledBanner,
+                    {
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderColor: 'rgba(255, 255, 255, 0.25)',
+                    },
+                  ]}
+                >
+                  <Clock size={15} color="#FFFFFF" style={{ marginRight: Spacing.element }} />
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.scheduledBannerTitle,
+                        { color: '#FFFFFF', fontFamily: FontFamily.bold },
+                      ]}
+                    >
+                      Tomorrow: Switch to {pendingPlanChange.cadence.toUpperCase()} ({formatCurrency(pendingPlanChange.amount)})
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scheduledBannerSubtitle,
+                        { color: 'rgba(255, 255, 255, 0.85)', fontFamily: FontFamily.medium },
+                      ]}
+                    >
+                      {pendingPlanChange.carriedOverAmount && pendingPlanChange.carriedOverAmount > 0
+                        ? `${formatCurrency(pendingPlanChange.carriedOverAmount)} carried forward (${pendingPlanChange.carryMode === 'additive' ? 'Additive' : 'Allocation'})`
+                        : 'Takes effect tomorrow at 12:00 AM'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={cancelPendingPlanChange} hitSlop={8}>
                     <X size={16} color="rgba(255, 255, 255, 0.8)" />
                   </TouchableOpacity>
                 </View>

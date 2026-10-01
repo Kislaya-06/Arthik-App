@@ -452,7 +452,9 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       // Unprorated full budget: 15500
       expect(monthlySlice.budgetAmount).toBe(15500);
       expect(monthlySlice.spentAmount).toBe(700);
-      expect(monthlySlice.amountSaved).toBe(14800);
+      // Golden Invariant: Gullak deposit is 0 on cadence switch; unspent is carried forward
+      expect(monthlySlice.amountSaved).toBe(0);
+      expect(monthlySlice.carriedOverAmount).toBe(14800);
       expect(monthlySlice.status).toBe('saved');
     });
 
@@ -492,7 +494,9 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       // Unprorated budget: 31000
       expect(periods[0].budgetAmount).toBe(31000);
       expect(periods[0].spentAmount).toBe(5000);
-      expect(periods[0].amountSaved).toBe(26000);
+      // Golden Invariant: Gullak deposit is 0 on cadence switch; unspent is carried forward
+      expect(periods[0].amountSaved).toBe(0);
+      expect(periods[0].carriedOverAmount).toBe(26000);
     });
 
     it('Transition 3: Weekly -> Monthly (W -> M)', () => {
@@ -531,7 +535,9 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       // Unprorated budget: 7000
       expect(periods[0].budgetAmount).toBe(7000);
       expect(periods[0].spentAmount).toBe(1000);
-      expect(periods[0].amountSaved).toBe(6000);
+      // Golden Invariant: Gullak deposit is 0 on cadence switch; unspent is carried forward
+      expect(periods[0].amountSaved).toBe(0);
+      expect(periods[0].carriedOverAmount).toBe(6000);
     });
 
     it('Transition 4: Weekly -> Daily (W -> D)', () => {

@@ -600,6 +600,12 @@ ALTER TABLE public.budget_periods ADD CONSTRAINT budget_periods_saved_non_negati
 ALTER TABLE public.budget_periods DROP CONSTRAINT IF EXISTS budget_periods_status_check;
 ALTER TABLE public.budget_periods ADD CONSTRAINT budget_periods_status_check CHECK (status IN ('saved', 'missed', 'even', 'unknown'));
 
+ALTER TABLE public.budget_periods ADD COLUMN IF NOT EXISTS carried_over_amount NUMERIC(12, 2) DEFAULT 0;
+ALTER TABLE public.budget_periods ADD COLUMN IF NOT EXISTS carry_mode TEXT CHECK (carry_mode IS NULL OR carry_mode IN ('additive', 'allocation'));
+
+ALTER TABLE public.budget_plan_changes ADD COLUMN IF NOT EXISTS carried_over_amount NUMERIC(12, 2) DEFAULT 0;
+ALTER TABLE public.budget_plan_changes ADD COLUMN IF NOT EXISTS carry_mode TEXT CHECK (carry_mode IS NULL OR carry_mode IN ('additive', 'allocation'));
+
 CREATE INDEX IF NOT EXISTS idx_budget_periods_user_start 
 ON public.budget_periods (user_id, period_start DESC);
 

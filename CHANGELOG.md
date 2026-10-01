@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔄 Next-Day Cadence Switching Engine & Carry-Forward Modes (Issue #6, PR #7)
+- **Zero Mid-Cycle Gullak Dumps (Golden Invariant):** Mid-cycle cadence switching strictly preserves unspent funds in the user's spending pool rather than dumping them prematurely into the Gullak (`gullakDeposit: 0`). Gullak deposits now strictly occur when a period naturally completes (Sunday midnight for weekly, month-end midnight for monthly, day-end for daily).
+- **Next-Day Activation (00:00:00):** Cadence switches schedule for tomorrow midnight (`addDays(today, 1)`), allowing today's budget and transactions to conclude cleanly under the active plan without retro-active split confusion.
+- **User-Guided Carry-Forward Modal (`CadenceSwitchModal`):**
+  - **Additive Pool Option:** Adds remaining unspent funds directly on top of the newly chosen budget (e.g. ₹30,000 base + ₹3,000 carried = ₹33,000 active pool).
+  - **Remaining Allocation Option:** Uses carried funds as an opening headstart toward the newly chosen budget without expanding the base cap.
+- **Over-Capacity Protection & Safe Suggestions (Audio Clip 2 Edge Case):**
+  - Live mathematical validation when switching Monthly $\to$ Weekly or Monthly $\to$ Daily: detects when the requested cadence budget exceeds available remaining monthly capacity over remaining days.
+  - Displays a high-contrast amber warning banner with a 1-tap *"Set Safe Budget"* suggestion button.
+- **Overspent Zero-Carry Invariant (Audio Clip 4):** When switching cadences in an overspent state, previous period deficits are absorbed by Income/Savings according to real-money cashflow hierarchy, and the new cadence starts cleanly with ₹0 carry-forward.
+- **Transparent Allowance Card Tracking (`SavingsScreen`):**
+  - Additive pools show the complete breakdown: `₹33,000 pool (₹30,000 + ₹3,000 carried)`.
+  - Scheduled cadence switches display an unboxed, luminous banner with countdown to 12:00 AM, amount, and 1-tap cancel.
+
 ### 💎 Unprorated Cadence Engine, Dynamic Pace Guidance & Period Renewal
 - **Luminous Warm Coral Over-Budget Alerts (`SavingsScreen`):** Replaced saturated `#EF4444` on the violet Allowance Card with high-luminance Warm Coral (`#FF7A6E` / `#FF8A80`), completely resolving optical vibration ("chub raha hai") and clashing against violet gradients while achieving 5.5:1+ WCAG AA contrast.
 - **100% Real-Money Invariant (Zero Proration):** Completely eliminated mathematical budget slicing. Mid-period budget activations allocate the entire budget pool intact (e.g. ₹30,000 or ₹7,000) without fractional reductions.
