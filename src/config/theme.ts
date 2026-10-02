@@ -206,15 +206,36 @@ export const BorderRadius = {
 
 /**
  * Font size tokens (in pixels)
- * Role-based typography scale covering dominant conventions.
+ * Role-based semantic scale covering dominant visual hierarchy.
  */
 export const FontSize = {
-  caption: 12,        // Section uppercase labels, timestamps, compact tags
+  micro: 11,          // Chart X/Y axis labels, compact calendar cell dates
+  caption: 12,        // Section uppercase labels, timestamps, compact tags, status pills
   bodySmall: 14,      // Secondary body text, subtitles, helper notes, version text
   body: 16,           // Regular body text, input text, row labels, standard button text
-  cta: 18,            // Primary CTA labels and modal titles (AGENTS.md 9.2)
-  sectionTitle: 20,   // Level-2 headers and section titles
-  screenTitle: 30,    // Major screen top header titles (Profile, History)
+  titleSmall: 18,     // Sub-section headers, list group titles, prominent alert headers
+  titleMedium: 20,    // Level-2 headers, section titles, card headers, modal titles
+  titleLarge: 28,     // Major screen top header titles (Profile, History, Savings, Insights)
+  display: 34,        // Major screen hero headers, welcome greetings, auth splash
+  // Backward-compatibility aliases during expand-contract migration:
+  cta: 18,            // Deprecated: use titleSmall or AppButton
+  sectionTitle: 20,   // Deprecated: use titleMedium
+  screenTitle: 30,    // Deprecated: use titleLarge (28) or display (34)
+} as const;
+
+/**
+ * Line height tokens (in pixels)
+ * Explicit vertical rhythm tied to semantic font roles.
+ */
+export const LineHeight = {
+  micro: 14,
+  caption: 16,
+  bodySmall: 18,
+  body: 22,
+  titleSmall: 24,
+  titleMedium: 26,
+  titleLarge: 34,
+  display: 42,
 } as const;
 
 /**
@@ -230,17 +251,20 @@ export const FontFamily = {
 
 /**
  * Interactive control dimension tokens (in pixels)
- * Fixed heights for interactive form controls and primary CTAs.
+ * Fixed heights for interactive form controls, inputs, and buttons.
  */
 export const ControlHeight = {
-  row: 56, // Standard form row height, input containers, date picker trigger (AGENTS.md 9.2)
-  cta: 60, // Primary action button height (AGENTS.md 9.2)
+  compact: 36,  // In-card action chips, compact filter buttons
+  standard: 48, // Modal buttons, search input bars
+  row: 56,      // Standard form row height, input containers, date picker trigger (AGENTS.md 9.2)
+  cta: 60,      // Primary action button height (AGENTS.md 9.2)
 } as const;
 
 export const Theme = {
   radius: BorderRadius,
   spacing: Spacing,
   fontSize: FontSize,
+  lineHeight: LineHeight,
   fonts: FontFamily,
   controls: ControlHeight,
 };

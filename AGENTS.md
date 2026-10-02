@@ -133,21 +133,26 @@ Work with surgical precision:
 
 # 9. UI Styling Rules
 
-## 9.1 Theme & Colours
-- All colours come from `src/config/theme.ts` (`LightColors` / `DarkColors`) via `themeStore`. No hardcoded hex in screens.
-- Test changes in both light and dark themes.
+**MANDATORY DESIGN LANGUAGE INVARIANT**: Any new UI screen, modal, card, or component added or modified in Arthik MUST strictly consume the canonical design tokens from [`src/config/theme.ts`](src/config/theme.ts) and the approved UI primitives from `src/components/ui/` as defined in [`docs/design-system.md`](docs/design-system.md). Never introduce ad-hoc font sizes, arbitrary button/input heights, raw hex codes, or screen-specific padding. Same semantic role = same visual treatment everywhere.
 
-## 9.2 Design Tokens (Source of Truth)
-Use tokens exported from `src/config/theme.ts` by their semantic role:
-- **Spacing**: `Spacing.nano` (2), `Spacing.micro` (4), `Spacing.element` (8), `Spacing.group` (12), `Spacing.row` (14), `Spacing.block` (16), `Spacing.surface` (20), `Spacing.gutter` (24), `Spacing.section` (32).
-- **BorderRadius**: `BorderRadius.input` (16), `BorderRadius.card` (20), `BorderRadius.cardLarge` (28), `BorderRadius.pill` (9999).
-- **FontSize**: `FontSize.caption` (12), `FontSize.bodySmall` (14), `FontSize.body` (16), `FontSize.cta` (18), `FontSize.sectionTitle` (22), `FontSize.screenTitle` (28).
-- **FontFamily**: Quicksand only (`FontFamily.regular`, `FontFamily.medium`, `FontFamily.semibold`, `FontFamily.bold`).
-- **ControlHeight**: `ControlHeight.row` (56), `ControlHeight.cta` (60).
+## 9.1 Theme & Colours
+- All colours come from `src/config/theme.ts` (`LightColors` / `DarkColors` / `AmoledColors`) via `useTheme()`. No hardcoded hex in screens.
+- Test changes in Light, Dark, and AMOLED themes.
+
+## 9.2 Design Tokens & Canonical Source of Truth
+The canonical design tokens and UI architecture are documented in [`docs/design-system.md`](docs/design-system.md).
+- **Runtime Source of Truth**: All design tokens (`Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`, `LightColors`, `DarkColors`) live strictly in [`src/config/theme.ts`](src/config/theme.ts). Never define alternative values elsewhere or hardcode hex/spacing/sizes in screens.
+- **Behavioral Source of Truth**: Shared UI primitives (`<AppButton />`, `<AmountText />`, `<SegmentedControl />`, `<TransactionRow />`, `<StatusBadge />`, `<GradientIconBadge />`) govern interactions, layout encapsulation, and accessibility.
+- **Consult `docs/design-system.md`** for the complete semantic role mapping, typography hierarchy, financial amount rules, and usage examples before writing UI code.
+
+### Introducing New Tokens or Component Variants
+1. **No numeric duplicates**: Do not add a new token if an existing semantic token satisfies the role.
+2. **7-Question Check**: Verify the proposed token represents a single semantic role, is not numeric coincidence, is understandable, future-proof, and not better served as local geometry or an encapsulated component.
+3. **Registration Order**: Add the token in `src/config/theme.ts`, document its semantic role in `docs/design-system.md`, and verify with `npx tsc --noEmit` and `npm test`.
 
 ## 9.3 Deliberately Non-Tokenised Values
 When an element's role does not match an established token, use the literal number:
-- Circle geometry: `borderRadius: width / 2` (e.g. 16 for 32x32, 24 for 48x48, 28 for 56x56).
+- Circle geometry: `borderRadius: width / 2` (e.g. 16 for 32x32, 24 for 48x48, 28 for 56x56). Never use radius tokens for circles.
 - Icon-button sizes (`32`, `36`, `40`, `44`, `48`) and intermediate fonts (`11`, `13`, `15`) remain literal numbers. Never round numbers to force-fit a token.
 
 ## 9.4 Role Matching

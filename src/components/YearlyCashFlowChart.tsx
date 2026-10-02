@@ -248,11 +248,13 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.element,
   },
   title: {
-    fontSize: 18,
+    fontSize: FontSize.titleSmall,
+    fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
   },
   subTitle: {
     fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
     marginTop: 2,
     lineHeight: 18,
   },
@@ -276,7 +278,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: FontSize.micro,
+    fontFamily: FontFamily.medium,
   },
   chartContainer: {
     width: '100%',
@@ -312,7 +315,8 @@ const styles = StyleSheet.create({
     height: 18,
   },
   monthLabel: {
-    fontSize: 10.5,
+    fontSize: FontSize.micro,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
   },
   currentMonthDot: {

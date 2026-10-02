@@ -6,8 +6,8 @@ import { GullakDeposit } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
-import { formatCurrency } from '../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { AmountText } from './ui/AmountText';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 export type GullakDepositRowProps = {
   deposit: GullakDeposit;
@@ -20,7 +20,6 @@ const GullakDepositRowBase: React.FC<GullakDepositRowProps> = ({ deposit, colors
   const colors = propColors ?? theme.colors;
   const isDark = propIsDark ?? theme.isDark;
   const bg = '#ADEBB3';
-  const amountColor = isDark ? colors.mintGreen : colors.mintGreenDark;
 
   const dateStr = useMemo(() => {
     try {
@@ -56,9 +55,12 @@ const GullakDepositRowBase: React.FC<GullakDepositRowProps> = ({ deposit, colors
         </Text>
       </View>
       <View style={styles.txRight}>
-        <Text style={[styles.txAmount, { color: amountColor }]}>
-          {`+${formatCurrency(Math.abs(deposit.amount))}`}
-        </Text>
+        <AmountText
+          role="row"
+          value={deposit.amount}
+          direction="income"
+          signed
+        />
         <Text style={[styles.txDate, { color: colors.textMuted }]}>{dateStr}</Text>
       </View>
     </View>
@@ -75,41 +77,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderBottomWidth: 1,
   },
-  txIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   txMiddle: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: Spacing.group,
     justifyContent: 'center',
   },
   txTitle: {
-    fontSize: 16,
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
   },
   txSubtitle: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
-    marginTop: 3,
+    marginTop: 2,
   },
   txRight: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: 12,
-  },
-  txAmount: {
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-    fontVariant: ['tabular-nums'],
+    marginLeft: Spacing.group,
   },
   txDate: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
     fontFamily: FontFamily.medium,
-    marginTop: 3,
+    marginTop: 2,
   },
 });

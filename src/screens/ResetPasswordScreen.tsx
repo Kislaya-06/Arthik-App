@@ -19,7 +19,7 @@ import { RootStackParamList } from '../types';
 import { ArrowLeft, KeyRound, Eye, EyeOff, AlertCircle, X, Check } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 
@@ -418,18 +418,19 @@ const styles = StyleSheet.create({
     borderColor: '#B8E0C866',
   },
   heading: {
-    fontSize: 28,
+    fontSize: FontSize.titleLarge,
+    lineHeight: LineHeight.titleLarge,
     color: '#1A2B4C',
     textAlign: 'center',
     marginTop: Spacing.block,
   },
   subtext: {
-    fontSize: 15,
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     color: '#8A8FA3',
     textAlign: 'center',
     marginTop: Spacing.element,
     paddingHorizontal: Spacing.block,
-    lineHeight: 22,
   },
   formContainer: {
     marginTop: Spacing.gutter,
@@ -487,8 +488,8 @@ const styles = StyleSheet.create({
     color: '#E87070',
   },
   submitBtn: {
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
-    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.section,
@@ -510,7 +511,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitBtnText: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     color: '#1A2B4C',
   },
   submitBtnTextDisabled: {

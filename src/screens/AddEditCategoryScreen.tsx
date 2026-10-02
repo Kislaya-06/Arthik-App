@@ -17,6 +17,8 @@ import {
   BorderRadius,
   FontSize,
   FontFamily,
+  LineHeight,
+  ControlHeight,
   CATEGORY_PALETTE,
   getNextCategoryColor,
   getContrastTextColor,
@@ -75,8 +77,8 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
     if (isOffline) {
       Alert.alert(
         'Offline',
-        'Category banane/badalne ke liye internet chahiye.',
-        [{ text: 'Theek hai' }]
+        'An internet connection is required to create or edit a category.',
+        [{ text: 'OK' }]
       );
       return;
     }
@@ -264,8 +266,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     marginLeft: Spacing.block,
-    fontSize: 24,
-    color: '#1A2B4C',
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
   },
   scrollContent: {
     paddingBottom: 40,
@@ -378,10 +380,11 @@ const styles = StyleSheet.create({
 
   // Save Button
   saveBtn: {
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
-    paddingVertical: Spacing.surface,
     marginTop: Spacing.section,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   saveBtnEnabled: {
     backgroundColor: '#B8E0C8',
@@ -390,7 +393,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7ED',
   },
   saveText: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
   },
   saveTextEnabled: {
     color: '#1A2B4C',

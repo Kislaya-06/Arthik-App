@@ -34,7 +34,7 @@ import {
   MAX_NOTE_CHARS,
   countWords,
 } from '../hooks/useExpenseForm';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, getContrastTextColor } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, getContrastTextColor } from '../config/theme';
 
 // Both AddExpense and EditExpense routes use this single component.
 type Props =
@@ -881,7 +881,8 @@ const styles = StyleSheet.create({
     left: Spacing.gutter,
   },
   headerTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
   },
   typeToggleWrapper: {
     paddingHorizontal: Spacing.gutter,
@@ -1117,7 +1118,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   saveButtonText: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     letterSpacing: 0.3,
   },
   keypadHandleBar: {

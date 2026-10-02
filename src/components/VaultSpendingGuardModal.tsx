@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../store/themeStore';
 import { GradientIconBadge } from './GradientIconBadge';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 
 export interface VaultSpendingGuardModalProps {
   visible: boolean;
@@ -218,14 +218,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     textAlign: 'center',
     marginBottom: Spacing.element,
   },
   description: {
     fontFamily: FontFamily.medium,
     fontSize: FontSize.bodySmall,
-    lineHeight: 21,
+    lineHeight: LineHeight.bodySmall,
     textAlign: 'center',
     paddingHorizontal: Spacing.element,
     marginBottom: Spacing.surface,
@@ -240,6 +241,7 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontFamily: FontFamily.semibold,
     fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
   },
   actionsContainer: {
     width: '100%',
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: '100%',
-    height: 52,
+    height: ControlHeight.standard,
     borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',
@@ -257,11 +259,12 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontFamily: FontFamily.bold,
     fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     color: '#FFFFFF',
   },
   cancelButton: {
     width: '100%',
-    height: 44,
+    height: ControlHeight.compact,
     alignItems: 'center',
     justifyContent: 'center',
   },

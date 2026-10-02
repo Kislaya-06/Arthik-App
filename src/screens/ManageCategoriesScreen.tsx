@@ -15,7 +15,7 @@ import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { GradientIconBadge } from '../components/GradientIconBadge';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
 
@@ -50,8 +50,8 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
     if (isOffline) {
       Alert.alert(
         'Offline',
-        'Category delete karne ke liye internet chahiye.',
-        [{ text: 'Theek hai' }]
+        'An internet connection is required to delete a category.',
+        [{ text: 'OK' }]
       );
       return;
     }
@@ -190,8 +190,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     marginLeft: Spacing.block,
-    fontSize: FontSize.sectionTitle,
-    color: '#1A2B4C',
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
   },
   categoryCount: {
     marginTop: Spacing.block,

@@ -7,10 +7,8 @@ import { Category } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { GradientIconBadge } from './GradientIconBadge';
-import { formatCurrency } from '../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
-
-const pastelBg = (hex: string) => hex + '30'; // 19% opacity overlay
+import { AmountText } from './ui/AmountText';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 export type TxRowProps = {
   expense: Expense;
@@ -23,7 +21,6 @@ export type TxRowProps = {
 const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome, colors, isDark }) => {
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : (isIncome ? Wallet : DollarSign);
   const catColor = category?.color ?? (isIncome ? '#ADEBB3' : '#FFD3AC');
-  const bg = catColor;
 
   const dateStr = useMemo(() => {
     try {
@@ -38,11 +35,6 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
       return expense.expense_date;
     }
   }, [expense.expense_date, expense.created_at]);
-
-  const amountLabel = isIncome ? `+${formatCurrency(Math.abs(expense.amount))}` : `−${formatCurrency(Math.abs(expense.amount))}`;
-  const expenseColor = isDark ? colors.peachCoral : '#E05345';
-  const incomeColor = isDark ? colors.mintGreen : colors.mintGreenDark;
-  const amountColor = isIncome ? incomeColor : expenseColor;
 
   const modeLabel =
     expense.payment_mode === 'upi'
@@ -65,7 +57,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
         },
       ]}
     >
-      <GradientIconBadge size={48} color={bg} isDark={isDark}>
+      <GradientIconBadge size={48} color={catColor} isDark={isDark}>
         {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
       </GradientIconBadge>
       <View style={styles.txMiddle}>
@@ -77,7 +69,12 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
         </Text>
       </View>
       <View style={styles.txRight}>
-        <Text style={[styles.txAmount, { color: amountColor }]}>{amountLabel}</Text>
+        <AmountText
+          role="row"
+          value={expense.amount}
+          direction={isIncome ? 'income' : 'expense'}
+          signed
+        />
         <Text style={[styles.txDate, { color: colors.textMuted }]}>{dateStr}</Text>
       </View>
     </View>
@@ -94,41 +91,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderBottomWidth: 1,
   },
-  txIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   txMiddle: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: Spacing.group,
     justifyContent: 'center',
   },
   txTitle: {
-    fontSize: 16,
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
   },
   txSubtitle: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
-    marginTop: 3,
+    marginTop: 2,
   },
   txRight: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: 12,
-  },
-  txAmount: {
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-    fontVariant: ['tabular-nums'],
+    marginLeft: Spacing.group,
   },
   txDate: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
     fontFamily: FontFamily.medium,
-    marginTop: 3,
+    marginTop: 2,
   },
 });

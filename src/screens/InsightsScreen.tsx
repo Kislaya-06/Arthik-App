@@ -30,13 +30,14 @@ import { isIncomeTransaction } from '../lib/paymentUtils';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, CATEGORY_PALETTE } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, CATEGORY_PALETTE } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
 import { CashFlowChart } from '../components/CashFlowChart';
-import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { AmountText } from '../components/ui/AmountText';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
 import { WeeklyBreathingStrip } from '../components/WeeklyBreathingStrip';
 import { MonthlyBreathingStrip } from '../components/MonthlyBreathingStrip';
@@ -1252,10 +1253,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             Insights
           </Text>
           <View style={{ flex: 1, marginLeft: Spacing.group }}>
-            <BouncyFilterToggle
-              value={period}
-              onChange={handlePeriodChange}
+            <SegmentedControl
               options={['Weekly', 'Monthly', 'Yearly']}
+              selectedKey={period}
+              onChange={(key) => handlePeriodChange(key as Period)}
             />
           </View>
         </View>
@@ -1293,10 +1294,12 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
 
           <View style={styles.heroAmountRow}>
-            <Text style={[styles.heroCurrency, { fontFamily: FontFamily.bold }]}>₹</Text>
-            <Text style={[styles.heroAmount, { fontFamily: FontFamily.bold }]}>
-              {currentTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-            </Text>
+            <AmountText
+              role="hero"
+              value={currentTotal}
+              color="#2D1E1E"
+              showDecimals={currentTotal % 1 !== 0}
+            />
           </View>
 
           {/* Integrated Budget Progress & Pool Context (Weekly & Monthly in Budget Mode) */}
@@ -1868,7 +1871,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: Spacing.gutter,
   },
-  headerTitle: { fontSize: FontSize.screenTitle },
+  headerTitle: {
+    fontSize: FontSize.titleLarge,
+    lineHeight: LineHeight.titleLarge,
+  },
   segmentedControl: {
     flexDirection: 'row',
     borderWidth: 1,
@@ -1939,7 +1945,12 @@ const styles = StyleSheet.create({
   },
   trendText: { fontSize: 11.5 },
 
-  sectionTitle: { fontSize: FontSize.sectionTitle, marginTop: Spacing.section, marginBottom: Spacing.gutter },
+  sectionTitle: {
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
+    marginTop: Spacing.section,
+    marginBottom: Spacing.gutter,
+  },
   byCategoryRow: {
     flexDirection: 'row',
     alignItems: 'center',

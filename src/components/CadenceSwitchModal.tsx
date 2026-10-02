@@ -21,7 +21,7 @@ import {
   checkCadenceCapacity,
 } from '../lib/cadenceSwitch';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 
 export interface CadenceSwitchModalProps {
   visible: boolean;
@@ -509,7 +509,8 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
   },
   sheetTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
   },
   closeButton: {
@@ -539,11 +540,13 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
     fontFamily: FontFamily.medium,
     marginBottom: Spacing.nano,
   },
   metricValue: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
     fontFamily: FontFamily.bold,
   },
   divider: {
@@ -556,10 +559,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   infoText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
     fontFamily: FontFamily.medium,
     flex: 1,
-    lineHeight: 16,
   },
   warningCard: {
     borderRadius: BorderRadius.card,
@@ -653,9 +656,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.block,
   },
   activationText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
     fontFamily: FontFamily.medium,
-    lineHeight: 18,
   },
   actionRow: {
     flexDirection: 'row',

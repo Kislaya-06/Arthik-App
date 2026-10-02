@@ -28,7 +28,7 @@ import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { StreakFlame } from '../components/StreakFlame';
 import { AnimatedToggle } from '../components/AnimatedToggle';
-import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
@@ -49,7 +49,8 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TabParamList, RootStackParamList } from '../types';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { AmountText } from '../components/ui/AmountText';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 const INITIAL_RECORDS_COUNT = 8;
@@ -461,14 +462,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Large currency amount with strict alignItems: 'center' per project rule */}
+          {/* Large currency amount using canonical AmountText */}
           <View style={styles.heroAmountBlock}>
-            <View style={styles.currencyRow}>
-              <Text style={[styles.currencySymbol, { color: 'rgba(255, 255, 255, 0.85)' }]}>₹</Text>
-              <Text style={[styles.heroAmount, { color: '#FFFFFF' }]}>
-                {totalAccumulatedSavings.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-              </Text>
-            </View>
+            <AmountText
+              role="hero"
+              value={totalAccumulatedSavings}
+              color="#FFFFFF"
+            />
             <Text style={[styles.heroHelperText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
               {`Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
             </Text>
@@ -642,22 +642,11 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     {cardIsOver ? 'EXCEEDED BY' : 'LEFT TO SPEND'}
                   </Text>
                   <View style={styles.ucAmountRow}>
-                    <Text
-                      style={[
-                        styles.ucHeroCurrencySymbol,
-                        { color: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF' },
-                      ]}
-                    >
-                      ₹
-                    </Text>
-                    <Text
-                      style={[
-                        styles.ucHeroAmount,
-                        { color: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF' },
-                      ]}
-                    >
-                      {formatAmountWithCommas(String(Math.round(cardIsOver ? cardOverAmount : cardRemaining)))}
-                    </Text>
+                    <AmountText
+                      role="primary"
+                      value={Math.round(cardIsOver ? cardOverAmount : cardRemaining)}
+                      color={cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF'}
+                    />
                   </View>
                 </View>
 
@@ -837,11 +826,17 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                     <Text style={[styles.pausedSubLabel, { color: 'rgba(255, 255, 255, 0.75)' }]}>
                       Configured {budgetCadence === 'weekly' ? 'Weekly Budget' : budgetCadence === 'monthly' ? 'Monthly Budget' : 'Daily Allowance'}
                     </Text>
-                    <Text style={[styles.pausedAmountText, { color: '#FFFFFF' }]}>
-                      {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0
-                        ? formatCurrency(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount)
-                        : 'Not Set'}
-                    </Text>
+                    {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0 ? (
+                      <AmountText
+                        role="primary"
+                        value={budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount}
+                        color="#FFFFFF"
+                      />
+                    ) : (
+                      <Text style={[styles.pausedAmountText, { color: '#FFFFFF' }]}>
+                        Not Set
+                      </Text>
+                    )}
                   </View>
 
                   <TouchableOpacity
@@ -912,10 +907,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
         {/* Segmented Filter Toggle */}
         <View style={styles.filterToggleWrapper}>
-          <BouncyFilterToggle
-            value={activeFilter}
-            onChange={setActiveFilter}
-            options={FILTERS}
+          <SegmentedControl
+            options={FILTERS as unknown as string[]}
+            selectedKey={activeFilter}
+            onChange={(key) => setActiveFilter(key as any)}
           />
         </View>
 
@@ -1026,11 +1021,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.block,
   },
   screenSubtitle: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
   },
   screenTitle: {
-    fontSize: 26,
+    fontSize: FontSize.titleLarge,
+    lineHeight: LineHeight.titleLarge,
     fontFamily: FontFamily.bold,
     marginTop: -2,
   },
@@ -1090,20 +1087,6 @@ const styles = StyleSheet.create({
   heroAmountBlock: {
     marginTop: 0,
     marginBottom: 8,
-  },
-  // Strict rule: wrapping row container has alignItems: 'center'
-  currencyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  currencySymbol: {
-    fontSize: 26,
-    fontFamily: FontFamily.bold,
-    marginRight: Spacing.micro,
-  },
-  heroAmount: {
-    fontSize: 34,
-    fontFamily: FontFamily.bold,
   },
   heroHelperText: {
     fontSize: 13,
@@ -1310,81 +1293,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // Unified Active Live Tracker
-  unifiedActiveContent: {
-    marginTop: Spacing.nano,
-  },
-  todayNumbersRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: Spacing.group,
-  },
-  todayNumberBlock: {
-    justifyContent: 'center',
-  },
-  todayNumberLabel: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    marginBottom: Spacing.nano,
-  },
-  smallCurrencySymbol: {
-    fontSize: 22,
-    fontFamily: FontFamily.bold,
-    marginRight: 2,
-  },
-  todayMainNumber: {
-    fontSize: 30,
-    fontFamily: FontFamily.bold,
-  },
-  unifiedRightBlock: {
-    alignItems: 'flex-end',
-    gap: Spacing.micro,
-  },
-  todaySubNumbers: {
-    alignItems: 'flex-end',
-  },
-  subNumberSpent: {
-    fontSize: 13,
-    fontFamily: FontFamily.bold,
-    marginBottom: 1,
-  },
-  subNumberBudget: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-  },
-  unifiedChangeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.element,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 2,
-    gap: 2,
-  },
-  unifiedChangeText: {
-    fontSize: 11,
-    fontFamily: FontFamily.bold,
-  },
-
-  // Progress Bar
-  progressBarTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: Spacing.element,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  progressHint: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    lineHeight: 16,
-  },
-
   // Scheduled Banner
   scheduledBanner: {
     flexDirection: 'row',
@@ -1468,7 +1376,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
   },
@@ -1489,15 +1398,16 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     fontFamily: FontFamily.bold,
     marginTop: Spacing.group,
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
     textAlign: 'center',
-    lineHeight: 18,
   },
 
   depositCtaBtn: {

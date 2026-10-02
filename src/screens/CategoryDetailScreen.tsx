@@ -10,15 +10,16 @@ import { ArrowLeft } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { GradientIconBadge } from '../components/GradientIconBadge';
+import { TransactionRow } from '../components/TransactionRow';
+import { AmountText } from '../components/ui/AmountText';
 
 import { RootStackParamList } from '../types';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
-import { formatCurrency } from '../lib/formatters';
-import { getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { isIncomeTransaction } from '../lib/paymentUtils';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
 
@@ -55,58 +56,18 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const renderItem = useCallback(({ item }: { item: Expense }) => {
     const isIncome = isIncomeTransaction(item, category);
-    const categoryName = category?.name || (isIncome ? 'Money Added' : 'Other');
-    const catColor = category?.color || (isIncome ? '#ADEBB3' : '#FF857A');
-    const IconComp = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
-    const paymentLabel = getPaymentLabel(item.payment_mode);
-    
-    const expenseColor = isDark ? colors.peachCoral : '#E05345';
-    const incomeColor = isDark ? colors.mintGreen : colors.mintGreenDark;
-    const amountColor = isIncome ? incomeColor : expenseColor;
-
-    const hasNote = Boolean(item.note && item.note.trim().length > 0);
-    const mainTitle = hasNote ? item.note!.trim() : categoryName;
-    const subtitle = hasNote ? `${categoryName} · ${paymentLabel}` : paymentLabel;
-
-    let timeOrDateStr = item.expense_date;
-    try {
-      if (item.created_at) {
-        timeOrDateStr = format(parseISO(item.created_at), 'h:mm a');
-      } else {
-        timeOrDateStr = format(parseISO(item.expense_date), 'd MMM');
-      }
-    } catch {}
-
     return (
       <Pressable
-        style={[
-          styles.transactionRow,
-          {
-            borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-          }
-        ]}
         onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
         android_ripple={{ color: colors.cardSubtle, borderless: false }}
       >
-        <GradientIconBadge size={48} color={catColor} isDark={isDark}>
-          {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
-        </GradientIconBadge>
-        <View style={styles.transactionMiddle}>
-          <Text style={[styles.transactionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-            {mainTitle}
-          </Text>
-          <Text style={[styles.transactionSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        </View>
-        <View style={styles.transactionRight}>
-          <Text style={[styles.transactionAmount, { color: amountColor }]}>
-            {isIncome ? `+${formatCurrency(Math.abs(item.amount))}` : `−${formatCurrency(Math.abs(item.amount))}`}
-          </Text>
-          <Text style={[styles.transactionTime, { color: colors.textMuted }]}>
-            {timeOrDateStr}
-          </Text>
-        </View>
+        <TransactionRow
+          expense={item}
+          category={category}
+          isIncome={isIncome}
+          colors={colors}
+          isDark={isDark}
+        />
       </Pressable>
     );
   }, [navigation, category, colors, isDark]);
@@ -178,10 +139,12 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           TOTAL SPENT
         </Text>
         <View style={styles.summaryAmountRow}>
-          <Text style={[styles.summaryCurrency, { fontFamily: FontFamily.bold }]}>₹</Text>
-          <Text style={[styles.summaryAmount, { fontFamily: FontFamily.bold }]}>
-            {totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-          </Text>
+          <AmountText
+            role="hero"
+            value={totalSpent}
+            color="#2D1E1E"
+            showDecimals={totalSpent % 1 !== 0}
+          />
         </View>
         <Text style={[styles.summaryCount, { fontFamily: FontFamily.medium }]}>
           {categoryExpenses.length}{' '}
@@ -265,8 +228,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: FontSize.sectionTitle,
-    color: '#1A2B4C',
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
   },
 
   // Summary Card
@@ -306,15 +269,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.element,
   },
-  summaryCurrency: {
-    fontSize: 24,
-    marginRight: Spacing.micro,
-    color: '#2D1E1E',
-  },
-  summaryAmount: {
-    fontSize: 48,
-    color: '#2D1E1E',
-  },
   summaryCount: {
     fontSize: FontSize.bodySmall,
     marginTop: Spacing.element,
@@ -323,51 +277,12 @@ const styles = StyleSheet.create({
 
   // Section
   sectionTitle: {
-    fontSize: FontSize.sectionTitle,
-    color: '#1A2B4C',
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     marginTop: Spacing.section,
     marginBottom: Spacing.block,
   },
   listContent: {
-  },
-
-  // Transaction Row (History style)
-  transactionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  transactionMiddle: {
-    flex: 1,
-    marginLeft: 14,
-    justifyContent: 'center',
-  },
-  transactionTitle: {
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-    letterSpacing: -0.2,
-  },
-  transactionSubtitle: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-    marginTop: 3,
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-    fontVariant: ['tabular-nums'],
-  },
-  transactionTime: {
-    fontSize: 12,
-    fontFamily: FontFamily.medium,
-    marginTop: 3,
   },
 
   // Empty

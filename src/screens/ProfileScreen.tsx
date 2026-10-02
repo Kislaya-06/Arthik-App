@@ -13,7 +13,7 @@ import {
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 import { useExpenseStore, getPendingSyncCount } from '../store/expenseStore';
@@ -903,7 +903,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.micro,
   },
   headerTitle: {
-    fontSize: FontSize.screenTitle,
+    fontSize: FontSize.titleLarge,
+    lineHeight: LineHeight.titleLarge,
   },
 
   // Profile Card
@@ -944,7 +945,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   fullName: {
-    fontSize: 20,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     marginTop: Spacing.block,
   },
   email: {

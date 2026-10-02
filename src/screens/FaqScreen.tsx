@@ -11,7 +11,7 @@ import {
   HelpCircle, PiggyBank, Flame, Wallet, ShieldCheck, Calendar, Sparkles,
 } from 'lucide-react-native';
 
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 import { useTheme } from '../store/themeStore';
 import { RootStackParamList } from '../types';
 import { configureLayoutAnimation } from '../lib/animationUtils';
@@ -226,8 +226,20 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.gutter, paddingTop: Spacing.block, marginBottom: Spacing.element, gap: Spacing.block },
-  title: { fontSize: FontSize.screenTitle },
-  searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: Spacing.gutter, paddingHorizontal: Spacing.element, height: 42, borderRadius: BorderRadius.pill, marginBottom: Spacing.element, elevation: 1 },
+  title: {
+    fontSize: FontSize.titleLarge,
+    lineHeight: LineHeight.titleLarge,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: Spacing.gutter,
+    paddingHorizontal: Spacing.surface,
+    height: ControlHeight.standard,
+    borderRadius: BorderRadius.pill,
+    marginBottom: Spacing.element,
+    elevation: 1,
+  },
   searchInput: { flex: 1, fontSize: FontSize.body, paddingVertical: 0 },
   pillsScroll: { paddingHorizontal: Spacing.gutter, gap: Spacing.micro },
   pill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: BorderRadius.pill, borderWidth: 1 },
@@ -237,11 +249,22 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, marginBottom: 5, gap: 4 },
   badgeText: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.3 },
-  qText: { fontSize: 14, lineHeight: 20 },
+  qText: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
+  },
   chevron: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   answerBox: { borderTopWidth: 1, marginTop: Spacing.element, paddingTop: Spacing.element },
-  aText: { fontSize: 13, lineHeight: 19 },
+  aText: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
+  },
   empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: Spacing.gutter },
-  emptyTitle: { fontSize: FontSize.sectionTitle, marginTop: Spacing.block, marginBottom: 4 },
+  emptyTitle: {
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
+    marginTop: Spacing.block,
+    marginBottom: 4,
+  },
   emptyDesc: { fontSize: FontSize.bodySmall, textAlign: 'center' },
 });

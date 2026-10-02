@@ -20,7 +20,7 @@ import { useNotificationStore, AppNotification } from '../store/notificationStor
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { format, parseISO } from 'date-fns';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
@@ -255,7 +255,8 @@ const styles = StyleSheet.create({
     left: Spacing.gutter,
   },
   headerTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
   },
   headerRightActions: {
     position: 'absolute',
@@ -301,7 +302,8 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   notifTitle: {
-    fontSize: 16,
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     letterSpacing: -0.2,
     flex: 1,
     marginRight: 10,
@@ -317,8 +319,8 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   notifMessage: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
   },
   notifTime: {
     fontSize: 12,
@@ -340,12 +342,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.gutter,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     marginBottom: Spacing.element,
   },
   emptySubtitle: {
     fontSize: FontSize.bodySmall,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: LineHeight.bodySmall,
   },
 });

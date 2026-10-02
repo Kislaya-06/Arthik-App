@@ -11,9 +11,11 @@ import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Trash2 } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { GradientIconBadge } from '../components/GradientIconBadge';
+import { AmountText } from '../components/ui/AmountText';
+import { StatusBadge } from '../components/ui/StatusBadge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GullakDepositDetail'>;
 
@@ -101,21 +103,18 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
             </GradientIconBadge>
           </View>
           <View style={styles.currencyRow}>
-            <Text style={[styles.currencySymbol, { color: colors.mintGreenDark }]}>₹</Text>
-            <Text style={[styles.heroAmount, { color: colors.textPrimary }]}>
-              {formatAmountWithCommas(String(deposit.amount))}
-            </Text>
+            <AmountText
+              role="hero"
+              value={deposit.amount}
+              direction="income"
+              showDecimals={deposit.amount % 1 !== 0}
+            />
           </View>
-          <View style={[styles.sourceBadge, {
-            backgroundColor: deposit.source === 'income'
-              ? (isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft)
-              : (isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7'),
-          }]}>
-            <Text style={[styles.sourceBadgeText, {
-              color: deposit.source === 'income' ? colors.mintGreenDark : '#D97706',
-            }]}>
-              {sourceLabel}
-            </Text>
+          <View style={{ marginTop: Spacing.element, alignItems: 'center' }}>
+            <StatusBadge
+              variant={deposit.source === 'income' ? 'success' : 'warning'}
+              label={sourceLabel}
+            />
           </View>
         </View>
 
@@ -154,11 +153,17 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
 
         {/* Delete Button */}
         <Pressable
-          style={[styles.deleteBtn, { borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FEE2E2' }]}
+          style={[
+            styles.deleteBtn,
+            {
+              borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : colors.peachSoft,
+              backgroundColor: isDark ? 'transparent' : colors.peachSoft,
+            },
+          ]}
           onPress={handleDelete}
         >
-          <Trash2 size={18} color="#DC2626" />
-          <Text style={styles.deleteBtnText}>Remove from Gullak</Text>
+          <Trash2 size={18} color={colors.danger} />
+          <Text style={[styles.deleteBtnText, { color: colors.danger }]}>Remove from Gullak</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -185,7 +190,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
   },
   scroll: {
@@ -217,15 +223,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.element,
-  },
-  currencySymbol: {
-    fontSize: 24,
-    fontFamily: FontFamily.bold,
-    marginRight: 4,
-  },
-  heroAmount: {
-    fontSize: 36,
-    fontFamily: FontFamily.bold,
   },
   sourceBadge: {
     paddingHorizontal: Spacing.block,

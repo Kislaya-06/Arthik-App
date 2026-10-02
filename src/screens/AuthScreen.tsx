@@ -22,7 +22,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { GoogleIcon } from '../components/GoogleIcon';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -526,7 +526,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heading: {
-    fontSize: 36,
+    fontSize: FontSize.display,
+    lineHeight: LineHeight.display,
     marginTop: Spacing.section,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
@@ -602,8 +603,8 @@ const styles = StyleSheet.create({
   },
   btn: {
     width: '100%',
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
-    paddingVertical: Spacing.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -625,7 +626,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.block,
   },
   primaryBtnText: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
   },

@@ -19,7 +19,7 @@ import { GradientIconBadge } from './GradientIconBadge';
 import { KeyButton } from './KeyButton';
 import { formatAmountWithCommas, formatCurrency, round2 } from '../lib/formatters';
 import { applyKeypadPress, KeypadKey } from '../lib/amountKeypad';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 
 export interface PeriodRenewalModalProps {
   visible: boolean;
@@ -428,7 +428,8 @@ const styles = StyleSheet.create({
     color: '#15803D',
   },
   sheetTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
     textAlign: 'center',
     marginBottom: Spacing.micro,
@@ -444,6 +445,7 @@ const styles = StyleSheet.create({
   },
   datePillText: {
     fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
     fontFamily: FontFamily.medium,
   },
   sheetSubtitle: {
@@ -452,7 +454,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: Spacing.block,
     marginBottom: Spacing.gutter,
-    lineHeight: 20,
+    lineHeight: LineHeight.bodySmall,
   },
   actionButtonsWrap: {
     width: '100%',
@@ -460,20 +462,21 @@ const styles = StyleSheet.create({
   },
   primaryCta: {
     height: ControlHeight.cta,
-    borderRadius: BorderRadius.input,
+    borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.element,
   },
   primaryCtaText: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
     fontFamily: FontFamily.bold,
     color: '#1A2B4C',
   },
   secondaryCta: {
     height: ControlHeight.cta,
-    borderRadius: BorderRadius.input,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',

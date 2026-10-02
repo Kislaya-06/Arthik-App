@@ -17,7 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
 import { GradientIconBadge } from '../components/GradientIconBadge';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { AmountText } from '../components/ui/AmountText';
+import { StatusBadge } from '../components/ui/StatusBadge';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
 
@@ -185,21 +187,20 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Amount Display */}
           <View style={styles.amountContainer}>
-            <View style={styles.amountRow}>
-              <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>₹</Text>
-              <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                {formatAmountWithCommas(expense.amount.toFixed(2).replace(/\.00$/, ''))}
-              </Text>
-            </View>
+            <AmountText
+              role="hero"
+              value={expense.amount}
+              color={colors.textPrimary}
+              showDecimals={expense.amount % 1 !== 0}
+            />
           </View>
 
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
-            <View style={[styles.typeBadgePill, { backgroundColor: isIncome ? colors.mintGreenSoft : colors.peachSoft }]}>
-              <Text style={[styles.typeBadgeText, { color: isIncome ? (isDark ? colors.mintGreen : colors.mintGreenDark) : (isDark ? colors.peachCoral : '#D97757'), fontFamily: FontFamily.bold }]}>
-                {isIncome ? 'INCOME' : 'EXPENSE'}
-              </Text>
-            </View>
+            <StatusBadge
+              variant={isIncome ? 'success' : 'danger'}
+              label={isIncome ? 'INCOME' : 'EXPENSE'}
+            />
           </View>
 
           {/* Details Card */}
@@ -308,8 +309,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     marginLeft: Spacing.block,
-    fontSize: FontSize.sectionTitle,
-    color: '#1A2B4C',
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
   },
   headerRight: {
     flexDirection: 'row',

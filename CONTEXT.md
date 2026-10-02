@@ -333,4 +333,29 @@ Direct deposits credited to the Gullak savings reserve.
 - Columns: `id`, `user_id`, `amount`, `source` (`'income' | 'external'`), `note`, `deposit_date`, `created_at`.
 - *Code location*: `src/store/dailyBudgetStore.ts`, `src/components/DepositGullakModal.tsx`, `schema.sql` (lines 450–499)
 
+---
+
+### 9. UI Design System & Visual Architecture
+
+**Runtime Token Source of Truth**:
+The single source of truth for numeric spacing, radii, font sizes, control heights, and color tokens located in `src/config/theme.ts`.
+- *Code location*: `src/config/theme.ts`
+- *_Avoid_*: Hardcoded Styles, In-Screen Magic Numbers
+
+**Design System Specification**:
+The human- and agent-facing canonical design documentation defining semantic roles, component variants, and migration guidelines located in `docs/design-system.md`.
+- *Code location*: `docs/design-system.md`
+- *_Avoid_*: Ad-hoc Style Guides
+
+**Amount Text Primitive**:
+The unified UI component responsible for displaying financial amounts with Indian grouping (`₹`), direction coloring, and accessibility semantics under the Real-Money Invariant.
+- *Code location*: `src/components/ui/AmountText.tsx`, `docs/design-system.md`
+- *_Avoid_*: Raw String Amounts, Unaligned Currency Text
+
+**App Button Primitive**:
+The standardized interactive button component encapsulating primary, secondary, outline, danger, and ghost variants with fixed control heights.
+- *Code location*: `src/components/ui/AppButton.tsx`, `docs/design-system.md`
+- *_Avoid_*: Raw Pressables, Custom Button Styles
+
+
 

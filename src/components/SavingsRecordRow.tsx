@@ -9,6 +9,7 @@ import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
 import { formatCurrency } from '../lib/formatters';
 import { FontFamily } from '../config/theme';
+import { AmountText } from './ui/AmountText';
 
 export interface SavingsRecordRowProps {
   rec?: DailyRecord;
@@ -216,9 +217,31 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
 
       <View style={styles.recordRightRow}>
         <View style={styles.recordAmountCol}>
-          <Text style={[styles.recordAmount, { color: amountColor }]}>
-            {amountText}
-          </Text>
+          {isUnknown ? (
+            <Text style={[styles.recordAmount, { color: colors.textMuted }]}>—</Text>
+          ) : (
+            <AmountText
+              role="row"
+              value={
+                isPeriod && period
+                  ? isSaved
+                    ? period.amountSaved
+                    : isExceeded
+                    ? Math.max(0, period.spentAmount - period.budgetAmount)
+                    : 0
+                  : isDeposit
+                  ? deposit!.amount
+                  : isSaved
+                  ? rec!.saved
+                  : isExceeded
+                  ? rec!.spent - rec!.budget
+                  : 0
+              }
+              direction={isSaved || isDeposit ? 'income' : isExceeded ? 'expense' : 'neutral'}
+              signed={isSaved || isDeposit || isExceeded}
+              color={amountColor}
+            />
+          )}
           <Text style={[styles.recordStatusText, { color: statusColor }]}>
             {statusText}
           </Text>

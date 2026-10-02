@@ -43,7 +43,7 @@ import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { configureLayoutAnimation } from '../lib/animationUtils';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
@@ -617,11 +617,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   helloText: {
-    fontSize: 22,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.medium,
   },
   nameText: {
-    fontSize: 36,
+    fontSize: FontSize.display,
+    lineHeight: LineHeight.display,
     fontFamily: FontFamily.bold,
     marginTop: -4,
     includeFontPadding: false,
@@ -658,17 +660,18 @@ const styles = StyleSheet.create({
 
   // Filter toggle
   filterToggleWrapper: {
-    marginTop: 18,
+    marginTop: Spacing.block,
   },
   filterDateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 14,
-    marginBottom: 16,
+    marginTop: Spacing.group,
+    marginBottom: Spacing.block,
   },
   filterDateLabel: {
     fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.semibold,
     opacity: 0.85,
     letterSpacing: 0.2,
@@ -680,12 +683,12 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   setLimitDot: {
-    fontSize: 13,
+    fontSize: FontSize.caption,
     opacity: 0.5,
     marginRight: 6,
   },
   setLimitText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.semibold,
   },
 
@@ -698,7 +701,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.element,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
   },
@@ -712,6 +716,7 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
     marginRight: Spacing.micro,
   },
@@ -730,7 +735,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.gutter,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
     textAlign: 'center',
   },

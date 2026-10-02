@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🎨 Arthik Design System Unification & Token Governance
+- **Runtime Source of Truth (`src/config/theme.ts`):** Standardized 8-tier typography hierarchy (`display`, `titleLarge`, `titleMedium`, `titleSmall`, `body`, `bodySmall`, `caption`, `micro`), spatial rhythm tokens (`Spacing.nano` through `Spacing.section`), and interactive `ControlHeight` tokens (`cta: 60`, `row: 56`, `standard: 48`, `compact: 36`).
+- **Standardized UI Primitives (`src/components/ui/`):**
+  - `<AmountText />`: Enforces the Real-Money Invariant with Indian comma grouping (`₹`), optical symbol baseline alignment, signed direction tints, and screen-reader accessibility across all financial surfaces.
+  - `<AppButton />`: Unified button primitive enforcing standardized heights (60px, 48px, 36px), variants (`primary`, `secondary`, `outline`, `danger`, `ghost`), and spring touch physics (`tension: 70, friction: 8`).
+  - `<AppInput />`: Unified text and search input primitive with floating/standard labels, clear actions, and error states.
+  - `<StatusBadge />`: Standardized stadium pill badge with semantic color tints across Light, Dark, and AMOLED themes.
+  - `<SegmentedControl />`: Unified sliding active pill filter with smooth spring animations.
+- **Whole-App Screen Migration:**
+  - Migrated `HomeScreen`, `HistoryScreen`, `SavingsScreen`, `InsightsScreen`, `ProfileScreen`, `ManageCategoriesScreen`, `CategoryDetailScreen`, `ExpenseFormScreen`, `ExpenseDetailScreen`, `GullakDepositDetailScreen`, `AuthScreen`, `NotificationsScreen`, `FaqScreen`, and `ResetPasswordScreen`.
+  - Replaced ad-hoc transaction and deposit rows with canonical `<TransactionRow />` and `<GullakDepositRow />`.
+  - Replaced divergent filter buttons with `<SegmentedControl />`.
+  - Replaced ad-hoc amount formatting with `<AmountText />`.
+- **Governance & Specification (`docs/design-system.md`):** Complete human-and-agent usage guide with semantic role tables, allowed exceptions, and strict token registration workflows.
+
 ### 🍩 Unclipped Responsive Category Donut Architecture (`InsightsScreen`, `AnimatedCategoryDonut`, `chartUtils`)
 - **Responsive Viewport Donut Scaling (`InsightsScreen`):** Dynamically scales donut chart size (126dp–156dp) based on `useWindowDimensions().width` rather than a fixed 160dp literal, preventing flex-row overflow and clipping on narrow screens (320dp–380dp).
 - **Flexbox Row Guards & Zero-Shrink Protection:** Added strict `flexShrink: 0` to `donutLeftContainer` and `minWidth: 0` to `categoryStackRight` to ensure the donut canvas is never compressed by neighboring text elements.

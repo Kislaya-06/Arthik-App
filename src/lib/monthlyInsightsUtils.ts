@@ -705,7 +705,7 @@ export function computeMonthlyPeakWeek(
     const single = activeWeeks[0];
     return {
       status: 'in_progress',
-      text: `${single.day} in progress · ₹${Math.round(single.spent).toLocaleString('en-IN')} spent so far`,
+      text: `${single.day} in progress · ₹${formatAmountWithCommas(String(Math.round(single.spent)))} spent so far`,
     };
   }
 
