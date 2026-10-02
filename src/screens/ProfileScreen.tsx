@@ -13,7 +13,7 @@ import {
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 import { useExpenseStore, getPendingSyncCount } from '../store/expenseStore';
@@ -723,7 +723,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 ]}
                 selectedKey={activeTheme}
                 onChange={(key) => setThemeMode(key as 'light' | 'dark' | 'amoled')}
-                height={48}
+                height={ControlHeight.standard}
               />
             </View>
           </View>

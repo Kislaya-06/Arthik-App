@@ -175,14 +175,20 @@ All transaction list items across `HomeScreen`, `HistoryScreen`, and `ExpenseDet
 - **Spacing:** Padding vertical `12px`, padding horizontal `0` (or `Spacing.block` in standalone cards).
 
 ### 6.5 Segmented Controls (`<SegmentedControl />`)
-- Standardizes all cadence and filter switches (`Day/Week/Month`, `All/Expense/Income`, `Overview/Breakdown`).
-- **Container:** Height `44px`, background `cardSubtle`, padding `Spacing.micro` (4px), radius `BorderRadius.pill`, border `borderSubtle`, `overflow: 'hidden'` (**required** — clips pill at rounded corners).
-- **Sliding pill:** Background `colors.mintGreen`, radius `BorderRadius.pill`, elevation shadow `(0, 1.5, 0.12, 3)`. **Never use `colors.card` or any other token** for the pill.
-- **Active text:** `colors.forestGreen` + `FontFamily.bold`. **Never use `textPrimary` or `white`.**
-- **Inactive text:** `colors.textSecondary` + `FontFamily.medium`.
-- **Slide animation:** Spring physics `tension: 70, friction: 8`, `useNativeDriver: true`.
-- **Press animation:** Per-item scale `0.93` on `onPressIn`, spring back `friction: 4` on `onPressOut` — identical to `BouncyFilterToggle`.
-- **Reference:** `BouncyFilterToggle` (`src/components/BouncyFilterToggle.tsx`) is the canonical visual and behavioral reference. Any future change to `SegmentedControl` must match it.
+- Standardizes all cadence, filter, and form-level segmented switches (`Expense/Income`, `Paid Via`, `Day/Week/Month`, `All/Expense/Income`, `Overview/Breakdown`).
+- **Container Heights:**
+  - **Form-Level Controls (`BouncyTypeToggle`, `BouncyPaymentToggle`):** Must strictly use `ControlHeight.row` (`56px`) matching the Date Picker trigger button (`datePickerButton`) and standard input container heights.
+  - **Screen / Tab / Modal Filters (`BouncyFilterToggle`, `BouncyCategoryFilter`, `BudgetEditModal`, `SavingsScreen`, `InsightsScreen`, `ProfileScreen`):** Must strictly and uniformly use `ControlHeight.standard` (`48px`) across the entire app. Never use legacy 44px or arbitrary heights.
+- **Scrollable Category Filters (`BouncyCategoryFilter`):** Outer pill height is strictly `ControlHeight.standard` (`48px`). The sliding highlight uses Apple Dual-Edge Liquid Morph (`tension: 100, friction: 16`, direction-aware stretch & squish). Crucially, manual user scrolling is preserved: tapping a category NEVER triggers automatic `scrollTo`, giving the user complete direct-manipulation agency while the pill glides fluidly to the tapped option.
+- **Container Styling:** Background strictly `cardSubtle` (or `inputBg` in form contexts), padding `Spacing.micro` (4px), radius `BorderRadius.pill`, border `borderSubtle`, `overflow: 'hidden'`. **Never use `colors.card` or raw black for pill containers; all pills across the app must maintain a unified, elevated grayish surface across all themes.**
+- **Sliding pill:** Background `colors.mintGreen` or `colors.peachCoral`, radius `BorderRadius.pill`, elevation shadow `(0, 1.5, 0.12, 3)`.
+- **Active text:** Must always use deep contrast `colors.forestGreen` (`#1A2B4C`) + `FontFamily.bold` on both `mintGreen` and `peachCoral` active pills. **Never use `colors.coral`, `textPrimary`, or foreground matching the active pill background.**
+- **Inactive text:** Strictly `colors.textSecondary` + `FontFamily.medium` across all pills.
+- **Slide animation (Apple Dual-Edge Liquid Morph):** Standardized canonical motion for all segmented pills in Arthik. Uses Apple WWDC fluid physics:
+  - **Primary Slide:** Apple-calibrated critically damped spring (`tension: 100, friction: 16`, `useNativeDriver: true`) — zero overshoot outside container bounds.
+  - **Leading-Edge Liquid Morph:** Direction-aware forward pull (`leadAnim`) + distance-scaled horizontal stretch (`scaleX: 1.08–1.28`) and subtle vertical volume squish (`scaleY: 0.96–0.88`) during flight, snapping smoothly into resting stadium geometry upon arrival.
+  - **Strict Track Clipping:** Inner slider track enforces `overflow: 'hidden'` with container radius, ensuring the sliding pill is physically contained within the border at all times without clipping top badges.
+- **Press animation:** Per-item scale `0.94` on `onPressIn`, spring back `friction: 4` on `onPressOut`.
 
 ### 6.6 Status Badges (`<StatusBadge />`)
 - Height `26px`, padding horizontal `10px`, radius `BorderRadius.pill`.

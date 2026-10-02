@@ -1,4 +1,5 @@
 import React from 'react';
+import { ControlHeight } from '../config/theme';
 import { SegmentedControl, SegmentedOption } from './ui/SegmentedControl';
 
 export interface BouncyFilterToggleProps<T extends string> {
@@ -27,7 +28,7 @@ export function BouncyFilterToggle<T extends string>({
       options={segOptions}
       selectedKey={value}
       onChange={(key) => onChange(key as T)}
-      height={48}
+      height={ControlHeight.standard}
       style={style}
     />
   );

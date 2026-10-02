@@ -214,6 +214,7 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
     it('computes weekend split for completed past week', () => {
       const res = computeWeekdayVsWeekendDynamics(weeklyData, 3500, -1);
       expect(res.mode).toBe('weekend_split');
+      expect(res.title).toBe('WEEKEND VS WEEKDAY');
       expect(res.headline).toContain('higher on weekends');
       expect(res.weekendSharePercent).toBe(60); // 2100 / 3500 = 60%
     });

@@ -33,7 +33,7 @@ import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { KeyButton } from './KeyButton';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { CadenceSwitchModal } from './CadenceSwitchModal';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 import { SegmentedControl } from './ui/SegmentedControl';
 
 export interface BudgetEditModalProps {
@@ -470,7 +470,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 options={CADENCE_OPTIONS.map((opt) => ({ key: opt.key, label: opt.label }))}
                 selectedKey={selectedCadence}
                 onChange={(key) => handleSelectCadence(key as BudgetCadence)}
-                height={44}
+                height={ControlHeight.standard}
                 backgroundColor="rgba(255, 255, 255, 0.12)"
                 borderColor="rgba(255, 255, 255, 0.2)"
                 activePillColor="#FFFFFF"

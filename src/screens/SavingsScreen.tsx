@@ -50,7 +50,7 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TabParamList, RootStackParamList } from '../types';
 import { AmountText } from '../components/ui/AmountText';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 const INITIAL_RECORDS_COUNT = 8;
@@ -914,6 +914,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             options={FILTERS as unknown as string[]}
             selectedKey={activeFilter}
             onChange={(key) => setActiveFilter(key as any)}
+            height={ControlHeight.standard}
           />
         </View>
 

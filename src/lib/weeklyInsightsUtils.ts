@@ -390,7 +390,7 @@ export function computeWeekdayVsWeekendDynamics(
 
     return {
       mode: 'weekend_split',
-      title: 'WEEKEND VS WEEKDAY BURN',
+      title: 'WEEKEND VS WEEKDAY',
       headline,
       detail: `Sat–Sun ₹${formatAmountWithCommas(String(weekendAvg))}/day vs Mon–Fri ₹${formatAmountWithCommas(String(weekdayAvg))}/day`,
       pillText: `${weekendSharePercent}% on Sat-Sun`,

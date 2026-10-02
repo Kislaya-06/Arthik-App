@@ -188,7 +188,7 @@ Use `alignItems: 'center'` on the wrapping `flexDirection: 'row'` container for 
 Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTop: insets.top`). Never use `SafeAreaView` from `react-native` or hardcode top margins.
 
 ## 9.7 Component Architecture & Animation Physics
-- Spring animation physics: `tension: 70, friction: 8`, `extrapolate: 'clamp'`.
+- Spring animation physics: Apple-calibrated critically damped spring (`tension: 100, friction: 16`, `extrapolate: 'clamp'`, zero overshoot). Liquid morph secondary snaps use `tension: 140, friction: 14`. Press feedback uses `0.93–0.94` scale with `friction: 4`.
 - Layouts must be responsive on small screens.
 
 ## 9.8 Navigation
@@ -200,6 +200,16 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 - **Always use `GradientIconBadge`**: All category, feature, and transactional icons (including Gullak, PiggyBank, Savings, and category rows) must use `GradientIconBadge` from `src/components/GradientIconBadge` with dynamic `iconColor`.
 - **Gullak Theme**: Gullak deposits, milestone cards, and detail headers must use `GradientIconBadge` with `color="#ADEBB3"` and `PiggyBankCoinIcon` (e.g. `({ iconColor }) => <PiggyBankCoinIcon size={...} color={iconColor} />`).
 - **Never use plain flat circles**: Do NOT create ad-hoc flat circular containers (`backgroundColor: iconBg`, `borderRadius: width / 2`, etc.) for feature or transaction icons. Always use `GradientIconBadge`.
+
+## 9.10 Segmented Controls & Filter Pills (Design Language Invariant)
+- **Canonical Primitives**: `<SegmentedControl />` (`src/components/ui/SegmentedControl.tsx`) for fixed-option segmented controls and `<BouncyCategoryFilter />` (`src/components/BouncyCategoryFilter.tsx`) for horizontal scrollable category pills.
+- **Container Heights**:
+  - Screen, Tab & Modal Filters (`HistoryScreen`, `SavingsScreen`, `InsightsScreen`, `ProfileScreen`, `BudgetEditModal`, `BouncyFilterToggle`): Must strictly and uniformly use `ControlHeight.standard` (`48px`). Legacy 44px or arbitrary heights are strictly prohibited.
+  - Form-Level Controls (`BouncyTypeToggle`, `BouncyPaymentToggle`): Must strictly use `ControlHeight.row` (`56px`), matching standard input container heights and the Date Picker trigger button.
+- **Surface & Border Colors**: Pill containers strictly use `colors.cardSubtle` (`#1A263B` in Dark, `#121212` in AMOLED, `#F1F5F9` in Light) with border `colors.borderSubtle`. Never use `colors.card` or raw pitch-black for pill backgrounds; all pills must maintain a unified, elevated grayish surface across all themes. In form contexts, use `colors.inputBg`.
+- **Active & Inactive Text**: Active text must strictly use deep contrast `colors.forestGreen` (`#1A2B4C`) + `FontFamily.bold` on both `mintGreen` and `peachCoral` active pills. **Never use `colors.coral`, `textPrimary`, or foreground matching the active pill background.** Inactive text strictly uses `colors.textSecondary` + `FontFamily.medium`.
+- **Apple Dual-Edge Liquid Morph**: Primary slide uses critically damped spring (`tension: 100, friction: 16`), direction-aware leading-edge stretch (`scaleX: 1.08–1.28`), and vertical volume squish (`scaleY: 0.96–0.88`) with strict inner track clipping (`overflow: 'hidden'`).
+- **Direct-Manipulation Touch Agency**: In scrollable pill filters (`BouncyCategoryFilter`), tapping a category must NEVER trigger automatic `scrollTo`. The user retains complete direct-manipulation agency to scroll manually, while the highlight pill glides fluidly to the tapped option.
 
 ---
 

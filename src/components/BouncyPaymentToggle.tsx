@@ -1,6 +1,7 @@
 import React from 'react';
 import { Wallet, CheckSquare, CreditCard } from 'lucide-react-native';
 import { useTheme } from '../store/themeStore';
+import { ControlHeight } from '../config/theme';
 import { SegmentedControl, SegmentedOption } from './ui/SegmentedControl';
 
 export const EXPENSE_PAYMENT_OPTIONS = [
@@ -24,6 +25,7 @@ export interface BouncyPaymentToggleProps {
 
 /**
  * Standardized BouncyPaymentToggle, consolidated to use the canonical SegmentedControl primitive.
+ * Enforces ControlHeight.row (56) matching the Date Picker trigger and standard form input row height.
  */
 export const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({
   value,
@@ -39,7 +41,9 @@ export const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({
     (options.length === 2 && !options.some((o) => o.mode === 'card'));
 
   const resolvedActivePill = activeColor ?? (isIncome ? colors.mintGreen : colors.peachCoral);
-  const resolvedActiveText = isIncome ? colors.forestGreen : colors.coral;
+  // CRITICAL ACCESSIBILITY FIX: Active text must always be deep contrast (colors.forestGreen / #1A2B4C)
+  // on both peachCoral and mintGreen active pills. Never use colors.coral, which matches the pill background.
+  const resolvedActiveText = colors.forestGreen;
 
   const segOptions: SegmentedOption[] = options.map((opt) => ({
     key: opt.mode,
@@ -52,9 +56,11 @@ export const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({
       options={segOptions}
       selectedKey={value}
       onChange={(key) => onChange(key as 'cash' | 'upi' | 'card')}
-      height={48}
+      height={ControlHeight.row}
       activePillColor={resolvedActivePill}
       activeTextColor={resolvedActiveText}
+      backgroundColor={colors.inputBg}
+      iconSize={16}
       style={style}
     />
   );

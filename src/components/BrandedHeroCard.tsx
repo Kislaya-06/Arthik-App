@@ -322,24 +322,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
   // ── Smooth number transition for all values (Remaining/Expense, Income, Expense) ──
-  const prevPrimaryRef = useRef(isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining);
-  const prevIncomeRef = useRef(isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow);
-  const prevSpentRef = useRef(isBudgetModeEnabled ? periodSpent : pureMetrics.outflow);
-  const isFirstRender = useRef(true);
-
-  const countAnim = useRef(new Animated.Value(0)).current;
-  const [displayPrimaryAmount, setDisplayPrimaryAmount] = useState(
-    () => (isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining)
-  );
-  const [displayTotalAvailable, setDisplayTotalAvailable] = useState(
-    () => (isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow)
-  );
-  const [displayPeriodSpent, setDisplayPeriodSpent] = useState(
-    () => (isBudgetModeEnabled ? periodSpent : pureMetrics.outflow)
-  );
-
-  useEffect(() => {
-    let isMounted = true;
+  const effectiveTargets = useMemo(() => {
     let targetPrimary = isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining;
     let targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
     let targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
@@ -370,35 +353,114 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       }
     }
 
+    return {
+      targetPrimary: round2(targetPrimary),
+      targetIncome: round2(targetIncome),
+      targetSpent: round2(targetSpent),
+    };
+  }, [
+    isBudgetModeEnabled,
+    effectivePrimaryAmount,
+    pureMetrics.totalRemaining,
+    totalAvailable,
+    pureMetrics.inflow,
+    periodSpent,
+    pureMetrics.outflow,
+    isCadenceMode,
+    cadencePeriodSummary,
+    budgetCadence,
+    activeFilter,
+    todayRecordSpent,
+  ]);
+
+  const prevPrimaryRef = useRef(effectiveTargets.targetPrimary);
+  const prevIncomeRef = useRef(effectiveTargets.targetIncome);
+  const prevSpentRef = useRef(effectiveTargets.targetSpent);
+  const curPrimaryRef = useRef(effectiveTargets.targetPrimary);
+  const curIncomeRef = useRef(effectiveTargets.targetIncome);
+  const curSpentRef = useRef(effectiveTargets.targetSpent);
+  const isFirstRender = useRef(true);
+
+  const countAnim = useRef(new Animated.Value(0)).current;
+  const morphAnim = useRef(new Animated.Value(0)).current;
+
+  const [displayPrimaryAmount, setDisplayPrimaryAmount] = useState(
+    () => effectiveTargets.targetPrimary
+  );
+  const [displayTotalAvailable, setDisplayTotalAvailable] = useState(
+    () => effectiveTargets.targetIncome
+  );
+  const [displayPeriodSpent, setDisplayPeriodSpent] = useState(
+    () => effectiveTargets.targetSpent
+  );
+
+  const morphOpacity = morphAnim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [1, 0.75, 1],
+    extrapolate: 'clamp',
+  });
+
+  const morphTranslateY = morphAnim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, -1.5, 0],
+    extrapolate: 'clamp',
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const { targetPrimary, targetIncome, targetSpent } = effectiveTargets;
+
     if (isFirstRender.current) {
       isFirstRender.current = false;
       prevPrimaryRef.current = targetPrimary;
       prevIncomeRef.current = targetIncome;
       prevSpentRef.current = targetSpent;
+      curPrimaryRef.current = targetPrimary;
+      curIncomeRef.current = targetIncome;
+      curSpentRef.current = targetSpent;
       setDisplayPrimaryAmount(targetPrimary);
       setDisplayTotalAvailable(targetIncome);
       setDisplayPeriodSpent(targetSpent);
       return;
     }
 
-    const startPrimary = prevPrimaryRef.current;
-    const startIncome = prevIncomeRef.current;
-    const startSpent = prevSpentRef.current;
+    // Always animate from presentation (current on-screen) value for seamless interruption continuity
+    const startPrimary = curPrimaryRef.current;
+    const startIncome = curIncomeRef.current;
+    const startSpent = curSpentRef.current;
 
     if (startPrimary === targetPrimary && startIncome === targetIncome && startSpent === targetSpent) {
       return;
     }
 
+    // Trigger native micro-morph in parallel (subtle opacity softening & upward lift)
+    morphAnim.setValue(0);
+    Animated.timing(morphAnim, {
+      toValue: 1,
+      duration: 320,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: true,
+    }).start();
+
     countAnim.setValue(0);
     const animation = Animated.timing(countAnim, {
       toValue: 1,
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
+      duration: 320,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       useNativeDriver: false,
     });
 
     let lastUpdate = 0;
-    const UPDATE_INTERVAL_MS = 50; // Throttle JS updates to ~20fps to prevent 60-120fps re-render thrashing
+    const UPDATE_INTERVAL_MS = 16; // 60fps continuous fluid roll; no chart re-rendering bottleneck
+
+    const interpolateValue = (start: number, target: number, progress: number): number => {
+      const raw = start + (target - start) * progress;
+      // If start and target are whole numbers, keep intermediate frames as integers.
+      // This completely eliminates decimal popping (e.g. .50) that causes character count
+      // expansion and adjustsFontSizeToFit horizontal jitter.
+      const isBothInteger = Number.isInteger(start) && Number.isInteger(target);
+      return isBothInteger ? Math.round(raw) : round2(raw);
+    };
 
     const listenerId = countAnim.addListener(({ value }) => {
       if (!isMounted) return;
@@ -409,9 +471,13 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       }
       lastUpdate = now;
 
-      const curPrimary = round2(startPrimary + (targetPrimary - startPrimary) * value);
-      const curIncome = round2(startIncome + (targetIncome - startIncome) * value);
-      const curSpent = round2(startSpent + (targetSpent - startSpent) * value);
+      const curPrimary = interpolateValue(startPrimary, targetPrimary, value);
+      const curIncome = interpolateValue(startIncome, targetIncome, value);
+      const curSpent = interpolateValue(startSpent, targetSpent, value);
+
+      curPrimaryRef.current = curPrimary;
+      curIncomeRef.current = curIncome;
+      curSpentRef.current = curSpent;
 
       setDisplayPrimaryAmount(curPrimary);
       setDisplayTotalAvailable(curIncome);
@@ -423,6 +489,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         prevPrimaryRef.current = targetPrimary;
         prevIncomeRef.current = targetIncome;
         prevSpentRef.current = targetSpent;
+        curPrimaryRef.current = targetPrimary;
+        curIncomeRef.current = targetIncome;
+        curSpentRef.current = targetSpent;
         setDisplayPrimaryAmount(targetPrimary);
         setDisplayTotalAvailable(targetIncome);
         setDisplayPeriodSpent(targetSpent);
@@ -433,24 +502,12 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       isMounted = false;
       countAnim.removeListener(listenerId);
       animation.stop();
-      prevPrimaryRef.current = targetPrimary;
-      prevIncomeRef.current = targetIncome;
-      prevSpentRef.current = targetSpent;
+      // On interruption, preserve actual presentation value rather than jumping to target
+      prevPrimaryRef.current = curPrimaryRef.current;
+      prevIncomeRef.current = curIncomeRef.current;
+      prevSpentRef.current = curSpentRef.current;
     };
-  }, [
-    activeFilter,
-    effectivePrimaryAmount,
-    totalAvailable,
-    periodSpent,
-    effectiveSubtext,
-    isBudgetModeEnabled,
-    pureMetrics.totalRemaining,
-    pureMetrics.inflow,
-    pureMetrics.outflow,
-  ]);
-
-  const displayNet = round2(displayTotalAvailable - displayPeriodSpent);
-  const isNetPositive = displayNet >= 0;
+  }, [effectiveTargets, countAnim, morphAnim]);
 
   return (
     <View style={styles.outerWrapper}>
@@ -490,19 +547,21 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             <Text style={[styles.primaryLabel, { color: textColorSecondary }]}>
               {effectivePrimaryLabel}
             </Text>
-            <Text
-              style={[
-                styles.primaryAmount,
-                {
-                  color: effectiveIsOver ? colors.danger : textColorPrimary,
-                },
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.6}
-            >
-              {formatCurrency(displayPrimaryAmount)}
-            </Text>
+            <Animated.View style={{ opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] }}>
+              <Text
+                style={[
+                  styles.primaryAmount,
+                  {
+                    color: effectiveIsOver ? colors.danger : textColorPrimary,
+                  },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                {formatCurrency(displayPrimaryAmount)}
+              </Text>
+            </Animated.View>
 
             {/* Subtext Chips (Budget mode only) */}
             {isBudgetModeEnabled && subtextParts.length > 0 && (
@@ -539,7 +598,12 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                 <Text style={styles.metricColLabel}>
                   {`${filterLabelPrefix} Income`}
                 </Text>
-                <View style={styles.metricAmountRow}>
+                <Animated.View
+                  style={[
+                    styles.metricAmountRow,
+                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
+                  ]}
+                >
                   <Text
                     style={[styles.metricAmount, { color: textColorPrimary }]}
                     numberOfLines={1}
@@ -550,7 +614,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                   <View style={styles.trendChipIncome}>
                     <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
                   </View>
-                </View>
+                </Animated.View>
               </View>
 
               {/* Expense Column */}
@@ -558,7 +622,12 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                 <Text style={styles.metricColLabel}>
                   {`${filterLabelPrefix} Expense`}
                 </Text>
-                <View style={styles.metricAmountRow}>
+                <Animated.View
+                  style={[
+                    styles.metricAmountRow,
+                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
+                  ]}
+                >
                   <Text
                     style={[styles.metricAmount, { color: textColorPrimary }]}
                     numberOfLines={1}
@@ -569,7 +638,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                   <View style={styles.trendChipExpense}>
                     <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
                   </View>
-                </View>
+                </Animated.View>
               </View>
             </View>
           ) : (
@@ -578,7 +647,12 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               {/* Inflow Column */}
               <View style={styles.metricCol}>
                 <Text style={styles.metricColLabel}>Inflow</Text>
-                <View style={styles.metricAmountRow}>
+                <Animated.View
+                  style={[
+                    styles.metricAmountRow,
+                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
+                  ]}
+                >
                   <Text
                     style={[styles.metricAmount, { color: textColorPrimary }]}
                     numberOfLines={1}
@@ -589,13 +663,18 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                   <View style={styles.trendChipIncome}>
                     <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
                   </View>
-                </View>
+                </Animated.View>
               </View>
 
               {/* Outflow Column */}
               <View style={styles.metricCol}>
                 <Text style={styles.metricColLabel}>Outflow</Text>
-                <View style={styles.metricAmountRow}>
+                <Animated.View
+                  style={[
+                    styles.metricAmountRow,
+                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
+                  ]}
+                >
                   <Text
                     style={[styles.metricAmount, { color: textColorPrimary }]}
                     numberOfLines={1}
@@ -606,7 +685,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                   <View style={styles.trendChipExpense}>
                     <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
                   </View>
-                </View>
+                </Animated.View>
               </View>
             </View>
           )}
@@ -645,8 +724,8 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             <DonutChart
               size={82}
               strokeWidth={9.5}
-              spent={displayPeriodSpent}
-              total={Math.max(displayTotalAvailable, displayPeriodSpent)}
+              spent={effectiveTargets.targetSpent}
+              total={Math.max(effectiveTargets.targetIncome, effectiveTargets.targetSpent)}
               colors={colors}
               trackColor="rgba(255, 255, 255, 0.65)"
               baseColor="rgba(255, 255, 255, 0.92)"
@@ -658,8 +737,8 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           ) : (
             <DualRingChart
               size={podSize}
-              income={displayTotalAvailable}
-              spent={displayPeriodSpent}
+              income={effectiveTargets.targetIncome}
+              spent={effectiveTargets.targetSpent}
               isDark={isDark}
             />
           )}
@@ -701,6 +780,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     marginTop: 1,
     includeFontPadding: false,
+    fontVariant: ['tabular-nums'],
   },
   subtextContainer: {
     flexDirection: 'row',
@@ -749,11 +829,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: FontFamily.bold,
     includeFontPadding: false,
+    fontVariant: ['tabular-nums'],
   },
   pureMetricAmount: {
     fontSize: 15,
     fontFamily: FontFamily.bold,
     includeFontPadding: false,
+    fontVariant: ['tabular-nums'],
   },
   trendChipIncome: {
     width: 20,

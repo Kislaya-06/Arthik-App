@@ -193,16 +193,30 @@ Rules:
 
 ## 9. Navigation & Segmented Controls
 
-Standardize:
-- top tabs / period pills
-- selected/unselected states
-- pill height
-- horizontal padding
-- label typography
-- indicator animation
-- bottom navigation anatomy
+### 9.1 Canonical Primitives
+- `<SegmentedControl />` (`src/components/ui/SegmentedControl.tsx`): Standard fixed-count toggle across screens, modals, and form rows.
+- `<BouncyCategoryFilter />` (`src/components/BouncyCategoryFilter.tsx`): Horizontal scrollable category chip filter with direct-manipulation scroll agency.
 
-Weekly / Monthly / Yearly / Daily selectors should use one shared segmented-control primitive wherever possible.
+### 9.2 Container Heights (Design Language Invariant)
+- **Screen / Tab / Modal Filters (`HistoryScreen`, `SavingsScreen`, `InsightsScreen`, `ProfileScreen`, `BudgetEditModal`, `BouncyFilterToggle`):** Must strictly and uniformly use `ControlHeight.standard` (`48px`) across the entire application. Legacy 44px or arbitrary heights are strictly prohibited.
+- **Form-Level Controls (`BouncyTypeToggle`, `BouncyPaymentToggle`):** Must strictly use `ControlHeight.row` (`56px`), precisely matching standard input container heights and the Date Picker trigger button.
+
+### 9.3 Surface & Border Consistency
+- **Container Styling:** Strictly uses `colors.cardSubtle` (`#1A263B` in Dark, `#121212` in AMOLED, `#F1F5F9` in Light) with border `colors.borderSubtle`. Never use `colors.card` or raw pitch-black for pill containers; pills must maintain a unified, elevated grayish surface across all themes. In form contexts, use `colors.inputBg`.
+- **Container Radius & Clipping:** Radius `BorderRadius.pill`, padding `Spacing.micro` (4px), inner track `overflow: 'hidden'` to guarantee the sliding highlight never bleeds outside the container bounds.
+
+### 9.4 Text & Active Pill Contrast
+- **Active Pill Background:** `colors.mintGreen` (default) or `colors.peachCoral`.
+- **Active Text:** Must always use deep contrast `colors.forestGreen` (`#1A2B4C`) + `FontFamily.bold` on both mint and peach pills. **Never use `colors.coral`, `textPrimary`, or foreground matching the active pill background.**
+- **Inactive Text:** Strictly `colors.textSecondary` + `FontFamily.medium`.
+
+### 9.5 Apple Dual-Edge Liquid Morph Animation
+- **Primary Slide:** Apple WWDC-calibrated critically damped spring (`tension: 100, friction: 16`) — zero overshoot outside container bounds.
+- **Leading-Edge Liquid Morph:** Direction-aware forward pull (`leadAnim`) + distance-scaled horizontal stretch (`scaleX: 1.08–1.28`) and subtle vertical volume squish (`scaleY: 0.96–0.88`) during flight, snapping smoothly into resting stadium geometry upon arrival.
+- **Press Animation:** Per-item scale `0.93–0.94` on `onPressIn`, spring back `friction: 4` on `onPressOut`.
+
+### 9.6 Direct-Manipulation Touch Agency
+- In scrollable filters (`BouncyCategoryFilter`), tapping a category item must NEVER trigger automatic `scrollTo`. The user retains complete direct-manipulation agency to scroll manually, while the highlight pill glides fluidly to the tapped option.
 
 ## 10. Charts & Analytics
 

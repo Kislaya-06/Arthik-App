@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,13 @@ import {
   StyleSheet,
   Animated,
   ScrollView,
+  Easing,
 } from 'react-native';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontFamily, FontSize } from '../config/theme';
+import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight } from '../config/theme';
 
 const PILL_PADDING = 4; // inset between outer pill edge and sliding highlight
-const TOGGLE_HEIGHT = 48;
+const TOGGLE_HEIGHT = ControlHeight.standard;
 
 export interface FilterOption {
   id: string | null;
@@ -25,7 +26,7 @@ interface Props {
 }
 
 export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
 
   // Content-space x + width for each option, keyed by id ?? 'all'
@@ -34,6 +35,9 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
   // Animated sliding pill position & size (layout-thread, not native, because width can't use ND)
   const pillLeft = useRef(new Animated.Value(PILL_PADDING)).current;
   const pillWidth = useRef(new Animated.Value(0)).current;
+  const stretchAnim = useRef(new Animated.Value(1)).current;
+  const squishAnim = useRef(new Animated.Value(1)).current;
+  const leadAnim = useRef(new Animated.Value(0)).current;
 
   // Per-item press-scale (native driver OK)
   const scales = useRef<Record<string, Animated.Value>>({}).current;
@@ -47,38 +51,105 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
   const prevKey = useRef<string | null>(null);
 
   const activeKey = value ?? 'all';
-  const activeLayout = layouts[activeKey];
 
-  if (activeLayout) {
+  useEffect(() => {
+    const activeLayout = layouts[activeKey];
+    if (!activeLayout) return;
+
     if (!initialized.current) {
       // First layout measurement — snap immediately, no animation
       initialized.current = true;
       prevKey.current = activeKey;
       pillLeft.setValue(activeLayout.x);
       pillWidth.setValue(activeLayout.width);
-    } else if (prevKey.current !== activeKey) {
+      stretchAnim.setValue(1);
+      squishAnim.setValue(1);
+      leadAnim.setValue(0);
+      return;
+    }
+
+    if (prevKey.current !== activeKey) {
+      const prevIdx = options.findIndex((o) => (o.id ?? 'all') === prevKey.current);
+      const currIdx = options.findIndex((o) => (o.id ?? 'all') === activeKey);
+      const distance = Math.max(1, Math.abs(currIdx - prevIdx));
+      const direction = currIdx >= prevIdx ? 1 : -1;
       prevKey.current = activeKey;
+
+      // 1. Primary slide: Apple-calibrated critically damped spring (zero overshoot)
       Animated.parallel([
         Animated.spring(pillLeft, {
           toValue: activeLayout.x,
-          tension: 70,
-          friction: 8,
+          tension: 100,
+          friction: 16,
           useNativeDriver: false,
         }),
         Animated.spring(pillWidth, {
           toValue: activeLayout.width,
-          tension: 70,
-          friction: 8,
+          tension: 100,
+          friction: 16,
           useNativeDriver: false,
         }),
       ]).start();
-      // Auto-scroll so the selected item stays visible
-      scrollRef.current?.scrollTo({
-        x: Math.max(0, activeLayout.x - 24),
-        animated: true,
-      });
+
+      // 2. Dual-Edge Liquid Morph: leading edge stretch & vertical volume squish
+      const maxStretch = Math.min(1.22, 1 + distance * 0.06);
+      const minSquish = Math.max(0.90, 1 - distance * 0.03);
+      const maxLead = Math.min(12, distance * 3.5) * direction;
+      const launchDuration = Math.min(120, 50 + distance * 20);
+
+      stretchAnim.stopAnimation();
+      squishAnim.stopAnimation();
+      leadAnim.stopAnimation();
+
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(stretchAnim, {
+            toValue: maxStretch,
+            duration: launchDuration,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: false,
+          }),
+          Animated.spring(stretchAnim, {
+            toValue: 1,
+            tension: 140,
+            friction: 14,
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(squishAnim, {
+            toValue: minSquish,
+            duration: launchDuration,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: false,
+          }),
+          Animated.spring(squishAnim, {
+            toValue: 1,
+            tension: 140,
+            friction: 14,
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(leadAnim, {
+            toValue: maxLead,
+            duration: launchDuration,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: false,
+          }),
+          Animated.spring(leadAnim, {
+            toValue: 0,
+            tension: 140,
+            friction: 14,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+
+      // Auto-scrolling on click is deliberately removed per user request.
+      // The user scrolls manually; the pill glides to the selected item with liquid morph.
     }
-  }
+  }, [activeKey, layouts, options, pillLeft, pillWidth, stretchAnim, squishAnim, leadAnim]);
 
   return (
     // ── Outer pill: FIXED visual shape, both ends rounded, clips its children ──
@@ -86,8 +157,8 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
       style={[
         styles.pill,
         {
-          backgroundColor: isDark ? colors.card : colors.cardSubtle,
-          borderColor: colors.border,
+          backgroundColor: colors.cardSubtle,
+          borderColor: colors.borderSubtle,
         },
       ]}
     >
@@ -107,6 +178,11 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
               backgroundColor: colors.mintGreen,
               left: pillLeft,
               width: pillWidth,
+              transform: [
+                { translateX: leadAnim },
+                { scaleX: stretchAnim },
+                { scaleY: squishAnim },
+              ],
             },
           ]}
         />
@@ -145,10 +221,8 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
                     {
                       color: isActive
                         ? colors.forestGreen
-                        : isDark
-                        ? colors.textPrimary
                         : colors.textSecondary,
-                      fontFamily: isActive ? FontFamily.bold : FontFamily.semibold,
+                      fontFamily: isActive ? FontFamily.bold : FontFamily.medium,
                     },
                   ]}
                 >

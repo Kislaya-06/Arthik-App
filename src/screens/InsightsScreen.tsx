@@ -30,7 +30,7 @@ import { isIncomeTransaction } from '../lib/paymentUtils';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, CATEGORY_PALETTE } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, CATEGORY_PALETTE } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
@@ -1258,6 +1258,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               options={['Weekly', 'Monthly', 'Yearly']}
               selectedKey={period}
               onChange={(key) => handlePeriodChange(key as Period)}
+              height={ControlHeight.standard}
             />
           </View>
         </View>
@@ -1804,7 +1805,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     <BehavioralInsightRow
                       icon={yearlyCategoryTrajectory.isIncrease ? TrendingUp : TrendingDown}
                       badgeColor={yearlyCategoryTrajectory.isIncrease ? (isDark ? '#F59682' : '#E06D53') : (isDark ? '#7CD49A' : '#3DA862')}
-                      title={yearlyCategoryTrajectory.isIncrease ? 'LARGEST H2 SPENDING ACCELERATION' : 'LARGEST H2 SPENDING DROP'}
+                      title={yearlyCategoryTrajectory.isIncrease ? 'LARGEST H2 SPEND INCREASE' : 'LARGEST H2 SPEND DROP'}
                       headline={`${yearlyCategoryTrajectory.isIncrease ? '+' : '−'}${formatCurrency(yearlyCategoryTrajectory.absDelta)} in ${yearlyCategoryTrajectory.categoryName}`}
                       detail={`${yearlyCategoryTrajectory.shiftPercent}% shift vs H1 · Total ${formatCurrency(yearlyCategoryTrajectory.annualAmount)}`}
                       pillText={`${yearlyCategoryTrajectory.isIncrease ? '+' : '−'}${yearlyCategoryTrajectory.shiftPercent}%`}
