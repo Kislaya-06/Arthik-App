@@ -66,7 +66,7 @@ export const BehavioralInsightRow: React.FC<BehavioralInsightRowProps> = ({
         </Text>
         <Text
           style={[styles.detail, { color: colors.textMuted, fontFamily: FontFamily.medium }]}
-          numberOfLines={1}
+          numberOfLines={2}
         >
           {detail}
         </Text>

@@ -462,6 +462,105 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
         expect(res.totalSpent).toBe(4100);
         expect(res.maxAmount).toBe(5000); // highest bar
       });
+
+      it('allocates budget allowance only for elapsed days in in-progress month, keeping future weeks empty', () => {
+        const monthStart = new Date(2026, 9, 1); // 1 Oct 2026 (31 days)
+        const monthEnd = new Date(2026, 9, 31);  // 31 Oct 2026
+
+        const expenses = [
+          { amount: 260, expense_date: '2026-10-02', type: 'expense' },
+        ];
+        const gullakDeposits: Array<{ date: string; amount: number; source?: string }> = [];
+
+        // Today is October 2nd (W1 in progress, W2/W3/W4 in future)
+        const today = new Date(2026, 9, 2);
+
+        const res = computeMonthlyCashFlowData(
+          monthStart,
+          monthEnd,
+          expenses,
+          gullakDeposits,
+          (exp) => exp.type === 'income',
+          undefined,
+          {
+            isBudgetMode: true,
+            cadence: 'daily',
+            dailyBudgetAmount: 250,
+          },
+          today
+        );
+
+        expect(res.weeks).toHaveLength(4);
+
+        // W1 (1–7): Only 2 days elapsed (Oct 1 + Oct 2) = 2 * 250 = 500. Spent = 260
+        expect(res.weeks[0].income).toBe(500);
+        expect(res.weeks[0].spent).toBe(260);
+
+        // Future weeks (W2, W3, W4) have 0 elapsed days -> income = 0, spent = 0 (empty bars!)
+        expect(res.weeks[1].income).toBe(0);
+        expect(res.weeks[1].spent).toBe(0);
+        expect(res.weeks[2].income).toBe(0);
+        expect(res.weeks[2].spent).toBe(0);
+        expect(res.weeks[3].income).toBe(0);
+        expect(res.weeks[3].spent).toBe(0);
+
+        // Total In so far = 500, Total Spent = 260
+        expect(res.totalIncome).toBe(500);
+        expect(res.totalSpent).toBe(260);
+      });
+
+      it('allocates full month budget allowance when all weeks have elapsed', () => {
+        const monthStart = new Date(2026, 9, 1); // 1 Oct 2026 (31 days)
+        const monthEnd = new Date(2026, 9, 31);  // 31 Oct 2026
+
+        const expenses = [
+          { amount: 260, expense_date: '2026-10-02', type: 'expense' },
+          { amount: 500, expense_date: '2026-10-10', type: 'income' }, // W2 direct income
+        ];
+        const gullakDeposits = [
+          { date: '2026-10-05', amount: 300, source: 'external' }, // W1 external deposit
+        ];
+
+        // Month is fully completed
+        const monthCompletedDate = new Date(2026, 9, 31);
+
+        const res = computeMonthlyCashFlowData(
+          monthStart,
+          monthEnd,
+          expenses,
+          gullakDeposits,
+          (exp) => exp.type === 'income',
+          undefined,
+          {
+            isBudgetMode: true,
+            cadence: 'daily',
+            dailyBudgetAmount: 250,
+          },
+          monthCompletedDate
+        );
+
+        expect(res.weeks).toHaveLength(4);
+
+        // W1 (1–7 = 7 days): Allowance 7*250 = 1750 + External Deposit 300 = 2050. Spent = 260
+        expect(res.weeks[0].income).toBe(2050);
+        expect(res.weeks[0].spent).toBe(260);
+
+        // W2 (8–14 = 7 days): Allowance 7*250 = 1750 + Direct Income 500 = 2250. Spent = 0
+        expect(res.weeks[1].income).toBe(2250);
+        expect(res.weeks[1].spent).toBe(0);
+
+        // W3 (15–21 = 7 days): Allowance 7*250 = 1750. Spent = 0
+        expect(res.weeks[2].income).toBe(1750);
+        expect(res.weeks[2].spent).toBe(0);
+
+        // W4 (22–31 = 10 days): Allowance 10*250 = 2500. Spent = 0
+        expect(res.weeks[3].income).toBe(2500);
+        expect(res.weeks[3].spent).toBe(0);
+
+        // Total In = 2050 + 2250 + 1750 + 2500 = 8550 (Allowance 7750 + Income 500 + Deposit 300)
+        expect(res.totalIncome).toBe(8550);
+        expect(res.totalSpent).toBe(260);
+      });
     });
 
     describe('computeYearlyGullakMilestones', () => {

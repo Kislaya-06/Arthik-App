@@ -1,4 +1,4 @@
-import { format, parseISO, addDays, isAfter } from 'date-fns';
+import { format, parseISO, addDays, isAfter, differenceInCalendarDays } from 'date-fns';
 import { formatCompactCurrency, formatCurrency, round2 } from './formatters';
 
 export interface SegmentInterpolation {
@@ -662,16 +662,27 @@ export interface MonthlyCashFlowData {
  * W3: 15–21
  * W4: 22 to end of month (22–30, 22–31, etc.)
  */
+export interface MonthlyCashFlowBudgetConfig {
+  isBudgetMode: boolean;
+  cadence?: 'daily' | 'weekly' | 'monthly';
+  dailyBudgetAmount?: number;
+  weeklyBudgetAmount?: number;
+  monthlyBudgetAmount?: number;
+}
+
 export function computeMonthlyCashFlowData(
   monthStart: Date,
   monthEnd: Date,
   expenses: Array<{ amount: number; expense_date: string; type?: string; category_id?: string | null }>,
   gullakDeposits: Array<{ date: string; amount: number; source?: string }>,
   isIncomeCheck?: (expense: any) => boolean,
-  userCreatedAtStr?: string
+  userCreatedAtStr?: string,
+  budgetConfig?: MonthlyCashFlowBudgetConfig,
+  referenceDate: Date = new Date()
 ): MonthlyCashFlowData {
   const weeks: MonthlyCashFlowWeek[] = [];
   const endDay = monthEnd.getDate();
+  const totalDaysInMonth = differenceInCalendarDays(monthEnd, monthStart) + 1;
 
   const weekRanges: Array<{ label: string; startDay: number; endDay: number }> = [
     { label: 'W1', startDay: 1, endDay: Math.min(7, endDay) },
@@ -705,6 +716,39 @@ export function computeMonthlyCashFlowData(
     let weekIncome = 0;
     let weekSpent = 0;
 
+    // 1. Budget Allowance Allocation (when Budget Mode is ON)
+    // Only elapsed days up to today receive operational liquidity; future weeks remain empty until reached.
+    if (budgetConfig?.isBudgetMode) {
+      const todayStr = format(referenceDate, 'yyyy-MM-dd');
+      let activeDaysInRange = 0;
+
+      let d = rangeStart;
+      while (!isAfter(d, rangeEnd)) {
+        const dStr = format(d, 'yyyy-MM-dd');
+        const isAfterCreated = !userCreatedAtStr || dStr >= userCreatedAtStr;
+        const isElapsed = dStr <= todayStr;
+
+        if (isAfterCreated && isElapsed) {
+          activeDaysInRange++;
+        }
+        d = addDays(d, 1);
+      }
+
+      if (activeDaysInRange > 0) {
+        let dailyRate = 0;
+        if (budgetConfig.cadence === 'monthly') {
+          dailyRate = (budgetConfig.monthlyBudgetAmount || 0) / totalDaysInMonth;
+        } else if (budgetConfig.cadence === 'weekly') {
+          dailyRate = (budgetConfig.weeklyBudgetAmount || 0) / 7;
+        } else {
+          // daily cadence (default)
+          dailyRate = budgetConfig.dailyBudgetAmount || 0;
+        }
+        weekIncome += Math.round(dailyRate * activeDaysInRange);
+      }
+    }
+
+    // 2. Direct Income Transactions
     for (const exp of expenses) {
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -720,6 +764,7 @@ export function computeMonthlyCashFlowData(
       }
     }
 
+    // 3. External Gullak Deposits
     for (const dep of gullakDeposits) {
       const cleanDate = dep.date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -766,6 +811,9 @@ export function computeMonthlyCashFlowData(
       endDate: endStr,
     });
   }
+
+  totalIncome = round2(totalIncome);
+  totalSpent = round2(totalSpent);
 
   const maxAmount = Math.max(
     ...weeks.map((w) => Math.max(w.income, w.spent)),

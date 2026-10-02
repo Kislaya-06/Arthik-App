@@ -240,8 +240,9 @@ export function computeSmartMonthlyTakeaway(params: MonthlyTakeawayParams): Smar
 
   // 5. In-progress Safe Pace
   if (isBudgetMode && isCurrentMonth && safeDailyPace > 0 && !isOverBudget) {
+    const dayStr = remainingDays === 1 ? 'day' : 'days';
     return {
-      text: `Pacing comfortably: ₹${formatAmountWithCommas(String(safeDailyPace))}/day safe pace with ${remainingDays} days remaining.`,
+      text: `Pacing comfortably: ₹${formatAmountWithCommas(String(safeDailyPace))}/day safe pace with ${remainingDays} ${dayStr} remaining.`,
       status: 'mint',
     };
   }
@@ -406,7 +407,7 @@ export function computeMonthlyComparison(
       percentageChange: null,
       isIncrease: true,
       trendLabel: isCurrentMonth
-        ? `+₹${formatAmountWithCommas(String(currTotal))} vs same days`
+        ? `+₹${formatAmountWithCommas(String(currTotal))} vs same days prev month`
         : `+₹${formatAmountWithCommas(String(currTotal))} vs prev month`,
       matchedPrevTotal: 0,
       currentTotal: currTotal,
@@ -423,8 +424,8 @@ export function computeMonthlyComparison(
       percentageChange: null,
       isIncrease,
       trendLabel: diff === 0
-        ? (isCurrentMonth ? 'Same as same days' : 'Same as prev month')
-        : `${sign}₹${formatAmountWithCommas(String(Math.abs(diff)))} ${isCurrentMonth ? 'vs same days' : 'vs prev month'}`,
+        ? (isCurrentMonth ? 'Same as same days prev month' : 'Same as prev month')
+        : `${sign}₹${formatAmountWithCommas(String(Math.abs(diff)))} ${isCurrentMonth ? 'vs same days prev month' : 'vs prev month'}`,
       matchedPrevTotal,
       currentTotal: currTotal,
     };
@@ -432,7 +433,7 @@ export function computeMonthlyComparison(
 
   const percentageChange = Math.round((Math.abs(diff) / matchedPrevTotal) * 100);
   const trendLabel = isCurrentMonth
-    ? `${percentageChange}% vs same days`
+    ? `${percentageChange}% vs same days prev month`
     : `${percentageChange}% vs prev month`;
 
   return {

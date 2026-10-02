@@ -10,6 +10,7 @@ import {
   computeMonthlyLargestOutflow,
   computeMonthlyCategoryShift,
   computeMonthlyPeakWeek,
+  computeSmartMonthlyTakeaway,
   ExpenseLike,
 } from '../src/lib/monthlyInsightsUtils';
 import type { Category } from '../src/store/categoryStore';
@@ -131,7 +132,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       // Matched previous spend up to Sept 10: 1000 + 2000 = 3000 (excludes Sept 25!)
       expect(comp.matchedPrevTotal).toBe(3000);
       expect(comp.percentageChange).toBe(0);
-      expect(comp.trendLabel).toBe('0% vs same days');
+      expect(comp.trendLabel).toBe('0% vs same days prev month');
     });
 
     it('caps day 31 in current month to 30 days of previous month without error', () => {
@@ -143,7 +144,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(comp.matchedPrevTotal).toBe(8000);
       expect(comp.percentageChange).toBe(63); // (8000 - 3000) / 8000 = 62.5% -> 63%
       expect(comp.isIncrease).toBe(false);
-      expect(comp.trendLabel).toBe('63% vs same days');
+      expect(comp.trendLabel).toBe('63% vs same days prev month');
     });
 
     it('handles zero previous spend safely without NaN or Infinity', () => {
@@ -169,7 +170,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(comp.currentTotal).toBe(260);
       expect(comp.matchedPrevTotal).toBe(0);
       expect(comp.percentageChange).toBeNull();
-      expect(comp.trendLabel).toBe('+₹260 vs same days');
+      expect(comp.trendLabel).toBe('+₹260 vs same days prev month');
     });
   });
 
@@ -282,4 +283,87 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(earlyPeak.text).toContain('W1 in progress');
     });
   });
+
+  describe('Ticket 5: Smart Monthly Takeaway Narrative Engine', () => {
+    it('returns zero spend message when current total is 0', () => {
+      const takeaway = computeSmartMonthlyTakeaway({
+        currentTotal: 0,
+        isBudgetMode: true,
+        isOverBudget: false,
+        overAmount: 0,
+        remainingBudget: 15500,
+        savedDaysCount: 0,
+        totalMonthSavings: 0,
+        topCategory: null,
+        isCurrentMonth: true,
+        safeDailyPace: 0,
+        remainingDays: 20,
+        transactionCount: 0,
+        monthlyDailyBurnPace: 0,
+      });
+      expect(takeaway.status).toBe('neutral');
+      expect(takeaway.text).toBe('No expenses logged this month.');
+    });
+
+    it('returns over-budget coral status with formatted over amount', () => {
+      const takeaway = computeSmartMonthlyTakeaway({
+        currentTotal: 12000,
+        isBudgetMode: true,
+        isOverBudget: true,
+        overAmount: 2000,
+        remainingBudget: 0,
+        savedDaysCount: 2,
+        totalMonthSavings: 400,
+        topCategory: null,
+        isCurrentMonth: true,
+        safeDailyPace: 0,
+        remainingDays: 10,
+        transactionCount: 15,
+        monthlyDailyBurnPace: 600,
+      });
+      expect(takeaway.status).toBe('coral');
+      expect(takeaway.text).toContain('exceeded budget by ₹2,000');
+    });
+
+    it('formats safe daily pace with correct singular and plural grammar for remaining days', () => {
+      // Plural days
+      const takeawayPlural = computeSmartMonthlyTakeaway({
+        currentTotal: 3000,
+        isBudgetMode: true,
+        isOverBudget: false,
+        overAmount: 0,
+        remainingBudget: 3500,
+        savedDaysCount: 2,
+        totalMonthSavings: 300,
+        topCategory: null,
+        isCurrentMonth: true,
+        safeDailyPace: 250,
+        remainingDays: 14,
+        transactionCount: 8,
+        monthlyDailyBurnPace: 300,
+      });
+      expect(takeawayPlural.status).toBe('mint');
+      expect(takeawayPlural.text).toContain('₹250/day safe pace with 14 days remaining.');
+
+      // Singular day
+      const takeawaySingular = computeSmartMonthlyTakeaway({
+        currentTotal: 3000,
+        isBudgetMode: true,
+        isOverBudget: false,
+        overAmount: 0,
+        remainingBudget: 250,
+        savedDaysCount: 2,
+        totalMonthSavings: 300,
+        topCategory: null,
+        isCurrentMonth: true,
+        safeDailyPace: 250,
+        remainingDays: 1,
+        transactionCount: 8,
+        monthlyDailyBurnPace: 300,
+      });
+      expect(takeawaySingular.status).toBe('mint');
+      expect(takeawaySingular.text).toContain('₹250/day safe pace with 1 day remaining.');
+    });
+  });
 });
+

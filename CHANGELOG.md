@@ -9,12 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 📈 Redesigned Monthly Insights & Financial Reflection Engine
-- **Unified Monthly Breathing Strip (`MonthlyBreathingStrip`):** Upgraded to match the polished architecture of the Weekly Breathing Strip, introducing a top Smart Takeaway observation row with status dot, a progress bar track, and a clean 2-line subtitle (`₹X left` / `₹Y/day safe pace · Zd left`) that eliminates text truncation on all screen widths.
+### 📈 Redesigned Insights Breathing Strip & Hero Budget Progress (Weekly & Monthly)
+- **Integrated Hero Budget Progress (`InsightsScreen`):** Positioned a slim, responsive budget track and pool context label (`₹X left of ₹Y estimated` or `₹X left of ₹Y pool (₹A est. + ₹B income)`) directly inside the Orange Hero Card below the total spend amount. Eliminates empty hero card space and ensures financial pacing is immediately visible at a glance.
+- **Dual Clean Tiles Architecture (`WeeklyBreathingStrip` & `MonthlyBreathingStrip`):** Replaced cluttered multi-metric lower cards with a streamlined dual-tile layout:
+  - **Safe Daily Pace Tile:** Displays safe daily spending velocity (`₹X / day`) with remaining days, over-budget warnings, and income boosts. In Pure Mode, adapts cleanly to average daily burn across transactions.
+  - **Auto-Saved to Gullak Tile:** Tappable savings milestone card (`+₹Z` in mint green with `🐷 N Saved Days` badge) navigating directly to the Savings screen.
+  - **Strict Real-Money Invariants:** Estimated budget allowances are explicitly marked (`est.` / `estimated`) to distinguish estimated pacing from real deposited cash, and locked Gullak deposits are strictly excluded from spending pools.
 - **Fair Day-Matched Comparison Guard & Refined Pill Spacing:** Fixed the day-matching comparison to distinguish between ₹0 spend in matched days vs an empty previous month (correctly reporting `+₹X vs same days` when previous month had spend). Refined Hero Card pill spacing with guaranteed `gap: Spacing.group` so comparison and daily burn badges never collide.
 - **Fair Day-Matched MTD Comparison Engine (`monthlyInsightsUtils.ts`):** In-progress months (e.g. Day 10 of October) compare Day 1..10 against Day 1..10 of September rather than comparing partial days against a completed 30-day total. Handles month-end boundaries (31, 30, 28/29 days) and zero-spend previous month guards.
 - **Daily Burn Rate Badge:** Hero Card displays live average daily burn pace (`₹X/day avg`) next to the trend badge for immediate velocity visibility.
 - **Category Progressive Disclosure:** Collapsed categories beyond the top 5 behind a smooth `+ View N more categories` accordion toggle, eliminating vertical page clutter.
+- **Budget Allowance Integration in Cash Flow In:** When Budget Mode is active, Cash Flow "In" dynamically integrates the allocated budget allowance (auto-renewed operational liquidity) alongside direct income transactions and external Gullak deposits, presenting a true reflection of real funds allocated vs spent without false deficit warnings.
 - **Peak Outflow Week Narrative in Cash Flow:** Cash Flow chart sub-header highlights the heaviest spending week and percentage share (e.g. `"W1 had highest outflow (42% of month)"`), with graceful single-week in-progress and evenly-distributed states.
 - **Behavioral Insights for Monthly:** Replaced redundant "Most Spent On" and generic "Top Payment" rows with actionable behavioral rows:
   - **Largest Single Outflow:** Outlier purchase isolation with date, merchant/note, and `% of month` accent pill (threshold $\ge$ ₹200 and $\ge$ 15% share), tappable to `ExpenseDetail`.

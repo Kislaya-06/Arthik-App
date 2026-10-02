@@ -30,7 +30,7 @@ import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, CATEGORY_PALETTE } from '../config/theme';
-import { formatCurrency } from '../lib/formatters';
+import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
@@ -562,9 +562,29 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       (exp) => {
         const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
         return isIncomeTransaction(exp, cat);
+      },
+      user?.created_at,
+      {
+        isBudgetMode: isBudgetModeEnabled,
+        cadence: budgetCadence,
+        dailyBudgetAmount,
+        weeklyBudgetAmount,
+        monthlyBudgetAmount,
       }
     );
-  }, [period, currentInterval, expenses, gullakDeposits, categories]);
+  }, [
+    period,
+    currentInterval,
+    expenses,
+    gullakDeposits,
+    categories,
+    user?.created_at,
+    isBudgetModeEnabled,
+    budgetCadence,
+    dailyBudgetAmount,
+    weeklyBudgetAmount,
+    monthlyBudgetAmount,
+  ]);
 
   // Yearly Gullak savings & milestone metrics
   const yearlyGullakMetrics = useMemo(() => {
@@ -720,79 +740,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     return dayIdx + 1;
   }, [offset]);
 
-  const safeDailyPace = useMemo(() => {
-    return computeSafeDailyPace(budgetHealth.remaining, elapsedDaysInWeek);
-  }, [budgetHealth.remaining, elapsedDaysInWeek]);
-
-  const weeklyGullak = useMemo(() => {
-    return computeWeeklyGullakSavings(dailyRecords, gullakDeposits, currentInterval);
-  }, [dailyRecords, gullakDeposits, currentInterval]);
-
-  const weekTransactionCount = useMemo(() => {
-    let count = 0;
-    for (const exp of expenses) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
-        count++;
-      }
-    }
-    return count;
-  }, [expenses, categories, currentInterval]);
-
-  const peakDayName = maxWeekDay?.day || 'Mon';
-
-  const smartTakeaway = useMemo(() => {
-    return computeSmartWeeklyTakeaway({
-      currentTotal,
-      isBudgetMode: isBudgetModeEnabled,
-      isOverBudget: budgetHealth.isOverBudget,
-      overAmount: budgetHealth.overAmount,
-      peakDayName,
-      savedDaysCount: weeklyGullak.savedDaysCount,
-      weekSavings: weeklyGullak.totalSaved,
-      topCategory: topCategory ? { name: topCategory.name, percentage: topCategory.percentage } : null,
-      safeDailyPace,
-      isCurrentWeek: offset === 0,
-      transactionCount: weekTransactionCount,
-      dailyAverageBurn: Math.round(currentTotal / Math.max(1, elapsedDaysInWeek)),
-    });
-  }, [
-    currentTotal,
-    isBudgetModeEnabled,
-    budgetHealth.isOverBudget,
-    budgetHealth.overAmount,
-    peakDayName,
-    weeklyGullak,
-    topCategory,
-    safeDailyPace,
-    offset,
-    weekTransactionCount,
-    elapsedDaysInWeek,
-  ]);
-
-  const largestOutflow = useMemo(() => {
-    if (period !== 'Weekly') return null;
-    return computeLargestSingleOutflow(expenses, categories, currentInterval, currentTotal);
-  }, [period, expenses, categories, currentInterval, currentTotal]);
-
-  const weekdayWeekendDynamics = useMemo(() => {
-    if (period !== 'Weekly') return null;
-    return computeWeekdayVsWeekendDynamics(
-      weeklyData,
-      currentTotal,
-      offset,
-      new Date()
-    );
-  }, [period, weeklyData, currentTotal, offset]);
-
-  const peakDaysSubtitle = useMemo(() => {
-    if (period !== 'Weekly') return undefined;
-    return computePeakDaysSubtitle(weeklyData);
-  }, [period, weeklyData]);
-
   // ─── Monthly Insights Calculations ──────────────────────────────────────────
   const elapsedDaysInMonth = useMemo(() => {
     if (offset < 0) {
@@ -824,10 +771,146 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     return computeMonthlyBudgetHealth(monthlyEffectiveBudget.effectiveBudget, currentTotal);
   }, [monthlyEffectiveBudget.effectiveBudget, currentTotal]);
 
+  // ─── Direct Non-Gullak Income Added in Current Interval ───────────────────────
+  const currentPeriodIncome = useMemo(() => {
+    if (period === 'Yearly') return 0;
+    let income = 0;
+    for (const exp of expenses) {
+      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+        const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+        if (isIncomeTransaction(exp, cat)) {
+          income += exp.amount;
+        }
+      }
+    }
+    return round2(income);
+  }, [expenses, categories, currentInterval, period]);
+
+  // ─── Active Spending Pool (Estimated Budget + Added Inflow) ───────────────────
+  const activeBudgetPool = useMemo(() => {
+    if (!isBudgetModeEnabled || period === 'Yearly') {
+      return null;
+    }
+
+    const baseBudget = period === 'Weekly'
+      ? effectiveBudgetResult.effectiveBudget
+      : monthlyEffectiveBudget.effectiveBudget;
+
+    const totalPool = round2(baseBudget + currentPeriodIncome);
+    const rawRemaining = round2(totalPool - currentTotal);
+    const isOver = rawRemaining < 0;
+    const overAmount = isOver ? Math.abs(rawRemaining) : 0;
+    const remaining = Math.max(0, rawRemaining);
+    const progressRatio = totalPool > 0 ? Math.min(1, Math.max(0, currentTotal / totalPool)) : 0;
+
+    return {
+      baseBudget,
+      totalPool,
+      remaining,
+      isOver,
+      overAmount,
+      progressRatio,
+      hasIncomeAdded: currentPeriodIncome > 0,
+      addedIncome: currentPeriodIncome,
+    };
+  }, [
+    isBudgetModeEnabled,
+    period,
+    effectiveBudgetResult.effectiveBudget,
+    monthlyEffectiveBudget.effectiveBudget,
+    currentPeriodIncome,
+    currentTotal,
+  ]);
+
+  const safeDailyPace = useMemo(() => {
+    const effectiveRemaining = activeBudgetPool && period === 'Weekly'
+      ? activeBudgetPool.remaining
+      : budgetHealth.remaining;
+    return computeSafeDailyPace(effectiveRemaining, elapsedDaysInWeek);
+  }, [activeBudgetPool, period, budgetHealth.remaining, elapsedDaysInWeek]);
+
   const monthlySafeDailyPace = useMemo(() => {
     const totalDays = differenceInCalendarDays(currentInterval.end, currentInterval.start) + 1;
-    return computeMonthlySafeDailyPace(monthlyBudgetHealth.remaining, elapsedDaysInMonth, totalDays);
-  }, [monthlyBudgetHealth.remaining, elapsedDaysInMonth, currentInterval]);
+    const effectiveRemaining = activeBudgetPool && period === 'Monthly'
+      ? activeBudgetPool.remaining
+      : monthlyBudgetHealth.remaining;
+    return computeMonthlySafeDailyPace(effectiveRemaining, elapsedDaysInMonth, totalDays);
+  }, [activeBudgetPool, period, monthlyBudgetHealth.remaining, elapsedDaysInMonth, currentInterval]);
+
+  const weeklyGullak = useMemo(() => {
+    return computeWeeklyGullakSavings(dailyRecords, gullakDeposits, currentInterval);
+  }, [dailyRecords, gullakDeposits, currentInterval]);
+
+  const weekTransactionCount = useMemo(() => {
+    let count = 0;
+    for (const exp of expenses) {
+      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      if (isIncomeTransaction(exp, cat)) continue;
+      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+        count++;
+      }
+    }
+    return count;
+  }, [expenses, categories, currentInterval]);
+
+  const peakDayName = maxWeekDay?.day || 'Mon';
+
+  const smartTakeaway = useMemo(() => {
+    const isOver = activeBudgetPool && period === 'Weekly' ? activeBudgetPool.isOver : budgetHealth.isOverBudget;
+    const overAmt = activeBudgetPool && period === 'Weekly' ? activeBudgetPool.overAmount : budgetHealth.overAmount;
+
+    return computeSmartWeeklyTakeaway({
+      currentTotal,
+      isBudgetMode: isBudgetModeEnabled,
+      isOverBudget: isOver,
+      overAmount: overAmt,
+      peakDayName,
+      savedDaysCount: weeklyGullak.savedDaysCount,
+      weekSavings: weeklyGullak.totalSaved,
+      topCategory: topCategory ? { name: topCategory.name, percentage: topCategory.percentage } : null,
+      safeDailyPace,
+      isCurrentWeek: offset === 0,
+      transactionCount: weekTransactionCount,
+      dailyAverageBurn: Math.round(currentTotal / Math.max(1, elapsedDaysInWeek)),
+    });
+  }, [
+    currentTotal,
+    isBudgetModeEnabled,
+    activeBudgetPool,
+    period,
+    budgetHealth,
+    peakDayName,
+    weeklyGullak,
+    topCategory,
+    safeDailyPace,
+    offset,
+    weekTransactionCount,
+    elapsedDaysInWeek,
+  ]);
+
+  const largestOutflow = useMemo(() => {
+    if (period !== 'Weekly') return null;
+    return computeLargestSingleOutflow(expenses, categories, currentInterval, currentTotal);
+  }, [period, expenses, categories, currentInterval, currentTotal]);
+
+  const weekdayWeekendDynamics = useMemo(() => {
+    if (period !== 'Weekly') return null;
+    return computeWeekdayVsWeekendDynamics(
+      weeklyData,
+      currentTotal,
+      offset,
+      new Date()
+    );
+  }, [period, weeklyData, currentTotal, offset]);
+
+  const peakDaysSubtitle = useMemo(() => {
+    if (period !== 'Weekly') return undefined;
+    return computePeakDaysSubtitle(weeklyData);
+  }, [period, weeklyData]);
 
   const monthlyDailyBurnPace = useMemo(() => {
     if (currentTotal <= 0) return 0;
@@ -878,24 +961,30 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   }, [period, expenses, categories, currentInterval]);
 
   const smartMonthlyTakeaway = useMemo(() => {
+    const isOver = activeBudgetPool && period === 'Monthly' ? activeBudgetPool.isOver : monthlyBudgetHealth.isOverBudget;
+    const overAmt = activeBudgetPool && period === 'Monthly' ? activeBudgetPool.overAmount : monthlyBudgetHealth.overAmount;
+    const remBudget = activeBudgetPool && period === 'Monthly' ? activeBudgetPool.remaining : monthlyBudgetHealth.remaining;
+
     return computeSmartMonthlyTakeaway({
       currentTotal,
       isBudgetMode: isBudgetModeEnabled,
-      isOverBudget: monthlyBudgetHealth.isOverBudget,
-      overAmount: monthlyBudgetHealth.overAmount,
+      isOverBudget: isOver,
+      overAmount: overAmt,
       savedDaysCount: monthlyGullakSavings.savedDaysCount,
       totalMonthSavings: monthlyGullakSavings.totalSaved,
       topCategory: topCategory ? { name: topCategory.name, percentage: topCategory.percentage } : null,
       isCurrentMonth: offset === 0,
       safeDailyPace: monthlySafeDailyPace,
       remainingDays: monthlyRemainingDays,
-      remainingBudget: monthlyBudgetHealth.remaining,
+      remainingBudget: remBudget,
       transactionCount: monthTransactionCount,
       monthlyDailyBurnPace,
     });
   }, [
     currentTotal,
     isBudgetModeEnabled,
+    activeBudgetPool,
+    period,
     monthlyBudgetHealth,
     monthlyGullakSavings,
     topCategory,
@@ -975,6 +1064,37 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </View>
 
+          {/* Integrated Budget Progress & Pool Context (Weekly & Monthly in Budget Mode) */}
+          {isBudgetModeEnabled && activeBudgetPool && activeBudgetPool.baseBudget > 0 && (
+            <View style={styles.heroProgressSection}>
+              <View style={styles.heroProgressTrack}>
+                <View
+                  style={[
+                    styles.heroProgressFill,
+                    {
+                      width: `${Math.round(activeBudgetPool.progressRatio * 100)}%`,
+                      backgroundColor: activeBudgetPool.isOver ? '#D32F2F' : '#3E2723',
+                    },
+                  ]}
+                />
+              </View>
+
+              <Text style={[styles.heroProgressText, { fontFamily: FontFamily.medium }]} numberOfLines={1}>
+                {activeBudgetPool.isOver ? (
+                  activeBudgetPool.hasIncomeAdded ? (
+                    `₹${formatAmountWithCommas(String(activeBudgetPool.overAmount))} over ₹${formatAmountWithCommas(String(activeBudgetPool.totalPool))} pool`
+                  ) : (
+                    `₹${formatAmountWithCommas(String(activeBudgetPool.overAmount))} over ₹${formatAmountWithCommas(String(activeBudgetPool.baseBudget))} estimated`
+                  )
+                ) : activeBudgetPool.hasIncomeAdded ? (
+                  `₹${formatAmountWithCommas(String(activeBudgetPool.remaining))} left of ₹${formatAmountWithCommas(String(activeBudgetPool.totalPool))} pool (₹${formatAmountWithCommas(String(activeBudgetPool.baseBudget))} est. + ₹${formatAmountWithCommas(String(activeBudgetPool.addedIncome))} income)`
+                ) : (
+                  `₹${formatAmountWithCommas(String(activeBudgetPool.remaining))} left of ₹${formatAmountWithCommas(String(activeBudgetPool.baseBudget))} estimated`
+                )}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.heroComparisonRow}>
             <View style={styles.trendBadge}>
               {heroTrend.percentageChange !== null ? (
@@ -1019,23 +1139,21 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
-        {/* ── Weekly Breathing Strip (Variation A) ── */}
+        {/* ── Weekly Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Weekly' && (
           <View style={{ marginTop: Spacing.gutter }}>
             <WeeklyBreathingStrip
               takeaway={smartTakeaway}
               isBudgetMode={isBudgetModeEnabled}
-              weekSpent={currentTotal}
-              weekBudget={effectiveBudgetResult.effectiveBudget}
-              remainingBudget={budgetHealth.remaining}
-              overAmount={budgetHealth.overAmount}
-              isOverBudget={budgetHealth.isOverBudget}
-              budgetRatio={budgetHealth.ratio}
               safeDailyPace={safeDailyPace}
               isCurrentWeek={offset === 0}
+              remainingDays={Math.max(0, 7 - elapsedDaysInWeek)}
               transactionCount={weekTransactionCount}
               totalWeekSavings={weeklyGullak.totalSaved}
               savedDaysCount={weeklyGullak.savedDaysCount}
+              addedIncome={currentPeriodIncome}
+              isOverBudget={activeBudgetPool ? activeBudgetPool.isOver : budgetHealth.isOverBudget}
+              weeklyDailyBurnPace={Math.round(currentTotal / Math.max(1, elapsedDaysInWeek))}
               onPressSavings={() => {
                 navigation.navigate('Savings');
               }}
@@ -1043,25 +1161,21 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {/* ── Monthly Financial Breathing Strip (A2 Dual-Balance) ── */}
+        {/* ── Monthly Financial Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Monthly' && (
           <View style={{ marginTop: Spacing.gutter }}>
             <MonthlyBreathingStrip
               takeaway={smartMonthlyTakeaway}
               isBudgetMode={isBudgetModeEnabled}
-              monthSpent={currentTotal}
-              monthBudget={monthlyEffectiveBudget.effectiveBudget}
-              remainingBudget={monthlyBudgetHealth.remaining}
-              overAmount={monthlyBudgetHealth.overAmount}
-              isOverBudget={monthlyBudgetHealth.isOverBudget}
-              budgetRatio={monthlyBudgetHealth.ratio}
               safeDailyPace={monthlySafeDailyPace}
               isCurrentMonth={offset === 0}
               remainingDays={monthlyRemainingDays}
               transactionCount={monthTransactionCount}
               totalMonthSavings={monthlyGullakSavings.totalSaved}
               savedDaysCount={monthlyGullakSavings.savedDaysCount}
-              netCashFlow={monthlyCashFlowData.totalIncome - currentTotal}
+              addedIncome={currentPeriodIncome}
+              isOverBudget={activeBudgetPool ? activeBudgetPool.isOver : monthlyBudgetHealth.isOverBudget}
+              monthlyDailyBurnPace={monthlyDailyBurnPace}
               onPressSavings={() => {
                 navigation.navigate('Savings');
               }}
@@ -1362,7 +1476,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                       badgeColor={monthlyCategoryShift.categoryColor}
                       title="PRIMARY EXPENSE DRIVER"
                       headline={`${monthlyCategoryShift.categoryName} · ${formatCurrency(monthlyCategoryShift.currentAmount)}`}
-                      detail={`${monthlyCategoryShift.percentageOfTotal}% of monthly spend across ${monthlyCategoryShift.txnCount} ${monthlyCategoryShift.txnCount === 1 ? 'transaction' : 'transactions'}`}
+                      detail={`Across ${monthlyCategoryShift.txnCount} ${monthlyCategoryShift.txnCount === 1 ? 'transaction' : 'transactions'} this month`}
                       pillText={`${monthlyCategoryShift.percentageOfTotal}% of month`}
                       pillColor={colors.mintGreen}
                       onPress={() => {
@@ -1472,6 +1586,26 @@ const styles = StyleSheet.create({
   heroAmountRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.micro },
   heroCurrency: { fontSize: 24, color: '#2D1E1E', marginRight: 6 },
   heroAmount: { fontSize: 48, color: '#2D1E1E' },
+  heroProgressSection: {
+    marginTop: Spacing.element,
+    marginBottom: Spacing.micro,
+  },
+  heroProgressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(60, 35, 35, 0.14)',
+    overflow: 'hidden',
+  },
+  heroProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  heroProgressText: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: '#3E2723',
+    marginTop: 4,
+  },
   heroComparisonRow: {
     flexDirection: 'row',
     alignItems: 'center',
