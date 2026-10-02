@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📊 Redesigned Weekly Insights & Behavioral Analytics
+- **Unified Breathing Strip (`WeeklyBreathingStrip`):** Introduced a clean, single-surface card at the top of the Weekly tab uniting a contextual Smart Takeaway observation with a dual gauge (Budget Health & Safe Daily Pace on the left; Gullak Auto-Savings Impact on the right).
+- **Pure Mode Adaptation:** When Budget Mode is disabled, the Breathing Strip seamlessly adapts to display `"WEEK'S TRANSACTIONS"`, transaction count, and total outflow amount, eliminating misleading empty progress bars.
+- **Fair Day-Matched Comparison Engine (`weeklyInsightsUtils.ts`):** In-progress weeks (e.g. Wednesday afternoon) compare Mon–today against Mon–same weekday of last week instead of comparing partial days against a completed 7-day total. Completed past weeks compare full 7-day periods.
+- **Category Progressive Disclosure:** Categories inline stack displays the top 4 spending categories alongside the animated donut, with an accessible `+ View N more categories` toggle for seamless inline expansion without modals or screen jumping.
+- **Behavioral Quick Insights (`BehavioralInsightRow`):** Replaced redundant "Most Spent On" and "Top Payment" rows with actionable behavioral insights:
+  - **Largest Single Purchase:** Outlier purchase detection with relevance thresholds (only shows percentage badges for expenses $\ge$ ₹100 and $\ge$ 15% of weekly spend), tapping navigates directly to `ExpenseDetail`.
+  - **Weekday vs Weekend Dynamics:** Analyzes Mon–Fri vs Sat–Sun spending patterns on weekends/past weeks, dynamically adapting to Daily Average Burn Rate during active weekdays.
+- **Spending Flow Chart Header Polish:** Removed duplicate percentage trend badge from chart header and added clear peak day subtitle (e.g. `"Peak: Saturday (₹1,450)"` or `"No daily expenses"`).
+- **Direct Modal & Drill-down Routes:** Tapping the Budget column opens `BudgetEditModal`, tapping Gullak navigates to `Savings`, and tapping daily bars navigates to `History` filtered by date.
+- **Full Automated Test Coverage (`tests/weeklyInsightsData.test.ts`):** 18 comprehensive Vitest unit tests verifying all calculation formulas, mid-week joiner active day derivation, zero spend conditions, and threshold filtering.
+
 ### 🎨 Visual Polish & UI Consistency
 - **Responsive "Smart Budget & Gullak" Wrap & Help Badge Alignment (`ProfileScreen`):** Dynamically adjusts layout when the title wraps onto two lines on smaller screens or larger accessibility fonts by placing the `MoneyHelpBadge` (`size={18}`) directly next to "Smart Budget &" on the first line and "Gullak" on the second line, while keeping them together on a single line when space allows. Matched badge size to Gullak hero card.
 - **Unified Section Header & Sliding Filter Toggle (`SavingsScreen`):** Aligned `Day-by-Day Savings History` section header typography with Home screen's `Recent transactions` (`fontSize: 22`, bold, letter-spacing `-0.2`). Replaced static filter pills with animated, bouncy sliding filter toggle (`BouncyFilterToggle`) with identical haptics and spring physics.

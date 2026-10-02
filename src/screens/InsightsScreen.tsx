@@ -11,7 +11,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
   TrendingUp, TrendingDown, CheckSquare, Wallet, CreditCard,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
+  ShoppingBag, Sparkles, Flame,
 } from 'lucide-react-native';
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
@@ -23,6 +24,7 @@ import {
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { useAuthStore } from '../store/authStore';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
@@ -35,7 +37,22 @@ import { SpendingFlowChart } from '../components/SpendingFlowChart';
 import { CashFlowChart } from '../components/CashFlowChart';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
+import { WeeklyBreathingStrip } from '../components/WeeklyBreathingStrip';
+import { BehavioralInsightRow } from '../components/BehavioralInsightRow';
+import { BudgetEditModal } from '../components/BudgetEditModal';
+import { getCategoryIcon } from '../lib/iconUtils';
 import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../lib/chartUtils';
+import {
+  computeEffectiveWeekBudget,
+  computeBudgetHealth,
+  computeSafeDailyPace,
+  computeWeeklyGullakSavings,
+  computeSmartWeeklyTakeaway,
+  computeLargestSingleOutflow,
+  computeWeekdayVsWeekendDynamics,
+  computeDayMatchedPreviousComparison,
+  computePeakDaysSubtitle,
+} from '../lib/weeklyInsightsUtils';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -292,6 +309,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings || 0);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
+  const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
+  const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
+  const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
+  const user = useAuthStore((s) => s.user);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
@@ -303,14 +324,22 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState<number>(Date.now());
   const [refreshing, setRefreshing] = useState(false);
+  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const lastFetchTime = useRef<number>(0);
   const lastDayRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
+
+  // Reset category expansion whenever period or offset changes
+  useEffect(() => {
+    setShowAllCategories(false);
+  }, [period, offset]);
 
   // Reset to current period when the user switches period type (Weekly/Monthly/Yearly)
   const handlePeriodChange = useCallback((p: Period) => {
     setPeriod(p);
     setOffset(0);
     setSelectedCategoryId(null);
+    setShowAllCategories(false);
   }, []);
 
   const loadData = useCallback(async (force = false) => {
@@ -572,7 +601,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
   const DONUT_SIZE = 160;
   const DONUT_STROKE = 22;
-  const MAX_SIDE_STACK = 5;
+  const maxSideStack = period === 'Weekly' ? 4 : 5;
 
   const legendSegments = useMemo(() => {
     return sortedCategories.map((item) => ({
@@ -582,22 +611,151 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   }, [sortedCategories]);
 
   const sideCategories = useMemo(
-    () => legendSegments.slice(0, MAX_SIDE_STACK),
-    [legendSegments]
+    () => legendSegments.slice(0, maxSideStack),
+    [legendSegments, maxSideStack]
   );
   const bottomCategories = useMemo(
-    () => legendSegments.slice(MAX_SIDE_STACK),
-    [legendSegments]
+    () => legendSegments.slice(maxSideStack),
+    [legendSegments, maxSideStack]
   );
 
   // Derive icon components once — avoids inline function calls in JSX
   const CategoryInsightIcon = getCategoryInsightIcon(topCategory?.name || '');
   const PaymentInsightIcon = getPaymentInsightIcon(topPaymentData.originalMode);
 
-  // Trend label respects "vs prev week/month/year" for past-period navigation
-  const trendLabel = `${percentageChange}% vs prev ${
-    period === 'Weekly' ? 'week' : period === 'Monthly' ? 'month' : 'year'
-  }`;
+  // Day-matched comparison for Weekly vs standard comparison for Monthly/Yearly
+  const weeklyDayMatchedComp = useMemo(() => {
+    if (period !== 'Weekly') {
+      return {
+        percentageChange: null,
+        isIncrease: false,
+        trendLabel: '',
+        matchedPrevTotal: 0,
+      };
+    }
+    return computeDayMatchedPreviousComparison(
+      expenses,
+      categories,
+      currentInterval,
+      previousInterval,
+      offset,
+      new Date()
+    );
+  }, [period, expenses, categories, currentInterval, previousInterval, offset]);
+
+  const heroTrend = useMemo(() => {
+    if (period === 'Weekly') {
+      return {
+        percentageChange: weeklyDayMatchedComp.percentageChange,
+        isIncrease: weeklyDayMatchedComp.isIncrease,
+        trendLabel: weeklyDayMatchedComp.trendLabel,
+      };
+    }
+    const label = `${percentageChange}% vs prev ${period === 'Monthly' ? 'month' : 'year'}`;
+    return {
+      percentageChange,
+      isIncrease,
+      trendLabel: label,
+    };
+  }, [period, weeklyDayMatchedComp, percentageChange, isIncrease]);
+
+  // Weekly Breathing Strip & Analytics calculations
+  const effectiveBudgetResult = useMemo(() => {
+    return computeEffectiveWeekBudget(
+      budgetCadence,
+      dailyBudgetAmount,
+      weeklyBudgetAmount,
+      user?.created_at,
+      currentInterval
+    );
+  }, [budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, user?.created_at, currentInterval]);
+
+  const budgetHealth = useMemo(() => {
+    return computeBudgetHealth(effectiveBudgetResult.effectiveBudget, currentTotal);
+  }, [effectiveBudgetResult.effectiveBudget, currentTotal]);
+
+  const elapsedDaysInWeek = useMemo(() => {
+    if (offset < 0) return 7;
+    const now = new Date();
+    let dayIdx = now.getDay() - 1;
+    if (dayIdx === -1) dayIdx = 6;
+    return dayIdx + 1;
+  }, [offset]);
+
+  const safeDailyPace = useMemo(() => {
+    return computeSafeDailyPace(budgetHealth.remaining, elapsedDaysInWeek);
+  }, [budgetHealth.remaining, elapsedDaysInWeek]);
+
+  const weeklyGullak = useMemo(() => {
+    return computeWeeklyGullakSavings(dailyRecords, gullakDeposits, currentInterval);
+  }, [dailyRecords, gullakDeposits, currentInterval]);
+
+  const weekTransactionCount = useMemo(() => {
+    let count = 0;
+    for (const exp of expenses) {
+      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      if (isIncomeTransaction(exp, cat)) continue;
+      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+        count++;
+      }
+    }
+    return count;
+  }, [expenses, categories, currentInterval]);
+
+  const peakDayName = maxWeekDay?.day || 'Mon';
+
+  const smartTakeaway = useMemo(() => {
+    return computeSmartWeeklyTakeaway({
+      currentTotal,
+      isBudgetMode: isBudgetModeEnabled,
+      isOverBudget: budgetHealth.isOverBudget,
+      overAmount: budgetHealth.overAmount,
+      peakDayName,
+      savedDaysCount: weeklyGullak.savedDaysCount,
+      weekSavings: weeklyGullak.totalSaved,
+      topCategory: topCategory ? { name: topCategory.name, percentage: topCategory.percentage } : null,
+      safeDailyPace,
+      isCurrentWeek: offset === 0,
+      transactionCount: weekTransactionCount,
+      dailyAverageBurn: Math.round(currentTotal / Math.max(1, elapsedDaysInWeek)),
+    });
+  }, [
+    currentTotal,
+    isBudgetModeEnabled,
+    budgetHealth.isOverBudget,
+    budgetHealth.overAmount,
+    peakDayName,
+    weeklyGullak,
+    topCategory,
+    safeDailyPace,
+    offset,
+    weekTransactionCount,
+    elapsedDaysInWeek,
+  ]);
+
+  const largestOutflow = useMemo(() => {
+    if (period !== 'Weekly') return null;
+    return computeLargestSingleOutflow(expenses, categories, currentInterval, currentTotal);
+  }, [period, expenses, categories, currentInterval, currentTotal]);
+
+  const weekdayWeekendDynamics = useMemo(() => {
+    if (period !== 'Weekly') return null;
+    return computeWeekdayVsWeekendDynamics(
+      weeklyData,
+      currentTotal,
+      offset,
+      new Date()
+    );
+  }, [period, weeklyData, currentTotal, offset]);
+
+  const peakDaysSubtitle = useMemo(() => {
+    if (period !== 'Weekly') return undefined;
+    return computePeakDaysSubtitle(weeklyData);
+  }, [period, weeklyData]);
+
+  const currentCadenceAmount = budgetCadence === 'weekly' ? weeklyBudgetAmount : dailyBudgetAmount;
 
   // Left arrow is enabled as long as there is an older period within the available history
   const hasPrevData = offset > minOff;
@@ -670,15 +828,16 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
           <View style={styles.heroComparisonRow}>
             <View style={styles.trendBadge}>
-              {isIncrease
-                ? <TrendingUp size={12} color="#3E2723" />
-                : <TrendingDown size={12} color="#3E2723" />
-              }
+              {heroTrend.percentageChange !== null ? (
+                heroTrend.isIncrease
+                  ? <TrendingUp size={12} color="#3E2723" />
+                  : <TrendingDown size={12} color="#3E2723" />
+              ) : null}
               <Text style={[
                 styles.trendText,
                 { color: '#3E2723', fontFamily: FontFamily.bold },
               ]}>
-                {trendLabel}
+                {heroTrend.trendLabel}
               </Text>
             </View>
 
@@ -705,6 +864,55 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
+        {/* ── Weekly Breathing Strip (Variation A) ── */}
+        {period === 'Weekly' && (
+          <View style={{ marginTop: Spacing.gutter }}>
+            <WeeklyBreathingStrip
+              takeaway={smartTakeaway}
+              isBudgetMode={isBudgetModeEnabled}
+              weekSpent={currentTotal}
+              weekBudget={effectiveBudgetResult.effectiveBudget}
+              remainingBudget={budgetHealth.remaining}
+              overAmount={budgetHealth.overAmount}
+              isOverBudget={budgetHealth.isOverBudget}
+              budgetRatio={budgetHealth.ratio}
+              safeDailyPace={safeDailyPace}
+              isCurrentWeek={offset === 0}
+              transactionCount={weekTransactionCount}
+              totalWeekSavings={weeklyGullak.totalSaved}
+              savedDaysCount={weeklyGullak.savedDaysCount}
+              onPressBudget={() => {
+                if (isBudgetModeEnabled) {
+                  setBudgetModalVisible(true);
+                } else {
+                  navigation.navigate('Profile');
+                }
+              }}
+              onPressSavings={() => {
+                navigation.navigate('Savings');
+              }}
+            />
+          </View>
+        )}
+
+        {/* ── Weekly Spending Flow Section ── */}
+        {period === 'Weekly' && (
+          <View style={{ marginTop: Spacing.surface }}>
+            <SpendingFlowChart
+              title="Spending Flow"
+              data={weeklyData}
+              maxDay={maxWeekDay}
+              isDark={isDark}
+              colors={colors}
+              subTitle={peakDaysSubtitle}
+              onDayPress={(d) => {
+                navigation.navigate('History', { targetDate: d.dateStr });
+              }}
+              triggerKey={`${period}_${offset}`}
+            />
+          </View>
+        )}
+
         {/* ── By Category Section ── */}
         <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
           By Category
@@ -712,7 +920,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {currentTotal > 0 ? (
           <>
-            {/* Top row: Donut on Left, up to 5 categories stacked on Right */}
+            {/* Top row: Donut on Left, up to 4 categories stacked on Right */}
             <View style={styles.byCategoryRow}>
               {/* Donut chart on left */}
               <View style={styles.donutLeftContainer}>
@@ -786,8 +994,34 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Overflow Categories: Render below in 2-column grid if > 5 categories */}
-            {bottomCategories.length > 0 && (
+            {/* Overflow Categories: Progressive Disclosure for Weekly */}
+            {period === 'Weekly' && bottomCategories.length > 0 && (
+              <Pressable
+                style={styles.expandCategoriesBtn}
+                onPress={() => setShowAllCategories((prev) => !prev)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showAllCategories
+                    ? 'Show less categories'
+                    : `View ${bottomCategories.length} more ${bottomCategories.length === 1 ? 'category' : 'categories'}`
+                }
+              >
+                <Text style={[styles.expandCategoriesText, { color: colors.mintGreen, fontFamily: FontFamily.bold }]}>
+                  {showAllCategories
+                    ? 'Show less'
+                    : `+ View ${bottomCategories.length} more ${bottomCategories.length === 1 ? 'category' : 'categories'}`}
+                </Text>
+                {showAllCategories ? (
+                  <ChevronUp size={14} color={colors.mintGreen} />
+                ) : (
+                  <ChevronDown size={14} color={colors.mintGreen} />
+                )}
+              </Pressable>
+            )}
+
+            {/* Expanded categories (Weekly when showAllCategories is true, or always for Monthly/Yearly if bottomCategories exist) */}
+            {((period === 'Weekly' && showAllCategories && bottomCategories.length > 0) ||
+              (period !== 'Weekly' && bottomCategories.length > 0)) && (
               <View style={styles.legendGrid}>
                 {bottomCategories.map((seg) => {
                   const isSelected = selectedCategoryId === seg.id;
@@ -839,28 +1073,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             )}
 
-            {/* ── Weekly Spending Flow Section ── */}
-            {period === 'Weekly' && (
-              <SpendingFlowChart
-                title="Spending Flow"
-                data={weeklyData}
-                maxDay={maxWeekDay}
-                percentageChange={percentageChange}
-                isIncrease={isIncrease}
-                isDark={isDark}
-                colors={colors}
-                subTitle={
-                  offset < 0
-                    ? `Week of ${format(buildInterval('Weekly', offset).start, 'd MMM')}`
-                    : undefined
-                }
-                onDayPress={(d) => {
-                  navigation.navigate('History', { targetDate: d.dateStr });
-                }}
-                triggerKey={`${period}_${offset}`}
-              />
-            )}
-
             {/* ── Monthly Dual-Bar Cash Flow Section (Money In vs Money Out) ── */}
             {period === 'Monthly' && (
               <CashFlowChart
@@ -894,50 +1106,85 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               />
             )}
 
-            {/* ── Quick Insights Section ── */}
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: 40 }]}>
-              Quick Insights
+            {/* ── Behavioral Insights (Weekly) / Quick Insights (Monthly / Yearly) ── */}
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: Spacing.section }]}>
+              {period === 'Weekly' ? 'Behavioral Insights' : 'Quick Insights'}
             </Text>
 
-            <View style={styles.quickInsightsList}>
-              <View style={styles.quickInsightRow}>
-                <GradientIconBadge size={48} color={topCategory?.color || '#F07167'} isDark={isDark}>
-                  {({ iconColor }) => <CategoryInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
-                </GradientIconBadge>
-                <View style={styles.quickInsightTextWrapper}>
-                  <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
-                    Most Spent On
-                  </Text>
-                  <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
-                    {topCategory?.name || 'N/A'}
-                  </Text>
-                </View>
-                <View style={styles.quickInsightAmountWrapper}>
-                  <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                    {topCategory ? formatCurrency(topCategory.amount) : '-'}
-                  </Text>
-                </View>
-              </View>
+            {period === 'Weekly' ? (
+              <View style={styles.behavioralInsightsList}>
+                {largestOutflow && (
+                  <BehavioralInsightRow
+                    icon={largestOutflow.categoryIcon ? getCategoryIcon(largestOutflow.categoryIcon) : ShoppingBag}
+                    badgeColor={largestOutflow.categoryColor}
+                    title="LARGEST SINGLE PURCHASE"
+                    headline={`${formatCurrency(largestOutflow.expense.amount)} · ${largestOutflow.expense.notes || largestOutflow.categoryName}`}
+                    detail={`${format(parseISO(largestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')} · ${largestOutflow.categoryName}`}
+                    pillText={largestOutflow.shouldShowPill ? `${largestOutflow.outflowPercent}% of week` : null}
+                    pillColor={isDark ? '#F5A97F' : '#E06D53'}
+                    onPress={() => {
+                      navigation.navigate('ExpenseDetail', { expenseId: largestOutflow.expense.id });
+                    }}
+                    accessibilityLabel={`Largest single purchase: ${formatCurrency(largestOutflow.expense.amount)} for ${largestOutflow.expense.notes || largestOutflow.categoryName} on ${format(parseISO(largestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')}. ${largestOutflow.shouldShowPill ? `Represents ${largestOutflow.outflowPercent}% of weekly spend.` : ''}`}
+                  />
+                )}
 
-              <View style={[styles.quickInsightRow, { marginTop: Spacing.group }]}>
-                <GradientIconBadge size={48} color={colors.isDark ? colors.mintGreen : '#4CAF7D'} isDark={isDark}>
-                  {({ iconColor }) => <PaymentInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
-                </GradientIconBadge>
-                <View style={styles.quickInsightTextWrapper}>
-                  <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
-                    Top Payment
-                  </Text>
-                  <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
-                    {topPaymentData.mode}
-                  </Text>
+                {weekdayWeekendDynamics && (
+                  <View style={{ marginTop: largestOutflow ? Spacing.group : 0 }}>
+                    <BehavioralInsightRow
+                      icon={weekdayWeekendDynamics.mode === 'weekend_split' ? Sparkles : Flame}
+                      badgeColor={weekdayWeekendDynamics.mode === 'weekend_split' ? '#84DCC6' : '#FED9B7'}
+                      title={weekdayWeekendDynamics.title}
+                      headline={weekdayWeekendDynamics.headline}
+                      detail={weekdayWeekendDynamics.detail}
+                      pillText={weekdayWeekendDynamics.pillText}
+                      pillColor={colors.mintGreen}
+                      accessibilityLabel={`${weekdayWeekendDynamics.title}: ${weekdayWeekendDynamics.headline}. ${weekdayWeekendDynamics.detail}. ${weekdayWeekendDynamics.pillText}`}
+                    />
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.quickInsightsList}>
+                <View style={styles.quickInsightRow}>
+                  <GradientIconBadge size={48} color={topCategory?.color || '#F07167'} isDark={isDark}>
+                    {({ iconColor }) => <CategoryInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
+                  </GradientIconBadge>
+                  <View style={styles.quickInsightTextWrapper}>
+                    <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
+                      Most Spent On
+                    </Text>
+                    <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
+                      {topCategory?.name || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.quickInsightAmountWrapper}>
+                    <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                      {topCategory ? formatCurrency(topCategory.amount) : '-'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.quickInsightAmountWrapper}>
-                  <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                    {topPaymentData.percentage}% of txns
-                  </Text>
+
+                <View style={[styles.quickInsightRow, { marginTop: Spacing.group }]}>
+                  <GradientIconBadge size={48} color={isDark ? colors.mintGreen : '#4CAF7D'} isDark={isDark}>
+                    {({ iconColor }) => <PaymentInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
+                  </GradientIconBadge>
+                  <View style={styles.quickInsightTextWrapper}>
+                    <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
+                      Top Payment
+                    </Text>
+                    <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
+                      {topPaymentData.mode}
+                    </Text>
+                  </View>
+                  <View style={styles.quickInsightAmountWrapper}>
+                    <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                      {topPaymentData.percentage}% of txns
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
           </>
         ) : (
           <View style={styles.emptyState}>
@@ -947,6 +1194,14 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Budget Edit Modal */}
+      <BudgetEditModal
+        visible={budgetModalVisible}
+        initialAmount={currentCadenceAmount}
+        initialCadence={budgetCadence}
+        onClose={() => setBudgetModalVisible(false)}
+      />
     </View>
   );
 };
@@ -1051,6 +1306,20 @@ const styles = StyleSheet.create({
   legendSubtext: { fontSize: FontSize.bodySmall, marginTop: Spacing.nano },
   emptyState: { alignItems: 'center', marginTop: Spacing.section },
   emptyStateText: { fontSize: FontSize.body },
+  expandCategoriesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: Spacing.group,
+  },
+  expandCategoriesText: {
+    fontSize: FontSize.bodySmall,
+  },
+  behavioralInsightsList: {
+    marginTop: Spacing.micro,
+  },
   quickInsightsList: { marginTop: Spacing.micro },
   quickInsightRow: { flexDirection: 'row', alignItems: 'center' },
   quickInsightTextWrapper: { flex: 1, marginLeft: Spacing.group, justifyContent: 'center' },
