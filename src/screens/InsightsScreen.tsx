@@ -39,6 +39,8 @@ import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
 import { WeeklyBreathingStrip } from '../components/WeeklyBreathingStrip';
 import { MonthlyBreathingStrip } from '../components/MonthlyBreathingStrip';
+import { YearlyBreathingStrip } from '../components/YearlyBreathingStrip';
+import { YearlyCashFlowChart } from '../components/YearlyCashFlowChart';
 import { BehavioralInsightRow } from '../components/BehavioralInsightRow';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../lib/chartUtils';
@@ -64,6 +66,19 @@ import {
   computeMonthlyPeakWeek,
   computeSmartMonthlyTakeaway,
 } from '../lib/monthlyInsightsUtils';
+import {
+  computeActiveDaysInYear,
+  computeAnnualDailyBurn,
+  computeYearlyComparison,
+  computeYearlyInflow,
+  computeAnnualNetCashFlow,
+  computeAnnualSavingsRate,
+  computeSmartYearlyTakeaway,
+  compute12MonthCashFlow,
+  computeAnnualBudgetDiscipline,
+  computeAnnualCapitalOutlier,
+  computeAnnualCategoryTrajectory,
+} from '../lib/yearlyInsightsUtils';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -694,6 +709,37 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     );
   }, [period, expenses, categories, currentInterval, previousInterval, offset]);
 
+  const yearlyActiveDays = useMemo(() => {
+    if (period !== 'Yearly') return 365;
+    return computeActiveDaysInYear(currentInterval.start, focusTime, user?.created_at, offset < 0);
+  }, [period, currentInterval.start, focusTime, user?.created_at, offset]);
+
+  const yearlyDailyBurn = useMemo(() => {
+    if (period !== 'Yearly') return 0;
+    return computeAnnualDailyBurn(currentTotal, yearlyActiveDays);
+  }, [period, currentTotal, yearlyActiveDays]);
+
+  const yearlyComparison = useMemo(() => {
+    if (period !== 'Yearly') {
+      return {
+        percentageChange: null,
+        isIncrease: false,
+        trendLabel: '',
+        matchedPrevTotal: 0,
+        currentTotal: 0,
+      };
+    }
+    return computeYearlyComparison(
+      expenses,
+      categories,
+      currentInterval,
+      previousInterval,
+      offset,
+      focusTime,
+      user?.created_at
+    );
+  }, [period, expenses, categories, currentInterval, previousInterval, offset, focusTime, user?.created_at]);
+
   const heroTrend = useMemo(() => {
     if (period === 'Weekly') {
       return {
@@ -709,13 +755,12 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         trendLabel: monthlyComp.trendLabel,
       };
     }
-    const label = `${percentageChange}% vs prev year`;
     return {
-      percentageChange,
-      isIncrease,
-      trendLabel: label,
+      percentageChange: yearlyComparison.percentageChange,
+      isIncrease: yearlyComparison.isIncrease,
+      trendLabel: yearlyComparison.trendLabel,
     };
-  }, [period, weeklyDayMatchedComp, monthlyComp, percentageChange, isIncrease]);
+  }, [period, weeklyDayMatchedComp, monthlyComp, yearlyComparison]);
 
   // Weekly Breathing Strip & Analytics calculations
   const effectiveBudgetResult = useMemo(() => {
@@ -995,6 +1040,183 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     monthlyDailyBurnPace,
   ]);
 
+  // ─── Yearly Insights Analytics & Engines ────────────────────────────────────
+  const yearlyInflow = useMemo(() => {
+    if (period !== 'Yearly') return 0;
+    return computeYearlyInflow(
+      expenses,
+      categories,
+      dailyRecords,
+      gullakDeposits,
+      {
+        isBudgetMode: isBudgetModeEnabled,
+        cadence: budgetCadence,
+        dailyBudgetAmount,
+        weeklyBudgetAmount,
+        monthlyBudgetAmount,
+      },
+      currentInterval,
+      focusTime,
+      user?.created_at
+    );
+  }, [
+    period,
+    expenses,
+    categories,
+    dailyRecords,
+    gullakDeposits,
+    isBudgetModeEnabled,
+    budgetCadence,
+    dailyBudgetAmount,
+    weeklyBudgetAmount,
+    monthlyBudgetAmount,
+    currentInterval,
+    focusTime,
+    user?.created_at,
+  ]);
+
+  const yearlyNetCashFlow = useMemo(() => {
+    return computeAnnualNetCashFlow(yearlyInflow, currentTotal);
+  }, [yearlyInflow, currentTotal]);
+
+  const yearlySavingsRate = useMemo(() => {
+    const saved = yearlyGullakMetrics?.totalSavedInYear || 0;
+    return computeAnnualSavingsRate(saved, yearlyInflow);
+  }, [yearlyGullakMetrics, yearlyInflow]);
+
+  const yearlyCashFlowData = useMemo(() => {
+    if (period !== 'Yearly') {
+      return {
+        months: [],
+        maxAmount: 0,
+        totalIncome: 0,
+        totalSpent: 0,
+        peakMonthName: 'None',
+        peakMonthSpent: 0,
+        surplusMonthsCount: 0,
+        activeMonthsCount: 0,
+        chartSubtitle: '',
+      };
+    }
+    return compute12MonthCashFlow(
+      currentInterval.start,
+      currentInterval.end,
+      expenses,
+      categories,
+      gullakDeposits,
+      {
+        isBudgetMode: isBudgetModeEnabled,
+        cadence: budgetCadence,
+        dailyBudgetAmount,
+        weeklyBudgetAmount,
+        monthlyBudgetAmount,
+      },
+      user?.created_at,
+      focusTime
+    );
+  }, [
+    period,
+    currentInterval,
+    expenses,
+    categories,
+    gullakDeposits,
+    isBudgetModeEnabled,
+    budgetCadence,
+    dailyBudgetAmount,
+    weeklyBudgetAmount,
+    monthlyBudgetAmount,
+    user?.created_at,
+    focusTime,
+  ]);
+
+  const smartYearlyTakeaway = useMemo(() => {
+    const saved = yearlyGullakMetrics?.totalSavedInYear || 0;
+    return computeSmartYearlyTakeaway(
+      yearlyNetCashFlow.netCashFlow,
+      yearlySavingsRate,
+      yearlyCashFlowData.activeMonthsCount,
+      isBudgetModeEnabled,
+      saved
+    );
+  }, [
+    yearlyNetCashFlow.netCashFlow,
+    yearlySavingsRate,
+    yearlyCashFlowData.activeMonthsCount,
+    isBudgetModeEnabled,
+    yearlyGullakMetrics,
+  ]);
+
+  const annualBudgetDiscipline = useMemo(() => {
+    if (period !== 'Yearly' || !isBudgetModeEnabled) {
+      return { canDisplay: false, keptMonths: 0, totalCompletedMonths: 0, consistencyRatio: 0, disciplineText: '' };
+    }
+    return computeAnnualBudgetDiscipline(
+      expenses,
+      categories,
+      currentInterval,
+      {
+        isBudgetMode: isBudgetModeEnabled,
+        cadence: budgetCadence,
+        dailyBudgetAmount,
+        weeklyBudgetAmount,
+        monthlyBudgetAmount,
+      },
+      user?.created_at,
+      focusTime
+    );
+  }, [
+    period,
+    isBudgetModeEnabled,
+    expenses,
+    categories,
+    currentInterval,
+    budgetCadence,
+    dailyBudgetAmount,
+    weeklyBudgetAmount,
+    monthlyBudgetAmount,
+    user?.created_at,
+    focusTime,
+  ]);
+
+  const yearlyCapitalOutlier = useMemo(() => {
+    if (period !== 'Yearly') return null;
+    return computeAnnualCapitalOutlier(expenses, categories, currentTotal, currentInterval);
+  }, [period, expenses, categories, currentTotal, currentInterval]);
+
+  const yearlyCategoryTrajectory = useMemo(() => {
+    if (period !== 'Yearly') return null;
+    return computeAnnualCategoryTrajectory(
+      expenses,
+      categories,
+      currentInterval,
+      currentTotal,
+      user?.created_at,
+      focusTime
+    );
+  }, [period, expenses, categories, currentInterval, currentTotal, user?.created_at, focusTime]);
+
+  const yearTransactionCount = useMemo(() => {
+    if (period !== 'Yearly') return 0;
+    let count = 0;
+    for (const exp of expenses) {
+      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      if (isIncomeTransaction(exp, cat)) continue;
+      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+        count++;
+      }
+    }
+    return count;
+  }, [period, expenses, categories, currentInterval]);
+
+  const gullakDepositsInYearCount = useMemo(() => {
+    if (period !== 'Yearly') return 0;
+    const startStr = format(currentInterval.start, 'yyyy-MM-dd');
+    const endStr = format(currentInterval.end, 'yyyy-MM-dd');
+    return gullakDeposits.filter((d) => d.date >= startStr && d.date <= endStr).length;
+  }, [period, gullakDeposits, currentInterval]);
+
   // Left arrow is enabled as long as there is an older period within the available history
   const hasPrevData = offset > minOff;
 
@@ -1116,6 +1338,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
             )}
+            {period === 'Yearly' && yearlyDailyBurn > 0 && (
+              <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
+                <Text style={[styles.trendText, { color: '#3E2723', fontFamily: FontFamily.bold }]}>
+                  ₹{formatAmountWithCommas(String(yearlyDailyBurn))}/day avg
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Period navigator: arrows + date label + pagination dots */}
@@ -1183,6 +1412,28 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
+        {/* ── Yearly Financial Breathing Strip (Dual Clean Tiles) ── */}
+        {period === 'Yearly' && (
+          <View style={{ marginTop: Spacing.gutter }}>
+            <YearlyBreathingStrip
+              takeaway={smartYearlyTakeaway}
+              netCashFlow={yearlyNetCashFlow.netCashFlow}
+              isSurplus={yearlyNetCashFlow.isSurplus}
+              totalInflow={yearlyInflow}
+              totalOutflow={currentTotal}
+              totalYearSavings={yearlyGullakMetrics?.totalSavedInYear || 0}
+              savingsRate={yearlySavingsRate}
+              savedDaysCount={yearlyGullakMetrics?.savedDaysCount || 0}
+              isCurrentYear={offset === 0}
+              transactionCount={yearTransactionCount}
+              isBudgetMode={isBudgetModeEnabled}
+              onPressSavings={() => {
+                navigation.navigate('Savings');
+              }}
+            />
+          </View>
+        )}
+
         {/* ── Weekly Spending Flow Section ── */}
         {period === 'Weekly' && (
           <SpendingFlowChart
@@ -1197,6 +1448,40 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             }}
             triggerKey={`${period}_${offset}`}
           />
+        )}
+
+        {/* ── Yearly 12-Month Cash Flow Section ── */}
+        {period === 'Yearly' && (
+          <View>
+            <YearlyCashFlowChart
+              title="12-Month Cash Flow"
+              subTitle={yearlyCashFlowData.chartSubtitle}
+              months={yearlyCashFlowData.months}
+              maxAmount={yearlyCashFlowData.maxAmount}
+              totalIncome={yearlyCashFlowData.totalIncome}
+              totalSpent={yearlyCashFlowData.totalSpent}
+              isDark={isDark}
+              colors={colors}
+              onMonthPress={(month) => {
+                navigation.navigate('History', {
+                  targetDate: month.dateStr,
+                  startDate: month.startDate,
+                  endDate: month.endDate,
+                });
+              }}
+              triggerKey={`${period}_${offset}`}
+            />
+
+            {/* Annual Budget Discipline (Completed Months Only) */}
+            {annualBudgetDiscipline.canDisplay && (
+              <View style={styles.disciplineContainer}>
+                <Sparkles size={14} color={colors.mintGreen} />
+                <Text style={[styles.disciplineText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                  {annualBudgetDiscipline.disciplineText}
+                </Text>
+              </View>
+            )}
+          </View>
         )}
 
         {/* ── By Category Section ── */}
@@ -1306,9 +1591,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               </Pressable>
             )}
 
-            {/* Expanded categories (Weekly/Monthly when showAllCategories is true, or always for Yearly if bottomCategories exist) */}
-            {(((period === 'Weekly' || period === 'Monthly') && showAllCategories && bottomCategories.length > 0) ||
-              (period === 'Yearly' && bottomCategories.length > 0)) && (
+            {/* Expanded categories (when showAllCategories is true and bottomCategories exist) */}
+            {showAllCategories && bottomCategories.length > 0 && (
               <View style={styles.legendGrid}>
                 {bottomCategories.map((seg) => {
                   const isSelected = selectedCategoryId === seg.id;
@@ -1382,20 +1666,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               />
             )}
 
-            {/* ── Yearly Savings & Gullak Milestones Section ── */}
-            {isBudgetModeEnabled && period === 'Yearly' && yearlyGullakMetrics && (
-              <YearlySavingsMilestoneCard
-                metrics={yearlyGullakMetrics}
-                yearLabel={format(currentInterval.start, 'yyyy')}
-                isDark={isDark}
-                colors={colors}
-                onOpenSavings={() => navigation.navigate('Savings')}
-              />
-            )}
-
-            {/* ── Behavioral Insights (Weekly & Monthly) / Quick Insights (Yearly) ── */}
+            {/* ── Behavioral Insights (Weekly, Monthly & Yearly) ── */}
             <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: Spacing.section }]}>
-              {period === 'Yearly' ? 'Quick Insights' : 'Behavioral Insights'}
+              Behavioral Insights
             </Text>
 
             {period === 'Weekly' ? (
@@ -1488,44 +1761,73 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 )}
               </View>
             ) : (
-              <View style={styles.quickInsightsList}>
-                <View style={styles.quickInsightRow}>
-                  <GradientIconBadge size={48} color={topCategory?.color || '#F07167'} isDark={isDark}>
-                    {({ iconColor }) => <CategoryInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
-                  </GradientIconBadge>
-                  <View style={styles.quickInsightTextWrapper}>
-                    <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
-                      Most Spent On
-                    </Text>
-                    <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
-                      {topCategory?.name || 'N/A'}
-                    </Text>
-                  </View>
-                  <View style={styles.quickInsightAmountWrapper}>
-                    <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                      {topCategory ? formatCurrency(topCategory.amount) : '-'}
-                    </Text>
-                  </View>
-                </View>
+              <View style={styles.behavioralInsightsList}>
+                {yearlyCapitalOutlier && (
+                  <BehavioralInsightRow
+                    icon={yearlyCapitalOutlier.categoryIcon ? getCategoryIcon(yearlyCapitalOutlier.categoryIcon) : ShoppingBag}
+                    badgeColor={yearlyCapitalOutlier.categoryColor}
+                    title="LARGEST SINGLE PURCHASE"
+                    headline={`${formatCurrency(yearlyCapitalOutlier.expense.amount)} · ${yearlyCapitalOutlier.expense.notes || yearlyCapitalOutlier.categoryName}`}
+                    detail={
+                      yearlyCapitalOutlier.expense.notes && yearlyCapitalOutlier.expense.notes.trim() !== yearlyCapitalOutlier.categoryName
+                        ? `${format(parseISO(yearlyCapitalOutlier.expense.expense_date.split('T')[0]), 'EEEE, d MMM yyyy')} · ${yearlyCapitalOutlier.categoryName}`
+                        : format(parseISO(yearlyCapitalOutlier.expense.expense_date.split('T')[0]), 'EEEE, d MMM yyyy')
+                    }
+                    pillText={`${yearlyCapitalOutlier.outflowPercent}% of year`}
+                    pillColor={isDark ? '#F5A97F' : '#E06D53'}
+                    onPress={() => {
+                      navigation.navigate('ExpenseDetail', { expenseId: yearlyCapitalOutlier.expense.id });
+                    }}
+                    accessibilityLabel={`Largest single purchase of the year: ${formatCurrency(yearlyCapitalOutlier.expense.amount)} for ${yearlyCapitalOutlier.expense.notes || yearlyCapitalOutlier.categoryName} on ${format(parseISO(yearlyCapitalOutlier.expense.expense_date.split('T')[0]), 'EEEE, d MMM yyyy')}. Represents ${yearlyCapitalOutlier.outflowPercent}% of annual spend.`}
+                  />
+                )}
 
-                <View style={[styles.quickInsightRow, { marginTop: Spacing.group }]}>
-                  <GradientIconBadge size={48} color={isDark ? colors.mintGreen : '#4CAF7D'} isDark={isDark}>
-                    {({ iconColor }) => <PaymentInsightIcon size={22} color={iconColor} strokeWidth={2.2} />}
-                  </GradientIconBadge>
-                  <View style={styles.quickInsightTextWrapper}>
-                    <Text style={[styles.quickInsightLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]} numberOfLines={1}>
-                      Top Payment
-                    </Text>
-                    <Text style={[styles.quickInsightValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]} numberOfLines={1}>
-                      {topPaymentData.mode}
-                    </Text>
-                  </View>
-                  <View style={styles.quickInsightAmountWrapper}>
-                    <Text style={[styles.quickInsightAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                      {topPaymentData.percentage}% of txns
-                    </Text>
-                  </View>
-                </View>
+                {yearlyCategoryTrajectory && (
+                  yearlyCategoryTrajectory.mode === 'category_shift' ? (
+                    <BehavioralInsightRow
+                      icon={yearlyCategoryTrajectory.isIncrease ? TrendingUp : TrendingDown}
+                      badgeColor={yearlyCategoryTrajectory.isIncrease ? (isDark ? '#F59682' : '#E06D53') : (isDark ? '#7CD49A' : '#3DA862')}
+                      title={yearlyCategoryTrajectory.isIncrease ? 'LARGEST H2 SPENDING ACCELERATION' : 'LARGEST H2 SPENDING DROP'}
+                      headline={`${yearlyCategoryTrajectory.isIncrease ? '+' : '−'}${formatCurrency(yearlyCategoryTrajectory.absDelta)} in ${yearlyCategoryTrajectory.categoryName}`}
+                      detail={`${yearlyCategoryTrajectory.shiftPercent}% shift vs H1 · Total ${formatCurrency(yearlyCategoryTrajectory.annualAmount)}`}
+                      pillText={`${yearlyCategoryTrajectory.isIncrease ? '+' : '−'}${yearlyCategoryTrajectory.shiftPercent}%`}
+                      pillColor={yearlyCategoryTrajectory.isIncrease ? (isDark ? '#F5A97F' : '#E06D53') : colors.mintGreen}
+                      onPress={() => {
+                        navigation.navigate('CategoryDetail', { categoryId: yearlyCategoryTrajectory.categoryId });
+                      }}
+                      accessibilityLabel={`Annual category shift: ${yearlyCategoryTrajectory.categoryName} ${yearlyCategoryTrajectory.isIncrease ? 'accelerated' : 'dropped'} by ${formatCurrency(yearlyCategoryTrajectory.absDelta)} in H2, ${yearlyCategoryTrajectory.shiftPercent}% shift vs H1.`}
+                    />
+                  ) : (
+                    <BehavioralInsightRow
+                      icon={yearlyCategoryTrajectory.categoryIcon ? getCategoryIcon(yearlyCategoryTrajectory.categoryIcon) : ShoppingBag}
+                      badgeColor={yearlyCategoryTrajectory.categoryColor}
+                      title="PRIMARY EXPENSE DRIVER"
+                      headline={`${yearlyCategoryTrajectory.categoryName} · ${formatCurrency(yearlyCategoryTrajectory.annualAmount)}`}
+                      detail={`Across ${yearlyCategoryTrajectory.txnCount} ${yearlyCategoryTrajectory.txnCount === 1 ? 'transaction' : 'transactions'} this year`}
+                      pillText={`${yearlyCategoryTrajectory.percentageOfTotal}% of year`}
+                      pillColor={colors.mintGreen}
+                      onPress={() => {
+                        navigation.navigate('CategoryDetail', { categoryId: yearlyCategoryTrajectory.categoryId });
+                      }}
+                      accessibilityLabel={`Primary expense driver: ${yearlyCategoryTrajectory.categoryName}, ${formatCurrency(yearlyCategoryTrajectory.annualAmount)}, representing ${yearlyCategoryTrajectory.percentageOfTotal}% of annual spend across ${yearlyCategoryTrajectory.txnCount} transactions.`}
+                    />
+                  )
+                )}
+              </View>
+            )}
+
+            {/* ── Yearly Savings & Gullak Milestones Section (Climax) ── */}
+            {period === 'Yearly' && yearlyGullakMetrics && (yearlyGullakMetrics.totalSavedInYear > 0 || gullakDepositsInYearCount > 0) && (
+              <View>
+                <YearlySavingsMilestoneCard
+                  metrics={yearlyGullakMetrics}
+                  yearLabel={format(currentInterval.start, 'yyyy')}
+                  isDark={isDark}
+                  colors={colors}
+                  isBudgetMode={isBudgetModeEnabled}
+                  depositCount={gullakDepositsInYearCount}
+                  onOpenSavings={() => navigation.navigate('Savings')}
+                />
               </View>
             )}
           </>
@@ -1682,6 +1984,17 @@ const styles = StyleSheet.create({
   },
   behavioralInsightsList: {
     marginTop: Spacing.micro,
+  },
+  disciplineContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.element,
+    marginTop: Spacing.group,
+    paddingHorizontal: Spacing.micro,
+  },
+  disciplineText: {
+    fontSize: FontSize.bodySmall,
+    flex: 1,
   },
   quickInsightsList: { marginTop: Spacing.micro },
   quickInsightRow: { flexDirection: 'row', alignItems: 'center' },

@@ -595,6 +595,7 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
         expect(metrics.annualRolloverSavings).toBe(1150);
         expect(metrics.annualDirectDeposits).toBe(2000);
         expect(metrics.bestStreakInYear).toBe(3);
+        expect(metrics.savedDaysCount).toBe(4);
         // September has 500 (rollover) + 2000 (deposit) = 2500
         expect(metrics.bestSavingsMonth.month).toBe('September');
         expect(metrics.bestSavingsMonth.amount).toBe(2500);

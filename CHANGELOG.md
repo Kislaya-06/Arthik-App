@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🗓️ Redesigned Yearly Insights & Long-Term Financial Journey
+- **Fair Year-to-Date (YTD) Comparison & Daily Burn Pace (`InsightsScreen` & `yearlyInsightsUtils.ts`):** 
+  - Day-matched comparison compares Day 1..$D$ of current year against Day 1..$D$ of previous year (or full 12 months for historical years), suppressing misleading +100% baseline jumps for first-year users with `"First Year with Arthik"` or `"Annual Baseline"`.
+  - Added live average annual daily burn pace badge (`₹X/day avg`) next to the trend badge in the Hero Card.
+- **Dual Clean Tiles Architecture (`YearlyBreathingStrip`):** Replaced boxy dashboards with a spacious, calm layout:
+  - **Net Cash Flow Tile:** Displays `NET SURPLUS` (mint green) or `NET DEFICIT` (terracotta) with compact subtext (`₹A In · ₹B Out`).
+  - **Annual Gullak Wealth Tile:** Displays total saved in Gullak with `X% Savings Rate` pill and `🐷 N Saved Days` badge, tappable to `Savings`.
+  - **Smart Annual Narrative Takeaway:** Highlights macro reflection with status dot (e.g. `"Strong Net Surplus · Saved X% into Gullak"`).
+- **12-Month Annual Cash Flow Chart (`YearlyCashFlowChart`):**
+  - Displays dual capsule bars (Jan–Dec) for real Inflow (mint green) and Outflow (terracotta).
+  - Dimmed future inactive months to 25% opacity; highlights the active current month with a subtle MTD indicator dot.
+  - Interactive tap navigates to `History` pre-filtered to the tapped month's full date bounds.
+- **Annual Budget Discipline Score:** Seamlessly positioned below the 12-month chart, evaluating past completed calendar months to prevent unearned victory leaps (e.g. `"{keptMonths} of {totalCompletedMonths} months kept within budget ({consistencyRatio}% discipline)"`).
+- **Category Progressive Disclosure:** Categories beyond the top 5 cleanly collapse behind an accessible `+ View N more categories` accordion toggle, preserving whitespace and typography without screen jumping.
+- **Actionable Annual Behavioral Insights (`BehavioralInsightRow`):** Replaced redundant "Most Spent On" and generic "Top Payment" rows with macro insights:
+  - **Annual Capital Outlier:** Detects the largest single purchase of the year ($\ge ₹500$ and $\ge 5\%$ of annual spend), tappable directly to `ExpenseDetail`.
+  - **Long-Term Category Trajectory:** Detects significant spending acceleration or reduction between H1 and H2 ($|\Delta| \ge ₹1,000$), with graceful fallback to Primary Expense Driver for early-stage or steady accounts, tappable to `CategoryDetail`.
+- **Annual Savings Milestone Climax (`YearlySavingsMilestoneCard`):** Repositioned to the very bottom of the page as a celebratory milestone climax, supporting both Budget Mode and Pure Mode (adapting "Best Streak" to "Total Deposits").
+- **Refined Card Spacing & Legibility Polish (`YearlyBreathingStrip` & `YearlySavingsMilestoneCard`):** Standardized card distancing to 32dp across all sections matching Weekly and Monthly, increased Net Surplus In/Out subtext size to 12.5dp with semibold typography, eliminated double currency symbol display (`₹₹`), and cleanly rounded macro takeaway amounts.
+- **Comprehensive Automated Test Coverage (`tests/yearlyInsightsData.test.ts`):** 14 Vitest unit tests covering active registered days, leap year 366-day boundaries, real-money inflow/outflow, YTD day-matching, capital outlier thresholds, H1 vs H2 trajectory shifts, and budget discipline consistency.
+
 ### 📈 Redesigned Insights Breathing Strip & Hero Budget Progress (Weekly & Monthly)
 - **Integrated Hero Budget Progress (`InsightsScreen`):** Positioned a slim, responsive budget track and pool context label (`₹X left of ₹Y estimated` or `₹X left of ₹Y pool (₹A est. + ₹B income)`) directly inside the Orange Hero Card below the total spend amount. Eliminates empty hero card space and ensures financial pacing is immediately visible at a glance.
 - **Dual Clean Tiles Architecture (`WeeklyBreathingStrip` & `MonthlyBreathingStrip`):** Replaced cluttered multi-metric lower cards with a streamlined dual-tile layout:

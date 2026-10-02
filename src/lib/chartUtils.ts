@@ -842,6 +842,7 @@ export interface YearlyGullakMetrics {
   annualDirectDeposits: number;
   bestSavingsMonth: { month: string; amount: number };
   bestStreakInYear: number;
+  savedDaysCount: number;
   milestone: GullakMilestoneProgress;
 }
 
@@ -878,9 +879,11 @@ export function computeYearlyGullakMilestones(
 
   let currentStreak = 0;
   let bestStreakInYear = 0;
+  let savedDaysCount = 0;
 
   for (const r of sortedRecords) {
     if (r.status === 'saved' && r.saved > 0) {
+      savedDaysCount += 1;
       rolloverSum += r.saved;
       currentStreak += 1;
       if (currentStreak > bestStreakInYear) {
@@ -964,6 +967,7 @@ export function computeYearlyGullakMilestones(
     annualDirectDeposits: depositsSum,
     bestSavingsMonth: { month: bestMonth, amount: bestMonthAmount },
     bestStreakInYear,
+    savedDaysCount,
     milestone: {
       currentTierName,
       nextTierName,

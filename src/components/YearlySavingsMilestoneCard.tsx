@@ -10,7 +10,7 @@ import {
   Spacing,
   BorderRadius,
 } from '../config/theme';
-import { formatCurrency } from '../lib/formatters';
+import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
 import { YearlyGullakMetrics } from '../lib/chartUtils';
 
 export interface YearlySavingsMilestoneCardProps {
@@ -18,6 +18,8 @@ export interface YearlySavingsMilestoneCardProps {
   yearLabel: string;
   isDark: boolean;
   colors: ThemeColors;
+  isBudgetMode?: boolean;
+  depositCount?: number;
   onOpenSavings?: () => void;
 }
 
@@ -26,6 +28,8 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
   yearLabel,
   isDark,
   colors,
+  isBudgetMode = true,
+  depositCount = 0,
   onOpenSavings,
 }) => {
   const {
@@ -87,7 +91,7 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
             ₹
           </Text>
           <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-            {totalSavedInYear.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            {formatAmountWithCommas(String(Math.round(totalSavedInYear)))}
           </Text>
         </View>
         <Text style={[styles.helperNote, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
@@ -124,7 +128,7 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
             {bestSavingsMonth.month !== 'None' ? bestSavingsMonth.month : '—'}
           </Text>
           <Text style={[styles.statSubtext, { color: iconColor, fontFamily: FontFamily.bold }]}>
-            {bestSavingsMonth.amount > 0 ? formatCurrency(bestSavingsMonth.amount) : 'No savings'}
+            {bestSavingsMonth.amount > 0 ? formatCurrency(Math.round(bestSavingsMonth.amount)) : 'No savings'}
           </Text>
         </View>
 
@@ -143,17 +147,19 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
               <Trophy size={15} color={isDark ? '#F4B8AE' : '#E8956A'} strokeWidth={2.2} />
             </View>
             <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: FontFamily.semibold }]}>
-              Best Streak
+              {isBudgetMode ? 'Best Streak' : 'Total Deposits'}
             </Text>
           </View>
           <Text
             style={[styles.statValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
             numberOfLines={1}
           >
-            {bestStreakInYear > 0 ? `${bestStreakInYear} Days` : '0 Days'}
+            {isBudgetMode
+              ? (bestStreakInYear > 0 ? `${bestStreakInYear} Days` : '0 Days')
+              : `${depositCount} ${depositCount === 1 ? 'Deposit' : 'Deposits'}`}
           </Text>
           <Text style={[styles.statSubtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            Within budget
+            {isBudgetMode ? 'Within budget' : 'Logged this year'}
           </Text>
         </View>
       </View>
@@ -166,7 +172,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.cardLarge,
     padding: Spacing.surface,
     borderWidth: 1,
-    marginTop: Spacing.section,
+    marginTop: Spacing.surface,
   },
   headerRow: {
     flexDirection: 'row',
