@@ -41,7 +41,7 @@ const FAQ_DATA = [
   ['bm_3', 'Budget Modes', 'When does money go to Gullak?',
    'Unspent money rolls over into your Gullak when a budget period ends:\n• Daily: Every midnight (12:00 AM) for yesterday’s savings.\n• Weekly: Every Sunday midnight (11:59:59 PM) for the week’s savings.\n• Monthly: At the end of the last day of each month.\nYou can also deposit custom cash into your Gullak manually anytime from the Savings screen.'],
   ['bm_4', 'Budget Modes', 'What happens when I switch cadence mid-week?',
-   'When switching between cadences (e.g. from Daily to Weekly, or Weekly to Monthly), the change takes effect starting tomorrow at 12:00 AM. In Arthik, every rupee is real money. Your entered budget is never prorated or scaled down mid-period. The full amount is active immediately, and unspent money rolls into Gullak when the cycle naturally completes.'],
+   'When switching your budget plan (like from Daily to Weekly or Monthly), the change starts tomorrow at 12:00 AM. In Arthik, every rupee is real money. Your full budget is available right away without any cuts or deductions, and any unspent money rolls into your Gullak when the cycle ends.'],
   ['bm_5', 'Budget Modes', 'Is my Gullak safe if I turn Budget Mode off?',
    'Yes, 100%! All money in your Gullak represents real accumulated savings and is permanently preserved in your account. Turning Budget Mode off simply hides the Savings tab and pauses active budget tracking. Whenever you re-enable Budget Mode, your Gullak balance, deposit history, and past savings remain intact.'],
 

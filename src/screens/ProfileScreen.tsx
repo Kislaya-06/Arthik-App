@@ -63,6 +63,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
 
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [budgetTitleWraps, setBudgetTitleWraps] = useState(true);
   const [pauseModalVisible, setPauseModalVisible] = useState(false);
 
   const currentCadenceAmount =
@@ -578,6 +579,16 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <Pressable
               style={styles.budgetModeTextWrap}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w > 0) {
+                  if (w < 225 && !budgetTitleWraps) {
+                    setBudgetTitleWraps(true);
+                  } else if (w >= 260 && budgetTitleWraps) {
+                    setBudgetTitleWraps(false);
+                  }
+                }
+              }}
               onPress={() => {
                 if (isBudgetModeEnabled) {
                   setBudgetModalVisible(true);
@@ -585,16 +596,57 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               }}
               disabled={!isBudgetModeEnabled}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                  Smart Budget & Gullak
-                </Text>
-                <MoneyHelpBadge
-                  size={16}
-                  style={{ marginLeft: 6 }}
-                  onPress={() => setShowMoneyExplainer(true)}
-                />
-              </View>
+              {/* Invisible layout tester for dynamic fonts and device width */}
+              <Text
+                style={[
+                  styles.budgetModeTitleText,
+                  {
+                    position: 'absolute',
+                    opacity: 0,
+                    width: '100%',
+                    paddingRight: 24, // 18 (badge) + 6 (margin)
+                    fontFamily: FontFamily.bold,
+                  },
+                ]}
+                pointerEvents="none"
+                onTextLayout={(e) => {
+                  const shouldWrap = e.nativeEvent.lines.length > 1;
+                  if (shouldWrap !== budgetTitleWraps) {
+                    setBudgetTitleWraps(shouldWrap);
+                  }
+                }}
+              >
+                Smart Budget & Gullak
+              </Text>
+
+              {budgetTitleWraps ? (
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                      Smart Budget &
+                    </Text>
+                    <MoneyHelpBadge
+                      size={18}
+                      style={{ marginLeft: 6 }}
+                      onPress={() => setShowMoneyExplainer(true)}
+                    />
+                  </View>
+                  <Text style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                    Gullak
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                    Smart Budget & Gullak
+                  </Text>
+                  <MoneyHelpBadge
+                    size={18}
+                    style={{ marginLeft: 6 }}
+                    onPress={() => setShowMoneyExplainer(true)}
+                  />
+                </View>
+              )}
               <Text style={[styles.budgetModeSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                 {budgetSubtitle}
               </Text>
@@ -1120,6 +1172,9 @@ const styles = StyleSheet.create({
   budgetModeTextWrap: {
     flex: 1,
     marginRight: Spacing.element,
+  },
+  budgetModeTitleText: {
+    fontSize: FontSize.body,
   },
   budgetModeSubtitle: {
     fontSize: FontSize.bodySmall,

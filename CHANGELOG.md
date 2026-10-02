@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 🎨 Theme & Visual Experience
-- **Default AMOLED Theme for New Installs:** Set pure black AMOLED mode as the default initial theme (`themeMode: 'amoled'`) for fresh app downloads and new users, delivering maximum energy efficiency and visual contrast out of the box while allowing one-tap switching to Light, Dark, or System mode in Profile.
+### 🎨 Visual Polish & UI Consistency
+- **Responsive "Smart Budget & Gullak" Wrap & Help Badge Alignment (`ProfileScreen`):** Dynamically adjusts layout when the title wraps onto two lines on smaller screens or larger accessibility fonts by placing the `MoneyHelpBadge` (`size={18}`) directly next to "Smart Budget &" on the first line and "Gullak" on the second line, while keeping them together on a single line when space allows. Matched badge size to Gullak hero card.
+- **Unified Section Header & Sliding Filter Toggle (`SavingsScreen`):** Aligned `Day-by-Day Savings History` section header typography with Home screen's `Recent transactions` (`fontSize: 22`, bold, letter-spacing `-0.2`). Replaced static filter pills with animated, bouncy sliding filter toggle (`BouncyFilterToggle`) with identical haptics and spring physics.
+
 
 ### 🎨 Post-Implementation UX & Financial Correctness Hardening
 - **Cadence-Aware Paused Auto-Renew Display (`SavingsScreen`):** Paused state on the Allowance Card now dynamically resolves and displays the active cadence's configured amount (`weeklyBudgetAmount` / `monthlyBudgetAmount` / `dailyBudgetAmount`) and cadence-appropriate rollover hints instead of falling back to daily budget.

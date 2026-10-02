@@ -141,10 +141,10 @@ export function getUnproratedPacingPreview(
   const formattedFull = formatAmountWithCommas(String(amount));
   const formattedPace = formatAmountWithCommas(String(suggestedPace));
 
-  const previewText = `Full ₹${formattedFull} budget active for remaining ${remainingDays} ${dayWord}`;
+  const previewText = `Full ₹${formattedFull} available for next ${remainingDays} ${dayWord}`;
   const explanationText = targetCadence === 'weekly'
-    ? `Your full ₹${formattedFull}/week budget is 100% active until Sunday without proration. Suggested daily pace: ~₹${formattedPace}/day.`
-    : `Your full ₹${formattedFull}/month budget is 100% active until month-end without proration. Suggested daily pace: ~₹${formattedPace}/day.`;
+    ? `You get the full ₹${formattedFull} until Sunday. Spend around ₹${formattedPace}/day to stay on track.`
+    : `You get the full ₹${formattedFull} until month-end. Spend around ₹${formattedPace}/day to stay on track.`;
 
   return {
     isProrated: false,

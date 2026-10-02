@@ -224,7 +224,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               <View style={styles.infoRow}>
                 <ShieldCheck size={14} color="#4CAF50" style={{ marginRight: 6 }} />
                 <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                  Zero Gullak Deposit: Gullak deposits only occur on natural cycle ends. Your unspent money carries forward 100% safely.
+                  Your unspent money carries forward safely into your new plan. Gullak deposits happen only when a cycle ends naturally.
                 </Text>
               </View>
             </View>
@@ -309,7 +309,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   onPress={() => setCarryMode('additive')}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: carryMode === 'additive' }}
-                  accessibilityLabel={`Additive Pool, expand limit to ${formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}`}
+                  accessibilityLabel={`Add to New Budget, expand limit to ${formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}`}
                 >
                   <View style={styles.modeCardHeader}>
                     <View style={styles.modeIconTitleRow}>
@@ -324,7 +324,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                           { color: carryMode === 'additive' ? colors.textPrimary : colors.textSecondary },
                         ]}
                       >
-                        Additive Pool (Expand Limit)
+                        Add to New Budget
                       </Text>
                     </View>
                     <View
@@ -340,7 +340,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    Adds unspent {formatCurrency(plan.unspentAmount)} on top of your new budget. Total spending pool will be{' '}
+                    Adds your unspent {formatCurrency(plan.unspentAmount)} on top of your new budget. Total spending limit will be{' '}
                     <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
                       {formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}
                     </Text>.
@@ -371,7 +371,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   onPress={() => setCarryMode('allocation')}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: carryMode === 'allocation' }}
-                  accessibilityLabel={`Remaining Allocation, keep fixed cap at ${formatCurrency(plan.targetBudgetAmount)}`}
+                  accessibilityLabel={`Keep Fixed Budget, keep limit at ${formatCurrency(plan.targetBudgetAmount)}`}
                 >
                   <View style={styles.modeCardHeader}>
                     <View style={styles.modeIconTitleRow}>
@@ -386,7 +386,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                           { color: carryMode === 'allocation' ? colors.textPrimary : colors.textSecondary },
                         ]}
                       >
-                        Remaining Allocation (Keep Fixed Cap)
+                        Keep Fixed Budget
                       </Text>
                     </View>
                     <View
@@ -402,10 +402,10 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    Keeps your total pool at{' '}
+                    Keeps your total spending limit fixed at{' '}
                     <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
                       {formatCurrency(plan.targetBudgetAmount)}
-                    </Text>. Unspent {formatCurrency(plan.unspentAmount)} counts as your opening headstart.
+                    </Text> (includes your unspent money).
                   </Text>
                 </TouchableOpacity>
               </View>

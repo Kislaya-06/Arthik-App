@@ -28,6 +28,7 @@ import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { StreakFlame } from '../components/StreakFlame';
 import { AnimatedToggle } from '../components/AnimatedToggle';
+import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
@@ -909,35 +910,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Filter Pills */}
-        <View style={styles.filterPillsRow}>
-          {FILTERS.map((f) => {
-            const active = f === activeFilter;
-            return (
-              <TouchableOpacity
-                key={f}
-                onPress={() => setActiveFilter(f)}
-                style={[
-                  styles.filterPill,
-                  active
-                    ? { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }
-                    : { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    active
-                      ? [styles.filterPillTextActive, { color: colors.textPrimary }]
-                      : { color: colors.textSecondary },
-                  ]}
-                >
-                  {f}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Segmented Filter Toggle */}
+        <View style={styles.filterToggleWrapper}>
+          <BouncyFilterToggle
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={FILTERS}
+          />
         </View>
 
         {/* Past Records List */}
@@ -1489,26 +1468,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 22,
     fontFamily: FontFamily.bold,
+    letterSpacing: -0.2,
   },
-  filterPillsRow: {
-    flexDirection: 'row',
-    gap: Spacing.element,
+  filterToggleWrapper: {
     marginBottom: Spacing.block,
-  },
-  filterPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-  },
-  filterPillText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
-  filterPillTextActive: {
-    fontFamily: FontFamily.bold,
   },
 
   // Empty state

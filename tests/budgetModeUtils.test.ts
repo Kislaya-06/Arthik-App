@@ -105,9 +105,9 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.isProrated).toBe(false);
       expect(preview?.remainingDays).toBe(3);
       expect(preview?.proratedAmount).toBe(7000); // 100% real money intact
-      expect(preview?.previewText).toBe('Full ₹7,000 budget active for remaining 3 days');
+      expect(preview?.previewText).toBe('Full ₹7,000 available for next 3 days');
       expect(preview?.explanationText).toBe(
-        'Your full ₹7,000/week budget is 100% active until Sunday without proration. Suggested daily pace: ~₹2,333/day.'
+        'You get the full ₹7,000 until Sunday. Spend around ₹2,333/day to stay on track.'
       );
     });
 
@@ -118,9 +118,9 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.isProrated).toBe(false);
       expect(preview?.remainingDays).toBe(1);
       expect(preview?.proratedAmount).toBe(700); // 100% real money intact
-      expect(preview?.previewText).toBe('Full ₹700 budget active for remaining 1 day');
+      expect(preview?.previewText).toBe('Full ₹700 available for next 1 day');
       expect(preview?.explanationText).toBe(
-        'Your full ₹700/week budget is 100% active until Sunday without proration. Suggested daily pace: ~₹700/day.'
+        'You get the full ₹700 until Sunday. Spend around ₹700/day to stay on track.'
       );
     });
 
@@ -131,9 +131,9 @@ describe('budgetModeUtils (pure helpers)', () => {
       expect(preview?.isProrated).toBe(false);
       expect(preview?.remainingDays).toBe(16);
       expect(preview?.proratedAmount).toBe(31000); // 100% real money intact
-      expect(preview?.previewText).toBe('Full ₹31,000 budget active for remaining 16 days');
+      expect(preview?.previewText).toBe('Full ₹31,000 available for next 16 days');
       expect(preview?.explanationText).toBe(
-        'Your full ₹31,000/month budget is 100% active until month-end without proration. Suggested daily pace: ~₹1,938/day.'
+        'You get the full ₹31,000 until month-end. Spend around ₹1,938/day to stay on track.'
       );
     });
   });

@@ -120,13 +120,13 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
 
           {/* Typography */}
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Vault Balance Empty
+            No Available Balance
           </Text>
 
           <Text style={[styles.description, { color: colors.textSecondary }]}>
             {isBudgetMode
-              ? 'Your active budget allowance and available funds are at ₹0. To maintain financial accuracy, add an Income or set a budget before recording outflows.'
-              : 'Every rupee in Arthik represents real money. Your available balance is ₹0, so an expense outflow cannot be recorded without available funds. Please log an Income first.'}
+              ? 'Your budget allowance and available balance are ₹0. Please add an income or set a budget before adding expenses.'
+              : 'Your available balance is ₹0. Please log an income before adding expenses.'}
           </Text>
 
           {/* Inline Balance Indicator (Clean, Uncluttered) */}
@@ -140,7 +140,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
             ]}
           >
             <Text style={[styles.statusLabel, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>
-              Available Liquidity: ₹0
+              Available Balance: ₹0
             </Text>
           </View>
 

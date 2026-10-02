@@ -253,10 +253,12 @@ Before reporting done:
 
 ---
 
-# 18. Communication
+# 18. Communication & Response Style
 
-- Converse with the user in **Hinglish** (Roman-script Hindi + English mix).
-- Code, comments, commit messages, and docs stay in English.
+- **Conversation with User**: Converse strictly with the user in **Hinglish** (Roman-script Hindi + English mix). Never respond to the user in pure English or pure Devanagari.
+- **In-App Copy & Code Language (English Only)**: Any copy or text within the application (UI labels, buttons, screen titles, descriptions, error messages, banners, notifications, modals) must NEVER be written in Hinglish — these must always be in standard English. Source code, comments, commit messages, and documentation must also remain strictly in English. Hinglish is **solely and exclusively** for chat conversations with the user.
+- **Simple, Clear & Non-Technical In-App Copy**: All English copy written for the app must be exceptionally simple, natural, and user-friendly so that any user understands it instantly on the first read. Do not use heavy English vocabulary, pretentious words, or technical jargon. Deliver clear meaning with concise wording and minimal lines.
+- **Concise & Outcome-Focused Responses**: After executing an instruction or task, do not generate long, exhaustive paragraphs or overwhelming micro-details (walls of text) that cause reading fatigue. Summarize only the critical outcomes and essential updates that the user genuinely needs to know. Keep responses short, crisp, bulleted, and in clear Hinglish so they can be parsed effortlessly at a glance.
 
 ---
 

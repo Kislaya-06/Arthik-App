@@ -34,17 +34,17 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
     subtitle: 'Here is how your money is handled when changing budget cycles:',
     items: [
       {
-        tag: 'Past Days Protected',
-        title: 'Zero Gullak Deposit on Mid-Cycle Switch',
+        tag: 'Savings Safe',
+        title: 'Unspent Money Stays With You',
         description:
-          'Completed days are preserved. Any unspent allowance from your current cycle carries forward safely into your new cycle instead of rolling into Gullak today.',
+          'No money is moved to Gullak mid-cycle. Your unspent budget carries forward safely into your new plan.',
         iconName: 'shield',
       },
       {
-        tag: 'Real-Money Invariant',
-        title: '100% Full Budget Active (No Proration)',
+        tag: 'Real Money',
+        title: 'Full Budget Without Cuts',
         description:
-          'In Arthik, every rupee is real money. Your entered budget is never prorated or scaled down mid-period. The full pool is active immediately, and unspent funds roll forward.',
+          'Your budget is never cut down mid-cycle. The entire amount is ready to use right away, and any unspent money rolls forward safely.',
         iconName: 'calendar',
       },
       {
