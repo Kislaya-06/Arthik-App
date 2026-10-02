@@ -272,6 +272,31 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       expect(res.percentageChange).toBeNull();
       expect(res.trendLabel).toBe('First week of tracking');
     });
+
+    it('uses currency amount difference instead of misleading 1000%+ percentage when previous base is < ₹100', () => {
+      const expenses: ExpenseLike[] = [
+        // Prev week: only ₹25 spent on Tuesday
+        { id: 'p1', amount: 25, expense_date: '2026-09-15', category_id: 'cat-food', payment_mode: 'upi' },
+        // Current week: ₹310 spent
+        { id: 'c1', amount: 50, expense_date: '2026-09-22', category_id: 'cat-food', payment_mode: 'upi' },
+        { id: 'c2', amount: 260, expense_date: '2026-09-24', category_id: 'cat-ent', payment_mode: 'upi' },
+      ];
+
+      const thursday = new Date('2026-09-24T12:00:00.000Z');
+      const res = computeDayMatchedPreviousComparison(
+        expenses,
+        mockCategories,
+        weekInterval,
+        prevWeekInterval,
+        0,
+        thursday
+      );
+
+      // Diff is +₹285. Instead of 1140%, it should show +₹285 vs same days last week
+      expect(res.isIncrease).toBe(true);
+      expect(res.trendLabel).toBe('+₹285 vs same days last week');
+      expect(res.percentageChange).toBe(285);
+    });
   });
 
   describe('Peak Days Subtitle', () => {

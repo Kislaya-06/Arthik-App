@@ -458,8 +458,22 @@ export function computeDayMatchedPreviousComparison(
     }
 
     const diff = currentTotal - prevMatchedTotal;
-    const pct = Math.round((Math.abs(diff) / prevMatchedTotal) * 100);
     const isIncrease = diff >= 0;
+
+    // Low-base guard: if base spending was < ₹100, percentage changes become misleadingly huge (e.g. 1140%)
+    if (prevMatchedTotal < 100) {
+      const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
+      const absDiff = Math.abs(diff);
+      return {
+        percentageChange: absDiff > 0 ? absDiff : null,
+        isIncrease,
+        trendLabel: diff === 0
+          ? 'Same as same days last week'
+          : `${sign}₹${formatAmountWithCommas(String(absDiff))} vs same days last week`,
+      };
+    }
+
+    const pct = Math.round((Math.abs(diff) / prevMatchedTotal) * 100);
 
     return {
       percentageChange: pct,
@@ -480,8 +494,22 @@ export function computeDayMatchedPreviousComparison(
   }
 
   const diff = currentTotal - prevFullTotal;
-  const pct = Math.round((Math.abs(diff) / prevFullTotal) * 100);
   const isIncrease = diff >= 0;
+
+  // Low-base guard: if base spending was < ₹100
+  if (prevFullTotal < 100) {
+    const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
+    const absDiff = Math.abs(diff);
+    return {
+      percentageChange: absDiff > 0 ? absDiff : null,
+      isIncrease,
+      trendLabel: diff === 0
+        ? 'Same as prev week'
+        : `${sign}₹${formatAmountWithCommas(String(absDiff))} vs prev week`,
+    };
+  }
+
+  const pct = Math.round((Math.abs(diff) / prevFullTotal) * 100);
 
   return {
     percentageChange: pct,
