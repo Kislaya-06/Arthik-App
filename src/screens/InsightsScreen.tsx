@@ -16,7 +16,7 @@ import {
 } from 'lucide-react-native';
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
-  subWeeks, subMonths, subYears, addDays,
+  subWeeks, subMonths, subYears, addDays, differenceInCalendarDays,
   isWithinInterval, isBefore, startOfDay, parseISO, format,
   isSameMonth, isSameYear,
 } from 'date-fns';
@@ -38,6 +38,7 @@ import { CashFlowChart } from '../components/CashFlowChart';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
 import { WeeklyBreathingStrip } from '../components/WeeklyBreathingStrip';
+import { MonthlyBreathingStrip } from '../components/MonthlyBreathingStrip';
 import { BehavioralInsightRow } from '../components/BehavioralInsightRow';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../lib/chartUtils';
@@ -52,6 +53,16 @@ import {
   computeDayMatchedPreviousComparison,
   computePeakDaysSubtitle,
 } from '../lib/weeklyInsightsUtils';
+import {
+  computeMonthlyComparison,
+  computeEffectiveMonthBudget,
+  computeMonthlyBudgetHealth,
+  computeMonthlySafeDailyPace,
+  computeMonthlyGullakSavings,
+  computeMonthlyLargestOutflow,
+  computeMonthlyCategoryShift,
+  computeMonthlyPeakWeek,
+} from '../lib/monthlyInsightsUtils';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -311,6 +322,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
+  const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount || 0);
   const user = useAuthStore((s) => s.user);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -621,7 +633,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const CategoryInsightIcon = getCategoryInsightIcon(topCategory?.name || '');
   const PaymentInsightIcon = getPaymentInsightIcon(topPaymentData.originalMode);
 
-  // Day-matched comparison for Weekly vs standard comparison for Monthly/Yearly
+  // Day-matched comparison for Weekly & Monthly vs standard comparison for Yearly
   const weeklyDayMatchedComp = useMemo(() => {
     if (period !== 'Weekly') {
       return {
@@ -641,6 +653,26 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     );
   }, [period, expenses, categories, currentInterval, previousInterval, offset]);
 
+  const monthlyComp = useMemo(() => {
+    if (period !== 'Monthly') {
+      return {
+        percentageChange: null,
+        isIncrease: false,
+        trendLabel: '',
+        matchedPrevTotal: 0,
+        currentTotal: 0,
+      };
+    }
+    return computeMonthlyComparison(
+      expenses,
+      categories,
+      currentInterval,
+      previousInterval,
+      offset,
+      new Date()
+    );
+  }, [period, expenses, categories, currentInterval, previousInterval, offset]);
+
   const heroTrend = useMemo(() => {
     if (period === 'Weekly') {
       return {
@@ -649,13 +681,20 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         trendLabel: weeklyDayMatchedComp.trendLabel,
       };
     }
-    const label = `${percentageChange}% vs prev ${period === 'Monthly' ? 'month' : 'year'}`;
+    if (period === 'Monthly') {
+      return {
+        percentageChange: monthlyComp.percentageChange,
+        isIncrease: monthlyComp.isIncrease,
+        trendLabel: monthlyComp.trendLabel,
+      };
+    }
+    const label = `${percentageChange}% vs prev year`;
     return {
       percentageChange,
       isIncrease,
       trendLabel: label,
     };
-  }, [period, weeklyDayMatchedComp, percentageChange, isIncrease]);
+  }, [period, weeklyDayMatchedComp, monthlyComp, percentageChange, isIncrease]);
 
   // Weekly Breathing Strip & Analytics calculations
   const effectiveBudgetResult = useMemo(() => {
@@ -753,6 +792,75 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     return computePeakDaysSubtitle(weeklyData);
   }, [period, weeklyData]);
 
+  // ─── Monthly Insights Calculations ──────────────────────────────────────────
+  const elapsedDaysInMonth = useMemo(() => {
+    if (offset < 0) {
+      return differenceInCalendarDays(currentInterval.end, currentInterval.start) + 1;
+    }
+    const now = new Date();
+    return now.getDate();
+  }, [offset, currentInterval]);
+
+  const monthlyRemainingDays = useMemo(() => {
+    if (offset < 0) return 0;
+    const totalDays = differenceInCalendarDays(currentInterval.end, currentInterval.start) + 1;
+    return Math.max(0, totalDays - elapsedDaysInMonth);
+  }, [offset, currentInterval, elapsedDaysInMonth]);
+
+  const monthlyEffectiveBudget = useMemo(() => {
+    if (period !== 'Monthly') return { effectiveBudget: 0, activeDays: 0, totalDays: 0, isPartialFirstMonth: false };
+    return computeEffectiveMonthBudget(
+      budgetCadence,
+      dailyBudgetAmount,
+      weeklyBudgetAmount,
+      monthlyBudgetAmount,
+      user?.created_at,
+      currentInterval
+    );
+  }, [period, budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount, user?.created_at, currentInterval]);
+
+  const monthlyBudgetHealth = useMemo(() => {
+    return computeMonthlyBudgetHealth(monthlyEffectiveBudget.effectiveBudget, currentTotal);
+  }, [monthlyEffectiveBudget.effectiveBudget, currentTotal]);
+
+  const monthlySafeDailyPace = useMemo(() => {
+    const totalDays = differenceInCalendarDays(currentInterval.end, currentInterval.start) + 1;
+    return computeMonthlySafeDailyPace(monthlyBudgetHealth.remaining, elapsedDaysInMonth, totalDays);
+  }, [monthlyBudgetHealth.remaining, elapsedDaysInMonth, currentInterval]);
+
+  const monthlyDailyBurnPace = useMemo(() => {
+    if (currentTotal <= 0) return 0;
+    return Math.round(currentTotal / Math.max(1, elapsedDaysInMonth));
+  }, [currentTotal, elapsedDaysInMonth]);
+
+  const monthlyGullakSavings = useMemo(() => {
+    if (period !== 'Monthly') return { totalSaved: 0, autoSaved: 0, manualDeposits: 0, savedDaysCount: 0 };
+    return computeMonthlyGullakSavings(dailyRecords, gullakDeposits, currentInterval);
+  }, [period, dailyRecords, gullakDeposits, currentInterval]);
+
+  const monthlyLargestOutflow = useMemo(() => {
+    if (period !== 'Monthly') return null;
+    return computeMonthlyLargestOutflow(expenses, categories, currentInterval, currentTotal);
+  }, [period, expenses, categories, currentInterval, currentTotal]);
+
+  const monthlyCategoryShift = useMemo(() => {
+    if (period !== 'Monthly') return null;
+    return computeMonthlyCategoryShift(
+      expenses,
+      categories,
+      currentInterval,
+      previousInterval,
+      offset,
+      new Date(),
+      currentTotal
+    );
+  }, [period, expenses, categories, currentInterval, previousInterval, offset, currentTotal]);
+
+  const monthlyPeakWeek = useMemo(() => {
+    if (period !== 'Monthly') return { status: 'empty' as const, text: '' };
+    return computeMonthlyPeakWeek(monthlyCashFlowData.weeks, currentTotal);
+  }, [period, monthlyCashFlowData.weeks, currentTotal]);
+
   // Left arrow is enabled as long as there is an older period within the available history
   const hasPrevData = offset > minOff;
 
@@ -836,7 +944,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 {heroTrend.trendLabel}
               </Text>
             </View>
-
+            {period === 'Monthly' && monthlyDailyBurnPace > 0 && (
+              <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
+                <Text style={[styles.trendText, { color: '#3E2723', fontFamily: FontFamily.bold }]}>
+                  ₹{monthlyDailyBurnPace}/day avg
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Period navigator: arrows + date label + pagination dots */}
@@ -877,6 +991,29 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               transactionCount={weekTransactionCount}
               totalWeekSavings={weeklyGullak.totalSaved}
               savedDaysCount={weeklyGullak.savedDaysCount}
+              onPressSavings={() => {
+                navigation.navigate('Savings');
+              }}
+            />
+          </View>
+        )}
+
+        {/* ── Monthly Financial Breathing Strip (A2 Dual-Balance) ── */}
+        {period === 'Monthly' && (
+          <View style={{ marginTop: Spacing.gutter }}>
+            <MonthlyBreathingStrip
+              isBudgetMode={isBudgetModeEnabled}
+              monthSpent={currentTotal}
+              monthBudget={monthlyEffectiveBudget.effectiveBudget}
+              remainingBudget={monthlyBudgetHealth.remaining}
+              overAmount={monthlyBudgetHealth.overAmount}
+              isOverBudget={monthlyBudgetHealth.isOverBudget}
+              safeDailyPace={monthlySafeDailyPace}
+              isCurrentMonth={offset === 0}
+              remainingDays={monthlyRemainingDays}
+              totalMonthSavings={monthlyGullakSavings.totalSaved}
+              savedDaysCount={monthlyGullakSavings.savedDaysCount}
+              netCashFlow={monthlyCashFlowData.totalIncome - currentTotal}
               onPressSavings={() => {
                 navigation.navigate('Savings');
               }}
@@ -981,8 +1118,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Overflow Categories: Progressive Disclosure for Weekly */}
-            {period === 'Weekly' && bottomCategories.length > 0 && (
+            {/* Overflow Categories: Progressive Disclosure for Weekly & Monthly */}
+            {(period === 'Weekly' || period === 'Monthly') && bottomCategories.length > 0 && (
               <Pressable
                 style={styles.expandCategoriesBtn}
                 onPress={() => setShowAllCategories((prev) => !prev)}
@@ -1007,9 +1144,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               </Pressable>
             )}
 
-            {/* Expanded categories (Weekly when showAllCategories is true, or always for Monthly/Yearly if bottomCategories exist) */}
-            {((period === 'Weekly' && showAllCategories && bottomCategories.length > 0) ||
-              (period !== 'Weekly' && bottomCategories.length > 0)) && (
+            {/* Expanded categories (Weekly/Monthly when showAllCategories is true, or always for Yearly if bottomCategories exist) */}
+            {(((period === 'Weekly' || period === 'Monthly') && showAllCategories && bottomCategories.length > 0) ||
+              (period === 'Yearly' && bottomCategories.length > 0)) && (
               <View style={styles.legendGrid}>
                 {bottomCategories.map((seg) => {
                   const isSelected = selectedCategoryId === seg.id;
@@ -1065,7 +1202,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             {period === 'Monthly' && (
               <CashFlowChart
                 title="Cash Flow"
-                subTitle={format(currentInterval.start, 'MMMM yyyy')}
+                subTitle={monthlyPeakWeek.text || format(currentInterval.start, 'MMMM yyyy')}
                 data={monthlyCashFlowData.weeks}
                 maxAmount={monthlyCashFlowData.maxAmount}
                 totalIncome={monthlyCashFlowData.totalIncome}
@@ -1094,9 +1231,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               />
             )}
 
-            {/* ── Behavioral Insights (Weekly) / Quick Insights (Monthly / Yearly) ── */}
+            {/* ── Behavioral Insights (Weekly & Monthly) / Quick Insights (Yearly) ── */}
             <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: Spacing.section }]}>
-              {period === 'Weekly' ? 'Behavioral Insights' : 'Quick Insights'}
+              {period === 'Yearly' ? 'Quick Insights' : 'Behavioral Insights'}
             </Text>
 
             {period === 'Weekly' ? (
@@ -1132,6 +1269,60 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     pillColor={colors.mintGreen}
                     accessibilityLabel={`${weekdayWeekendDynamics.title}: ${weekdayWeekendDynamics.headline}. ${weekdayWeekendDynamics.detail}. ${weekdayWeekendDynamics.pillText}`}
                   />
+                )}
+              </View>
+            ) : period === 'Monthly' ? (
+              <View style={styles.behavioralInsightsList}>
+                {monthlyLargestOutflow && (
+                  <BehavioralInsightRow
+                    icon={monthlyLargestOutflow.categoryIcon ? getCategoryIcon(monthlyLargestOutflow.categoryIcon) : ShoppingBag}
+                    badgeColor={monthlyLargestOutflow.categoryColor}
+                    title="LARGEST SINGLE PURCHASE"
+                    headline={`${formatCurrency(monthlyLargestOutflow.expense.amount)} · ${monthlyLargestOutflow.expense.notes || monthlyLargestOutflow.categoryName}`}
+                    detail={
+                      monthlyLargestOutflow.expense.notes && monthlyLargestOutflow.expense.notes.trim() !== monthlyLargestOutflow.categoryName
+                        ? `${format(parseISO(monthlyLargestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')} · ${monthlyLargestOutflow.categoryName}`
+                        : format(parseISO(monthlyLargestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')
+                    }
+                    pillText={monthlyLargestOutflow.shouldShowPill ? `${monthlyLargestOutflow.outflowPercent}% of month` : null}
+                    pillColor={isDark ? '#F5A97F' : '#E06D53'}
+                    onPress={() => {
+                      navigation.navigate('ExpenseDetail', { expenseId: monthlyLargestOutflow.expense.id });
+                    }}
+                    accessibilityLabel={`Largest single purchase: ${formatCurrency(monthlyLargestOutflow.expense.amount)} for ${monthlyLargestOutflow.expense.notes || monthlyLargestOutflow.categoryName} on ${format(parseISO(monthlyLargestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')}. ${monthlyLargestOutflow.shouldShowPill ? `Represents ${monthlyLargestOutflow.outflowPercent}% of monthly spend.` : ''}`}
+                  />
+                )}
+
+                {monthlyCategoryShift && (
+                  monthlyCategoryShift.mode === 'category_shift' ? (
+                    <BehavioralInsightRow
+                      icon={monthlyCategoryShift.isIncrease ? TrendingUp : TrendingDown}
+                      badgeColor={monthlyCategoryShift.isIncrease ? (isDark ? '#F59682' : '#E06D53') : (isDark ? '#7CD49A' : '#3DA862')}
+                      title={monthlyCategoryShift.isIncrease ? 'LARGEST SPENDING INCREASE' : 'LARGEST SPENDING DROP'}
+                      headline={`${monthlyCategoryShift.isIncrease ? '+' : '−'}${formatCurrency(monthlyCategoryShift.absDelta)} in ${monthlyCategoryShift.categoryName}`}
+                      detail={`${monthlyCategoryShift.shiftPercent}% vs ${offset === 0 ? 'same days last month' : 'last month'} · Total ${formatCurrency(monthlyCategoryShift.currentAmount)}`}
+                      pillText={`${monthlyCategoryShift.isIncrease ? '+' : '−'}${monthlyCategoryShift.shiftPercent}%`}
+                      pillColor={monthlyCategoryShift.isIncrease ? (isDark ? '#F5A97F' : '#E06D53') : colors.mintGreen}
+                      onPress={() => {
+                        navigation.navigate('CategoryDetail', { categoryId: monthlyCategoryShift.categoryId });
+                      }}
+                      accessibilityLabel={`Category shift: ${monthlyCategoryShift.categoryName} ${monthlyCategoryShift.isIncrease ? 'increased' : 'decreased'} by ${formatCurrency(monthlyCategoryShift.absDelta)}, ${monthlyCategoryShift.shiftPercent}% vs ${offset === 0 ? 'same days last month' : 'last month'}.`}
+                    />
+                  ) : (
+                    <BehavioralInsightRow
+                      icon={monthlyCategoryShift.categoryIcon ? getCategoryIcon(monthlyCategoryShift.categoryIcon) : ShoppingBag}
+                      badgeColor={monthlyCategoryShift.categoryColor}
+                      title="PRIMARY EXPENSE DRIVER"
+                      headline={`${monthlyCategoryShift.categoryName} · ${formatCurrency(monthlyCategoryShift.currentAmount)}`}
+                      detail={`${monthlyCategoryShift.percentageOfTotal}% of monthly spend across ${monthlyCategoryShift.txnCount} ${monthlyCategoryShift.txnCount === 1 ? 'transaction' : 'transactions'}`}
+                      pillText={`${monthlyCategoryShift.percentageOfTotal}% of month`}
+                      pillColor={colors.mintGreen}
+                      onPress={() => {
+                        navigation.navigate('CategoryDetail', { categoryId: monthlyCategoryShift.categoryId });
+                      }}
+                      accessibilityLabel={`Primary expense driver: ${monthlyCategoryShift.categoryName}, ${formatCurrency(monthlyCategoryShift.currentAmount)}, representing ${monthlyCategoryShift.percentageOfTotal}% of monthly spend across ${monthlyCategoryShift.txnCount} transactions.`}
+                    />
+                  )
                 )}
               </View>
             ) : (

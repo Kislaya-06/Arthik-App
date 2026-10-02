@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📈 Redesigned Monthly Insights & Financial Reflection Engine
+- **Executive Dual-Balance Strip (`MonthlyBreathingStrip`):** Introduced a clean, non-boxy horizontal strip placed right below the Total Spend Hero Card. Left column tracks monthly budget status (`Under Budget by ₹X` / `Over Budget by ₹X`) and safe daily pace, seamlessly switching to Net Cash Surplus/Deficit in Pure Mode. Right column displays Real Money Gullak Savings with `PiggyBankCoinIcon` and `GradientIconBadge`, directly tappable to open the Savings screen.
+- **Fair Day-Matched MTD Comparison Engine (`monthlyInsightsUtils.ts`):** In-progress months (e.g. Day 10 of October) compare Day 1..10 against Day 1..10 of September rather than comparing partial days against a completed 30-day total. Handles month-end boundaries (31, 30, 28/29 days) and zero-spend previous month guards.
+- **Daily Burn Rate Badge:** Hero Card displays live average daily burn pace (`₹X/day avg`) next to the trend badge for immediate velocity visibility.
+- **Category Progressive Disclosure:** Collapsed categories beyond the top 5 behind a smooth `+ View N more categories` accordion toggle, eliminating vertical page clutter.
+- **Peak Outflow Week Narrative in Cash Flow:** Cash Flow chart sub-header highlights the heaviest spending week and percentage share (e.g. `"W1 had highest outflow (42% of month)"`), with graceful single-week in-progress and evenly-distributed states.
+- **Behavioral Insights for Monthly:** Replaced redundant "Most Spent On" and generic "Top Payment" rows with actionable behavioral rows:
+  - **Largest Single Outflow:** Outlier purchase isolation with date, merchant/note, and `% of month` accent pill (threshold $\ge$ ₹200 and $\ge$ 15% share), tappable to `ExpenseDetail`.
+  - **Month-over-Month Category Shift:** Highlights the category with the largest spend increase or decrease ($|\Delta| \ge$ ₹300), gracefully falling back to Primary Expense Driver for first-month users.
+- **Full Automated Test Coverage (`tests/monthlyInsightsData.test.ts`):** 13 comprehensive Vitest unit tests covering cadence budget derivation, mid-month joiner proration, Gullak auto-rollover deduping, MTD day-matching, and behavioral calculations.
+
 ### 📊 Redesigned Weekly Insights & Behavioral Analytics
 - **Unified Breathing Strip (`WeeklyBreathingStrip`):** Introduced a clean, single-surface card at the top of the Weekly tab uniting a contextual Smart Takeaway observation with a dual gauge (Budget Health & Safe Daily Pace on the left; Gullak Auto-Savings Impact on the right).
 - **Pure Mode Adaptation:** When Budget Mode is disabled, the Breathing Strip seamlessly adapts to display `"WEEK'S TRANSACTIONS"`, transaction count, and total outflow amount, eliminating misleading empty progress bars.
