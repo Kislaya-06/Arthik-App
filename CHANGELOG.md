@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔄 Unified Cross-Page Insights Architecture (Weekly · Monthly · Yearly)
+- **Unified Time-Series Flow Hierarchy (`InsightsScreen`):** Repositioned the Monthly `CashFlowChart` immediately below `MonthlyBreathingStrip` (before `By Category`), creating an identical 4-stage narrative across Weekly (`SpendingFlowChart`), Monthly (`CashFlowChart`), and Yearly (`YearlyCashFlowChart`): Macro Numbers $\rightarrow$ Time-Series Flow $\rightarrow$ Category Allocation $\rightarrow$ Behavioral Insights.
+- **Consistent Breathing Strip Naming (`YearlyBreathingStrip`):** Standardized the right savings tile title across all three timeframes to `SAVINGS & GULLAK` (previously `ANNUAL GULLAK WEALTH`), aligning with the bottom milestone card and Tab Bar navigation.
+
 ### 🗓️ Redesigned Yearly Insights & Long-Term Financial Journey
 - **Fair Year-to-Date (YTD) Comparison & Daily Burn Pace (`InsightsScreen` & `yearlyInsightsUtils.ts`):** 
   - Day-matched comparison compares Day 1..$D$ of current year against Day 1..$D$ of previous year (or full 12 months for historical years), suppressing misleading +100% baseline jumps for first-year users with `"First Year with Arthik"` or `"Annual Baseline"`.

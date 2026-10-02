@@ -1450,6 +1450,28 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           />
         )}
 
+        {/* ── Monthly Dual-Bar Cash Flow Section (Money In vs Money Out) ── */}
+        {period === 'Monthly' && (
+          <CashFlowChart
+            title="Cash Flow"
+            subTitle={monthlyPeakWeek.text || format(currentInterval.start, 'MMMM yyyy')}
+            data={monthlyCashFlowData.weeks}
+            maxAmount={monthlyCashFlowData.maxAmount}
+            totalIncome={monthlyCashFlowData.totalIncome}
+            totalSpent={monthlyCashFlowData.totalSpent}
+            isDark={isDark}
+            colors={colors}
+            onWeekPress={(week) => {
+              navigation.navigate('History', {
+                targetDate: week.dateStr,
+                startDate: week.startDate,
+                endDate: week.endDate,
+              });
+            }}
+            triggerKey={`${period}_${offset}`}
+          />
+        )}
+
         {/* ── Yearly 12-Month Cash Flow Section ── */}
         {period === 'Yearly' && (
           <View>
@@ -1642,28 +1664,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   );
                 })}
               </View>
-            )}
-
-            {/* ── Monthly Dual-Bar Cash Flow Section (Money In vs Money Out) ── */}
-            {period === 'Monthly' && (
-              <CashFlowChart
-                title="Cash Flow"
-                subTitle={monthlyPeakWeek.text || format(currentInterval.start, 'MMMM yyyy')}
-                data={monthlyCashFlowData.weeks}
-                maxAmount={monthlyCashFlowData.maxAmount}
-                totalIncome={monthlyCashFlowData.totalIncome}
-                totalSpent={monthlyCashFlowData.totalSpent}
-                isDark={isDark}
-                colors={colors}
-                onWeekPress={(week) => {
-                  navigation.navigate('History', {
-                    targetDate: week.dateStr,
-                    startDate: week.startDate,
-                    endDate: week.endDate,
-                  });
-                }}
-                triggerKey={`${period}_${offset}`}
-              />
             )}
 
             {/* ── Behavioral Insights (Weekly, Monthly & Yearly) ── */}

@@ -150,7 +150,7 @@ export const YearlyBreathingStrip: React.FC<YearlyBreathingStripProps> = ({
               { color: colors.textSecondary, fontFamily: FontFamily.bold },
             ]}
           >
-            ANNUAL GULLAK WEALTH
+            SAVINGS & GULLAK
           </Text>
 
           <View style={styles.valueRow}>
