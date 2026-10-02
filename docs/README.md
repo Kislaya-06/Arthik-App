@@ -19,12 +19,12 @@ Engineering documentation for the **Arthik** personal finance app.
 
 | Path | Purpose |
 |---|---|
+| [`ARTHIK_DESIGN_SYSTEM.md`](ARTHIK_DESIGN_SYSTEM.md) | **Design Contract** — core design principles, typography hierarchy, financial-number roles, component rules, audit checklist. Read before any UI work. |
+| [`design-system.md`](design-system.md) | **Design System Usage Guide** — token tables, component specs, allowed exceptions, correct/incorrect usage examples. |
 | [`architecture.md`](architecture.md) | **System architecture** — layer map, stores, offline path, startup sequence, Gullak engine, auth, navigation, test architecture. Start here for any structural question. |
 | [`prd.md`](prd.md) | **Product Requirements Document** — feature inventory, constraints, UX principles, roadmap, technical risks. |
 | [`adr/`](adr/) | **Architecture Decision Records** — why key architectural choices were made. Read ADRs that touch the area you're working in before making changes. |
-| [`plans/`](plans/) | **Technical Implementation Specs** — architecture blueprints and implementation specifications for unified budgeting and cadence engines. |
 | [`maps/`](maps/) | **Deep technical maps** — detailed function-level analysis of complex files. Read before editing hot files. |
-| [`agents/`](agents/) | **Agent tooling** — instructions for how agent skills interact with this repo's issue tracker, triage labels, and domain docs. |
 
 ---
 

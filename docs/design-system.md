@@ -9,14 +9,14 @@
 
 ## 1. Sources of Truth & Governance
 
-To eliminate documentation drift and conflicting values across the repository, the Arthik Design System is governed by three strict sources of truth:
+The Arthik Design System is governed by three layers of authority. **Read them in this order before any UI work:**
 
-1. **Runtime Token Source of Truth:** [`src/config/theme.ts`](file:///d:/Arthik-App/src/config/theme.ts)  
-   Every numeric spacing, radius, font size, control height, and color value lives strictly in `src/config/theme.ts`. No other file (including `AGENTS.md` and screen files) may define or hardcode alternative design values.
-2. **Behavioral Source of Truth:** Shared UI Primitives (`src/components/ui/`)  
-   Component geometry, interactive physics, accessibility wrappers, and layout encapsulation are governed by shared primitives (`<AppButton />`, `<AmountText />`, `<SegmentedControl />`, `<TransactionRow />`, `<StatusBadge />`, `<GradientIconBadge />`).
-3. **Usage Guide & Standard:** [`docs/design-system.md`](file:///d:/Arthik-App/docs/design-system.md) (This Document)  
-   The definitive reference for all engineers and AI coding agents describing semantic roles, allowed exceptions, correct/incorrect usage, and migration rules.
+1. **Design Contract:** [`docs/ARTHIK_DESIGN_SYSTEM.md`](file:///d:/Arthik-App/docs/ARTHIK_DESIGN_SYSTEM.md)  
+   Human-readable design rules: core principles, semantic roles, financial-number hierarchy, typography guidance, governance, and the audit checklist. **Read this first.** It is the design contract, not optional documentation.
+2. **Runtime Token Source of Truth:** [`src/config/theme.ts`](file:///d:/Arthik-App/src/config/theme.ts)  
+   Every numeric spacing, radius, font size, control height, and color value lives strictly in `src/config/theme.ts`. No other file may hardcode alternative design values.
+3. **Usage Guide & Component Specs:** [`docs/design-system.md`](file:///d:/Arthik-App/docs/design-system.md) (This Document)  
+   Token tables, component anatomy, allowed exceptions, correct/incorrect usage examples, and the token governance process.
 
 ### How Future Agents Must Introduce or Modify Tokens
 - **Never add numeric duplicates:** Do not create a new token if an existing semantic token satisfies the role.
@@ -218,24 +218,13 @@ All colors must be referenced through `useThemeStore().colors`. No raw hex codes
 
 ---
 
-## 9. Safe Screen-by-Screen Migration Plan
+## 9. Design System Status
 
-Migration will be conducted incrementally without touching business logic or redesigning screens:
+The token-and-primitive migration across all screens is **complete** (October 2026). All screens now consume `src/config/theme.ts` tokens and `src/components/ui/` primitives.
 
-1. **Phase 1: Token & Primitive Foundation**
-   - Update `src/config/theme.ts` with canonical semantic tokens (`display: 34`, `titleLarge: 28`, `titleMedium: 20`, `titleSmall: 18`, etc.).
-   - Implement core primitives in `src/components/ui/`: `<AmountText />`, `<AppButton />`, `<SegmentedControl />`, `<StatusBadge />`.
-   - Implement `<TransactionRow />` in `src/components/`.
-2. **Phase 2: Common Modals & Shared Components**
-   - Migrate `CadenceSwitchModal`, `VaultSpendingGuardModal`, `PeriodRenewalModal`, `BrandedHeroCard`.
-   - Replace legacy `FontSize.cta` and hardcoded 18/20/22px fonts with semantic `titleMedium` / `titleSmall`.
-3. **Phase 3: Core Tab Screens**
-   - **Step 1:** `HomeScreen` — Migrate hero amount to `<AmountText role="hero" />`, buttons to `<AppButton />`, transactions to `<TransactionRow />`.
-   - **Step 2:** `HistoryScreen` — Migrate filter pills to `<SegmentedControl />`, list rows to `<TransactionRow />`.
-   - **Step 3:** `SavingsScreen` — Standardize Gullak balance, milestone cards, and deposit rows.
-   - **Step 4:** `InsightsScreen` — Migrate period toggles to `<SegmentedControl />`, chart labels to `FontSize.micro`.
-   - **Step 5:** `ProfileScreen` & `ManageCategoriesScreen` — Standardize card padding and action buttons.
-4. **Phase 4: Forms & Remaining Sub-Screens**
-   - `ExpenseFormScreen`, `ExpenseDetailScreen`, `CategoryDetailScreen`, `AddEditCategoryScreen`.
+**For future UI work — do not re-run the migration plan above.** Instead:
+1. Read [`docs/ARTHIK_DESIGN_SYSTEM.md`](file:///d:/Arthik-App/docs/ARTHIK_DESIGN_SYSTEM.md) before making any UI changes.
+2. Reuse existing shared components and tokens.
+3. If a new requirement falls outside the current system, follow the **Design Gap Protocol** in `AGENTS.md §9.0` — identify the gap, propose a solution, and ask for approval before introducing new values.
 
-*Invariant: Run `npm test` and `npx tsc --noEmit` after each phase. No regressions permitted.*
+*Invariant: Run `npm test` and `npx tsc --noEmit` after any UI change. No regressions permitted.*

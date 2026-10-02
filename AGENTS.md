@@ -135,6 +135,29 @@ Work with surgical precision:
 
 **MANDATORY DESIGN LANGUAGE INVARIANT**: Any new UI screen, modal, card, or component added or modified in Arthik MUST strictly consume the canonical design tokens from [`src/config/theme.ts`](src/config/theme.ts) and the approved UI primitives from `src/components/ui/` as defined in [`docs/design-system.md`](docs/design-system.md). Never introduce ad-hoc font sizes, arbitrary button/input heights, raw hex codes, or screen-specific padding. Same semantic role = same visual treatment everywhere.
 
+## 9.0 Design Contract — Read Before Any UI Work
+
+**[`docs/ARTHIK_DESIGN_SYSTEM.md`](docs/ARTHIK_DESIGN_SYSTEM.md) is the design contract for this repository.** Read it in full before implementing or modifying any screen, modal, card, component, chart, or icon. It is not optional documentation.
+
+The three layers of design authority, in order:
+
+| Layer | File | Role |
+| --- | --- | --- |
+| **Design Contract** | [`docs/ARTHIK_DESIGN_SYSTEM.md`](docs/ARTHIK_DESIGN_SYSTEM.md) | Human-readable rules: principles, semantic roles, hierarchy, governance. Read first. |
+| **Runtime Tokens** | [`src/config/theme.ts`](src/config/theme.ts) | Numeric values: spacing, radius, font sizes, control heights, colors. Never hardcode these. |
+| **Usage Guide** | [`docs/design-system.md`](docs/design-system.md) | Token tables, component specs, allowed exceptions, correct/incorrect usage examples. |
+
+When the three layers appear to conflict, fix the conflict — do not pick the one that lets you skip reading the others.
+
+### Design Gap Protocol
+If a new UI requirement cannot be satisfied by the current design system:
+1. Identify the gap precisely (which role, dimension, or pattern is missing).
+2. Explain why no existing token or primitive covers it.
+3. Propose the new token / pattern and its semantic role.
+4. **Stop. Ask for approval before introducing it.**
+
+Do not silently invent spacing values, font sizes, radii, button heights, icon sizes, or color styles.
+
 ## 9.1 Theme & Colours
 - All colours come from `src/config/theme.ts` (`LightColors` / `DarkColors` / `AmoledColors`) via `useTheme()`. No hardcoded hex in screens.
 - Test changes in Light, Dark, and AMOLED themes.
