@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   heroSymbol: {
     fontFamily: FontFamily.bold,

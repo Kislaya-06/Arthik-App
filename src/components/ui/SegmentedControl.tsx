@@ -26,10 +26,77 @@ export interface SegmentedControlProps {
   testID?: string;
 }
 
+interface OptionItemProps {
+  option: SegmentedOption;
+  isSelected: boolean;
+  onPress: () => void;
+  activeColor: string;
+  inactiveColor: string;
+}
+
+const OptionItem: React.FC<OptionItemProps> = ({
+  option,
+  isSelected,
+  onPress,
+  activeColor,
+  inactiveColor,
+}) => {
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(pressScale, {
+      toValue: 0.93,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressScale, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessible
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={option.label}
+      style={styles.optionButton}
+      hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
+    >
+      <Animated.View
+        style={[
+          styles.optionContent,
+          { transform: [{ scale: pressScale }] },
+        ]}
+      >
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.optionLabel,
+            {
+              color: isSelected ? activeColor : inactiveColor,
+              fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
+            },
+          ]}
+        >
+          {option.label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+};
+
 /**
  * Standardized SegmentedControl primitive for Arthik.
- * Replaces divergent filter toggles with a single stadium pill container,
- * smooth spring physics (tension: 70, friction: 8), and accessible tab semantics.
+ * Sliding mint-green pill with bouncy spring physics (tension: 70, friction: 8)
+ * and per-item press scale (0.93) matching BouncyFilterToggle feel exactly.
  */
 export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   options,
@@ -38,9 +105,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   style,
   testID,
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
-  // Normalize options to object format
   const normalizedOptions: SegmentedOption[] = options.map((opt) =>
     typeof opt === 'string' ? { key: opt, label: opt } : opt
   );
@@ -98,42 +164,24 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             {
               width: optionWidth,
               transform: [{ translateX: slideAnim }],
-              backgroundColor: colors.card,
+              backgroundColor: colors.mintGreen,
               borderRadius: BorderRadius.pill,
-              borderColor: isDark ? colors.border : 'rgba(0, 0, 0, 0.04)',
             },
           ]}
         />
       ) : null}
 
       <View style={styles.optionsRow}>
-        {normalizedOptions.map((option) => {
-          const isSelected = option.key === selectedKey;
-          return (
-            <Pressable
-              key={option.key}
-              onPress={() => onChange(option.key)}
-              accessible
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isSelected }}
-              accessibilityLabel={option.label}
-              style={styles.optionButton}
-            >
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.optionLabel,
-                  {
-                    color: isSelected ? colors.textPrimary : colors.textSecondary,
-                    fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
-                  },
-                ]}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {normalizedOptions.map((option) => (
+          <OptionItem
+            key={option.key}
+            option={option}
+            isSelected={option.key === selectedKey}
+            onPress={() => onChange(option.key)}
+            activeColor={colors.forestGreen}
+            inactiveColor={colors.textSecondary}
+          />
+        ))}
       </View>
     </View>
   );
@@ -147,17 +195,17 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     width: '100%',
+    overflow: 'hidden',
   },
   sliderPill: {
     position: 'absolute',
     top: Spacing.micro,
     bottom: Spacing.micro,
     left: Spacing.micro,
-    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
     elevation: 2,
   },
   optionsRow: {
@@ -171,12 +219,16 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
     zIndex: 1,
+  },
+  optionContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionLabel: {
     fontSize: FontSize.bodySmall,
     lineHeight: LineHeight.bodySmall,
     textAlign: 'center',
+    includeFontPadding: false,
   },
 });

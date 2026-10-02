@@ -176,8 +176,13 @@ All transaction list items across `HomeScreen`, `HistoryScreen`, and `ExpenseDet
 
 ### 6.5 Segmented Controls (`<SegmentedControl />`)
 - Standardizes all cadence and filter switches (`Day/Week/Month`, `All/Expense/Income`, `Overview/Breakdown`).
-- Container height `44px`, background `cardSubtle`, padding `Spacing.micro` (4px), radius `BorderRadius.pill`.
-- Animated active indicator pill with spring physics (`tension: 70, friction: 8`). Active text `Quicksand_700Bold`, inactive text `Quicksand_500Medium`.
+- **Container:** Height `44px`, background `cardSubtle`, padding `Spacing.micro` (4px), radius `BorderRadius.pill`, border `borderSubtle`, `overflow: 'hidden'` (**required** — clips pill at rounded corners).
+- **Sliding pill:** Background `colors.mintGreen`, radius `BorderRadius.pill`, elevation shadow `(0, 1.5, 0.12, 3)`. **Never use `colors.card` or any other token** for the pill.
+- **Active text:** `colors.forestGreen` + `FontFamily.bold`. **Never use `textPrimary` or `white`.**
+- **Inactive text:** `colors.textSecondary` + `FontFamily.medium`.
+- **Slide animation:** Spring physics `tension: 70, friction: 8`, `useNativeDriver: true`.
+- **Press animation:** Per-item scale `0.93` on `onPressIn`, spring back `friction: 4` on `onPressOut` — identical to `BouncyFilterToggle`.
+- **Reference:** `BouncyFilterToggle` (`src/components/BouncyFilterToggle.tsx`) is the canonical visual and behavioral reference. Any future change to `SegmentedControl` must match it.
 
 ### 6.6 Status Badges (`<StatusBadge />`)
 - Height `26px`, padding horizontal `10px`, radius `BorderRadius.pill`.
