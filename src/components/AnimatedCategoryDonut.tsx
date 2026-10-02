@@ -140,7 +140,12 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   return (
     <View style={[styles.container, { width: size, height: size }]}>
       {/* Background circular track */}
-      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+      <Svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        style={StyleSheet.absoluteFill}
+      >
         <Circle
           cx={center}
           cy={center}
@@ -152,7 +157,12 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
       </Svg>
 
       {/* Modern annular wedge segments with smooth clockwise sweep */}
-      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+      <Svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        style={StyleSheet.absoluteFill}
+      >
         {isSweeping && (
           <Defs>
             <Mask id={maskId}>
@@ -204,7 +214,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
       <Animated.View
         style={[
           styles.chartCenterContent,
-          { opacity: centerOpacity },
+          { opacity: centerOpacity, maxWidth: Math.max(56, Math.floor(rInner * 2 - 8)) },
         ]}
         pointerEvents="box-none"
       >
@@ -226,7 +236,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
               {
                 color: textColorPrimary,
                 fontFamily: FontFamily.bold,
-                fontSize: isAnySelected ? 18 : 24,
+                fontSize: isAnySelected ? Math.min(18, Math.max(13, Math.round(size * 0.105))) : Math.min(24, Math.max(18, Math.round(size * 0.145))),
               },
             ]}
             numberOfLines={1}
@@ -240,7 +250,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
               {
                 color: isAnySelected ? (isDark ? '#B8E0C8' : '#2D7A4D') : textColorSecondary,
                 fontFamily: isAnySelected ? FontFamily.bold : FontFamily.medium,
-                fontSize: isAnySelected ? 11 : 10,
+                fontSize: isAnySelected ? 10.5 : 9.5,
               },
             ]}
             numberOfLines={1}
@@ -259,12 +269,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    flexShrink: 0,
   },
   chartCenterContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    maxWidth: 104,
+    paddingHorizontal: 6,
   },
   centerPressable: {
     alignItems: 'center',

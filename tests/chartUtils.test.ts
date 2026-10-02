@@ -750,4 +750,49 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
       });
     });
   });
+
+  describe('prepareCategoryBlockSegments Geometry & Arc Precision', () => {
+    it('produces valid SVG paths for dominant category with span near 180 degrees', () => {
+      const categories = [
+        { id: '1', name: 'Food & Drinks', amount: 517.5, percentage: 54 },
+        { id: '2', name: 'Transport', amount: 352.5, percentage: 37 },
+        { id: '3', name: 'Subscription', amount: 50, percentage: 5 },
+        { id: '4', name: 'Others', amount: 29, percentage: 3 },
+        { id: '5', name: 'Studies', amount: 10, percentage: 1 },
+      ];
+      const segments = prepareCategoryBlockSegments(categories, 959, ['#FF857A', '#5B9EE1'], 140, 20, 5, 6);
+
+      expect(segments).toHaveLength(5);
+      segments.forEach((seg) => {
+        expect(seg.path).toContain('M ');
+        expect(seg.path).toContain('A ');
+        expect(seg.path).toContain('Z');
+        // Ensure no NaN coordinates exist
+        expect(seg.path).not.toContain('NaN');
+      });
+
+      // Dominant category (Food & Drinks) has a raw span > 180 deg, but rounded arc span <= 180 deg.
+      // Large arc flags must be 0 to prevent inverted arc loops.
+      const dominant = segments[0];
+      expect(dominant.name).toBe('Food & Drinks');
+      expect(dominant.path).toMatch(/A \d+(\.\d+)? \d+(\.\d+)? 0 0 1/);
+    });
+
+    it('returns empty array when categories is empty or totalAmount <= 0', () => {
+      expect(prepareCategoryBlockSegments([], 100, ['#FF857A'])).toEqual([]);
+      expect(prepareCategoryBlockSegments([{ id: '1', name: 'Test', amount: 0, percentage: 0 }], 0, ['#FF857A'])).toEqual([]);
+    });
+
+    it('handles single category as full annulus ring', () => {
+      const single = [{ id: '1', name: 'Food', amount: 500, percentage: 100 }];
+      const segments = prepareCategoryBlockSegments(single, 500, ['#FF857A'], 140, 20);
+      expect(segments).toHaveLength(1);
+      expect(segments[0].path).toContain('M ');
+      expect(segments[0].path).toContain('Z');
+      expect(segments[0].startAngle).toBe(-90);
+      expect(segments[0].endAngle).toBe(270);
+    });
+  });
 });
+
+

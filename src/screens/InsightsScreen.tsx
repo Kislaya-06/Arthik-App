@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, PanResponder, Animated, Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -645,8 +646,20 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [expenses, currentInterval]);
 
-  const DONUT_SIZE = 160;
-  const DONUT_STROKE = 22;
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Responsively scale donut size to guarantee zero-clipping on all viewport widths (320dp - 430dp+)
+  const donutSize = useMemo(() => {
+    const availableContentWidth = windowWidth - Spacing.gutter * 2;
+    // Allocate ~42-44% of available row space to the donut, safely clamped between 126dp and 156dp
+    const computed = Math.round((availableContentWidth - 14) * 0.44);
+    return Math.min(156, Math.max(126, computed));
+  }, [windowWidth]);
+
+  const donutStroke = useMemo(() => {
+    return Math.min(22, Math.max(18, Math.round(donutSize * 0.14)));
+  }, [donutSize]);
+
   const maxSideStack = period === 'Weekly' ? 4 : 5;
 
   const legendSegments = useMemo(() => {
@@ -1516,14 +1529,14 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             {/* Top row: Donut on Left, up to 4 categories stacked on Right */}
             <View style={styles.byCategoryRow}>
               {/* Donut chart on left */}
-              <View style={styles.donutLeftContainer}>
+              <View style={[styles.donutLeftContainer, { width: donutSize, height: donutSize }]}>
                 <AnimatedCategoryDonut
                   categories={sortedCategories}
                   totalAmount={currentTotal}
                   topCategory={topCategory}
                   palette={CHART_COLORS}
-                  size={DONUT_SIZE}
-                  strokeWidth={DONUT_STROKE}
+                  size={donutSize}
+                  strokeWidth={donutStroke}
                   isDark={isDark}
                   textColorPrimary={colors.textPrimary}
                   textColorSecondary={colors.textSecondary}
@@ -1931,14 +1944,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 14,
   },
   donutLeftContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   categoryStackRight: {
     flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
     gap: 8,
   },

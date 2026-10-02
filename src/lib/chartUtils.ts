@@ -171,7 +171,11 @@ export function generateRoundedBlockPath(
   const dThetaO = rc / rOuter;
   const dThetaI = rc / rInner;
 
-  const largeArc = (a1 - a0) > Math.PI ? 1 : 0;
+  // Exact arc spans between the rounded corner tangent points
+  const outerArcSpan = (a1 - dThetaO) - (a0 + dThetaO);
+  const innerArcSpan = (a1 - dThetaI) - (a0 + dThetaI);
+  const largeArcOuter = outerArcSpan > Math.PI ? 1 : 0;
+  const largeArcInner = innerArcSpan > Math.PI ? 1 : 0;
 
   // Outer start & end points
   const p0x = cx + rOuter * Math.cos(a0 + dThetaO);
@@ -221,11 +225,11 @@ export function generateRoundedBlockPath(
 
   return [
     `M ${f(p0x)} ${f(p0y)}`,
-    `A ${f(rOuter)} ${f(rOuter)} 0 ${largeArc} 1 ${f(p1x)} ${f(p1y)}`,
+    `A ${f(rOuter)} ${f(rOuter)} 0 ${largeArcOuter} 1 ${f(p1x)} ${f(p1y)}`,
     `Q ${f(v1x)} ${f(v1y)} ${f(p2x)} ${f(p2y)}`,
     `L ${f(p3x)} ${f(p3y)}`,
     `Q ${f(vIn1x)} ${f(vIn1y)} ${f(p4x)} ${f(p4y)}`,
-    `A ${f(rInner)} ${f(rInner)} 0 ${largeArc} 0 ${f(p5x)} ${f(p5y)}`,
+    `A ${f(rInner)} ${f(rInner)} 0 ${largeArcInner} 0 ${f(p5x)} ${f(p5y)}`,
     `Q ${f(vIn0x)} ${f(vIn0y)} ${f(p6x)} ${f(p6y)}`,
     `L ${f(p7x)} ${f(p7y)}`,
     `Q ${f(v0x)} ${f(v0y)} ${f(p0x)} ${f(p0y)}`,

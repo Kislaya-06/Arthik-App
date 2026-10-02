@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🍩 Unclipped Responsive Category Donut Architecture (`InsightsScreen`, `AnimatedCategoryDonut`, `chartUtils`)
+- **Responsive Viewport Donut Scaling (`InsightsScreen`):** Dynamically scales donut chart size (126dp–156dp) based on `useWindowDimensions().width` rather than a fixed 160dp literal, preventing flex-row overflow and clipping on narrow screens (320dp–380dp).
+- **Flexbox Row Guards & Zero-Shrink Protection:** Added strict `flexShrink: 0` to `donutLeftContainer` and `minWidth: 0` to `categoryStackRight` to ensure the donut canvas is never compressed by neighboring text elements.
+- **SVG ViewBox Coordinate Normalization (`AnimatedCategoryDonut`):** Bound SVG canvases to `viewBox="0 0 {size} {size}"` with dynamic inner text `maxWidth` clamping to guarantee vector paths render edge-to-edge without hardware-level clipping.
+- **Accurate SVG Large Arc Geometry (`chartUtils.ts`):** Fixed `generateRoundedBlockPath` arc flags to evaluate span between actual corner-tangent points rather than unadjusted raw angles, eliminating inverted arc loops on dominant categories (~50%–55%).
+
 ### 🔄 Unified Cross-Page Insights Architecture (Weekly · Monthly · Yearly)
 - **Unified Time-Series Flow Hierarchy (`InsightsScreen`):** Repositioned the Monthly `CashFlowChart` immediately below `MonthlyBreathingStrip` (before `By Category`), creating an identical 4-stage narrative across Weekly (`SpendingFlowChart`), Monthly (`CashFlowChart`), and Yearly (`YearlyCashFlowChart`): Macro Numbers $\rightarrow$ Time-Series Flow $\rightarrow$ Category Allocation $\rightarrow$ Behavioral Insights.
 - **Consistent Breathing Strip Naming (`YearlyBreathingStrip`):** Standardized the right savings tile title across all three timeframes to `SAVINGS & GULLAK` (previously `ANNUAL GULLAK WEALTH`), aligning with the bottom milestone card and Tab Bar navigation.
