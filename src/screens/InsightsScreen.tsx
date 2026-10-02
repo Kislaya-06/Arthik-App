@@ -62,6 +62,7 @@ import {
   computeMonthlyLargestOutflow,
   computeMonthlyCategoryShift,
   computeMonthlyPeakWeek,
+  computeSmartMonthlyTakeaway,
 } from '../lib/monthlyInsightsUtils';
 
 type Props = CompositeScreenProps<
@@ -861,6 +862,50 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     return computeMonthlyPeakWeek(monthlyCashFlowData.weeks, currentTotal);
   }, [period, monthlyCashFlowData.weeks, currentTotal]);
 
+  const monthTransactionCount = useMemo(() => {
+    if (period !== 'Monthly') return 0;
+    let count = 0;
+    for (const exp of expenses) {
+      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      if (isIncomeTransaction(exp, cat)) continue;
+      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
+      if (!cleanDate) continue;
+      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+        count++;
+      }
+    }
+    return count;
+  }, [period, expenses, categories, currentInterval]);
+
+  const smartMonthlyTakeaway = useMemo(() => {
+    return computeSmartMonthlyTakeaway({
+      currentTotal,
+      isBudgetMode: isBudgetModeEnabled,
+      isOverBudget: monthlyBudgetHealth.isOverBudget,
+      overAmount: monthlyBudgetHealth.overAmount,
+      savedDaysCount: monthlyGullakSavings.savedDaysCount,
+      totalMonthSavings: monthlyGullakSavings.totalSaved,
+      topCategory: topCategory ? { name: topCategory.name, percentage: topCategory.percentage } : null,
+      isCurrentMonth: offset === 0,
+      safeDailyPace: monthlySafeDailyPace,
+      remainingDays: monthlyRemainingDays,
+      remainingBudget: monthlyBudgetHealth.remaining,
+      transactionCount: monthTransactionCount,
+      monthlyDailyBurnPace,
+    });
+  }, [
+    currentTotal,
+    isBudgetModeEnabled,
+    monthlyBudgetHealth,
+    monthlyGullakSavings,
+    topCategory,
+    offset,
+    monthlySafeDailyPace,
+    monthlyRemainingDays,
+    monthTransactionCount,
+    monthlyDailyBurnPace,
+  ]);
+
   // Left arrow is enabled as long as there is an older period within the available history
   const hasPrevData = offset > minOff;
 
@@ -1002,15 +1047,18 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         {period === 'Monthly' && (
           <View style={{ marginTop: Spacing.gutter }}>
             <MonthlyBreathingStrip
+              takeaway={smartMonthlyTakeaway}
               isBudgetMode={isBudgetModeEnabled}
               monthSpent={currentTotal}
               monthBudget={monthlyEffectiveBudget.effectiveBudget}
               remainingBudget={monthlyBudgetHealth.remaining}
               overAmount={monthlyBudgetHealth.overAmount}
               isOverBudget={monthlyBudgetHealth.isOverBudget}
+              budgetRatio={monthlyBudgetHealth.ratio}
               safeDailyPace={monthlySafeDailyPace}
               isCurrentMonth={offset === 0}
               remainingDays={monthlyRemainingDays}
+              transactionCount={monthTransactionCount}
               totalMonthSavings={monthlyGullakSavings.totalSaved}
               savedDaysCount={monthlyGullakSavings.savedDaysCount}
               netCashFlow={monthlyCashFlowData.totalIncome - currentTotal}
@@ -1425,14 +1473,22 @@ const styles = StyleSheet.create({
   heroCurrency: { fontSize: 24, color: '#2D1E1E', marginRight: 6 },
   heroAmount: { fontSize: 48, color: '#2D1E1E' },
   heroComparisonRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.element,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.group,
+    marginTop: Spacing.element,
   },
   trendBadge: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(60, 35, 35, 0.08)', borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.group, paddingVertical: 6, gap: Spacing.micro,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(60, 35, 35, 0.08)',
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: Spacing.micro,
   },
-  trendText: { fontSize: FontSize.caption },
+  trendText: { fontSize: 11.5 },
 
   sectionTitle: { fontSize: FontSize.sectionTitle, marginTop: Spacing.section, marginBottom: Spacing.gutter },
   byCategoryRow: {

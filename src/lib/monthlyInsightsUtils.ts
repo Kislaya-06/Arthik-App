@@ -24,7 +24,7 @@ import {
   endOfMonth,
 } from 'date-fns';
 import { isIncomeTransaction } from './transactionUtils';
-import { round2 } from './formatters';
+import { round2, formatAmountWithCommas } from './formatters';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import type { Category } from '../store/categoryStore';
 import type { BudgetCadence } from '../types';
@@ -166,6 +166,100 @@ export function computeMonthlySafeDailyPace(
   return Math.round(remaining / daysLeft);
 }
 
+export interface MonthlyTakeawayParams {
+  currentTotal: number;
+  isBudgetMode: boolean;
+  isOverBudget: boolean;
+  overAmount: number;
+  savedDaysCount: number;
+  totalMonthSavings: number;
+  topCategory?: { name: string; percentage: number } | null;
+  isCurrentMonth: boolean;
+  safeDailyPace: number;
+  remainingDays: number;
+  remainingBudget: number;
+  transactionCount: number;
+  monthlyDailyBurnPace: number;
+}
+
+export interface SmartMonthlyTakeawayResult {
+  text: string;
+  status: 'coral' | 'mint' | 'neutral';
+}
+
+/**
+ * Evaluates the Smart Monthly Takeaway using an intelligent priority engine.
+ */
+export function computeSmartMonthlyTakeaway(params: MonthlyTakeawayParams): SmartMonthlyTakeawayResult {
+  const {
+    currentTotal,
+    isBudgetMode,
+    isOverBudget,
+    overAmount,
+    savedDaysCount,
+    totalMonthSavings,
+    topCategory,
+    isCurrentMonth,
+    safeDailyPace,
+    remainingDays,
+    transactionCount,
+    monthlyDailyBurnPace,
+  } = params;
+
+  // 1. Zero Spend
+  if (currentTotal === 0) {
+    return {
+      text: 'No expenses logged this month.',
+      status: 'neutral',
+    };
+  }
+
+  // 2. Over Budget
+  if (isBudgetMode && isOverBudget) {
+    return {
+      text: `Monthly spend exceeded budget by ₹${formatAmountWithCommas(String(overAmount))}.`,
+      status: 'coral',
+    };
+  }
+
+  // 3. High Savings Discipline (5+ saved days in month and savings > 0)
+  if (isBudgetMode && savedDaysCount >= 5 && totalMonthSavings > 0) {
+    return {
+      text: `Great discipline! Stayed under budget on ${savedDaysCount} days · +₹${formatAmountWithCommas(String(totalMonthSavings))} saved to Gullak.`,
+      status: 'mint',
+    };
+  }
+
+  // 4. Dominant Category (Taking 45%+ of month)
+  if (topCategory && topCategory.percentage >= 45) {
+    return {
+      text: `${topCategory.name} took ${topCategory.percentage}% of this month's spending.`,
+      status: 'neutral',
+    };
+  }
+
+  // 5. In-progress Safe Pace
+  if (isBudgetMode && isCurrentMonth && safeDailyPace > 0 && !isOverBudget) {
+    return {
+      text: `Pacing comfortably: ₹${formatAmountWithCommas(String(safeDailyPace))}/day safe pace with ${remainingDays} days remaining.`,
+      status: 'mint',
+    };
+  }
+
+  // 6. Default balanced summary
+  if (transactionCount > 0) {
+    return {
+      text: `Logged ${transactionCount} transactions with ₹${formatAmountWithCommas(String(monthlyDailyBurnPace))}/day average spend.`,
+      status: 'neutral',
+    };
+  }
+
+  return {
+    text: 'Balanced monthly spending flow.',
+    status: 'neutral',
+  };
+}
+
 // ─── 3. Monthly Real Money Gullak Savings ─────────────────────────────────────
 
 /**
@@ -229,6 +323,7 @@ export interface MonthlyComparisonResult {
  * - In-progress month (offset=0): Matches Day 1..D of current month with Day 1..D of previous month.
  * - Past month (offset < 0): Compares full month with full previous month.
  * - Guards against zero previous spend (no NaN/Infinity).
+ * - Distinguishes between zero spend in matched window vs zero spend across the full previous month.
  */
 export function computeMonthlyComparison(
   expenses: ExpenseLike[],
@@ -262,6 +357,7 @@ export function computeMonthlyComparison(
 
   let currTotal = 0;
   let matchedPrevTotal = 0;
+  let prevFullTotal = 0;
 
   for (const exp of expenses) {
     if (!exp.expense_date) continue;
@@ -277,27 +373,66 @@ export function computeMonthlyComparison(
     if (isDateInBounds(cleanDate, prevStartStr, matchedPrevEndStr)) {
       matchedPrevTotal += exp.amount;
     }
+    if (isDateInBounds(cleanDate, prevStartStr, prevEndStr)) {
+      prevFullTotal += exp.amount;
+    }
   }
 
   currTotal = round2(currTotal);
   matchedPrevTotal = round2(matchedPrevTotal);
+  prevFullTotal = round2(prevFullTotal);
 
-  if (matchedPrevTotal === 0) {
+  if (currTotal === 0) {
     return {
       percentageChange: null,
-      isIncrease: currTotal > 0,
-      trendLabel: currTotal > 0 ? 'No spend recorded in prev month' : 'No expenses logged this month',
+      isIncrease: false,
+      trendLabel: 'No expenses logged this month',
+      matchedPrevTotal,
+      currentTotal: 0,
+    };
+  }
+
+  if (matchedPrevTotal === 0) {
+    if (prevFullTotal === 0) {
+      return {
+        percentageChange: null,
+        isIncrease: true,
+        trendLabel: 'No spend in prev month',
+        matchedPrevTotal: 0,
+        currentTotal: currTotal,
+      };
+    }
+    return {
+      percentageChange: null,
+      isIncrease: true,
+      trendLabel: isCurrentMonth
+        ? `+₹${formatAmountWithCommas(String(currTotal))} vs same days`
+        : `+₹${formatAmountWithCommas(String(currTotal))} vs prev month`,
       matchedPrevTotal: 0,
       currentTotal: currTotal,
     };
   }
 
   const diff = currTotal - matchedPrevTotal;
-  const percentageChange = Math.round((Math.abs(diff) / matchedPrevTotal) * 100);
   const isIncrease = diff >= 0;
 
+  // Low base guard: if matchedPrevTotal < 100, percentage becomes misleadingly huge
+  if (matchedPrevTotal < 100) {
+    const sign = diff >= 0 ? '+' : '-';
+    return {
+      percentageChange: null,
+      isIncrease,
+      trendLabel: diff === 0
+        ? (isCurrentMonth ? 'Same as same days' : 'Same as prev month')
+        : `${sign}₹${formatAmountWithCommas(String(Math.abs(diff)))} ${isCurrentMonth ? 'vs same days' : 'vs prev month'}`,
+      matchedPrevTotal,
+      currentTotal: currTotal,
+    };
+  }
+
+  const percentageChange = Math.round((Math.abs(diff) / matchedPrevTotal) * 100);
   const trendLabel = isCurrentMonth
-    ? `${percentageChange}% vs same days last month`
+    ? `${percentageChange}% vs same days`
     : `${percentageChange}% vs prev month`;
 
   return {

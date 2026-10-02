@@ -3,19 +3,21 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
-import { GradientIconBadge } from './GradientIconBadge';
-import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
+import { SmartMonthlyTakeawayResult } from '../lib/monthlyInsightsUtils';
 
 export interface MonthlyBreathingStripProps {
+  takeaway: SmartMonthlyTakeawayResult;
   isBudgetMode: boolean;
   monthSpent: number;
   monthBudget: number;
   remainingBudget: number;
   overAmount: number;
   isOverBudget: boolean;
+  budgetRatio: number;
   safeDailyPace: number;
   isCurrentMonth: boolean;
   remainingDays: number;
+  transactionCount: number;
   totalMonthSavings: number;
   savedDaysCount: number;
   netCashFlow?: number;
@@ -23,15 +25,18 @@ export interface MonthlyBreathingStripProps {
 }
 
 export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
+  takeaway,
   isBudgetMode,
   monthSpent,
   monthBudget,
   remainingBudget,
   overAmount,
   isOverBudget,
+  budgetRatio,
   safeDailyPace,
   isCurrentMonth,
   remainingDays,
+  transactionCount,
   totalMonthSavings,
   savedDaysCount,
   netCashFlow = 0,
@@ -39,14 +44,11 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
 
-  const isSurplus = netCashFlow >= 0;
-  const statusColor = isOverBudget
-    ? (isDark ? '#F59682' : '#D9533B')
-    : (isDark ? '#7CD49A' : '#3DA862');
+  const progressPercent = Math.min(100, Math.round(budgetRatio * 100));
+  const progressFillColor = isOverBudget ? '#FF7A6E' : colors.mintGreen;
 
-  const statusBg = isOverBudget
-    ? (isDark ? 'rgba(244, 184, 174, 0.14)' : '#FDEEEC')
-    : (isDark ? 'rgba(184, 224, 200, 0.14)' : '#E8F5EE');
+  // Vibrant status dot: coral for over-budget alerts, mint green for takeaways/insights
+  const dotColor = takeaway.status === 'coral' ? '#FF7A6E' : colors.mintGreen;
 
   return (
     <View
@@ -54,15 +56,33 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
         styles.container,
         {
           backgroundColor: colors.card,
-          borderColor: isDark ? colors.borderSubtle : colors.border,
+          borderColor: colors.border,
           borderWidth: isDark ? 1 : 0,
         },
       ]}
     >
-      <View style={styles.metricsRow}>
-        {/* Left Column: Monthly Budget Health OR Pure Mode Net Cash Flow */}
+      {/* ── Top Row: Smart Monthly Takeaway ── */}
+      <View style={styles.takeawayRow}>
+        <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+        <Text
+          style={[
+            styles.takeawayText,
+            { color: colors.textPrimary, fontFamily: FontFamily.semibold },
+          ]}
+          numberOfLines={2}
+        >
+          {takeaway.text}
+        </Text>
+      </View>
+
+      {/* Divider */}
+      <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
+
+      {/* ── Bottom Row: Dual Gauge (Budget Health vs Gullak Impact) ── */}
+      <View style={styles.dualGaugeRow}>
+        {/* Left Column: Monthly Budget Health OR Pure Mode Outflow */}
         <View
-          style={styles.metricCol}
+          style={styles.gaugeCol}
           accessible={true}
           accessibilityLabel={
             isBudgetMode
@@ -70,138 +90,192 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
                   isOverBudget
                     ? `${formatCurrency(overAmount)} over budget`
                     : `${formatCurrency(remainingBudget)} remaining`
-                }. Safe pace: ${safeDailyPace} rupees per day.`
-              : `Net cash flow: ${isSurplus ? 'Surplus' : 'Deficit'} of ${formatCurrency(Math.abs(netCashFlow))}.`
+                }.`
+              : `Month transactions: ${transactionCount} logged, total ${formatCurrency(monthSpent)}.`
           }
         >
-          <Text style={[styles.colLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-            {isBudgetMode ? 'MONTHLY BUDGET' : 'NET CASH FLOW'}
-          </Text>
-
           {isBudgetMode ? (
             <>
               <Text
-                style={[styles.colAmount, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+                style={[
+                  styles.colLabel,
+                  { color: colors.textSecondary, fontFamily: FontFamily.bold },
+                ]}
+              >
+                MONTHLY BUDGET
+              </Text>
+              <Text
+                style={[
+                  styles.colAmount,
+                  { color: colors.textPrimary, fontFamily: FontFamily.bold },
+                ]}
                 numberOfLines={1}
               >
                 {formatCurrency(monthSpent)}{' '}
-                <Text style={[styles.colCap, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                <Text
+                  style={[
+                    styles.colCap,
+                    { color: colors.textSecondary, fontFamily: FontFamily.medium },
+                  ]}
+                >
                   / {formatCurrency(monthBudget)}
                 </Text>
               </Text>
 
-              <View style={styles.statusRow}>
-                <View style={[styles.statusChip, { backgroundColor: statusBg }]}>
-                  <Text style={[styles.statusChipText, { color: statusColor, fontFamily: FontFamily.bold }]}>
-                    {isOverBudget
-                      ? `Over by ₹${formatAmountWithCommas(String(overAmount))}`
-                      : `₹${formatAmountWithCommas(String(remainingBudget))} left`}
-                  </Text>
-                </View>
+              {/* Progress track */}
+              <View
+                style={[
+                  styles.progressTrack,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.chartTrack,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${progressPercent}%`,
+                      backgroundColor: progressFillColor,
+                    },
+                  ]}
+                />
               </View>
 
-              <Text
-                style={[styles.subtextMuted, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
-                numberOfLines={1}
-              >
-                {isCurrentMonth
-                  ? isOverBudget
-                    ? 'Exceeded · ₹0/day pace'
-                    : `₹${formatAmountWithCommas(String(safeDailyPace))}/day safe pace · ${remainingDays}d left`
-                  : isOverBudget
-                  ? 'Exceeded · Finalized'
-                  : 'Under Budget · Finalized'}
-              </Text>
+              {/* Clean 2-line Subtitle to prevent any truncation */}
+              <View style={styles.subtextContainer}>
+                <Text
+                  style={[
+                    styles.colSubtextBold,
+                    {
+                      color: isOverBudget ? '#FF7A6E' : isDark ? colors.mintGreen : colors.mintGreenDark,
+                      fontFamily: FontFamily.bold,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isOverBudget
+                    ? `₹${formatAmountWithCommas(String(overAmount))} over budget`
+                    : `₹${formatAmountWithCommas(String(remainingBudget))} left`}
+                </Text>
+
+                {isCurrentMonth && safeDailyPace > 0 && !isOverBudget ? (
+                  <Text
+                    style={[
+                      styles.colSubtextMuted,
+                      {
+                        color: colors.textSecondary,
+                        fontFamily: FontFamily.medium,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    ₹{formatAmountWithCommas(String(safeDailyPace))}/day pace · {remainingDays}d left
+                  </Text>
+                ) : !isCurrentMonth ? (
+                  <Text
+                    style={[
+                      styles.colSubtextMuted,
+                      {
+                        color: colors.textSecondary,
+                        fontFamily: FontFamily.medium,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {isOverBudget ? 'Finalized · Over budget' : 'Finalized · Within budget'}
+                  </Text>
+                ) : null}
+              </View>
             </>
           ) : (
+            /* Pure Mode Adaptation */
             <>
               <Text
                 style={[
+                  styles.colLabel,
+                  { color: colors.textSecondary, fontFamily: FontFamily.bold },
+                ]}
+              >
+                MONTH'S TRANSACTIONS
+              </Text>
+              <Text
+                style={[
                   styles.colAmount,
-                  { color: isSurplus ? (isDark ? '#7CD49A' : '#3DA862') : (isDark ? '#F59682' : '#D9533B'), fontFamily: FontFamily.bold },
+                  { color: colors.textPrimary, fontFamily: FontFamily.bold },
                 ]}
                 numberOfLines={1}
               >
-                {isSurplus ? `+${formatCurrency(netCashFlow)}` : `−${formatCurrency(Math.abs(netCashFlow))}`}
+                {transactionCount} logged
               </Text>
-
-              <View style={styles.statusRow}>
-                <View
-                  style={[
-                    styles.statusChip,
-                    {
-                      backgroundColor: isSurplus
-                        ? (isDark ? 'rgba(184, 224, 200, 0.14)' : '#E8F5EE')
-                        : (isDark ? 'rgba(244, 184, 174, 0.14)' : '#FDEEEC'),
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusChipText,
-                      { color: isSurplus ? (isDark ? '#7CD49A' : '#3DA862') : (isDark ? '#F59682' : '#D9533B'), fontFamily: FontFamily.bold },
-                    ]}
-                  >
-                    {isSurplus ? 'Surplus' : 'Deficit'}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={[styles.subtextMuted, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                Pure Tracking Mode · No budget
+              <Text
+                style={[
+                  styles.colSubtextMuted,
+                  { color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: 4 },
+                ]}
+                numberOfLines={1}
+              >
+                {formatCurrency(monthSpent)} total outflow
               </Text>
             </>
           )}
         </View>
 
-        {/* Vertical Hairline Divider */}
-        <View
-          style={[
-            styles.verticalDivider,
-            { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
-          ]}
-        />
+        {/* Vertical divider */}
+        <View style={[styles.verticalDivider, { backgroundColor: colors.borderSubtle }]} />
 
-        {/* Right Column: Real Money Gullak Savings (Tappable) */}
+        {/* Right Column: Gullak Savings */}
         <Pressable
-          style={({ pressed }) => [
-            styles.metricColRight,
-            pressed && { opacity: 0.75 },
-          ]}
+          style={styles.gaugeColRight}
           onPress={onPressSavings}
-          accessible={true}
+          disabled={!onPressSavings}
+          hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={`Gullak savings this month: +${formatCurrency(totalMonthSavings)}. Tap to view Savings.`}
-          hitSlop={8}
+          accessibilityLabel={`Gullak savings this month: ${
+            totalMonthSavings > 0 ? `+${formatCurrency(totalMonthSavings)}` : formatCurrency(0)
+          } across ${savedDaysCount} saved days. Tap to open Savings.`}
         >
-          <View style={styles.gullakHeaderRow}>
-            <GradientIconBadge size={36} color="#ADEBB3" isDark={isDark}>
-              {({ iconColor }) => <PiggyBankCoinIcon size={18} color={iconColor} />}
-            </GradientIconBadge>
-            <View style={{ flex: 1, marginLeft: Spacing.element }}>
-              <Text style={[styles.colLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-                GULLAK SAVINGS
-              </Text>
-              <Text
-                style={[
-                  styles.savingsAmount,
-                  { color: isDark ? colors.mintGreen : '#2E8C4A', fontFamily: FontFamily.bold },
-                ]}
-                numberOfLines={1}
-              >
-                +{formatCurrency(totalMonthSavings)}
-              </Text>
-            </View>
-          </View>
-
           <Text
-            style={[styles.subtextMuted, { color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.micro }]}
+            style={[
+              styles.colLabel,
+              { color: colors.textSecondary, fontFamily: FontFamily.bold },
+            ]}
+          >
+            AUTO-SAVED TO GULLAK
+          </Text>
+          <Text
+            style={[
+              styles.colAmount,
+              {
+                color: totalMonthSavings > 0 ? (isDark ? colors.mintGreen : colors.forestGreen) : colors.textPrimary,
+                fontFamily: FontFamily.bold,
+              },
+            ]}
             numberOfLines={1}
           >
-            {savedDaysCount > 0
-              ? `${savedDaysCount} ${savedDaysCount === 1 ? 'day' : 'days'} saved this month`
-              : 'Real money preserved'}
+            {totalMonthSavings > 0 ? `+${formatCurrency(totalMonthSavings)}` : formatCurrency(0)}
           </Text>
+
+          {/* Saved days pill badge */}
+          <View
+            style={[
+              styles.savingsPill,
+              {
+                backgroundColor: isDark ? 'rgba(184, 224, 200, 0.14)' : colors.mintGreenSoft,
+                borderColor: colors.mintGreen,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.savingsPillText,
+                { color: isDark ? colors.mintGreen : colors.mintGreenDark, fontFamily: FontFamily.bold },
+              ]}
+              numberOfLines={1}
+            >
+              🐷 {savedDaysCount} {savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}
+            </Text>
+          </View>
         </Pressable>
       </View>
     </View>
@@ -210,72 +284,99 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: BorderRadius.card,
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.block,
+    borderRadius: BorderRadius.card, // 20
+    padding: Spacing.block, // 16
+    marginBottom: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 1,
   },
-  metricsRow: {
+  takeawayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.element,
+    marginBottom: 12,
   },
-  metricCol: {
-    flex: 1.1,
-    paddingRight: Spacing.group,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  takeawayText: {
+    fontSize: FontSize.bodySmall, // 14
+    lineHeight: 19,
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+    marginBottom: 12,
+  },
+  dualGaugeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  gaugeCol: {
+    flex: 1,
+    paddingRight: 10,
   },
   verticalDivider: {
     width: 1,
-    height: '80%',
-    alignSelf: 'center',
+    alignSelf: 'stretch',
+    marginHorizontal: 2,
   },
-  metricColRight: {
+  gaugeColRight: {
     flex: 1,
-    paddingLeft: Spacing.group,
-    justifyContent: 'center',
+    paddingLeft: 12,
   },
   colLabel: {
-    fontSize: FontSize.caption,
-    letterSpacing: 0.8,
+    fontSize: 10.5,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: Spacing.nano,
   },
   colAmount: {
-    fontSize: 19,
-    lineHeight: 24,
-    marginTop: 2,
+    fontSize: FontSize.body, // 16
+    lineHeight: 22,
   },
   colCap: {
-    fontSize: FontSize.bodySmall,
+    fontSize: 12,
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: Spacing.micro,
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 6,
+    marginBottom: 5,
   },
-  statusChip: {
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  subtextContainer: {
+    marginTop: 2,
+    gap: 1,
+  },
+  colSubtextBold: {
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
+  colSubtextMuted: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  savingsPill: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.pill,
+    borderWidth: 0.8,
+    marginTop: 6,
   },
-  statusChipText: {
+  savingsPillText: {
     fontSize: 11,
-  },
-  subtextMuted: {
-    fontSize: FontSize.caption,
-    marginTop: Spacing.micro,
-  },
-  gullakHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  savingsAmount: {
-    fontSize: 19,
-    lineHeight: 24,
-    marginTop: 2,
   },
 });

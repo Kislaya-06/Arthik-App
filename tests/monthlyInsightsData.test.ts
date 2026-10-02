@@ -131,7 +131,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       // Matched previous spend up to Sept 10: 1000 + 2000 = 3000 (excludes Sept 25!)
       expect(comp.matchedPrevTotal).toBe(3000);
       expect(comp.percentageChange).toBe(0);
-      expect(comp.trendLabel).toBe('0% vs same days last month');
+      expect(comp.trendLabel).toBe('0% vs same days');
     });
 
     it('caps day 31 in current month to 30 days of previous month without error', () => {
@@ -143,7 +143,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(comp.matchedPrevTotal).toBe(8000);
       expect(comp.percentageChange).toBe(63); // (8000 - 3000) / 8000 = 62.5% -> 63%
       expect(comp.isIncrease).toBe(false);
-      expect(comp.trendLabel).toBe('63% vs same days last month');
+      expect(comp.trendLabel).toBe('63% vs same days');
     });
 
     it('handles zero previous spend safely without NaN or Infinity', () => {
@@ -153,7 +153,23 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       const comp = computeMonthlyComparison(octOnlyExpenses, mockCategories, octInterval, sepInterval, 0, today);
 
       expect(comp.percentageChange).toBeNull();
-      expect(comp.trendLabel).toBe('No spend recorded in prev month');
+      expect(comp.trendLabel).toBe('No spend in prev month');
+    });
+
+    it('shows +₹spend vs same days when matched days had ₹0 but full previous month had spend', () => {
+      // User scenario: Sept had ₹5,000 spend on Sept 25, but Day 1..2 had ₹0.
+      // In October on Day 2, user spent ₹260.
+      const septLaterExpenses: ExpenseLike[] = [
+        { id: 'p3', amount: 5000, expense_date: '2026-09-25', category_id: 'cat-food' },
+        { id: 'c1', amount: 260, expense_date: '2026-10-02', category_id: 'cat-food' },
+      ];
+      const today = parseISO('2026-10-02'); // Day 2
+      const comp = computeMonthlyComparison(septLaterExpenses, mockCategories, octInterval, sepInterval, 0, today);
+
+      expect(comp.currentTotal).toBe(260);
+      expect(comp.matchedPrevTotal).toBe(0);
+      expect(comp.percentageChange).toBeNull();
+      expect(comp.trendLabel).toBe('+₹260 vs same days');
     });
   });
 
