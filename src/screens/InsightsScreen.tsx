@@ -39,7 +39,6 @@ import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
 import { WeeklyBreathingStrip } from '../components/WeeklyBreathingStrip';
 import { BehavioralInsightRow } from '../components/BehavioralInsightRow';
-import { BudgetEditModal } from '../components/BudgetEditModal';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../lib/chartUtils';
 import {
@@ -324,7 +323,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState<number>(Date.now());
   const [refreshing, setRefreshing] = useState(false);
-  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const lastFetchTime = useRef<number>(0);
   const lastDayRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -755,8 +753,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     return computePeakDaysSubtitle(weeklyData);
   }, [period, weeklyData]);
 
-  const currentCadenceAmount = budgetCadence === 'weekly' ? weeklyBudgetAmount : dailyBudgetAmount;
-
   // Left arrow is enabled as long as there is an older period within the available history
   const hasPrevData = offset > minOff;
 
@@ -881,13 +877,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               transactionCount={weekTransactionCount}
               totalWeekSavings={weeklyGullak.totalSaved}
               savedDaysCount={weeklyGullak.savedDaysCount}
-              onPressBudget={() => {
-                if (isBudgetModeEnabled) {
-                  setBudgetModalVisible(true);
-                } else {
-                  navigation.navigate('Profile');
-                }
-              }}
               onPressSavings={() => {
                 navigation.navigate('Savings');
               }}
@@ -897,20 +886,18 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ── Weekly Spending Flow Section ── */}
         {period === 'Weekly' && (
-          <View style={{ marginTop: Spacing.surface }}>
-            <SpendingFlowChart
-              title="Spending Flow"
-              data={weeklyData}
-              maxDay={maxWeekDay}
-              isDark={isDark}
-              colors={colors}
-              subTitle={peakDaysSubtitle}
-              onDayPress={(d) => {
-                navigation.navigate('History', { targetDate: d.dateStr });
-              }}
-              triggerKey={`${period}_${offset}`}
-            />
-          </View>
+          <SpendingFlowChart
+            title="Spending Flow"
+            data={weeklyData}
+            maxDay={maxWeekDay}
+            isDark={isDark}
+            colors={colors}
+            subTitle={peakDaysSubtitle}
+            onDayPress={(d) => {
+              navigation.navigate('History', { targetDate: d.dateStr });
+            }}
+            triggerKey={`${period}_${offset}`}
+          />
         )}
 
         {/* ── By Category Section ── */}
@@ -999,6 +986,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               <Pressable
                 style={styles.expandCategoriesBtn}
                 onPress={() => setShowAllCategories((prev) => !prev)}
+                hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
                 accessibilityRole="button"
                 accessibilityLabel={
                   showAllCategories
@@ -1119,7 +1107,11 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     badgeColor={largestOutflow.categoryColor}
                     title="LARGEST SINGLE PURCHASE"
                     headline={`${formatCurrency(largestOutflow.expense.amount)} · ${largestOutflow.expense.notes || largestOutflow.categoryName}`}
-                    detail={`${format(parseISO(largestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')} · ${largestOutflow.categoryName}`}
+                    detail={
+                      largestOutflow.expense.notes && largestOutflow.expense.notes.trim() !== largestOutflow.categoryName
+                        ? `${format(parseISO(largestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')} · ${largestOutflow.categoryName}`
+                        : format(parseISO(largestOutflow.expense.expense_date.split('T')[0]), 'EEEE, d MMM')
+                    }
                     pillText={largestOutflow.shouldShowPill ? `${largestOutflow.outflowPercent}% of week` : null}
                     pillColor={isDark ? '#F5A97F' : '#E06D53'}
                     onPress={() => {
@@ -1130,18 +1122,16 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 )}
 
                 {weekdayWeekendDynamics && (
-                  <View style={{ marginTop: largestOutflow ? Spacing.group : 0 }}>
-                    <BehavioralInsightRow
-                      icon={weekdayWeekendDynamics.mode === 'weekend_split' ? Sparkles : Flame}
-                      badgeColor={weekdayWeekendDynamics.mode === 'weekend_split' ? '#84DCC6' : '#FED9B7'}
-                      title={weekdayWeekendDynamics.title}
-                      headline={weekdayWeekendDynamics.headline}
-                      detail={weekdayWeekendDynamics.detail}
-                      pillText={weekdayWeekendDynamics.pillText}
-                      pillColor={colors.mintGreen}
-                      accessibilityLabel={`${weekdayWeekendDynamics.title}: ${weekdayWeekendDynamics.headline}. ${weekdayWeekendDynamics.detail}. ${weekdayWeekendDynamics.pillText}`}
-                    />
-                  </View>
+                  <BehavioralInsightRow
+                    icon={weekdayWeekendDynamics.mode === 'weekend_split' ? Sparkles : Flame}
+                    badgeColor={weekdayWeekendDynamics.mode === 'weekend_split' ? '#84DCC6' : '#FED9B7'}
+                    title={weekdayWeekendDynamics.title}
+                    headline={weekdayWeekendDynamics.headline}
+                    detail={weekdayWeekendDynamics.detail}
+                    pillText={weekdayWeekendDynamics.pillText}
+                    pillColor={colors.mintGreen}
+                    accessibilityLabel={`${weekdayWeekendDynamics.title}: ${weekdayWeekendDynamics.headline}. ${weekdayWeekendDynamics.detail}. ${weekdayWeekendDynamics.pillText}`}
+                  />
                 )}
               </View>
             ) : (
@@ -1194,14 +1184,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
-
-      {/* Budget Edit Modal */}
-      <BudgetEditModal
-        visible={budgetModalVisible}
-        initialAmount={currentCadenceAmount}
-        initialCadence={budgetCadence}
-        onClose={() => setBudgetModalVisible(false)}
-      />
     </View>
   );
 };

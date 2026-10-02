@@ -19,7 +19,6 @@ export interface WeeklyBreathingStripProps {
   transactionCount: number;
   totalWeekSavings: number;
   savedDaysCount: number;
-  onPressBudget?: () => void;
   onPressSavings?: () => void;
 }
 
@@ -37,13 +36,15 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
   transactionCount,
   totalWeekSavings,
   savedDaysCount,
-  onPressBudget,
   onPressSavings,
 }) => {
   const { colors, isDark } = useTheme();
 
   const progressPercent = Math.min(100, Math.round(budgetRatio * 100));
   const progressFillColor = isOverBudget ? '#FF7A6E' : colors.mintGreen;
+
+  // Vibrant status dot: coral for over-budget alerts, mint green for takeaways/insights
+  const dotColor = takeaway.status === 'coral' ? '#FF7A6E' : colors.mintGreen;
 
   return (
     <View
@@ -58,19 +59,7 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
     >
       {/* ── Top Row: Smart Weekly Takeaway ── */}
       <View style={styles.takeawayRow}>
-        <View
-          style={[
-            styles.statusDot,
-            {
-              backgroundColor:
-                takeaway.status === 'coral'
-                  ? '#FF7A6E'
-                  : takeaway.status === 'mint'
-                  ? colors.mintGreen
-                  : colors.textMuted,
-            },
-          ]}
-        />
+        <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
         <Text
           style={[
             styles.takeawayText,
@@ -87,18 +76,17 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
 
       {/* ── Bottom Row: Dual Gauge (Budget Health vs Gullak Impact) ── */}
       <View style={styles.dualGaugeRow}>
-        {/* Left Column: Budget Health OR Pure Mode Outflow */}
-        <Pressable
+        {/* Left Column: Budget Health OR Pure Mode Outflow (Display widget, non-clickable) */}
+        <View
           style={styles.gaugeCol}
-          onPress={onPressBudget}
-          disabled={!onPressBudget}
-          hitSlop={6}
-          accessibilityRole="button"
+          accessible={true}
           accessibilityLabel={
             isBudgetMode
               ? `Weekly budget: ${formatCurrency(weekSpent)} of ${formatCurrency(weekBudget)} spent. ${
-                  isOverBudget ? `${formatCurrency(overAmount)} over budget` : `${formatCurrency(remainingBudget)} remaining`
-                }. Tap to edit budget.`
+                  isOverBudget
+                    ? `${formatCurrency(overAmount)} over budget`
+                    : `${formatCurrency(remainingBudget)} remaining`
+                }.`
               : `Week transactions: ${transactionCount} logged, total ${formatCurrency(weekSpent)}.`
           }
         >
@@ -150,23 +138,38 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
                 />
               </View>
 
-              {/* Subtitle: margin or pace */}
-              <Text
-                style={[
-                  styles.colSubtext,
-                  {
-                    color: isOverBudget ? '#FF7A6E' : isDark ? colors.mintGreen : colors.mintGreenDark,
-                    fontFamily: FontFamily.semibold,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {isOverBudget
-                  ? `₹${formatAmountWithCommas(String(overAmount))} over weekly budget`
-                  : isCurrentWeek && safeDailyPace > 0
-                  ? `₹${formatAmountWithCommas(String(remainingBudget))} margin · ₹${formatAmountWithCommas(String(safeDailyPace))}/day pace`
-                  : `₹${formatAmountWithCommas(String(remainingBudget))} safe margin`}
-              </Text>
+              {/* Clean 2-line Subtitle to prevent any truncation */}
+              <View style={styles.subtextContainer}>
+                <Text
+                  style={[
+                    styles.colSubtextBold,
+                    {
+                      color: isOverBudget ? '#FF7A6E' : isDark ? colors.mintGreen : colors.mintGreenDark,
+                      fontFamily: FontFamily.bold,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isOverBudget
+                    ? `₹${formatAmountWithCommas(String(overAmount))} over budget`
+                    : `₹${formatAmountWithCommas(String(remainingBudget))} left`}
+                </Text>
+
+                {isCurrentWeek && safeDailyPace > 0 && !isOverBudget ? (
+                  <Text
+                    style={[
+                      styles.colSubtextMuted,
+                      {
+                        color: colors.textSecondary,
+                        fontFamily: FontFamily.medium,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    ₹{formatAmountWithCommas(String(safeDailyPace))}/day pace
+                  </Text>
+                ) : null}
+              </View>
             </>
           ) : (
             /* Pure Mode Adaptation (No dummy budget) */
@@ -190,7 +193,7 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
               </Text>
               <Text
                 style={[
-                  styles.colSubtext,
+                  styles.colSubtextMuted,
                   { color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: 4 },
                 ]}
                 numberOfLines={1}
@@ -199,7 +202,7 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
               </Text>
             </>
           )}
-        </Pressable>
+        </View>
 
         {/* Vertical divider */}
         <View style={[styles.verticalDivider, { backgroundColor: colors.borderSubtle }]} />
@@ -266,7 +269,7 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: BorderRadius.card, // 20
     padding: Spacing.block, // 16
-    marginBottom: Spacing.surface, // 20
+    marginBottom: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -286,8 +289,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   takeawayText: {
-    fontSize: 13.5,
-    lineHeight: 18,
+    fontSize: FontSize.bodySmall, // 14
+    lineHeight: 19,
     flex: 1,
   },
   divider: {
@@ -330,15 +333,23 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: 'hidden',
     marginTop: 6,
-    marginBottom: 4,
+    marginBottom: 5,
   },
   progressFill: {
     height: '100%',
     borderRadius: 3,
   },
-  colSubtext: {
-    fontSize: 11,
+  subtextContainer: {
     marginTop: 2,
+    gap: 1,
+  },
+  colSubtextBold: {
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
+  colSubtextMuted: {
+    fontSize: 11,
+    lineHeight: 15,
   },
   savingsPill: {
     alignSelf: 'flex-start',

@@ -238,7 +238,6 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    paddingVertical: Spacing.surface,
     marginTop: Spacing.section,
   },
   headerRow: {
