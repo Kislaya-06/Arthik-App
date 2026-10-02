@@ -93,6 +93,9 @@ export const AmountText: React.FC<AmountTextProps> = ({
           {prefix}
         </Text>
         <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.65}
           style={[
             styles.heroNumber,
             { color: resolvedColor },

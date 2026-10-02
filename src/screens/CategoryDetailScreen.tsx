@@ -57,18 +57,14 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
   const renderItem = useCallback(({ item }: { item: Expense }) => {
     const isIncome = isIncomeTransaction(item, category);
     return (
-      <Pressable
+      <TransactionRow
+        expense={item}
+        category={category}
+        isIncome={isIncome}
+        colors={colors}
+        isDark={isDark}
         onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
-        android_ripple={{ color: colors.cardSubtle, borderless: false }}
-      >
-        <TransactionRow
-          expense={item}
-          category={category}
-          isIncome={isIncome}
-          colors={colors}
-          isDark={isDark}
-        />
-      </Pressable>
+      />
     );
   }, [navigation, category, colors, isDark]);
 
@@ -98,10 +94,14 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerCenter}>
-          <View style={[styles.headerIconBadge, { backgroundColor: categoryColor }]}>
-            <CategoryIcon size={20} color="#000000" strokeWidth={2.2} />
-          </View>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+          <GradientIconBadge size={36} color={categoryColor} isDark={isDark}>
+            {({ iconColor }) => <CategoryIcon size={18} color={iconColor} strokeWidth={2.2} />}
+          </GradientIconBadge>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+          >
             {category.name}
           </Text>
         </View>
@@ -216,6 +216,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.block,
   },
   headerCenter: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,

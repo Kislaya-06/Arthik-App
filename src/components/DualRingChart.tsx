@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Pressable } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
+import { useTheme } from '../store/themeStore';
 import { computeDualRingState } from '../lib/chartUtils';
 import { formatCompactCurrency } from '../lib/formatters';
 
@@ -26,6 +27,7 @@ export const DualRingChart: React.FC<DualRingChartProps> = ({
   innerRadius = 32,
   isDark = false,
 }) => {
+  const { colors } = useTheme();
   const [showAmounts, setShowAmounts] = useState(false);
 
   const center = size / 2;
@@ -82,8 +84,8 @@ export const DualRingChart: React.FC<DualRingChartProps> = ({
     extrapolate: 'clamp',
   });
 
-  // Track colors with 0.15 opacity
-  const outerTrackColor = 'rgba(16, 185, 129, 0.15)';
+  // Track colors with theme token
+  const outerTrackColor = colors.mintGreenSoft;
   const innerTrackColor = state.isOverIncome
     ? 'rgba(239, 68, 68, 0.15)'
     : 'rgba(224, 90, 71, 0.15)';

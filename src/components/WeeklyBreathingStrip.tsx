@@ -96,6 +96,8 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
                 { color: colors.textPrimary, fontFamily: FontFamily.bold },
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
               {isBudgetMode
                 ? `₹${formatAmountWithCommas(String(safeDailyPace))}`
@@ -169,6 +171,8 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
                 },
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
               {totalWeekSavings > 0 ? `+${formatCurrency(totalWeekSavings)}` : formatCurrency(0)}
             </Text>
@@ -265,6 +269,7 @@ const styles = StyleSheet.create({
   tileAmount: {
     fontSize: 20,
     lineHeight: 26,
+    flexShrink: 1,
   },
   tileUnit: {
     fontSize: 12.5,

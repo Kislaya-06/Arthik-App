@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -33,11 +33,19 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const [isMounted, setIsMounted] = useState(visible);
   const slideAnim = useRef(new Animated.Value(400)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (!visible) return;
+    }
+
     if (visible) {
+      setIsMounted(true);
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -63,15 +71,17 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
           duration: 180,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(() => {
+        setIsMounted(false);
+      });
     }
   }, [visible, slideAnim, fadeAnim]);
 
-  if (!visible) return null;
+  if (!isMounted) return null;
 
   return (
     <Modal
-      visible={visible}
+      visible={isMounted}
       transparent
       animationType="none"
       onRequestClose={onClose}
@@ -152,7 +162,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
               activeOpacity={0.85}
             >
               <Plus size={18} color={isDark ? colors.forestGreen : '#FFFFFF'} strokeWidth={2.5} />
-              <Text style={[styles.primaryButtonText, { color: isDark ? colors.forestGreen : '#FFFFFF' }]}>+ Add Income First</Text>
+              <Text style={[styles.primaryButtonText, { color: isDark ? colors.forestGreen : '#FFFFFF' }]}>Add Income First</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

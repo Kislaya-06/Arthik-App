@@ -38,6 +38,7 @@ import { SpendingFlowChart } from '../components/SpendingFlowChart';
 import { CashFlowChart } from '../components/CashFlowChart';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { AmountText } from '../components/ui/AmountText';
+import { AppButton } from '../components/ui/AppButton';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
 import { WeeklyBreathingStrip } from '../components/WeeklyBreathingStrip';
 import { MonthlyBreathingStrip } from '../components/MonthlyBreathingStrip';
@@ -1849,9 +1850,15 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </>
         ) : (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyStateText, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
-              No expenses found for this period.
+            <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+              Log an expense or income to unlock your spending breakdown.
             </Text>
+            <AppButton
+              label="Add Transaction"
+              size="compact"
+              onPress={() => navigation.navigate('AddExpense')}
+              style={styles.emptyStateCta}
+            />
           </View>
         )}
       </ScrollView>
@@ -1995,8 +2002,21 @@ const styles = StyleSheet.create({
   legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: Spacing.group },
   legendName: { fontSize: FontSize.body },
   legendSubtext: { fontSize: FontSize.bodySmall, marginTop: Spacing.nano },
-  emptyState: { alignItems: 'center', marginTop: Spacing.section },
-  emptyStateText: { fontSize: FontSize.body },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: Spacing.gutter,
+  },
+  emptyStateText: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
+    textAlign: 'center',
+    marginBottom: Spacing.block,
+  },
+  emptyStateCta: {
+    minWidth: 160,
+  },
   expandCategoriesBtn: {
     flexDirection: 'row',
     alignItems: 'center',

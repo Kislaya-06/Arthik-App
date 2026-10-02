@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Premium UX, Interaction & Motion Polish (P0 & P1 Approved Audit)
+- **Eliminated Jitter & Unnecessary Screen Animations:**
+  - Removed the 50px slide/fade entry animation from `HistoryScreen` on focus for instant tab navigation.
+  - Removed keypad `amountScale` punch on digit entry in `ExpenseFormScreen`, preserving tactile keypress feedback and shake feedback on zero-save while keeping real money amounts strictly stable.
+  - Calmed down `StreakFlame` by eliminating continuous ember particles, radial pulses, and flutter loops; retained subtle milestone springs on streak change.
+  - Replaced gesture-intercepting `PanResponder` on `TelegramPullIndicator` with an accessible, tap-driven full history affordance that does not fight `HomeScreen` scrolling.
+- **Segmented Control & Toggle Consolidation:**
+  - Enhanced canonical `<SegmentedControl />` with icon support, configurable heights (`standard: 48`, `compact: 36`), and custom active pill colors.
+  - Consolidated `BouncyFilterToggle`, `BouncyTypeToggle`, `BouncyPaymentToggle`, `BudgetEditModal`, and `ProfileScreen` theme selector to use `<SegmentedControl />`.
+  - Simplified `AnimatedToggle` by removing 360° ball rotation and artificial highlight dot, leaving a crisp, spring-settled thumb translation.
+  - Fixed floating badge alignment in `<SegmentedControl />` with exact horizontal pill centering and clearance for label icons and text.
+- **Action Buttons & Badges Modernization:**
+  - Migrated raw action buttons in `ExpenseDetailScreen` and `GullakDepositDetailScreen` to `<AppButton />` with `primary` and `danger` variants.
+  - Replaced ad-hoc circular category container in `CategoryDetailScreen` with canonical `<GradientIconBadge />`.
+  - Replaced hardcoded hex colors and deprecated typography tokens in `ExpenseDetailScreen` with theme tokens (`colors.background`, `colors.textPrimary`, `colors.textSecondary`, `FontSize.display`).
+  - Encapsulated unified 0.98 scale press feedback and subtle active background highlight directly inside `<TransactionRow />`.
+- **Spatial Continuity & Fluid Transitions:**
+  - Added exit lifecycle transitions (`isMounted` + 180ms ease-out slide-down) to custom bottom sheets (`VaultSpendingGuardModal`, `PeriodRenewalModal`, `CadenceSwitchModal`, `DepositGullakModal`) to prevent abrupt disappearance.
+  - Implemented continuous value-to-value interpolation in `DonutChart` and `SpendingFlowChart`, removing intermediate 0-resets when switching filters.
+  - Optimized `BrandedHeroCard` numeric count-up animation by throttling re-renders to ~20fps, reducing JS-thread pressure by ~80% while ensuring exact final values.
+
 ### 🎨 Arthik Design System Unification & Token Governance
 - **Runtime Source of Truth (`src/config/theme.ts`):** Standardized 8-tier typography hierarchy (`display`, `titleLarge`, `titleMedium`, `titleSmall`, `body`, `bodySmall`, `caption`, `micro`), spatial rhythm tokens (`Spacing.nano` through `Spacing.section`), and interactive `ControlHeight` tokens (`cta: 60`, `row: 56`, `standard: 48`, `compact: 36`).
 - **Standardized UI Primitives (`src/components/ui/`):**

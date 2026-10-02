@@ -46,28 +46,17 @@ const DonutChartBase: React.FC<DonutProps> = ({
   const targetSpentPercentage = hasData ? Math.round((spent / total) * 100) : 0;
   const isOverspent = hasData && spent > total;
 
-  const anim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const [displayPercentage, setDisplayPercentage] = useState(0);
+  const anim = useRef(new Animated.Value(targetSpentRatio)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [displayPercentage, setDisplayPercentage] = useState(targetSpentPercentage);
 
   useEffect(() => {
     let isMounted = true;
-    // Reset to 0 on filter switch or initial mount so percentage smoothly rolls up
-    anim.setValue(0);
-    setDisplayPercentage(0);
 
-    // Gentle spring scale on change
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 70,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-
-    // Smooth arc sweep
+    // Smooth continuous transition from CURRENT value to new target (no reset to 0)
     const sweep = Animated.timing(anim, {
       toValue: targetSpentRatio,
-      duration: 480,
+      duration: 320,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     });
@@ -88,7 +77,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
       anim.removeListener(listenerId);
       sweep.stop();
     };
-  }, [targetSpentRatio, targetSpentPercentage, anim, scaleAnim, triggerKey]);
+  }, [targetSpentRatio, targetSpentPercentage, anim, triggerKey]);
 
   // Interpolated stroke dashoffset for the spent (peach) arc
   const spentOffset = anim.interpolate({
@@ -155,6 +144,8 @@ const DonutChartBase: React.FC<DonutProps> = ({
             },
           ]}
           numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
         >
           {`${displayPercentage}%`}
         </Text>

@@ -544,18 +544,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               const isIncome = isIncomeTransaction(e, cat);
               return (
                 <StaggerRow key={e.id} index={idx}>
-                  <TouchableOpacity
-                    activeOpacity={0.75}
+                  <TransactionRow
+                    expense={e}
+                    category={cat}
+                    isIncome={isIncome}
+                    colors={colors}
+                    isDark={isDark}
                     onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
-                  >
-                    <TransactionRow
-                      expense={e}
-                      category={cat}
-                      isIncome={isIncome}
-                      colors={colors}
-                      isDark={isDark}
-                    />
-                  </TouchableOpacity>
+                  />
                 </StaggerRow>
               );
             })}

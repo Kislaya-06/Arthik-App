@@ -13,6 +13,7 @@ import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { AppButton } from '../components/ui/AppButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
@@ -152,19 +153,13 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
         </View>
 
         {/* Delete Button */}
-        <Pressable
-          style={[
-            styles.deleteBtn,
-            {
-              borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : colors.peachSoft,
-              backgroundColor: isDark ? 'transparent' : colors.peachSoft,
-            },
-          ]}
+        <AppButton
+          label="Remove from Gullak"
           onPress={handleDelete}
-        >
-          <Trash2 size={18} color={colors.danger} />
-          <Text style={[styles.deleteBtnText, { color: colors.danger }]}>Remove from Gullak</Text>
-        </Pressable>
+          variant="danger"
+          size="cta"
+          icon={<Trash2 size={18} color="#FFFFFF" />}
+        />
       </ScrollView>
     </View>
   );

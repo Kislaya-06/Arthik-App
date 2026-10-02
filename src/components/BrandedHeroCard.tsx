@@ -272,7 +272,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
             ? `Weekly budget exceeded · 0 daily pace remaining`
-            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day (non-binding)`;
+            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day`;
         }
         if (activeFilter === 'Monthly') {
           return `Weekly budget active · ${cadencePeriodSummary.remainingDays} days left this week`;
@@ -287,7 +287,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
             ? `Monthly budget exceeded · 0 daily pace remaining`
-            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day (non-binding)`;
+            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day`;
         }
       }
       return formatCadenceRolloverStrip(cadencePeriodSummary, budgetCadence);
@@ -397,16 +397,24 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       useNativeDriver: false,
     });
 
+    let lastUpdate = 0;
+    const UPDATE_INTERVAL_MS = 50; // Throttle JS updates to ~20fps to prevent 60-120fps re-render thrashing
+
     const listenerId = countAnim.addListener(({ value }) => {
       if (!isMounted) return;
 
+      const now = Date.now();
+      if (now - lastUpdate < UPDATE_INTERVAL_MS && value < 0.98) {
+        return;
+      }
+      lastUpdate = now;
+
       const curPrimary = round2(startPrimary + (targetPrimary - startPrimary) * value);
-      setDisplayPrimaryAmount(curPrimary);
-
       const curIncome = round2(startIncome + (targetIncome - startIncome) * value);
-      setDisplayTotalAvailable(curIncome);
-
       const curSpent = round2(startSpent + (targetSpent - startSpent) * value);
+
+      setDisplayPrimaryAmount(curPrimary);
+      setDisplayTotalAvailable(curIncome);
       setDisplayPeriodSpent(curSpent);
     });
 
@@ -491,7 +499,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.7}
+              minimumFontScale={0.6}
             >
               {formatCurrency(displayPrimaryAmount)}
             </Text>

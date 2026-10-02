@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  SectionList, RefreshControl, Platform, Animated,
+  SectionList, RefreshControl, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -55,18 +55,14 @@ interface TransactionRowItemProps {
 const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
   const isIncome = isIncomeTransaction(item, category);
   return (
-    <Pressable
+    <TransactionRow
+      expense={item}
+      category={category}
+      isIncome={isIncome}
+      colors={colors}
+      isDark={colors.isDark}
       onPress={() => onPress(item.id)}
-      android_ripple={{ color: colors.cardSubtle, borderless: false }}
-    >
-      <TransactionRow
-        expense={item}
-        category={category}
-        isIncome={isIncome}
-        colors={colors}
-        isDark={colors.isDark}
-      />
-    </Pressable>
+    />
   );
 });
 
@@ -119,30 +115,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     await Promise.all([fetchExpenses(), fetchCategories()]);
   }, [fetchExpenses, fetchCategories]);
 
-  const enterAnim = useRef(new Animated.Value(0)).current;
-
   useFocusEffect(
     useCallback(() => {
       loadData(false);
-      enterAnim.setValue(0);
-      Animated.spring(enterAnim, {
-        toValue: 1,
-        tension: 65,
-        friction: 9,
-        useNativeDriver: true,
-      }).start();
-    }, [loadData, enterAnim]),
+    }, [loadData]),
   );
-
-  const screenSlideAnim = enterAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0],
-  });
-
-  const screenFadeAnim = enterAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.15, 1],
-  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -449,15 +426,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Animated.View
-        style={[
-          styles.container,
-          {
-            opacity: screenFadeAnim,
-            transform: [{ translateY: screenSlideAnim }],
-          },
-        ]}
-      >
+      <View style={styles.container}>
 
         {/* Header Row */}
         <View style={styles.header}>
@@ -538,7 +507,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           ListEmptyComponent={renderEmptyState}
         />
 
-      </Animated.View>
+      </View>
     </View>
   );
 };

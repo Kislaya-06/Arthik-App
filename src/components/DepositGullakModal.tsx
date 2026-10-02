@@ -61,11 +61,19 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
   const sheetAnim = useRef(new Animated.Value(0)).current;
 
+  const [isMounted, setIsMounted] = useState(visible);
   const addGullakDeposit = useDailyBudgetStore((s) => s.addGullakDeposit);
   const availableIncome = useDailyBudgetStore((s) => s.getAvailableIncomeBalance());
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (!visible) return;
+    }
+
     if (visible) {
+      setIsMounted(true);
       setStep('source');
       setSource('external');
       setAmount('');
@@ -80,6 +88,14 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
         friction: 8,
         useNativeDriver: true,
       }).start();
+    } else {
+      Animated.timing(sheetAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start(() => {
+        setIsMounted(false);
+      });
     }
   }, [visible, celebrationScale, celebrationOpacity, sheetAnim]);
 
@@ -138,11 +154,13 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
     }
   }, [isValidAmount, isCelebrating, evaluatedAmount, note, source, addGullakDeposit, onClose, celebrationScale, celebrationOpacity]);
 
+  if (!isMounted) return null;
+
   return (
     <Modal
-      visible={visible}
+      visible={isMounted}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView

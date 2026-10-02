@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   Animated,
-  Easing,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
@@ -46,6 +45,132 @@ const DEFAULT_TRACK_HEIGHT = 130;
 const DEFAULT_TRACK_WIDTH = 32;
 const MIN_FILL_HEIGHT = 28;
 
+interface FlowBarColumnProps {
+  item: SpendingDayData;
+  targetHeight: number;
+  trackWidth: number;
+  isPeak: boolean;
+  isDark: boolean;
+  colors: ThemeColors;
+  gradStart: string;
+  gradEnd: string;
+  onPress?: () => void;
+}
+
+const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
+  item,
+  targetHeight,
+  trackWidth,
+  isPeak,
+  isDark,
+  colors,
+  gradStart,
+  gradEnd,
+  onPress,
+}) => {
+  const heightAnim = useRef(new Animated.Value(targetHeight)).current;
+
+  useEffect(() => {
+    // Value-to-value continuous transition without resetting to zero
+    Animated.spring(heightAnim, {
+      toValue: targetHeight,
+      tension: 70,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [targetHeight, heightAnim]);
+
+  const animatedTranslateY = heightAnim.interpolate({
+    inputRange: [0, DEFAULT_TRACK_HEIGHT],
+    outputRange: [DEFAULT_TRACK_HEIGHT, 0],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Pressable
+      style={styles.column}
+      onPress={onPress}
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.day}: ${formatCurrency(item.amount)}`}
+    >
+      {/* Outer vertical capsule track */}
+      <View
+        style={[
+          styles.track,
+          {
+            width: trackWidth,
+            backgroundColor: isDark
+              ? 'rgba(255, 255, 255, 0.05)'
+              : colors.chartTrack,
+          },
+        ]}
+      >
+        {/* Inner animated fill pill with SVG gradient mask */}
+        {item.amount > 0 ? (
+          <Animated.View
+            style={[
+              styles.fillBar,
+              {
+                width: trackWidth,
+                height: DEFAULT_TRACK_HEIGHT,
+                transform: [{ translateY: animatedTranslateY }],
+              },
+            ]}
+          >
+            <Svg width={trackWidth} height={DEFAULT_TRACK_HEIGHT}>
+              <Defs>
+                <LinearGradient id={`grad_${item.day}`} x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0%" stopColor={gradStart} />
+                  <Stop offset="100%" stopColor={gradEnd} />
+                </LinearGradient>
+              </Defs>
+              <Rect
+                width={trackWidth}
+                height={DEFAULT_TRACK_HEIGHT}
+                rx={trackWidth / 2}
+                ry={trackWidth / 2}
+                fill={`url(#grad_${item.day})`}
+              />
+            </Svg>
+          </Animated.View>
+        ) : null}
+      </View>
+
+      {/* Day / Week Label */}
+      <Text
+        style={[
+          styles.dayLabel,
+          {
+            color: isPeak
+              ? (isDark ? colors.mintGreen : colors.mintGreenDark)
+              : (isDark ? colors.textMuted : colors.textSecondary),
+            fontFamily: isPeak ? FontFamily.bold : FontFamily.medium,
+          },
+        ]}
+      >
+        {item.day.toUpperCase()}
+      </Text>
+
+      {/* Optional sub-label */}
+      {item.subLabel ? (
+        <Text
+          style={[
+            styles.subDateLabel,
+            {
+              color: isDark ? colors.textMuted : colors.textSecondary,
+              fontFamily: FontFamily.regular,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {item.subLabel}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+});
+
 export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
   title = 'Spending Flow',
   data,
@@ -59,20 +184,6 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
   onDayPress,
   triggerKey,
 }) => {
-  // Animated height driver for smooth pill fill transitions
-  const animValue = useRef(new Animated.Value(0)).current;
-
-  // Entrance animation whenever data / triggerKey changes
-  useEffect(() => {
-    animValue.setValue(0);
-    Animated.spring(animValue, {
-      toValue: 1,
-      tension: 60,
-      friction: 8,
-      useNativeDriver: false,
-    }).start();
-  }, [triggerKey]);
-
   // Calculate highest amount in the set
   const maxAmount = useMemo(() => {
     return Math.max(...data.map((d) => d.amount), 0);
@@ -96,7 +207,7 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
           ) : null}
         </View>
 
-        {/* Trend badge (matching reference design) */}
+        {/* Trend badge */}
         {percentageChange !== undefined && (
           <View
             style={[
@@ -109,22 +220,22 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
             ]}
           >
             {isIncrease ? (
-              <TrendingUp size={12} color={isDark ? '#F4B8AE' : '#E8956A'} />
+              <TrendingUp size={14} color={colors.coral} />
             ) : (
-              <TrendingDown size={12} color={isDark ? '#B8E0C8' : colors.mintGreenDark} />
+              <TrendingDown size={14} color={isDark ? colors.mintGreen : colors.mintGreenDark} />
             )}
             <Text
               style={[
                 styles.trendText,
                 {
                   color: isIncrease
-                    ? (isDark ? '#F4B8AE' : '#E8956A')
-                    : (isDark ? '#B8E0C8' : colors.mintGreenDark),
+                    ? colors.coral
+                    : (isDark ? colors.mintGreen : colors.mintGreenDark),
                   fontFamily: FontFamily.bold,
                 },
               ]}
             >
-              {isIncrease ? `+${percentageChange}%` : `-${percentageChange}%`}
+              {Math.abs(percentageChange)}% {isIncrease ? 'more' : 'less'}
             </Text>
           </View>
         )}
@@ -141,94 +252,19 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
             MIN_FILL_HEIGHT
           );
 
-          const animatedTranslateY = animValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetHeight],
-          });
-
           return (
-            <Pressable
+            <FlowBarColumn
               key={d.day}
-              style={styles.column}
+              item={d}
+              targetHeight={targetHeight}
+              trackWidth={trackWidth}
+              isPeak={isPeak}
+              isDark={isDark}
+              colors={colors}
+              gradStart={gradStart}
+              gradEnd={gradEnd}
               onPress={() => onDayPress?.(d)}
-              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              accessibilityRole="button"
-              accessibilityLabel={`${d.day}: ${formatCurrency(d.amount)}`}
-            >
-              {/* Outer vertical capsule track */}
-              <View
-                style={[
-                  styles.track,
-                  {
-                    width: trackWidth,
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.05)'
-                      : colors.chartTrack,
-                  },
-                ]}
-              >
-                {/* Inner animated fill pill with SVG gradient mask */}
-                {d.amount > 0 ? (
-                  <Animated.View
-                    style={[
-                      styles.fillBar,
-                      {
-                        width: trackWidth,
-                        height: DEFAULT_TRACK_HEIGHT,
-                        transform: [{ translateY: animatedTranslateY }],
-                      },
-                    ]}
-                  >
-                    <Svg width={trackWidth} height={DEFAULT_TRACK_HEIGHT}>
-                      <Defs>
-                        <LinearGradient id={`grad_${d.day}`} x1="0" y1="0" x2="0" y2="1">
-                          <Stop offset="0" stopColor={gradStart} />
-                          <Stop offset="1" stopColor={gradEnd} />
-                        </LinearGradient>
-                      </Defs>
-                      <Rect
-                        width={trackWidth}
-                        height={DEFAULT_TRACK_HEIGHT}
-                        rx={trackWidth / 2}
-                        ry={trackWidth / 2}
-                        fill={`url(#grad_${d.day})`}
-                      />
-                    </Svg>
-                  </Animated.View>
-                ) : null}
-              </View>
-
-              {/* Day / Week Label (e.g. MON, TUE or W1, W2) */}
-              <Text
-                style={[
-                  styles.dayLabel,
-                  {
-                    color: isPeak
-                      ? (isDark ? colors.mintGreen : colors.mintGreenDark)
-                      : (isDark ? colors.textMuted : colors.textSecondary),
-                    fontFamily: isPeak ? FontFamily.bold : FontFamily.medium,
-                  },
-                ]}
-              >
-                {d.day.toUpperCase()}
-              </Text>
-
-              {/* Optional sub-label (e.g. '1–7' for Monthly weeks) */}
-              {d.subLabel ? (
-                <Text
-                  style={[
-                    styles.subDateLabel,
-                    {
-                      color: isDark ? colors.textMuted : colors.textSecondary,
-                      fontFamily: FontFamily.regular,
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {d.subLabel}
-                </Text>
-              ) : null}
-            </Pressable>
+            />
           );
         })}
       </View>
@@ -238,64 +274,78 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: Spacing.section,
+    paddingVertical: Spacing.gutter,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.card,
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: Spacing.gutter,
+    marginBottom: Spacing.section,
+    paddingHorizontal: 8,
   },
   titleContainer: {
     flex: 1,
-    marginRight: Spacing.element,
   },
   title: {
-    fontSize: 18,
+    fontSize: FontSize.titleMedium,
+    lineHeight: FontSize.titleMedium * 1.25,
+    letterSpacing: -0.2,
   },
   subTitle: {
     fontSize: FontSize.bodySmall,
-    marginTop: Spacing.nano,
+    marginTop: 2,
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.element,
-    paddingVertical: Spacing.micro,
-    gap: Spacing.nano + 1,
   },
   trendText: {
-    fontSize: 11,
+    fontSize: FontSize.caption,
   },
   chartContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.nano,
+    alignItems: 'flex-end',
+    height: DEFAULT_TRACK_HEIGHT + 44,
   },
   column: {
-    alignItems: 'center',
     flex: 1,
+    alignItems: 'center',
   },
   track: {
     height: DEFAULT_TRACK_HEIGHT,
     borderRadius: BorderRadius.pill,
     overflow: 'hidden',
+    position: 'relative',
     justifyContent: 'flex-end',
-    alignItems: 'center',
   },
   fillBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     borderRadius: BorderRadius.pill,
+    overflow: 'hidden',
   },
   dayLabel: {
-    marginTop: 10,
-    fontSize: 11,
-    letterSpacing: 0.5,
+    fontSize: FontSize.caption,
+    marginTop: 8,
+    textAlign: 'center',
   },
   subDateLabel: {
     fontSize: 9,
-    marginTop: 2,
-    letterSpacing: 0.2,
+    marginTop: 1,
+    textAlign: 'center',
+    letterSpacing: -0.2,
   },
 });
+
+export default SpendingFlowChart;

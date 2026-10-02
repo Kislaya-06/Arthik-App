@@ -34,6 +34,7 @@ import { KeyButton } from './KeyButton';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { CadenceSwitchModal } from './CadenceSwitchModal';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { SegmentedControl } from './ui/SegmentedControl';
 
 export interface BudgetEditModalProps {
   visible: boolean;
@@ -94,19 +95,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const expenses = useExpenseStore((s) => s.expenses);
   const todayRecord = useDailyBudgetStore((s) => s.getTodayRecord());
 
-  // 3-Segment sliding pill animation
-  const cadenceIndex = CADENCE_OPTIONS.findIndex((c) => c.key === selectedCadence);
-  const slideAnim = useRef(new Animated.Value(cadenceIndex >= 0 ? cadenceIndex : 0)).current;
-  const [toggleWidth, setToggleWidth] = useState(0);
 
-  useEffect(() => {
-    Animated.spring(slideAnim, {
-      toValue: cadenceIndex >= 0 ? cadenceIndex : 0,
-      tension: 70,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  }, [cadenceIndex, slideAnim]);
 
   // Sync state on modal open
   useEffect(() => {
@@ -340,11 +329,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     onClose,
   ]);
 
-  const segmentWidth = toggleWidth > 0 ? (toggleWidth - 8) / 3 : 0;
-  const translateX = slideAnim.interpolate({
-    inputRange: [0, 1, 2],
-    outputRange: [0, segmentWidth, segmentWidth * 2],
-  });
+
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -479,58 +464,19 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
               </View>
             )}
 
-            {/* 3-Segment Cadence Toggle (Bouncy pill) */}
-            <View
-              style={[
-                styles.cadenceToggleContainer,
-                {
-                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                },
-              ]}
-              onLayout={(e) => {
-                const w = e.nativeEvent.layout.width;
-                if (w > 0 && Math.abs(w - toggleWidth) > 1) {
-                  setToggleWidth(w);
-                }
-              }}
-            >
-              {segmentWidth > 0 && (
-                <Animated.View
-                  style={[
-                    styles.cadenceSlidingPill,
-                    {
-                      width: segmentWidth,
-                      backgroundColor: '#FFFFFF',
-                      transform: [{ translateX }],
-                    },
-                  ]}
-                />
-              )}
-
-              {CADENCE_OPTIONS.map((opt) => {
-                const isSelected = selectedCadence === opt.key;
-                return (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={styles.cadenceSegment}
-                    activeOpacity={0.8}
-                    onPress={() => handleSelectCadence(opt.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.cadenceSegmentText,
-                        {
-                          color: isSelected ? '#581C87' : 'rgba(255, 255, 255, 0.8)',
-                          fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
-                        },
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            {/* 3-Segment Cadence Toggle (Unified SegmentedControl) */}
+            <View style={{ marginBottom: Spacing.block }}>
+              <SegmentedControl
+                options={CADENCE_OPTIONS.map((opt) => ({ key: opt.key, label: opt.label }))}
+                selectedKey={selectedCadence}
+                onChange={(key) => handleSelectCadence(key as BudgetCadence)}
+                height={44}
+                backgroundColor="rgba(255, 255, 255, 0.12)"
+                borderColor="rgba(255, 255, 255, 0.2)"
+                activePillColor="#FFFFFF"
+                activeTextColor="#581C87"
+                inactiveTextColor="rgba(255, 255, 255, 0.85)"
+              />
             </View>
 
             {/* Prominent Amount Display Row */}

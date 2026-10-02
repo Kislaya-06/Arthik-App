@@ -65,11 +65,19 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
     }
   }, [visible, initialTargetAmount]);
 
+  const [isMounted, setIsMounted] = useState(visible);
   const slideAnim = useRef(new Animated.Value(500)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (!visible) return;
+    }
+
     if (visible) {
+      setIsMounted(true);
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -84,8 +92,20 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
         }),
       ]).start();
     } else {
-      slideAnim.setValue(500);
-      fadeAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 500,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsMounted(false);
+      });
     }
   }, [visible, slideAnim, fadeAnim]);
 
@@ -116,14 +136,14 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
     });
   }, [onConfirmSwitch, targetCadence, targetAmount, carryMode, plan.carriedAmount]);
 
-  if (!visible) return null;
+  if (!isMounted) return null;
 
   const currentLabel = currentCadence.charAt(0).toUpperCase() + currentCadence.slice(1);
   const targetLabel = targetCadence.charAt(0).toUpperCase() + targetCadence.slice(1);
 
   return (
     <Modal
-      visible={visible}
+      visible={isMounted}
       transparent
       animationType="none"
       onRequestClose={onClose}

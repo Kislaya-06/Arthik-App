@@ -322,3 +322,111 @@ This repo uses **Vitest** (`npm test`). Tests live in `tests/<subject>.test.ts`.
 ## 21.3 Writing & maintaining tests
 - Look at existing tests in `tests/` for standard mock patterns (`@react-native-async-storage/async-storage`, `supabase`, `useAuthStore`).
 - Never delete passing tests unless the feature is deliberately removed.
+
+---
+
+# 22. Stability & Change Discipline
+
+Arthik has completed its major UI/UX stabilization and polish cycle.
+
+The following areas have already been comprehensively reviewed and validated:
+- Design system consistency
+- Shared UI primitives
+- Animation and interaction behavior
+- Responsive layouts
+- 320–360px narrow-screen behavior
+- Light / Dark / AMOLED themes
+- Financial information readability
+- Modal and gesture behavior
+- Transaction interactions
+- Budget/cadence UX
+- Financial trust and terminology
+- Product-level UX coherence
+- Accessibility and real-world usability
+
+Therefore:
+
+## 22.1 Treat the Existing Product as Stable
+The current implementation is the approved baseline.
+Do not continuously search for minor imperfections, subjective visual differences, cosmetic inconsistencies, or hypothetical edge cases in already-stable areas.
+
+## 22.2 Do Not Create Work Just to "Improve" Something
+Do not modify existing UI, animations, spacing, typography, colors, interactions, or architecture merely because:
+- another pattern could also work
+- a different design is possible
+- a micro-polish opportunity exists
+- a generic UX guideline suggests a different approach
+- an automated audit finds a cosmetic nit
+- a personal preference suggests a different implementation
+
+## 22.3 Only Fix Real, Material Problems
+An existing area should only be changed when there is a concrete and reproducible problem such as:
+- functional bug
+- data/financial correctness issue
+- crash
+- blocking usability problem
+- accessibility failure
+- actual layout break
+- regression
+- security issue
+- performance problem with measurable impact
+- explicit product requirement change
+
+## 22.4 Do Not Run Endless Audit → Fix → Audit Loops
+Do not repeatedly run break-ui, animation audits, UX audits, or similar review processes on stable areas unless:
+- the user explicitly requests another audit, OR
+- a significant architectural/product change makes a new audit genuinely necessary.
+
+## 22.5 Protect Stable Behavior
+When implementing a new feature, preserve existing:
+- design language
+- component behavior
+- animation language
+- interaction patterns
+- financial rules
+- navigation behavior
+- responsive behavior
+- theme behavior
+
+Do not "clean up" unrelated existing code while implementing a feature.
+
+## 22.6 Scope Discipline
+For every task:
+- Change only what is required for the requested feature/fix.
+- Do not opportunistically refactor unrelated components.
+- Do not fix unrelated minor issues discovered while working.
+- Do not introduce new abstractions unless they are actually required.
+- Prefer the smallest safe change.
+
+## 22.7 When a Possible Issue is Discovered
+Classify it before changing anything:
+- **P0/P1**: Real, reproducible, materially harmful issue → may require action.
+- **P2**: Meaningful issue → mention it only if it affects the current task or the user explicitly asks for polish.
+- **P3**: Cosmetic, subjective, hypothetical, or preference-based issue → **DO NOT** change it.
+
+## 22.8 Ask Before Expanding Scope
+If a discovered issue is outside the current task and is not a serious blocker, do not silently fix it.
+Mention it separately and wait for explicit approval.
+
+## 22.9 Preserve the Approved Design System
+[`docs/ARTHIK_DESIGN_SYSTEM.md`](docs/ARTHIK_DESIGN_SYSTEM.md) and the existing implementation are the source of truth.
+Do not introduce new design rules simply because a generic design system, AI audit, or external recommendation suggests them.
+
+## 22.10 Prioritize Product Progress Over Perpetual Polish
+Once a feature passes its required validation, consider it done.
+The goal is not to make the codebase theoretically perfect.
+The goal is to maintain a stable, trustworthy product while continuing meaningful product development.
+
+### Default Decision Rule
+> **"Don't touch stable code unless there is a concrete reason."**
+
+Before changing existing behavior, the agent should be able to clearly answer:
+1. What is actually broken?
+2. Can it be reproduced?
+3. Why does it materially matter?
+4. Is the issue within the current task?
+5. What is the smallest safe fix?
+
+If these questions cannot be answered convincingly, **leave the existing implementation unchanged**.
+
+This policy takes precedence over speculative polish and should be followed for all future feature implementation, refactoring, debugging, UX review, and design work.

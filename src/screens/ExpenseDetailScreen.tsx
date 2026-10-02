@@ -19,6 +19,7 @@ import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/pay
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { AppButton } from '../components/ui/AppButton';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
@@ -252,16 +253,19 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Bottom Actions */}
           <View style={styles.actionsContainer}>
-            <Pressable onPress={handleEdit} style={[styles.editButton, { backgroundColor: colors.mint }]}>
-              <Text style={[styles.editButtonText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
-                Edit Expense
-              </Text>
-            </Pressable>
-            <Pressable onPress={handleDelete} style={[styles.editButton, { backgroundColor: colors.peachSoft, marginTop: Spacing.block }]}>
-              <Text style={[styles.editButtonText, { color: colors.coral, fontFamily: FontFamily.bold }]}>
-                Delete Expense
-              </Text>
-            </Pressable>
+            <AppButton
+              label={isIncome ? 'Edit Transaction' : 'Edit Expense'}
+              onPress={handleEdit}
+              variant="primary"
+              size="cta"
+            />
+            <AppButton
+              label={isIncome ? 'Delete Transaction' : 'Delete Expense'}
+              onPress={handleDelete}
+              variant="danger"
+              size="cta"
+              style={{ marginTop: Spacing.block }}
+            />
           </View>
 
         </ScrollView>
@@ -273,7 +277,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8F9FB',
   },
   container: {
     flex: 1,
@@ -332,7 +335,6 @@ const styles = StyleSheet.create({
   badgeText: {
     marginTop: Spacing.block,
     fontSize: FontSize.body,
-    color: '#8A8FA3',
   },
   amountContainer: {
     alignItems: 'center',
@@ -343,13 +345,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   currencySymbol: {
-    fontSize: FontSize.screenTitle,
-    color: '#1A2B4C',
+    fontSize: FontSize.display,
     marginRight: Spacing.micro,
   },
   amountValue: {
     fontSize: 60,
-    color: '#1A2B4C',
   },
   typeBadgeContainer: {
     alignItems: 'center',

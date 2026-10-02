@@ -34,11 +34,11 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   useEffect(() => {
     Animated.spring(animValue, {
       toValue: value ? 1 : 0,
-      tension: 50,
-      friction: 6,
-      useNativeDriver: false, // color interpolation needs false
+      tension: 70,
+      friction: 8,
+      useNativeDriver: false, // color interpolation
     }).start();
-  }, [value]);
+  }, [value, animValue]);
 
   const toggle = () => {
     onValueChange(!value);
@@ -46,7 +46,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
 
   const handlePressIn = () => {
     Animated.spring(pressScale, {
-      toValue: 0.9,
+      toValue: 0.94,
       useNativeDriver: true,
     }).start();
   };
@@ -81,12 +81,6 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   const translateX = animValue.interpolate({
     inputRange: [0, 1],
     outputRange: [0, maxTranslate],
-  });
-
-  // Rotate to give a "rolling ball" effect as requested
-  const rotate = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
   });
 
   const textOpacityOn = animValue;
@@ -147,7 +141,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           ON
         </Animated.Text>
 
-        {/* Rolling Thumb */}
+        {/* Refined Sliding Thumb (Linear spring motion without rotation or rolling highlight) */}
         <Animated.View
           style={[
             styles.thumb,
@@ -156,13 +150,10 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
               height: thumbSize,
               borderRadius: thumbSize / 2,
               backgroundColor: thumbColor,
-              transform: [{ translateX }, { rotate }],
+              transform: [{ translateX }],
             },
           ]}
-        >
-          {/* Subtle inner highlight to make rotation visible */}
-          <View style={styles.thumbHighlight} />
-        </Animated.View>
+        />
       </Animated.View>
     </Pressable>
   );
@@ -185,18 +176,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  thumbHighlight: {
-    width: '30%',
-    height: '30%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    position: 'absolute',
-    top: '15%',
-    right: '25%',
-  },
   text: {
     position: 'absolute',
     fontFamily: FontFamily.bold,
     fontSize: 10,
   },
 });
+
+export default AnimatedToggle;

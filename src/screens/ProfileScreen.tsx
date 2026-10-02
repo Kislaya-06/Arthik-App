@@ -30,6 +30,7 @@ import { BudgetEditModal } from '../components/BudgetEditModal';
 import { MoneyHelpBadge, MoneyExplainerModal } from '../components/MoneyExplainerModal';
 import { formatCadenceBudgetSubtitle } from '../lib/budgetModeUtils';
 import { AnimatedToggle } from '../components/AnimatedToggle';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -712,89 +713,18 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* 3 Theme Choice Cards */}
-            <View style={styles.themeSelectorRow}>
-              {/* 1. Light */}
-              <TouchableOpacity
-                style={[
-                  styles.themeOptionBtn,
-                  {
-                    backgroundColor: activeTheme === 'light' ? (isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5EE') : colors.cardSubtle,
-                    borderColor: activeTheme === 'light' ? colors.mintGreen : colors.borderSubtle,
-                  },
+            {/* 3 Theme Choice Cards using unified SegmentedControl */}
+            <View style={{ marginTop: Spacing.group }}>
+              <SegmentedControl
+                options={[
+                  { key: 'light', label: 'Light', icon: Sun },
+                  { key: 'dark', label: 'Dark', icon: Moon },
+                  { key: 'amoled', label: 'AMOLED', icon: Sparkles, badge: 'Recommended' },
                 ]}
-                onPress={() => setThemeMode('light')}
-                activeOpacity={0.75}
-              >
-                <Sun size={15} color={activeTheme === 'light' ? (isDark ? colors.mintGreen : colors.textPrimary) : colors.textSecondary} />
-                <Text
-                  style={[
-                    styles.themeOptionLabel,
-                    {
-                      color: activeTheme === 'light' ? colors.textPrimary : colors.textSecondary,
-                      fontFamily: activeTheme === 'light' ? FontFamily.bold : FontFamily.medium,
-                    },
-                  ]}
-                >
-                  Light
-                </Text>
-              </TouchableOpacity>
-
-              {/* 2. Dark */}
-              <TouchableOpacity
-                style={[
-                  styles.themeOptionBtn,
-                  {
-                    backgroundColor: activeTheme === 'dark' ? (isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5EE') : colors.cardSubtle,
-                    borderColor: activeTheme === 'dark' ? colors.mintGreen : colors.borderSubtle,
-                  },
-                ]}
-                onPress={() => setThemeMode('dark')}
-                activeOpacity={0.75}
-              >
-                <Moon size={15} color={activeTheme === 'dark' ? colors.mintGreen : colors.textSecondary} />
-                <Text
-                  style={[
-                    styles.themeOptionLabel,
-                    {
-                      color: activeTheme === 'dark' ? colors.textPrimary : colors.textSecondary,
-                      fontFamily: activeTheme === 'dark' ? FontFamily.bold : FontFamily.medium,
-                    },
-                  ]}
-                >
-                  Dark
-                </Text>
-              </TouchableOpacity>
-
-              {/* 3. AMOLED (Recommended) */}
-              <TouchableOpacity
-                style={[
-                  styles.themeOptionBtn,
-                  styles.themeOptionBtnAmoled,
-                  {
-                    backgroundColor: activeTheme === 'amoled' ? (isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5EE') : colors.cardSubtle,
-                    borderColor: activeTheme === 'amoled' ? colors.mintGreen : colors.borderSubtle,
-                  },
-                ]}
-                onPress={() => setThemeMode('amoled')}
-                activeOpacity={0.75}
-              >
-                <View style={styles.amoledBadgeContainer}>
-                  <Text style={styles.amoledBadgeText}>Recommended</Text>
-                </View>
-                <Sparkles size={15} color={activeTheme === 'amoled' ? colors.mintGreen : colors.textSecondary} />
-                <Text
-                  style={[
-                    styles.themeOptionLabel,
-                    {
-                      color: activeTheme === 'amoled' ? colors.textPrimary : colors.textSecondary,
-                      fontFamily: activeTheme === 'amoled' ? FontFamily.bold : FontFamily.medium,
-                    },
-                  ]}
-                >
-                  AMOLED
-                </Text>
-              </TouchableOpacity>
+                selectedKey={activeTheme}
+                onChange={(key) => setThemeMode(key as 'light' | 'dark' | 'amoled')}
+                height={48}
+              />
             </View>
           </View>
 

@@ -143,6 +143,8 @@ const CategoryChipItem: React.FC<{
           strokeWidth={isSelected ? 2.2 : 2.0}
         />
         <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
           style={[
             styles.categoryChipText,
             { color: contentColor, fontFamily: FontFamily.bold },
@@ -212,6 +214,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleSelectNoteSuggestion,
   } = useExpenseForm({ route, navigation });
 
+  const isIncome = transactionType === 'income';
+
   const onTypeChange = useCallback(
     (type: 'expense' | 'income') => {
       handleTypeChange(type);
@@ -220,20 +224,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     [handleTypeChange, showKeypad]
   );
 
-  // Animations: Amount scale punch on key press & error shake on invalid save
-  const amountScale = useRef(new Animated.Value(1)).current;
+  // Animation: Error shake on invalid save (amount scale punch removed for instant typing)
   const amountShake = useRef(new Animated.Value(0)).current;
-  const prevAmountRef = useRef(amount);
-
-  useEffect(() => {
-    if (amount !== prevAmountRef.current && amount.length > 0) {
-      Animated.sequence([
-        Animated.timing(amountScale, { toValue: 1.05, duration: 60, useNativeDriver: true }),
-        Animated.spring(amountScale, { toValue: 1, tension: 70, friction: 8, useNativeDriver: true }),
-      ]).start();
-    }
-    prevAmountRef.current = amount;
-  }, [amount, amountScale]);
 
   const triggerErrorShake = useCallback(() => {
     Animated.sequence([
@@ -428,7 +420,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               styles.amountRow,
               {
                 transform: [
-                  { scale: amountScale },
                   { translateX: amountShake },
                 ],
               },
@@ -486,7 +477,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           >
             <View style={styles.sectionLabelRow}>
               <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-                CATEGORY
+                {isIncome ? 'INCOME SOURCE' : 'CATEGORY'}
               </Text>
               {(areCategoriesPlaceholder || isCategoriesLoading) && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

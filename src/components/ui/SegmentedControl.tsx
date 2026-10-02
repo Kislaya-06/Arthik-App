@@ -16,6 +16,7 @@ export interface SegmentedOption {
   key: string;
   label: string;
   badge?: string | number;
+  icon?: React.ComponentType<{ size: number; color: string }> | ((props: { size: number; color: string }) => React.ReactNode);
 }
 
 export interface SegmentedControlProps {
@@ -23,6 +24,13 @@ export interface SegmentedControlProps {
   selectedKey: string;
   onChange: (key: string) => void;
   style?: StyleProp<ViewStyle>;
+  height?: number;
+  borderRadius?: number;
+  activePillColor?: string;
+  activeTextColor?: string;
+  inactiveTextColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
   testID?: string;
 }
 
@@ -41,11 +49,12 @@ const OptionItem: React.FC<OptionItemProps> = ({
   activeColor,
   inactiveColor,
 }) => {
+  const { colors } = useTheme();
   const pressScale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
     Animated.spring(pressScale, {
-      toValue: 0.93,
+      toValue: 0.94,
       useNativeDriver: true,
     }).start();
   };
@@ -57,6 +66,9 @@ const OptionItem: React.FC<OptionItemProps> = ({
       useNativeDriver: true,
     }).start();
   };
+
+  const IconComponent = option.icon;
+  const textColor = isSelected ? activeColor : inactiveColor;
 
   return (
     <Pressable
@@ -76,18 +88,31 @@ const OptionItem: React.FC<OptionItemProps> = ({
           { transform: [{ scale: pressScale }] },
         ]}
       >
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.optionLabel,
-            {
-              color: isSelected ? activeColor : inactiveColor,
-              fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
-            },
-          ]}
-        >
-          {option.label}
-        </Text>
+        {option.badge ? (
+          <View style={styles.badgeWrapper} pointerEvents="none">
+            <View style={[styles.badgePill, { backgroundColor: colors.mintGreenDark }]}>
+              <Text style={styles.badgeText}>{option.badge}</Text>
+            </View>
+          </View>
+        ) : null}
+        <View style={styles.labelRow}>
+          {IconComponent ? (
+            <IconComponent size={15} color={textColor} />
+          ) : null}
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.optionLabel,
+              {
+                color: textColor,
+                fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
+                marginLeft: IconComponent ? 6 : 0,
+              },
+            ]}
+          >
+            {option.label}
+          </Text>
+        </View>
       </Animated.View>
     </Pressable>
   );
@@ -95,14 +120,22 @@ const OptionItem: React.FC<OptionItemProps> = ({
 
 /**
  * Standardized SegmentedControl primitive for Arthik.
- * Sliding mint-green pill with bouncy spring physics (tension: 70, friction: 8)
- * and per-item press scale (0.93) matching BouncyFilterToggle feel exactly.
+ * Sliding pill with bouncy spring physics (tension: 70, friction: 8)
+ * and per-item press scale (0.94).
+ * Supports text-only, icon + text options, badges, and customizable height.
  */
 export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   options,
   selectedKey,
   onChange,
   style,
+  height = 44,
+  borderRadius = BorderRadius.pill,
+  activePillColor,
+  activeTextColor,
+  inactiveTextColor,
+  backgroundColor,
+  borderColor,
   testID,
 }) => {
   const { colors } = useTheme();
@@ -118,19 +151,27 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
 
   const [containerWidth, setContainerWidth] = React.useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const isFirstLayout = useRef(true);
 
-  const optionWidth = containerWidth > 0 && normalizedOptions.length > 0
-    ? (containerWidth - Spacing.micro * 2) / normalizedOptions.length
-    : 0;
+  const optionWidth =
+    containerWidth > 0 && normalizedOptions.length > 0
+      ? (containerWidth - Spacing.micro * 2) / normalizedOptions.length
+      : 0;
 
   useEffect(() => {
     if (optionWidth > 0) {
-      Animated.spring(slideAnim, {
-        toValue: selectedIndex * optionWidth,
-        tension: 70,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
+      const targetX = selectedIndex * optionWidth;
+      if (isFirstLayout.current) {
+        slideAnim.setValue(targetX);
+        isFirstLayout.current = false;
+      } else {
+        Animated.spring(slideAnim, {
+          toValue: targetX,
+          tension: 70,
+          friction: 8,
+          useNativeDriver: true,
+        }).start();
+      }
     }
   }, [selectedIndex, optionWidth, slideAnim]);
 
@@ -141,6 +182,12 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
     }
   };
 
+  const resolvedBg = backgroundColor ?? colors.cardSubtle;
+  const resolvedBorder = borderColor ?? colors.borderSubtle;
+  const resolvedPillBg = activePillColor ?? colors.mintGreen;
+  const resolvedActiveText = activeTextColor ?? colors.forestGreen;
+  const resolvedInactiveText = inactiveTextColor ?? colors.textSecondary;
+
   return (
     <View
       onLayout={handleLayout}
@@ -150,9 +197,10 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
       style={[
         styles.container,
         {
-          backgroundColor: colors.cardSubtle,
-          borderRadius: BorderRadius.pill,
-          borderColor: colors.borderSubtle,
+          height,
+          backgroundColor: resolvedBg,
+          borderRadius,
+          borderColor: resolvedBorder,
         },
         style,
       ]}
@@ -164,8 +212,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             {
               width: optionWidth,
               transform: [{ translateX: slideAnim }],
-              backgroundColor: colors.mintGreen,
-              borderRadius: BorderRadius.pill,
+              backgroundColor: resolvedPillBg,
+              borderRadius: Math.max(4, borderRadius - 2),
             },
           ]}
         />
@@ -178,8 +226,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             option={option}
             isSelected={option.key === selectedKey}
             onPress={() => onChange(option.key)}
-            activeColor={colors.forestGreen}
-            inactiveColor={colors.textSecondary}
+            activeColor={resolvedActiveText}
+            inactiveColor={resolvedInactiveText}
           />
         ))}
       </View>
@@ -195,7 +243,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     width: '100%',
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   sliderPill: {
     position: 'absolute',
@@ -222,6 +270,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   optionContent: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  labelRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -231,4 +286,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     includeFontPadding: false,
   },
+  badgeWrapper: {
+    position: 'absolute',
+    top: -22,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  badgePill: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    lineHeight: 11,
+    fontFamily: FontFamily.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    includeFontPadding: false,
+  },
 });
+
+export default SegmentedControl;

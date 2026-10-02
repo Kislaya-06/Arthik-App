@@ -364,11 +364,14 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
       >
         {/* ── Header ── */}
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerTitleContainer}>
             <Text style={[styles.screenSubtitle, { color: colors.textSecondary }]}>
               Savings & Gullak
             </Text>
-            <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>
+            <Text
+              style={[styles.screenTitle, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
               {budgetCadence === 'weekly' ? 'Weekly Savings' : budgetCadence === 'monthly' ? 'Monthly Savings' : 'Daily Savings'}
             </Text>
           </View>
@@ -1020,6 +1023,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.block,
   },
+  headerTitleContainer: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: Spacing.element,
+  },
   screenSubtitle: {
     fontSize: FontSize.bodySmall,
     lineHeight: LineHeight.bodySmall,
@@ -1032,6 +1040,7 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   streakBadge: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,

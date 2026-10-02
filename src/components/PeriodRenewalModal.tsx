@@ -71,12 +71,21 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
     }
   }, [visible, isAutoRenew, budgetAmount]);
 
+  const [isMounted, setIsMounted] = useState(visible);
+
   // Bottom sheet spring physics
   const slideAnim = useRef(new Animated.Value(450)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (!visible) return;
+    }
+
     if (visible) {
+      setIsMounted(true);
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -91,8 +100,20 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
         }),
       ]).start();
     } else {
-      slideAnim.setValue(450);
-      fadeAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 450,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsMounted(false);
+      });
     }
   }, [visible, slideAnim, fadeAnim]);
 
@@ -137,12 +158,12 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
   const cadenceName = cadence === 'weekly' ? 'Week' : 'Month';
   const cadenceNameLower = cadence === 'weekly' ? 'weekly' : 'monthly';
 
-  if (!visible) return null;
+  if (!isMounted) return null;
 
   return (
     <Modal
       transparent
-      visible={visible}
+      visible={isMounted}
       animationType="none"
       onRequestClose={onClose}
     >

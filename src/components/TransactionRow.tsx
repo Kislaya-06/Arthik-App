@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { DollarSign, Wallet } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { Expense } from '../store/expenseStore';
@@ -8,6 +8,7 @@ import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { GradientIconBadge } from './GradientIconBadge';
 import { AmountText } from './ui/AmountText';
+import { formatCurrency } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 export type TxRowProps = {
@@ -16,9 +17,37 @@ export type TxRowProps = {
   isIncome: boolean;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
+  onPress?: () => void;
 };
 
-const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome, colors, isDark }) => {
+const TransactionRowBase: React.FC<TxRowProps> = ({
+  expense,
+  category,
+  isIncome,
+  colors,
+  isDark,
+  onPress,
+}) => {
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(pressScale, {
+      toValue: 0.98,
+      tension: 120,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressScale, {
+      toValue: 1,
+      tension: 100,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : (isIncome ? Wallet : DollarSign);
   const catColor = category?.color ?? (isIncome ? '#ADEBB3' : '#FFD3AC');
 
@@ -48,12 +77,13 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
   const mainTitle = hasNote ? expense.note!.trim() : categoryName;
   const subtitle = hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
 
-  return (
-    <View
+  const rowContent = (
+    <Animated.View
       style={[
         styles.txRow,
         {
           borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+          transform: [{ scale: pressScale }],
         },
       ]}
     >
@@ -77,13 +107,42 @@ const TransactionRowBase: React.FC<TxRowProps> = ({ expense, category, isIncome,
         />
         <Text style={[styles.txDate, { color: colors.textMuted }]}>{dateStr}</Text>
       </View>
-    </View>
+    </Animated.View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={({ pressed }) => [
+          styles.pressableContainer,
+          {
+            backgroundColor: pressed
+              ? (isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.02)')
+              : 'transparent',
+          },
+        ]}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={`${mainTitle}, ${formatCurrency(expense.amount)}`}
+      >
+        {rowContent}
+      </Pressable>
+    );
+  }
+
+  return rowContent;
 };
 
 export const TransactionRow = React.memo(TransactionRowBase);
 
 const styles = StyleSheet.create({
+  pressableContainer: {
+    borderRadius: BorderRadius.card,
+    overflow: 'hidden',
+  },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -93,6 +152,7 @@ const styles = StyleSheet.create({
   },
   txMiddle: {
     flex: 1,
+    minWidth: 0,
     marginLeft: Spacing.group,
     justifyContent: 'center',
   },
@@ -109,6 +169,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   txRight: {
+    flexShrink: 0,
     alignItems: 'flex-end',
     justifyContent: 'center',
     marginLeft: Spacing.group,
@@ -120,3 +181,5 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+
+export default TransactionRow;
