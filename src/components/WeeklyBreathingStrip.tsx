@@ -4,6 +4,7 @@ import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
 import { SmartTakeawayResult } from '../lib/weeklyInsightsUtils';
+import { RollingText } from './RollingText';
 
 export interface WeeklyBreathingStripProps {
   takeaway: SmartTakeawayResult;
@@ -90,19 +91,19 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
           </Text>
 
           <View style={styles.valueRow}>
-            <Text
-              style={[
-                styles.tileAmount,
-                { color: colors.textPrimary, fontFamily: FontFamily.bold },
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-            >
-              {isBudgetMode
+            <RollingText
+              text={isBudgetMode
                 ? `₹${formatAmountWithCommas(String(safeDailyPace))}`
                 : `₹${formatAmountWithCommas(String(weeklyDailyBurnPace))}`}
-            </Text>
+              style={{
+                fontSize: 20,
+                lineHeight: 26,
+                fontFamily: FontFamily.bold,
+                color: colors.textPrimary,
+              }}
+              minScale={0.75}
+              rollOnFocus
+            />
             <Text
               style={[
                 styles.tileUnit,
@@ -162,20 +163,17 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
           </Text>
 
           <View style={styles.valueRow}>
-            <Text
-              style={[
-                styles.tileAmount,
-                {
-                  color: totalWeekSavings > 0 ? (isDark ? colors.mintGreen : colors.forestGreen) : colors.textPrimary,
-                  fontFamily: FontFamily.bold,
-                },
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-            >
-              {totalWeekSavings > 0 ? `+${formatCurrency(totalWeekSavings)}` : formatCurrency(0)}
-            </Text>
+            <RollingText
+              text={totalWeekSavings > 0 ? `+${formatCurrency(totalWeekSavings)}` : formatCurrency(0)}
+              style={{
+                fontSize: 20,
+                lineHeight: 26,
+                fontFamily: FontFamily.bold,
+                color: totalWeekSavings > 0 ? (isDark ? colors.mintGreen : colors.forestGreen) : colors.textPrimary,
+              }}
+              minScale={0.75}
+              rollOnFocus
+            />
           </View>
 
           {/* Saved days pill badge */}

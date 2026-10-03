@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   AlertCircle,
   Coins,
+  CalendarDays,
   Bell,
   Trash2,
   CheckCheck,
@@ -60,7 +61,11 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       case 'budget_warning':
         return <AlertTriangle size={20} color={iconColor} strokeWidth={2.2} />;
       case 'savings_rollover':
+      case 'gullak_reward':
         return <Sparkles size={20} color={iconColor} strokeWidth={2.2} />;
+      case 'weekly_recap':
+      case 'monthly_recap':
+        return <CalendarDays size={20} color={iconColor} strokeWidth={2.2} />;
       case 'daily_reminder':
         return <Coins size={20} color={iconColor} strokeWidth={2.2} />;
       default:
@@ -75,7 +80,11 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       case 'budget_warning':
         return '#F4A460';
       case 'savings_rollover':
+      case 'gullak_reward':
         return '#ADEBB3';
+      case 'weekly_recap':
+      case 'monthly_recap':
+        return '#B8D4F4';
       case 'daily_reminder':
         return '#EBAEE6';
       default:
@@ -85,11 +94,17 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleNotificationPress = (notif: AppNotification) => {
     markAsRead(notif.id);
+    if (notif.type === 'weekly_recap' || notif.type === 'monthly_recap') {
+      navigation.navigate('AppTabs', { screen: 'Insights' });
+      return;
+    }
     if (
       notif.type === 'budget_warning' ||
       notif.type === 'budget_exceeded' ||
       notif.type === 'savings_rollover' ||
-      notif.type === 'daily_reminder'
+      notif.type === 'gullak_reward' ||
+      notif.type === 'daily_reminder' ||
+      notif.data?.screen === 'Savings'
     ) {
       const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
       if (!isBudgetModeEnabled || notif.type === 'daily_reminder') {

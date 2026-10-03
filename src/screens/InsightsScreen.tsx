@@ -1242,6 +1242,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         refreshControl={
           <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -1302,6 +1303,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               value={currentTotal}
               color="#2D1E1E"
               showDecimals={currentTotal % 1 !== 0}
+              rolling
+              rollOnFocus
             />
           </View>
 

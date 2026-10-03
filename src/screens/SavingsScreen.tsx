@@ -289,8 +289,9 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     );
   }, [cancelScheduledNextDailyBudget]);
 
-  // ─── Priority 1 Animations: Piggy Bounce, Flame Breathe & Progress Fill ────
+  // Priority 1 Animations: Piggy Bounce, Flame Breathe & Progress Fill ────
   const heroPiggyScale = useRef(new Animated.Value(1)).current;
+  const cardTarget = Math.round(cardIsOver ? cardOverAmount : cardRemaining);
   const prevSavingsRef = useRef(totalAccumulatedSavings);
 
   const triggerPiggyBounce = useCallback(() => {
@@ -467,6 +468,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
               role="hero"
               value={totalAccumulatedSavings}
               color="#FFFFFF"
+              rolling
+              rollOnFocus
             />
             <Text style={[styles.heroHelperText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
               {`Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
@@ -643,8 +646,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   <View style={styles.ucAmountRow}>
                     <AmountText
                       role="primary"
-                      value={Math.round(cardIsOver ? cardOverAmount : cardRemaining)}
+                      value={cardTarget}
                       color={cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF'}
+                      rolling
+                      rollOnFocus
                     />
                   </View>
                 </View>

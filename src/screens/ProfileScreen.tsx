@@ -20,7 +20,8 @@ import { useExpenseStore, getPendingSyncCount } from '../store/expenseStore';
 import { useNetworkStore } from '../store/networkStore';
 import { RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
-import { scheduleDailyReminder, cancelDailyReminder } from '../lib/notificationService';
+import { setupNotifications } from '../lib/notificationService';
+import { setNotificationsEnabled as applyNotificationsEnabled } from '../lib/notificationSync';
 import { useAppLockStore } from '../store/appLockStore';
 import { useOtaStore } from '../store/otaStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -120,12 +121,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleToggleNotifications = async (val: boolean) => {
     setNotificationsEnabled(val);
-    await AsyncStorage.setItem('@arthik_notifications_enabled', val ? 'true' : 'false');
     if (val) {
-      scheduleDailyReminder(20, 0);
-    } else {
-      cancelDailyReminder();
+      await setupNotifications(); // asks for the OS permission if it was never granted
     }
+    // Saves the preference and rebuilds (on) or cancels (off) every scheduled notification.
+    await applyNotificationsEnabled(val);
   };
 
   // Edit Profile modal state

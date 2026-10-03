@@ -188,7 +188,7 @@ All transaction list items across `HomeScreen`, `HistoryScreen`, and `ExpenseDet
   - **Primary Slide:** Apple-calibrated critically damped spring (`tension: 100, friction: 16`, `useNativeDriver: true`) — zero overshoot outside container bounds.
   - **Leading-Edge Liquid Morph:** Direction-aware forward pull (`leadAnim`) + distance-scaled horizontal stretch (`scaleX: 1.08–1.28`) and subtle vertical volume squish (`scaleY: 0.96–0.88`) during flight, snapping smoothly into resting stadium geometry upon arrival.
   - **Strict Track Clipping:** Inner slider track enforces `overflow: 'hidden'` with container radius, ensuring the sliding pill is physically contained within the border at all times without clipping top badges.
-- **Press animation:** Per-item scale `0.94` on `onPressIn`, spring back `friction: 4` on `onPressOut`.
+- **Press animation & Touch Model:** Per-item scale `0.94` on `onPressIn`, spring back `friction: 4` on `onPressOut`. Selection is strictly triggered on `onPress` (touch-up). No speculative `selectOnPressIn` or touch hijacking refs. Outer edges have generous hitSlop (`left: 16` on option 0, `right: 16` on last option) with zero horizontal overlap between neighboring buttons, accompanied by `pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}` so micro-slides from cross-screen thumb reach do not cancel presses. ScrollViews hosting the control must use `keyboardShouldPersistTaps="handled"`.
 
 ### 6.6 Status Badges (`<StatusBadge />`)
 - Height `26px`, padding horizontal `10px`, radius `BorderRadius.pill`.

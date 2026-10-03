@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
   LayoutChangeEvent,
   Animated,
   Easing,
@@ -12,6 +13,7 @@ import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react-native';
 import { DonutChart } from './DonutChart';
 import { DualRingChart } from './DualRingChart';
+import { RollingText } from './RollingText';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
@@ -373,141 +375,15 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     todayRecordSpent,
   ]);
 
-  const prevPrimaryRef = useRef(effectiveTargets.targetPrimary);
-  const prevIncomeRef = useRef(effectiveTargets.targetIncome);
-  const prevSpentRef = useRef(effectiveTargets.targetSpent);
-  const curPrimaryRef = useRef(effectiveTargets.targetPrimary);
-  const curIncomeRef = useRef(effectiveTargets.targetIncome);
-  const curSpentRef = useRef(effectiveTargets.targetSpent);
-  const isFirstRender = useRef(true);
-
-  const countAnim = useRef(new Animated.Value(0)).current;
-  const morphAnim = useRef(new Animated.Value(0)).current;
-
-  const [displayPrimaryAmount, setDisplayPrimaryAmount] = useState(
-    () => effectiveTargets.targetPrimary
-  );
-  const [displayTotalAvailable, setDisplayTotalAvailable] = useState(
-    () => effectiveTargets.targetIncome
-  );
-  const [displayPeriodSpent, setDisplayPeriodSpent] = useState(
-    () => effectiveTargets.targetSpent
-  );
-
-  const morphOpacity = morphAnim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [1, 0.75, 1],
-    extrapolate: 'clamp',
-  });
-
-  const morphTranslateY = morphAnim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0, -1.5, 0],
-    extrapolate: 'clamp',
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-    const { targetPrimary, targetIncome, targetSpent } = effectiveTargets;
-
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      prevPrimaryRef.current = targetPrimary;
-      prevIncomeRef.current = targetIncome;
-      prevSpentRef.current = targetSpent;
-      curPrimaryRef.current = targetPrimary;
-      curIncomeRef.current = targetIncome;
-      curSpentRef.current = targetSpent;
-      setDisplayPrimaryAmount(targetPrimary);
-      setDisplayTotalAvailable(targetIncome);
-      setDisplayPeriodSpent(targetSpent);
-      return;
-    }
-
-    // Always animate from presentation (current on-screen) value for seamless interruption continuity
-    const startPrimary = curPrimaryRef.current;
-    const startIncome = curIncomeRef.current;
-    const startSpent = curSpentRef.current;
-
-    if (startPrimary === targetPrimary && startIncome === targetIncome && startSpent === targetSpent) {
-      return;
-    }
-
-    // Trigger native micro-morph in parallel (subtle opacity softening & upward lift)
-    morphAnim.setValue(0);
-    Animated.timing(morphAnim, {
-      toValue: 1,
-      duration: 320,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      useNativeDriver: true,
-    }).start();
-
-    countAnim.setValue(0);
-    const animation = Animated.timing(countAnim, {
-      toValue: 1,
-      duration: 320,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      useNativeDriver: false,
-    });
-
-    let lastUpdate = 0;
-    const UPDATE_INTERVAL_MS = 16; // 60fps continuous fluid roll; no chart re-rendering bottleneck
-
-    const interpolateValue = (start: number, target: number, progress: number): number => {
-      const raw = start + (target - start) * progress;
-      // If start and target are whole numbers, keep intermediate frames as integers.
-      // This completely eliminates decimal popping (e.g. .50) that causes character count
-      // expansion and adjustsFontSizeToFit horizontal jitter.
-      const isBothInteger = Number.isInteger(start) && Number.isInteger(target);
-      return isBothInteger ? Math.round(raw) : round2(raw);
-    };
-
-    const listenerId = countAnim.addListener(({ value }) => {
-      if (!isMounted) return;
-
-      const now = Date.now();
-      if (now - lastUpdate < UPDATE_INTERVAL_MS && value < 0.98) {
-        return;
-      }
-      lastUpdate = now;
-
-      const curPrimary = interpolateValue(startPrimary, targetPrimary, value);
-      const curIncome = interpolateValue(startIncome, targetIncome, value);
-      const curSpent = interpolateValue(startSpent, targetSpent, value);
-
-      curPrimaryRef.current = curPrimary;
-      curIncomeRef.current = curIncome;
-      curSpentRef.current = curSpent;
-
-      setDisplayPrimaryAmount(curPrimary);
-      setDisplayTotalAvailable(curIncome);
-      setDisplayPeriodSpent(curSpent);
-    });
-
-    animation.start(({ finished }) => {
-      if (finished && isMounted) {
-        prevPrimaryRef.current = targetPrimary;
-        prevIncomeRef.current = targetIncome;
-        prevSpentRef.current = targetSpent;
-        curPrimaryRef.current = targetPrimary;
-        curIncomeRef.current = targetIncome;
-        curSpentRef.current = targetSpent;
-        setDisplayPrimaryAmount(targetPrimary);
-        setDisplayTotalAvailable(targetIncome);
-        setDisplayPeriodSpent(targetSpent);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      countAnim.removeListener(listenerId);
-      animation.stop();
-      // On interruption, preserve actual presentation value rather than jumping to target
-      prevPrimaryRef.current = curPrimaryRef.current;
-      prevIncomeRef.current = curIncomeRef.current;
-      prevSpentRef.current = curSpentRef.current;
-    };
-  }, [effectiveTargets, countAnim, morphAnim]);
+  // Numbers are handed to <RollingText/> as their FINAL value. Each digit rolls on its own (odometer style,
+  // native thread) whenever the value changes, and rolls smoothly up from zero on screen entry via rollOnFocus.
+  const innerWidth = Math.max(0, (dimensions.width || DEFAULT_WIDTH) - 40); // cardInner: paddingHorizontal 20 x 2
+  const metricAmountMaxWidth = Math.max(0, innerWidth / 2 - 26); // half the card minus (trend chip 20 + gap 6)
+  const primaryAmountStyle = StyleSheet.flatten([
+    styles.primaryAmount,
+    { color: effectiveIsOver ? colors.danger : textColorPrimary },
+  ]);
+  const metricAmountStyle = StyleSheet.flatten([styles.metricAmount, { color: textColorPrimary }]);
 
   return (
     <View style={styles.outerWrapper}>
@@ -516,10 +392,8 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         {/* ── SVG Notched Background ── */}
         {dimensions.width > 0 && dimensions.height > 0 && (
           <Svg
-            width="100%"
-            height="100%"
-            viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-            preserveAspectRatio="none"
+            width={dimensions.width}
+            height={dimensions.height}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           >
@@ -547,25 +421,21 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             <Text style={[styles.primaryLabel, { color: textColorSecondary }]}>
               {effectivePrimaryLabel}
             </Text>
-            <Animated.View style={{ opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] }}>
-              <Text
-                style={[
-                  styles.primaryAmount,
-                  {
-                    color: effectiveIsOver ? colors.danger : textColorPrimary,
-                  },
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.6}
-              >
-                {formatCurrency(displayPrimaryAmount)}
-              </Text>
-            </Animated.View>
+            <RollingText
+              text={formatCurrency(effectiveTargets.targetPrimary)}
+              style={primaryAmountStyle}
+              minScale={0.6}
+              rollOnFocus
+            />
 
-            {/* Subtext Chips (Budget mode only) */}
+            {/* Subtext Chips (Budget mode only): horizontal single-row scroll keeps card height 100% stable */}
             {isBudgetModeEnabled && subtextParts.length > 0 && (
-              <View style={styles.subtextContainer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.subtextScroll}
+                contentContainerStyle={styles.subtextContainer}
+              >
                 {subtextParts.map((part, idx) => (
                   <View
                     key={idx}
@@ -585,7 +455,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                     </Text>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
             )}
           </View>
 
@@ -598,23 +468,18 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                 <Text style={styles.metricColLabel}>
                   {`${filterLabelPrefix} Income`}
                 </Text>
-                <Animated.View
-                  style={[
-                    styles.metricAmountRow,
-                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
-                  ]}
-                >
-                  <Text
-                    style={[styles.metricAmount, { color: textColorPrimary }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {`+${formatCurrency(displayTotalAvailable)}`}
-                  </Text>
+                <View style={styles.metricAmountRow}>
+                  <RollingText
+                    text={`+${formatCurrency(effectiveTargets.targetIncome)}`}
+                    style={metricAmountStyle}
+                    fitWidth={metricAmountMaxWidth}
+                    minScale={0.6}
+                    rollOnFocus
+                  />
                   <View style={styles.trendChipIncome}>
                     <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
                   </View>
-                </Animated.View>
+                </View>
               </View>
 
               {/* Expense Column */}
@@ -622,23 +487,18 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                 <Text style={styles.metricColLabel}>
                   {`${filterLabelPrefix} Expense`}
                 </Text>
-                <Animated.View
-                  style={[
-                    styles.metricAmountRow,
-                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
-                  ]}
-                >
-                  <Text
-                    style={[styles.metricAmount, { color: textColorPrimary }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {`−${formatCurrency(displayPeriodSpent)}`}
-                  </Text>
+                <View style={styles.metricAmountRow}>
+                  <RollingText
+                    text={`−${formatCurrency(effectiveTargets.targetSpent)}`}
+                    style={metricAmountStyle}
+                    fitWidth={metricAmountMaxWidth}
+                    minScale={0.6}
+                    rollOnFocus
+                  />
                   <View style={styles.trendChipExpense}>
                     <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
                   </View>
-                </Animated.View>
+                </View>
               </View>
             </View>
           ) : (
@@ -647,45 +507,35 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               {/* Inflow Column */}
               <View style={styles.metricCol}>
                 <Text style={styles.metricColLabel}>Inflow</Text>
-                <Animated.View
-                  style={[
-                    styles.metricAmountRow,
-                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
-                  ]}
-                >
-                  <Text
-                    style={[styles.metricAmount, { color: textColorPrimary }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {`+${formatCurrency(displayTotalAvailable)}`}
-                  </Text>
+                <View style={styles.metricAmountRow}>
+                  <RollingText
+                    text={`+${formatCurrency(effectiveTargets.targetIncome)}`}
+                    style={metricAmountStyle}
+                    fitWidth={metricAmountMaxWidth}
+                    minScale={0.6}
+                    rollOnFocus
+                  />
                   <View style={styles.trendChipIncome}>
                     <ArrowDownLeft size={11} color="#15803D" strokeWidth={2.5} />
                   </View>
-                </Animated.View>
+                </View>
               </View>
 
               {/* Outflow Column */}
               <View style={styles.metricCol}>
                 <Text style={styles.metricColLabel}>Outflow</Text>
-                <Animated.View
-                  style={[
-                    styles.metricAmountRow,
-                    { opacity: morphOpacity, transform: [{ translateY: morphTranslateY }] },
-                  ]}
-                >
-                  <Text
-                    style={[styles.metricAmount, { color: textColorPrimary }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {`−${formatCurrency(displayPeriodSpent)}`}
-                  </Text>
+                <View style={styles.metricAmountRow}>
+                  <RollingText
+                    text={`−${formatCurrency(effectiveTargets.targetSpent)}`}
+                    style={metricAmountStyle}
+                    fitWidth={metricAmountMaxWidth}
+                    minScale={0.6}
+                    rollOnFocus
+                  />
                   <View style={styles.trendChipExpense}>
                     <ArrowUpRight size={11} color="#DC2626" strokeWidth={2.5} />
                   </View>
-                </Animated.View>
+                </View>
               </View>
             </View>
           )}
@@ -698,9 +548,13 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               style={styles.rolloverStrip}
             >
               <PiggyBankCoinIcon size={16} color="#15803D" />
-              <Text style={[styles.rolloverText, { color: textColorPrimary }]} numberOfLines={1}>
-                {rolloverStripText}
-              </Text>
+              <RollingText
+                text={rolloverStripText}
+                style={StyleSheet.flatten([styles.rolloverTextFont, { color: textColorPrimary }])}
+                containerStyle={styles.rolloverText}
+                fitWidth={Math.max(0, innerWidth - 70)}
+                minScale={0.8}
+              />
               <ChevronRight size={14} color={textColorSecondary} />
             </TouchableOpacity>
           )}
@@ -782,20 +636,23 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     fontVariant: ['tabular-nums'],
   },
+  subtextScroll: {
+    marginTop: 8,
+    maxHeight: 28,
+  },
   subtextContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 6,
-    marginTop: 9,
   },
   subtextChip: {
     backgroundColor: 'rgba(26, 43, 76, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 8,
   },
   subtextChipText: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontFamily: FontFamily.semibold,
     color: 'rgba(26, 43, 76, 0.88)',
     includeFontPadding: false,
@@ -867,6 +724,8 @@ const styles = StyleSheet.create({
   },
   rolloverText: {
     flex: 1,
+  },
+  rolloverTextFont: {
     fontSize: 12,
     fontFamily: FontFamily.semibold,
   },

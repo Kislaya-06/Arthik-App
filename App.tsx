@@ -12,10 +12,10 @@ import { useCategoryStore } from './src/store/categoryStore';
 import { useExpenseStore } from './src/store/expenseStore';
 import { useDailyBudgetStore } from './src/store/dailyBudgetStore';
 import {
-  scheduleDailyReminder,
   registerNotificationResponseListener,
   setupNotifications,
 } from './src/lib/notificationService';
+import { startNotificationSync } from './src/lib/notificationSync';
 import Constants from 'expo-constants';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -78,23 +78,24 @@ export default function App() {
       useOtaStore.getState().checkForUpdates();
     }
 
-    // P1.5: Only schedule daily reminder if notifications toggle is enabled
-    AsyncStorage.getItem('@arthik_notifications_enabled').then((val) => {
-      if (val !== 'false') {
-        scheduleDailyReminder(20, 0);
-      }
-    });
+    // Smart notifications: the schedule is rebuilt from the user's data whenever it changes (see notificationPolicy.ts)
+    const stopNotificationSync = startNotificationSync();
 
     // Handle user tapping on a device notification in notification shade
     const unregisterNotif = registerNotificationResponseListener((data) => {
       const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
-      if (data?.type === 'daily_reminder') {
+      if (data?.type === 'log_nudge' || data?.screen === 'AddExpense') {
+        navigateTo('AddExpense');
+      } else if (data?.screen === 'Insights') {
+        navigateTo('AppTabs', { screen: 'Insights' });
+      } else if (data?.type === 'daily_reminder') {
         navigateTo('AppTabs', { screen: 'Home' });
       } else if (
         data?.screen === 'Savings' ||
         data?.type === 'budget_warning' ||
         data?.type === 'budget_exceeded' ||
-        data?.type === 'savings_rollover'
+        data?.type === 'savings_rollover' ||
+        data?.type === 'gullak_reward'
       ) {
         const target = resolveSavingsRoute(isBudgetModeEnabled, data?.type);
         if (target === 'Home') {
@@ -203,6 +204,7 @@ export default function App() {
       subscription.unsubscribe();
       appStateSub.remove();
       unregisterNotif();
+      stopNotificationSync();
       cleanupNetwork();
       unsubNetwork();
     };

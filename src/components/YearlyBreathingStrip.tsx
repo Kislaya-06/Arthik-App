@@ -4,6 +4,7 @@ import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { formatCurrency, formatCompactCurrency } from '../lib/formatters';
 import { SmartYearlyTakeawayResult } from '../lib/yearlyInsightsUtils';
+import { RollingText } from './RollingText';
 
 export interface YearlyBreathingStripProps {
   takeaway: SmartYearlyTakeawayResult;
@@ -104,15 +105,17 @@ export const YearlyBreathingStrip: React.FC<YearlyBreathingStripProps> = ({
           </Text>
 
           <View style={styles.valueRow}>
-            <Text
-              style={[
-                styles.tileAmount,
-                { color: leftTileColor, fontFamily: FontFamily.bold },
-              ]}
-              numberOfLines={1}
-            >
-              {formatCompactCurrency(netCashFlow, { showPlus: true, trimTrailingZero: true })}
-            </Text>
+            <RollingText
+              text={formatCompactCurrency(netCashFlow, { showPlus: true, trimTrailingZero: true })}
+              style={{
+                fontSize: 20,
+                lineHeight: 26,
+                fontFamily: FontFamily.bold,
+                color: leftTileColor,
+              }}
+              minScale={0.75}
+              rollOnFocus
+            />
           </View>
 
           <Text
@@ -154,18 +157,17 @@ export const YearlyBreathingStrip: React.FC<YearlyBreathingStripProps> = ({
           </Text>
 
           <View style={styles.valueRow}>
-            <Text
-              style={[
-                styles.tileAmount,
-                {
-                  color: totalYearSavings > 0 ? (isDark ? colors.mintGreen : colors.forestGreen) : colors.textPrimary,
-                  fontFamily: FontFamily.bold,
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {totalYearSavings > 0 ? `+${formatCurrency(Math.round(totalYearSavings))}` : formatCurrency(0)}
-            </Text>
+            <RollingText
+              text={totalYearSavings > 0 ? `+${formatCurrency(Math.round(totalYearSavings))}` : formatCurrency(0)}
+              style={{
+                fontSize: 20,
+                lineHeight: 26,
+                fontFamily: FontFamily.bold,
+                color: totalYearSavings > 0 ? (isDark ? colors.mintGreen : colors.forestGreen) : colors.textPrimary,
+              }}
+              minScale={0.75}
+              rollOnFocus
+            />
           </View>
 
           {/* Savings rate pill badge */}

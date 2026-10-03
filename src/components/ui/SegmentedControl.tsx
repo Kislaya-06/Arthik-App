@@ -45,6 +45,8 @@ interface OptionItemProps {
   inactiveColor: string;
   fontSize?: number;
   iconSize?: number;
+  index?: number;
+  totalOptions?: number;
 }
 
 const OptionItem: React.FC<OptionItemProps> = ({
@@ -55,6 +57,8 @@ const OptionItem: React.FC<OptionItemProps> = ({
   inactiveColor,
   fontSize,
   iconSize = 16,
+  index = 0,
+  totalOptions = 1,
 }) => {
   const { colors } = useTheme();
   const pressScale = useRef(new Animated.Value(1)).current;
@@ -82,12 +86,18 @@ const OptionItem: React.FC<OptionItemProps> = ({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
       accessible
       accessibilityRole="tab"
       accessibilityState={{ selected: isSelected }}
       accessibilityLabel={option.label}
       style={styles.optionButton}
-      hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
+      hitSlop={{
+        top: 10,
+        bottom: 10,
+        left: index === 0 ? 16 : 0,
+        right: index === totalOptions - 1 ? 16 : 0,
+      }}
     >
       <Animated.View
         style={[
@@ -191,6 +201,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
       }
 
       // 1. Primary slide: Apple-calibrated critically damped spring (zero overshoot)
+      slideAnim.stopAnimation();
       Animated.spring(slideAnim, {
         toValue: targetX,
         tension: 100,
@@ -302,6 +313,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
       >
         {optionWidth > 0 && (
           <Animated.View
+            pointerEvents="none"
             style={[
               styles.sliderPill,
               {
@@ -322,7 +334,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
 
       {/* Options Row: interactive tabs and floating badges */}
       <View style={styles.optionsRow}>
-        {normalizedOptions.map((option) => (
+        {normalizedOptions.map((option, idx) => (
           <OptionItem
             key={option.key}
             option={option}
@@ -332,6 +344,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             inactiveColor={resolvedInactiveText}
             fontSize={fontSize}
             iconSize={iconSize}
+            index={idx}
+            totalOptions={normalizedOptions.length}
           />
         ))}
       </View>
@@ -373,6 +387,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     height: '100%',
+    zIndex: 10,
+    elevation: 4,
   },
   optionButton: {
     flex: 1,

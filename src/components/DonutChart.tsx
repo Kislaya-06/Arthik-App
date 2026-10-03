@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, G } from 'react-native-svg';
 import { ThemeColors, FontFamily } from '../config/theme';
+import { RollingText } from './RollingText';
 
 export type DonutProps = {
   spent: number;
@@ -46,38 +47,25 @@ const DonutChartBase: React.FC<DonutProps> = ({
   const targetSpentPercentage = hasData ? Math.round((spent / total) * 100) : 0;
   const isOverspent = hasData && spent > total;
 
-  const anim = useRef(new Animated.Value(targetSpentRatio)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const [displayPercentage, setDisplayPercentage] = useState(targetSpentPercentage);
+  const anim = useRef(new Animated.Value(0)).current;
+  const isFirstMount = useRef(true);
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Smooth continuous transition from CURRENT value to new target (no reset to 0)
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      anim.setValue(0);
+    }
     const sweep = Animated.timing(anim, {
       toValue: targetSpentRatio,
-      duration: 320,
-      easing: Easing.out(Easing.cubic),
+      duration: 400,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       useNativeDriver: false,
     });
-
-    const listenerId = anim.addListener(({ value }) => {
-      if (!isMounted) return;
-      setDisplayPercentage(Math.round(value * 100));
-    });
-
-    sweep.start(({ finished }) => {
-      if (finished && isMounted) {
-        setDisplayPercentage(targetSpentPercentage);
-      }
-    });
-
+    sweep.start();
     return () => {
-      isMounted = false;
-      anim.removeListener(listenerId);
       sweep.stop();
     };
-  }, [targetSpentRatio, targetSpentPercentage, anim, triggerKey]);
+  }, [targetSpentRatio, anim]);
 
   // Interpolated stroke dashoffset for the spent (peach) arc
   const spentOffset = anim.interpolate({
@@ -86,8 +74,15 @@ const DonutChartBase: React.FC<DonutProps> = ({
     extrapolate: 'clamp',
   });
 
+  // Fade out rounded stroke caps when progress is 0 to avoid zero-length dot artifact
+  const spentOpacity = anim.interpolate({
+    inputRange: [0, 0.005, 1],
+    outputRange: [0, 1, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <Animated.View style={[styles.container, { width: SIZE, height: SIZE, transform: [{ scale: scaleAnim }] }]}>
+    <View style={[styles.container, { width: SIZE, height: SIZE }]}>
       <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
         {/* Track (grey/custom bg) */}
         <Circle
@@ -110,8 +105,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
             fill="none"
             strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
             strokeDashoffset={0}
-            rotation={-90}
-            origin={`${CENTER},${CENTER}`}
+            transform={`rotate(-90 ${CENTER} ${CENTER})`}
           />
         )}
 
@@ -126,29 +120,27 @@ const DonutChartBase: React.FC<DonutProps> = ({
             fill="none"
             strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
             strokeDashoffset={spentOffset}
-            rotation={-90}
-            origin={`${CENTER},${CENTER}`}
             strokeLinecap="round"
+            strokeOpacity={spentOpacity}
+            transform={`rotate(-90 ${CENTER} ${CENTER})`}
           />
         )}
       </Svg>
 
       <View style={styles.centerContent} pointerEvents="none">
-        <Text
-          style={[
+        <RollingText
+          text={`${targetSpentPercentage}%`}
+          style={StyleSheet.flatten([
             styles.percentageText,
             {
               fontSize: Math.max(15, Math.round(SIZE * 0.20)),
               lineHeight: Math.max(18, Math.round(SIZE * 0.24)),
               color: textColor || (isOverspent ? colors.danger : colors.textPrimary),
             },
-          ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.7}
-        >
-          {`${displayPercentage}%`}
-        </Text>
+          ])}
+          fitWidth={Math.round(SIZE * 0.6)}
+          minScale={0.7}
+        />
         <Text
           style={[
             styles.labelText,
@@ -162,7 +154,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
           SPENT
         </Text>
       </View>
-    </Animated.View>
+    </View>
   );
 };
 

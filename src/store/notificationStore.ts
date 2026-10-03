@@ -8,6 +8,9 @@ export type NotificationType =
   | 'budget_exceeded'
   | 'savings_rollover'
   | 'daily_reminder'
+  | 'weekly_recap'
+  | 'monthly_recap'
+  | 'gullak_reward'
   | 'general';
 
 export interface AppNotification {
@@ -31,7 +34,7 @@ interface NotificationState {
   notifications: AppNotification[];
   setOwnerUserId: (userId: string | null) => void;
   addNotification: (
-    notif: Omit<AppNotification, 'id' | 'createdAt' | 'read'> & { id?: string }
+    notif: Omit<AppNotification, 'id' | 'createdAt' | 'read'> & { id?: string; createdAt?: string }
   ) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -58,7 +61,7 @@ export const useNotificationStore = create<NotificationState>()(
         const newNotif: AppNotification = {
           ...notif,
           id,
-          createdAt: new Date().toISOString(),
+          createdAt: notif.createdAt || new Date().toISOString(),
           read: false,
         };
 

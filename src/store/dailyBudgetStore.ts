@@ -37,7 +37,7 @@ export const areExpensesLoaded = (): boolean => {
   return false;
 };
 import { useCategoryStore, Category } from './categoryStore';
-import { triggerDeviceNotification } from '../lib/notificationService';
+import { notifyLimit, notifyRollover, notifyBudgetUpdated } from '../lib/budgetAlerts';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
@@ -1271,48 +1271,30 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && todayRecord.budget > 0) {
           const ratio = todaySpent / todayRecord.budget;
           const remaining = Math.max(0, todayRecord.budget - todaySpent);
-          const notifStore = useNotificationStore.getState();
-
           if (ratio >= 1) {
             if (get().lastExceededNotifiedDate !== todayStr) {
-              const title = '🚨 Daily Allowance Exceeded!';
-              const body = `You spent ${formatCurrency(todaySpent)} of today's ${formatCurrency(todayRecord.budget)} limit (exceeded by ${formatCurrency(todaySpent - todayRecord.budget)}).`;
-
-              notifStore.addNotification({
+              notifyLimit({
                 id: `alert_exceeded_${todayStr}`,
-                title,
-                message: body,
-                type: 'budget_exceeded',
-                data: { date: todayStr, amount: todaySpent, remaining: 0 },
-              });
-
-              triggerDeviceNotification(title, body, {
-                type: 'budget_exceeded',
-                screen: 'Savings',
+                kind: 'exceeded',
+                cadence: 'daily',
+                spent: todaySpent,
+                budget: todayRecord.budget,
+                remaining: 0,
                 date: todayStr,
               });
-
               set({ lastExceededNotifiedDate: todayStr });
             }
           } else if (ratio >= 0.8) {
             if (get().lastWarningNotifiedDate !== todayStr) {
-              const title = '⚠️ 80% Daily Budget Reached';
-              const body = `You've used ${Math.round(ratio * 100)}% of today's budget. Only ${formatCurrency(remaining)} left to spend today!`;
-
-              notifStore.addNotification({
+              notifyLimit({
                 id: `alert_warning_80_${todayStr}`,
-                title,
-                message: body,
-                type: 'budget_warning',
-                data: { date: todayStr, amount: todaySpent, remaining },
-              });
-
-              triggerDeviceNotification(title, body, {
-                type: 'budget_warning',
-                screen: 'Savings',
+                kind: 'warning',
+                cadence: 'daily',
+                spent: todaySpent,
+                budget: todayRecord.budget,
+                remaining,
                 date: todayStr,
               });
-
               set({ lastWarningNotifiedDate: todayStr });
             }
           }
@@ -1321,49 +1303,35 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr);
           if (summary && summary.budget > 0) {
             const ratio = summary.spent / summary.budget;
-            const notifStore = useNotificationStore.getState();
             const periodKey = `${summary.cadence}_${summary.periodStart}`;
 
             if (ratio >= 1) {
               if (get().lastPeriodExceededKey !== periodKey) {
-                const title = `🚨 ${summary.cadence === 'weekly' ? 'Weekly' : 'Monthly'} Budget Exceeded!`;
-                const body = `You spent ${formatCurrency(summary.spent)} of your ${formatCurrency(summary.budget)} limit (exceeded by ${formatCurrency(summary.overBy)}).`;
-
-                notifStore.addNotification({
+                notifyLimit({
                   id: `alert_exceeded_${periodKey}`,
-                  title,
-                  message: body,
-                  type: 'budget_exceeded',
-                  data: { date: todayStr, periodKey, amount: summary.spent, remaining: 0 },
-                });
-
-                triggerDeviceNotification(title, body, {
-                  type: 'budget_exceeded',
-                  screen: 'Savings',
+                  kind: 'exceeded',
+                  cadence: summary.cadence,
+                  spent: summary.spent,
+                  budget: summary.budget,
+                  remaining: 0,
                   date: todayStr,
+                  periodKey,
                 });
-
                 set({ lastPeriodExceededKey: periodKey });
               }
             } else if (ratio >= 0.8) {
               if (get().lastPeriodWarningKey !== periodKey) {
-                const title = `⚠️ 80% ${summary.cadence === 'weekly' ? 'Weekly' : 'Monthly'} Budget Reached`;
-                const body = `You've used ${Math.round(ratio * 100)}% of your ${summary.cadence} budget. Only ${formatCurrency(summary.remaining)} left to spend!`;
-
-                notifStore.addNotification({
+                notifyLimit({
                   id: `alert_warning_80_${periodKey}`,
-                  title,
-                  message: body,
-                  type: 'budget_warning',
-                  data: { date: todayStr, periodKey, amount: summary.spent, remaining: summary.remaining },
-                });
-
-                triggerDeviceNotification(title, body, {
-                  type: 'budget_warning',
-                  screen: 'Savings',
+                  kind: 'warning',
+                  cadence: summary.cadence,
+                  spent: summary.spent,
+                  budget: summary.budget,
+                  remaining: summary.remaining,
+                  remainingDays: summary.remainingDays,
                   date: todayStr,
+                  periodKey,
                 });
-
                 set({ lastPeriodWarningKey: periodKey });
               }
             }
@@ -1405,16 +1373,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           set({ scheduledNextDailyBudget: null, scheduledBudgetSetDate: null });
 
           if (get().isBudgetModeEnabled) {
-            const title = '✨ Daily Budget Updated!';
-            const body = `Your new daily budget of ${formatCurrency(scheduled)} is now active.`;
-            useNotificationStore.getState().addNotification({
-              id: `scheduled_budget_${todayStr}`,
-              title,
-              message: body,
-              type: 'budget_warning',
-              data: { date: todayStr, amount: scheduled },
-            });
-            triggerDeviceNotification(title, body, { type: 'budget_warning', screen: 'Savings', date: todayStr });
+            notifyBudgetUpdated(`scheduled_budget_${todayStr}`, scheduled, todayStr);
           }
         }
 
@@ -1592,22 +1551,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             });
 
             if (get().isBudgetModeEnabled && shouldNotify) {
-              const title = '🎉 Savings Gullak Deposit!';
-              const body = `Superb! You saved ${formatCurrency(saved)} yesterday. It has been deposited into your Savings Gullak!`;
-
-              useNotificationStore.getState().addNotification({
-                id: `rollover_${d}`,
-                title,
-                message: body,
-                type: 'savings_rollover',
-                data: { date: d, amount: saved },
-              });
-
-              triggerDeviceNotification(title, body, {
-                type: 'savings_rollover',
-                screen: 'Savings',
-                date: d,
-              });
+              notifyRollover({ id: `rollover_${d}`, cadence: 'daily', amount: saved, date: d });
 
               set({ lastRolloverNotifiedDate: d });
             }
@@ -1669,22 +1613,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               areExpensesLoaded() &&
               get().lastPeriodRolloverKey !== p.id
             ) {
-              const cadenceLabel = p.cadence === 'weekly' ? 'Weekly' : 'Monthly';
-              const title = `🎉 ${cadenceLabel} Savings Gullak Deposit!`;
-              const body = `Superb! You saved ${formatCurrency(p.amountSaved)} in your last ${p.cadence} period. It has been deposited into your Savings Gullak!`;
-
-              useNotificationStore.getState().addNotification({
+              notifyRollover({
                 id: `rollover_${p.id}`,
-                title,
-                message: body,
-                type: 'savings_rollover',
-                data: { periodId: p.id, cadence: p.cadence, amount: p.amountSaved },
-              });
-
-              triggerDeviceNotification(title, body, {
-                type: 'savings_rollover',
-                screen: 'Savings',
+                cadence: p.cadence,
+                amount: p.amountSaved,
                 date: p.activeEnd,
+                periodId: p.id,
               });
 
               set({ lastPeriodRolloverKey: p.id });

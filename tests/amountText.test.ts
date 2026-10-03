@@ -21,6 +21,10 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
+vi.mock('../src/components/RollingText', () => ({
+  RollingText: (props: any) => ({ type: 'RollingText', props }),
+}));
+
 vi.mock('../src/store/themeStore', () => {
   const dummyColors = {
     textPrimary: '#1A2B4C',

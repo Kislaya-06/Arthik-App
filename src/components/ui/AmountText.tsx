@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View, StyleSheet, TextStyle, StyleProp } from 'react-native';
 import { useTheme } from '../../store/themeStore';
 import { FontFamily, LineHeight, FontSize } from '../../config/theme';
+import { RollingText } from '../RollingText';
 
 export type AmountRole = 'hero' | 'primary' | 'row' | 'compact' | 'metric';
 export type AmountDirection = 'expense' | 'income' | 'neutral';
@@ -17,6 +18,10 @@ export interface AmountTextProps {
   accessibilityLabel?: string;
   /** Test ID for automated component tests */
   testID?: string;
+  /** true = the digits roll (odometer style) whenever the value changes. Default false (plain text). */
+  rolling?: boolean;
+  /** true = rolls up from zero whenever the screen gains focus. */
+  rollOnFocus?: boolean;
 }
 
 /**
@@ -34,6 +39,8 @@ export const AmountText: React.FC<AmountTextProps> = ({
   style,
   accessibilityLabel,
   testID,
+  rolling = false,
+  rollOnFocus,
 }) => {
   const { colors } = useTheme();
   const numVal = Number(value) || 0;
@@ -77,7 +84,7 @@ export const AmountText: React.FC<AmountTextProps> = ({
   if (role === 'hero') {
     return (
       <View
-        style={styles.heroRow}
+        style={rolling ? [styles.heroRow, styles.heroRowFill] : styles.heroRow}
         accessible
         accessibilityRole="text"
         accessibilityLabel={resolvedA11yLabel}
@@ -92,24 +99,46 @@ export const AmountText: React.FC<AmountTextProps> = ({
         >
           {prefix}
         </Text>
-        <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.65}
-          style={[
-            styles.heroNumber,
-            { color: resolvedColor },
-            style,
-          ]}
-        >
-          {formattedNumber}
-        </Text>
+        {rolling ? (
+          <RollingText
+            text={formattedNumber}
+            style={StyleSheet.flatten([styles.heroNumber, { color: resolvedColor }, style])}
+            containerStyle={styles.heroRolling}
+            minScale={0.65}
+            rollOnFocus={rollOnFocus}
+          />
+        ) : (
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.65}
+            style={[
+              styles.heroNumber,
+              { color: resolvedColor },
+              style,
+            ]}
+          >
+            {formattedNumber}
+          </Text>
+        )}
       </View>
     );
   }
 
   // Other standard roles
   const roleStyle = getRoleStyle(role);
+
+  if (rolling) {
+    return (
+      <RollingText
+        text={`${prefix}${formattedNumber}`}
+        style={StyleSheet.flatten([roleStyle, { color: resolvedColor }, style])}
+        accessibilityLabel={resolvedA11yLabel}
+        testID={testID}
+        rollOnFocus={rollOnFocus}
+      />
+    );
+  }
 
   return (
     <Text
@@ -168,6 +197,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
+  },
+  // Lets the rolling number take the remaining width so it can measure itself for fit-to-width.
+  heroRolling: {
+    flex: 1,
+  },
+  // When rolling, the row itself must have a width that does not depend on its content, whether its parent is a
+  // column (stretches anyway) or a row (Insights / Category Detail): grow into the free space, never collapse.
+  heroRowFill: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   heroSymbol: {
     fontFamily: FontFamily.bold,
