@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.2.4] — 2026-10-03 (OTA)
+
+### 🎞️ Instagram-Style Pull-Up to History (`HomeScreen`)
+- **Pull-up rebuilt from scratch (`PullToHistoryList`):** The Recent Transactions list no longer uses a native `ScrollView` (on Android it cancelled any JS pull gesture after ~8dp). One component now owns drag, momentum, pull-up and pull-down-to-refresh, so the pull is reliable on slow and fast swipes alike.
+- **Footer rises from behind the nav bar:** The ring + label rest hidden behind the floating nav pill and travel with the rows as one rigid block. The list is clipped exactly at the nav pill's top edge.
+- **Measured Instagram physics (`pullToHistoryPhysics.ts`):** Content follows the thumb 1:1 then stiffens progressively (rubber band, ~192dp max). Release springs back with a spring fitted to a 120fps recording of Instagram's Vanish Mode (stiffness 42, damping 11.6, ~0.88 damping ratio, no visible overshoot). The content can be caught mid-bounce.
+- **Countdown ring (`PullToHistoryIndicator`):** Ring starts fully white, a grey track eats it clockwise from 12 o'clock in step with the pull, and at 100% the ring and label flip to the accent colour in a single frame ("Release for History"). Light haptic tick when armed.
+- **History opens only on release:** The History tab opens only when the finger is lifted while the ring is full; lifting earlier springs back.
+- **One pull-to-refresh animation across the app (`AppRefreshControl`):** Home, History, Savings and Insights now share a single themed native refresh circle (mint arc on a card-coloured disc, dropping in below the status bar). Previously Android ignored `tintColor`, so each screen showed the default circle, and Home briefly used a custom spinner. Pulling down never moves any content.
+- **Home refresh (`RefreshScrollShell`):** Home hosts the same native circle through a non-scrolling shell, so pulling down anywhere on Home refreshes exactly like the other tabs. The Recent Transactions list no longer moves down or shows its own spinner; it hands downward drags at the top to the refresh circle and switches the circle off while it owns the touch (so scrolling the list can never trigger a refresh).
+- **Removed dead code:** `pullToHistoryUtils.ts` (+ its test) and the unused `TelegramPullIndicator` component.
+- **Unchanged:** the dissolve fade of rows under the "Recent Transactions" header.
+- **Tests:** Added `tests/pullToHistoryPhysics.test.ts`, including regressions against the measured Instagram spring curve and ring-vs-travel linearity.
+
 ### 🎨 Responsive Layout & Behavioral Insights Polish
 - **Apple Design Fluid Numeric Transitions (`BrandedHeroCard`):** Completely eliminated numeric jitter, character-width popping, and strobing during filter and cadence switches on the Hero Card. Upgraded the counter interpolation with an integer rounding guard (`Number.isInteger`) that stops floating decimals from popping in mid-flight and causing `adjustsFontSizeToFit` text spasms. Switched easing to Apple's canonical standard cubic bezier `Easing.bezier(0.25, 0.1, 0.25, 1)` (320ms duration) with continuous 60fps frame updates (16ms throttle), guaranteed presentation-value continuity on gesture interruption, added tabular numeric alignment (`fontVariant: ['tabular-nums']`), and isolated chart pods (`DonutChart` and `DualRingChart`) from frame-by-frame JS ticking. Added a native-driver micro-morph (subtle opacity softening and 1.5px physical lift) for an ultra-premium, fluid finish.
 - **Apple Dual-Edge Liquid Morph & Direct-Manipulation Scroll Agency (`BouncyCategoryFilter`):** Upgraded the scrollable category filter on `HistoryScreen` with Apple WWDC-inspired Dual-Edge Liquid Morph animation (`tension: 100, friction: 16`, direction-aware leading-edge stretch & vertical volume squish). Removed the disruptive automatic `scrollTo` on option click, allowing users to scroll freely without the list auto-jumping backward, while the highlight pill glides to the selected category with fluid physical motion.

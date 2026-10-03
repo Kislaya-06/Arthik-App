@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  RefreshControl,
   TouchableOpacity,
   Animated,
   Alert,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppRefreshControl } from '../components/AppRefreshControl';
 import {
   Trophy,
   Calendar,
@@ -353,11 +353,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.mintGreen}
-          />
+          <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         onScroll={handleScroll}
         scrollEventThrottle={32}

@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, PanResponder, Animated, Easing,
+  View, Text, StyleSheet, Pressable, ScrollView, PanResponder, Animated, Easing,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppRefreshControl } from '../components/AppRefreshControl';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -1243,7 +1244,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.mintGreen} />
+          <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         onScroll={handleScroll}
         scrollEventThrottle={32}

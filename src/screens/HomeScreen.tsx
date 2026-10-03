@@ -3,19 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
   Pressable,
   Animated,
   Easing,
-  Vibration,
   Platform,
   LayoutAnimation,
   GestureResponderEvent,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  PanResponder,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,23 +17,12 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, User } from 'lucide-react-native';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
-import { PullToHistoryIndicator } from '../components/PullToHistoryIndicator';
-import {
-  computeScrollProgress,
-  calculatePullResistance,
-  calculateProgressiveResistance,
-  calculateWeightedPullProgress,
-  isAtScrollBottom,
-  evaluatePullRelease,
-  PULL_TO_HISTORY_THRESHOLD,
-  MAX_PULL_DEPTH,
-  RESISTANCE_COEFFICIENT,
-  ScrollMetrics,
-} from '../lib/pullToHistoryUtils';
+import { PullToHistoryList, PullToHistoryListHandle } from '../components/PullToHistoryList';
+import { RefreshScrollShell } from '../components/RefreshScrollShell';
+import { getNavTopOffset } from '../lib/pullToHistoryPhysics';
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals } from '../lib/homeCalculations';
@@ -100,63 +83,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const showNavBar = useNavBarStore((s) => s.showNavBar);
 
-  const scrollViewRef = useRef<ScrollView>(null);
-
-  // ─── Pull to History State & Refs ──────────────────────────────────────────
-  const scrollProgressAnim = useRef(new Animated.Value(0)).current;
-  const pullDepthAnim = useRef(new Animated.Value(0)).current;
-
-  const scrollMetricsRef = useRef<ScrollMetrics>({
-    contentOffsetY: 0,
-    contentHeight: 0,
-    layoutHeight: 0,
-  });
-  const isAtBottomRef = useRef(true);
-  const pullStartYRef = useRef<number | null>(null);
-  const grantPageYRef = useRef<number>(0);
-  const pullStartTimeRef = useRef<number>(0);
-  const currentPullDepthRef = useRef<number>(0);
-  const isPullingRef = useRef(false);
-  const [isPulling, setIsPulling] = useState(false);
-  const isArmedRef = useRef(false);
-  const hasCommittedRef = useRef(false);
-  const isMomentumRef = useRef(false);
-  const isDraggingRef = useRef(false);
-  const portalHeightRef = useRef(0);
-  const feedHeightRef = useRef(0);
-
-  // Physical rubber-band translation of recent transactions viewport on upward pull
-  const feedTranslateY = useMemo(
-    () =>
-      pullDepthAnim.interpolate({
-        inputRange: [0, PULL_TO_HISTORY_THRESHOLD],
-        outputRange: [0, -14],
-        extrapolate: 'clamp',
-      }),
-    [pullDepthAnim]
-  );
-
-  // Phase A: drive sub-element translateY without dimming/darkening transaction rows
-  const phaseAOpacity = useMemo(
-    () =>
-      scrollProgressAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 1], // Full opacity guaranteed — never dim or darken transaction cards
-        extrapolate: 'clamp',
-      }),
-    [scrollProgressAnim]
-  );
-
-  const phaseATranslateY = useMemo(
-    () =>
-      scrollProgressAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, -4],
-        extrapolate: 'clamp',
-      }),
-    [scrollProgressAnim]
-  );
-
+  // Instagram-style pull-up-to-History lives entirely inside PullToHistoryList.
+  const listRef = useRef<PullToHistoryListHandle>(null);
 
   const [activeFilter, setActiveFilter] = useState<Filter>(() => {
     const isBudgetEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
@@ -236,22 +164,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       const nowKey = format(new Date(), 'yyyy-MM-dd');
       setTodayKey((prev) => (prev !== nowKey ? nowKey : prev));
       loadData(false);
-      requestAnimationFrame(() => {
-        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-      });
-      // Reset transient pull-to-history state
-      hasCommittedRef.current = false;
-      isMomentumRef.current = false;
-      isDraggingRef.current = false;
-      isArmedRef.current = false;
-      pullDepthAnim.setValue(0);
-      scrollProgressAnim.setValue(0);
-      currentPullDepthRef.current = 0;
-      isPullingRef.current = false;
-      setIsPulling(false);
-      pullStartYRef.current = null;
-      grantPageYRef.current = 0;
-    }, [loadData, showNavBar, pullDepthAnim, scrollProgressAnim])
+      // Back on Home: list at the top, nothing pulled, footer hidden behind the nav bar again.
+      listRef.current?.reset();
+    }, [loadData, showNavBar])
   );
 
   const onRefresh = useCallback(async () => {
@@ -480,200 +395,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return `${format(start, 'd')}\u2013${format(end, 'd MMM yyyy')}`;
   }, [activeFilter, referenceDate, userCreatedAtStr]);
 
-  // ─── Pull to History Handlers ──────────────────────────────────────────────
-  const updateScrollMetrics = useCallback(
-    (updates: Partial<ScrollMetrics>) => {
-      const current = { ...scrollMetricsRef.current, ...updates };
-      scrollMetricsRef.current = current;
-      const atBottom = isAtScrollBottom(current.contentOffsetY, current.layoutHeight, current.contentHeight, 14);
-      isAtBottomRef.current = atBottom;
-      if (!atBottom && currentPullDepthRef.current > 0) {
-        currentPullDepthRef.current = 0;
-        pullDepthAnim.setValue(0);
-      }
-
-      // Phase A: drive scrollProgressAnim without setState
-      const progress = computeScrollProgress(current);
-      scrollProgressAnim.setValue(progress);
-    },
-    [scrollProgressAnim, pullDepthAnim]
-  );
-
-  // Natural resting bottom offset where Pull to History indicator sits above the navbar
-  const getStartOffset = useCallback(() => {
-    const navBarClearance = (insets.bottom > 0 ? insets.bottom : 12) + 76;
-    const visibleHeight = Math.max(100, portalHeightRef.current - navBarClearance);
-    const feedHeight = feedHeightRef.current > 0
-      ? feedHeightRef.current
-      : 4 + recentTx.length * 64 + 40;
-    return Math.max(0, feedHeight - visibleHeight);
-  }, [insets.bottom, recentTx.length]);
-
-  const commitToHistory = useCallback(() => {
-    if (hasCommittedRef.current) return;
-    hasCommittedRef.current = true;
-
-    try {
-      Vibration.vibrate(20);
-    } catch {}
-
+  // ─── Pull to History ───────────────────────────────────────────────────────
+  // Fired by PullToHistoryList only AFTER the finger is lifted with the ring full.
+  const handleCommitToHistory = useCallback(() => {
     navigation.navigate('History');
   }, [navigation]);
 
-  const bounceBackToStart = useCallback(
-    (startOffset: number) => {
-      if (hasCommittedRef.current) return;
-      Animated.spring(pullDepthAnim, {
-        toValue: 0,
-        tension: 100,
-        friction: 16,
-        useNativeDriver: false,
-      }).start();
-      scrollViewRef.current?.scrollTo({ y: startOffset, animated: true });
-    },
-    [pullDepthAnim]
-  );
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onStartShouldSetPanResponderCapture: () => false,
-        onMoveShouldSetPanResponder: (_, gestureState) => {
-          if (!isAtBottomRef.current || recentTx.length === 0) return false;
-          return gestureState.dy < -4;
-        },
-        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-          if (!isAtBottomRef.current || recentTx.length === 0) return false;
-          return gestureState.dy < -4;
-        },
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: (evt) => {
-          isPullingRef.current = true;
-          setIsPulling(true);
-          isDraggingRef.current = true;
-          isMomentumRef.current = false;
-          isArmedRef.current = false;
-          grantPageYRef.current = evt.nativeEvent.pageY;
-          pullStartTimeRef.current = Date.now();
-        },
-        onPanResponderMove: (evt, gestureState) => {
-          if (hasCommittedRef.current) return;
-          const currentY = evt.nativeEvent.pageY;
-          const rawPull = Math.max(0, grantPageYRef.current - currentY);
-          const vy = gestureState.vy;
-
-          // Instagram-style progressive resistance (weighted thumb travel: 140dp)
-          let { depth, progress, isArmed } = calculateWeightedPullProgress(rawPull);
-
-          // Fling protection: high-speed flicks cannot fully fill or arm
-          const isHighVelocity = Math.abs(vy) > 0.85;
-          if (isHighVelocity) {
-            progress = Math.min(0.65, progress);
-            depth = progress * PULL_TO_HISTORY_THRESHOLD;
-            isArmed = false;
-          }
-
-          currentPullDepthRef.current = depth;
-          pullDepthAnim.setValue(depth);
-
-          if (progress >= 1 && !isHighVelocity) {
-            if (!isArmedRef.current) {
-              isArmedRef.current = true;
-              try {
-                Vibration.vibrate(20);
-              } catch {}
-            }
-          } else {
-            isArmedRef.current = false;
-          }
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          isDraggingRef.current = false;
-          isPullingRef.current = false;
-          setIsPulling(false);
-
-          if (hasCommittedRef.current) return;
-
-          // Pull-down refresh check
-          if (gestureState.dy > 60 && !refreshing) {
-            onRefresh();
-            return;
-          }
-
-          const elapsed = Date.now() - pullStartTimeRef.current;
-          const isFling = Math.abs(gestureState.vy) > 0.65 || elapsed < 160;
-
-          if (isArmedRef.current && !isFling) {
-            // User reached 100% full outline, saw "Release for History", and lifted thumb
-            commitToHistory();
-          } else {
-            // Released before 100% or fast fling -> bounce smoothly back to 0!
-            isArmedRef.current = false;
-            Animated.spring(pullDepthAnim, {
-              toValue: 0,
-              tension: 110,
-              friction: 14,
-              useNativeDriver: false,
-            }).start();
-          }
-        },
-        onPanResponderTerminate: () => {
-          isDraggingRef.current = false;
-          isPullingRef.current = false;
-          setIsPulling(false);
-          isArmedRef.current = false;
-          if (!hasCommittedRef.current) {
-            Animated.spring(pullDepthAnim, {
-              toValue: 0,
-              tension: 110,
-              friction: 14,
-              useNativeDriver: false,
-            }).start();
-          }
-        },
-      }),
-    [commitToHistory, pullDepthAnim, recentTx.length, refreshing, onRefresh]
-  );
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      updateScrollMetrics({
-        contentOffsetY: contentOffset.y,
-        contentHeight: contentSize.height,
-        layoutHeight: layoutMeasurement.height,
-      });
-    },
-    [updateScrollMetrics]
-  );
-
-  const handleScrollBeginDrag = useCallback(() => {
-    isDraggingRef.current = true;
-    isMomentumRef.current = false;
-  }, []);
-
-  const handleScrollEndDrag = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      isDraggingRef.current = false;
-      updateScrollMetrics({ contentOffsetY: event.nativeEvent.contentOffset.y });
-    },
-    [updateScrollMetrics]
-  );
-
-  const handleMomentumScrollBegin = useCallback(() => {
-    isMomentumRef.current = true;
-  }, []);
-
-  const handleMomentumScrollEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      isMomentumRef.current = false;
-      updateScrollMetrics({ contentOffsetY: event.nativeEvent.contentOffset.y });
-    },
-    [updateScrollMetrics]
-  );
+  // Where the floating nav pill starts. The list is clipped exactly here, so the pull-up footer
+  // rises out from BEHIND the nav bar (same as Instagram's footer rising out from behind its input bar).
+  const navTopOffset = getNavTopOffset(insets.bottom);
 
   return (
+    // Same native pull-to-refresh circle as History / Savings / Insights (see AppRefreshControl).
+    <RefreshScrollShell refreshing={refreshing} onRefresh={onRefresh}>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
@@ -763,63 +497,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         />
       </View>
 
-      {/* ── Scrollable Transactions Portal (Only chips move!) ── */}
-      <View
-        style={styles.portalWrapper}
-        {...panResponder.panHandlers}
-        onLayout={(e) => {
-          portalHeightRef.current = e.nativeEvent.layout.height;
-          updateScrollMetrics({ layoutHeight: e.nativeEvent.layout.height });
-        }}
-      >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.txPortalScrollView}
-          contentContainerStyle={[
-            styles.txPortalContent,
-            { paddingBottom: (insets.bottom > 0 ? insets.bottom : 12) + 76 + 8 },
-          ]}
-          scrollEnabled={!isPulling}
-          overScrollMode="never"
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={handleScroll}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollEndDrag={handleScrollEndDrag}
-          onMomentumScrollBegin={handleMomentumScrollBegin}
-          onMomentumScrollEnd={handleMomentumScrollEnd}
-          onContentSizeChange={(_, contentHeight) => {
-            updateScrollMetrics({ contentHeight });
-          }}
-          onLayout={(e) => {
-            portalHeightRef.current = e.nativeEvent.layout.height;
-            updateScrollMetrics({ layoutHeight: e.nativeEvent.layout.height });
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.mintGreen}
-              colors={[colors.mintGreen, '#15803D']}
-            />
-          }
+      {/* ── Transactions Portal: clipped at the nav bar's top edge. Rows + pull-up footer move as one block ── */}
+      <View style={[styles.portalWrapper, { marginBottom: navTopOffset - 1 }]}>
+        <PullToHistoryList
+          ref={listRef}
+          colors={colors}
+          isDark={isDark}
+          pullEnabled={recentTx.length > 0}
+          onCommit={handleCommitToHistory}
         >
           {recentTx.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
             </View>
           ) : (
-            <Animated.View
-              style={[
-                styles.recentTxViewport,
-                {
-                  transform: [{ translateY: feedTranslateY }],
-                },
-              ]}
-              onLayout={(e) => {
-                feedHeightRef.current = e.nativeEvent.layout.height;
-              }}
-            >
+            <View style={styles.recentTxViewport}>
               {recentTx.map((item, idx) => {
                 if (item.kind === 'gullak') {
                   return (
@@ -848,37 +540,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                       isIncome={isIncome}
                       colors={colors}
                       isDark={isDark}
-                      phaseAOpacity={phaseAOpacity}
-                      phaseATranslateY={phaseATranslateY}
                       onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
                     />
                   </StaggerRow>
                 );
               })}
-
-              {/* Spec-Compliant Pull to History Indicator */}
-              <PullToHistoryIndicator
-                pullDepthAnim={pullDepthAnim}
-                colors={colors}
-                isDark={isDark}
-                hasTransactions={recentTx.length > 0}
-              />
-            </Animated.View>
+            </View>
           )}
-        </ScrollView>
-
-        {/* Portal Entrance Dissolve Gradient */}
-        <View style={styles.portalGradientContainer} pointerEvents="none">
-          <Svg height={24} width="100%">
-            <Defs>
-              <SvgLinearGradient id="portalFade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={colors.background} stopOpacity="1" />
-                <Stop offset="1" stopColor={colors.background} stopOpacity="0" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height={24} fill="url(#portalFade)" />
-          </Svg>
-        </View>
+        </PullToHistoryList>
       </View>
 
       <PeriodRenewalModal
@@ -897,6 +566,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         onClose={handleCloseRenewalModal}
       />
     </View>
+    </RefreshScrollShell>
   );
 };
 
@@ -913,21 +583,6 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
     overflow: 'hidden',
-  },
-  txPortalScrollView: {
-    flex: 1,
-  },
-  txPortalContent: {
-    paddingHorizontal: Spacing.gutter,
-    paddingTop: 4,
-  },
-  portalGradientContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 24,
-    zIndex: 5,
   },
 
   // Header
@@ -1037,7 +692,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.micro,
   },
 
-  // Physical absorption viewport for transactions
+  // Rows block (clips row shadows/edges to the block, same as before)
   recentTxViewport: {
     overflow: 'hidden',
   },

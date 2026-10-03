@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  SectionList, RefreshControl, Platform,
+  SectionList, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppRefreshControl } from '../components/AppRefreshControl';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -486,11 +487,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
             }, 80);
           }}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.mintGreen}
-            />
+            // List starts below the fixed header + filters, so no status-bar offset here.
+            <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} topOffset={0} />
           }
           contentContainerStyle={[
             { paddingBottom: insets.bottom + 100 },

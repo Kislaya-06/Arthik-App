@@ -1,235 +1,148 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { ChevronUp } from 'lucide-react-native';
-import { ThemeColors, FontFamily } from '../config/theme';
-import { PULL_TO_HISTORY_THRESHOLD } from '../lib/pullToHistoryUtils';
+import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing } from '../config/theme';
+import { getPullProgress, getRingArc, nextArmedState } from '../lib/pullToHistoryPhysics';
+
+/**
+ * Instagram "Vanish Mode"-style footer: a small ring + one label that live BELOW the last
+ * transaction and travel with the list. They rest hidden behind the nav bar and are revealed by
+ * pulling the list up.
+ *
+ *  - Ring is a countdown: fully white at 0%, a grey track eats it clockwise from 12 o'clock.
+ *  - At 100% the whole ring and the label flip to the accent colour in a single frame (no fade).
+ *  - Progress is read from `pullDepthAnim` (dp) / `maxTravel`, so ring and movement never disagree.
+ */
+
+// Circle geometry (literal sizes per AGENTS.md 9.3). Outer diameter 24dp, 2dp stroke.
+const RING_SIZE = 24;
+const RING_STROKE = 2;
+const RING_CENTER = RING_SIZE / 2;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+/** Re-render the ring at most this many times per full pull (keeps 60fps cheap). */
+const PROGRESS_STEPS = 240;
+
+/** Total height of the footer block (ring + gap + label line). The list uses it for layout. */
+export const PULL_FOOTER_HEIGHT = RING_SIZE + Spacing.row + LineHeight.caption;
 
 export interface PullToHistoryIndicatorProps {
+  /** Current pull-up depth in dp (0 at rest). */
   pullDepthAnim: Animated.Value;
+  /** Depth (dp) that corresponds to 100%. */
+  maxTravel: number;
   colors: ThemeColors;
   isDark: boolean;
-  hasTransactions: boolean;
 }
 
 export const PullToHistoryIndicator: React.FC<PullToHistoryIndicatorProps> = ({
   pullDepthAnim,
+  maxTravel,
   colors,
   isDark,
-  hasTransactions,
 }) => {
-  if (!hasTransactions) {
-    return null;
-  }
-
-  const armedColor = isDark ? colors.mintGreen : colors.mintGreenDark;
-
-  const [pullProgress, setPullProgress] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [armed, setArmed] = useState(false);
+  const armedRef = useRef(false);
 
   useEffect(() => {
     const id = pullDepthAnim.addListener(({ value }) => {
-      const p = Math.min(1, Math.max(0, value / PULL_TO_HISTORY_THRESHOLD));
-      setPullProgress(p);
+      const p = getPullProgress(value, maxTravel);
+      const q = Math.round(p * PROGRESS_STEPS) / PROGRESS_STEPS;
+      setProgress((prev) => (prev === q ? prev : q));
+
+      const next = nextArmedState(armedRef.current, p);
+      if (next !== armedRef.current) {
+        armedRef.current = next;
+        setArmed(next);
+      }
     });
     return () => {
       pullDepthAnim.removeListener(id);
     };
-  }, [pullDepthAnim]);
+  }, [pullDepthAnim, maxTravel]);
 
-  // Overall indicator opacity: rests subtle (0.75), reaches full (1.0) on pull
-  const containerOpacity = useMemo(
-    () =>
-      pullDepthAnim.interpolate({
-        inputRange: [0, 24],
-        outputRange: [0.75, 1],
-        extrapolate: 'clamp',
-      }),
-    [pullDepthAnim]
-  );
-
-  // Elastic vertical lift as user pulls upward
-  const indicatorTranslateY = useMemo(
-    () =>
-      pullDepthAnim.interpolate({
-        inputRange: [0, PULL_TO_HISTORY_THRESHOLD],
-        outputRange: [0, -4],
-        extrapolate: 'clamp',
-      }),
-    [pullDepthAnim]
-  );
-
-  // Subtle circle pop scale when reaching 100% armed threshold
-  const circleScale = useMemo(
-    () =>
-      pullDepthAnim.interpolate({
-        inputRange: [0, PULL_TO_HISTORY_THRESHOLD - 0.1, PULL_TO_HISTORY_THRESHOLD],
-        outputRange: [1, 1, 1.14],
-        extrapolate: 'clamp',
-      }),
-    [pullDepthAnim]
-  );
-
-  // Crossfade between "Swipe up for History" and "Release for History" at 72dp
-  const pullLabelOpacity = useMemo(
-    () =>
-      pullDepthAnim.interpolate({
-        inputRange: [0, PULL_TO_HISTORY_THRESHOLD - 0.1, PULL_TO_HISTORY_THRESHOLD],
-        outputRange: [1, 1, 0],
-        extrapolate: 'clamp',
-      }),
-    [pullDepthAnim]
-  );
-
-  const releaseLabelOpacity = useMemo(
-    () =>
-      pullDepthAnim.interpolate({
-        inputRange: [0, PULL_TO_HISTORY_THRESHOLD - 0.1, PULL_TO_HISTORY_THRESHOLD],
-        outputRange: [0, 0, 1],
-        extrapolate: 'clamp',
-      }),
-    [pullDepthAnim]
-  );
-
-  // Circular ring geometry (Instagram Vanish Mode style):
-  // Diameter: 32, radius: 16, strokeWidth: 2.5, inner radius: 14.5
-  // Circumference: 2 * Math.PI * 14.5 ≈ 91.1
-  const R = 16;
-  const strokeW = 2.5;
-  const r = R - strokeW / 2; // 14.75
-  const circ = 2 * Math.PI * r;
-  const dashOffset = circ * (1 - pullProgress);
+  const armedColor = isDark ? colors.mintGreen : colors.mintGreenDark;
+  const arc = getRingArc(progress, RING_CIRCUMFERENCE);
 
   return (
-    <Animated.View
-      style={[
-        styles.outerContainer,
-        {
-          opacity: containerOpacity,
-          transform: [{ translateY: indicatorTranslateY }],
-        },
-      ]}
+    <View
+      style={styles.root}
+      pointerEvents="none"
       accessible
       accessibilityRole="summary"
-      accessibilityLabel="Swipe up to view full transaction history"
-      pointerEvents="none"
+      accessibilityLabel={armed ? 'Release to open full transaction history' : 'Swipe up to open full transaction history'}
     >
-      {/* Instagram-style Progress Ring Circle */}
-      <Animated.View
-        style={[
-          styles.circleWrapper,
-          {
-            transform: [{ scale: circleScale }],
-          },
-        ]}
-      >
-        <Svg width={32} height={32} style={styles.svgOverlay} pointerEvents="none">
-          {/* Muted background track ring */}
+      <Svg width={RING_SIZE} height={RING_SIZE}>
+        {armed ? (
           <Circle
-            cx={16}
-            cy={16}
-            r={r}
-            stroke={isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)'}
-            strokeWidth={2}
-            fill={isDark ? '#141E2F' : '#F1F5F9'}
-          />
-          {/* Animated clockwise progress ring starting at 12 o'clock */}
-          <Circle
-            cx={16}
-            cy={16}
-            r={r}
+            cx={RING_CENTER}
+            cy={RING_CENTER}
+            r={RING_RADIUS}
             stroke={armedColor}
-            strokeWidth={strokeW}
+            strokeWidth={RING_STROKE}
             fill="none"
-            strokeDasharray={`${circ} ${circ}`}
-            strokeDashoffset={dashOffset}
-            strokeLinecap="round"
-            transform="rotate(-90 16 16)"
           />
-        </Svg>
+        ) : (
+          <>
+            {/* Grey track (the part of the countdown that has already "elapsed") */}
+            <Circle
+              cx={RING_CENTER}
+              cy={RING_CENTER}
+              r={RING_RADIUS}
+              stroke={colors.textMuted}
+              strokeWidth={RING_STROKE}
+              fill="none"
+            />
+            {/* Remaining white arc — always ends at 12 o'clock and shrinks as you pull */}
+            {arc.visible && (
+              <Circle
+                cx={RING_CENTER}
+                cy={RING_CENTER}
+                r={RING_RADIUS}
+                stroke={colors.textPrimary}
+                strokeWidth={RING_STROKE}
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={`${arc.whiteLength} ${RING_CIRCUMFERENCE}`}
+                transform={`rotate(${arc.rotationDeg} ${RING_CENTER} ${RING_CENTER})`}
+              />
+            )}
+          </>
+        )}
+      </Svg>
 
-        <View style={styles.centerIcon}>
-          <ChevronUp
-            size={13}
-            color={pullProgress >= 1 ? armedColor : colors.textSecondary}
-            strokeWidth={2.4}
-          />
-        </View>
-      </Animated.View>
-
-      {/* Label: "Swipe up for History" -> "Release for History" */}
-      <View style={styles.labelContainer}>
-        <Animated.Text
+      <View style={styles.labelWrap}>
+        <Text
           style={[
             styles.label,
-            {
-              color: colors.textSecondary,
-              opacity: pullLabelOpacity,
-            },
+            { color: armed ? armedColor : colors.textSecondary },
           ]}
+          numberOfLines={1}
+          maxFontSizeMultiplier={1.2}
         >
-          Swipe up for History
-        </Animated.Text>
-        <Animated.Text
-          style={[
-            styles.label,
-            styles.absoluteLayer,
-            {
-              color: armedColor,
-              fontFamily: FontFamily.bold,
-              opacity: releaseLabelOpacity,
-            },
-          ]}
-        >
-          Release for History
-        </Animated.Text>
+          {armed ? 'Release for History' : 'Swipe up for History'}
+        </Text>
       </View>
-    </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  outerContainer: {
+  root: {
+    height: PULL_FOOTER_HEIGHT,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    marginTop: 4,
   },
-  circleWrapper: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  svgOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  centerIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  labelContainer: {
-    marginTop: 6,
-    height: 18,
+  labelWrap: {
+    marginTop: Spacing.row,
+    height: LineHeight.caption,
     justifyContent: 'center',
     alignItems: 'center',
   },
   label: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
     fontFamily: FontFamily.medium,
-    letterSpacing: 0.1,
-    textAlign: 'center',
-  },
-  absoluteLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     textAlign: 'center',
   },
 });
