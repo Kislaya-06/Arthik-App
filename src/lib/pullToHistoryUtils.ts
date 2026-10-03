@@ -1,31 +1,33 @@
 /**
  * pullToHistoryUtils.ts
  *
- * Pure, React/RN-free helper functions for the Pull to History feature.
- * All functions are deterministic and side-effect-free — safe to unit-test in Vitest
- * without any React Native mocking.
+ * Pure, React/RN-free calculation and decision helper functions for the Pull to History feature.
+ * All functions are deterministic and side-effect-free — safe to unit-test in Vitest.
  *
- * Architecture spec: pull_to_history_spec.md §D3, D4, D5
- * Motion spec: pull_to_history_motion_spec.md §2.2, §3.2
+ * Specifications:
+ * - Product Spec: pull_to_history_spec.md §4.A, §4.B, §4.C
+ * - Motion Spec: pull_to_history_motion_spec.md §2, §3
  */
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-/** Overscroll depth (in logical pixels) required to commit the pull gesture. */
+/** Authoritative commit threshold in logical pixels. */
 export const PULL_TO_HISTORY_THRESHOLD = 72;
 
-/**
- * How many dp above the natural content bottom the Phase A fade begins.
- * At this point scrollProgress starts rising from 0.
- */
-export const PHASE_A_START_OFFSET = 120;
+/** Maximum resisted visual travel in logical pixels. */
+export const MAX_PULL_DEPTH = 88;
 
 /**
- * The dp window over which scrollProgress ramps from 0 to 1.
- * Effect completes at: (contentHeight - layoutHeight - PHASE_A_START_OFFSET + PHASE_A_RANGE)
- * i.e. exactly at the natural bottom.
+ * Scroll distance window (in dp) approaching natural content bottom
+ * over which Phase A progress ramps from 0 to 1.
  */
 export const PHASE_A_RANGE = 80;
+
+/** Linear damping coefficient for rubber-band resistance. */
+export const RESISTANCE_COEFFICIENT = 0.45;
+
+/** Default bottom detection tolerance (in dp). */
+export const DEFAULT_BOTTOM_EPSILON = 4;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,62 +37,169 @@ export interface ScrollMetrics {
   layoutHeight: number;
 }
 
-export interface PullReleaseMetrics extends ScrollMetrics {
-  /** Whether any transactions are currently displayed. Phase B is disabled when false. */
-  hasTransactions: boolean;
+export interface IndicatorVisualState {
+  opacity: number;
+  label: 'Swipe up for History' | 'Release for History';
+  isArmed: boolean;
 }
 
-export interface PullReleaseResult {
-  /** Computed overscroll in logical pixels (always >= 0). */
-  overscroll: number;
-  /** True only if overscroll >= threshold AND hasTransactions is true. */
+export interface PullReleaseDecision {
   shouldCommit: boolean;
+  armed: boolean;
 }
 
 // ─── computeScrollProgress ───────────────────────────────────────────────────
 
 /**
- * Returns a clamped [0, 1] float representing how far through the Phase A
- * row-exit window the current scroll position is.
+ * Computes normalized [0.0, 1.0] progress across the final 80dp window approaching
+ * the natural content bottom.
  *
- * - 0.0 → scroll position is at or before the start of the fade window
- * - 1.0 → scroll position is at or past the natural content bottom
- *
- * Formula (from motion spec §2.2):
- *   progress = clamp(
- *     (contentOffsetY − (contentHeight − layoutHeight − PHASE_A_START_OFFSET)) / PHASE_A_RANGE,
- *     0, 1
- *   )
- *
- * The natural scroll maximum (where content bottom meets viewport bottom) is:
- *   maxScrollY = contentHeight - layoutHeight
- *
- * The fade window starts PHASE_A_START_OFFSET dp before that maximum.
+ * - 0.0 -> user is >= 80dp above the content bottom (or content does not scroll).
+ * - 1.0 -> user is at or beyond the natural content bottom.
  */
 export function computeScrollProgress(metrics: ScrollMetrics): number {
   const { contentOffsetY, contentHeight, layoutHeight } = metrics;
   const maxScrollY = contentHeight - layoutHeight;
-  const windowStart = maxScrollY - PHASE_A_START_OFFSET;
+  if (maxScrollY <= 0) return 0;
+
+  const windowStart = maxScrollY - PHASE_A_RANGE;
   const raw = (contentOffsetY - windowStart) / PHASE_A_RANGE;
   return Math.max(0, Math.min(1, raw));
 }
 
-// ─── evaluatePullRelease ──────────────────────────────────────────────────────
+// ─── calculatePullResistance ─────────────────────────────────────────────────
 
 /**
- * Evaluates scroll metrics at the moment of finger-up (onScrollEndDrag) and
- * returns the overscroll amount and whether the gesture should commit.
+ * Computes resisted travel (0dp to 88dp max) from raw upward touch displacement.
+ * Provides physical rubber-band resistance.
  *
- * Overscroll formula (from spec §D4):
- *   overscroll = max(0, contentOffsetY + layoutHeight − contentHeight)
- *
- * shouldCommit is true only when:
- *   - overscroll >= PULL_TO_HISTORY_THRESHOLD, AND
- *   - hasTransactions is true (Phase B is disabled for empty state)
+ * For rawDeltaY <= 0, returns 0.
+ * Caps strictly at MAX_PULL_DEPTH (88dp).
  */
-export function evaluatePullRelease(metrics: PullReleaseMetrics): PullReleaseResult {
-  const { contentOffsetY, contentHeight, layoutHeight, hasTransactions } = metrics;
-  const overscroll = Math.max(0, contentOffsetY + layoutHeight - contentHeight);
-  const shouldCommit = hasTransactions && overscroll >= PULL_TO_HISTORY_THRESHOLD;
-  return { overscroll, shouldCommit };
+export function calculatePullResistance(
+  rawDeltaY: number,
+  maxPull: number = MAX_PULL_DEPTH,
+  coefficient: number = RESISTANCE_COEFFICIENT
+): number {
+  if (rawDeltaY <= 0) return 0;
+  return Math.min(maxPull, rawDeltaY * coefficient);
+}
+
+/**
+ * Computes progressive elastic rubber-band resistance (Instagram Vanish Mode style).
+ * - Responsive and natural at initial pull
+ * - Progressively stiffens and demands extra pull as depth nears 72dp
+ * - Natural thumb pull travel (~80px) reaches the 72dp commit threshold
+ * - Formula: depth = (MAX_CAP * rawPull) / (rawPull + K)
+ */
+export function calculateProgressiveResistance(
+  rawDeltaY: number,
+  maxCap: number = 99,
+  k: number = 30
+): number {
+  if (rawDeltaY <= 0) return 0;
+  const depth = (maxCap * rawDeltaY) / (rawDeltaY + k);
+  return Math.min(MAX_PULL_DEPTH, depth);
+}
+
+/**
+ * Target raw upward displacement (in dp) required to fully fill the progress ring.
+ * Calibrated to ~140dp of deliberate thumb movement (Instagram Vanish Mode feel).
+ */
+export const PULL_TRAVEL_MAX = 140;
+
+/**
+ * Computes progressive elastic rubber-band resistance (Instagram Vanish Mode style).
+ * - Fast, responsive initial fill
+ * - Progressively stiffens and demands extra thumb travel as depth nears 100%
+ * - Formula: progress = 1 - (1 - min(1, rawPull / travel))^1.6
+ * - Returns { depth, progress, isArmed }
+ */
+export function calculateWeightedPullProgress(
+  rawDeltaY: number,
+  travelDistance: number = PULL_TRAVEL_MAX,
+  threshold: number = PULL_TO_HISTORY_THRESHOLD
+): {
+  depth: number;
+  progress: number;
+  isArmed: boolean;
+} {
+  if (rawDeltaY <= 0) {
+    return { depth: 0, progress: 0, isArmed: false };
+  }
+  const u = Math.min(1, rawDeltaY / travelDistance);
+  const progress = Math.min(1, Math.max(0, 1 - Math.pow(1 - u, 1.6)));
+  const depth = progress * threshold;
+  return {
+    depth,
+    progress,
+    isArmed: progress >= 1,
+  };
+}
+
+// ─── isAtScrollBottom ────────────────────────────────────────────────────────
+
+/**
+ * Determines whether the ScrollView is settled within epsilon (default <= 4dp)
+ * of its natural content bottom.
+ */
+export function isAtScrollBottom(
+  contentOffsetY: number,
+  layoutHeight: number,
+  contentHeight: number,
+  epsilon: number = DEFAULT_BOTTOM_EPSILON
+): boolean {
+  if (layoutHeight <= 0 || contentHeight <= 0) return false;
+  const maxScrollY = contentHeight - layoutHeight;
+  if (maxScrollY <= 0) {
+    // Content fits entirely in viewport
+    return contentOffsetY >= -epsilon;
+  }
+  return contentOffsetY >= maxScrollY - epsilon;
+}
+
+// ─── evaluatePullRelease ─────────────────────────────────────────────────────
+
+/**
+ * Evaluates whether an in-progress pull gesture has satisfied the authoritative
+ * 72dp commit threshold upon release.
+ *
+ * Exact rules:
+ * - pullDepth < 72dp -> shouldCommit: false, armed: false (Cancel / Spring)
+ * - pullDepth >= 72dp -> shouldCommit: true, armed: true (Commit -> History)
+ */
+export function evaluatePullRelease(
+  pullDepth: number,
+  threshold: number = PULL_TO_HISTORY_THRESHOLD
+): PullReleaseDecision {
+  const armed = pullDepth >= threshold;
+  return {
+    shouldCommit: armed,
+    armed,
+  };
+}
+
+// ─── getIndicatorVisualState ─────────────────────────────────────────────────
+
+/**
+ * Maps live pull depth to indicator opacity, label, and armed state.
+ *
+ * - Opacity: 0.0 at 0dp, ramps linearly to 1.0 at 36dp, maintains 1.0 through 88dp.
+ * - Label: 'Pull for History' below 72dp; 'Release for History' at/above 72dp.
+ * - isArmed: true only when pullDepth >= 72dp.
+ */
+export function getIndicatorVisualState(
+  pullDepth: number,
+  threshold: number = PULL_TO_HISTORY_THRESHOLD
+): IndicatorVisualState {
+  const isArmed = pullDepth >= threshold;
+  const clampedDepth = Math.max(0, Math.min(MAX_PULL_DEPTH, pullDepth));
+  const opacity = Math.min(1, clampedDepth / 36);
+  const label = isArmed ? 'Release for History' : 'Swipe up for History';
+
+  return {
+    opacity,
+    label,
+    isArmed,
+  };
 }
