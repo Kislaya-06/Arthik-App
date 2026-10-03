@@ -18,6 +18,22 @@ export type TxRowProps = {
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
   onPress?: () => void;
+  /**
+   * Phase A (Pull to History) — optional animated opacity for the GradientIconBadge.
+   * When provided, the badge fades independently of txRight.
+   * txRight (AmountText + date) NEVER receives animation.
+   */
+  phaseABadgeOpacity?: Animated.AnimatedInterpolation<number>;
+  /**
+   * Phase A (Pull to History) — optional animated opacity for the txMiddle column.
+   * When provided, title and subtitle fade independently of txRight.
+   */
+  phaseAMiddleOpacity?: Animated.AnimatedInterpolation<number>;
+  /**
+   * Phase A (Pull to History) — optional animated translateY applied to badge + txMiddle.
+   * txRight is never translated.
+   */
+  phaseATranslateY?: Animated.AnimatedInterpolation<number>;
 };
 
 const TransactionRowBase: React.FC<TxRowProps> = ({
@@ -27,6 +43,9 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
   colors,
   isDark,
   onPress,
+  phaseABadgeOpacity,
+  phaseAMiddleOpacity,
+  phaseATranslateY,
 }) => {
   const pressScale = useRef(new Animated.Value(1)).current;
 
@@ -77,6 +96,9 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
   const mainTitle = hasNote ? expense.note!.trim() : categoryName;
   const subtitle = hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
 
+  // Phase A: determine whether we have animation props to apply
+  const hasPhaseA = phaseABadgeOpacity !== undefined || phaseAMiddleOpacity !== undefined;
+
   const rowContent = (
     <Animated.View
       style={[
@@ -87,26 +109,76 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
         },
       ]}
     >
-      <GradientIconBadge size={48} color={catColor} isDark={isDark}>
-        {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
-      </GradientIconBadge>
-      <View style={styles.txMiddle}>
-        <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-          {mainTitle}
-        </Text>
-        <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
-      <View style={styles.txRight}>
-        <AmountText
-          role="row"
-          value={expense.amount}
-          direction={isIncome ? 'income' : 'expense'}
-          signed
-        />
-        <Text style={[styles.txDate, { color: colors.textMuted }]}>{dateStr}</Text>
-      </View>
+      {/* Phase A: badge animates (opacity + translateY), txRight does NOT */}
+      {hasPhaseA ? (
+        // Decomposed layout: badge+txMiddle in an Animated.View, txRight static sibling
+        <>
+          <Animated.View
+            style={[
+              styles.txLeftMiddle,
+              {
+                opacity: phaseABadgeOpacity ?? 1,
+                transform: phaseATranslateY !== undefined
+                  ? [{ translateY: phaseATranslateY }]
+                  : undefined,
+              },
+            ]}
+          >
+            <GradientIconBadge size={48} color={catColor} isDark={isDark}>
+              {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
+            </GradientIconBadge>
+            <Animated.View
+              style={[
+                styles.txMiddle,
+                {
+                  opacity: phaseAMiddleOpacity ?? 1,
+                },
+              ]}
+            >
+              <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                {mainTitle}
+              </Text>
+              <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            </Animated.View>
+          </Animated.View>
+          {/* txRight: NEVER animated — AmountText stability invariant */}
+          <View style={styles.txRight}>
+            <AmountText
+              role="row"
+              value={expense.amount}
+              direction={isIncome ? 'income' : 'expense'}
+              signed
+            />
+            <Text style={[styles.txDate, { color: colors.textMuted }]}>{dateStr}</Text>
+          </View>
+        </>
+      ) : (
+        // Standard layout: no Phase A props, render as before
+        <>
+          <GradientIconBadge size={48} color={catColor} isDark={isDark}>
+            {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
+          </GradientIconBadge>
+          <View style={styles.txMiddle}>
+            <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+              {mainTitle}
+            </Text>
+            <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          </View>
+          <View style={styles.txRight}>
+            <AmountText
+              role="row"
+              value={expense.amount}
+              direction={isIncome ? 'income' : 'expense'}
+              signed
+            />
+            <Text style={[styles.txDate, { color: colors.textMuted }]}>{dateStr}</Text>
+          </View>
+        </>
+      )}
     </Animated.View>
   );
 
@@ -149,6 +221,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
+  },
+  // Phase A decomposed layout: badge + txMiddle in a flex row, flex:1 to fill space
+  txLeftMiddle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
   },
   txMiddle: {
     flex: 1,

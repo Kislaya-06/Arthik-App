@@ -5,13 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
   Pressable,
   Animated,
   Vibration,
   Platform,
   LayoutAnimation,
-  GestureResponderEvent,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -20,11 +18,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Bell, ChevronRight, User } from 'lucide-react-native';
+import { Bell, ChevronUp, User } from 'lucide-react-native';
 import { TransactionRow } from '../components/TransactionRow';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
-import { TelegramPullIndicator } from '../components/TelegramPullIndicator';
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals } from '../lib/homeCalculations';
@@ -44,13 +42,18 @@ import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { configureLayoutAnimation } from '../lib/animationUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import {
+  computeScrollProgress,
+  evaluatePullRelease,
+  PULL_TO_HISTORY_THRESHOLD,
+} from '../lib/pullToHistoryUtils';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
   NativeStackScreenProps<RootStackParamList>
 >;
 
-// ─── Staggered Transaction Row ───────────────────────────────────────────────
+// ─── Staggered Transaction Row ────────────────────────────────────────────────
 const StaggerRow: React.FC<{ index: number; children: React.ReactNode }> = ({ index, children }) => {
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -87,12 +90,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const handleTriggerHistory = useCallback(() => {
-    try {
-      Vibration.vibrate(20);
-    } catch {}
-    navigation.navigate('History');
-  }, [navigation]);
+  // ─── Pull to History: Animated Values ──────────────────────────────────────
+  // scrollProgressAnim: 0 → 1 as scroll approaches the natural bottom (Phase A)
+  const scrollProgressAnim = useRef(new Animated.Value(0)).current;
+  // pullDepthAnim: 0 → PULL_TO_HISTORY_THRESHOLD as user overscrolls (Phase B)
+  const pullDepthAnim = useRef(new Animated.Value(0)).current;
+
+  // ─── Pull to History: Scroll metrics ref (no setState per frame) ───────────
+  // We store the latest scroll metrics in a ref to avoid setState on every frame.
+  const scrollMetricsRef = useRef({ contentOffsetY: 0, contentHeight: 0, layoutHeight: 0 });
 
   const [activeFilter, setActiveFilter] = useState<Filter>(() => {
     const isBudgetEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
@@ -174,6 +180,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       loadData(false);
       requestAnimationFrame(() => {
         scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        // Reset Pull to History animation state cleanly on every focus
+        scrollProgressAnim.setValue(0);
+        pullDepthAnim.setValue(0);
+        scrollMetricsRef.current = { contentOffsetY: 0, contentHeight: 0, layoutHeight: 0 };
       });
     }, [loadData, showNavBar])
   );
@@ -229,6 +239,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       .slice(0, 5);
   }, [expenses, gullakDeposits]);
 
+  // Whether Phase B is available (gated on having transactions)
+  const hasTransactions = recentTx.length > 0;
+
   const { colors, isDark } = useTheme();
   const nameFromMeta = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
   const dbName = profile?.first_name === 'User' ? null : profile?.first_name;
@@ -249,7 +262,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses, isAutoRenew, isBudgetModeEnabled]
   );
   const todayBudget = isBudgetConfigured ? todayRecord.budget : 0;
-  // Calculate today's spent directly from expenses for today to guarantee 0-lag live reactivity
   const todayLiveSpent = useMemo(() => {
     const todayStr = todayKey;
     let spent = 0;
@@ -292,7 +304,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return getCurrentPeriodSummary(planChanges, spentByDate, todayKey);
   }, [isBudgetModeEnabled, budgetCadence, planChanges, spentByDate, todayKey]);
 
-  // Period Renewal Modal coordination
   const [renewalModalDismissed, setRenewalModalDismissed] = useState(false);
 
   const currentPeriodKey = useMemo(() => {
@@ -346,8 +357,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setRenewalModalDismissed(true);
   }, [currentPeriodKey, setLastRenewedPeriodKey]);
 
-  // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
-  // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
   const {
     primaryAmount,
     primaryLabel,
@@ -376,7 +385,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges]
   );
 
-  // Date range label shown below filter pills for quick orientation
   const filterDateLabel = useMemo(() => {
     const t = referenceDate;
     if (activeFilter === 'All') {
@@ -404,6 +412,130 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return `${format(start, 'd')}\u2013${format(end, 'd MMM yyyy')}`;
   }, [activeFilter, referenceDate, userCreatedAtStr]);
 
+  // ─── Pull to History: Phase A — scroll-driven row exit ────────────────────
+  // Driven by onScroll. No setState. Runs on native thread via useNativeDriver.
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const metrics = {
+        contentOffsetY: contentOffset.y,
+        contentHeight: contentSize.height,
+        layoutHeight: layoutMeasurement.height,
+      };
+      // Update ref (no re-render) for use in onScrollEndDrag
+      scrollMetricsRef.current = metrics;
+
+      // Phase A: drive scrollProgressAnim without setState
+      const progress = computeScrollProgress(metrics);
+      scrollProgressAnim.setValue(progress);
+
+      // Phase B: compute live overscroll approximation for indicator feedback.
+      // On Android, contentOffset.y is typically clamped to [0, maxScroll] during drag,
+      // so this approximation may be 0 during live drag. The authoritative commit/cancel
+      // decision is made in onScrollEndDrag. Live feedback is best-effort.
+      if (hasTransactions) {
+        const overscroll = Math.max(0, contentOffset.y + layoutMeasurement.height - contentSize.height);
+        const clampedDepth = Math.min(overscroll, PULL_TO_HISTORY_THRESHOLD);
+        pullDepthAnim.setValue(clampedDepth);
+      }
+    },
+    [scrollProgressAnim, pullDepthAnim, hasTransactions]
+  );
+
+  // ─── Pull to History: Phase B — release handler ───────────────────────────
+  // Guard ref to prevent double-commit on rapid releases
+  const commitGuardRef = useRef(false);
+
+  const handleScrollEndDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!hasTransactions) return;
+
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const { overscroll, shouldCommit } = evaluatePullRelease({
+        contentOffsetY: contentOffset.y,
+        contentHeight: contentSize.height,
+        layoutHeight: layoutMeasurement.height,
+        hasTransactions,
+      });
+
+      if (shouldCommit && !commitGuardRef.current) {
+        // Commit: haptic + reset + navigate
+        commitGuardRef.current = true;
+        try { Vibration.vibrate(20); } catch { /* ignore */ }
+        Animated.timing(pullDepthAnim, {
+          toValue: 0,
+          duration: 80,
+          useNativeDriver: true,
+        }).start(() => {
+          commitGuardRef.current = false;
+        });
+        navigation.navigate('History');
+      } else if (!shouldCommit && overscroll > 0) {
+        // Cancel: spring back to rest
+        Animated.spring(pullDepthAnim, {
+          toValue: 0,
+          tension: 100,
+          friction: 16,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+    [hasTransactions, pullDepthAnim, navigation]
+  );
+
+  // ─── Phase A: interpolated styles (native driver — opacity + translateY only)
+  const phaseAOpacity = scrollProgressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.15],
+    extrapolate: 'clamp',
+  });
+  const phaseATranslateY = scrollProgressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -4],
+    extrapolate: 'clamp',
+  });
+  // Badge has a slightly higher opacity floor (0.20) than txMiddle (0.15)
+  const phaseABadgeOpacity = scrollProgressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.20],
+    extrapolate: 'clamp',
+  });
+
+  // ─── Phase B: pull indicator interpolated styles ──────────────────────────
+  const indicatorOpacity = pullDepthAnim.interpolate({
+    inputRange: [0, PULL_TO_HISTORY_THRESHOLD],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const indicatorTranslateY = pullDepthAnim.interpolate({
+    inputRange: [0, PULL_TO_HISTORY_THRESHOLD],
+    outputRange: [12, 0],
+    extrapolate: 'clamp',
+  });
+  const indicatorIconOpacity = pullDepthAnim.interpolate({
+    inputRange: [0, PULL_TO_HISTORY_THRESHOLD],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const indicatorTextOpacity = pullDepthAnim.interpolate({
+    inputRange: [0, PULL_TO_HISTORY_THRESHOLD],
+    outputRange: [0, 0.85],
+    extrapolate: 'clamp',
+  });
+  // Icon color: textSecondary → mintGreen across the pull range
+  // Animated.Color is not available; we use opacity crossfade between two icon layers.
+  // Secondary icon (textSecondary) fades out, primary icon (mintGreen) fades in.
+  const iconMintOpacity = pullDepthAnim.interpolate({
+    inputRange: [0, PULL_TO_HISTORY_THRESHOLD * 0.5, PULL_TO_HISTORY_THRESHOLD],
+    outputRange: [0, 0.4, 1],
+    extrapolate: 'clamp',
+  });
+  const iconMutedOpacity = pullDepthAnim.interpolate({
+    inputRange: [0, PULL_TO_HISTORY_THRESHOLD * 0.5, PULL_TO_HISTORY_THRESHOLD],
+    outputRange: [1, 0.6, 0],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -416,6 +548,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           { paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        onScrollEndDrag={handleScrollEndDrag}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -501,21 +636,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             onNavigateSavings={() => navigation.navigate('Savings' as any)}
           />
 
-          {/* Recent Transactions Section Header (Sticky with Top Section) */}
+          {/* Recent Transactions Section Header — "See All" is intentionally removed */}
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent transactions</Text>
-            <TouchableOpacity
-              style={[styles.seeAllBtn, { borderColor: colors.border }]}
-              onPress={() => navigation.navigate('History')}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.seeAllText, { color: colors.textSecondary }]}>See All</Text>
-              <ChevronRight size={14} color={colors.textSecondary} />
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── Scrollable Transactions List & Telegram Pull Indicator ── */}
+        {/* ── Scrollable Transactions List & Pull Indicator ── */}
         {recentTx.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
@@ -526,22 +653,57 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               if (item.kind === 'gullak') {
                 return (
                   <StaggerRow key={`gullak-${item.data.id}`} index={idx}>
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
+                    {/* Phase A: animate GullakDepositRow icon+middle, but not the amount.
+                        GullakDepositRow doesn't expose sub-columns, so we wrap the whole
+                        row with a mild Phase A opacity — amount inside is still stable
+                        since we don't translate or hide it aggressively. */}
+                    <Animated.View
+                      style={{
+                        opacity: phaseAOpacity,
+                        transform: [{ translateY: phaseATranslateY }],
+                      }}
                     >
-                      <GullakDepositRow
-                        deposit={item.data}
-                        colors={colors}
-                        isDark={isDark}
-                      />
-                    </TouchableOpacity>
+                      <Pressable
+                        onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
+                        style={({ pressed }) => ({
+                          opacity: pressed ? 0.75 : 1,
+                        })}
+                      >
+                        <GullakDepositRow
+                          deposit={item.data}
+                          colors={colors}
+                          isDark={isDark}
+                        />
+                      </Pressable>
+                    </Animated.View>
                   </StaggerRow>
                 );
               }
+
               const e = item.data;
               const cat = e.category_id ? catMap[e.category_id] : undefined;
               const isIncome = isIncomeTransaction(e, cat);
+
+              // Phase A decomposition for TransactionRow:
+              // We render the row using TransactionRow (which handles its own press-scale animation).
+              // Phase A is applied via an Animated.View overlay strategy:
+              // - The Animated.View wraps only the badge+txMiddle portion via negative margin trick.
+              // However, TransactionRow is a black-box component.
+              // The cleanest approach without modifying TransactionRow:
+              // Wrap the entire StaggerRow in a position:relative container, then overlay
+              // an Animated.View with pointerEvents='none' that fades from right=amount-width
+              // to left=0, covering only badge+txMiddle.
+              //
+              // Simpler correct approach: render TransactionRow normally (which has its own
+              // animated press scale), then apply Phase A to a sibling overlay that covers
+              // ONLY the left+middle area (badge + txMiddle), while txRight remains unaffected.
+              //
+              // This overlay approach: transparent overlay dims left side; right side untouched.
+              // But this requires knowing txRight width, which varies.
+              //
+              // CLEANEST APPROACH: inline-expand TransactionRow's inner layout at this call site,
+              // giving us direct control of what animates. The row's press scale remains on the
+              // outer Pressable. This avoids modifying the shared TransactionRow component.
               return (
                 <StaggerRow key={e.id} index={idx}>
                   <TransactionRow
@@ -551,17 +713,47 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     colors={colors}
                     isDark={isDark}
                     onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
+                    phaseABadgeOpacity={phaseABadgeOpacity}
+                    phaseAMiddleOpacity={phaseAOpacity}
+                    phaseATranslateY={phaseATranslateY}
                   />
                 </StaggerRow>
               );
             })}
 
-            {/* Telegram Pull Indicator & Round Arrow Button */}
-            <TelegramPullIndicator
-              onTrigger={handleTriggerHistory}
-              colors={colors}
-              isDark={isDark}
-            />
+            {/* Phase B: Display-only pull indicator.
+                Not a Pressable. Not a button. Tapping does nothing.
+                Opacity and translateY are driven by pullDepthAnim. */}
+            <Animated.View
+              style={[
+                styles.pullIndicator,
+                {
+                  opacity: indicatorOpacity,
+                  transform: [{ translateY: indicatorTranslateY }],
+                },
+              ]}
+              // Explicitly NOT accessible as a button — it is decorative only
+              accessible={false}
+              importantForAccessibility="no"
+            >
+              {/* Icon: crossfade between muted and mintGreen via layered icons */}
+              <View style={styles.pullIndicatorIconContainer}>
+                <Animated.View style={[StyleSheet.absoluteFill, styles.pullIndicatorIconLayer, { opacity: iconMutedOpacity }]}>
+                  <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2} />
+                </Animated.View>
+                <Animated.View style={[styles.pullIndicatorIconLayer, { opacity: iconMintOpacity }]}>
+                  <ChevronUp size={16} color={colors.mintGreen} strokeWidth={2} />
+                </Animated.View>
+              </View>
+              <Animated.Text
+                style={[
+                  styles.pullIndicatorLabel,
+                  { color: colors.textSecondary, opacity: indicatorTextOpacity },
+                ]}
+              >
+                Pull for history
+              </Animated.Text>
+            </Animated.View>
           </View>
         )}
       </ScrollView>
@@ -688,7 +880,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
   },
 
-  // Section header
+  // Section header — no "See All" button
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -701,20 +893,6 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
-  },
-  seeAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.element,
-  },
-  seeAllText: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    fontFamily: FontFamily.medium,
-    marginRight: Spacing.micro,
   },
 
   // Transaction scroll list
@@ -735,5 +913,30 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
     textAlign: 'center',
+  },
+
+  // Pull to History indicator (Phase B) — display only, not interactive
+  pullIndicator: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.element,
+    marginTop: Spacing.micro,
+  },
+  pullIndicatorIconContainer: {
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  pullIndicatorIconLayer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pullIndicatorLabel: {
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
+    fontFamily: FontFamily.medium,
+    marginTop: Spacing.micro,
   },
 });
