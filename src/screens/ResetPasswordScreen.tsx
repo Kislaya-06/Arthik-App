@@ -231,6 +231,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.formContainer}>
             {/* New Password */}
             <AuthFormField
+              topSpacing={16}
               label="NEW PASSWORD"
               placeholder="At least 8 characters"
               value={password}
@@ -250,6 +251,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {/* Confirm New Password */}
             <AuthFormField
+              topSpacing={16}
               label="CONFIRM NEW PASSWORD"
               placeholder="Re-enter your password"
               value={confirmPassword}

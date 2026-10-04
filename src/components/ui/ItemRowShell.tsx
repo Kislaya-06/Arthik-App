@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, useAnimatedValue } from 'react-native';
-import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing } from '../../config/theme';
+import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing, BorderRadius } from '../../config/theme';
 import { AmountText } from './AmountText';
 import { formatCurrency } from '../../lib/formatters';
 
@@ -133,7 +133,8 @@ export const ItemRowShell: React.FC<ItemRowShellProps> = ({
 
 const styles = StyleSheet.create({
   pressableContainer: {
-    borderRadius: 12,
+    borderRadius: BorderRadius.card,
+    overflow: 'hidden',
   },
   txRow: {
     flexDirection: 'row',

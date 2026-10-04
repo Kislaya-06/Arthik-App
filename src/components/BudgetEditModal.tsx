@@ -498,6 +498,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
               onKeyPress={handleKeyPress}
               buttonHeight={46}
               fontSize={20}
+              gap={6}
               style={{ marginBottom: Spacing.surface }}
             />
 

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔍 Code-Quality Review & Test Coverage (post `noUnused*` pass)
+- **Fixed 3 visual regressions introduced while extracting shared UI primitives** (`KeypadGrid`, `ItemRowShell`, `AuthFormField`): the numeric keypad lost its 8px gap between keys (6px on Budget Edit); transaction/deposit rows lost their `BorderRadius.card` press-clip (had dropped to a hard-coded 12px with no `overflow: hidden`); the Auth / Reset Password / Profile Setup fields lost their original spacing and radius (label letter-spacing, field gap, input radius). All three now match the pre-extraction screens exactly, pinned by `tests/uiPrimitiveParity.test.ts`.
+- **Fixed a `BottomSheetModal` race**: reopening the sheet while its close animation was still in flight could unmount the now-open sheet when the stale close callback fired. Guarded with a token so only the close that is still current can unmount it (`tests/bottomSheetModal.test.ts`).
+- **13 new test files (+160 tests)** for previously-untested modules: `transactionUtils`, `navBarStore`, `otaStore`, `budgetAlerts`, `useFocusEntry` (including the frozen-tab regression), `useScrollDirection`, `useFormKeyboard`, `useSavingsDashboard`, `useExpenseForm` (keypad, vault guard, save/edit, validation — 48 tests), `bottomSheetModal`, `uiPrimitiveParity`. Added `tests/helpers/hookRuntime.ts` and `tests/helpers/fakeStore.ts`, a small in-house hook test runtime (no new dependency) that models React's layout-effect re-run on `freezeOnBlur` reveal.
+- **Docs**: corrected stale test counts (61 files / 993 tests) and the `ambientStore` AsyncStorage key name in `docs/architecture.md` and `README.md`.
+
+
 ### 💎 UI Architecture Polish & Precision Improvements
 - **Floating Navigation Bar Polish (`BottomNavBar.tsx`, `navigation/index.tsx`)**: Removed Android hardware texture rasterization artifacts (`renderToHardwareTextureAndroid` and `needsOffscreenAlphaCompositing`) for clean 34px rounded capsule pill corners, and configured `tabBarStyle: { position: 'absolute', backgroundColor: 'transparent' }` so screen ambient backgrounds flow smoothly to the bottom edge without grey lines.
 - **Precision Toggle Switch Alignment (`AnimatedToggle.tsx`)**: Mathematically calibrated inner track dimensions (`innerHeight = height - 2`, `padding = 3px`, `thumbSize = 22px`) for perfect pixel-symmetric vertical and horizontal centering (`top = left = 3px`) with soft elevation shadow.

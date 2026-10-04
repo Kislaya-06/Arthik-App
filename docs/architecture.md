@@ -49,7 +49,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` |
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**` |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (48 files, 810 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (61 files, 993 tests) | `tests/**` |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
 ### Strict boundary rule
@@ -72,7 +72,7 @@ Ten Zustand stores. Each owns a well-defined domain.
 | `navBarStore` | Bottom navigation bar visibility | No | — |
 | `themeStore` | Light / dark / amoled theme | No (reads `Appearance` / AsyncStorage) | — |
 | `appLockStore` | Biometric gate, lock/unlock state | No (manual AsyncStorage) | ✅ `reset` |
-| `ambientStore` | Ambient background animation state, toggle | No (manual AsyncStorage `@arthik_ambient_enabled`) | — |
+| `ambientStore` | Ambient background animation state, toggle | ✅ `persist` (AsyncStorage key `arthik-ambient-preference`) | — |
 
 ### Cross-store wiring (no circular imports)
 
@@ -288,7 +288,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v1.2.4**: 48 test files, 810 tests, ~2.2s execution time.
+**Coverage as of v1.2.4**: 61 test files, 993 tests, ~2.5s execution time.
 
 | Test file | What it covers |
 |---|---|

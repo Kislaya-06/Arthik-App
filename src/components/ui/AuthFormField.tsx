@@ -14,6 +14,8 @@ import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius, ControlHeight
 export interface AuthFormFieldProps {
   label: string;
   rightLabel?: React.ReactNode;
+  /** Space above the field (px). Defaults to the Auth screen's original rhythm (Spacing.gutter = 24). */
+  topSpacing?: number;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
@@ -50,6 +52,7 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
   keyboardType = 'default',
   returnKeyType = 'done',
   onSubmitEditing,
+  topSpacing = 24,
   colors,
   isDark,
   editable = true,
@@ -59,7 +62,7 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
   const hasError = Boolean(isError || errorText);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { marginTop: topSpacing }]}>
       <View style={styles.labelRow}>
         <Text style={[styles.label, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
           {label}
@@ -139,7 +142,7 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: Spacing.block,
+    // marginTop is applied inline via `topSpacing` (matches each screen's original field rhythm)
   },
   labelRow: {
     flexDirection: 'row',
@@ -149,18 +152,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: FontSize.caption,
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   inputWrapper: {
-    borderRadius: BorderRadius.input,
+    borderRadius: 18,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   inputContainer: {
     height: ControlHeight.row,
     borderRadius: BorderRadius.input,
-    paddingHorizontal: Spacing.block,
+    paddingHorizontal: Spacing.surface,
     justifyContent: 'center',
     position: 'relative',
   },

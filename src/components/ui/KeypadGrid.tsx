@@ -8,6 +8,8 @@ export interface KeypadGridProps {
   hasOperators?: boolean;
   buttonHeight?: number;
   fontSize?: number;
+  /** Horizontal gap between keys in a row (px). Matches the keypad's original per-screen spacing. */
+  gap?: number;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -30,6 +32,7 @@ export const KeypadGrid: React.FC<KeypadGridProps> = ({
   hasOperators = false,
   buttonHeight,
   fontSize,
+  gap = 8,
   style,
 }) => {
   const rows = hasOperators ? OPERATOR_KEYPAD_ROWS : STANDARD_KEYPAD_ROWS;
@@ -37,7 +40,7 @@ export const KeypadGrid: React.FC<KeypadGridProps> = ({
   return (
     <View style={[styles.keypadContainer, style]}>
       {rows.map((row, rowIndex) => (
-        <View key={`row-${rowIndex}`} style={styles.keypadRow}>
+        <View key={`row-${rowIndex}`} style={[styles.keypadRow, { gap }]}>
           {row.map((k) => (
             <KeyButton
               key={k}
@@ -59,7 +62,6 @@ const styles = StyleSheet.create({
   },
   keypadRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 8,
   },
 });

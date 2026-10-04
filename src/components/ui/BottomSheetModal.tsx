@@ -47,6 +47,9 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   const slideAnim = useAnimatedValue(500);
   const fadeAnim = useAnimatedValue(0);
   const isFirstRender = useRef(true);
+  // Guards the close animation's completion callback: if `visible` flips back to true while the close animation is
+  // still in flight, that stale callback must NOT unmount the (now reopened) sheet.
+  const closeToken = useRef(0);
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -55,6 +58,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
     }
 
     if (visible) {
+      closeToken.current += 1; // invalidate any in-flight close
       setIsMounted(true);
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -70,6 +74,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
         }),
       ]).start();
     } else {
+      const token = (closeToken.current += 1);
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -82,7 +87,9 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setIsMounted(false);
+        if (closeToken.current === token) {
+          setIsMounted(false);
+        }
       });
     }
   }, [visible, slideAnim, fadeAnim]);
