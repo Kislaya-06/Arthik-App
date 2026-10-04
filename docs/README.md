@@ -62,3 +62,12 @@ Engineering documentation for the **Arthik** personal finance app.
 3. Sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the ADR supersedes an older one, add a `## Status: Superseded by NNNN` to the old ADR.
 5. Add the new ADR to the index table above and to `docs/architecture.md §12`.
+
+---
+
+## Living Documentation Invariant
+
+Documentation in Arthik is maintained continuously alongside the code:
+- Whenever any feature, bugfix, architectural change, or test suite update is made, **all relevant documentation files MUST be updated in the exact same task/commit**.
+- Test counts, store lists, routes, notification rules, and product behaviors must never drift from code reality.
+- See [`../AGENTS.md §17`](../AGENTS.md) and [`§19`](../AGENTS.md) for full rules and enforcement.

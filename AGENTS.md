@@ -50,7 +50,7 @@ src/
 │                 Savings, ExpenseForm, ExpenseDetail, CategoryDetail, ManageCategories,
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq
 ├── store/        authStore, expenseStore, categoryStore, dailyBudgetStore,
-│                 notificationStore, networkStore, navBarStore, themeStore, appLockStore
+│                 notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
@@ -306,6 +306,7 @@ Before reporting done:
 4. Confirm unrelated features were not changed.
 5. State clearly what was verified and any items that could not be tested locally (e.g. native biometric, live Supabase network).
 6. Flag if the change requires a new APK build rather than an OTA update.
+7. **Continuous Documentation Synchronization (MANDATORY)**: Review all repository documentation files (`README.md`, `CHANGELOG.md`, `docs/architecture.md`, `docs/prd.md`, `AGENTS.md`, `docs/README.md`, etc.). Update whichever relevant doc files are affected by the changes (e.g. test counts, store lists, routes, features, invariants) in the same task/commit so documentation never drifts or becomes stale.
 
 ---
 
@@ -318,9 +319,14 @@ Before reporting done:
 
 ---
 
-# 19. Commits & Changelog
+# 19. Documentation & Changelog Synchronization (MANDATORY INVARIANT)
 
-- Small, focused commits with imperative commit messages (e.g. `feat(home): ...`, `fix(savings): ...`).
+- **Continuous Documentation Freshness**: Whenever changes are made anywhere in the repository (new features, bugfixes, test updates, architectural shifts, or configuration updates), all relevant documentation files in the repository MUST be updated in the same change/commit. Never allow documentation to drift or become outdated:
+  - **Tests modified/added**: Immediately update test and file counts in `README.md` and `docs/architecture.md`.
+  - **Stores, routes, or architecture touched**: Update `docs/architecture.md`, `docs/README.md`, and relevant doc maps.
+  - **User-facing changes or bugfixes**: Update `CHANGELOG.md` under `[Unreleased]` with a clear, concise bullet, and update `docs/prd.md` if product requirements evolved.
+  - **Rules, guidelines, or procedures updated**: Update `AGENTS.md` and cross-reference corresponding files.
+- Small, focused commits with imperative commit messages (e.g. `feat(home): ...`, `fix(savings): ...`, `docs(agents): ...`).
 - User-visible changes get a `CHANGELOG.md` entry in the same commit.
 
 ---
