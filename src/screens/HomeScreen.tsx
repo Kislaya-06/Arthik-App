@@ -12,6 +12,7 @@ import {
   GestureResponderEvent,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { AmbientBackground } from '../components/AmbientBackground';
 import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -409,6 +410,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     // Same native pull-to-refresh circle as History / Savings / Insights (see AppRefreshControl).
     <RefreshScrollShell refreshing={refreshing} onRefresh={onRefresh}>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AmbientBackground />
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* ── Fixed Top Section (Header, Filter, Hero Card & Recent Transactions Header) ── */}
@@ -486,7 +488,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         />
 
         {/* ── Recent Transactions Header (Anchored Boundary / Viewport Entrance) ── */}
-        <View style={[styles.sectionHeaderRow, { backgroundColor: colors.background }]}>
+        <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Transactions</Text>
         </View>
         <View

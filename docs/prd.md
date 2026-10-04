@@ -77,7 +77,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Cadence-Default Tab | App opens directly on the tab matching user's active cadence (`Daily` $\to$ Daily, `Weekly` $\to$ Weekly, `Monthly` $\to$ Monthly). |
 | Period filters | Daily, Weekly, Monthly, All — unified income, spent, and balance across all time horizons. |
 | Live today's spent | Updates instantly on every transaction without refresh. |
-| Budget progress alerts | Live 80% and 100% threshold notifications. |
+| Budget progress alerts | Live in-app 80% threshold and silent over-budget banner alerts. |
 
 ### 4.4 Savings Screen ✅ Shipped
 
@@ -142,9 +142,13 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| 80% & 100% budget alerts | Push notifications when spending reaches threshold. |
-| In-app notification list | Notification screen with read/unread state, timestamps. |
-| Contextual Explainer Guides | In-app modal guides explaining pacing preview, rollover mechanics, and carry-forward rules. |
+| Smart Push Policy | Strict **max-1-per-day** rule (`notificationPolicy.ts`). Priority: Monthly recap > Weekly recap > Gullak reward > Evening nudge. |
+| Evening Nudge | Scheduled for 20:30 only on days with nothing logged. Automatically silences after 3 unopened evenings; logging an expense cancels tonight's nudge immediately. |
+| Gullak Morning Reward | Scheduled for 08:30 next morning for daily cadence users when yesterday was logged and ended with savings. |
+| Periodic Recaps | Sunday 19:00 weekly recap (≥ 3 expenses) and month-end 21:00 monthly recap (≥ 6 expenses). |
+| In-App Bell & Alerts | In-app notification center capped at 50 items with read/unread tracking. User-triggered events (80% used, daily rollover applied, budget plan updated) stay in-app; over-budget shows a silent banner. |
+| Android Channels | 4 distinct channels (`Budget alerts`, `Reminders`, `Gullak updates`, `Weekly & monthly recaps`), each individually mutable in system settings. Toggleable in Profile. |
+| Contextual Explainer Guides | In-app modal guides explaining pacing preview, rollover mechanics, and carry-forward rules (`MoneyExplainerModal`). |
 | Help Centre (FAQ) | Complete Help Centre screen (`FaqScreen`) answering common budget and savings questions in clear English. |
 
 ### 4.11 Themes, OTA & Versioning ✅ Shipped

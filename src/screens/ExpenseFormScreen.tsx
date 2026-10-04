@@ -8,6 +8,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
+import { AmbientBackground } from '../components/AmbientBackground';
 import {
   ArrowLeft, Calendar, ChevronRight, Plus, Check,
 } from 'lucide-react-native';
@@ -367,6 +368,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
+      <AmbientBackground />
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* ── Header ── */}

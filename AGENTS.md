@@ -219,8 +219,11 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 
 # 10. Notifications
 
-- Local notifications go through `src/lib/notificationService.ts` and `notificationStore`.
-- Handle permission denial gracefully; avoid loops that reschedule on re-render.
+- **Canonical Specification**: Read [`docs/notifications.md`](docs/notifications.md) before modifying any notification behavior. Single source of truth is the pure helper [`src/lib/notificationPolicy.ts`](src/lib/notificationPolicy.ts) (tested via `tests/notificationPolicy.test.ts`).
+- **Max 1 Per Day Rule (CRITICAL)**: At most **ONE** scheduled push notification per calendar day (priority order: monthly recap > weekly recap > Gullak reward > evening nudge). Never spam the user.
+- **Never Nag Invariant**: The evening nudge (20:30) exists only on days with zero expenses logged, and goes quiet after 3 consecutive unopened evenings. Logging an expense immediately cancels tonight's nudge via `notificationSync.ts`.
+- **In-App Bell vs. OS Push Separation**: Actions triggered by the user's active session (80% budget limit reached, daily/cadence rollover applied, budget settings updated) go strictly to the in-app bell (`notificationStore`), never OS push notifications. The only exception while open is crossing the budget limit (silent banner).
+- **Channels & Services**: Local notifications go through `src/lib/notificationService.ts` across 4 Android channels (`Budget alerts`, `Reminders`, `Gullak updates`, `Weekly & monthly recaps`). Handle permission denial gracefully; avoid rescheduling loops on re-render.
 
 ---
 

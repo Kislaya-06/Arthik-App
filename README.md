@@ -38,7 +38,7 @@
 - 📊 **Real-Time Financial Dashboard** — Home screen overview featuring dynamic greeting typography, remaining allowance tracking, concentric dual rings, and instant period filters (Today, Week, Month, All).
 - 📝 **Tactile Expense & Income Logging** — Quick transaction entry with custom spring-animated numeric keypad (with decoupled integer and decimal paise limits), payment mode tags (Cash, UPI, Card), and category assignment.
 - 📈 **Visual Insights & History** — Searchable, chronologically grouped transaction history and analytical spending breakdowns across weekly, monthly, and all-time intervals.
-- 🔔 **Smart Cadence-Aware Reminders** — Local notifications scheduled via `expo-notifications` for 80% and 100% budget thresholds, savings rollovers, and friendly evening expense reminders.
+- 🔔 **Smart Notifications** — Minimal, high-relevance local notifications scheduled via `expo-notifications`. Strict max-1-per-day policy with quiet evening nudges on unlogged days, morning Gullak savings summaries, and weekly/monthly recaps.
 - 🔒 **Biometric App Lock & Secure Auth** — Fingerprint/Face/Device PIN lock gate, email/password signup, Google OAuth, session persistence via Supabase Auth (PKCE flow), and complete account deletion compliance.
 
 ---
@@ -73,9 +73,9 @@ src/
 ├── screens/      # Home, Savings, History, Insights, ExpenseForm, ManageCategories,
 │                 # Profile, Notifications, Auth, Splash, Onboarding, FaqScreen
 ├── store/        # Zustand stores (dailyBudgetStore, expenseStore, categoryStore,
-│                 # authStore, networkStore, themeStore, notificationStore, appLockStore)
+│                 # authStore, networkStore, themeStore, notificationStore, appLockStore, ambientStore)
 └── types/        # TypeScript route navigation & entity interfaces
-tests/            # Vitest unit tests (36 files, 606 tests)
+tests/            # Vitest unit tests (48 files, 801 tests)
 ```
 
 ---
@@ -86,7 +86,6 @@ This repository follows documented coding standards and domain models:
 
 - [`AGENTS.md`](./AGENTS.md) — Operational guidelines, coding standards, design tokens, test coverage rules, and safety invariants for developers and AI pair programmers.
 - [`CONTEXT.md`](./CONTEXT.md) — Single-context domain model, business rules, entity relationships, and core architectural invariants.
-- [`GLOSSARY.md`](./GLOSSARY.md) — Alphabetized quick reference for core domain terminology and architectural invariants.
 - [`docs/architecture.md`](./docs/architecture.md) — System architecture: layer map, stores, offline write path, startup sequence, Gullak engine, auth, and test inventory.
 - [`docs/prd.md`](./docs/prd.md) — Product Requirements Document: full feature inventory, constraints, UX principles, roadmap, and technical risks.
 - [`docs/adr/`](./docs/adr/) — Architecture Decision Records (11 ADRs) capturing the rationale behind key architectural and design choices.

@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useLayoutEffect, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { ThemeColors, FontFamily } from '../config/theme';
 import { RollingText } from './RollingText';
+import { useFocusEntryCount } from '../hooks/useFocusEntry';
 
 export type DonutProps = {
   spent: number;
@@ -48,11 +49,14 @@ const DonutChartBase: React.FC<DonutProps> = ({
   const isOverspent = hasData && spent > total;
 
   const anim = useRef(new Animated.Value(0)).current;
-  const isFirstMount = useRef(true);
+  // Counts every visit to the screen: the ring sweeps up from 0 on each one (like the number inside it).
+  const entry = useFocusEntryCount();
+  const handledEntry = useRef(-1);
 
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
+  // Layout effect on purpose: it also re-runs when a frozen tab is revealed, and starts before the first paint.
+  useLayoutEffect(() => {
+    if (handledEntry.current !== entry) {
+      handledEntry.current = entry;
       anim.setValue(0);
     }
     const sweep = Animated.timing(anim, {
@@ -65,7 +69,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
     return () => {
       sweep.stop();
     };
-  }, [targetSpentRatio, anim]);
+  }, [targetSpentRatio, anim, entry]);
 
   // Interpolated stroke dashoffset for the spent (peach) arc
   const spentOffset = anim.interpolate({
@@ -140,6 +144,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
           ])}
           fitWidth={Math.round(SIZE * 0.6)}
           minScale={0.7}
+          rollOnFocus
         />
         <Text
           style={[

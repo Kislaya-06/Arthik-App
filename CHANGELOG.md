@@ -9,16 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 🔔 Smart Notifications & Rolling-Digit Numbers
-- **Notification redesign (`notificationPolicy.ts`, `notificationSync.ts`, `notificationService.ts`, `budgetAlerts.ts`):** Replaced the fixed daily 20:00 reminder and the emoji alerts with one rulebook for both Pure Mode and Gullak users. At most one scheduled notification per day. The evening nudge now appears only on days with nothing logged (tap opens Add Expense), and goes quiet after 3 unopened days. Gullak users get a morning "saved yesterday" message (only when something was logged and the day ended under budget), plus Sunday weekly and month-end recaps for everyone. Over-limit shows a silent banner; 80% / rollover / budget-updated stay in the in-app bell.
-- **Channels & migration:** Four Android channels (Budget alerts, Reminders, Gullak updates, Weekly & monthly recaps) so each can be muted separately; the old repeating reminder and MAX channel are removed once on upgrade.
-- **Notifications screen:** new icons / routing for recaps and Gullak rewards.
-- **Rolling digits (`RollingText`):** Every number on the Home hero card (amount, income, expense, chips, rollover strip, donut %) and the Gullak total on Savings now rolls digit by digit (odometer style, native thread) when it changes. Replaces the JS count-up.
-- **Rolling digits everywhere that matters:** Home hero + Income/Expense, Savings Gullak balance and "Left to Spend / Exceeded By", Insights total, Category Detail total. `AmountText` gained a `rolling` prop and a width-safe layout for use inside rows.
-- **Rolling digits & DonutChart 60fps smoothness:** Eliminated parent re-rendering delays (`useRollOnFocus` timeout cascade) by building `rollOnFocus` directly into `RollingText`. Screen focus transitions now immediately roll up from 0 to destination on the native thread with zero JS stalls or downward roll snaps. Optimized `DonutChart` with static `<G>` rotation isolation and Apple critically damped cubic bezier easing (`0.25, 0.1, 0.25, 1`, 380ms) for butter-smooth 60fps arc animation.
-- **Insights breathing strip rolling digits (`WeeklyBreathingStrip`, `MonthlyBreathingStrip`, `YearlyBreathingStrip`):** Converted static tile amounts (Safe Daily Pace, Auto-saved to Gullak, Annual Net Surplus / Cash Flow, and Savings & Gullak) to `RollingText` with `rollOnFocus` and `minScale={0.75}`, smoothly rolling on period switches and screen focus.
-- **SegmentedControl cross-reach touch resilience (`SegmentedControl`):** Completely eliminated intermittent tap drops when reaching across from Yearly to Weekly. Added outer-edge hit-slop (16px on leftmost Weekly pill), `pressRetentionOffset` (20px) preventing micro-slides from cancelling taps, elevated `optionsRow` (`elevation: 4`, `zIndex: 10`) above the animated slider pill, added `pointerEvents="none"` directly to the slider pill, and pre-stopped in-flight animations.
-- **Tests:** `notificationPolicy`, `notificationSync`, `rollingText`, `segmentedControl`.
+### 🔔 Smart Notification System (`notificationPolicy.ts`, `notificationSync.ts`, `notificationService.ts`)
+- **Single-Source Policy Engine**: Replaced legacy daily reminders with an unshakeable, pure policy matrix (`notificationPolicy.ts`). Enforces a strict **max-1-per-day** limit across all push notifications (priority order: Monthly recap > Weekly recap > Gullak reward > Evening nudge).
+- **Quiet Evening Nudge**: Scheduled for 20:30 only on days when nothing has been logged. Automatically goes quiet after 3 consecutive unopened days; logging an expense immediately cancels tonight's nudge via `notificationSync.ts`.
+- **Gullak Morning Reward**: Congratulates daily-cadence users at 08:30 the next morning when yesterday was logged and ended with savings added to Gullak.
+- **Weekly & Monthly Insights Recaps**: Delivers high-level spending summaries on Sunday at 19:00 (≥ 3 expenses logged) and on month-end at 21:00 (≥ 6 expenses logged).
+- **In-App Bell Separation**: Non-intrusive in-app notifications for 80% allowance alerts, midnight rollovers, and budget plan updates. Over-budget state surfaces as a silent banner.
+- **Separated Android Channels**: Four distinct system notification channels (`Budget alerts`, `Reminders`, `Gullak updates`, `Weekly & monthly recaps`) allowing granular user control in Android system settings.
+
+### 🔢 Tactile Rolling-Digit Numbers & Focus Continuity (`RollingText`, `AmountText`)
+- **Native-Thread Rolling Numbers**: Every financial figure across Home, Savings (Gullak balance & allowance limits), Insights (breathing strips), and Category Details rolls vertically digit-by-digit (odometer style) on value updates and screen focus.
+- **Frozen-Tab Focus Resilience**: Integrated mount/reveal layout effects so navigating back to frozen tabs (`freezeOnBlur`) reliably re-triggers rolling transitions from zero without layout shift, downward snaps, or JS thread stalls.
+- **Butter-Smooth Donut Chart 60fps Sweep**: Upgraded `DonutChart` and `DualRingChart` arcs with Apple critically damped cubic bezier easing (`0.25, 0.1, 0.25, 1`, 380ms) and focus-entry synchronization via `useFocusEntryCount`.
+
+### 🌌 Ambient Background & Atmosphere Polish (`AmbientBackground`, `ambientStore`)
+- **Organic Top Glow & Wind Sprite**: Subtle tinted glow across the top header zone with randomized wispy directional wind drafts drifting beneath an ultra-light film grain tile.
+- **Resource Discipline**: Runs exclusively on the native thread. Automatically throttles and pauses when screens lose focus, when the app backgrounds, or when system Reduce Motion is enabled. Weaker intensity in AMOLED mode.
+- **Profile Preference Switch**: Ambient background toggle in Profile (`ambientStore`) persisted via AsyncStorage with zero flash on app startup.
+
+### 🎯 SegmentedControl Touch & Reach Resilience (`SegmentedControl`)
+- **Cross-Screen Reach Touch Handling**: Eliminated dropped taps when reaching across long distances (e.g., from Yearly to Weekly). Added 16px outer-edge hit-slop, 20px `pressRetentionOffset` to prevent micro-slides from cancelling taps, elevated option rows (`elevation: 4`, `zIndex: 10`), and stopped in-flight animations on tap down.
 
 ---
 

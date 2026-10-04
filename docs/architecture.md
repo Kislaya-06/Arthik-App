@@ -49,7 +49,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` |
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**` |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (36 files, 606 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (48 files, 801 tests) | `tests/**` |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
 ### Strict boundary rule
@@ -59,7 +59,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 
 ## 3. Stores
 
-Nine Zustand stores. Each owns a well-defined domain.
+Ten Zustand stores. Each owns a well-defined domain.
 
 | Store | Domain | Persisted? | Reset on sign-out? |
 |---|---|---|---|
@@ -72,6 +72,7 @@ Nine Zustand stores. Each owns a well-defined domain.
 | `navBarStore` | Bottom navigation bar visibility | No | — |
 | `themeStore` | Light / dark / amoled theme | No (reads `Appearance` / AsyncStorage) | — |
 | `appLockStore` | Biometric gate, lock/unlock state | No (manual AsyncStorage) | ✅ `reset` |
+| `ambientStore` | Ambient background animation state, toggle | No (manual AsyncStorage `@arthik_ambient_enabled`) | — |
 
 ### Cross-store wiring (no circular imports)
 
@@ -228,27 +229,41 @@ See [ADR 0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md).
 ## 8. Navigation
 
 React Navigation v7 with:
-- **Root Stack**: `NativeStack` — `Splash`, `Auth`, `Onboarding`, `ProfileSetup`, `ResetPassword`, `ExpenseForm`, `ExpenseDetail`, `CategoryDetail`, `ManageCategories`, `AddEditCategory`, `Notifications`, `Profile`, `GullakDepositDetailScreen`, `FaqScreen`
-- **Tab Navigator** (inside Root Stack):
-  - **Pure Mode**: 4 tabs (`Home`, `History`, `Add`, `Insights`). Direct attempts to access `Savings` safely redirect to `Home`.
-  - **Budget Mode**: 5 tabs (`Home`, `Savings`, `Add`, `History`, `Insights`) with smooth capsule bar transition.
+- **Root Stack**: `NativeStack` — `Splash`, `Auth`, `Onboarding`, `ProfileSetup`, `AppTabs`, `AddExpense`, `EditExpense`, `ExpenseDetail`, `GullakDepositDetail`, `CategoryDetail`, `ManageCategories`, `AddEditCategory`, `Notifications`, `Profile`, `Savings`, `ResetPassword`, `Faq`
+- **Tab Navigator** (inside Root Stack as `AppTabs`):
+  - **Pure Mode**: 4 tabs (`Home`, `History`, `AddExpensePlaceholder` [Add], `Insights`). Direct attempts to access `Savings` safely redirect to `Home`.
+  - **Budget Mode**: 5 tabs (`Home`, `Savings`, `AddExpensePlaceholder` [Add], `History`, `Insights`) with smooth capsule bar transition.
 
-All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`). Imperative navigation via `navigationRef`.
-
----
-
-## 9. UI System
-
-- **Theme**: `src/config/theme.ts` — `LightColors`, `DarkColors` (with true AMOLED obsidian `DarkColors.amoled`), `Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`. 3-theme picker supported on Profile (Light, Dark, AMOLED).
-- **Fonts**: Quicksand (400/500/600/700) via `@expo-google-fonts/quicksand`.
-- **Icons**: `lucide-react-native` (1.24+). Feature icons and badges strictly utilize `GradientIconBadge`.
-- **Charts**: `react-native-svg` (15.15) — Concentric Dual Ring chart, animated donut rings, and gradient flow bars.
-- **Safe Area**: `useSafeAreaInsets` from `react-native-safe-area-context`. Never `SafeAreaView` from `react-native`.
-- **Bottom Nav**: Custom floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`.
+All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`). Imperative navigation via `navigationRef`. Guard back actions with `navigation.canGoBack()`.
 
 ---
 
-## 10. OTA Updates & Deployment
+## 9. UI & Motion System
+
+- **9.1 Theme & Design Tokens**: `src/config/theme.ts` — `LightColors`, `DarkColors` (with true AMOLED obsidian `DarkColors.amoled`), `Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`. 3-theme picker supported on Profile (Light, Dark, AMOLED).
+- **9.2 Rolling-Digit Numbers (`RollingText`)**: Vertical digit-by-digit odometer rolling animations on amount updates and screen focus across Home, Savings, Insights, and Category Details. Runs natively on the UI thread without layout shifts or text spasms.
+- **9.3 Ambient Background & Light Flow (`AmbientBackground`, `ambientStore`)**: Subtle, organic blurred gradient light bands moving slowly across the top of the screen surface. Automatically throttled/paused when tab/screen loses focus (`useSafeIsFocused`), app goes to background (`useAppActive`), or `useReduceMotion()` is active. User-toggleable in Profile.
+- **9.4 Home Pull-to-Refresh & Pull-to-History Physics (`PullToHistoryContainer`, `pullToHistoryPhysics.ts`)**: Replaces default scroll view with unified drag, momentum, and pull-up gestures. Calibrated Instagram Vanish-mode spring physics (stiffness 42, damping 11.6, ~0.88 damping ratio) with countdown progress ring. Pull-down uses unified native refresh circle (`AppRefreshControl`) with haptic feedback and throttle cooldown.
+- **9.5 Icons & Badges**: `lucide-react-native` (1.24+). Feature icons and badges strictly utilize `GradientIconBadge`.
+- **9.6 Charts**: `react-native-svg` (15.15) — Concentric Dual Ring chart, animated donut rings, and gradient flow bars.
+- **9.7 Safe Area & Bottom Nav**: `useSafeAreaInsets` from `react-native-safe-area-context`. Floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`.
+
+---
+
+## 10. Notifications Architecture
+
+See [`docs/notifications.md`](notifications.md) for the full product specification. The single source of truth is [`src/lib/notificationPolicy.ts`](../src/lib/notificationPolicy.ts) (tested via `tests/notificationPolicy.test.ts`).
+
+- **Max 1 Per Day Rule (CRITICAL)**: At most **ONE** scheduled push notification per calendar day (priority order: Monthly recap > Weekly recap > Gullak reward > Evening nudge).
+- **Never-Nag Invariant**: Evening nudge (20:30) exists only on days with zero expenses logged, and goes quiet after 3 consecutive unopened evenings. Logging an expense immediately cancels tonight's nudge via `notificationSync.ts`.
+- **Morning Gullak Reward**: Fires at 08:30 next morning for daily cadence users when yesterday was logged and ended with savings.
+- **Periodic Recaps**: Sunday 19:00 weekly recap (≥ 3 expenses) and month-end 21:00 monthly recap (≥ 6 expenses).
+- **In-App Bell vs. OS Push Separation**: Actions triggered by the user's active session (80% budget limit reached, rollover notice, budget plan updates) stay strictly in-app (`notificationStore`), capped at 50 items with read/unread tracking. Crossing the budget limit triggers a silent banner.
+- **Android Channels**: 4 lazily registered channels (`Budget alerts`, `Reminders`, `Gullak updates`, `Weekly & monthly recaps`), each individually mutable in system settings.
+
+---
+
+## 11. OTA Updates & Deployment
 
 See [ADR 0006](adr/0006-ota-updates-tied-to-app-version.md).
 
@@ -263,18 +278,22 @@ See [ADR 0006](adr/0006-ota-updates-tied-to-app-version.md).
 
 ---
 
-## 11. Test Architecture
+## 12. Test Architecture
 
 See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v1.2.4**: 36 test files, 606 tests, ~1.5s execution time.
+**Coverage as of v1.2.4**: 48 test files, 801 tests, ~2.2s execution time.
 
 | Test file | What it covers |
 |---|---|
+| `ambientBackground.test.ts` | Band math, phase wrapping, smootherstep easing, native animation parameters |
+| `ambientStore.test.ts` | Ambient background toggle, AsyncStorage persistence, multi-user isolation |
 | `amountKeypad.test.ts` | Calculator operators, ceiling limits, backspace, decimal paise parsing |
+| `amountText.test.ts` | Currency symbol alignment, Indian grouping, rolling prop pass-through |
 | `animationUtils.test.ts` | Spring physics, layout transitions, easing curves |
+| `appButton.test.ts` | Button variants, tactile press feedback, loading state, disabled guards |
 | `appLockStore.test.ts` | Biometric toggle, persistence, multi-user isolation, sign-out reset |
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
 | `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
@@ -300,19 +319,27 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `homeSpendingNewUser.test.ts` | Cold-start user calculations, zero-data rendering guards |
 | `insightsData.test.ts` | Analytical aggregations across weekly, monthly, and yearly intervals |
 | `moneyExplainerContent.test.ts` | Explainer modal copy resolution, cadence help topic routing |
+| `monthlyInsightsData.test.ts` | Monthly aggregations, category breakdowns, week-over-week comparisons |
 | `networkUtils.test.ts` | NetInfo state listener, reconnect queue trigger |
 | `noteSuggestions.test.ts` | Autocomplete ranking by recency, frequency, and category affinity |
+| `notificationPolicy.test.ts` | Pure notification policy: max 1/day, priority order, evening nudge, Gullak reward, recaps |
 | `notificationStore.test.ts` | Add/dedup/cap-50, read status, multi-user isolation |
+| `notificationSync.test.ts` | OS notification plan builder, diff-based scheduling, cancellation |
 | `offlineStartup.test.ts` | Offline cold-launch boot sequence without network access |
 | `paymentAndIconUtils.test.ts` | Payment labels/icons, unified income classification (`isIncomeTransaction`) |
+| `pullToHistoryPhysics.test.ts` | Instagram-calibrated rubber band pull physics, damping ratio, ring travel linearity |
+| `rollingText.test.ts` | Digit-by-digit vertical odometer roll, layout effect mount/reveal, decimal handling |
+| `segmentedControl.test.ts` | Critical damped spring slide, outer hitSlop, touch release selection, elevation |
 | `streakFlame.test.ts` | Streak counter tiers, milestone badge triggers, flame stages |
 | `themeStore.test.ts` | Light/dark/AMOLED toggle, Appearance listener, persistence |
 | `vaultSpendingGuard.test.ts` | Digital Vault Spending Guard, net liquidity evaluation, inflow blockers |
 | `versionCheck.test.ts` | Semver comparison, update-required screen gating |
+| `weeklyInsightsData.test.ts` | Weekly day-by-day aggregations, daily averages, weekend vs weekday spend |
+| `yearlyInsightsData.test.ts` | 12-month calendar aggregation, annual savings, largest month-over-month increases |
 
 ---
 
-## 12. Key ADRs
+## 13. Key ADRs
 
 | # | Decision | Status |
 |---|---|---|

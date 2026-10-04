@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
 import { StatusBar } from 'expo-status-bar';
+import { AmbientBackground } from '../components/AmbientBackground';
 import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -426,6 +427,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <AmbientBackground />
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.container}>
 

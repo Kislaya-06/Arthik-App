@@ -292,6 +292,14 @@ export const RollingText: React.FC<RollingTextProps> = ({
   const isFocused = useSafeIsFocused();
   const wasFocusedRef = useRef(false);
 
+  // A tab hidden by freezeOnBlur may never commit a "blurred" render, so wasFocusedRef could stay `true` and the
+  // return to the screen would not roll. React re-runs layout effects when a frozen tab is revealed (even with no
+  // dependency change), so this effect (declared BEFORE the one below, so it runs first) forgets the previous focus on
+  // mount and on every reveal.
+  useLayoutEffect(() => {
+    wasFocusedRef.current = false;
+  }, []);
+
   useLayoutEffect(() => {
     const prev = lastTextRef.current;
     const justGainedFocus = !!rollOnFocus && isFocused && !wasFocusedRef.current;
@@ -315,10 +323,11 @@ export const RollingText: React.FC<RollingTextProps> = ({
     }
 
     // Determine what roll to plan:
-    // 1. Focus reentry: smoothly roll up from 0 to target value on the native thread
-    // 2. Normal value change: roll between prev and text
+    // 1. Entering the screen (even if the value also changed while away): roll up from 0 to the value
+    // 2. Normal value change while the screen is visible: roll between prev and text
     let plan: RollPlan | null = null;
-    if (justGainedFocus && prev === text) {
+    if (justGainedFocus) {
+      lastTextRef.current = text;
       const zeroText = text.replace(/\d[\d,]*(?:\.\d+)?/g, '0');
       if (zeroText !== text) {
         plan = planRoll(zeroText, text);

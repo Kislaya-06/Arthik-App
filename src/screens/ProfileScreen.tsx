@@ -9,13 +9,14 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon, Sun, Sparkles, Palette,
-  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck, HelpCircle
+  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
+import { useAmbientStore } from '../store/ambientStore';
 import { useExpenseStore, getPendingSyncCount } from '../store/expenseStore';
 import { useNetworkStore } from '../store/networkStore';
 import { RootStackParamList } from '../types';
@@ -48,6 +49,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   // Local state for toggles with AsyncStorage persistence
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const ambientEnabled = useAmbientStore((s) => s.enabled);
+  const setAmbientEnabled = useAmbientStore((s) => s.setEnabled);
   const isAppLockEnabled = useAppLockStore((s) => s.isAppLockEnabled);
   const isSupported = useAppLockStore((s) => s.isSupported);
   const isEnrolled = useAppLockStore((s) => s.isEnrolled);
@@ -726,6 +729,25 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 height={ControlHeight.standard}
               />
             </View>
+          </View>
+
+          {/* 3b. Ambient Background (soft moving light at the top of screens) */}
+          <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <Waves size={18} color={colors.textPrimary} />
+            </View>
+            <View style={{ flex: 1, marginRight: Spacing.element }}>
+              <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
+                Ambient Background
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+                Soft moving light at the top of screens
+              </Text>
+            </View>
+            <AnimatedToggle
+              value={ambientEnabled}
+              onValueChange={setAmbientEnabled}
+            />
           </View>
 
           {/* 4. App Lock (Biometric) */}

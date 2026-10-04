@@ -23,6 +23,7 @@ Engineering documentation for the **Arthik** personal finance app.
 | [`design-system.md`](design-system.md) | **Design System Usage Guide** — token tables, component specs, allowed exceptions, correct/incorrect usage examples. |
 | [`architecture.md`](architecture.md) | **System architecture** — layer map, stores, offline path, startup sequence, Gullak engine, auth, navigation, test architecture. Start here for any structural question. |
 | [`prd.md`](prd.md) | **Product Requirements Document** — feature inventory, constraints, UX principles, roadmap, technical risks. |
+| [`notifications.md`](notifications.md) | **Notification Policy** — rules, schedule matrix, channel breakdown, and single-source-of-truth invariants. |
 | [`adr/`](adr/) | **Architecture Decision Records** — why key architectural choices were made. Read ADRs that touch the area you're working in before making changes. |
 | [`maps/`](maps/) | **Deep technical maps** — detailed function-level analysis of complex files. Read before editing hot files. |
 
@@ -50,7 +51,7 @@ Engineering documentation for the **Arthik** personal finance app.
 
 | Map | Subject | Lines |
 |---|---|---|
-| [daily-budget-map.md](maps/daily-budget-map.md) | Deep architectural analysis of `src/store/dailyBudgetStore.ts` | 442 |
+| [daily-budget-map.md](maps/daily-budget-map.md) | Deep architectural analysis of `src/store/dailyBudgetStore.ts` | 483 |
 
 ---
 

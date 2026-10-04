@@ -145,6 +145,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
             color="#2D1E1E"
             showDecimals={totalSpent % 1 !== 0}
             rolling
+            rollOnFocus
           />
         </View>
         <Text style={[styles.summaryCount, { fontFamily: FontFamily.medium }]}>

@@ -10,6 +10,7 @@ import {
   Easing,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { AmbientBackground } from '../components/AmbientBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
 import {
@@ -341,6 +342,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AmbientBackground />
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <ScrollView
