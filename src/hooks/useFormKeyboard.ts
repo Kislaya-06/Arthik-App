@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   LayoutChangeEvent,
+  useAnimatedValue,
 } from 'react-native';
 
 export interface UseFormKeyboardReturn {
@@ -29,7 +30,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   const noteSectionY = useRef(0);
 
   // Keypad animation value: 1 = fully visible, 0 = collapsed/hidden downwards
-  const keypadAnim = useRef(new Animated.Value(1)).current;
+  const keypadAnim = useAnimatedValue(1);
   const isKeypadVisibleRef = useRef(true);
   const isKeyboardOpenRef = useRef(false);
   const isNoteFocusedRef = useRef(false);

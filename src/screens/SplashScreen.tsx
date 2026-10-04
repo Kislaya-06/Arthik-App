@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Image, useAnimatedValue } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -74,38 +74,38 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
 
   // Icon initial entrance & punch
-  const iconEntranceScale = useRef(new Animated.Value(0.6)).current;
-  const iconEntranceOpacity = useRef(new Animated.Value(0)).current;
-  const iconPunch = useRef(new Animated.Value(1)).current;
+  const iconEntranceScale = useAnimatedValue(0.6);
+  const iconEntranceOpacity = useAnimatedValue(0);
+  const iconPunch = useAnimatedValue(1);
 
   // 3 line creation / draw progress values (0 -> 1)
-  const lineProgress = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
+  const lineProgress = [
+    useAnimatedValue(0),
+    useAnimatedValue(0),
+    useAnimatedValue(0),
+  ];
 
   // Icon starts dead-center (brandRowX: 80 -> 0), "Arthik" emerges from inside/behind icon (wordmarkSlideX: -160 -> 0)
-  const brandRowX = useRef(new Animated.Value(80)).current;
-  const wordmarkSlideX = useRef(new Animated.Value(-160)).current;
-  const wordmarkOpacity = useRef(new Animated.Value(0)).current;
+  const brandRowX = useAnimatedValue(80);
+  const wordmarkSlideX = useAnimatedValue(-160);
+  const wordmarkOpacity = useAnimatedValue(0);
 
   // Tagline & dots animations
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
-  const taglineTranslateY = useRef(new Animated.Value(12)).current;
-  const dotsOpacity = useRef(new Animated.Value(0)).current;
+  const taglineOpacity = useAnimatedValue(0);
+  const taglineTranslateY = useAnimatedValue(12);
+  const dotsOpacity = useAnimatedValue(0);
 
   // Expanding Mint Circle for exit transition (bloom from centered icon)
-  const exitCircleScale = useRef(new Animated.Value(1)).current;
-  const exitCircleOpacity = useRef(new Animated.Value(0)).current;
-  const contentFadeOpacity = useRef(new Animated.Value(1)).current;
+  const exitCircleScale = useAnimatedValue(1);
+  const exitCircleOpacity = useAnimatedValue(0);
+  const contentFadeOpacity = useAnimatedValue(1);
 
   // Wave animation values for the 3 dots
-  const dotAnims = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
+  const dotAnims = [
+    useAnimatedValue(0),
+    useAnimatedValue(0),
+    useAnimatedValue(0),
+  ];
 
   const exitTimerRef = useRef<NodeJS.Timeout | null>(null);
 

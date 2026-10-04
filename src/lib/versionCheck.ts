@@ -1,3 +1,5 @@
+import { withTimeout } from './networkUtils';
+
 export const DEFAULT_RELEASE_URL = 'https://github.com/Kislaya-06/Arthik-App/releases/latest';
 
 export interface VersionCheckResult {
@@ -134,11 +136,11 @@ export async function checkAppVersionStatus(
       .eq('key', 'version_control')
       .single();
 
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Version check timed out')), timeoutMs)
-    );
-
-    const { data, error } = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+    const { data, error } = (await withTimeout(
+      fetchPromise,
+      timeoutMs,
+      'Version check timed out'
+    )) as any;
 
     if (error || !data || !data.value) {
       return defaultResult;

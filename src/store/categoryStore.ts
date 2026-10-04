@@ -4,7 +4,7 @@ import * as Crypto from 'expo-crypto';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
-import { isNetworkFailure } from '../lib/networkUtils';
+import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 import { getNextCategoryColor } from '../config/theme';
 
 export interface Category {
@@ -186,11 +186,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         .from('categories')
         .select('*')
         .or(`user_id.is.null,user_id.eq.${user.id}`);
-      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('Category fetch timeout') }), 5000)
-      );
 
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+      const { data, error } = await withTimeout(
+        fetchPromise,
+        5000,
+        { data: null, error: new Error('Category fetch timeout') }
+      );
 
       if (error) {
         if (__DEV__) console.log('Notice: Category network fetch failed or timed out; relying on cached categories:', error.message || error);
@@ -265,7 +266,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         categories: state.categories.map((c) => c.id === newId ? { ...c, pending: false } : c),
       }));
       await get().fetchCategories(true);
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         await savePendingCatAdd(user.id, { id: newId, user_id: user.id, name, icon, color });
         return;
@@ -322,7 +323,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
             JSON.stringify(list.map((c) => c.id === id ? { ...c, name, icon, color } : c)));
         }
       } catch {}
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         await savePendingCatUpdate(user.id, { id, name, icon, color });
         return;
@@ -354,9 +355,9 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       try {
         const { useExpenseStore } = require('./expenseStore');
         const expStore = useExpenseStore.getState();
-        if (expStore.expenses.some((e: any) => e.category_id === id)) {
-          useExpenseStore.setState((s: any) => ({
-            expenses: s.expenses.map((e: any) => (e.category_id === id ? { ...e, category_id: null } : e)),
+        if (expStore.expenses.some((e: { category_id?: string | null }) => e.category_id === id)) {
+          useExpenseStore.setState((s: { expenses: Array<{ id: string; category_id?: string | null }> }) => ({
+            expenses: s.expenses.map((e) => (e.category_id === id ? { ...e, category_id: null } : e)),
           }));
         }
       } catch (err) {
@@ -397,7 +398,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
             JSON.stringify(JSON.parse(cached).filter((c: Category) => c.id !== id)));
         }
       } catch {}
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         await savePendingCatDelete(user.id, id);
         return;

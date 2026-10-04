@@ -35,6 +35,12 @@ vi.mock('react-native', () => ({
     sequence: () => ({ start: vi.fn() }),
     parallel: () => ({ start: vi.fn() }),
   },
+  useAnimatedValue: (val: number) => ({
+    val,
+    setValue: vi.fn(),
+    interpolate: vi.fn(() => 0),
+    stopAnimation: vi.fn(),
+  }),
   Easing: {
     out: vi.fn(),
     quad: vi.fn(),

@@ -8,6 +8,7 @@ import {
   Animated,
   Pressable,
   ScrollView,
+  useAnimatedValue,
 } from 'react-native';
 import { Check, X, ArrowLeft, ChevronRight, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,8 +75,8 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
   const [isMounted, setIsMounted] = useState(visible);
 
   // Bottom sheet spring physics
-  const slideAnim = useRef(new Animated.Value(450)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useAnimatedValue(450);
+  const fadeAnim = useAnimatedValue(0);
   const isFirstRender = useRef(true);
 
   useEffect(() => {

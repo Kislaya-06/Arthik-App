@@ -8,6 +8,7 @@ import {
   Animated,
   Pressable,
   ScrollView,
+  useAnimatedValue,
 } from 'react-native';
 import { Check, X, AlertTriangle, ArrowRight, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,8 +67,8 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
   }, [visible, initialTargetAmount]);
 
   const [isMounted, setIsMounted] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(500)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useAnimatedValue(500);
+  const fadeAnim = useAnimatedValue(0);
   const isFirstRender = useRef(true);
 
   useEffect(() => {

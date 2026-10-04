@@ -6,7 +6,7 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useNotificationStore, NotificationType } from '../store/notificationStore';
-import { isIncomeTransaction } from './paymentUtils';
+import { makeIncomeClassifier } from './incomeClassifier';
 import { computeSpentByDate } from './budgetCalculations';
 import { getCurrentPeriodSummary } from './budgetPeriods';
 import {
@@ -50,7 +50,7 @@ export function buildPlanContext(now: Date): PlanContext {
   const budget = useDailyBudgetStore.getState();
 
   const catMap = new Map(categories.map((c) => [c.id, c]));
-  const isIncome = (e: Expense): boolean => isIncomeTransaction(e, e.category_id ? catMap.get(e.category_id) : undefined);
+  const isIncome = makeIncomeClassifier(categories);
 
   const todayStr = format(now, 'yyyy-MM-dd');
   const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');

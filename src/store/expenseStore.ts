@@ -86,9 +86,18 @@ export const isValidUUID = (id?: string | null): boolean => {
   return UUID_REGEX.test(id);
 };
 
+export interface ExpenseUpdatePayload {
+  amount?: number;
+  category_id?: string | null;
+  note?: string;
+  payment_mode?: 'cash' | 'upi' | 'card';
+  expense_date?: string;
+  type?: 'expense' | 'income';
+}
+
 interface PendingUpdate {
   id: string;
-  payload: any;
+  payload: ExpenseUpdatePayload;
   retryCount?: number;
   lastRetryAt?: number;
 }
@@ -113,7 +122,7 @@ const saveFailedSyncItem = async (userId: string, item: FailedSyncItem) => {
   }
 };
 
-const savePendingUpdateOffline = async (userId: string, id: string, payload: any) => {
+const savePendingUpdateOffline = async (userId: string, id: string, payload: ExpenseUpdatePayload) => {
   try {
     const key = getPendingUpdatesKey(userId);
     const stored = await AsyncStorage.getItem(key);
@@ -327,7 +336,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       const deleteKey = getPendingDeletesKey(user.id);
       const storedDeletes = await AsyncStorage.getItem(deleteKey);
       if (storedDeletes) {
-        const rawList: any[] = JSON.parse(storedDeletes);
+        const rawList: (string | PendingDelete)[] = JSON.parse(storedDeletes);
         const deleteList: PendingDelete[] = rawList.map((item) =>
           typeof item === 'string'
             ? { id: item, retryCount: 0, lastRetryAt: 0 }
@@ -374,7 +383,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
               // Delete succeeded on server
               syncedDeleteIds.add(item.id);
             }
-          } catch (e: any) {
+          } catch (e: unknown) {
+            const err = e as { message?: string } | null;
             if (isNetworkFailure(e)) {
               const nextRetries = retries + 1;
               if (nextRetries >= MAX_SYNC_RETRIES) {
@@ -393,7 +403,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
               await saveFailedSyncItem(user.id, {
                 id: item.id,
                 type: 'delete',
-                errorReason: e?.message || 'Unexpected delete failure',
+                errorReason: err?.message || 'Unexpected delete failure',
                 failedAt: new Date().toISOString(),
               });
             }
@@ -402,7 +412,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
         // P0.12: Re-read queue before saving so concurrently added items are not lost
         const freshDeletesStored = await AsyncStorage.getItem(deleteKey);
-        const freshDeletesRaw: any[] = freshDeletesStored ? JSON.parse(freshDeletesStored) : [];
+        const freshDeletesRaw: (string | PendingDelete)[] = freshDeletesStored ? JSON.parse(freshDeletesStored) : [];
         const freshDeletesList: PendingDelete[] = freshDeletesRaw.map((item) =>
           typeof item === 'string'
             ? { id: item, retryCount: 0, lastRetryAt: 0 }
@@ -446,7 +456,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
           }
 
           try {
-            const payload: any = {
+            const payload = {
               id: item.id,
               user_id: user.id,
               amount: item.amount,
@@ -500,7 +510,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
                 expenses: state.expenses.map((e) => (e.id === item.id ? { ...confirmedRecord, pending: false } : e)),
               }));
             }
-          } catch (e: any) {
+          } catch (e: unknown) {
+            const err = e as { message?: string } | null;
             if (isNetworkFailure(e)) {
               const nextRetries = retries + 1;
               if (nextRetries >= MAX_SYNC_RETRIES) {
@@ -523,7 +534,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
                 id: item.id,
                 type: 'add',
                 expense: item,
-                errorReason: e?.message || 'Unexpected sync failure',
+                errorReason: err?.message || 'Unexpected sync failure',
                 failedAt: new Date().toISOString(),
               });
             }
@@ -599,7 +610,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
             } else {
               syncedUpdateIds.add(upd.id);
             }
-          } catch (e: any) {
+          } catch (e: unknown) {
+            const err = e as { message?: string } | null;
             if (isNetworkFailure(e)) {
               const nextRetries = retries + 1;
               if (nextRetries >= MAX_SYNC_RETRIES) {
@@ -618,7 +630,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
               await saveFailedSyncItem(user.id, {
                 id: upd.id,
                 type: 'update',
-                errorReason: e?.message || 'Unexpected update sync failure',
+                errorReason: err?.message || 'Unexpected update sync failure',
                 failedAt: new Date().toISOString(),
               });
             }
@@ -766,8 +778,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       try {
         const delStored = await AsyncStorage.getItem(getPendingDeletesKey(user.id));
         if (delStored) {
-          const parsed = JSON.parse(delStored);
-          pendingDeletes = parsed.map((item: any) => (typeof item === 'string' ? item : item.id));
+          const parsed: (string | { id: string })[] = JSON.parse(delStored);
+          pendingDeletes = parsed.map((item) => (typeof item === 'string' ? item : item.id));
         }
       } catch {}
 
@@ -784,7 +796,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       } catch {}
 
       const pendingDeleteSet = new Set(pendingDeletes);
-      const updateMap = new Map<string, any>(pendingUpdates.map((u) => [u.id, u.payload]));
+      const updateMap = new Map<string, ExpenseUpdatePayload>(pendingUpdates.map((u) => [u.id, u.payload]));
 
       // Filter out pending-deleted rows and re-apply pending updates
       const reconciledFetched = fetchedRows
@@ -809,9 +821,10 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       // Cache expenses for offline resilience
       await AsyncStorage.setItem(getCachedStorageKey(user.id), JSON.stringify(reconciledFetched));
       useDailyBudgetStore.getState().syncWithExpenses(combined);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string } | null;
       if (isNetworkFailure(e)) {
-        if (__DEV__) console.warn('Network unavailable while fetching expenses, falling back to cache:', e?.message || e);
+        if (__DEV__) console.warn('Network unavailable while fetching expenses, falling back to cache:', err?.message || e);
         useNetworkStore.getState().setOffline(true);
       } else {
         if (__DEV__) console.error('Error fetching expenses:', e);
@@ -879,7 +892,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
     set({ loading: true });
     try {
-      const payload: any = {
+      const payload = {
         id: newId,
         user_id: user.id,
         amount,
@@ -917,7 +930,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         expenses: state.expenses.map((e) => (e.id === newId ? { ...confirmed, pending: false } : e)),
       }));
       useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         useNetworkStore.getState().setOffline(true);
         await get().savePendingOffline(optimisticExpense);
@@ -956,7 +969,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
     };
 
-    const payload: any = {
+    const payload: ExpenseUpdatePayload = {
       amount,
       note: sanitizeNote(note),
       payment_mode: paymentMode,
@@ -1007,7 +1020,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         rollbackUpdate();
         throw error;
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         useNetworkStore.getState().setOffline(true);
         await savePendingUpdateOffline(user.id, id, payload);
@@ -1092,7 +1105,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         rollbackDelete();
         throw error;
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         useNetworkStore.getState().setOffline(true);
         await savePendingDeleteOffline(user.id, id);

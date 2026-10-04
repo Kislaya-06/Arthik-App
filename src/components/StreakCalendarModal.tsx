@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   Animated,
   Easing,
+  useAnimatedValue,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, X, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { format, parseISO, isToday as checkIsToday, eachDayOfInterval } from 'date-fns';
@@ -63,8 +64,8 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   const [activeTooltip, setActiveTooltip] = useState<TooltipState | null>(null);
 
   // Animations: Grid entrance, Tooltip pop
-  const gridAnim = useRef(new Animated.Value(0)).current;
-  const tooltipAnim = useRef(new Animated.Value(0)).current;
+  const gridAnim = useAnimatedValue(0);
+  const tooltipAnim = useAnimatedValue(0);
 
   // Cache fetched month data per 'yyyy-MM' key to avoid re-fetching on navigation
   const monthCache = useRef<Record<string, Record<string, DayLogData>>>({});

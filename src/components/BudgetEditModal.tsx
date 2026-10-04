@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   Animated,
   ScrollView,
+  useAnimatedValue,
 } from 'react-native';
 import { X, Check, Clock } from 'lucide-react-native';
 import { format, parseISO, addDays } from 'date-fns';
@@ -60,7 +61,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   initialCadence,
   onClose,
 }) => {
-  const sheetAnim = useRef(new Animated.Value(0)).current;
+  const sheetAnim = useAnimatedValue(0);
 
   // Store state
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);

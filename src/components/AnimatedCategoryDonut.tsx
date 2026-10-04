@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Pressable } from 'react-native';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, Animated, Easing, Pressable, useAnimatedValue } from 'react-native';
 import Svg, { Circle, Path, Defs, Mask, G } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
 import { prepareCategoryBlockSegments } from '../lib/chartUtils';
@@ -50,8 +50,8 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   const selectedId = propSelectedId !== undefined ? propSelectedId : internalSelectedId;
 
   // Smooth clockwise sweep animation driver (0 to 1)
-  const sweepAnim = useRef(new Animated.Value(0)).current;
-  const centerOpacity = useRef(new Animated.Value(1)).current;
+  const sweepAnim = useAnimatedValue(0);
+  const centerOpacity = useAnimatedValue(1);
   const [isSweeping, setIsSweeping] = useState(true);
 
   // Prepare modern annular sector segments with flat radial dividers & rounded corners

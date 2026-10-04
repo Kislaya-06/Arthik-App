@@ -36,26 +36,18 @@ export const areExpensesLoaded = (): boolean => {
   }
   return false;
 };
-import { useCategoryStore, Category } from './categoryStore';
+import { useCategoryStore } from './categoryStore';
 import { notifyLimit, notifyRollover, notifyBudgetUpdated } from '../lib/budgetAlerts';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
-import { isNetworkFailure } from '../lib/networkUtils';
-import { isIncomeTransaction } from '../lib/paymentUtils';
+import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
+import { makeIncomeClassifier } from '../lib/incomeClassifier';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 import { round2 } from '../lib/formatters';
 
 const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
-  const categories = useCategoryStore.getState().categories;
-  const categoryMap = new Map<string, Category>();
-  for (let i = 0; i < categories.length; i++) {
-    categoryMap.set(categories[i].id, categories[i]);
-  }
-  return (e: Expense): boolean => {
-    const cat = e.category_id ? categoryMap.get(e.category_id) : undefined;
-    return isIncomeTransaction(e, cat);
-  };
+  return makeIncomeClassifier(useCategoryStore.getState().categories);
 };
 
 
@@ -1962,7 +1954,16 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           // Process plan changes
           let resolvedPlanChanges: BudgetPlanChange[] = [];
           if (plansData && plansData.length > 0) {
-            resolvedPlanChanges = plansData.map((p: any) => ({
+            resolvedPlanChanges = (plansData as Array<{
+              id: string;
+              effective_from: string;
+              is_enabled: boolean;
+              cadence: string;
+              amount: number | string;
+              carry_mode?: 'additive' | 'allocation';
+              carried_over_amount?: number | string;
+              created_at?: string;
+            }>).map((p) => ({
               id: p.id,
               userId,
               effectiveFrom: p.effective_from,
@@ -2037,7 +2038,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           if (budgetLooksWrong && logsData && logsData.length > 0) {
             const budgetCandidates: Record<number, number> = {};
             for (let i = 0; i < logsData.length; i++) {
-              const logEntry: any = logsData[i];
+              const logEntry = logsData[i] as {
+                date: string;
+                amount_saved?: number | string | null;
+                budget_amount?: number | string | null;
+                spent_amount?: number | string | null;
+                status?: string | null;
+              };
               const d = logEntry.date;
               if (userCreatedAtStr && d < userCreatedAtStr) continue;
               const amountSaved = Number(logEntry.amount_saved) || 0;
@@ -2090,7 +2097,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
           if (logsData && logsData.length > 0) {
             for (let i = 0; i < logsData.length; i++) {
-              const log: any = logsData[i];
+              const log = logsData[i] as {
+                date: string;
+                amount_saved?: number | string | null;
+                budget_amount?: number | string | null;
+                spent_amount?: number | string | null;
+                status?: string | null;
+              };
               const d = log.date;
               if (userCreatedAtStr && d < userCreatedAtStr) {
                 continue; // Ignore any erroneous pre-registration logs
@@ -2193,25 +2206,31 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           // 2b. Fetch manual gullak deposits from Supabase with timeout
           let resolvedDeposits = get().gullakDeposits || [];
           try {
-            const { data: depData, error: depError } = await Promise.race([
+            const { data: depData, error: depError } = await withTimeout(
               supabase
                 .from('gullak_deposits')
                 .select('id, amount, date, note, source, created_at')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false }),
-              new Promise<{ data: null; error: any }>((r) =>
-                setTimeout(() => r({ data: null, error: new Error('timeout') }), 3500)
-              ),
-            ]);
+              3500,
+              { data: null, error: new Error('timeout') }
+            );
 
             if (!depError && depData) {
-              const serverDeposits: GullakDeposit[] = depData.map((d: any) => ({
+              const serverDeposits: GullakDeposit[] = (depData as Array<{
+                id: string;
+                amount: number | string;
+                date: string;
+                note?: string | null;
+                source?: string | null;
+                created_at?: string;
+              }>).map((d) => ({
                 id: d.id,
                 amount: Number(d.amount) || 0,
                 date: d.date,
                 note: d.note || undefined,
                 source: (d.source === 'income' || d.source === 'external') ? d.source : 'external',
-                created_at: d.created_at,
+                created_at: d.created_at || new Date().toISOString(),
               }));
 
               const localDeposits = get().gullakDeposits || [];
@@ -2329,37 +2348,38 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       name: 'arthik-daily-budget-storage-v2',
       storage: createJSONStorage(() => AsyncStorage),
       version: 3,
-      migrate: (persistedState: any, version: number) => {
-        if (!persistedState) return persistedState;
+      migrate: (persistedState: unknown, version: number) => {
+        if (!persistedState || typeof persistedState !== 'object') return persistedState as DailyBudgetState;
+        const state = persistedState as Record<string, unknown>;
         if (version < 3) {
-          const isAutoRenew = Boolean(persistedState.isAutoRenew);
-          const deposits = persistedState.gullakDeposits || [];
-          const records = persistedState.dailyRecords || {};
+          const isAutoRenew = Boolean(state.isAutoRenew);
+          const deposits = (state.gullakDeposits as GullakDeposit[]) || [];
+          const records = (state.dailyRecords as Record<string, DailyRecord>) || {};
           const hasSavedRecord = Object.values(records).some(
-            (r: any) => r && (r.status === 'saved' || (r.saved && r.saved > 0))
+            (r) => r && (r.status === 'saved' || (r.saved !== undefined && r.saved > 0))
           );
           const inferredModeEnabled = isAutoRenew || deposits.length > 0 || hasSavedRecord;
 
           return {
-            ...persistedState,
-            isBudgetModeEnabled: persistedState.isBudgetModeEnabled ?? inferredModeEnabled,
-            budgetCadence: persistedState.budgetCadence ?? 'daily',
-            weeklyBudgetAmount: persistedState.weeklyBudgetAmount ?? 0,
-            monthlyBudgetAmount: persistedState.monthlyBudgetAmount ?? 0,
-            planChanges: persistedState.planChanges ?? [],
-            budgetPeriods: persistedState.budgetPeriods ?? {},
-            bestStreakByCadence: persistedState.bestStreakByCadence ?? {
-              daily: persistedState.bestStreak || 0,
+            ...state,
+            isBudgetModeEnabled: (state.isBudgetModeEnabled as boolean | undefined) ?? inferredModeEnabled,
+            budgetCadence: (state.budgetCadence as BudgetCadence | undefined) ?? 'daily',
+            weeklyBudgetAmount: (state.weeklyBudgetAmount as number | undefined) ?? 0,
+            monthlyBudgetAmount: (state.monthlyBudgetAmount as number | undefined) ?? 0,
+            planChanges: (state.planChanges as BudgetPlanChange[] | undefined) ?? [],
+            budgetPeriods: (state.budgetPeriods as Record<string, BudgetPeriodRecord> | undefined) ?? {},
+            bestStreakByCadence: (state.bestStreakByCadence as Record<string, number> | undefined) ?? {
+              daily: (state.bestStreak as number | undefined) || 0,
               weekly: 0,
               monthly: 0,
             },
-            lastPeriodWarningKey: persistedState.lastPeriodWarningKey ?? null,
-            lastPeriodExceededKey: persistedState.lastPeriodExceededKey ?? null,
-            lastPeriodRolloverKey: persistedState.lastPeriodRolloverKey ?? null,
-            lastRenewedPeriodKey: persistedState.lastRenewedPeriodKey ?? null,
-          };
+            lastPeriodWarningKey: (state.lastPeriodWarningKey as string | null | undefined) ?? null,
+            lastPeriodExceededKey: (state.lastPeriodExceededKey as string | null | undefined) ?? null,
+            lastPeriodRolloverKey: (state.lastPeriodRolloverKey as string | null | undefined) ?? null,
+            lastRenewedPeriodKey: (state.lastRenewedPeriodKey as string | null | undefined) ?? null,
+          } as unknown as DailyBudgetState;
         }
-        return persistedState;
+        return state as unknown as DailyBudgetState;
       },
     }
   )

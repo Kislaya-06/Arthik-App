@@ -1,5 +1,5 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, AppState, Easing, Image, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, Animated, AppState, Easing, Image, StyleSheet, View, useWindowDimensions, useAnimatedValue } from 'react-native';
 import Svg, { Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
@@ -96,8 +96,8 @@ const Gust: React.FC<{ slot: number; palette: Palette; screenWidth: number; heig
     plan: planGust(Math.random, screenWidth),
     delayMs: firstGustDelayMs(slot, Math.random),
   }));
-  const life = useRef(new Animated.Value(0)).current; // 0..1 over the gust's whole life (linear): opacity, spread, tilt, lift
-  const pos = useRef(new Animated.Value(0)).current; // 0..1 eased: how far it has drifted in
+  const life = useAnimatedValue(0); // 0..1 over the gust's whole life (linear): opacity, spread, tilt, lift
+  const pos = useAnimatedValue(0); // 0..1 eased: how far it has drifted in
 
   // Layout effect on purpose: it is cleaned up when a tab is frozen (freezeOnBlur) and re-run when it is revealed,
   // so a hidden screen never keeps animating in the background.

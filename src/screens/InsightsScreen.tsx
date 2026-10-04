@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, PanResponder, Animated, Easing,
-  useWindowDimensions,
+  useWindowDimensions, useAnimatedValue,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
@@ -28,7 +28,7 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';
-import { isIncomeTransaction } from '../lib/paymentUtils';
+import { isIncomeTransaction } from '../lib/transactionUtils';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
@@ -181,8 +181,8 @@ const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
   const DOT_SLOT = 14;
 
   // Elastic pill animation: independent left position and width values
-  const slideLeft = useRef(new Animated.Value(activeDotIndex * DOT_SLOT)).current;
-  const slideWidth = useRef(new Animated.Value(16)).current;
+  const slideLeft = useAnimatedValue(activeDotIndex * DOT_SLOT);
+  const slideWidth = useAnimatedValue(16);
   const prevIndex = useRef(activeDotIndex);
 
   useEffect(() => {

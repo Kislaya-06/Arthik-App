@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   Animated,
   Easing,
+  useAnimatedValue,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import {
@@ -49,7 +50,7 @@ export const MoneyHelpBadge: React.FC<MoneyHelpBadgeProps> = ({
   testID,
 }) => {
   const { colors, isDark } = useTheme();
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useAnimatedValue(1);
   const radius = size / 2;
 
   const gradId = useMemo(() => {
@@ -158,7 +159,7 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
   const insets = useSafeAreaInsets();
   const content = getMoneyExplainerContent(topic);
 
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useAnimatedValue(0);
 
   useEffect(() => {
     if (visible) {

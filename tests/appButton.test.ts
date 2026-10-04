@@ -22,6 +22,12 @@ vi.mock('react-native', () => ({
     },
     spring: () => ({ start: vi.fn() }),
   },
+  useAnimatedValue: (val: number) => ({
+    val,
+    setValue: vi.fn(),
+    interpolate: vi.fn(() => 0),
+    stopAnimation: vi.fn(),
+  }),
   StyleSheet: {
     create: (styles: any) => styles,
   },

@@ -1,8 +1,8 @@
-import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  ActivityIndicator, Animated, PanResponder,
+  ActivityIndicator, Animated, PanResponder, useAnimatedValue,
 } from 'react-native';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -61,7 +61,7 @@ const CategoryChipItem: React.FC<{
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
 }> = ({ category, isSelected, isPlaceholder, onSelect, colors, isDark }) => {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
   const [chipHeight, setChipHeight] = useState(0);
   const IconComp = getCategoryIcon(category.icon);
 
@@ -226,7 +226,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   );
 
   // Animation: Error shake on invalid save (amount scale punch removed for instant typing)
-  const amountShake = useRef(new Animated.Value(0)).current;
+  const amountShake = useAnimatedValue(0);
 
   const triggerErrorShake = useCallback(() => {
     Animated.sequence([
@@ -242,8 +242,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const [buttonFullWidth, setButtonFullWidth] = useState<number>(0);
   const [isMorphing, setIsMorphing] = useState<boolean>(false);
   const [showTick, setShowTick] = useState<boolean>(false);
-  const morphAnim = useRef(new Animated.Value(0)).current;
-  const tickScale = useRef(new Animated.Value(0)).current;
+  const morphAnim = useAnimatedValue(0);
+  const tickScale = useAnimatedValue(0);
   const buttonHeight = isKeyboardOpen ? 50 : ControlHeight.cta;
 
   const isButtonGreen = isSaveEnabled || isSubmitting || isMorphing || showTick;

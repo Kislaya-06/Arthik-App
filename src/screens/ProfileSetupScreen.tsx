@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Animated,
+  useAnimatedValue,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -32,7 +33,7 @@ type AnimatedButtonProps = {
 };
 
 const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disabled, children }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useAnimatedValue(1);
   return (
     <Pressable
       onPress={onPress}

@@ -3,7 +3,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Auth: undefined;
   ProfileSetup: undefined;
-  AppTabs: { screen?: keyof TabParamList; params?: any } | undefined;
+  AppTabs: { screen?: keyof TabParamList; params?: TabParamList[keyof TabParamList] } | undefined;
   AddExpense: undefined;
   EditExpense: { expenseId: string };
   ExpenseDetail: { expenseId: string };

@@ -1,5 +1,5 @@
-import React, { useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated, useAnimatedValue } from 'react-native';
 import { DollarSign, Wallet } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { Expense } from '../store/expenseStore';
@@ -32,7 +32,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
   phaseAOpacity,
   phaseATranslateY,
 }) => {
-  const pressScale = useRef(new Animated.Value(1)).current;
+  const pressScale = useAnimatedValue(1);
 
   const handlePressIn = () => {
     Animated.spring(pressScale, {

@@ -24,5 +24,3 @@ export const getPaymentLabel = (mode: PaymentMode): string => {
   if (mode === 'card') return 'Card';
   return 'UPI';
 };
-
-export { DEFAULT_INCOME_KEYWORDS, isIncomeTransaction } from './transactionUtils';

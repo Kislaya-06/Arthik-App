@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Animated,
+  useAnimatedValue,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -37,7 +38,7 @@ type AnimatedButtonProps = {
 };
 
 const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disabled, children }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useAnimatedValue(1);
   return (
     <Pressable
       disabled={disabled}
@@ -70,11 +71,11 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  const errorOpacity = useRef(new Animated.Value(0)).current;
-  const errorTranslateY = useRef(new Animated.Value(-12)).current;
+  const errorOpacity = useAnimatedValue(0);
+  const errorTranslateY = useAnimatedValue(-12);
 
-  const opacityAnim = useRef(new Animated.Value(1)).current;
-  const translateYAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useAnimatedValue(1);
+  const translateYAnim = useAnimatedValue(0);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
 

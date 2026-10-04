@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   Animated,
   LayoutAnimation,
+  useAnimatedValue,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
@@ -34,7 +35,7 @@ import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { round2 } from '../lib/formatters';
-import { isIncomeTransaction } from '../lib/paymentUtils';
+import { isIncomeTransaction } from '../lib/transactionUtils';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
@@ -48,7 +49,7 @@ type HomeScreenProps = CompositeScreenProps<
 
 // ─── Staggered Transaction Row ───────────────────────────────────────────────
 const StaggerRow: React.FC<{ index: number; children: React.ReactNode }> = ({ index, children }) => {
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useAnimatedValue(0);
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -70,6 +71,72 @@ const StaggerRow: React.FC<{ index: number; children: React.ReactNode }> = ({ in
     </Animated.View>
   );
 };
+
+interface HomeTransactionItemProps {
+  expense: Expense;
+  category: Category | undefined;
+  isIncome: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
+  onPress: (id: string) => void;
+  index: number;
+}
+
+const HomeTransactionItem = React.memo<HomeTransactionItemProps>(({
+  expense,
+  category,
+  isIncome,
+  colors,
+  isDark,
+  onPress,
+  index,
+}) => {
+  const handlePress = useCallback(() => onPress(expense.id), [onPress, expense.id]);
+  return (
+    <StaggerRow index={index}>
+      <TransactionRow
+        expense={expense}
+        category={category}
+        isIncome={isIncome}
+        colors={colors}
+        isDark={isDark}
+        onPress={handlePress}
+      />
+    </StaggerRow>
+  );
+});
+
+interface HomeGullakItemProps {
+  deposit: GullakDeposit;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
+  onPress: (id: string) => void;
+  index: number;
+}
+
+const HomeGullakItem = React.memo<HomeGullakItemProps>(({
+  deposit,
+  colors,
+  isDark,
+  onPress,
+  index,
+}) => {
+  const handlePress = useCallback(() => onPress(deposit.id), [onPress, deposit.id]);
+  return (
+    <StaggerRow index={index}>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={handlePress}
+      >
+        <GullakDepositRow
+          deposit={deposit}
+          colors={colors}
+          isDark={isDark}
+        />
+      </TouchableOpacity>
+    </StaggerRow>
+  );
+});
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
@@ -398,6 +465,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('History');
   }, [navigation]);
 
+  const handleExpensePress = useCallback((expenseId: string) => {
+    navigation.navigate('ExpenseDetail', { expenseId });
+  }, [navigation]);
+
+  const handleGullakDepositPress = useCallback((depositId: string) => {
+    navigation.navigate('GullakDepositDetail', { depositId });
+  }, [navigation]);
+
   // Where the floating nav pill starts. The list is clipped exactly here, so the pull-up footer
   // rises out from BEHIND the nav bar (same as Instagram's footer rising out from behind its input bar).
   const navTopOffset = getNavTopOffset(insets.bottom);
@@ -513,34 +588,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               {recentTx.map((item, idx) => {
                 if (item.kind === 'gullak') {
                   return (
-                    <StaggerRow key={`gullak-${item.data.id}`} index={idx}>
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        onPress={() => navigation.navigate('GullakDepositDetail', { depositId: item.data.id })}
-                      >
-                        <GullakDepositRow
-                          deposit={item.data}
-                          colors={colors}
-                          isDark={isDark}
-                        />
-                      </TouchableOpacity>
-                    </StaggerRow>
+                    <HomeGullakItem
+                      key={`gullak-${item.data.id}`}
+                      deposit={item.data}
+                      colors={colors}
+                      isDark={isDark}
+                      onPress={handleGullakDepositPress}
+                      index={idx}
+                    />
                   );
                 }
                 const e = item.data;
                 const cat = e.category_id ? catMap[e.category_id] : undefined;
                 const isIncome = isIncomeTransaction(e, cat);
                 return (
-                  <StaggerRow key={e.id} index={idx}>
-                    <TransactionRow
-                      expense={e}
-                      category={cat}
-                      isIncome={isIncome}
-                      colors={colors}
-                      isDark={isDark}
-                      onPress={() => navigation.navigate('ExpenseDetail', { expenseId: e.id })}
-                    />
-                  </StaggerRow>
+                  <HomeTransactionItem
+                    key={e.id}
+                    expense={e}
+                    category={cat}
+                    isIncome={isIncome}
+                    colors={colors}
+                    isDark={isDark}
+                    onPress={handleExpensePress}
+                    index={idx}
+                  />
                 );
               })}
             </View>

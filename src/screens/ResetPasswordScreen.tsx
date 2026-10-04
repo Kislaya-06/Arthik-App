@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Animated,
   Alert,
   ActivityIndicator,
+  useAnimatedValue,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -33,7 +34,7 @@ type AnimatedButtonProps = {
 };
 
 const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disabled, children }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useAnimatedValue(1);
   return (
     <Pressable
       onPress={onPress}
@@ -65,8 +66,8 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const errorOpacity = useRef(new Animated.Value(0)).current;
-  const errorTranslateY = useRef(new Animated.Value(-10)).current;
+  const errorOpacity = useAnimatedValue(0);
+  const errorTranslateY = useAnimatedValue(-10);
 
   const showError = (msg: string) => {
     setErrorMessage(msg);

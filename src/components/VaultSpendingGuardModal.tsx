@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   Pressable,
+  useAnimatedValue,
 } from 'react-native';
 import { ShieldAlert, Plus, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,8 +34,8 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
   const insets = useSafeAreaInsets();
 
   const [isMounted, setIsMounted] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(400)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useAnimatedValue(400);
+  const fadeAnim = useAnimatedValue(0);
   const isFirstRender = useRef(true);
 
   useEffect(() => {

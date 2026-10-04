@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   StyleSheet,
   Pressable,
   Animated,
+  useAnimatedValue,
 } from 'react-native';
 import { useTheme } from '../store/themeStore';
 import { FontFamily } from '../config/theme';
@@ -28,8 +29,8 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
 
-  const animValue = useRef(new Animated.Value(value ? 1 : 0)).current;
-  const pressScale = useRef(new Animated.Value(1)).current;
+  const animValue = useAnimatedValue(value ? 1 : 0);
+  const pressScale = useAnimatedValue(1);
 
   useEffect(() => {
     Animated.spring(animValue, {

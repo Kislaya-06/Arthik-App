@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   Pressable,
   Animated,
   Text,
   StyleSheet,
+  useAnimatedValue,
 } from 'react-native';
 import { Delete } from 'lucide-react-native';
 import { useTheme } from '../store/themeStore';
@@ -23,7 +24,7 @@ interface KeyButtonProps {
  */
 const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSize }) => {
   const { colors } = useTheme();
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
 
   const handlePressIn = () => {
     Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();

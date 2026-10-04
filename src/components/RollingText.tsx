@@ -11,6 +11,7 @@ import {
   TextStyle,
   View,
   ViewStyle,
+  useAnimatedValue,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import {
@@ -127,7 +128,7 @@ const DigitWheel: React.FC<DigitWheelProps> = ({ roll, fontSize, lineHeight, fam
   // The ONLY thing that animates is this value, and it runs entirely on the native thread. Layout (the cell
   // width) is NOT animated: it is the final width from the first frame. Animating width from the JS thread made
   // the number lag behind the spin whenever JS was busy and then snap into place when the roll ended (jitter).
-  const position = useRef(new Animated.Value(wheelStart(roll))).current;
+  const position = useAnimatedValue(wheelStart(roll));
 
   const cellWidth = getAdvanceEm(family, String(roll.to)) * fontSize; // identical to the resting digit's width
   const boxWidth = getMaxDigitEm(family) * fontSize; // wide enough that no digit is clipped sideways

@@ -17,7 +17,7 @@ import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
-import { isIncomeTransaction } from '../lib/paymentUtils';
+import { isIncomeTransaction } from '../lib/transactionUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;

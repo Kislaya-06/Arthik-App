@@ -1,5 +1,5 @@
 import React, { useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, useAnimatedValue } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { ThemeColors, FontFamily } from '../config/theme';
 import { RollingText } from './RollingText';
@@ -47,7 +47,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
   const targetSpentPercentage = hasData ? Math.round((spent / total) * 100) : 0;
   const isOverspent = hasData && spent > total;
 
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useAnimatedValue(0);
   // Counts every visit to the screen: the ring sweeps up from 0 on each one (like the number inside it).
   const entry = useFocusEntryCount();
   const handledEntry = useRef(-1);

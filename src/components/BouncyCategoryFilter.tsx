@@ -7,6 +7,7 @@ import {
   Animated,
   ScrollView,
   Easing,
+  useAnimatedValue,
 } from 'react-native';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight } from '../config/theme';
@@ -33,11 +34,11 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
   const [layouts, setLayouts] = useState<Record<string, { x: number; width: number }>>({});
 
   // Animated sliding pill position & size (layout-thread, not native, because width can't use ND)
-  const pillLeft = useRef(new Animated.Value(PILL_PADDING)).current;
-  const pillWidth = useRef(new Animated.Value(0)).current;
-  const stretchAnim = useRef(new Animated.Value(1)).current;
-  const squishAnim = useRef(new Animated.Value(1)).current;
-  const leadAnim = useRef(new Animated.Value(0)).current;
+  const pillLeft = useAnimatedValue(PILL_PADDING);
+  const pillWidth = useAnimatedValue(0);
+  const stretchAnim = useAnimatedValue(1);
+  const squishAnim = useAnimatedValue(1);
+  const leadAnim = useAnimatedValue(0);
 
   // Per-item press-scale (native driver OK)
   const scales = useRef<Record<string, Animated.Value>>({}).current;

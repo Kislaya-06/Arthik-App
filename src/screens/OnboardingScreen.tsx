@@ -11,9 +11,10 @@ import Svg, { Circle, G } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
+type ThemeColors = ReturnType<typeof useTheme>['colors'];
 
 // --- SLIDE 1 ILLUSTRATION ---
-const Slide1Illustration = ({ isDark, colors }: { isDark: boolean; colors: any }) => (
+const Slide1Illustration = ({ isDark, colors }: { isDark: boolean; colors: ThemeColors }) => (
   <View style={styles.illContainer}>
     {/* Concentric Circles */}
     <View style={[styles.circleOuter, { opacity: isDark ? 0.12 : 0.2 }]} />
@@ -45,7 +46,7 @@ const Slide1Illustration = ({ isDark, colors }: { isDark: boolean; colors: any }
 );
 
 // --- SLIDE 2 ILLUSTRATION ---
-const Slide2Illustration = ({ colors }: { colors: any }) => {
+const Slide2Illustration = ({ colors }: { colors: ThemeColors }) => {
   const size = 150;
   const strokeWidth = 20;
   const radius = (size - strokeWidth) / 2;
@@ -97,7 +98,7 @@ const Slide2Illustration = ({ colors }: { colors: any }) => {
 };
 
 // --- SLIDE 2 LEGEND ---
-const Slide2Legend = ({ colors }: { colors: any }) => (
+const Slide2Legend = ({ colors }: { colors: ThemeColors }) => (
   <View style={styles.legendContainer}>
     <View style={styles.legendCol}>
       <View style={styles.legendRow}>
@@ -135,7 +136,7 @@ const Slide2Legend = ({ colors }: { colors: any }) => (
 );
 
 // --- SLIDE 3 ILLUSTRATION ---
-const Slide3Illustration = ({ isDark, colors }: { isDark: boolean; colors: any }) => (
+const Slide3Illustration = ({ isDark, colors }: { isDark: boolean; colors: ThemeColors }) => (
   <View style={styles.illContainer}>
     {/* Concentric Circles */}
     <View style={[styles.circleOuterSlide3, { opacity: isDark ? 0.15 : 0.25 }]} />
@@ -167,7 +168,7 @@ const Slide3Illustration = ({ isDark, colors }: { isDark: boolean; colors: any }
   </View>
 );
 
-const Slide2Combined = ({ colors }: { colors: any }) => (
+const Slide2Combined = ({ colors }: { colors: ThemeColors }) => (
   <View style={styles.slide2Wrapper}>
     <Slide2Illustration colors={colors} />
     <Slide2Legend colors={colors} />
@@ -179,8 +180,8 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
 
   const flatListRef = useRef<FlatList>(null);
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems[0]) {
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    if (viewableItems[0] && viewableItems[0].index !== null) {
       setCurrentIndex(viewableItems[0].index);
     }
   }).current;

@@ -19,7 +19,7 @@ import {
   filterSavingsRecords,
   shouldSendRolloverNotification,
 } from '../src/lib/budgetCalculations';
-import { isIncomeTransaction } from '../src/lib/paymentUtils';
+import { isIncomeTransaction } from '../src/lib/transactionUtils';
 
 describe('calculateSavingsMetrics - Unit Tests', () => {
   // We pass a fixed reference date to avoid any dependency on wall-clock time

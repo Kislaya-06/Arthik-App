@@ -9,6 +9,7 @@ import {
   ViewStyle,
   StyleProp,
   LayoutChangeEvent,
+  useAnimatedValue,
 } from 'react-native';
 import { useTheme } from '../../store/themeStore';
 import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight } from '../../config/theme';
@@ -61,7 +62,7 @@ const OptionItem: React.FC<OptionItemProps> = ({
   totalOptions = 1,
 }) => {
   const { colors } = useTheme();
-  const pressScale = useRef(new Animated.Value(1)).current;
+  const pressScale = useAnimatedValue(1);
 
   const handlePressIn = () => {
     Animated.spring(pressScale, {
@@ -172,10 +173,10 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   );
 
   const [containerWidth, setContainerWidth] = React.useState(0);
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const stretchAnim = useRef(new Animated.Value(1)).current;
-  const squishAnim = useRef(new Animated.Value(1)).current;
-  const leadAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useAnimatedValue(0);
+  const stretchAnim = useAnimatedValue(1);
+  const squishAnim = useAnimatedValue(1);
+  const leadAnim = useAnimatedValue(0);
   const isFirstLayout = useRef(true);
   const prevIndexRef = useRef(selectedIndex);
 

@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Animated,
   StyleSheet,
   Text,
   TouchableOpacity,
   Alert,
+  useAnimatedValue,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertCircle } from 'lucide-react-native';
@@ -23,8 +24,8 @@ export const SyncFailedBanner: React.FC = () => {
 
   const isVisible = failedSyncItems.length > 0;
   const [shouldRender, setShouldRender] = useState(isVisible);
-  const translateY = useRef(new Animated.Value(-100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useAnimatedValue(-100);
+  const opacity = useAnimatedValue(0);
 
   useEffect(() => {
     if (isVisible) {

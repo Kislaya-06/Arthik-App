@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Pressable,
   Animated,
   Easing,
+  useAnimatedValue,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
@@ -55,8 +56,8 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   onPress,
 }) => {
   const { isDark } = useTheme();
-  const anim = useRef(new Animated.Value(active ? 1 : 0)).current;
-  const pressScale = useRef(new Animated.Value(1)).current;
+  const anim = useAnimatedValue(active ? 1 : 0);
+  const pressScale = useAnimatedValue(1);
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -181,7 +182,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
 // ─── Center Flush Action Button (+) ──────────────────────────────────────────
 const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
   const { colors } = useTheme();
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
 
   const handlePressIn = () => {
     Animated.spring(scale, {
@@ -229,7 +230,7 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
 // ─── Individual Floating Action Button (+) for Pure Mode ─────────────────────
 const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
   const { colors } = useTheme();
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
 
   const handlePressIn = () => {
     Animated.spring(scale, {
@@ -280,8 +281,8 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
   const { isVisible } = useNavBarStore();
   const insets = useSafeAreaInsets();
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
-  const translateY = useRef(new Animated.Value(0)).current;
-  const modeAnim = useRef(new Animated.Value(isBudgetModeEnabled ? 1 : 0)).current;
+  const translateY = useAnimatedValue(0);
+  const modeAnim = useAnimatedValue(isBudgetModeEnabled ? 1 : 0);
 
   useEffect(() => {
     Animated.timing(modeAnim, {

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   Pressable,
   Text,
@@ -8,6 +8,7 @@ import {
   ViewStyle,
   TextStyle,
   StyleProp,
+  useAnimatedValue,
 } from 'react-native';
 import { useTheme } from '../../store/themeStore';
 import { ControlHeight, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
@@ -50,7 +51,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   testID,
 }) => {
   const { colors } = useTheme();
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useAnimatedValue(1);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {

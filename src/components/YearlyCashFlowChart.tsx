@@ -1,10 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   Animated,
+  useAnimatedValue,
 } from 'react-native';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 import {
@@ -45,7 +46,7 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
   onMonthPress,
   triggerKey,
 }) => {
-  const animValue = useRef(new Animated.Value(0)).current;
+  const animValue = useAnimatedValue(0);
 
   useEffect(() => {
     animValue.setValue(0);

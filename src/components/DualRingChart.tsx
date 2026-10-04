@@ -1,5 +1,5 @@
 import React, { useRef, useLayoutEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, Pressable, useAnimatedValue } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
 import { useTheme } from '../store/themeStore';
@@ -40,8 +40,8 @@ export const DualRingChart: React.FC<DualRingChartProps> = ({
   );
 
   // Animation values for the progress sweeps (0 to 1)
-  const outerAnim = useRef(new Animated.Value(0)).current;
-  const innerAnim = useRef(new Animated.Value(0)).current;
+  const outerAnim = useAnimatedValue(0);
+  const innerAnim = useAnimatedValue(0);
 
   // Both rings sweep up from 0 on every visit to the screen (layout effect: also re-runs when a frozen tab is revealed).
   const entry = useFocusEntryCount();

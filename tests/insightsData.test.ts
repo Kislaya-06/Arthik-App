@@ -17,7 +17,7 @@ import {
   endOfYear,
   format,
 } from 'date-fns';
-import { isIncomeTransaction } from '../src/lib/paymentUtils';
+import { isIncomeTransaction } from '../src/lib/transactionUtils';
 import { computeMonthlyCashFlowData } from '../src/lib/chartUtils';
 
 describe('Insights Screen - Expense Aggregation Logic', () => {

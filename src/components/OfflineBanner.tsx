@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Animated,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  useAnimatedValue,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WifiOff, Wifi, X, RefreshCw } from 'lucide-react-native';
@@ -23,8 +24,8 @@ export const OfflineBanner: React.FC = () => {
   const dismissBanner = useNetworkStore((s) => s.dismissBanner);
 
   const [shouldRender, setShouldRender] = useState(bannerVisible);
-  const translateY = useRef(new Animated.Value(-100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useAnimatedValue(-100);
+  const opacity = useAnimatedValue(0);
 
   useEffect(() => {
     if (bannerVisible) {

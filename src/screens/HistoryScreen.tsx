@@ -19,7 +19,7 @@ import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
 import { formatCurrency } from '../lib/formatters';
-import { isIncomeTransaction } from '../lib/paymentUtils';
+import { isIncomeTransaction } from '../lib/transactionUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { ThemeColors, Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
@@ -375,12 +375,16 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation.navigate('ExpenseDetail', { expenseId });
   }, [navigation]);
 
+  const handleGullakPress = useCallback((depositId: string) => {
+    navigation.navigate('GullakDepositDetail', { depositId });
+  }, [navigation]);
+
   const renderItem = useCallback(({ item }: { item: HistoryItem }) => {
     if (item.kind === 'gullak') {
       return (
         <GullakRowItem
           item={item.data}
-          onPress={(id) => navigation.navigate('GullakDepositDetail', { depositId: id })}
+          onPress={handleGullakPress}
           colors={colors}
         />
       );
@@ -393,7 +397,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         colors={colors}
       />
     );
-  }, [categoryMap, handleItemPress, navigation, colors]);
+  }, [categoryMap, handleItemPress, handleGullakPress, colors]);
 
   const renderEmptyState = useCallback(() => {
     let IconComponent = Receipt;

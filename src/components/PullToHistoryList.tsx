@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Vibration,
   View,
+  useAnimatedValue,
 } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { ThemeColors, Spacing } from '../config/theme';
@@ -105,8 +106,8 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
     ref
   ) {
     // ── Animated values (all JS-driven; the physics lives on the JS thread) ──────────────────────
-    const scrollY = useRef(new Animated.Value(0)).current; // in-bounds scroll offset (decay can overshoot; clamped for drawing)
-    const pullDepth = useRef(new Animated.Value(0)).current; // pull-up past the end (dp)
+    const scrollY = useAnimatedValue(0); // in-bounds scroll offset (decay can overshoot; clamped for drawing)
+    const pullDepth = useAnimatedValue(0); // pull-up past the end (dp)
 
     // Plain-number mirrors of the values above (Animated.Value has no public getter).
     const scrollVal = useRef(0);

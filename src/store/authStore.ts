@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../config/supabase';
 import { useNetworkStore } from './networkStore';
-import { isNetworkFailure } from '../lib/networkUtils';
+import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 
 export interface Profile {
   id: string;
@@ -94,11 +94,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .eq('id', user.id)
         .single();
 
-      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('Profile fetch timeout') }), 3000)
+      const { data, error } = await withTimeout(
+        profilePromise,
+        3000,
+        { data: null, error: new Error('Profile fetch timeout') }
       );
-
-      const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
 
       if (error) {
         if (!cachedProfile && !get().profile) {
@@ -204,7 +204,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { error } = await supabase.from('profiles').upsert(updatedProfile);
       if (error) throw error;
       try { await AsyncStorage.removeItem(pendingKey); } catch {}
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isNetworkFailure(e)) return queuePatch();
       if (__DEV__) console.error('Error updating profile:', e);
       throw e;
@@ -221,18 +221,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true });
     try {
       // 1. Invoke server-side Edge Function to delete user data & auth.users record securely
-      const { data, error } = await supabase.functions.invoke('delete-user-account');
+      const { data, error } = await supabase.functions.invoke<{ error?: string; success?: boolean }>('delete-user-account');
 
       if (error) {
         let errorMsg = error.message;
-        if (data && typeof data === 'object' && (data as any).error) {
-          errorMsg = (data as any).error;
+        if (data && typeof data === 'object' && data.error) {
+          errorMsg = data.error;
         }
         throw new Error(errorMsg || 'Failed to delete account on server');
       }
 
-      if (data && (data as any).success === false) {
-        throw new Error((data as any).error || 'Failed to delete user account');
+      if (data && data.success === false) {
+        throw new Error(data.error || 'Failed to delete user account');
       }
 
       // 2. Account permanently deleted on server.

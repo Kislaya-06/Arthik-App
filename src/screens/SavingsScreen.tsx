@@ -8,6 +8,7 @@ import {
   Animated,
   Alert,
   Easing,
+  useAnimatedValue,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
@@ -39,7 +40,7 @@ import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
-import { isIncomeTransaction } from '../lib/paymentUtils';
+import { isIncomeTransaction } from '../lib/transactionUtils';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
@@ -291,7 +292,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   }, [cancelScheduledNextDailyBudget]);
 
   // Priority 1 Animations: Piggy Bounce, Flame Breathe & Progress Fill ────
-  const heroPiggyScale = useRef(new Animated.Value(1)).current;
+  const heroPiggyScale = useAnimatedValue(1);
   const cardTarget = Math.round(cardIsOver ? cardOverAmount : cardRemaining);
   const prevSavingsRef = useRef(totalAccumulatedSavings);
 
@@ -320,7 +321,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   }, [totalAccumulatedSavings, triggerPiggyBounce]);
 
 
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useAnimatedValue(0);
 
   useEffect(() => {
     if (isAutoRenew) {

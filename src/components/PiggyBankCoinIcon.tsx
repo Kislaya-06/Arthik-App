@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Animated, Easing, StyleProp, ViewStyle, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Animated, Easing, StyleProp, ViewStyle, StyleSheet, useAnimatedValue } from 'react-native';
 import Svg, { Path, SvgProps } from 'react-native-svg';
 
 export interface PiggyBankCoinIconProps extends SvgProps {
@@ -76,11 +76,11 @@ export const AnimatedPiggyBank: React.FC<AnimatedPiggyBankProps> = ({
   style,
   onAnimationEnd,
 }) => {
-  const coinY = useRef(new Animated.Value(-size * 0.35)).current;
-  const coinOpacity = useRef(new Animated.Value(1)).current;
-  const coinScale = useRef(new Animated.Value(0.9)).current;
-  const piggyScaleX = useRef(new Animated.Value(1)).current;
-  const piggyScaleY = useRef(new Animated.Value(1)).current;
+  const coinY = useAnimatedValue(-size * 0.35);
+  const coinOpacity = useAnimatedValue(1);
+  const coinScale = useAnimatedValue(0.9);
+  const piggyScaleX = useAnimatedValue(1);
+  const piggyScaleY = useAnimatedValue(1);
 
   useEffect(() => {
     coinY.setValue(-size * 0.35);

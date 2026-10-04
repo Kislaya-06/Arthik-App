@@ -204,7 +204,7 @@ Overspending from allowances is absorbed by available income first before any de
 
 ### 6.7 Income classification (unified, single engine)
 
-See [ADR 0008](adr/0008-unified-income-classification.md). Single function `isIncomeTransaction(item, category)` in `src/lib/paymentUtils.ts` is used everywhere:
+See [ADR 0008](adr/0008-unified-income-classification.md). Single function `isIncomeTransaction(item, category)` in `src/lib/transactionUtils.ts` is used everywhere:
 1. Check `item.type === 'income'` → true
 2. Check `item.type === 'expense'` → false
 3. Fallback: match `category.name` against `DEFAULT_INCOME_KEYWORDS`

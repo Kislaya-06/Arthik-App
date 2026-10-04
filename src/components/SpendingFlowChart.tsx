@@ -1,10 +1,11 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   Animated,
+  useAnimatedValue,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
@@ -68,7 +69,7 @@ const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
   gradEnd,
   onPress,
 }) => {
-  const heightAnim = useRef(new Animated.Value(targetHeight)).current;
+  const heightAnim = useAnimatedValue(targetHeight);
 
   useEffect(() => {
     // Value-to-value continuous transition without resetting to zero

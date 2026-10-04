@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
   Animated,
+  useAnimatedValue,
 } from 'react-native';
 import { X, Check, ArrowLeft, Wallet, PlusCircle, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,9 +59,9 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const [showExplainer, setShowExplainer] = useState(false);
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isCelebrating, setIsCelebrating] = useState(false);
-  const celebrationScale = useRef(new Animated.Value(0.8)).current;
-  const celebrationOpacity = useRef(new Animated.Value(0)).current;
-  const sheetAnim = useRef(new Animated.Value(0)).current;
+  const celebrationScale = useAnimatedValue(0.8);
+  const celebrationOpacity = useAnimatedValue(0);
+  const sheetAnim = useAnimatedValue(0);
 
   const [isMounted, setIsMounted] = useState(visible);
   const addGullakDeposit = useDailyBudgetStore((s) => s.addGullakDeposit);

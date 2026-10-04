@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme, useFocusEffect, CommonActions } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions, getStateFromPath, DefaultTheme, DarkTheme, useFocusEffect, CommonActions, CompositeScreenProps } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { RootStackParamList } from '../types';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { createBottomTabNavigator, BottomTabBarProps, BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { RootStackParamList, TabParamList } from '../types';
 import { handleAuthDeepLink } from '../lib/authLinkHandler';
 import { navigationRef, navigateTo } from './navigationRef';
 import { useTheme } from '../store/themeStore';
@@ -35,11 +35,49 @@ import { BottomNavBar } from '../components/BottomNavBar';
 export { navigationRef, navigateTo };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 const renderTabBar = (props: BottomTabBarProps) => <BottomNavBar {...props} />;
 
-const GuardedSavingsScreen: React.FC<any> = (props) => {
+const GuardedSavingsTabScreen: React.FC<BottomTabScreenProps<TabParamList, 'Savings'>> = (props) => {
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const navigation = props.navigation;
+
+  const redirectToHome = React.useCallback(() => {
+    if (navigationRef.isReady()) {
+      navigationRef.dispatch(
+        CommonActions.navigate({
+          name: 'AppTabs',
+          params: { screen: 'Home' },
+        })
+      );
+    } else {
+      navigation.navigate('Home');
+    }
+  }, [navigation]);
+
+  React.useEffect(() => {
+    if (!isBudgetModeEnabled) {
+      redirectToHome();
+    }
+  }, [isBudgetModeEnabled, redirectToHome]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isBudgetModeEnabled) {
+        redirectToHome();
+      }
+    }, [isBudgetModeEnabled, redirectToHome])
+  );
+
+  if (!isBudgetModeEnabled) {
+    return null;
+  }
+
+  return <SavingsScreen {...(props as unknown as CompositeScreenProps<BottomTabScreenProps<TabParamList, 'Savings'>, NativeStackScreenProps<RootStackParamList>>)} />;
+};
+
+const GuardedSavingsStackScreen: React.FC<NativeStackScreenProps<RootStackParamList, 'Savings'>> = (props) => {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const navigation = props.navigation;
 
@@ -55,7 +93,7 @@ const GuardedSavingsScreen: React.FC<any> = (props) => {
       try {
         navigation.navigate('AppTabs', { screen: 'Home' });
       } catch {
-        navigation.navigate('Home');
+        navigation.navigate('AppTabs', { screen: 'Home' });
       }
     }
   }, [navigation]);
@@ -78,7 +116,7 @@ const GuardedSavingsScreen: React.FC<any> = (props) => {
     return null;
   }
 
-  return <SavingsScreen {...props} />;
+  return <SavingsScreen {...(props as unknown as CompositeScreenProps<BottomTabScreenProps<TabParamList, 'Savings'>, NativeStackScreenProps<RootStackParamList>>)} />;
 };
 
 function TabNavigator() {
@@ -90,10 +128,10 @@ function TabNavigator() {
         freezeOnBlur: true,
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen as React.ComponentType<any>} />
-      <Tab.Screen name="History" component={HistoryScreen as React.ComponentType<any>} />
-      <Tab.Screen name="Savings" component={GuardedSavingsScreen as React.ComponentType<any>} />
-      <Tab.Screen name="Insights" component={InsightsScreen as React.ComponentType<any>} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="History" component={HistoryScreen} />
+      <Tab.Screen name="Savings" component={GuardedSavingsTabScreen} />
+      <Tab.Screen name="Insights" component={InsightsScreen} />
     </Tab.Navigator>
   );
 }
@@ -181,15 +219,15 @@ export function AppNavigation({
         <Stack.Screen name="AppTabs" component={TabNavigator} options={{ animation: 'fade' }} />
 
         {/* Sub pages stack */}
-        <Stack.Screen name="AddExpense" component={ExpenseFormScreen as React.ComponentType<any>} />
-        <Stack.Screen name="EditExpense" component={ExpenseFormScreen as React.ComponentType<any>} />
+        <Stack.Screen name="AddExpense" component={ExpenseFormScreen as React.ComponentType<NativeStackScreenProps<RootStackParamList, 'AddExpense'>>} />
+        <Stack.Screen name="EditExpense" component={ExpenseFormScreen as React.ComponentType<NativeStackScreenProps<RootStackParamList, 'EditExpense'>>} />
         <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
         <Stack.Screen name="GullakDepositDetail" component={GullakDepositDetailScreen} />
         <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
         <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />
         <Stack.Screen name="AddEditCategory" component={AddEditCategoryScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="Savings" component={GuardedSavingsScreen as React.ComponentType<any>} />
+        <Stack.Screen name="Savings" component={GuardedSavingsStackScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Faq" component={FaqScreen} />
       </Stack.Navigator>

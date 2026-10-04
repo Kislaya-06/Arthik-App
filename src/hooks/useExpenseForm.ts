@@ -16,7 +16,7 @@ import {
 } from '../lib/amountKeypad';
 import { getNoteSuggestions } from '../lib/noteSuggestions';
 import { calculateVaultLiquidity } from '../lib/vaultSpendingGuard';
-import { isIncomeTransaction } from '../lib/paymentUtils';
+import { isIncomeTransaction } from '../lib/transactionUtils';
 
 export const MAX_NOTE_WORDS = 50;
 export const MAX_NOTE_CHARS = 250;

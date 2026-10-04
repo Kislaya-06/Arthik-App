@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo } from 'react';
-import { View, Animated, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, Animated, StyleSheet, StyleProp, ViewStyle, useAnimatedValue } from 'react-native';
 import Svg, { Path, Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import {
   getStreakFlameConfig,
@@ -27,7 +27,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
   const glowSize = Math.max(size * 2, config.glowRadius * 2);
 
   // ── Milestone / streak change subtle settle spring ──────────
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useAnimatedValue(1);
   const prevStreakRef = useRef(streak);
 
   useEffect(() => {
