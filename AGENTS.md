@@ -237,9 +237,20 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 | `production` | store-style release, channel `production`, auto-increments | AAB |
 
 ## 11.2 Full APK build vs OTA Update
-- **Full APK (`eas build -p android --profile preview`)**: required when native code, permissions, `app.json`, or app version changes.
+- **Full APK (`eas build -p android --profile preview`)**: required when native code, permissions, native plugins, or app version changes.
 - **OTA update (`eas update --branch preview --message "..."`)**: JS/TS, UI, and logic changes only.
 - `runtimeVersion` is tied to `expo.version`. Bump version in `app.json` and `package.json` only when building a new APK binary. Update `CHANGELOG.md` in the same commit.
+
+## 11.3 In-App OTA Update Popup Invariant (`OtaUpdateModal` & `app.json`)
+- **"What's New" Highlights Update**: Whenever an OTA release is prepared without bumping the version (the standard OTA workflow), you MUST update `app.json` (`expo.extra.otaUpdate.title` and `expo.extra.otaUpdate.highlights`) and `src/store/otaStore.ts` (fallback highlights).
+- This ensures the in-app update popup (`OtaUpdateModal`) that displays on user devices after downloading the update accurately communicates the exact changes, fixes, or improvements in that release. Never release an OTA update with stale highlights from a previous release.
+
+## 11.4 Version Bump Guard & Pre-OTA Confirmation Invariant (CRITICAL)
+- **Check Before Every OTA Release**: Prior to executing any `eas update` command, the agent MUST inspect `app.json` and `package.json` to verify whether the app version string has changed.
+- **Explicit Confirmation Mandatory on Version Bump**:
+  - If a version bump is detected (e.g. from `1.2.4` to `1.2.5`), the agent **MUST STOP and ask for explicit user confirmation** before running the OTA update command.
+  - The confirmation prompt must clearly alert the user: *"Version bump detected from X to Y. In Arthik, `runtimeVersion.policy = 'appVersion'`. Publishing an OTA update under a bumped version means it will NEVER reach existing user devices running the previous APK binary. Do you intend to build a full APK binary (`eas build`), or should this OTA update remain on the current version?"*
+- **Intentional Version Bumps**: Version bumps are NOT prohibited, but they must be explicitly and specifically requested by the user (typically when cutting a release for a new binary APK). Even when explicitly requested by the user, the agent must still request final confirmation before executing to prevent catastrophic OTA desynchronization.
 
 ---
 

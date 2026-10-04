@@ -276,6 +276,10 @@ See [ADR 0006](adr/0006-ota-updates-tied-to-app-version.md).
 
 `runtimeVersion.policy = "appVersion"` — OTA only reaches devices on the exact matching `expo.version`.
 
+### 11.1 Release Invariants
+- **In-App Update Modal Highlights (`OtaUpdateModal`)**: When publishing an OTA release without bumping the version, always update `app.json` (`expo.extra.otaUpdate.title` and `expo.extra.otaUpdate.highlights`) and `src/store/otaStore.ts` to ensure the on-device update popup displays accurate "What's New" information to users upon downloading the update.
+- **Version Bump Guard & Pre-OTA Confirmation (CRITICAL)**: Because OTA bundles only target matching `appVersion` binaries, publishing an OTA update with a bumped version that does not match the user's installed APK runtime will cause the update to be ignored by all user devices. The agent must verify `app.json` / `package.json` version before every OTA run, and MUST stop and request explicit user confirmation whenever a version bump is present. Version bumps are permitted only when specifically requested by the user for new binary builds, with mandatory confirmation before execution.
+
 ---
 
 ## 12. Test Architecture

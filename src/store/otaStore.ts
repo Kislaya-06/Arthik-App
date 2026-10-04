@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Unified Budgeting & Digital Vault 💎',
+    title: ota?.title || 'Smart Notifications & Ambient Polish ✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "100% unprorated real-money budget allocation for daily, weekly, and monthly cadences",
-          "Next-day cadence switching with user-selected carry-forward modes (Additive vs Allocation)",
-          "Gullak rollover preservation: mid-cycle switches carry forward without premature dumps",
-          "Digital Vault Spending Guard: blocks negative outflow when available liquidity is zero",
-          "Dynamic non-binding pace suggestions across Daily, Weekly, and Monthly views",
+          "Smart notification redesign: quiet evening nudges, Gullak rewards, and weekly/monthly recaps",
+          "Tactile vertical rolling-digit animations across balances, allowances, and charts",
+          "Ambient Background v4: organic header glow and gentle wind draft effects",
+          "Butter-smooth 60fps Donut & Dual Ring chart sweeps on screen focus",
+          "Enhanced SegmentedControl touch reach and tap responsiveness",
         ],
   };
 };
