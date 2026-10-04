@@ -99,18 +99,20 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const [heroCardSize, setHeroCardSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [allowanceCardSize, setAllowanceCardSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
-  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits || []);
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
   const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
-  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
+  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
-  const pendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange());
+  const getPendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange);
   const cancelPendingPlanChange = useDailyBudgetStore((s) => s.cancelPendingPlanChange);
   const expenses = useExpenseStore((s) => s.expenses);
   const categories = useCategoryStore((s) => s.categories);
+
+  const pendingPlanChange = useMemo(() => getPendingPlanChange(), [getPendingPlanChange, planChanges]);
 
   const handleDeleteDeposit = useCallback((id: string, amount: number) => {
     Alert.alert(
@@ -599,7 +601,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             </View>
 
             {/* Unboxed High-Visibility Status Indicator */}
-            {isAutoRenew && cardBudget > 0 && (
+            {isAutoRenew && cardBudget > 0 ? (
               <View style={styles.ucStatusRow}>
                 <View
                   style={[
@@ -626,6 +628,18 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   ]}
                 >
                   {cardIsOver ? 'Over budget' : cardProgressRatio >= 0.8 ? 'Near limit' : 'On track'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.ucStatusRow}>
+                <View
+                  style={[
+                    styles.ucStatusDot,
+                    { backgroundColor: 'rgba(255, 255, 255, 0.5)' },
+                  ]}
+                />
+                <Text style={[styles.ucStatusText, { color: 'rgba(255, 255, 255, 0.85)' }]}>
+                  Paused
                 </Text>
               </View>
             )}
@@ -792,23 +806,17 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   width={52}
                   height={26}
                   onColor="#FFFFFF"
+                  offColor="#FFFFFF"
+                  trackColor="rgba(255, 255, 255, 0.2)"
                 />
               </View>
             </View>
           ) : (
             /* Paused State */
             <View style={styles.ucBody}>
-              <View
-                style={[
-                  styles.pausedStateBox,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                ]}
-              >
+              <View style={styles.pausedStateBox}>
                 <View style={styles.pausedStateTop}>
-                  <View style={[styles.pausedIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                  <View style={[styles.pausedIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.18)' }]}>
                     <Sparkles size={16} color="#FFFFFF" />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -847,29 +855,29 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
                   <TouchableOpacity
                     style={[
-                      styles.pausedActionBtn,
+                      styles.ucChangeBtn,
                       {
-                        backgroundColor: '#FFFFFF',
-                        borderColor: '#FFFFFF',
+                        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+                        borderColor: 'rgba(255, 255, 255, 0.16)',
                       },
                     ]}
-                    onPress={() => openBudgetModal('recurring')}
-                    activeOpacity={0.75}
+                    disabled={true}
+                    activeOpacity={1}
+                    accessibilityState={{ disabled: true }}
                   >
-                    <Text style={[styles.pausedActionBtnText, { color: '#581C87' }]}>
+                    <Text style={[styles.ucChangeBtnText, { color: 'rgba(255, 255, 255, 0.4)' }]}>
                       {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0 ? 'Change' : 'Set Limit'}
                     </Text>
+                    <ChevronRight size={13} color="rgba(255, 255, 255, 0.4)" strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Auto-save toggle capsule to re-enable */}
+              {/* Auto-save toggle capsule to re-enable (Unboxed, clean) */}
               <View
                 style={[
                   styles.ucAutoSaveCapsule,
                   {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
                     marginTop: Spacing.group,
                   },
                 ]}
@@ -897,6 +905,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
                   width={52}
                   height={26}
                   onColor="#FFFFFF"
+                  offColor="#FFFFFF"
+                  trackColor="rgba(255, 255, 255, 0.2)"
                 />
               </View>
             </View>
@@ -1328,9 +1338,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.nano,
   },
   pausedStateBox: {
-    borderRadius: 16,
-    padding: Spacing.group,
-    borderWidth: 1,
+    paddingVertical: 2,
   },
   pausedStateTop: {
     flexDirection: 'row',
@@ -1370,16 +1378,6 @@ const styles = StyleSheet.create({
   },
   pausedAmountText: {
     fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
-  pausedActionBtn: {
-    paddingHorizontal: Spacing.group,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  pausedActionBtnText: {
-    fontSize: 12,
     fontFamily: FontFamily.bold,
   },
 

@@ -25,7 +25,6 @@ import {
 import { applyKeypadPress } from '../lib/amountKeypad';
 import {
   formatEffectiveFrom,
-  getProrationPreview,
 } from '../lib/budgetModeUtils';
 import { computeEffectiveFrom, getPeriodBounds } from '../lib/budgetPeriods';
 import { BudgetCadence } from '../types';
@@ -72,7 +71,11 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
   const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
-  const pendingChange = useDailyBudgetStore((s) => s.getPendingPlanChange());
+  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
+  const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
+  const planChanges = useDailyBudgetStore((s) => s.planChanges);
+  const getPendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange);
+  const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
 
   // Store actions
   const setDailyBudget = useDailyBudgetStore((s) => s.setDailyBudget);
@@ -93,7 +96,12 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   const expenses = useExpenseStore((s) => s.expenses);
-  const todayRecord = useDailyBudgetStore((s) => s.getTodayRecord());
+
+  const pendingChange = useMemo(() => getPendingPlanChange(), [getPendingPlanChange, planChanges]);
+  const todayRecord = useMemo(
+    () => getTodayRecord(),
+    [getTodayRecord, dailyRecords, isAutoRenew, isBudgetModeEnabled, dailyBudgetAmount]
+  );
 
 
 
@@ -204,21 +212,12 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     return isNaN(parsed) ? 0 : parsed;
   }, [amountStr]);
 
-  // One-line proration preview (D4)
-  const prorationPreview = useMemo(() => {
-    if (evaluatedAmount <= 0) return null;
-    return getProrationPreview(selectedCadence, evaluatedAmount, effectiveFromStr, todayStr);
-  }, [selectedCadence, evaluatedAmount, effectiveFromStr, todayStr]);
-
   const explainerTopic: MoneyExplainerTopic = useMemo(() => {
     if (selectedCadence !== budgetCadence && isBudgetModeEnabled) {
       return 'cadence_switch';
     }
-    if (prorationPreview) {
-      return 'cadence_switch';
-    }
     return 'rollover_savings';
-  }, [selectedCadence, budgetCadence, isBudgetModeEnabled, prorationPreview]);
+  }, [selectedCadence, budgetCadence, isBudgetModeEnabled]);
 
   const handleSave = useCallback(() => {
     if (evaluatedAmount <= 0) {
@@ -399,7 +398,6 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 <MoneyHelpBadge
                   style={{ marginLeft: Spacing.element }}
                   onPress={() => setShowMoneyExplainer(true)}
-                  highlight={Boolean(prorationPreview)}
                 />
               </View>
               <TouchableOpacity
@@ -503,49 +501,6 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 {amountStr ? formatAmountWithCommas(amountStr) : '0'}
               </Text>
             </View>
-
-            {/* Proration Preview (Prorated allowance + crystal clear explanation) */}
-            {prorationPreview && (
-              <View
-                style={[
-                  styles.prorationCard,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'rgba(255, 255, 255, 0.35)',
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.prorationHeaderRow}
-                  activeOpacity={0.75}
-                  onPress={() => setShowMoneyExplainer(true)}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <Sparkles
-                      size={14}
-                      color="#FFFFFF"
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        styles.prorationTitle,
-                        { color: '#FFFFFF' },
-                      ]}
-                    >
-                      {prorationPreview.previewText}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <Text
-                  style={[
-                    styles.prorationExplanation,
-                    { color: 'rgba(255, 255, 255, 0.85)' },
-                  ]}
-                >
-                  {prorationPreview.explanationText}
-                </Text>
-              </View>
-            )}
 
             {/* Tactile Keypad */}
             <View style={styles.keypadContainer}>
@@ -767,29 +722,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontFamily: FontFamily.bold,
   },
-  prorationCard: {
-    paddingHorizontal: Spacing.group,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-    marginBottom: Spacing.group,
-    gap: 4,
-  },
-  prorationHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  prorationTitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-    flex: 1,
-  },
-  prorationExplanation: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-    lineHeight: 18,
-    paddingLeft: 20,
-  },
   keypadContainer: {
     marginBottom: Spacing.surface,
     gap: 6,
@@ -807,8 +739,8 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: Spacing.group,
-    borderRadius: BorderRadius.input,
+    height: ControlHeight.row,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -819,11 +751,11 @@ const styles = StyleSheet.create({
   },
   modalSaveBtn: {
     flex: 1,
+    height: ControlHeight.row,
+    borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.group,
-    borderRadius: BorderRadius.input,
   },
   modalSaveText: {
     fontSize: FontSize.bodySmall,

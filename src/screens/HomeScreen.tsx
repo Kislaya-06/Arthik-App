@@ -118,7 +118,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
   const setWeeklyBudget = useDailyBudgetStore((s) => s.setWeeklyBudget);
   const setMonthlyBudget = useDailyBudgetStore((s) => s.setMonthlyBudget);
-  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods || {});
+  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
   const lastRenewedPeriodKey = useDailyBudgetStore((s) => s.lastRenewedPeriodKey);
   const setLastRenewedPeriodKey = useDailyBudgetStore((s) => s.setLastRenewedPeriodKey);
 

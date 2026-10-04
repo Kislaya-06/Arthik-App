@@ -9,18 +9,18 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
-import { Check, X, AlertTriangle, ArrowRight, ShieldCheck, Sparkles, Layers, PieChart } from 'lucide-react-native';
+import { Check, X, AlertTriangle, ArrowRight, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { format } from 'date-fns';
+import { format, parseISO, addDays, differenceInCalendarDays } from 'date-fns';
 
 import { useTheme } from '../store/themeStore';
 import { BudgetCadence } from '../types';
 import {
   buildCadenceSwitchPlan,
   CadenceCarryMode,
-  checkCadenceCapacity,
 } from '../lib/cadenceSwitch';
-import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
+import { getPeriodBounds } from '../lib/budgetPeriods';
+import { formatCurrency } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 
 export interface CadenceSwitchModalProps {
@@ -55,13 +55,13 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
   const activeAccent = isDark ? colors.mintGreen : colors.forestGreen;
   const activeBg = isDark ? 'rgba(184, 224, 200, 0.12)' : 'rgba(27, 77, 62, 0.07)';
 
-  const [carryMode, setCarryMode] = useState<CadenceCarryMode>('additive');
+  const [carryMode, setCarryMode] = useState<CadenceCarryMode>('allocation');
   const [targetAmount, setTargetAmount] = useState<number>(initialTargetAmount);
 
   useEffect(() => {
     if (visible) {
       setTargetAmount(initialTargetAmount);
-      setCarryMode('additive');
+      setCarryMode('allocation');
     }
   }, [visible, initialTargetAmount]);
 
@@ -110,6 +110,44 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
   }, [visible, slideAnim, fadeAnim]);
 
   const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [visible]);
+
+  const targetPeriodInfo = useMemo(() => {
+    const tomorrow = addDays(parseISO(todayStr), 1);
+    const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
+
+    if (targetCadence === 'weekly') {
+      const bounds = getPeriodBounds('weekly', tomorrowStr);
+      const remainingDays = differenceInCalendarDays(parseISO(bounds.end), tomorrow) + 1;
+      const startFormatted = format(tomorrow, 'EEE, d MMM');
+      const endFormatted = format(parseISO(bounds.end), 'EEE, d MMM');
+      return {
+        dateRange: `${startFormatted} – ${endFormatted}`,
+        remainingDays,
+        cycleLabel: `${remainingDays} days in this week`,
+        endDateFormatted: endFormatted,
+      };
+    }
+
+    if (targetCadence === 'monthly') {
+      const bounds = getPeriodBounds('monthly', tomorrowStr);
+      const remainingDays = differenceInCalendarDays(parseISO(bounds.end), tomorrow) + 1;
+      const startFormatted = format(tomorrow, 'd MMM');
+      const endFormatted = format(parseISO(bounds.end), 'd MMM');
+      return {
+        dateRange: `${startFormatted} – ${endFormatted}`,
+        remainingDays,
+        cycleLabel: `${remainingDays} days this month`,
+        endDateFormatted: endFormatted,
+      };
+    }
+
+    return {
+      dateRange: format(tomorrow, 'EEE, d MMM'),
+      remainingDays: 1,
+      cycleLabel: 'daily',
+      endDateFormatted: format(tomorrow, 'EEE, d MMM'),
+    };
+  }, [todayStr, targetCadence]);
 
   const plan = useMemo(() => {
     return buildCadenceSwitchPlan({
@@ -187,7 +225,10 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                 </View>
               </View>
               <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
-                Switch to {targetLabel} Budget
+                Switch to {targetLabel}
+              </Text>
+              <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
+                {formatCurrency(plan.unspentAmount)} is left from your {currentLabel} budget.
               </Text>
             </View>
 
@@ -210,43 +251,26 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Unboxed Status Summary */}
+            {/* Compact Gullak Card */}
             <View
               style={[
-                styles.summaryCard,
+                styles.gullakCard,
                 {
                   backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F8F9FA',
                   borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
                 },
               ]}
             >
-              <View style={styles.metricRow}>
-                <View>
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                    Current {currentLabel} Unspent
-                  </Text>
-                  <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
-                    {formatCurrency(plan.unspentAmount)}
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                    Next Gullak Deposit
-                  </Text>
-                  <Text style={[styles.metricValue, { color: colors.textSecondary }]}>
-                    ₹0 (Switch)
-                  </Text>
-                </View>
+              <View style={styles.gullakHeaderRow}>
+                <Text style={{ fontSize: 16, marginRight: 6 }}>🪙</Text>
+                <Text style={[styles.gullakTitle, { color: colors.textPrimary }]}>Gullak</Text>
               </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.infoRow}>
-                <ShieldCheck size={14} color="#4CAF50" style={{ marginRight: 6 }} />
-                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                  Your unspent money carries forward safely into your new plan. Gullak deposits happen only when a cycle ends naturally.
-                </Text>
-              </View>
+              <Text style={[styles.gullakRowText, { color: colors.textPrimary }]}>
+                ₹0 added on this switch
+              </Text>
+              <Text style={[styles.gullakRowSubtext, { color: colors.textSecondary }]}>
+                Next deposit: at the end of the {targetLabel} cycle ({targetPeriodInfo.endDateFormatted})
+              </Text>
             </View>
 
             {/* Over-Capacity Warning Banner (Audio Clip 2 Edge Case) */}
@@ -298,14 +322,28 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               </View>
             )}
 
-            {/* Carry-Forward Mode Picker */}
+            {/* Carry-Forward Mode Options */}
             {plan.unspentAmount > 0 && (
               <View style={styles.modeSection}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                  How would you like to handle your ₹{formatAmountWithCommas(String(plan.unspentAmount))}?
-                </Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                    What should happen to {formatCurrency(plan.unspentAmount)}?
+                  </Text>
+                  <View
+                    style={[
+                      styles.datePill,
+                      {
+                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.datePillText, { color: colors.textSecondary }]}>
+                      📅 {targetPeriodInfo.dateRange} ({targetPeriodInfo.remainingDays} days)
+                    </Text>
+                  </View>
+                </View>
 
-                {/* Option 1: Additive Pool */}
+                {/* Option 1: Add to Target Budget */}
                 <TouchableOpacity
                   style={[
                     styles.modeOptionCard,
@@ -329,24 +367,16 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   onPress={() => setCarryMode('additive')}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: carryMode === 'additive' }}
-                  accessibilityLabel={`Add to New Budget, expand limit to ${formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}`}
                 >
                   <View style={styles.modeCardHeader}>
-                    <View style={styles.modeIconTitleRow}>
-                      <Layers
-                        size={16}
-                        color={carryMode === 'additive' ? activeAccent : colors.textSecondary}
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text
-                        style={[
-                          styles.modeCardTitle,
-                          { color: carryMode === 'additive' ? colors.textPrimary : colors.textSecondary },
-                        ]}
-                      >
-                        Add to New Budget
-                      </Text>
-                    </View>
+                    <Text
+                      style={[
+                        styles.modeCardTitle,
+                        { color: carryMode === 'additive' ? colors.textPrimary : colors.textSecondary },
+                      ]}
+                    >
+                      Add to {targetLabel} budget
+                    </Text>
                     <View
                       style={[
                         styles.radioCircle,
@@ -360,14 +390,15 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    Adds your unspent {formatCurrency(plan.unspentAmount)} on top of your new budget. Total spending limit will be{' '}
+                    {targetLabel} budget →{' '}
                     <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
                       {formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}
-                    </Text>.
+                    </Text>
+                    {' '}(for {targetPeriodInfo.remainingDays} days)
                   </Text>
                 </TouchableOpacity>
 
-                {/* Option 2: Remaining Allocation */}
+                {/* Option 2: Keep target budget */}
                 <TouchableOpacity
                   style={[
                     styles.modeOptionCard,
@@ -391,24 +422,16 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   onPress={() => setCarryMode('allocation')}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: carryMode === 'allocation' }}
-                  accessibilityLabel={`Keep Fixed Budget, keep limit at ${formatCurrency(plan.targetBudgetAmount)}`}
                 >
                   <View style={styles.modeCardHeader}>
-                    <View style={styles.modeIconTitleRow}>
-                      <PieChart
-                        size={16}
-                        color={carryMode === 'allocation' ? activeAccent : colors.textSecondary}
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text
-                        style={[
-                          styles.modeCardTitle,
-                          { color: carryMode === 'allocation' ? colors.textPrimary : colors.textSecondary },
-                        ]}
-                      >
-                        Keep Fixed Budget
-                      </Text>
-                    </View>
+                    <Text
+                      style={[
+                        styles.modeCardTitle,
+                        { color: carryMode === 'allocation' ? colors.textPrimary : colors.textSecondary },
+                      ]}
+                    >
+                      Keep it at {formatCurrency(plan.targetBudgetAmount)}
+                    </Text>
                     <View
                       style={[
                         styles.radioCircle,
@@ -422,16 +445,17 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    Keeps your total spending limit fixed at{' '}
+                    {targetLabel} budget stays{' '}
                     <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
                       {formatCurrency(plan.targetBudgetAmount)}
-                    </Text> (includes your unspent money).
+                    </Text>
+                    {' '}(for {targetPeriodInfo.remainingDays} days)
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Next Day Activation Note */}
+            {/* Compact Activation Note */}
             <View
               style={[
                 styles.activationCard,
@@ -442,7 +466,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               ]}
             >
               <Text style={[styles.activationText, { color: colors.textSecondary }]}>
-                📅 <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>Next-Day Activation</Text>: Takes effect tomorrow at 00:00. Today continues under your current {currentLabel} plan.
+                ⓘ Starts tomorrow • Unspent money at cycle end goes to Gullak
               </Text>
             </View>
           </ScrollView>
@@ -469,16 +493,45 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               style={[
                 styles.confirmBtn,
                 {
-                  backgroundColor: activeAccent,
+                  backgroundColor: plan.validation.isExceeding
+                    ? isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.08)'
+                    : activeAccent,
                 },
               ]}
               onPress={handleConfirm}
+              disabled={plan.validation.isExceeding}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Confirm Switch"
+              accessibilityState={{ disabled: plan.validation.isExceeding }}
+              accessibilityLabel={`Switch to ${targetLabel}`}
             >
-              <Check size={18} color={isDark ? colors.forestGreen : '#FFFFFF'} style={{ marginRight: 6 }} />
-              <Text style={[styles.confirmText, { color: isDark ? colors.forestGreen : '#FFFFFF' }]}>Confirm Switch</Text>
+              <Check
+                size={18}
+                color={
+                  plan.validation.isExceeding
+                    ? colors.textSecondary
+                    : isDark
+                    ? colors.forestGreen
+                    : '#FFFFFF'
+                }
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.confirmText,
+                  {
+                    color: plan.validation.isExceeding
+                      ? colors.textSecondary
+                      : isDark
+                      ? colors.forestGreen
+                      : '#FFFFFF',
+                  },
+                ]}
+              >
+                Switch to {targetLabel}
+              </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -533,6 +586,12 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
   },
+  sheetSubtitle: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
+    fontFamily: FontFamily.medium,
+    marginTop: 2,
+  },
   closeButton: {
     width: 32,
     height: 32,
@@ -547,42 +606,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.surface,
     paddingBottom: Spacing.surface,
   },
-  summaryCard: {
+  gullakCard: {
     borderRadius: BorderRadius.card,
     borderWidth: 1,
     padding: Spacing.block,
     marginBottom: Spacing.block,
   },
-  metricRow: {
+  gullakHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
   },
-  metricLabel: {
-    fontSize: FontSize.caption,
-    lineHeight: LineHeight.caption,
-    fontFamily: FontFamily.medium,
-    marginBottom: Spacing.nano,
-  },
-  metricValue: {
-    fontSize: FontSize.titleSmall,
-    lineHeight: LineHeight.titleSmall,
+  gullakTitle: {
+    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: Spacing.group,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoText: {
+  gullakRowText: {
     fontSize: FontSize.caption,
-    lineHeight: LineHeight.caption,
+    fontFamily: FontFamily.semibold,
+    marginBottom: 2,
+  },
+  gullakRowSubtext: {
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
-    flex: 1,
   },
   warningCard: {
     borderRadius: BorderRadius.card,
@@ -622,10 +668,24 @@ const styles = StyleSheet.create({
   modeSection: {
     marginBottom: Spacing.block,
   },
+  sectionHeaderRow: {
+    marginBottom: Spacing.group,
+    gap: 4,
+  },
+  datePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.pill,
+    marginTop: 2,
+  },
+  datePillText: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
+  },
   sectionTitle: {
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
-    marginBottom: Spacing.group,
   },
   modeOptionCard: {
     borderRadius: BorderRadius.card,
@@ -640,11 +700,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.micro,
-  },
-  modeIconTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 4,
   },
   modeCardTitle: {
     fontSize: FontSize.bodySmall,
@@ -698,7 +754,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   confirmBtn: {
-    flex: 2,
+    flex: 1,
     height: ControlHeight.row,
     borderRadius: BorderRadius.pill,
     flexDirection: 'row',

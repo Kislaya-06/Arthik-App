@@ -9,6 +9,7 @@ import {
   getCurrentPeriodSummary,
   isDailyGovernedDate,
   computeCadenceStreak,
+  computeCalendarConnections,
   StreakUnit,
 } from '../src/lib/budgetPeriods';
 import { BudgetPlanChange } from '../src/types';
@@ -1278,4 +1279,335 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(feb2028Summary?.projectedMonthlyBudget).toBe(29000); // (7000/7) * 29
     });
   });
+
+  // =========================================================================
+  // 10. computeCalendarConnections (Connected-Date Underlay Engine)
+  // =========================================================================
+  describe('10. computeCalendarConnections', () => {
+    // Helper to generate a month's 7-column calendar cells
+    function createMonthGrid(year: number, monthZeroIndexed: number) {
+      const daysInMonth = new Date(year, monthZeroIndexed + 1, 0).getDate();
+      const firstDayOfWeek = new Date(year, monthZeroIndexed, 1).getDay();
+      const monthStr = `${year}-${String(monthZeroIndexed + 1).padStart(2, '0')}`;
+      const cells: Array<{ dateStr: string | null; day: number | null }> = [];
+
+      for (let i = 0; i < firstDayOfWeek; i++) {
+        cells.push({ dateStr: null, day: null });
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        cells.push({
+          dateStr: `${monthStr}-${String(d).padStart(2, '0')}`,
+          day: d,
+        });
+      }
+      return cells;
+    }
+
+    it('Scenario 1: Daily only — all dates have NO connecting lines', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 500,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'daily', true);
+
+      Object.values(connections).forEach((info) => {
+        expect(info.owner).toBe('daily');
+        expect(info.hasLeftConnection).toBe(false);
+        expect(info.hasRightConnection).toBe(false);
+      });
+    });
+
+    it('Scenario 2: Weekly only — 7-day connected groups with clean separation and row wrapping', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026 (Oct 1 is Thursday)
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 3500,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'weekly', true);
+
+      // Week of Mon Oct 12 to Sun Oct 18 (2026-10-12 to 2026-10-18)
+      // Oct 12 (Monday, col 1): connects to right (Oct 13), NOT left (Oct 11 was previous week)
+      expect(connections['2026-10-12'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-12'].hasRightConnection).toBe(true);
+
+      // Oct 13-16 (Tuesday to Friday): connects both left and right
+      expect(connections['2026-10-13'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-13'].hasRightConnection).toBe(true);
+      expect(connections['2026-10-16'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-16'].hasRightConnection).toBe(true);
+
+      // Oct 17 (Saturday, col 6, end of row): connects left AND right (wraps to Sun 18)
+      expect(connections['2026-10-17'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-17'].hasRightConnection).toBe(true);
+
+      // Oct 18 (Sunday, col 0, start of next row): connects left (wraps from Sat 17), NOT right (new week starts Mon 19)
+      expect(connections['2026-10-18'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-18'].hasRightConnection).toBe(false);
+
+      // Oct 19 (Monday, col 1, start of NEXT week): connects right, NOT left (clean break between weeks)
+      expect(connections['2026-10-19'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-19'].hasRightConnection).toBe(true);
+    });
+
+    it('Scenario 3: Monthly only — continuous connected segment across month rows', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'monthly',
+          amount: 25000,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'monthly', true);
+
+      // Oct 1 (Thu, col 4): first day of month -> no left on this row, connects right
+      expect(connections['2026-10-01'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-01'].hasRightConnection).toBe(true);
+
+      // Oct 3 (Sat, col 6): connects left and wraps right to Sun Oct 4
+      expect(connections['2026-10-03'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-03'].hasRightConnection).toBe(true);
+
+      // Oct 4 (Sun, col 0): wraps left from Sat Oct 3 and connects right
+      expect(connections['2026-10-04'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-04'].hasRightConnection).toBe(true);
+
+      // Oct 31 (Sat, col 6, last day of month): connects left, but NOT right (Nov 1 is new monthly cycle)
+      expect(connections['2026-10-31'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-31'].hasRightConnection).toBe(false);
+    });
+
+    it('Scenario 4: Daily → Weekly cadence switch (historical Daily preserved with no lines)', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 500,
+        },
+        {
+          id: '2',
+          userId: 'u1',
+          effectiveFrom: '2026-10-12', // Monday
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 3500,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'daily', true);
+
+      // Oct 1 to Oct 11 are Daily -> no connections
+      for (let d = 1; d <= 11; d++) {
+        const dateStr = `2026-10-${String(d).padStart(2, '0')}`;
+        expect(connections[dateStr].owner).toBe('daily');
+        expect(connections[dateStr].hasLeftConnection).toBe(false);
+        expect(connections[dateStr].hasRightConnection).toBe(false);
+      }
+
+      // Oct 12 onward are Weekly -> connected in weekly groups
+      expect(connections['2026-10-12'].owner).toBe('weekly');
+      expect(connections['2026-10-12'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-12'].hasRightConnection).toBe(true);
+      expect(connections['2026-10-17'].hasRightConnection).toBe(true);
+      expect(connections['2026-10-18'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-18'].hasRightConnection).toBe(false);
+    });
+
+    it('Scenario 5: Weekly → Monthly cadence switch preserves historical weekly cycles', () => {
+      const cells = createMonthGrid(2026, 10); // November 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 3500,
+        },
+        {
+          id: '2',
+          userId: 'u1',
+          effectiveFrom: '2026-11-09', // Monday
+          isEnabled: true,
+          cadence: 'monthly',
+          amount: 30000,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'monthly', true);
+
+      // Nov 2 to Nov 8 was Weekly (Nov 2 is Mon, Nov 8 is Sun)
+      expect(connections['2026-11-02'].owner).toBe('weekly');
+      expect(connections['2026-11-02'].hasLeftConnection).toBe(false);
+      expect(connections['2026-11-02'].hasRightConnection).toBe(true);
+      expect(connections['2026-11-08'].owner).toBe('weekly');
+      expect(connections['2026-11-08'].hasLeftConnection).toBe(true);
+      expect(connections['2026-11-08'].hasRightConnection).toBe(false); // Does not connect to Nov 9 (switch to monthly)
+
+      // Nov 9 onward is Monthly
+      expect(connections['2026-11-09'].owner).toBe('monthly');
+      expect(connections['2026-11-09'].hasLeftConnection).toBe(false);
+      expect(connections['2026-11-09'].hasRightConnection).toBe(true);
+    });
+
+    it('Scenario 6: Monthly → Weekly cadence switch', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'monthly',
+          amount: 30000,
+        },
+        {
+          id: '2',
+          userId: 'u1',
+          effectiveFrom: '2026-10-19', // Monday
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 5000,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'weekly', true);
+
+      // Oct 1 to 18 are Monthly
+      expect(connections['2026-10-18'].owner).toBe('monthly');
+      expect(connections['2026-10-18'].hasRightConnection).toBe(false); // Does not connect into Weekly Oct 19
+
+      // Oct 19 is Weekly
+      expect(connections['2026-10-19'].owner).toBe('weekly');
+      expect(connections['2026-10-19'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-19'].hasRightConnection).toBe(true);
+    });
+
+    it('Scenario 7: Daily → Weekly → Monthly switch preserves all three periods', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 500,
+        },
+        {
+          id: '2',
+          userId: 'u1',
+          effectiveFrom: '2026-10-12', // Monday
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 3500,
+        },
+        {
+          id: '3',
+          userId: 'u1',
+          effectiveFrom: '2026-10-26', // Monday
+          isEnabled: true,
+          cadence: 'monthly',
+          amount: 20000,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'monthly', true);
+
+      // Oct 5 (Daily) -> no lines
+      expect(connections['2026-10-05'].owner).toBe('daily');
+      expect(connections['2026-10-05'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-05'].hasRightConnection).toBe(false);
+
+      // Oct 15 (Weekly) -> connected
+      expect(connections['2026-10-15'].owner).toBe('weekly');
+      expect(connections['2026-10-15'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-15'].hasRightConnection).toBe(true);
+
+      // Oct 28 (Monthly) -> connected
+      expect(connections['2026-10-28'].owner).toBe('monthly');
+      expect(connections['2026-10-28'].hasLeftConnection).toBe(true);
+      expect(connections['2026-10-28'].hasRightConnection).toBe(true);
+    });
+
+    it('Scenario 8: Mid-cycle Wednesday switch to weekly starts weekly connection from Wednesday', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 500,
+        },
+        {
+          id: '2',
+          userId: 'u1',
+          effectiveFrom: '2026-10-14', // Wednesday
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 3500,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'daily', true);
+
+      // Tuesday Oct 13 was Daily -> no connections
+      expect(connections['2026-10-13'].owner).toBe('daily');
+      expect(connections['2026-10-13'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-13'].hasRightConnection).toBe(false);
+
+      // Wednesday Oct 14 is Weekly -> does not connect to Daily Oct 13, connects to Thu Oct 15
+      expect(connections['2026-10-14'].owner).toBe('weekly');
+      expect(connections['2026-10-14'].hasLeftConnection).toBe(false);
+      expect(connections['2026-10-14'].hasRightConnection).toBe(true);
+    });
+
+    it('Scenario 9: Paused / disabled budget mode has no connections', () => {
+      const cells = createMonthGrid(2026, 9); // October 2026
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: false,
+          cadence: 'weekly',
+          amount: 3500,
+        },
+      ];
+
+      const connections = computeCalendarConnections(cells, changes, 'weekly', false);
+
+      Object.values(connections).forEach((info) => {
+        expect(info.owner).toBe('paused');
+        expect(info.hasLeftConnection).toBe(false);
+        expect(info.hasRightConnection).toBe(false);
+      });
+    });
+  });
 });
+

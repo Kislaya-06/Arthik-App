@@ -16,6 +16,7 @@ interface AnimatedToggleProps {
   height?: number;
   onColor?: string;
   offColor?: string;
+  trackColor?: string;
 }
 
 export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
@@ -25,6 +26,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   height = 30,
   onColor,
   offColor,
+  trackColor,
 }) => {
   const { colors, isDark } = useTheme();
 
@@ -59,12 +61,12 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
     }).start();
   };
 
-  const padding = 4;
+  const padding = height <= 28 ? 3 : 4;
   const thumbSize = height - padding * 2;
   const maxTranslate = width - thumbSize - padding * 2;
 
   // Track remains a constant light/dark color as per the premium toggle style
-  const trackBg = isDark ? 'rgba(255, 255, 255, 0.1)' : '#F2F2F2';
+  const trackBg = trackColor || (isDark ? 'rgba(255, 255, 255, 0.1)' : '#F2F2F2');
 
   // Colors based on state
   const defaultOffColor = isDark ? '#666666' : '#C4C4C4';
@@ -89,7 +91,11 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
     outputRange: [1, 0],
   });
 
-  const trackBorder = isDark ? 'rgba(255, 255, 255, 0.05)' : '#E5E5E5';
+  const trackBorder = trackColor
+    ? 'rgba(255, 255, 255, 0.2)'
+    : isDark
+    ? 'rgba(255, 255, 255, 0.05)'
+    : '#E5E5E5';
 
   return (
     <Pressable
@@ -118,7 +124,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           style={[
             styles.text,
             {
-              right: padding + 4,
+              right: height <= 26 ? 4 : padding + 2,
               opacity: textOpacityOff,
               color: actualOffColor,
             },
@@ -132,7 +138,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           style={[
             styles.text,
             {
-              left: padding + 5,
+              left: height <= 26 ? 4.5 : padding + 3,
               opacity: textOpacityOn,
               color: actualOnColor,
             },
@@ -146,6 +152,8 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           style={[
             styles.thumb,
             {
+              left: padding,
+              top: (height - thumbSize) / 2 - 0.5,
               width: thumbSize,
               height: thumbSize,
               borderRadius: thumbSize / 2,
@@ -162,12 +170,11 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
 const styles = StyleSheet.create({
   track: {
     justifyContent: 'center',
-    padding: 4,
+    padding: 0,
     overflow: 'hidden',
   },
   thumb: {
     position: 'absolute',
-    left: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -179,7 +186,7 @@ const styles = StyleSheet.create({
   text: {
     position: 'absolute',
     fontFamily: FontFamily.bold,
-    fontSize: 10,
+    fontSize: 9.5,
   },
 });
 

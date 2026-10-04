@@ -75,7 +75,7 @@ src/
 ├── store/        # Zustand stores (dailyBudgetStore, expenseStore, categoryStore,
 │                 # authStore, networkStore, themeStore, notificationStore, appLockStore, ambientStore)
 └── types/        # TypeScript route navigation & entity interfaces
-tests/            # Vitest unit tests (48 files, 801 tests)
+tests/            # Vitest unit tests (48 files, 810 tests)
 ```
 
 ---

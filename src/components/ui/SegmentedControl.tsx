@@ -179,9 +179,10 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   const isFirstLayout = useRef(true);
   const prevIndexRef = useRef(selectedIndex);
 
+  const trackInset = Spacing.micro + 1;
   const optionWidth =
     containerWidth > 0 && normalizedOptions.length > 0
-      ? (containerWidth - Spacing.micro * 2) / normalizedOptions.length
+      ? (containerWidth - trackInset * 2) / normalizedOptions.length
       : 0;
 
   useEffect(() => {
@@ -273,7 +274,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
     if (width > 0 && width !== containerWidth) {
       setContainerWidth(width);
       if (!isFirstLayout.current && normalizedOptions.length > 0) {
-        const newOptWidth = (width - Spacing.micro * 2) / normalizedOptions.length;
+        const inset = Spacing.micro + 1;
+        const newOptWidth = (width - inset * 2) / normalizedOptions.length;
         slideAnim.setValue(selectedIndex * newOptWidth);
       }
     }
@@ -373,9 +375,9 @@ const styles = StyleSheet.create({
   },
   sliderPill: {
     position: 'absolute',
-    top: Spacing.micro,
-    bottom: Spacing.micro,
-    left: Spacing.micro,
+    top: Spacing.micro + 1,
+    bottom: Spacing.micro + 1,
+    left: Spacing.micro + 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1.5 },
     shadowOpacity: 0.12,

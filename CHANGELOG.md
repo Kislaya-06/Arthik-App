@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🗓️ Cadence-Aware Streak Calendar (`StreakCalendarModal.tsx`, `budgetPeriods.ts`)
+- **Connected-Date Background Layer**: Integrated subtle horizontal underlay bands connecting dates belonging to the same weekly (7-day groups) and monthly savings cycles, while keeping Daily cadence dates as independent dots.
+- **Cross-Row Continuity**: Saturday connects to the right edge and Sunday connects from the left edge for weekly cycles spanning calendar rows with zero diagonal distortions.
+- **Historical Accuracy Preservation**: Past periods reflect the cadence that was actually active on those dates using `getDateOwner` and `resolvePlanForDate`; switching cadences never alters historical data.
+- **Comprehensive Unit Testing**: Added pure calculation engine `computeCalendarConnections` with full test coverage for daily, weekly, monthly, cross-row, multi-switch, and mid-cycle scenarios.
+
+### 🛡️ Cadence Switch & Budget Modal Polish (`CadenceSwitchModal.tsx`, `BudgetEditModal.tsx`)
+- **Over-Capacity Budget Guard**: Automatically disables and greys out the switch button if the target budget exceeds the available period capacity, providing a one-tap "Set Safe Budget" action pill.
+- **Simplified Information Hierarchy**: Streamlined modal copy into concise one-liner cards with dynamic period dates and Gullak clarity.
+- **Pill Button Geometry**: Standardized action buttons (`Cancel`, `Save Budget`, `Switch to ...`) to symmetrical full-width pills (`BorderRadius.pill`, `ControlHeight.row`).
+- **Default Carry Mode**: Set default carry-over behavior to `'allocation'` ("Keep it at").
+
+### 🎨 Precision Geometry & Toggle Alignment (`AnimatedToggle.tsx`, `SegmentedControl.tsx`)
+- **Subpixel Toggle Alignment**: Calibrated toggle thumb top offset to `(height - thumbSize) / 2 - 0.5` for perfect border centering on Android.
+- **SegmentedControl Tab Symmetry**: Resolved 1px right-edge clipping by adjusting track inset calculation, guaranteeing uniform 4px padding across Daily, Weekly, and Monthly tabs.
+
 ### 🔔 Smart Notification System (`notificationPolicy.ts`, `notificationSync.ts`, `notificationService.ts`)
 - **Single-Source Policy Engine**: Replaced legacy daily reminders with an unshakeable, pure policy matrix (`notificationPolicy.ts`). Enforces a strict **max-1-per-day** limit across all push notifications (priority order: Monthly recap > Weekly recap > Gullak reward > Evening nudge).
 - **Quiet Evening Nudge**: Scheduled for 20:30 only on days when nothing has been logged. Automatically goes quiet after 3 consecutive unopened days; logging an expense immediately cancels tonight's nudge via `notificationSync.ts`.

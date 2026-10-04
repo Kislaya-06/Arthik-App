@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Smart Notifications & Ambient Polish ✨',
+    title: ota?.title || 'Cadence Streak Calendar & Flow Polish 🗓️✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Smart notification redesign: quiet evening nudges, Gullak rewards, and weekly/monthly recaps",
-          "Tactile vertical rolling-digit animations across balances, allowances, and charts",
-          "Ambient Background v4: organic header glow and gentle wind draft effects",
-          "Butter-smooth 60fps Donut & Dual Ring chart sweeps on screen focus",
-          "Enhanced SegmentedControl touch reach and tap responsiveness",
+          "Cadence-Aware Streak Calendar: connected underlay bands for weekly and monthly savings cycles with preserved historical accuracy",
+          "Simplified Cadence Switch: crystal-clear date ranges, compact Gullak info, and symmetrical pill buttons",
+          "Over-Capacity Budget Guard: safe budget recommendation pill with disabled button state when exceeding period capacity",
+          "Precision UI Geometry: subpixel toggle centering and perfectly symmetrical segmented control tabs",
+          "Smart notification system with quiet evening nudges and tactile rolling digits",
         ],
   };
 };

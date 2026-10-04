@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 
 import { useDailyBudgetStore, GullakDepositSource } from '../store/dailyBudgetStore';
+import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon, AnimatedPiggyBank } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
@@ -63,7 +64,13 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
 
   const [isMounted, setIsMounted] = useState(visible);
   const addGullakDeposit = useDailyBudgetStore((s) => s.addGullakDeposit);
-  const availableIncome = useDailyBudgetStore((s) => s.getAvailableIncomeBalance());
+  const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const expenses = useExpenseStore((s) => s.expenses);
+  const availableIncome = useMemo(
+    () => getAvailableIncomeBalance(),
+    [getAvailableIncomeBalance, expenses, gullakDeposits]
+  );
   const isFirstRender = useRef(true);
 
   useEffect(() => {
