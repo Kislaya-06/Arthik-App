@@ -16,47 +16,22 @@
 
 import {
   parseISO,
-  format,
   differenceInCalendarDays,
   addDays,
   getDaysInMonth,
 } from 'date-fns';
 import { isIncomeTransaction } from './transactionUtils';
 import { round2, formatAmountWithCommas } from './formatters';
+import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import type { Category } from '../store/categoryStore';
 import type { BudgetCadence } from '../types';
 
-export interface ExpenseLike {
-  id: string;
-  amount: number;
-  expense_date: string;
-  category_id?: string | null;
-  payment_mode?: string;
-  notes?: string | null;
-  type?: 'expense' | 'income' | string;
-}
+export { ExpenseLike };
 
 export interface MonthInterval {
   start: Date;
   end: Date;
-}
-
-/**
- * Normalizes Date or ISO string into a canonical 'yyyy-MM-dd' string.
- */
-function toDateStr(d: Date | string): string {
-  if (typeof d === 'string') {
-    return d.split('T')[0]?.trim() || '';
-  }
-  return format(d, 'yyyy-MM-dd');
-}
-
-/**
- * Checks if a 'yyyy-MM-dd' date string falls within [start, end] inclusive.
- */
-function isDateInBounds(dateStr: string, startStr: string, endStr: string): boolean {
-  return dateStr >= startStr && dateStr <= endStr;
 }
 
 // ─── 1. Monthly Spend Aggregation ─────────────────────────────────────────────

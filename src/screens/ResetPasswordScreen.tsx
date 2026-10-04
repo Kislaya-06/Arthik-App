@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -17,9 +16,11 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { ArrowLeft, KeyRound, Eye, EyeOff, AlertCircle, X, Check } from 'lucide-react-native';
+import { ArrowLeft, KeyRound, Check, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
+import { AuthFormField } from '../components/ui/AuthFormField';
+import { AuthMessageBanner } from '../components/ui/AuthMessageBanner';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
@@ -216,113 +217,55 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
           </Text>
 
           {/* In-UI Error Banner */}
-          {errorMessage && (
-            <Animated.View
-              style={[
-                styles.errorBanner,
-                isDark && { backgroundColor: 'rgba(232, 112, 112, 0.15)', borderColor: 'rgba(232, 112, 112, 0.3)' },
-                { opacity: errorOpacity, transform: [{ translateY: errorTranslateY }] },
-              ]}
-            >
-              <AlertCircle size={18} color={colors.danger} style={{ marginRight: Spacing.element, flexShrink: 0 }} />
-              <Text style={[styles.errorBannerText, { color: colors.danger, fontFamily: FontFamily.medium }]}>
-                {errorMessage}
-              </Text>
-              <Pressable onPress={dismissError} style={styles.errorBannerClose}>
-                <X size={16} color={colors.danger} />
-              </Pressable>
-            </Animated.View>
-          )}
+          <AuthMessageBanner
+            message={errorMessage}
+            type="error"
+            onDismiss={dismissError}
+            opacity={errorOpacity}
+            translateY={errorTranslateY}
+            isDark={isDark}
+            colors={colors}
+          />
 
           {/* Form */}
           <View style={styles.formContainer}>
             {/* New Password */}
-            <Text style={[styles.label, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>NEW PASSWORD</Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                focusedField === 'password' && { borderColor: colors.mint },
-              ]}
-            >
-              <View style={[
-                styles.inputContainer,
-                {
-                  backgroundColor: colors.inputBg,
-                  borderWidth: isDark ? 1 : 0,
-                  borderColor: colors.borderSubtle,
-                }
-              ]}>
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.medium, paddingRight: 44 }]}
-                  placeholder="At least 8 characters"
-                  placeholderTextColor={colors.textTertiary}
-                  value={password}
-                  onChangeText={(val) => {
-                    setPassword(val);
-                    if (errorMessage) dismissError();
-                  }}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                />
-                <Pressable
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                  hitSlop={8}
-                >
-                  {showPassword ? (
-                    <EyeOff size={20} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={20} color={colors.textSecondary} />
-                  )}
-                </Pressable>
-              </View>
-            </View>
+            <AuthFormField
+              label="NEW PASSWORD"
+              placeholder="At least 8 characters"
+              value={password}
+              onChangeText={(val) => {
+                setPassword(val);
+                if (errorMessage) dismissError();
+              }}
+              isFocused={focusedField === 'password'}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField(null)}
+              isPassword
+              showPassword={showPassword}
+              onToggleShowPassword={() => setShowPassword(!showPassword)}
+              colors={colors}
+              isDark={isDark}
+            />
 
             {/* Confirm New Password */}
-            <Text style={[styles.label, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>CONFIRM NEW PASSWORD</Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                focusedField === 'confirm' && { borderColor: colors.mint },
-              ]}
-            >
-              <View style={[
-                styles.inputContainer,
-                {
-                  backgroundColor: colors.inputBg,
-                  borderWidth: isDark ? 1 : 0,
-                  borderColor: colors.borderSubtle,
-                }
-              ]}>
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.medium, paddingRight: 44 }]}
-                  placeholder="Re-enter your password"
-                  placeholderTextColor={colors.textTertiary}
-                  value={confirmPassword}
-                  onChangeText={(val) => {
-                    setConfirmPassword(val);
-                    if (errorMessage) dismissError();
-                  }}
-                  onFocus={() => setFocusedField('confirm')}
-                  onBlur={() => setFocusedField(null)}
-                  secureTextEntry={!showConfirmPassword}
-                  autoCapitalize="none"
-                />
-                <Pressable
-                  style={styles.eyeIcon}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  hitSlop={8}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff size={20} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={20} color={colors.textSecondary} />
-                  )}
-                </Pressable>
-              </View>
-            </View>
+            <AuthFormField
+              label="CONFIRM NEW PASSWORD"
+              placeholder="Re-enter your password"
+              value={confirmPassword}
+              onChangeText={(val) => {
+                setConfirmPassword(val);
+                if (errorMessage) dismissError();
+              }}
+              isFocused={focusedField === 'confirm'}
+              onFocus={() => setFocusedField('confirm')}
+              onBlur={() => setFocusedField(null)}
+              isPassword
+              showPassword={showConfirmPassword}
+              onToggleShowPassword={() => setShowConfirmPassword(!showConfirmPassword)}
+              colors={colors}
+              isDark={isDark}
+            />
 
             {/* Password Match Indicator */}
             {password.length > 0 && confirmPassword.length > 0 && (

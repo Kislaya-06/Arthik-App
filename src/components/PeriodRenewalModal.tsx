@@ -17,7 +17,7 @@ import { format, parseISO } from 'date-fns';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
-import { KeyButton } from './KeyButton';
+import { KeypadGrid } from './ui/KeypadGrid';
 import { formatAmountWithCommas, formatCurrency, round2 } from '../lib/formatters';
 import { applyKeypadPress, KeypadKey } from '../lib/amountKeypad';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
@@ -34,13 +34,6 @@ export interface PeriodRenewalModalProps {
   onChangeBudget: (newAmount: number) => void;
   onClose: () => void;
 }
-
-const KEYPAD_ROWS: KeypadKey[][] = [
-  ['1', '2', '3'],
-  ['4', '5', '6'],
-  ['7', '8', '9'],
-  ['.', '0', 'backspace'],
-];
 
 export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
   visible,
@@ -346,19 +339,11 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
 
               {/* Numeric Keypad */}
               <View style={styles.keypadWrap}>
-                {KEYPAD_ROWS.map((row, rowIdx) => (
-                  <View key={rowIdx} style={styles.keypadRow}>
-                    {row.map((k) => (
-                      <KeyButton
-                        key={k}
-                        item={k}
-                        onPress={handleKeyPress}
-                        height={50}
-                        fontSize={20}
-                      />
-                    ))}
-                  </View>
-                ))}
+                <KeypadGrid
+                  onKeyPress={handleKeyPress}
+                  buttonHeight={50}
+                  fontSize={20}
+                />
               </View>
 
               {/* Confirm Button */}

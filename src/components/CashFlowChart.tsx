@@ -17,7 +17,7 @@ import {
   BorderRadius,
 } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
-import { calculatePillFillHeight, MonthlyCashFlowWeek } from '../lib/chartUtils';
+import { calculatePillFillHeight, MonthlyCashFlowWeek, getCashFlowChartColors, formatCompactRupee } from '../lib/chartUtils';
 
 export interface CashFlowChartProps {
   title?: string;
@@ -35,21 +35,6 @@ export interface CashFlowChartProps {
 const DEFAULT_TRACK_HEIGHT = 115;
 const TRACK_WIDTH = 18;
 const MIN_FILL_HEIGHT = 18;
-
-/**
- * Compact Rupee formatter for tight weekly pod badges (e.g. ₹1.5k, ₹25k, ₹1.2L).
- */
-function formatCompactRupee(val: number): string {
-  if (val >= 100000) {
-    const formatted = (val / 100000).toFixed(1).replace(/\.0$/, '');
-    return `₹${formatted}L`;
-  }
-  if (val >= 1000) {
-    const formatted = (val / 1000).toFixed(1).replace(/\.0$/, '');
-    return `₹${formatted}k`;
-  }
-  return `₹${Math.round(val)}`;
-}
 
 export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   title = 'Cash Flow',
@@ -76,16 +61,15 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   }, [triggerKey]);
 
   // Vibrant, executive palette matching app's theme
-  const inAccent = isDark ? '#7CD49A' : '#3DA862';
-  const outAccent = isDark ? '#F59682' : '#D9533B';
-  
-  const inGradStart = isDark ? '#ADEBB3' : '#7CD49A';
-  const inGradEnd = isDark ? '#3DA862' : '#2E8C4A';
-  
-  const outGradStart = isDark ? '#FBCAC1' : '#F59682';
-  const outGradEnd = isDark ? '#D9533B' : '#C1412A';
-
-  const trackBg = isDark ? 'rgba(255, 255, 255, 0.045)' : 'rgba(0, 0, 0, 0.035)';
+  const {
+    inColor: inAccent,
+    outColor: outAccent,
+    inGradStart,
+    inGradEnd,
+    outGradStart,
+    outGradEnd,
+    trackBg,
+  } = getCashFlowChartColors(isDark);
 
   // Executive net flow calculation (rounded to whole rupees for clean dashboard display)
   const roundedNet = Math.round(totalIncome - totalSpent);

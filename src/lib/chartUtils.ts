@@ -1088,3 +1088,43 @@ export function computeDualRingState(
   };
 }
 
+export interface CashFlowChartPalette {
+  inColor: string;
+  outColor: string;
+  inGradStart: string;
+  inGradEnd: string;
+  outGradStart: string;
+  outGradEnd: string;
+  trackBg: string;
+}
+
+/**
+ * Shared executive and harmonious color palette for Cash Flow and Yearly Cash Flow charts.
+ */
+export function getCashFlowChartColors(isDark: boolean): CashFlowChartPalette {
+  return {
+    inColor: isDark ? '#7CD49A' : '#3DA862',
+    outColor: isDark ? '#F59682' : '#D9533B',
+    inGradStart: isDark ? '#ADEBB3' : '#7CD49A',
+    inGradEnd: isDark ? '#3DA862' : '#2E8C4A',
+    outGradStart: isDark ? '#FBCAC1' : '#F59682',
+    outGradEnd: isDark ? '#D9533B' : '#C1412A',
+    trackBg: isDark ? 'rgba(255, 255, 255, 0.045)' : 'rgba(0, 0, 0, 0.035)',
+  };
+}
+
+/**
+ * Compact Rupee formatter for tight cash flow pods and badges (e.g. ₹1.5k, ₹25k, ₹1.2L).
+ */
+export function formatCompactRupee(val: number): string {
+  if (val >= 100000) {
+    const formatted = (val / 100000).toFixed(1).replace(/\.0$/, '');
+    return `₹${formatted}L`;
+  }
+  if (val >= 1000) {
+    const formatted = (val / 1000).toFixed(1).replace(/\.0$/, '');
+    return `₹${formatted}k`;
+  }
+  return `₹${Math.round(val)}`;
+}
+

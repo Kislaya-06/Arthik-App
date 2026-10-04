@@ -22,7 +22,7 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon, AnimatedPiggyBank } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
-import { KeyButton } from './KeyButton';
+import { KeypadGrid } from './ui/KeypadGrid';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { formatAmountWithCommas, formatCurrency } from '../lib/formatters';
 import {
@@ -38,13 +38,6 @@ export interface DepositGullakModalProps {
 }
 
 const PRESET_AMOUNTS = [100, 500, 1000, 2000] as const;
-
-const KEYPAD_ROWS = [
-  ['1', '2', '3', '÷'],
-  ['4', '5', '6', '×'],
-  ['7', '8', '9', '−'],
-  ['.', '0', 'backspace', '+'],
-];
 
 export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   visible,
@@ -593,21 +586,13 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               />
 
               {/* In-App Custom Keypad */}
-              <View style={styles.keypadGrid}>
-                {KEYPAD_ROWS.map((row, rIdx) => (
-                  <View key={rIdx} style={styles.keypadRow}>
-                    {row.map((item) => (
-                      <KeyButton
-                        key={item}
-                        item={item}
-                        height={46}
-                        fontSize={20}
-                        onPress={handleKeyPress}
-                      />
-                    ))}
-                  </View>
-                ))}
-              </View>
+              <KeypadGrid
+                onKeyPress={handleKeyPress}
+                hasOperators
+                buttonHeight={46}
+                fontSize={20}
+                style={{ marginBottom: Spacing.block }}
+              />
 
               {/* Actions */}
               <View style={styles.modalActionRow}>
@@ -929,15 +914,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.medium,
     marginBottom: Spacing.element + 2,
-  },
-  keypadGrid: {
-    flexDirection: 'column',
-    gap: 8,
-    marginBottom: Spacing.block,
-  },
-  keypadRow: {
-    flexDirection: 'row',
-    gap: 8,
   },
   modalActionRow: {
     flexDirection: 'row',

@@ -5,7 +5,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ArrowLeft, SquarePen, Trash2, Plus } from 'lucide-react-native';
+import { ArrowLeft, Plus } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { RootStackParamList } from '../types';
@@ -13,8 +13,7 @@ import { useCategoryStore, Category } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
-import { getCategoryIcon } from '../lib/iconUtils';
-import { GradientIconBadge } from '../components/GradientIconBadge';
+import { CategoryRowItem } from '../components/CategoryRowItem';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
@@ -91,42 +90,19 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
   }, [isDeleting, isOffline, categoryExpenseCounts, deleteCategory, fetchCategories]);
 
   const renderItem = useCallback(({ item, index }: { item: Category; index: number }) => {
-    const IconComponent = getCategoryIcon(item.icon);
     const count = categoryExpenseCounts[item.id] || 0;
     const isLast = index === categories.length - 1;
 
     return (
-      <View style={[
-        styles.categoryRow, 
-        { borderBottomColor: colors.borderSubtle },
-        isLast && styles.lastCategoryRow
-      ]}>
-        <GradientIconBadge size={44} color={item.color} isDark={isDark}>
-          {({ iconColor }) => <IconComponent size={20} color={iconColor} strokeWidth={2.2} />}
-        </GradientIconBadge>
-        <View style={styles.categoryMiddle}>
-          <Text style={[styles.categoryName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-            {item.name}
-          </Text>
-          <Text style={[styles.categorySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            {count} {count === 1 ? 'expense' : 'expenses'}
-          </Text>
-        </View>
-        <View style={styles.categoryActions}>
-          <Pressable 
-            style={[styles.editBtn, { backgroundColor: colors.cardSubtle }]}
-            onPress={() => navigation.navigate('AddEditCategory', { categoryId: item.id })}
-          >
-            <SquarePen size={16} color={colors.textPrimary} />
-          </Pressable>
-          <Pressable 
-            style={[styles.deleteBtn, { backgroundColor: colors.peachSoft }]}
-            onPress={() => handleDelete(item.id)}
-          >
-            <Trash2 size={16} color={colors.coral} />
-          </Pressable>
-        </View>
-      </View>
+      <CategoryRowItem
+        category={item}
+        expenseCount={count}
+        isLast={isLast}
+        colors={colors}
+        isDark={isDark}
+        onEdit={() => navigation.navigate('AddEditCategory', { categoryId: item.id })}
+        onDelete={() => handleDelete(item.id)}
+      />
     );
   }, [categories, navigation, categoryExpenseCounts, handleDelete, colors, isDark]);
 
@@ -212,58 +188,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   listContent: {
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.block,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F1F4',
-  },
-  lastCategoryRow: {
-    borderBottomWidth: 0,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.group,
-  },
-  categoryMiddle: {
-    flex: 1,
-    marginLeft: Spacing.micro,
-  },
-  categoryName: {
-    fontSize: FontSize.body,
-    color: '#1A2B4C',
-  },
-  categorySubtitle: {
-    fontSize: FontSize.bodySmall,
-    color: '#8A8FA3',
-    marginTop: Spacing.nano,
-  },
-  categoryActions: {
-    flexDirection: 'row',
-    gap: Spacing.element,
-  },
-  editBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#F1F2F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#FDEEEC',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   fab: {
     position: 'absolute',

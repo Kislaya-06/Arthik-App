@@ -1,18 +1,11 @@
 import { parseISO, format, differenceInCalendarDays, getDay, addDays } from 'date-fns';
 import { isIncomeTransaction } from './transactionUtils';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
+import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import type { Category } from '../store/categoryStore';
 
-export interface ExpenseLike {
-  id: string;
-  amount: number;
-  expense_date: string;
-  category_id?: string | null;
-  payment_mode: string;
-  notes?: string | null;
-  type?: 'expense' | 'income' | string;
-}
+export { ExpenseLike };
 
 export interface WeekInterval {
   start: Date;
@@ -23,23 +16,6 @@ export interface DaySpendingData {
   day: string;
   dateStr: string;
   amount: number;
-}
-
-/**
- * Normalizes any Date or ISO string into a canonical 'yyyy-MM-dd' string.
- */
-function toDateStr(d: Date | string): string {
-  if (typeof d === 'string') {
-    return d.split('T')[0]?.trim() || '';
-  }
-  return format(d, 'yyyy-MM-dd');
-}
-
-/**
- * Checks if a 'yyyy-MM-dd' date string falls within the [start, end] date range (inclusive).
- */
-function isDateInBounds(dateStr: string, startStr: string, endStr: string): boolean {
-  return dateStr >= startStr && dateStr <= endStr;
 }
 
 // ─── Group 1: Analytics / Data Calculations ───────────────────────────────────

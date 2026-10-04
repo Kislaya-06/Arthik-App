@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +13,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { AlertCircle, ArrowLeft, Eye, EyeOff, X } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '../config/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
@@ -22,6 +21,8 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { GoogleIcon } from '../components/GoogleIcon';
+import { AuthFormField } from '../components/ui/AuthFormField';
+import { AuthMessageBanner } from '../components/ui/AuthMessageBanner';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 
@@ -347,33 +348,15 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           )}
 
           {/* In-UI Message Banner (error or success) */}
-          {(errorMessage || successMessage) && (
-            <Animated.View
-              style={[
-                styles.errorBanner,
-                isDark && { backgroundColor: 'rgba(232, 112, 112, 0.15)', borderColor: 'rgba(232, 112, 112, 0.3)' },
-                successMessage && styles.successBanner,
-                successMessage && isDark && { backgroundColor: 'rgba(76, 175, 80, 0.15)', borderColor: 'rgba(76, 175, 80, 0.3)' },
-                { opacity: errorOpacity, transform: [{ translateY: errorTranslateY }] },
-              ]}
-            >
-              <AlertCircle size={18} color={successMessage ? (isDark ? '#81C784' : '#4CAF50') : (isDark ? '#FF8E8E' : '#E87070')} style={{ marginRight: Spacing.element, flexShrink: 0 }} />
-              <Text
-                style={[
-                  styles.errorBannerText,
-                  isDark && { color: '#FF8E8E' },
-                  successMessage && styles.successBannerText,
-                  successMessage && isDark && { color: '#81C784' }
-                ]}
-                numberOfLines={4}
-              >
-                {successMessage || errorMessage}
-              </Text>
-              <Pressable onPress={dismissError} style={styles.errorBannerClose}>
-                <X size={16} color={successMessage ? (isDark ? '#81C784' : '#4CAF50') : (isDark ? '#FF8E8E' : '#E87070')} />
-              </Pressable>
-            </Animated.View>
-          )}
+          <AuthMessageBanner
+            message={successMessage || errorMessage}
+            type={successMessage ? 'success' : 'error'}
+            onDismiss={dismissError}
+            opacity={errorOpacity}
+            translateY={errorTranslateY}
+            isDark={isDark}
+            colors={colors}
+          />
 
           <Animated.View
             style={{ opacity: opacityAnim, transform: [{ translateY: translateYAnim }] }}
@@ -387,103 +370,48 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={styles.formContainer}>
               {isSignUp && (
-                <>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>FULL NAME</Text>
-                  <View
-                    style={[
-                      styles.inputWrapper,
-                      focusedField === 'name' && { borderColor: colors.mint },
-                    ]}
-                  >
-                    <View style={[
-                      styles.inputContainer,
-                      {
-                        backgroundColor: colors.inputBg,
-                        borderWidth: isDark ? 1 : 0,
-                        borderColor: colors.borderSubtle,
-                      }
-                    ]}>
-                      <TextInput
-                        style={[styles.input, { color: colors.textPrimary }]}
-                        placeholder="Your name"
-                        placeholderTextColor={colors.textTertiary}
-                        value={fullName}
-                        onChangeText={setFullName}
-                        onFocus={() => setFocusedField('name')}
-                        onBlur={() => setFocusedField(null)}
-                        autoCapitalize="words"
-                      />
-                    </View>
-                  </View>
-                </>
+                <AuthFormField
+                  label="FULL NAME"
+                  placeholder="Your name"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  isFocused={focusedField === 'name'}
+                  onFocus={() => setFocusedField('name')}
+                  onBlur={() => setFocusedField(null)}
+                  autoCapitalize="words"
+                  colors={colors}
+                  isDark={isDark}
+                />
               )}
 
-              <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
-              <View
-                style={[
-                  styles.inputWrapper,
-                  focusedField === 'email' && { borderColor: colors.mint },
-                ]}
-              >
-                <View style={[
-                  styles.inputContainer,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderWidth: isDark ? 1 : 0,
-                    borderColor: colors.borderSubtle,
-                  }
-                ]}>
-                  <TextInput
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    placeholder="you@example.com"
-                    placeholderTextColor={colors.textTertiary}
-                    value={email}
-                    onChangeText={setEmail}
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                </View>
-              </View>
+              <AuthFormField
+                label="EMAIL"
+                placeholder="you@example.com"
+                value={email}
+                onChangeText={setEmail}
+                isFocused={focusedField === 'email'}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                colors={colors}
+                isDark={isDark}
+              />
 
-              <Text style={[styles.label, { color: colors.textSecondary }]}>PASSWORD</Text>
-              <View
-                style={[
-                  styles.inputWrapper,
-                  focusedField === 'password' && { borderColor: colors.mint },
-                ]}
-              >
-                <View style={[
-                  styles.inputContainer,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderWidth: isDark ? 1 : 0,
-                    borderColor: colors.borderSubtle,
-                  }
-                ]}>
-                  <TextInput
-                    style={[styles.input, { color: colors.textPrimary, paddingRight: 44 }]}
-                    placeholder={isSignUp ? 'Create a password (min 8 chars)' : 'Enter password'}
-                    placeholderTextColor={colors.textTertiary}
-                    value={password}
-                    onChangeText={setPassword}
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
-                    secureTextEntry={!showPassword}
-                  />
-                  <Pressable
-                    style={styles.eyeIcon}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff size={20} color={colors.textSecondary} />
-                    ) : (
-                      <Eye size={20} color={colors.textSecondary} />
-                    )}
-                  </Pressable>
-                </View>
-              </View>
+              <AuthFormField
+                label="PASSWORD"
+                placeholder={isSignUp ? 'Create a password (min 8 chars)' : 'Enter password'}
+                value={password}
+                onChangeText={setPassword}
+                isFocused={focusedField === 'password'}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
+                isPassword
+                showPassword={showPassword}
+                onToggleShowPassword={() => setShowPassword(!showPassword)}
+                colors={colors}
+                isDark={isDark}
+              />
 
               {!isSignUp && (
                 <Pressable onPress={forgotLoading ? undefined : handleForgotPassword}>

@@ -19,15 +19,14 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Auto-Save to Gullak Persistence & Reliability 🐷🛡️',
+    title: ota?.title || 'UI Architecture Polish & Precision Improvements ✨📱',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Persistent Auto-Save Toggle: Disabling auto-save to Gullak stays permanently paused across pull-to-refresh, sync, and app restarts",
-          "Custom Allowance Preservation: Custom daily allowances (like ₹250) are safely preserved without fallback resets",
-          "TypeScript & Performance Cleanup: Eliminated unused imports and variables for faster, cleaner app performance",
-          "Instant 1-Click Google Sign-In: Resolved PKCE authorization flow for instant authentication",
-          "Cadence-Aware Streak Calendar: Connected streak visuals for weekly and monthly savings cycles",
+          "Floating Navigation Bar Polish: Removed corner render artifacts on Android for a smooth, crystal-clear floating capsule bar",
+          "Precision Switch Toggle Alignment: Perfectly centered toggle thumb and text with pixel-perfect symmetric geometry",
+          "Breathing Strips & Insights Architecture: Unified Weekly, Monthly, and Yearly insight cards with faster render performance",
+          "Shared Form & Keypad Primitives: Centralized auth inputs, tactile keypads, and transaction list items",
         ],
   };
 };

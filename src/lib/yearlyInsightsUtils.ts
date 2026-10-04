@@ -29,19 +29,12 @@ import {
 } from 'date-fns';
 import { isIncomeTransaction } from './transactionUtils';
 import { round2, formatCurrency } from './formatters';
+import { ExpenseLike, toDateStr, toDateObj, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import type { Category } from '../store/categoryStore';
 import type { BudgetCadence } from '../types';
 
-export interface ExpenseLike {
-  id: string;
-  amount: number;
-  expense_date: string;
-  category_id?: string | null;
-  payment_mode?: string;
-  notes?: string | null;
-  type?: 'expense' | 'income' | string;
-}
+export { ExpenseLike };
 
 export interface YearInterval {
   start: Date;
@@ -54,33 +47,6 @@ export interface YearlyBudgetConfig {
   dailyBudgetAmount?: number;
   weeklyBudgetAmount?: number;
   monthlyBudgetAmount?: number;
-}
-
-/**
- * Normalizes Date or ISO string into a canonical 'yyyy-MM-dd' string.
- */
-function toDateStr(d: Date | number | string): string {
-  if (typeof d === 'number') {
-    return format(new Date(d), 'yyyy-MM-dd');
-  }
-  if (typeof d === 'string') {
-    return d.split('T')[0]?.trim() || '';
-  }
-  return format(d, 'yyyy-MM-dd');
-}
-
-function toDateObj(d?: Date | number | string): Date {
-  if (!d) return new Date();
-  if (d instanceof Date) return d;
-  if (typeof d === 'number') return new Date(d);
-  return parseISO(d);
-}
-
-/**
- * Checks if a 'yyyy-MM-dd' date string falls within [start, end] inclusive.
- */
-function isDateInBounds(dateStr: string, startStr: string, endStr: string): boolean {
-  return dateStr >= startStr && dateStr <= endStr;
 }
 
 // ─── 1. Active Days & Daily Burn Rate ──────────────────────────────────────────

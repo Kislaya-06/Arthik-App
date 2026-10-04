@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 💎 UI Architecture Polish & Precision Improvements
+- **Floating Navigation Bar Polish (`BottomNavBar.tsx`, `navigation/index.tsx`)**: Removed Android hardware texture rasterization artifacts (`renderToHardwareTextureAndroid` and `needsOffscreenAlphaCompositing`) for clean 34px rounded capsule pill corners, and configured `tabBarStyle: { position: 'absolute', backgroundColor: 'transparent' }` so screen ambient backgrounds flow smoothly to the bottom edge without grey lines.
+- **Precision Toggle Switch Alignment (`AnimatedToggle.tsx`)**: Mathematically calibrated inner track dimensions (`innerHeight = height - 2`, `padding = 3px`, `thumbSize = 22px`) for perfect pixel-symmetric vertical and horizontal centering (`top = left = 3px`) with soft elevation shadow.
+- **Unified Breathing Strips (`BreathingStripShell.tsx`, `WeeklyBreathingStrip.tsx`, `MonthlyBreathingStrip.tsx`, `YearlyBreathingStrip.tsx`)**: Consolidated ~500 lines of duplicate breathing strip cards into a high-performance shell with 100% visual and gesture parity and added dedicated unit tests (`tests/breathingStrips.test.ts`).
+- **Canonical UI Primitives (`ItemRowShell.tsx`, `CategoryRowItem.tsx`, `AuthFormField.tsx`, `AuthMessageBanner.tsx`, `KeypadGrid.tsx`, `BottomSheetModal.tsx`)**: Unified transaction rows, category lists, auth text inputs, animated message banners, keypad matrices, and bottom sheets across all screens.
+- **Shared Insights & Chart Utilities (`insightsCommon.ts`, `chartUtils.ts`)**: Extracted shared date parser helpers (`toDateStr`, `toDateObj`, `isDateInBounds`), TypeScript interfaces (`ExpenseLike`, `InsightTakeawayStatus`), and unified chart palettes (`getCashFlowChartColors`).
+- **Unit Test Suite Expanded**: 50 passing test files with 833 passing tests (0 failures).
+
 ### 🐷 Auto-Save Unspent to Gullak Toggle & Hydration Invariant (`dailyBudgetStore.ts`)
 - **Permanent Toggle State Persistence**: Resolved an issue where turning OFF "Auto-save unspent to Gullak" (`isAutoRenew: false`) in SavingsScreen was forcibly overridden and reset back to ON with a fallback budget on HomeScreen pull-to-refresh or store hydration.
 - **Removed Forced Auto-Renew Overrides**: Eliminated legacy hydration conditions (`if (resolvedBudgetModeEnabled && !resolvedAutoRenew && resolvedBudget > 0) resolvedAutoRenew = true;`) and hardcoded `|| 100` fallbacks across both offline fast-paths and online Supabase hydration.

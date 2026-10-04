@@ -60,9 +60,11 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
     }).start();
   };
 
-  const padding = height <= 28 ? 3 : 4;
-  const thumbSize = height - padding * 2;
-  const maxTranslate = width - thumbSize - padding * 2;
+  const borderWidth = 1;
+  const innerHeight = height - borderWidth * 2;
+  const padding = height <= 28 ? 2.5 : 3;
+  const thumbSize = innerHeight - padding * 2;
+  const maxTranslate = width - borderWidth * 2 - thumbSize - padding * 2;
 
   // Track remains a constant light/dark color as per the premium toggle style
   const trackBg = trackColor || (isDark ? 'rgba(255, 255, 255, 0.1)' : '#F2F2F2');
@@ -113,7 +115,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
             borderRadius: height / 2,
             backgroundColor: trackBg,
             borderColor: trackBorder,
-            borderWidth: 1,
+            borderWidth,
             transform: [{ scale: pressScale }],
           },
         ]}
@@ -123,7 +125,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           style={[
             styles.text,
             {
-              right: height <= 26 ? 4 : padding + 2,
+              right: height <= 26 ? 4 : padding + 3,
               opacity: textOpacityOff,
               color: actualOffColor,
             },
@@ -137,7 +139,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           style={[
             styles.text,
             {
-              left: height <= 26 ? 4.5 : padding + 3,
+              left: height <= 26 ? 4.5 : padding + 3.5,
               opacity: textOpacityOn,
               color: actualOnColor,
             },
@@ -146,13 +148,13 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           ON
         </Animated.Text>
 
-        {/* Refined Sliding Thumb (Linear spring motion without rotation or rolling highlight) */}
+        {/* Refined Sliding Thumb */}
         <Animated.View
           style={[
             styles.thumb,
             {
               left: padding,
-              top: (height - thumbSize) / 2 - 0.5,
+              top: padding,
               width: thumbSize,
               height: thumbSize,
               borderRadius: thumbSize / 2,
@@ -175,10 +177,10 @@ const styles = StyleSheet.create({
   thumb: {
     position: 'absolute',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -186,6 +188,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     fontFamily: FontFamily.bold,
     fontSize: 9.5,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });
 

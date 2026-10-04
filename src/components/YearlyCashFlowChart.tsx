@@ -17,6 +17,7 @@ import {
 } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
 import { YearlyCashFlowMonth } from '../lib/yearlyInsightsUtils';
+import { getCashFlowChartColors } from '../lib/chartUtils';
 
 export interface YearlyCashFlowChartProps {
   title?: string;
@@ -59,16 +60,15 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
   }, [triggerKey]);
 
   // Premium, harmonious palette matching Arthik design system
-  const inColor = isDark ? '#7CD49A' : '#3DA862';
-  const outColor = isDark ? '#F59682' : '#D9533B';
-
-  const inGradStart = isDark ? '#ADEBB3' : '#7CD49A';
-  const inGradEnd = isDark ? '#3DA862' : '#2E8C4A';
-
-  const outGradStart = isDark ? '#FBCAC1' : '#F59682';
-  const outGradEnd = isDark ? '#D9533B' : '#C1412A';
-
-  const trackBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)';
+  const {
+    inColor,
+    outColor,
+    inGradStart,
+    inGradEnd,
+    outGradStart,
+    outGradEnd,
+    trackBg,
+  } = getCashFlowChartColors(isDark);
 
   // Safe ceiling for bar scaling
   const effectiveMax = Math.max(maxAmount, 100);

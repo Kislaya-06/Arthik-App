@@ -139,7 +139,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
       style={styles.tabPressable}
       hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
     >
-      <Animated.View style={{ transform: [{ scale: pressScale }] }} renderToHardwareTextureAndroid={true}>
+      <Animated.View style={{ transform: [{ scale: pressScale }] }}>
         <Animated.View
           style={[
             styles.capsule,
@@ -211,7 +211,6 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Animated.View
-        renderToHardwareTextureAndroid={true}
         style={[
           styles.addButton,
           {
@@ -259,7 +258,6 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Animated.View
-        renderToHardwareTextureAndroid={true}
         style={[
           styles.individualFab,
           {
@@ -341,7 +339,6 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 
   return (
     <Animated.View
-      renderToHardwareTextureAndroid={true}
       style={[
         styles.outerContainer,
         {
@@ -372,8 +369,6 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
         pointerEvents={isBudgetModeEnabled ? 'auto' : 'none'}
       >
         <View
-          renderToHardwareTextureAndroid={true}
-          needsOffscreenAlphaCompositing={true}
           style={[
             styles.pillBar,
             {
@@ -448,8 +443,6 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
         <View style={styles.pureModeContainer}>
           {/* 3-Tab Capsule Pill */}
           <View
-            renderToHardwareTextureAndroid={true}
-            needsOffscreenAlphaCompositing={true}
             style={[
               styles.purePillBar,
               {

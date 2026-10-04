@@ -28,11 +28,11 @@ import {
 import { computeEffectiveFrom, getPeriodBounds } from '../lib/budgetPeriods';
 import { BudgetCadence } from '../types';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
-import { KeyButton } from './KeyButton';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { CadenceSwitchModal } from './CadenceSwitchModal';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 import { SegmentedControl } from './ui/SegmentedControl';
+import { KeypadGrid } from './ui/KeypadGrid';
 
 export interface BudgetEditModalProps {
   visible: boolean;
@@ -46,13 +46,6 @@ const CADENCE_OPTIONS: Array<{ key: BudgetCadence; label: string }> = [
   { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
   { key: 'monthly', label: 'Monthly' },
-];
-
-const KEYPAD_ROWS = [
-  ['1', '2', '3'],
-  ['4', '5', '6'],
-  ['7', '8', '9'],
-  ['.', '0', 'backspace'],
 ];
 
 export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
@@ -501,22 +494,12 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
             </View>
 
             {/* Tactile Keypad */}
-            <View style={styles.keypadContainer}>
-              {KEYPAD_ROWS.map((row, rIdx) => (
-                <View key={rIdx} style={styles.keypadRow}>
-                  {row.map((k) => (
-                    <View key={k} style={styles.keypadKeyWrapper}>
-                      <KeyButton
-                        item={k}
-                        onPress={handleKeyPress}
-                        height={46}
-                        fontSize={20}
-                      />
-                    </View>
-                  ))}
-                </View>
-              ))}
-            </View>
+            <KeypadGrid
+              onKeyPress={handleKeyPress}
+              buttonHeight={46}
+              fontSize={20}
+              style={{ marginBottom: Spacing.surface }}
+            />
 
             {/* Actions: Cancel & Save */}
             <View style={styles.modalActionRow}>
@@ -719,17 +702,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 26,
     fontFamily: FontFamily.bold,
-  },
-  keypadContainer: {
-    marginBottom: Spacing.surface,
-    gap: 6,
-  },
-  keypadRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  keypadKeyWrapper: {
-    flex: 1,
   },
   modalActionRow: {
     flexDirection: 'row',

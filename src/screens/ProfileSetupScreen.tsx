@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -20,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
+import { AuthFormField } from '../components/ui/AuthFormField';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProfileSetup'>;
@@ -151,69 +151,44 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.subtext, { color: colors.textSecondary }]}>This helps personalise your experience</Text>
 
           {/* First Name */}
-          <Text style={[styles.label, { color: colors.textSecondary }]}>FIRST NAME</Text>
-          <View
-            style={[
-              styles.inputWrapper,
-              {
-                backgroundColor: colors.inputBg,
-                borderWidth: isDark ? 1 : 2,
-                borderColor: isDark ? colors.borderSubtle : 'transparent',
-              },
-              focusedField === 'firstName' && { borderColor: colors.mint },
-              firstNameError && [styles.inputError, { borderColor: colors.coral, backgroundColor: isDark ? 'rgba(244, 184, 174, 0.15)' : '#FFF8F7' }],
-            ]}
-          >
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary }]}
-              placeholder="First Name"
-              placeholderTextColor={colors.textTertiary}
-              value={firstName}
-              onChangeText={(t) => {
-                setFirstName(t);
-                if (t.trim()) setFirstNameError(false);
-              }}
-              onFocus={() => setFocusedField('firstName')}
-              onBlur={() => setFocusedField(null)}
-              autoCapitalize="words"
-              returnKeyType="next"
-            />
-          </View>
-          {firstNameError && (
-            <Text style={[styles.errorText, { color: colors.coral }]}>First name is required</Text>
-          )}
+          <AuthFormField
+            label="FIRST NAME"
+            placeholder="First Name"
+            value={firstName}
+            onChangeText={(t) => {
+              setFirstName(t);
+              if (t.trim()) setFirstNameError(false);
+            }}
+            isFocused={focusedField === 'firstName'}
+            onFocus={() => setFocusedField('firstName')}
+            onBlur={() => setFocusedField(null)}
+            autoCapitalize="words"
+            returnKeyType="next"
+            errorText={firstNameError ? 'First name is required' : null}
+            colors={colors}
+            isDark={isDark}
+          />
 
           {/* Last Name */}
-          <View style={styles.lastNameLabelRow}>
-            <Text style={[styles.rowLabelText, { color: colors.textSecondary }]}>LAST NAME</Text>
-            <View style={[styles.optionalBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : '#E8F5EC' }]}>
-              <Text style={[styles.optionalBadgeText, { color: colors.mintDark }]}>Optional</Text>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.inputWrapper,
-              {
-                backgroundColor: colors.inputBg,
-                borderWidth: isDark ? 1 : 2,
-                borderColor: isDark ? colors.borderSubtle : 'transparent',
-              },
-              focusedField === 'lastName' && { borderColor: colors.mint },
-            ]}
-          >
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary }]}
-              placeholder="Last Name (optional)"
-              placeholderTextColor={colors.textTertiary}
-              value={lastName}
-              onChangeText={setLastName}
-              onFocus={() => setFocusedField('lastName')}
-              onBlur={() => setFocusedField(null)}
-              autoCapitalize="words"
-              returnKeyType="done"
-              onSubmitEditing={handleSubmit}
-            />
-          </View>
+          <AuthFormField
+            label="LAST NAME"
+            placeholder="Last Name (optional)"
+            value={lastName}
+            onChangeText={setLastName}
+            isFocused={focusedField === 'lastName'}
+            onFocus={() => setFocusedField('lastName')}
+            onBlur={() => setFocusedField(null)}
+            autoCapitalize="words"
+            returnKeyType="done"
+            onSubmitEditing={handleSubmit}
+            rightLabel={
+              <View style={[styles.optionalBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : '#E8F5EC' }]}>
+                <Text style={[styles.optionalBadgeText, { color: colors.mintDark }]}>Optional</Text>
+              </View>
+            }
+            colors={colors}
+            isDark={isDark}
+          />
 
           {/* CTA Button */}
           <View style={styles.ctaContainer}>
