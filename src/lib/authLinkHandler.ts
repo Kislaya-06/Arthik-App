@@ -215,16 +215,23 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
           await useAuthStore.getState().setSession(data.session);
         }
       } else if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          if (__DEV__) console.warn('[AuthDeepLink] Failed to exchange callback code:', error.message);
-          return false;
+        let session = useAuthStore.getState().session;
+        if (!session) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            if (__DEV__) console.warn('[AuthDeepLink] Failed to exchange callback code:', error.message);
+            const { data: currentSessionRes } = await supabase.auth.getSession();
+            session = currentSessionRes?.session ?? null;
+            if (!session) return false;
+          } else {
+            session = data?.session ?? null;
+          }
         }
 
-        if (data?.session) {
+        if (session) {
           // If an active session exists and the code belongs to a DIFFERENT user, confirm before switching
-          if (currentUser && !isSameUserIdentity(currentUser, data.session.user)) {
-            const confirmed = await promptAccountSwitch(currentUser?.email, data.session.user.email);
+          if (currentUser && !isSameUserIdentity(currentUser, session.user)) {
+            const confirmed = await promptAccountSwitch(currentUser?.email, session.user.email);
             if (!confirmed) {
               if (currentSession) {
                 await supabase.auth.setSession({
@@ -235,7 +242,7 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
               return true;
             }
           }
-          await useAuthStore.getState().setSession(data.session);
+          await useAuthStore.getState().setSession(session);
         }
       }
       return true;

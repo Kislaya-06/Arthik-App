@@ -23,6 +23,7 @@ import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { useAuthStore } from '../store/authStore';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -260,24 +261,61 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
         if (result.type === 'success') {
-          // Supabase returns the token as a URL hash fragment, we convert it to query for easy parsing
+          // Supabase returns the token or code in the URL. Convert hash fragments to query for parsing.
           const urlWithQuery = result.url.replace('#', '?');
           const parsed = Linking.parse(urlWithQuery);
 
+          const code = parsed.queryParams?.code as string;
           const accessToken = parsed.queryParams?.access_token as string;
           const refreshToken = parsed.queryParams?.refresh_token as string;
 
-          if (accessToken && refreshToken) {
-            const { error: sessionError } = await supabase.auth.setSession({
+          if (code) {
+            // PKCE flow: Exchange authorization code for a session
+            let session = useAuthStore.getState().session;
+            if (!session) {
+              const { data: currentSessionRes } = await supabase.auth.getSession();
+              session = currentSessionRes?.session ?? null;
+            }
+
+            if (!session) {
+              const { data: exchangeData, error: exchangeError } =
+                await supabase.auth.exchangeCodeForSession(code);
+
+              if (exchangeError) {
+                // If code was already consumed by background deep link handler, check if session is active
+                const { data: fallbackSessionRes } = await supabase.auth.getSession();
+                if (fallbackSessionRes?.session) {
+                  session = fallbackSessionRes.session;
+                } else {
+                  throw exchangeError;
+                }
+              } else {
+                session = exchangeData?.session ?? null;
+              }
+            }
+
+            if (session) {
+              await useAuthStore.getState().setSession(session);
+            }
+            await navigateAfterGoogleAuth();
+          } else if (accessToken && refreshToken) {
+            // Implicit flow fallback
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
             if (sessionError) throw sessionError;
+            if (sessionData?.session) {
+              await useAuthStore.getState().setSession(sessionData.session);
+            }
             await navigateAfterGoogleAuth();
           } else {
-            // Fallback: tokens not in URL (e.g. PKCE flow), let the auth state listener handle it
+            // Fallback: Check if session is already active
             const { data: { session } } = await supabase.auth.getSession();
-            if (session) await navigateAfterGoogleAuth();
+            if (session) {
+              await useAuthStore.getState().setSession(session);
+              await navigateAfterGoogleAuth();
+            }
           }
         }
       }

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔑 1-Click Google OAuth PKCE Fix (`AuthScreen.tsx`)
+- **Direct PKCE Code Exchange**: Exchanged authorization `code` parameters returned by `WebBrowser.openAuthSessionAsync` immediately via `supabase.auth.exchangeCodeForSession(code)`, restoring instant 1-click Google Sign-In / Sign-Up.
+- **Eliminated Multi-Click & Permission Loops**: Resolved the issue where PKCE codes were missed in URL parsing, eliminating stranded AuthScreen states, premature notification dialog prompts, and duplicate click requirements.
+- **Graceful Multi-Flow Fallbacks**: Preserved support for legacy implicit hash fragments and cached active sessions with complete profile completeness verification.
+
 ### 🗓️ Cadence-Aware Streak Calendar (`StreakCalendarModal.tsx`, `budgetPeriods.ts`)
 - **Connected-Date Background Layer**: Integrated subtle horizontal underlay bands connecting dates belonging to the same weekly (7-day groups) and monthly savings cycles, while keeping Daily cadence dates as independent dots.
 - **Cross-Row Continuity**: Saturday connects to the right edge and Sunday connects from the left edge for weekly cycles spanning calendar rows with zero diagonal distortions.
