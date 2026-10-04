@@ -65,7 +65,6 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleAvatarPress = () => {
-    // TODO: Supabase Integration - Integrate expo-image-picker here to allow avatar upload to Supabase Storage
     if (__DEV__) console.log('Avatar picker pressed');
   };
 
@@ -79,7 +78,6 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // TODO: Supabase Integration - updateProfile saves first_name/last_name to Supabase profiles table when real credentials are set
       await updateProfile(firstName.trim(), lastName.trim());
 
       await Promise.all([fetchCategories(), fetchExpenses()]);

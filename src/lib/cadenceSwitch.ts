@@ -1,5 +1,5 @@
 import { parseISO, addDays, format, differenceInCalendarDays } from 'date-fns';
-import { BudgetCadence, BudgetPeriodRecord } from '../types';
+import { BudgetCadence } from '../types';
 import { getPeriodBounds } from './budgetPeriods';
 import { formatAmountWithCommas } from './formatters';
 
@@ -43,7 +43,6 @@ export function getRemainingDaysInCurrentPeriod(
   todayStr: string
 ): number {
   const tomorrow = addDays(parseISO(todayStr), 1);
-  const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
 
   if (currentCadence === 'daily') {
     return 1;

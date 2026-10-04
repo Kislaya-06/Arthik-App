@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   Animated,
-  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -133,7 +132,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   // Maps raw Supabase/API error messages to friendly, readable messages
-  const getFriendlyError = (message: string, currentMode: 'login' | 'signup'): string => {
+  const getFriendlyError = (message: string, _currentMode?: 'login' | 'signup'): string => {
     const msg = message.toLowerCase();
     if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
       return "No account found with this email, or the password is incorrect. Please check your details or sign up first.";

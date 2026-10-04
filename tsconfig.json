@@ -3,6 +3,8 @@
   "compilerOptions": {
     "ignoreDeprecations": "6.0",
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": ["node"]
   },
   "include": [
@@ -13,7 +15,6 @@
   ],
   "exclude": [
     "node_modules",
-    "figma-reference",
     "supabase"
   ]
 }

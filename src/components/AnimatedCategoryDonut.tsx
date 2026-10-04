@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { View, Text, StyleSheet, Animated, Easing, Pressable } from 'react-native';
 import Svg, { Circle, Path, Defs, Mask, G } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
-import { prepareCategoryBlockSegments, PreparedBlockSegment } from '../lib/chartUtils';
+import { prepareCategoryBlockSegments } from '../lib/chartUtils';
 import { formatCurrency } from '../lib/formatters';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -10,7 +10,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 export interface AnimatedCategoryDonutProps {
   categories: Array<{ id: string; name: string; amount: number; percentage: number; color?: string }>;
   totalAmount: number;
-  topCategory: { name: string; percentage: number } | null;
+  topCategory?: { name: string; percentage: number } | null;
   palette: readonly string[];
   size?: number;
   strokeWidth?: number;
@@ -27,7 +27,6 @@ export interface AnimatedCategoryDonutProps {
 export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   categories,
   totalAmount,
-  topCategory,
   palette,
   size = 220,
   strokeWidth = 28,

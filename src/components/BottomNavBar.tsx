@@ -54,7 +54,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   active,
   onPress,
 }) => {
-  const { colors, isDark } = useTheme();
+  const { isDark } = useTheme();
   const anim = useRef(new Animated.Value(active ? 1 : 0)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
 

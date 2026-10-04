@@ -1,7 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
   Pressable,
   Animated,

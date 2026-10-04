@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo } from 'react';
-import { View, Animated, Easing, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, Animated, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Svg, { Path, Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import {
   getStreakFlameConfig,

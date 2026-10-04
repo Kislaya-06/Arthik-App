@@ -11,9 +11,9 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
-  TrendingUp, TrendingDown, CheckSquare, Wallet, CreditCard,
+  TrendingUp, TrendingDown,
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   ShoppingBag, Sparkles, Flame,
 } from 'lucide-react-native';
@@ -34,7 +34,6 @@ import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, CATEGORY_PALETTE } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
-import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
 import { CashFlowChart } from '../components/CashFlowChart';
@@ -99,12 +98,6 @@ const MAX_NAV_DOTS = 5;
 
 // ─── Pure helpers ──────────────────────────────────────────────────────────────
 
-const getCategoryInsightIcon = (name: string) => {
-  const n = name.toLowerCase();
-  return (n.includes('food') || n.includes('eat')) ? Wallet : (n.includes('card') || n.includes('credit')) ? CreditCard : CheckSquare;
-};
-
-const getPaymentInsightIcon = (mode: string) => mode === 'card' ? CreditCard : mode === 'cash' ? Wallet : CheckSquare;
 
 /**
  * Returns the date interval (start/end) for a period shifted by `offset` steps from today.
@@ -480,9 +473,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   // ─── Expense aggregation ───────────────────────────────────────────────────
-  const { currentTotal, previousTotal, categoryTotals } = useMemo(() => {
+  const { currentTotal, categoryTotals } = useMemo(() => {
     let curr = 0;
-    let prev = 0;
     const catTotals: Record<string, number> = {};
 
     for (const exp of expenses) {
@@ -497,19 +489,11 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         curr += exp.amount;
         const key = exp.category_id || 'others';
         catTotals[key] = (catTotals[key] || 0) + exp.amount;
-      } else if (isWithinInterval(date, previousInterval)) {
-        prev += exp.amount;
       }
     }
 
-    return { currentTotal: curr, previousTotal: prev, categoryTotals: catTotals };
-  }, [expenses, categories, currentInterval, previousInterval]);
-
-  const { percentageChange, isIncrease } = useMemo(() => {
-    if (previousTotal === 0) return { percentageChange: currentTotal > 0 ? 100 : 0, isIncrease: true };
-    const diff = currentTotal - previousTotal;
-    return { percentageChange: Math.round((Math.abs(diff) / previousTotal) * 100), isIncrease: diff >= 0 };
-  }, [currentTotal, previousTotal]);
+    return { currentTotal: curr, categoryTotals: catTotals };
+  }, [expenses, categories, currentInterval]);
 
   const sortedCategories = useMemo(() => {
     return Object.keys(categoryTotals)
@@ -619,36 +603,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     );
   }, [period, currentInterval, dailyRecords, gullakDeposits, totalAccumulatedSavings, budgetPeriods]);
 
-  const topPaymentData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    let total = 0;
-
-    for (const exp of expenses) {
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-
-      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
-        counts[exp.payment_mode] = (counts[exp.payment_mode] || 0) + 1;
-        total++;
-      }
-    }
-
-    let topMode = 'None';
-    let maxCount = 0;
-    for (const mode in counts) {
-      if (counts[mode] > maxCount) { maxCount = counts[mode]; topMode = mode; }
-    }
-
-    const formattedMode = topMode === 'None' ? 'None'
-      : topMode.toLowerCase() === 'upi' ? 'UPI'
-      : topMode.charAt(0).toUpperCase() + topMode.slice(1);
-
-    return {
-      mode: formattedMode,
-      percentage: total > 0 ? Math.round((maxCount / total) * 100) : 0,
-      originalMode: topMode,
-    };
-  }, [expenses, currentInterval]);
 
   const { width: windowWidth } = useWindowDimensions();
 
@@ -681,10 +635,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     () => legendSegments.slice(maxSideStack),
     [legendSegments, maxSideStack]
   );
-
-  // Derive icon components once — avoids inline function calls in JSX
-  const CategoryInsightIcon = getCategoryInsightIcon(topCategory?.name || '');
-  const PaymentInsightIcon = getPaymentInsightIcon(topPaymentData.originalMode);
 
   // Day-matched comparison for Weekly & Monthly vs standard comparison for Yearly
   const weeklyDayMatchedComp = useMemo(() => {

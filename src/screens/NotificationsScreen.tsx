@@ -21,7 +21,7 @@ import { useNotificationStore, AppNotification } from '../store/notificationStor
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { format, parseISO } from 'date-fns';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 

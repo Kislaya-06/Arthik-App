@@ -43,22 +43,25 @@ vi.mock('expo-crypto', () => ({
 }));
 
 // 3. Mock Supabase
+const createQueryBuilder = () => {
+  const builder: any = {
+    insert: vi.fn().mockResolvedValue({ error: null }),
+    delete: vi.fn(() => builder),
+    update: vi.fn(() => builder),
+    upsert: vi.fn().mockResolvedValue({ error: null }),
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve),
+  };
+  return builder;
+};
+
 vi.mock('../src/config/supabase', () => ({
   supabase: {
-    from: vi.fn(() => ({
-      insert: vi.fn().mockResolvedValue({ error: null }),
-      delete: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({ error: null }),
-        })),
-      })),
-      update: vi.fn(() => ({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      })),
-      upsert: vi.fn().mockResolvedValue({ error: null }),
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-    })),
+    from: vi.fn(() => createQueryBuilder()),
     auth: {
       getSession: vi.fn().mockResolvedValue({
         data: { session: { user: { id: 'user_budget_test_1', created_at: '2026-09-01T00:00:00Z' } } },
@@ -95,6 +98,7 @@ vi.mock('../src/store/notificationStore', () => ({
   useNotificationStore: {
     getState: vi.fn(() => ({
       addNotification: vi.fn(),
+      setOwnerUserId: vi.fn(),
     })),
   },
 }));
@@ -506,4 +510,57 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(pending?.carriedOverAmount).toBe(18000);
     });
   });
+
+  describe('Slice 8: Auto-Save Unspent to Gullak Toggle & Hydration Invariants', () => {
+    it('preserves isAutoRenew false and custom budget amount across hydrateFromSupabase', async () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+      useDailyBudgetStore.getState().setDailyBudget(250);
+
+      // User explicitly turns auto-renew OFF (pausing auto-save)
+      useDailyBudgetStore.getState().toggleAutoRenew(false);
+
+      let state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(250);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.getTodayRecord().budget).toBe(0);
+      expect(state.getTodayRecord().status).toBe('unknown');
+
+      // Hydration must NEVER forcibly flip isAutoRenew to true or reset budget to 100/500
+      await useDailyBudgetStore.getState().hydrateFromSupabase('user_budget_test_1');
+
+      state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(250);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.getTodayRecord().budget).toBe(0);
+      expect(state.getTodayRecord().status).toBe('unknown');
+    });
+
+    it('activates today budget when toggling auto-renew back ON and keeps it across hydration', async () => {
+      useDailyBudgetStore.getState().resetDailyBudget();
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+      useDailyBudgetStore.getState().setDailyBudget(250);
+      useDailyBudgetStore.getState().toggleAutoRenew(false);
+
+      // User turns auto-renew back ON
+      useDailyBudgetStore.getState().toggleAutoRenew(true);
+
+      let state = useDailyBudgetStore.getState();
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(250);
+      expect(state.getTodayRecord().budget).toBe(250);
+      expect(state.getTodayRecord().status).toBe('active');
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase('user_budget_test_1');
+
+      state = useDailyBudgetStore.getState();
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(250);
+      expect(state.getTodayRecord().budget).toBe(250);
+      expect(state.getTodayRecord().status).toBe('active');
+    });
+  });
 });
+

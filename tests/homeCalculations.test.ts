@@ -6,7 +6,6 @@ import {
   getExternalDepositsInPeriod,
   calculatePureHeroMetrics,
 } from '../src/lib/homeCalculations';
-import { DailyRecord } from '../src/lib/budgetCalculations';
 
 describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
   // Reference date: Friday, 18 September 2026

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
+import React, { useRef, useLayoutEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Pressable } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
@@ -26,7 +26,6 @@ export const DualRingChart: React.FC<DualRingChartProps> = ({
   strokeWidth = 6.5,
   outerRadius = 42,
   innerRadius = 32,
-  isDark = false,
 }) => {
   const { colors } = useTheme();
   const [showAmounts, setShowAmounts] = useState(false);

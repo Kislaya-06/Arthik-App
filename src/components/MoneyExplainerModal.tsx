@@ -27,7 +27,6 @@ import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import {
   MoneyExplainerTopic,
-  MoneyExplainerItem,
   getMoneyExplainerContent,
 } from '../lib/moneyExplainerContent';
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  SectionList, Platform,
+  SectionList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
@@ -14,15 +14,12 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
-import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
-import { GradientIconBadge } from '../components/GradientIconBadge';
 import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
 import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
-import { getCategoryIcon } from '../lib/iconUtils';
-import { getPaymentIcon, getPaymentLabel, isIncomeTransaction } from '../lib/paymentUtils';
 import { formatCurrency } from '../lib/formatters';
+import { isIncomeTransaction } from '../lib/paymentUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { ThemeColors, Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert,
+  View, Text, StyleSheet, ScrollView, Pressable, Alert,
   Modal, TextInput, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,7 +42,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const syncPendingExpenses = useExpenseStore((s) => s.syncPendingExpenses);
   const isOffline = useNetworkStore((s) => s.isOffline);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { colors, isDark, toggleTheme, setThemeMode, themeMode, effectiveScheme } = useTheme();
+  const { colors, isDark, setThemeMode, themeMode, effectiveScheme } = useTheme();
   const activeTheme = themeMode === 'system' ? effectiveScheme : themeMode;
   const handleScroll = useScrollDirection();
   const appVersion = Constants.expoConfig?.version ? `v${Constants.expoConfig.version}` : 'v1.2.3';
@@ -541,7 +541,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
           <View style={styles.avatarWrapper}>
             <View style={[styles.avatarCircle, { backgroundColor: colors.mintGreen }]}>
-              {/* TODO: Render Image here if user has uploaded an avatar_url */}
               <Text style={[styles.avatarText, { fontFamily: FontFamily.bold }]}>
                 {getInitials()}
               </Text>

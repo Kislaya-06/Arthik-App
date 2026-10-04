@@ -7,16 +7,14 @@ import {
   TouchableOpacity,
   Alert,
   Animated,
-  Dimensions,
   ScrollView,
 } from 'react-native';
-import { X, Check, Clock, Sparkles } from 'lucide-react-native';
+import { X, Check, Clock } from 'lucide-react-native';
 import { format, parseISO, addDays } from 'date-fns';
 import Svg, { Defs, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useExpenseStore } from '../store/expenseStore';
-import { useTheme } from '../store/themeStore';
 import {
   formatAmountWithCommas,
   cleanAmountString,
@@ -62,7 +60,6 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   initialCadence,
   onClose,
 }) => {
-  const { colors, isDark } = useTheme();
   const sheetAnim = useRef(new Animated.Value(0)).current;
 
   // Store state

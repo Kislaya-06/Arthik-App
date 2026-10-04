@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { filterExpenses } from '../src/lib/expenseFilters';
-import { calculatePeriodSummary, getExternalDepositsInPeriod } from '../src/lib/homeCalculations';
+import { calculatePeriodSummary } from '../src/lib/homeCalculations';
 import { Expense } from '../src/store/expenseStore';
-import { isIncomeTransaction } from '../src/lib/paymentUtils';
 import { round2 } from '../src/lib/formatters';
 
 describe('Home Screen - New User Spendings Display Fix', () => {

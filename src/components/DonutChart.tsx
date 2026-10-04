@@ -1,6 +1,6 @@
-import React, { useRef, useLayoutEffect, useEffect, useState } from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { ThemeColors, FontFamily } from '../config/theme';
 import { RollingText } from './RollingText';
 import { useFocusEntryCount } from '../hooks/useFocusEntry';
@@ -35,7 +35,6 @@ const DonutChartBase: React.FC<DonutProps> = ({
   baseColor,
   textColor,
   subtextColor,
-  triggerKey,
 }) => {
   const SIZE = size;
   const STROKE_WIDTH = strokeWidth;

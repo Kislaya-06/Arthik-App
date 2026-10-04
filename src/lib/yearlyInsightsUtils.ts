@@ -28,7 +28,7 @@ import {
   isAfter,
 } from 'date-fns';
 import { isIncomeTransaction } from './transactionUtils';
-import { round2, formatCurrency, formatAmountWithCommas } from './formatters';
+import { round2, formatCurrency } from './formatters';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import type { Category } from '../store/categoryStore';
 import type { BudgetCadence } from '../types';
@@ -269,7 +269,7 @@ export function computeYearlyComparison(
 export function computeYearlyInflow(
   expenses: ExpenseLike[],
   categories: Category[],
-  dailyRecords: Record<string, DailyRecord> | DailyRecord[] = [],
+  _dailyRecords: Record<string, DailyRecord> | DailyRecord[] = [],
   gullakDeposits: GullakDeposit[] = [],
   budgetConfig?: YearlyBudgetConfig,
   yearInterval?: YearInterval,
@@ -865,7 +865,6 @@ export function computeAnnualCategoryTrajectory(
     let bestCatId: string | null = null;
     let maxAbsDelta = 0;
     let isIncrease = false;
-    let rawDelta = 0;
 
     const allCatIds = new Set([...Object.keys(h1SpendByCat), ...Object.keys(h2SpendByCat)]);
 
@@ -877,7 +876,6 @@ export function computeAnnualCategoryTrajectory(
 
       if (absDelta >= 1000 && absDelta > maxAbsDelta) {
         maxAbsDelta = absDelta;
-        rawDelta = delta;
         isIncrease = delta > 0;
         bestCatId = catId;
       }

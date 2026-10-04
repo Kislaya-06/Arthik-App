@@ -117,7 +117,6 @@ import {
   getPendingPlanChangesKey,
   savePendingPlanChangeOffline,
   savePendingSettingsOffline,
-  clearPendingSettingsOffline,
 } from '../src/store/dailyBudgetStore';
 import { format, subDays } from 'date-fns';
 import { Expense } from '../src/store/expenseStore';

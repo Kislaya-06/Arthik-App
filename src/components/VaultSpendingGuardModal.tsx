@@ -20,7 +20,7 @@ export interface VaultSpendingGuardModalProps {
   onClose: () => void;
   onAddIncomeFirst: () => void;
   isBudgetMode: boolean;
-  totalVaultLiquidity: number;
+  totalVaultLiquidity?: number;
 }
 
 export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = ({
@@ -28,7 +28,6 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
   onClose,
   onAddIncomeFirst,
   isBudgetMode,
-  totalVaultLiquidity,
 }) => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();

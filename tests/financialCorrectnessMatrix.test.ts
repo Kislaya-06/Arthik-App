@@ -1,19 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { parseISO, format } from 'date-fns';
 import {
   getPeriodBounds,
-  resolvePlanForDate,
-  getDateOwner,
-  computeEffectiveFrom,
   upsertPendingChange,
   buildPeriodsToFinalize,
   getCurrentPeriodSummary,
 } from '../src/lib/budgetPeriods';
 import {
   checkCadenceCapacity,
-  calculateCadenceCarryForward,
   buildCadenceSwitchPlan,
-  getRemainingDaysInCurrentPeriod,
 } from '../src/lib/cadenceSwitch';
 import { calculateVaultLiquidity } from '../src/lib/vaultSpendingGuard';
 import { getUnproratedPacingPreview } from '../src/lib/budgetModeUtils';

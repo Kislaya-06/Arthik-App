@@ -1,4 +1,4 @@
-import { format, subDays, parseISO } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { round2 } from './formatters';
 

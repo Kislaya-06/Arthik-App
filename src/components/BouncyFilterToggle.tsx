@@ -1,4 +1,3 @@
-import React from 'react';
 import { ControlHeight } from '../config/theme';
 import { SegmentedControl, SegmentedOption } from './ui/SegmentedControl';
 

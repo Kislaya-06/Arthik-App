@@ -14,7 +14,7 @@ import {
   Spacing,
   BorderRadius,
 } from '../config/theme';
-import { formatCurrency, formatCompactCurrency } from '../lib/formatters';
+import { formatCurrency } from '../lib/formatters';
 import { YearlyCashFlowMonth } from '../lib/yearlyInsightsUtils';
 
 export interface YearlyCashFlowChartProps {
@@ -22,8 +22,8 @@ export interface YearlyCashFlowChartProps {
   subTitle?: string;
   months: YearlyCashFlowMonth[];
   maxAmount: number;
-  totalIncome: number;
-  totalSpent: number;
+  totalIncome?: number;
+  totalSpent?: number;
   isDark: boolean;
   colors: ThemeColors;
   onMonthPress?: (month: YearlyCashFlowMonth) => void;
@@ -40,8 +40,6 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
   subTitle,
   months,
   maxAmount,
-  totalIncome,
-  totalSpent,
   isDark,
   colors,
   onMonthPress,

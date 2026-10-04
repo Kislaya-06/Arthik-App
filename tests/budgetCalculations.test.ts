@@ -17,7 +17,6 @@ import {
   shouldIgnoreDuplicates,
   calculateTodayMetrics,
   filterSavingsRecords,
-  SavingsFilter,
   shouldSendRolloverNotification,
 } from '../src/lib/budgetCalculations';
 import { isIncomeTransaction } from '../src/lib/paymentUtils';

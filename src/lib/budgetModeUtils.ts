@@ -116,7 +116,7 @@ export function getUnproratedPacingPreview(
   targetCadence: BudgetCadence,
   amount: number,
   effectiveFromStr: string,
-  todayStr: string
+  _todayStr?: string
 ): UnproratedPacingInfo | null {
   if (!amount || amount <= 0 || targetCadence === 'daily') {
     return null;

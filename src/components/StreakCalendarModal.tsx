@@ -11,7 +11,7 @@ import {
   Easing,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, X, CheckCircle2, AlertCircle } from 'lucide-react-native';
-import { format, isToday as checkIsToday, parseISO, eachDayOfInterval } from 'date-fns';
+import { format, parseISO, isToday as checkIsToday, eachDayOfInterval } from 'date-fns';
 import { useTheme } from '../store/themeStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';

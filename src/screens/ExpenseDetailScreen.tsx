@@ -10,7 +10,7 @@ import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { format, parseISO } from 'date-fns';
-import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
+import { formatCurrency } from '../lib/formatters';
 import { getDateOwner } from '../lib/budgetPeriods';
 import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -141,7 +141,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     ? format(parseISO(expense.expense_date), 'd MMM yyyy')
     : '';
   const categoryColor = category?.color || (isIncome ? '#ADEBB3' : '#FF857A');
-  const categoryBgColor = categoryColor;
 
   return (
     <View style={[styles.safeArea, { paddingTop: insets.top, backgroundColor: colors.background }]}>

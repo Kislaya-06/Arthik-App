@@ -7,7 +7,6 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
-import { format, parseISO } from 'date-fns';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { TransactionRow } from '../components/TransactionRow';
@@ -40,7 +39,6 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
   const category = categories.find(c => c.id === categoryId);
   const CategoryIcon = getCategoryIcon(category?.icon || '');
   const categoryColor = category?.color || '#ADEBB3';
-  const categoryBgColor = categoryColor;
 
   const categoryExpenses = useMemo(() =>
     expenses

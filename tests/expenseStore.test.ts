@@ -40,7 +40,7 @@ const mockSupabaseDelete = vi.fn(() => ({
 
 vi.mock('../src/config/supabase', () => ({
   supabase: {
-    from: vi.fn((table: string) => ({
+    from: vi.fn((_table: string) => ({
       upsert: mockSupabaseUpsert,
       update: mockSupabaseUpdate,
       delete: mockSupabaseDelete,

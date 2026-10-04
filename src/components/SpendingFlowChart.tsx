@@ -182,7 +182,6 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
   subTitle,
   trackWidth = DEFAULT_TRACK_WIDTH,
   onDayPress,
-  triggerKey,
 }) => {
   // Calculate highest amount in the set
   const maxAmount = useMemo(() => {

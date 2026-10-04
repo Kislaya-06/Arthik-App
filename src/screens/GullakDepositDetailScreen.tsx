@@ -15,7 +15,7 @@ import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { AppButton } from '../components/ui/AppButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
+import { formatCurrency } from '../lib/formatters';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GullakDepositDetail'>;

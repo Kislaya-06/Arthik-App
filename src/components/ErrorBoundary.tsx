@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, DevSettings } from 'react-native';
 import * as Updates from 'expo-updates';
 import { AlertTriangle, RotateCcw } from 'lucide-react-native';

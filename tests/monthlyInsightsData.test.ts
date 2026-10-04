@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import { parseISO } from 'date-fns';
 import {
   computeMonthlySpend,
   computeEffectiveMonthBudget,

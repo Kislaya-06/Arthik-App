@@ -129,6 +129,12 @@ Work with surgical precision:
 - Amounts in state are `number`. Keypad manages strings and converts once.
 - "Today" is the user's local day. Daily budget/streak calculations depend on it.
 
+## 8.1 Auto-Save to Gullak (`isAutoRenew`) & Budget Hydration Invariant (CRITICAL)
+- **User Preference Sovereignty**: When a user pauses or turns OFF "Auto-save unspent to Gullak" (`isAutoRenew: false`), that setting MUST be permanently respected across all app states.
+- **Never Auto-Force `isAutoRenew = true`**: Store hydration (`hydrateFromSupabase`), offline fast-paths, pull-to-refresh, and background sync must **NEVER** infer or flip `isAutoRenew` to `true` simply because `isBudgetModeEnabled` is `true` or `dailyBudgetAmount > 0`.
+- **No Hardcoded Defaults Overriding User State**: Never use hardcoded fallback values (`|| 100` or `|| 500`) that coerce 0 or overwrite custom user allowances (e.g. ₹250).
+- **Paused Allowance State**: When `isBudgetModeEnabled` is `true` but `isAutoRenew` is `false`, the user is explicitly in Paused Allowance state. Today's unfinalized daily record is `{ budget: 0, saved: 0, status: 'unknown' }`, while their configured allowance remains preserved in store state and Supabase profiles until they choose to resume.
+
 ---
 
 # 9. UI Styling Rules

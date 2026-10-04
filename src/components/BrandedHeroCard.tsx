@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   LayoutChangeEvent,
-  Animated,
-  Easing,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react-native';
@@ -102,7 +100,6 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   primaryLabel,
   primaryAmount,
   primarySubtext,
-  displaySpent,
   totalAvailable,
   periodSpent,
   isOverBudgetPeriod,
@@ -114,7 +111,6 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   colors,
   isDark,
   onNavigateSavings,
-  periodIncome,
   cadencePeriodSummary,
 }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({

@@ -5,7 +5,6 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
@@ -30,7 +29,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
   onClose,
   maxDate,
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   // Internal selected date (only confirmed when user presses "Done")
   const [tempDate, setTempDate] = useState<Date>(value);

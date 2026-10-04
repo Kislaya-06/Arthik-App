@@ -44,7 +44,7 @@ import { useNetworkStore } from './networkStore';
 import { isNetworkFailure } from '../lib/networkUtils';
 import { isIncomeTransaction } from '../lib/paymentUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
-import { formatCurrency, round2 } from '../lib/formatters';
+import { round2 } from '../lib/formatters';
 
 const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
   const categories = useCategoryStore.getState().categories;
@@ -104,7 +104,6 @@ export type {
 import {
   computeEffectiveFrom,
   upsertPendingChange,
-  resolvePlanForDate,
   getDateOwner,
   buildPeriodsToFinalize,
   getCurrentPeriodSummary,
@@ -112,7 +111,6 @@ import {
   computeCadenceStreak,
   StreakUnit,
 } from '../lib/budgetPeriods';
-import { differenceInCalendarDays } from 'date-fns';
 import { formatEffectiveFrom } from '../lib/budgetModeUtils';
 
 export const getPendingSettingsKey = (userId: string) => `@arthik_pending_settings_${userId}`;
@@ -1480,7 +1478,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             existing.budget !== budget;
 
           if (hasChanged) {
-            const wasUnfinalized = !existing?.isFinalized;
             records[d] = {
               date: d,
               budget,
@@ -1803,9 +1800,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             if (pendingSettings.is_budget_mode_enabled !== undefined) {
               resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
             }
-            if (resolvedBudgetModeEnabled && !resolvedAutoRenew && resolvedBudget > 0) {
-              resolvedAutoRenew = true;
-            }
             if (pendingSettings.budget_cadence !== undefined) {
               resolvedCadence = pendingSettings.budget_cadence as BudgetCadence;
             }
@@ -1824,8 +1818,23 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 spent: 0,
                 saved: todayBudget,
                 isFinalized: false,
-                status: resolvedBudgetModeEnabled ? 'active' : 'unknown',
+                status: resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? 'active' : 'unknown',
               };
+            } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
+              if (resolvedAutoRenew && resolvedBudget > 0) {
+                if (records[todayStr].budget === 0) {
+                  records[todayStr].budget = resolvedBudget;
+                  records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
+                  records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'exceeded' : 'active';
+                }
+              } else {
+                records[todayStr] = {
+                  ...records[todayStr],
+                  budget: 0,
+                  saved: 0,
+                  status: 'unknown',
+                };
+              }
             } else if (!resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
               records[todayStr] = {
                 ...records[todayStr],
@@ -1890,7 +1899,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const plansData = plansRes?.data;
           const periodsData = periodsRes?.data;
 
-          let resolvedBudget = get().dailyBudgetAmount || 100;
+          let resolvedBudget = get().dailyBudgetAmount;
           let resolvedAutoRenew = get().isAutoRenew;
           // Track whether Supabase returned the migration-default 500 so self-healing can fire
           // even on fresh installs where local state is already default (and resolvedBudget gets set).
@@ -1905,15 +1914,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             // so we defer — leave resolvedBudget as whatever local already has and let recovery overwrite if needed.
             if (remoteBudget === 500) {
               remoteBudgetWasMigrationDefault = true;
-              // Keep local value for now; self-healing block below will fix it from savings log history
-              resolvedBudget = get().dailyBudgetAmount || 100;
-            } else if (remoteBudget > 0) {
-              resolvedBudget = remoteBudget;
+              resolvedBudget = get().dailyBudgetAmount;
             } else {
-              resolvedBudget = get().dailyBudgetAmount || 100;
+              resolvedBudget = remoteBudget;
             }
           } else {
-            resolvedBudget = get().dailyBudgetAmount || 100;
+            resolvedBudget = get().dailyBudgetAmount;
           }
 
           if (pendingSettings.is_auto_renew !== undefined) {
@@ -1921,7 +1927,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           } else if (profileData && profileData.is_auto_renew !== null && profileData.is_auto_renew !== undefined) {
             resolvedAutoRenew = Boolean(profileData.is_auto_renew);
           } else {
-            resolvedAutoRenew = false;
+            resolvedAutoRenew = get().isAutoRenew;
           }
 
           // Resolve 4 new profile columns
@@ -1930,10 +1936,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
           } else if (profileData && profileData.is_budget_mode_enabled !== null && profileData.is_budget_mode_enabled !== undefined) {
             resolvedBudgetModeEnabled = Boolean(profileData.is_budget_mode_enabled);
-          }
-
-          if (resolvedBudgetModeEnabled && !resolvedAutoRenew && resolvedBudget > 0) {
-            resolvedAutoRenew = true;
           }
 
           let resolvedCadence: BudgetCadence = get().budgetCadence || 'daily';
@@ -2027,7 +2029,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const isIncomeFn = buildCategoryClassifier();
           const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
 
-          let wasRepairedFromHistory = false;
           // Trigger recovery only when Supabase returned the migration-default 500.
           // This covers both the live case (resolvedBudget===500 via pendingSettings) and the
           // fresh-install case (remote=500 deferred to local=0 above). Intentional 0 set by
@@ -2078,14 +2079,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             // If we detected a consistent original non-500 budget, restore it!
             if (bestCandidate > 0 && bestCandidate !== 500) {
               resolvedBudget = bestCandidate;
-              resolvedAutoRenew = true;
-              wasRepairedFromHistory = true;
-              supabase.from('profiles').update({ daily_budget: resolvedBudget, is_auto_renew: true }).eq('id', userId).then(() => {});
+              supabase.from('profiles').update({ daily_budget: resolvedBudget }).eq('id', userId).then(() => {});
             }
           }
 
           // If remote was 500 and no non-500 candidate was found, restore 500
-          if (remoteBudgetWasMigrationDefault && (resolvedBudget === 0 || resolvedBudget === 100)) {
+          if (remoteBudgetWasMigrationDefault && resolvedBudget === 0) {
             resolvedBudget = 500;
           }
 
@@ -2164,11 +2163,24 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               spent: 0,
               saved: todayBudget,
               isFinalized: false,
-              status: resolvedBudgetModeEnabled ? 'active' : 'unknown',
+              status: resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? 'active' : 'unknown',
             };
-          } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized && records[todayStr].budget === 0 && resolvedAutoRenew && resolvedBudget > 0) {
-            records[todayStr].budget = resolvedBudget;
-            records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
+          } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
+            if (resolvedAutoRenew && resolvedBudget > 0) {
+              if (records[todayStr].budget === 0) {
+                records[todayStr].budget = resolvedBudget;
+                records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
+                records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'exceeded' : 'active';
+              }
+            } else {
+              // Auto-renew paused (OFF) -> today's unfinalized record has budget 0
+              records[todayStr] = {
+                ...records[todayStr],
+                budget: 0,
+                saved: 0,
+                status: 'unknown',
+              };
+            }
           } else if (!resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
             records[todayStr] = {
               ...records[todayStr],

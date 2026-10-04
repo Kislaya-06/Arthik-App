@@ -49,7 +49,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   visible,
   onClose,
 }) => {
-  const { colors, isDark } = useTheme();
+  const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<'source' | 'amount'>('source');
   const [source, setSource] = useState<GullakDepositSource>('external');

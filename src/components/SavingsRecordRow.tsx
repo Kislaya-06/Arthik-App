@@ -92,20 +92,17 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   const incomeGreen = isDark ? colors.mintGreen : colors.mintGreenDark;
   const warningRed = isDark ? colors.peachCoral : '#DC2626';
 
-  const { amountText, amountColor, statusText, statusColor } = useMemo(() => {
+  const { amountColor, statusText, statusColor } = useMemo(() => {
     if (isPeriod && period) {
       if (isSaved) {
         return {
-          amountText: `+${formatCurrency(period.amountSaved)}`,
           amountColor: incomeGreen,
           statusText: 'Saved 🎉',
           statusColor: incomeGreen,
         };
       }
       if (isExceeded) {
-        const overAmount = period.spentAmount - period.budgetAmount;
         return {
-          amountText: `−${formatCurrency(Math.max(0, overAmount))}`,
           amountColor: warningRed,
           statusText: 'Over budget',
           statusColor: warningRed,
@@ -113,14 +110,12 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       }
       if (period.status === 'even') {
         return {
-          amountText: '₹0',
           amountColor: colors.textSecondary,
           statusText: 'Budget met',
           statusColor: colors.textMuted,
         };
       }
       return {
-        amountText: '—',
         amountColor: colors.textMuted,
         statusText: 'Untracked',
         statusColor: colors.textMuted,
@@ -128,7 +123,6 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     }
     if (isDeposit) {
       return {
-        amountText: `+${formatCurrency(deposit!.amount)}`,
         amountColor: incomeGreen,
         statusText: 'Manual',
         statusColor: colors.textMuted,
@@ -136,16 +130,13 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     }
     if (isSaved) {
       return {
-        amountText: `+${formatCurrency(rec!.saved)}`,
         amountColor: incomeGreen,
         statusText: 'Saved 🎉',
         statusColor: incomeGreen,
       };
     }
     if (isExceeded) {
-      const overAmount = rec!.spent - rec!.budget;
       return {
-        amountText: `−${formatCurrency(overAmount)}`,
         amountColor: warningRed,
         statusText: 'Over budget',
         statusColor: warningRed,
@@ -153,19 +144,17 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     }
     if (isUnknown) {
       return {
-        amountText: '—',
         amountColor: colors.textMuted,
         statusText: 'Untracked',
         statusColor: colors.textMuted,
       };
     }
     return {
-      amountText: '₹0',
       amountColor: colors.textSecondary,
       statusText: 'Exact budget',
       statusColor: colors.textMuted,
     };
-  }, [isPeriod, period, isDeposit, isSaved, isExceeded, isUnknown, deposit, rec, incomeGreen, warningRed, colors.textMuted, colors.textSecondary]);
+  }, [isPeriod, period, isDeposit, isSaved, isExceeded, isUnknown, incomeGreen, warningRed, colors.textMuted, colors.textSecondary]);
 
   const iconBg = useMemo(() => {
     if (isDeposit || isSaved) {

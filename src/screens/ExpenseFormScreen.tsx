@@ -35,7 +35,7 @@ import {
   MAX_NOTE_CHARS,
   countWords,
 } from '../hooks/useExpenseForm';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, getContrastTextColor } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
 
 // Both AddExpense and EditExpense routes use this single component.
 type Props =

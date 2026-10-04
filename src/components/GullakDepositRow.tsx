@@ -7,7 +7,7 @@ import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
 import { AmountText } from './ui/AmountText';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 export type GullakDepositRowProps = {
   deposit: GullakDeposit;

@@ -32,7 +32,7 @@ import { AnimatedToggle } from '../components/AnimatedToggle';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 
 import { useTheme } from '../store/themeStore';
-import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
+import { formatCurrency, round2 } from '../lib/formatters';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
@@ -194,10 +194,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     budget: todayBudget,
     spent: todaySpent,
     remaining: todayRemaining,
-    progressRatio,
     isOverBudget,
     overAmount,
-    saved: todaySaved,
   } = todayMetrics;
 
   const catMap = useMemo(() => {

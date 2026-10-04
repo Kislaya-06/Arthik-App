@@ -30,7 +30,6 @@ export const YearlyBreathingStrip: React.FC<YearlyBreathingStripProps> = ({
   totalYearSavings,
   savingsRate,
   savedDaysCount,
-  isCurrentYear,
   transactionCount,
   isBudgetMode,
   onPressSavings,

@@ -3,7 +3,6 @@ import {
   checkCadenceCapacity,
   calculateCadenceCarryForward,
   buildCadenceSwitchPlan,
-  getRemainingDaysInCurrentPeriod,
 } from '../src/lib/cadenceSwitch';
 
 describe('Cadence Switching Engine (cadenceSwitch.ts)', () => {

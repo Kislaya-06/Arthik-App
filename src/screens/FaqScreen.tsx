@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  LayoutAnimation, Platform, UIManager,
+  LayoutAnimation,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';

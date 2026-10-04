@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'Seamless Google Sign-In & Cadence Calendar 🔑✨',
+    title: ota?.title || 'Auto-Save to Gullak Persistence & Reliability 🐷🛡️',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Instant 1-Click Google Sign-In: Resolved authorization flow handling for seamless, instant authentication",
-          "Cadence-Aware Streak Calendar: connected underlay bands for weekly and monthly savings cycles with preserved historical accuracy",
-          "Simplified Cadence Switch: crystal-clear date ranges, compact Gullak info, and symmetrical pill buttons",
-          "Over-Capacity Budget Guard: safe budget recommendation pill with disabled button state when exceeding period capacity",
-          "Precision UI Geometry: subpixel toggle centering and perfectly symmetrical segmented control tabs",
+          "Persistent Auto-Save Toggle: Disabling auto-save to Gullak stays permanently paused across pull-to-refresh, sync, and app restarts",
+          "Custom Allowance Preservation: Custom daily allowances (like ₹250) are safely preserved without fallback resets",
+          "TypeScript & Performance Cleanup: Eliminated unused imports and variables for faster, cleaner app performance",
+          "Instant 1-Click Google Sign-In: Resolved PKCE authorization flow for instant authentication",
+          "Cadence-Aware Streak Calendar: Connected streak visuals for weekly and monthly savings cycles",
         ],
   };
 };

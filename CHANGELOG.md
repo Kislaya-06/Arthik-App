@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐷 Auto-Save Unspent to Gullak Toggle & Hydration Invariant (`dailyBudgetStore.ts`)
+- **Permanent Toggle State Persistence**: Resolved an issue where turning OFF "Auto-save unspent to Gullak" (`isAutoRenew: false`) in SavingsScreen was forcibly overridden and reset back to ON with a fallback budget on HomeScreen pull-to-refresh or store hydration.
+- **Removed Forced Auto-Renew Overrides**: Eliminated legacy hydration conditions (`if (resolvedBudgetModeEnabled && !resolvedAutoRenew && resolvedBudget > 0) resolvedAutoRenew = true;`) and hardcoded `|| 100` fallbacks across both offline fast-paths and online Supabase hydration.
+- **Accurate Paused Allowance State**: Today's unfinalized daily record correctly reflects a paused state (`budget: 0, saved: 0, status: 'unknown'`) when auto-renew is turned off, while the configured daily budget amount (e.g. ₹250) is safely preserved.
+- **Unit Test Coverage & Invariant Enforcement**: Added Slice 8 tests (`tests/dailyBudgetStore.test.ts`) guaranteeing that pausing auto-save preserves `isAutoRenew: false` and custom allowances across full hydration cycles. Total test suite expanded to 812 passing unit tests.
+
+### 🧹 Codebase Cleanup & Strict TypeScript Unused Checks (`tsconfig.json`)
+- **Full Unused Items Elimination**: Removed ~90 unused imports, destructured variables, dead helper functions, and wasted intermediate computations across 44 source components, screens, utilities, stores, and test suites.
+- **Eliminated Wasted Computations**: Removed redundant aggregations, string conversions, and unused memoized loops in `InsightsScreen.tsx`, `YearlyCashFlowChart.tsx`, `SavingsRecordRow.tsx`, `BrandedHeroCard.tsx`, and `dailyBudgetStore.ts`.
+- **Enforced Strict Compiler Checks**: Permanently enabled `"noUnusedLocals": true` and `"noUnusedParameters": true` in [`tsconfig.json`](file:///d:/Arthik-App/tsconfig.json) to prevent unused variables and dead code from re-entering the codebase.
+- **Zero Regressions**: 100% unit test pass rate maintained across all 810 test cases (`vitest run`) and 0 type errors (`npx tsc --noEmit`).
+
 ### 🔑 1-Click Google OAuth PKCE Fix (`AuthScreen.tsx`)
 - **Direct PKCE Code Exchange**: Exchanged authorization `code` parameters returned by `WebBrowser.openAuthSessionAsync` immediately via `supabase.auth.exchangeCodeForSession(code)`, restoring instant 1-click Google Sign-In / Sign-Up.
 - **Eliminated Multi-Click & Permission Loops**: Resolved the issue where PKCE codes were missed in URL parsing, eliminating stranded AuthScreen states, premature notification dialog prompts, and duplicate click requirements.

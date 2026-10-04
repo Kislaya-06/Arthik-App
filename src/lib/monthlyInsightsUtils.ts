@@ -20,8 +20,6 @@ import {
   differenceInCalendarDays,
   addDays,
   getDaysInMonth,
-  startOfMonth,
-  endOfMonth,
 } from 'date-fns';
 import { isIncomeTransaction } from './transactionUtils';
 import { round2, formatAmountWithCommas } from './formatters';

@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
 import { ActivityIndicator, StyleSheet, View, StatusBar, AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppNavigation, navigationRef, navigateTo } from './src/navigation';
-import { Theme } from './src/config/theme';
 import { useTheme } from './src/store/themeStore';
 import { supabase } from './src/config/supabase';
 import { useAuthStore } from './src/store/authStore';

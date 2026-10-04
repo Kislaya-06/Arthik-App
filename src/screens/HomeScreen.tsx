@@ -6,10 +6,7 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
-  Easing,
-  Platform,
   LayoutAnimation,
-  GestureResponderEvent,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
@@ -42,7 +39,7 @@ import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { configureLayoutAnimation } from '../lib/animationUtils';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
@@ -347,7 +344,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     displaySpent,
     totalAvailable,
     isOverBudgetPeriod,
-    periodIncome,
     periodSpent,
   } = useMemo(
     () =>

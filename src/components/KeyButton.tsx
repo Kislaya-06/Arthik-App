@@ -22,7 +22,7 @@ interface KeyButtonProps {
  * Pass item="backspace" to render the delete icon.
  */
 const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSize }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {

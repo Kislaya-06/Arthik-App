@@ -23,9 +23,7 @@ vi.mock('lucide-react-native', () => {
 import {
   getPaymentIcon,
   getPaymentLabel,
-  DEFAULT_INCOME_KEYWORDS,
   isIncomeTransaction,
-  PaymentMode,
 } from '../src/lib/paymentUtils';
 import { getCategoryIcon } from '../src/lib/iconUtils';
 import * as LucideIcons from 'lucide-react-native';
