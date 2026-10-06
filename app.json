@@ -3,7 +3,7 @@
     "name": "Arthik",
     "slug": "arthik",
     "scheme": "arthik",
-    "version": "1.2.4",
+    "version": "2.0.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -35,7 +35,8 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "USE_FINGERPRINT",
+        "REQUEST_INSTALL_PACKAGES"
       ]
     },
     "plugins": [
@@ -44,7 +45,15 @@
       "expo-font",
       "expo-status-bar",
       "expo-notifications",
-      "expo-local-authentication"
+      "expo-local-authentication",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      "expo-secure-store",
+      "expo-background-task"
     ],
     "extra": {
       "supabaseUrl": "https://dapbkooakqiemgdkxonx.supabase.co",
@@ -53,13 +62,13 @@
         "projectId": "5760997d-33b7-48b5-995a-aedb1e29f1e2"
       },
       "otaUpdate": {
-        "version": "1.2.4",
-        "title": "UI Polish & Stability Improvements ✨⚡",
+        "version": "2.0.0",
+        "title": "Automatic Logging ⚡",
         "highlights": [
-          "Pixel-Perfect UI Alignment: Restored exact spacing, radii, and keypad gaps across forms, modals, and auth screens",
-          "Modal & Sheet Lifecycle: Enhanced bottom sheet animation transitions and dismissal stability",
-          "Hardened Test Coverage: Comprehensive reliability validations across core hooks, navigation, and state stores",
-          "Optimized Fluidity: Instant responsiveness and zero redundant renders across all views"
+          "Automatic Logging (Beta): bank SMS and UPI payments become transactions automatically — processed on your phone",
+          "Pending Review: unsure payments wait for you instead of being guessed",
+          "Why was this logged? — every automatic transaction shows its sources",
+          "Updates now download and install from inside the app"
         ]
       }
     }

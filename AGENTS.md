@@ -470,3 +470,25 @@ Before changing existing behavior, the agent should be able to clearly answer:
 If these questions cannot be answered convincingly, **leave the existing implementation unchanged**.
 
 This policy takes precedence over speculative polish and should be followed for all future feature implementation, refactoring, debugging, UX review, and design work.
+
+# 12. Automatic Logging (v2.0) — Invariants
+
+Read `docs/AUTO_LOGGING.md` before touching `src/features/autoLog/`, `modules/arthik-autolog/` or `src/screens/autolog/`.
+- **Discovery never creates transactions.** Only `origin: 'live' | 'recovery'` may call `ledger.createTransaction`.
+- **Never fuzzy-merge same-source events.** Only exact reference or identical message text within 5 minutes.
+- **A notification alone never logs.** It waits for a bank SMS, then goes to Pending Review.
+- **New accounts start untracked.** Never flip `tracked` without a user action.
+- **Ignore rules are narrow** (exact message fingerprint or exact template). Never amount-based.
+- **No message content leaves the device.** `autolog_profiles` stores only flags, timestamps, bank + last 4.
+- Native changes in `modules/arthik-autolog` require a new APK (bump the version); JS changes can ship by OTA.
+- Parser/matching changes must keep `tests/autoLogParser.test.ts` green; add a test for every new bank format.
+
+# 13. Releases, Force Update & Beta Rollout (v2.0)
+
+Read `docs/RELEASE_PROCESS.md` and `docs/AGENT_BRIEF.md`.
+- **Force update** is server-driven: `app_config` row `version_control` (`min_supported_version`, `force_update_enabled`, `release_url`, and v2+ `apk_url`, `update_title`, `update_highlights`). Old clients (v1.2.x) read only `release_url` — keep it a direct `.apk` link when forcing.
+- `UpdateRequiredScreen` has **no skip/later/back**. On Android it downloads inside the app (`src/lib/apkInstaller.ts`) and opens the system installer; anything failing falls back to the browser.
+- Release assets are always named **`Arthik.apk`**; tags `vX.Y.Z`. `eas.json` preview has `autoIncrement` (versionCode).
+- **Automatic Logging is Beta**, gated by `app_config.feature_flags.autolog.audience` (`existing` | `all` | `none`). Logic in `src/features/autoLog/rollout.ts`; never hide it from someone already using it; the one-time intro is for existing users only. Every place that names the feature shows the `BetaPill`.
+- Manual-only (owner): SQL in Supabase, EAS builds/credentials, GitHub Releases, device testing.
+

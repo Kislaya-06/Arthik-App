@@ -16,6 +16,20 @@ export type RootStackParamList = {
   Savings: undefined;
   ResetPassword: { initialError?: string } | undefined;
   Faq: undefined;
+  // Automatic Logging (v2.0)
+  AutoLogCenter: undefined;
+  AutoLogIntro: undefined;
+  AutoLogSetup: {
+    mode: 'first' | 'resetup' | 'learn';
+    from?: number;
+    to?: number;
+    lastActiveAt?: number | null;
+    previous?: Array<{ bank: string; bankCode: string; last4: string; kind: string }>;
+  } | undefined;
+  AutoLogWelcomeBack: { from: number; to: number; reason: 'signout' | 'pause' };
+  AutoLogReview: undefined;
+  AutoLogAccounts: undefined;
+  AutoLogInfo: { section: 'how' | 'privacy' } | undefined;
 };
 
 export type TabParamList = {

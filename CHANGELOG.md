@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] — Automatic Logging ⚡
+
+> **Native release — new APK required.** Native changes (SMS receiver, notification listener, SQLCipher, background tasks) cannot be delivered by OTA.
+
+### Added
+- **Automatic Logging** (Android): bank SMS and payment-app notifications (Google Pay, PhonePe, Paytm, Navi, BHIM, CRED, Amazon Pay, MobiKwik, super.money) become transactions automatically. All detection is on-device.
+- **Setup wizard** (`AutoLogSetupScreen`): explanation → SMS access → notification access → battery reliability → **Discovery** (learns banks, accounts, formats from the last 90 days; never adds old transactions) → account selection (multi-account) → review of unclear messages → complete. Live mode starts automatically, no Start button.
+- **Automatic Logging Center** (Profile → Automatic Logging): status, tracked accounts, today's counts, last checked, health checklist (SMS / notifications / accounts / background), recent activity, pause / resume / turn off.
+- **Pending Review** inbox with Income / Expense → confirm → category → "Remember Zomato → Food?" flow; ignore only this message / similar messages from this sender.
+- **Why was this logged?** + source chips + **Report a problem** on every automatic transaction (ExpenseDetail).
+- **Welcome back** after sign-in: *Recover missed transactions* or *Learn from this period* (Recovery limited to 30-day gaps).
+- **Re-install / data-clear detection**: setup is redone instead of pretending old settings exist; the unavailable period is discovery-only.
+- Cross-source matching (notification + SMS = one transaction), own-transfer and credit-card-bill detection, manual-entry duplicate check, live boundary.
+- Home banner when transactions need review or Automatic Logging needs attention.
+- 6 FAQ entries (new "Automatic Logging" category).
+- Supabase table `autolog_profiles` (migration `20261006_autolog_profiles.sql`) — stores only enabled flag, timestamps and bank + last 4 digits.
+- Local Expo module `modules/arthik-autolog` (Kotlin).
+- Tests (59 new):
+  - `tests/autoLogParser.test.ts` — 24 tests: bank SMS + notification parsing, balance-vs-amount, future/failed/OTP, templates, masking, matching rules.
+  - `tests/autoLogFlows.test.ts` — 33 end-to-end tests running the REAL db + engine + service + reviews on Node's built-in SQLite: discovery never logs, live boundary, untracked/new accounts, notification↔SMS merge (both orders), same-source ₹20 safety, double-read SMS, notification-only → review, manual duplicate, own transfer, card bill, future/failed/balance, income review + remember, category learning, narrow ignore rules, report problem, offline queue, sign-out → Welcome back → Recovery, Learn-only, pause, clear cache, clear storage/reinstall, other user, turn off, dev tools.
+  - `tests/expenseStore.test.ts` — +2 tests for the new optional `{ id }` in `addExpense`.
+  - `tests/helpers/autoLogTestEnv.ts` — test doubles (SQLite, native module, ledger, server).
+- **Developer test tools** card in Automatic Logging Center (only when `__DEV__`, i.e. dev-client builds; invisible in preview/release APKs): simulate PhonePe notification, bank SMS, credit from a person, unreadable message, and "skip 20 min".
+- Docs: `docs/AUTO_LOGGING.md`, `docs/PLAY_STORE_AUTOLOG.md`.
+
+### Added — release & rollout
+- **In-app mandatory updates**: `UpdateRequiredScreen` downloads the APK inside the app (progress bar) and opens Android's installer automatically; no skip. "Install update" retry, "Install unknown apps" shortcut, browser fallback. New `src/lib/apkInstaller.ts`; `versionCheck` now reads optional `apk_url`, `update_title`, `update_highlights`; version is re-checked whenever the app returns to the foreground. Permission `REQUEST_INSTALL_PACKAGES`. New deps: `expo-file-system`, `expo-intent-launcher`, `expo-application`.
+- **Automatic Logging is Beta** with a server-controlled rollout: `app_config.feature_flags.autolog` (`audience`: `existing` | `all` | `none`, `existing_before`). Default: existing users only (paused for new users). New `src/features/autoLog/rollout.ts`.
+- **"New in Arthik 2.0" screen** (`AutoLogIntroScreen`) shown once to existing users (phone upgraded from v1.x, or account created before the cutoff). Never shown to new users. "Turn on" starts setup; "Not now" leaves it off.
+- `BetaPill` on the Profile row, Automatic Logging Center and setup; Beta note in setup and FAQ.
+- Migration `supabase/migrations/20261007_release_v2_flags.sql`.
+- `eas.json` preview profile: `autoIncrement: true` (versionCode).
+- Docs: `docs/RELEASE_PROCESS.md` (step-by-step release, force update, rollback, rollout SQL), `docs/AGENT_BRIEF.md`; README rewritten; AGENTS.md §13; Play Store doc updated for the in-app updater.
+- Tests: `tests/appUpdate.test.ts` (8), `tests/autoLogRollout.test.ts` (11). Suite: 1071 passing.
+
+### Changed
+- `expenseStore.addExpense` accepts an optional 7th argument `{ id }` so automatic transactions keep a link to their source message. Existing callers are unaffected.
+- Log Out confirmation explains that Automatic Logging stops while signed out (only when it is set up).
+- `App.tsx` wraps the app in `GestureHandlerRootView`; notification taps route Automatic Logging notifications.
+- `index.ts` imports `src/features/autoLog/background` (defines headless + background tasks).
+- `App.tsx`: if the session ends without the Log Out button (e.g. expired), Automatic Logging still records the sign-out boundary, so nothing from the signed-out time is logged silently.
+
+### Dependencies (bundled now so future features ship by OTA)
+- New: `expo-sqlite` (SQLCipher), `expo-secure-store`, `expo-task-manager`, `expo-background-task`, `expo-haptics`, `react-native-reanimated`, `react-native-worklets`, `react-native-gesture-handler`, `@shopify/flash-list`.
+- Reanimated / Gesture Handler / FlashList are installed but existing screens are **not** refactored — future animation and list work can now ship over OTA.
+
+### Fixed
+- `tests/budgetModesStore.test.ts`: 3 tests were written for "today = 2026-09-30" but read the real clock, so they failed once another full week had passed (Gullak showed ₹9,500 instead of ₹2,500). The file now freezes `Date` at 2026-09-30 (timers stay real). App code unchanged. Full suite: 1052/1052 passing.
+
+
 ### 🔍 Code-Quality Review & Test Coverage (post `noUnused*` pass)
 - **Fixed 3 visual regressions introduced while extracting shared UI primitives** (`KeypadGrid`, `ItemRowShell`, `AuthFormField`): the numeric keypad lost its 8px gap between keys (6px on Budget Edit); transaction/deposit rows lost their `BorderRadius.card` press-clip (had dropped to a hard-coded 12px with no `overflow: hidden`); the Auth / Reset Password / Profile Setup fields lost their original spacing and radius (label letter-spacing, field gap, input radius). All three now match the pre-extraction screens exactly, pinned by `tests/uiPrimitiveParity.test.ts`.
 - **Fixed a `BottomSheetModal` race**: reopening the sheet while its close animation was still in flight could unmount the now-open sheet when the stale close callback fired. Guarded with a token so only the close that is still current can unmount it (`tests/bottomSheetModal.test.ts`).

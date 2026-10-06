@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+// These scenarios were written for "today = 2026-09-30" (see comments below). Using the real clock made
+// them fail once another full week had passed. Freeze ONLY Date (timers stay real) so results never
+// depend on the day the suite runs.
+vi.useFakeTimers({ toFake: ['Date'] });
+vi.setSystemTime(new Date('2026-09-30T12:00:00'));
+
 // Mock react-native and lucide-react-native to avoid Flow parse errors in node
 vi.mock('react-native', () => ({
   Platform: { OS: 'android' },

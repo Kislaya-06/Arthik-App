@@ -18,6 +18,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, User } from 'lucide-react-native';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
+import { AutoLogHomeBanner } from '../components/autolog/AutoLogHomeBanner';
 import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
 import { PullToHistoryList, PullToHistoryListHandle } from '../components/PullToHistoryList';
 import { RefreshScrollShell } from '../components/RefreshScrollShell';
@@ -557,6 +558,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           isDark={isDark}
           onNavigateSavings={() => navigation.navigate('Savings' as any)}
         />
+
+        {/* Automatic Logging: only visible when something needs review/attention */}
+        <AutoLogHomeBanner />
 
         {/* ── Recent Transactions Header (Anchored Boundary / Viewport Entrance) ── */}
         <View style={styles.sectionHeaderRow}>

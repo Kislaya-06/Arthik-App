@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ArrowLeft, Search, X, ChevronDown, ChevronUp,
-  HelpCircle, PiggyBank, Flame, Wallet, ShieldCheck, Calendar, Sparkles,
+  HelpCircle, PiggyBank, Flame, Wallet, ShieldCheck, Calendar, Sparkles, Zap,
 } from 'lucide-react-native';
 
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
@@ -17,10 +17,10 @@ import { RootStackParamList } from '../types';
 import { configureLayoutAnimation } from '../lib/animationUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Faq'>;
-type Category = 'All' | 'Budget Modes' | 'Daily Budget' | 'Gullak & Savings' | 'Streak & Rules' | 'Income & Expenses' | 'Offline & Privacy';
+type Category = 'All' | 'Budget Modes' | 'Daily Budget' | 'Gullak & Savings' | 'Streak & Rules' | 'Income & Expenses' | 'Automatic Logging' | 'Offline & Privacy';
 
 const CATEGORIES: Category[] = [
-  'All', 'Budget Modes', 'Daily Budget', 'Gullak & Savings', 'Streak & Rules', 'Income & Expenses', 'Offline & Privacy',
+  'All', 'Budget Modes', 'Daily Budget', 'Gullak & Savings', 'Streak & Rules', 'Income & Expenses', 'Automatic Logging', 'Offline & Privacy',
 ];
 
 const ICONS: Record<string, any> = {
@@ -29,6 +29,7 @@ const ICONS: Record<string, any> = {
   'Gullak & Savings': PiggyBank,
   'Streak & Rules': Flame,
   'Income & Expenses': Wallet,
+  'Automatic Logging': Zap,
   'Offline & Privacy': ShieldCheck,
 };
 
@@ -74,6 +75,20 @@ const FAQ_DATA = [
    'Card accounts are for incurring expenses. Income can only be received via Cash or Bank / UPI accounts.'],
   ['ie_3', 'Income & Expenses', 'Can I add an expense for a past date?',
    'Yes! Tap the date field on the Add Transaction screen to pick any past date. The app will automatically recalculate past allowances, savings, and streaks.'],
+
+  // Automatic Logging
+  ['al_1', 'Automatic Logging', 'What is Automatic Logging (Beta)?',
+   'Automatic Logging is in Beta and is being rolled out gradually, starting with people who used Arthik before v2.0. Arthik reads bank transaction SMS and payment notifications (Google Pay, PhonePe, Paytm and more) on your phone and turns them into transactions for you. Turn it on from Profile → Automatic Logging. You choose which bank accounts are tracked.'],
+  ['al_2', 'Automatic Logging', 'Will my old messages be added as transactions?',
+   'No. During setup Arthik reads old messages only to learn your banks, accounts and message formats (Discovery). Nothing from before setup is ever added to your history.'],
+  ['al_3', 'Automatic Logging', 'Are my SMS uploaded anywhere?',
+   'No. Detection happens entirely on your phone, in an encrypted local database. Personal SMS and OTPs are dropped before processing. Only "Automatic Logging is on" plus bank name and last 4 digits of tracked accounts are saved to your account, so Arthik can notice a re-install.'],
+  ['al_4', 'Automatic Logging', 'Why is a payment in Pending Review instead of logged?',
+   'Arthik never guesses. Money received from a person, a payment app notification without a matching bank SMS, an unreadable message, or something that looks like an entry you already added will wait for you to decide.'],
+  ['al_5', 'Automatic Logging', 'What happens when I sign out?',
+   'Automatic Logging stops. When you sign in again you choose: recover missed transactions from that period, or only learn from it. If the app was uninstalled or its data was cleared, setup starts fresh and that period is never added.'],
+  ['al_6', 'Automatic Logging', 'Transactions are not detected when the app is closed',
+   'Your phone may be limiting Arthik in the background. Open Automatic Logging → Background access → Fix and set Battery usage to Unrestricted. On some phones also enable "Autostart" for Arthik.'],
 
   // Offline & Privacy
   ['op_1', 'Offline & Privacy', 'Does the app work without an internet connection?',

@@ -28,6 +28,14 @@ import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 import { SavingsScreen } from '../screens/SavingsScreen';
 import { FaqScreen } from '../screens/FaqScreen';
 import { GullakDepositDetailScreen } from '../screens/GullakDepositDetailScreen';
+import { AutoLogCenterScreen } from '../screens/autolog/AutoLogCenterScreen';
+import { AutoLogIntroScreen } from '../screens/autolog/AutoLogIntroScreen';
+import { AutoLogSetupScreen } from '../screens/autolog/AutoLogSetupScreen';
+import { AutoLogWelcomeBackScreen } from '../screens/autolog/AutoLogWelcomeBackScreen';
+import { AutoLogReviewScreen } from '../screens/autolog/AutoLogReviewScreen';
+import { AutoLogAccountsScreen } from '../screens/autolog/AutoLogAccountsScreen';
+import { AutoLogInfoScreen } from '../screens/autolog/AutoLogInfoScreen';
+import { AutoLogGate } from '../components/autolog/AutoLogGate';
 
 // Custom Tab Bar
 import { BottomNavBar } from '../components/BottomNavBar';
@@ -121,6 +129,8 @@ const GuardedSavingsStackScreen: React.FC<NativeStackScreenProps<RootStackParamL
 
 function TabNavigator() {
   return (
+    <>
+    <AutoLogGate />
     <Tab.Navigator
       tabBar={renderTabBar}
       screenOptions={{
@@ -139,6 +149,7 @@ function TabNavigator() {
       <Tab.Screen name="Savings" component={GuardedSavingsTabScreen} />
       <Tab.Screen name="Insights" component={InsightsScreen} />
     </Tab.Navigator>
+    </>
   );
 }
 
@@ -236,6 +247,15 @@ export function AppNavigation({
         <Stack.Screen name="Savings" component={GuardedSavingsStackScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Faq" component={FaqScreen} />
+
+        {/* Automatic Logging */}
+        <Stack.Screen name="AutoLogCenter" component={AutoLogCenterScreen} />
+        <Stack.Screen name="AutoLogIntro" component={AutoLogIntroScreen} options={{ animation: 'fade_from_bottom' }} />
+        <Stack.Screen name="AutoLogSetup" component={AutoLogSetupScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="AutoLogWelcomeBack" component={AutoLogWelcomeBackScreen} options={{ gestureEnabled: false, animation: 'fade_from_bottom' }} />
+        <Stack.Screen name="AutoLogReview" component={AutoLogReviewScreen} />
+        <Stack.Screen name="AutoLogAccounts" component={AutoLogAccountsScreen} />
+        <Stack.Screen name="AutoLogInfo" component={AutoLogInfoScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

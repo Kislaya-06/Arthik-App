@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
 import { ActivityIndicator, StyleSheet, View, StatusBar, AppState } from 'react-native';
 import { AppNavigation, navigationRef, navigateTo } from './src/navigation';
@@ -26,6 +27,7 @@ import { useAppLockStore } from './src/store/appLockStore';
 import { AppLockOverlay } from './src/components/AppLockOverlay';
 import { OtaUpdateModal } from './src/components/OtaUpdateModal';
 import { useOtaStore } from './src/store/otaStore';
+import { onBeforeSignOut } from './src/features/autoLog/service';
 
 export default function App() {
   const { colors, isDark } = useTheme();
@@ -72,6 +74,15 @@ export default function App() {
       }
     });
 
+    // Re-check when the app returns to the foreground (users rarely cold-start the app).
+    const versionAppStateSub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        checkAppVersionStatus(supabase, useNetworkStore.getState().isOffline, currentVersion).then((res) => {
+          if (res.isRequired) setUpdateRequirement(res);
+        });
+      }
+    });
+
     if (!__DEV__ && !updateRequirement.isRequired) {
       useOtaStore.getState().checkForUpdates();
     }
@@ -82,7 +93,11 @@ export default function App() {
     // Handle user tapping on a device notification in notification shade
     const unregisterNotif = registerNotificationResponseListener((data) => {
       const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
-      if (data?.type === 'log_nudge' || data?.screen === 'AddExpense') {
+      if (data?.type === 'autolog') {
+        if (data?.screen === 'ExpenseDetail' && data?.expenseId) navigateTo('ExpenseDetail', { expenseId: data.expenseId });
+        else if (data?.screen === 'AutoLogReview') navigateTo('AutoLogReview');
+        else navigateTo('AutoLogCenter');
+      } else if (data?.type === 'log_nudge' || data?.screen === 'AddExpense') {
         navigateTo('AddExpense');
       } else if (data?.screen === 'Insights') {
         navigateTo('AppTabs', { screen: 'Insights' });
@@ -111,6 +126,9 @@ export default function App() {
       // Wrap in setTimeout(0) to avoid deadlocking Supabase internal auth lock
       setTimeout(async () => {
         if (event === 'SIGNED_OUT') {
+          // Automatic Logging: session ended without the Log Out button (e.g. expired) — still mark the boundary.
+          const prevUserId = useAuthStore.getState().user?.id;
+          if (prevUserId) await onBeforeSignOut(prevUserId);
           await setSession(null);
           navigationRef.reset({
             index: 0,
@@ -205,6 +223,7 @@ export default function App() {
       stopNotificationSync();
       cleanupNetwork();
       unsubNetwork();
+      versionAppStateSub.remove();
     };
   }, []);
 
@@ -217,6 +236,7 @@ export default function App() {
   }
 
   return (
+    <GestureHandlerRootView style={styles.container}>
     <SafeAreaProvider>
       <ErrorBoundary>
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -227,6 +247,9 @@ export default function App() {
               currentVersion={Constants.expoConfig?.version || '1.2.3'}
               minVersion={updateRequirement.minVersion}
               releaseUrl={updateRequirement.releaseUrl}
+              apkUrl={updateRequirement.apkUrl}
+              title={updateRequirement.title}
+              highlights={updateRequirement.highlights}
             />
           ) : (
             <AppNavigation
@@ -261,6 +284,7 @@ export default function App() {
         </View>
       </ErrorBoundary>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

@@ -51,7 +51,8 @@ interface ExpenseState {
     note: string,
     paymentMode: 'cash' | 'upi' | 'card',
     date: string,
-    type?: 'expense' | 'income'
+    type?: 'expense' | 'income',
+    options?: { id?: string }
   ) => Promise<void>;
   updateExpense: (
     id: string,
@@ -850,7 +851,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     }
   },
 
-  addExpense: async (amount, categoryId, note, paymentMode, date, type = 'expense') => {
+  addExpense: async (amount, categoryId, note, paymentMode, date, type = 'expense', options) => {
     const user = useAuthStore.getState().user;
     // P0.10: Throw error if no active session
     if (!user) {
@@ -862,8 +863,9 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       throw new Error(`Invalid category selected (${categoryId}). Please select a valid category.`);
     }
 
-    // P0.4: Generate client-side UUID (no temp_ prefix)
-    const newId = Crypto.randomUUID();
+    // P0.4: Generate client-side UUID (no temp_ prefix).
+    // Automatic Logging passes its own id so the transaction stays linked to its source message.
+    const newId = options?.id && isValidUUID(options.id) ? options.id : Crypto.randomUUID();
     const nowIso = new Date().toISOString();
     const optimisticExpense: Expense = {
       id: newId,

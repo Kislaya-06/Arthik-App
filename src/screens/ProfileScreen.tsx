@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon, Sun, Sparkles, Palette,
-  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves
+  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves, Zap
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
@@ -33,12 +33,20 @@ import { MoneyHelpBadge, MoneyExplainerModal } from '../components/MoneyExplaine
 import { formatCadenceBudgetSubtitle } from '../lib/budgetModeUtils';
 import { AnimatedToggle } from '../components/AnimatedToggle';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { useAutoLogStore } from '../features/autoLog/store';
+import { onBeforeSignOut } from '../features/autoLog/service';
+import { modeCopy } from '../features/autoLog/copy';
+import { BetaPill } from '../components/autolog/AutoLogUi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, signOut, updateProfile, deleteAccount } = useAuthStore();
+  const autoLogMode = useAutoLogStore((s) => s.mode);
+  const autoLogAttention = useAutoLogStore((s) => s.attention);
+  const autoLogPending = useAutoLogStore((s) => s.pendingCount);
+  const autoLogAvailable = useAutoLogStore((s) => s.available);
   const syncPendingExpenses = useExpenseStore((s) => s.syncPendingExpenses);
   const isOffline = useNetworkStore((s) => s.isOffline);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -145,8 +153,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const handleLogout = async () => {
     const userId = user?.id;
     const pendingCount = userId ? await getPendingSyncCount(userId) : 0;
+    const autoLogActive = ['live', 'paused'].includes(useAutoLogStore.getState().mode);
 
     const performSignOut = async () => {
+      // Automatic Logging: record the sign-out boundary and stop capturing BEFORE the session ends.
+      if (userId) await onBeforeSignOut(userId);
       await signOut();
       (navigation as any).reset({
         index: 0,
@@ -195,8 +206,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
+      autoLogActive ? "Automatic Logging will stop" : "Log Out",
+      autoLogActive
+        ? "While you're signed out:\n• No transactions will be logged.\n• New SMS won't create transactions.\n• Payment notifications won't be logged.\n\nWhen you sign in again, you can decide what to do about the time you were away."
+        : "Are you sure you want to log out?",
       [
         { text: "Cancel", style: "cancel" },
         { 
@@ -680,6 +693,31 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
             <ChevronRight size={18} color={colors.textSecondary} />
           </Pressable>
+
+          {/* 1b. Automatic Logging (Beta) — visible per server rollout (see features/autoLog/rollout.ts) */}
+          {(autoLogAvailable || autoLogMode !== 'off') && (
+          <Pressable
+            style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}
+            onPress={() => navigation.navigate('AutoLogCenter')}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
+              <Zap size={18} color={colors.textPrimary} />
+            </View>
+            <View style={{ flex: 1, marginRight: Spacing.element }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.element }}>
+                <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
+                  Automatic Logging
+                </Text>
+                <BetaPill small />
+              </View>
+              <Text style={{ fontSize: 12, color: autoLogMode === 'live' && !autoLogAttention ? colors.mintGreenDark : colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+                {autoLogMode === 'off' ? 'Log bank SMS & UPI payments automatically' : modeCopy(autoLogMode, autoLogAttention).title}
+                {autoLogPending > 0 ? ` · ${autoLogPending} to review` : ''}
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.textSecondary} />
+          </Pressable>
+          )}
 
           {/* 2. Notifications */}
           <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>

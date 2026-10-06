@@ -65,4 +65,10 @@ brag-output/
 # Personal Codebase Explainer (Hinglish Guide)
 CODEBASE_EXPLAINER.md
 
-
+# Local dev scripts & docs
+dev-both.ps1
+install-dev-apk.ps1
+DEV_SETUP_PHONE_AND_EMULATOR.md
+MANUAL_STEPS.md
+AGENT_BRIEF.md
+docs/AGENT_BRIEF.md

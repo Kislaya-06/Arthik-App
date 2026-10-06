@@ -21,6 +21,7 @@ import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { AppButton } from '../components/ui/AppButton';
+import { WhyLoggedCard } from '../components/autolog/WhyLoggedCard';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
@@ -250,6 +251,13 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               )}
             </View>
           </View>
+
+          {/* Automatic Logging: source + "Why was this logged?" (renders nothing for manual entries) */}
+          <WhyLoggedCard
+            expenseId={expense.id}
+            onEditAmount={() => navigation.navigate('EditExpense', { expenseId: expense.id })}
+            onDeleted={() => navigation.goBack()}
+          />
 
           {/* Bottom Actions */}
           <View style={styles.actionsContainer}>

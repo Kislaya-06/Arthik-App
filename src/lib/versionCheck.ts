@@ -6,6 +6,19 @@ export interface VersionCheckResult {
   isRequired: boolean;
   minVersion: string;
   releaseUrl: string;
+  /** v2.0+: direct .apk link for in-app download + install. Old clients ignore it. */
+  apkUrl?: string;
+  /** v2.0+: optional server-driven copy for the update screen. */
+  title?: string;
+  highlights?: string[];
+}
+
+/** Picks the direct APK link: explicit `apk_url`, else `release_url` if it already points at an .apk. */
+export function resolveApkUrl(result: Pick<VersionCheckResult, 'apkUrl' | 'releaseUrl'>): string | null {
+  const isApk = (u?: string) => !!u && /^https:\/\/.+\.apk(\?.*)?$/i.test(u.trim());
+  if (isApk(result.apkUrl)) return (result.apkUrl as string).trim();
+  if (isApk(result.releaseUrl)) return result.releaseUrl.trim();
+  return null;
 }
 
 /**
@@ -86,6 +99,11 @@ export function evaluateVersionRequirement(
   const minSupportedVersion: string = config.min_supported_version || '';
   const forceUpdateEnabled: boolean = Boolean(config.force_update_enabled);
   const releaseUrl: string = config.release_url || DEFAULT_RELEASE_URL;
+  const apkUrl: string | undefined = typeof config.apk_url === 'string' && config.apk_url ? config.apk_url : undefined;
+  const title: string | undefined = typeof config.update_title === 'string' && config.update_title ? config.update_title : undefined;
+  const highlights: string[] | undefined = Array.isArray(config.update_highlights)
+    ? config.update_highlights.filter((h: unknown) => typeof h === 'string' && h.trim()).slice(0, 5)
+    : undefined;
 
   const isRequired = shouldBlockForUpdate({
     currentVersion,
@@ -97,6 +115,9 @@ export function evaluateVersionRequirement(
     isRequired,
     minVersion: minSupportedVersion,
     releaseUrl,
+    apkUrl,
+    title,
+    highlights: highlights && highlights.length ? highlights : undefined,
   };
 }
 

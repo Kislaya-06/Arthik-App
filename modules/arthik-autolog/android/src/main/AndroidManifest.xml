@@ -1,0 +1,36 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- Automatic Logging: read + receive bank transaction SMS (processed on-device only). -->
+  <!-- Play Store build: see docs/PLAY_STORE_AUTOLOG.md for how to strip these two lines. -->
+  <uses-permission android:name="android.permission.READ_SMS" />
+  <uses-permission android:name="android.permission.RECEIVE_SMS" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+  <application>
+    <!-- New bank SMS → filtered on-device → local queue → JS headless task -->
+    <receiver
+      android:name="expo.modules.arthikautolog.SmsReceiver"
+      android:exported="true"
+      android:permission="android.permission.BROADCAST_SMS">
+      <intent-filter android:priority="999">
+        <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+      </intent-filter>
+    </receiver>
+
+    <!-- Payment app notifications (GPay, PhonePe, Paytm, Navi...) as fast preview -->
+    <service
+      android:name="expo.modules.arthikautolog.PaymentNotificationListener"
+      android:exported="true"
+      android:label="Arthik Automatic Logging"
+      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+    </service>
+
+    <!-- Short-lived JS task that processes the queue while the app is closed -->
+    <service
+      android:name="expo.modules.arthikautolog.AutoLogHeadlessService"
+      android:exported="false" />
+  </application>
+</manifest>

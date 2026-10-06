@@ -147,6 +147,20 @@ describe('expenseStore (Seam: useExpenseStore)', () => {
       expect(pendingList[0].pending).toBe(true);
     });
 
+    it('uses the caller-provided id (Automatic Logging link) when it is a valid UUID', async () => {
+      mockIsOffline = true;
+      const presetId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+      await useExpenseStore.getState().addExpense(349, null, 'Zomato', 'upi', '2026-10-05', 'expense', { id: presetId });
+      expect(useExpenseStore.getState().expenses[0].id).toBe(presetId);
+    });
+
+    it('ignores an invalid preset id and generates one as before', async () => {
+      mockIsOffline = true;
+      await useExpenseStore.getState().addExpense(10, null, 'x', 'cash', '2026-10-05', 'expense', { id: 'not-a-uuid' });
+      expect(useExpenseStore.getState().expenses[0].id).not.toBe('not-a-uuid');
+      expect(useExpenseStore.getState().expenses[0].id).toMatch(/^10000000-/);
+    });
+
     it('clears pending flag when addExpense succeeds online against Supabase', async () => {
       mockIsOffline = false;
       const expectedId = `10000000-0000-4000-8000-${String(uuidCounter).padStart(12, '0')}`;
