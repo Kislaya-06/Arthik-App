@@ -8,8 +8,21 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![Version](https://img.shields.io/badge/Version-2.0.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/b305782289c8adc7629de118762576f18d9e1a67bdde620dd03a9874ea73865c)
 [![Tests](https://img.shields.io/badge/Tests-1071_passing-brightgreen.svg)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+---
+
+## 🛡️ Security & Safety Verified (0/67 Clean)
+
+Arthik is **100% safe, ad-free, tracker-free, and open-source**. Every release APK binary is independently verified across 65+ top antivirus and security engines on **VirusTotal**.
+
+<p align="center">
+  <img src="./assets/virustotal-scan.png" alt="VirusTotal Security Scan 0/67 Clean" width="100%" />
+</p>
+
+> **🔒 Privacy-First Guarantee**: All bank SMS parsing and UPI notification detection run **strictly on your device**. Personal SMS, OTPs, balance queries, and personal chats are completely filtered out. No SMS text, notification data, or raw financial messages ever leave your phone.
 
 ---
 
