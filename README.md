@@ -30,9 +30,9 @@ Arthik is **100% safe, ad-free, tracker-free, and open-source**. Every release A
 
 Arthik is distributed as an Android APK on GitHub — no Play Store needed.
 
-**[⬇️ Download the latest Arthik.apk](https://github.com/Kislaya-06/Arthik-App/releases/latest/download/Arthik.apk)**
+**[⬇️ Download Arthik v2.1.0 APK](https://github.com/Kislaya-06/Arthik-App/releases/download/v2.1.0/Arthik-v2.1.0.apk)** *(or get it from [Latest Releases](https://github.com/Kislaya-06/Arthik-App/releases/latest))*
 
-1. Tap the link above on your Android phone (or open [GitHub Releases](https://github.com/Kislaya-06/Arthik-App/releases/latest) → **Assets** → `Arthik.apk`).
+1. Tap the link above on your Android phone (or open [GitHub Releases](https://github.com/Kislaya-06/Arthik-App/releases/latest) → **Assets** → `Arthik-v2.1.0.apk`).
 2. If the browser warns *"This type of file can harm your device"*, tap **Download anyway**.
 3. Open the downloaded file → allow **Install unknown apps** for your browser if asked → **Install**.
 4. Open **Arthik** and sign in with Google or Email.
