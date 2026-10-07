@@ -18,6 +18,8 @@ interface AutoLogState {
   today: { detected: number; matched: number; pending: number; logged: number };
   lastChecked: number | null;
   pausedAt: number | null;
+  /** v2.1: email notifications turned on (separate opt-in). */
+  emailEnabled: boolean;
   recent: AutoLogEvent[];
   loaded: boolean;
   /** Rollout (Beta): may this user see Automatic Logging at all? Set by AutoLogGate. */
@@ -39,6 +41,7 @@ const empty = {
   today: { detected: 0, matched: 0, pending: 0, logged: 0 },
   lastChecked: null,
   pausedAt: null,
+  emailEnabled: false,
   recent: [],
   loaded: false,
   available: false,
@@ -75,7 +78,8 @@ export const useAutoLogStore = create<AutoLogState>((set, get) => ({
         }
         const accounts = await db.listAccounts();
         const tracked = accounts.filter((a) => a.tracked);
-        const health = await getHealth(tracked.length);
+        const emailEnabled = (await db.getMeta('email_enabled')) === '1';
+        const health = await getHealth(tracked.length, emailEnabled);
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
         const mode: AutoLogMode = local.signedOutAt ? 'signed_out' : local.pausedAt ? 'paused' : 'live';
@@ -89,6 +93,7 @@ export const useAutoLogStore = create<AutoLogState>((set, get) => ({
           today: await db.statsSince(startOfDay.getTime()),
           lastChecked: local.lastChecked,
           pausedAt: local.pausedAt,
+          emailEnabled,
           recent: await db.listRecent(12),
           remoteEnabled: true,
           loaded: true,

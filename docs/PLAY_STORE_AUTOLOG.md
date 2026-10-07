@@ -56,6 +56,9 @@ v2.0 added `REQUEST_INSTALL_PACKAGES` (in-app APK updates for GitHub users). Goo
 - On Play builds, make `UpdateRequiredScreen` open the Play Store listing instead of downloading (`canInstallInApp()` in `src/lib/apkInstaller.ts` → return `false` when `Constants.expoConfig.extra.store === 'play'`), or use Play In-App Updates.
 - Keep `version_control` per store (e.g. a separate `version_control_play` row) so GitHub and Play users can be forced independently.
 
-## 6. Don't forget
+## 6. Email notifications (v2.1)
+Email detection uses the same Notification Listener — no new permission. For Play, the Data safety form must mention that notification content from supported email apps is processed on-device for transaction detection (not collected / not shared). If the SMS permission is rejected (Plan B), email + payment-app notifications still work.
+
+## 7. Don't forget
 - Target SDK requirements (Expo SDK upgrade handles this).
 - `allowBackup` stays `false` — reinstall must not restore the encrypted DB.

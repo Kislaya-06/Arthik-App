@@ -75,11 +75,48 @@ Payment notif ► Listener.kt ─┤   drops phone-number senders, OTPs, non-mon
 Discovery: last 90 days, max 5,000 SMS. Recovery: gaps up to 30 days (longer → Learn only). Cross-source window 15 min. Notification wait 20 min. Transfer window 15 min.
 
 ## 8. Tests
+- `tests/autoLogEmail.test.ts` — email source: parser, identity scoring, every multi-source scenario from the email spec.
 - `tests/autoLogParser.test.ts` — pure parser + matching rules.
 - `tests/autoLogFlows.test.ts` — the real `db.ts`, `engine.ts`, `service.ts`, `reviews.ts` running against Node's built-in SQLite (`node:sqlite`, Node 22+). Native module, ledger, server and notifications are test doubles from `tests/helpers/autoLogTestEnv.ts`. Every trust rule in spec §47 has a test.
 - Not unit-tested: the Kotlin module and the React screens — test those on a device (see `MANUAL_STEPS.md`). In dev builds the Center screen has **Developer test tools** that push fake events through the real pipeline.
 
-## 9. Known limitations (MVP)
+## 9. Email notifications (v2.1)
+
+**Why:** some banks / cards send an email but no SMS. SMS must not be mandatory.
+
+**How it works:** email apps (Gmail, Outlook, Samsung Email, Yahoo Mail, Proton Mail, Spark, Zoho Mail) show a notification for each new email. The existing notification listener reads those notifications — sender, subject, preview — only when the user turned on email detection (`meta.email_enabled` + native `email_enabled`). No inbox access, no history.
+
+```
+Email app notification ─► PaymentNotificationListener.onEmailNotification
+   (email switch ON? group summary? FinancialFilter.isFinancialEmail)
+        ─► queue {type:'email'} ─► service.processQueue ─► engine.processEmail
+             parseEmail (advice sentences like "never share your OTP" removed first)
+             ─► noise filter ─► rules ─► account (bank: exact key · provider/unknown: tracked last 4 if unique)
+             ─► findIdentity(sms + notification + email)
+                   match ─► merge as a source (or take over a waiting notification / pending item)
+                   ambiguous / weak ─► Pending Review "Might be a duplicate"
+                   none ─► unknown sender? review · no account? review · type rules ─► log
+```
+
+**Identity scoring** (`matching.ts`): same reference → 100 (any delay ≤ 30 days). Otherwise: amount + direction = 1, same last 4 = +2, same merchant = +2, same day = +1, within 30 min = +1, window 48 h. Different last 4 / merchant / reference → never. Same source → never (without reference). Score ≥ 3 with exactly one candidate → merge. Two or more ≥ 3 → ambiguous. Only weaker candidates → review (no silent duplicate, no arbitrary merge).
+
+**SMS and notifications also check emails:** a bank SMS that arrives after an email joins that transaction; a payment notification matching an email is merged into it.
+
+| File | Email part |
+|---|---|
+| `FinancialFilter.kt` | `EMAIL_APPS`, `isFinancialEmail` |
+| `PaymentNotificationListener.kt` | `onEmailNotification` |
+| `EventQueue.kt`, `ArthikAutoLogModule.kt` | `email_enabled` switch |
+| `parser.ts` | `parseEmail`, `resolveEmailSender`, `extractTxnTime` |
+| `matching.ts` | `identityScore`, `decideIdentity`, `IDENTITY_WINDOW_MS` |
+| `engine.ts` | `processEmail`, `findIdentity`, email checks in `processSms` / `processNotification` |
+| `service.ts` | `setEmailEnabled`, `isEmailEnabled`, `emailSupported`, queue type `email` |
+| `screens/autolog/AutoLogEmailScreen.tsx`, `components/autolog/EmailSourceInfo.tsx` | UI |
+| `tests/autoLogEmail.test.ts` | 32 tests |
+
+**Limits:** only what the email notification shows (long emails are cut by the email app); emails whose notifications are muted are not seen; no historical email discovery (old emails are never read).
+
+## 10. Known limitations (MVP)
 - Android only. iOS has no SMS access.
 - Bank SMS formats vary; unknown formats go to review and are learned from user answers.
 - Transfers are detected only when both accounts are tracked.

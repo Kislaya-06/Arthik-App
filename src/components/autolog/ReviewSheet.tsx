@@ -108,7 +108,7 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
       <Text style={[styles.amount, { color: colors.textPrimary }]}>{money(amount)}</Text>
       <Text style={[styles.meta, { color: colors.textPrimary }]}>{eventTitle(event)}</Text>
       <Text style={[styles.metaMuted, { color: colors.textSecondary }]}>
-        {[account, dateTime(event.occurredAt), event.source === 'notification' ? `${event.sender} notification` : null].filter(Boolean).join(' · ')}
+        {[account, dateTime(event.occurredAt), event.source === 'notification' ? `${event.sender} notification` : event.source === 'email' ? `${event.sender} email` : null].filter(Boolean).join(' · ')}
       </Text>
     </View>
   );

@@ -304,3 +304,118 @@ export const parseNotification = (app: string, title: string, body: string): Par
   }
   return { ...base, kind: 'txn', amount, direction, merchant, ref: extractRef(text) };
 };
+
+// ─── Email notifications (v2.1) ─────────────────────────────────────────────
+
+/** Real OTP / login / password mails. A footer like "never share your OTP" is NOT enough. */
+const RE_EMAIL_SECURITY =
+  /(is your (otp|one[ -]?time password|verification code)|\b(otp|one[ -]?time password|verification code) (is|for)\b|reset your password|password (reset|changed|change request)|new (sign|log)[ -]?in|signed in (to|on|from)|security alert|2-step verification)/i;
+
+/** Footer / advice sentences that mention OTP, PIN, password, CVV. Dropped before parsing. */
+const RE_ADVICE_SENTENCE = /(otp|one[ -]?time password|\bpin\b|password|cvv|do not share|never share|phishing|fraud)/i;
+
+const RE_EMAIL_PROMO_SENDER = /(newsletter|offers?|deals?|promo|marketing|rewards?|updates@|news@)/i;
+
+/** Payment providers that send their own transaction emails (in addition to the BANKS list). */
+const KNOWN_PROVIDERS: Array<[RegExp, string, string]> = [
+  [/PAYTM/, 'PAYTM', 'Paytm'],
+  [/PHONEPE/, 'PHONEPE', 'PhonePe'],
+  [/GOOGLEPAY|GPAY/, 'GPAY', 'Google Pay'],
+  [/AMAZONPAY/, 'AMAZONPAY', 'Amazon Pay'],
+  [/CRED/, 'CRED', 'CRED'],
+  [/MOBIKWIK/, 'MOBIKWIK', 'MobiKwik'],
+  [/RAZORPAY/, 'RAZORPAY', 'Razorpay'],
+  [/NAVI/, 'NAVI', 'Navi'],
+  [/JUPITER/, 'JUPITER', 'Jupiter'],
+  [/FI\b|FIMONEY|EPIFI/, 'FI', 'Fi'],
+];
+
+/** Bank / provider behind an email sender display name like "HDFC Bank InstaAlerts". */
+export const resolveEmailSender = (
+  senderName: string
+): { code: string; name: string; recognized: boolean; kind: 'bank' | 'provider' | 'unknown' } => {
+  const core = (senderName || '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ');
+  const compact = core.replace(/\s+/g, '');
+  for (const [re, code, name] of BANKS) {
+    if (re.test(compact)) return { code, name, recognized: true, kind: 'bank' };
+  }
+  for (const [re, code, name] of KNOWN_PROVIDERS) {
+    if (re.test(compact) || re.test(core)) return { code, name, recognized: true, kind: 'provider' };
+  }
+  const name = (senderName || 'Email').trim().slice(0, 40) || 'Email';
+  return { code: compact.slice(0, 10) || 'EMAIL', name, recognized: false, kind: 'unknown' };
+};
+
+const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+
+/**
+ * Transaction time written inside the message ("on 05-10-2026 at 10:30 AM", "05 Oct 26 10:30").
+ * Only trusted if it is in the past week and not after the message arrived. Otherwise undefined.
+ */
+export const extractTxnTime = (text: string, arrivedAt: number): number | undefined => {
+  let y: number | undefined, mo: number | undefined, d: number | undefined;
+  const num = /\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/.exec(text);
+  const named = /\b(\d{1,2})[\s-]?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,-]*(\d{2,4})\b/i.exec(text);
+  if (named) {
+    d = Number(named[1]);
+    mo = MONTHS[named[2].toLowerCase()];
+    y = Number(named[3]);
+  } else if (num) {
+    d = Number(num[1]);
+    mo = Number(num[2]) - 1;
+    y = Number(num[3]);
+  }
+  if (d == null || mo == null || y == null) return undefined;
+  if (y < 100) y += 2000;
+  if (mo < 0 || mo > 11 || d < 1 || d > 31) return undefined;
+
+  let h = 12, mi = 0;
+  const t = /\b(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?\b/i.exec(text);
+  if (t) {
+    h = Number(t[1]);
+    mi = Number(t[2]);
+    const ap = t[3]?.toLowerCase();
+    if (ap === 'pm' && h < 12) h += 12;
+    if (ap === 'am' && h === 12) h = 0;
+    if (h > 23 || mi > 59) return undefined;
+  }
+  const when = new Date(y, mo, d, h, mi, 0, 0).getTime();
+  if (Number.isNaN(when)) return undefined;
+  if (when > arrivedAt + 5 * 60_000 || when < arrivedAt - 7 * 86400_000) return undefined;
+  if (!t && new Date(when).toDateString() === new Date(arrivedAt).toDateString()) return arrivedAt; // date only, same day
+  return when;
+};
+
+/**
+ * Email notification parser. Reuses the SMS rules (amount / direction / account / ref / merchant /
+ * future / failed / balance / promo) on the subject + preview text, after removing advice sentences.
+ */
+export const parseEmail = (senderName: string, body: string, arrivedAt: number): ParsedMessage => {
+  const full = `${senderName || ''}. ${body || ''}`.replace(/\s+/g, ' ').trim();
+  const who = resolveEmailSender(senderName);
+  const base = {
+    source: 'email' as const,
+    bank: who.name,
+    bankCode: who.code,
+    template: templateOf(`EMAIL-${who.code}`, full),
+    senderRecognized: who.recognized,
+    senderIsBank: who.kind === 'bank',
+  };
+  if (RE_EMAIL_SECURITY.test(full)) return { ...base, kind: 'otp' };
+
+  const cleaned = (body || '')
+    .replace(/([.!?\n])\s+/g, '$1\u0000')
+    .split('\u0000')
+    .filter((s) => !RE_ADVICE_SENTENCE.test(s))
+    .join(' ');
+  const p = parseSms(`EM-${who.code}`, cleaned);
+  if (p.kind !== 'txn' && !who.recognized && RE_EMAIL_PROMO_SENDER.test(senderName || '')) {
+    return { ...base, kind: 'promo' };
+  }
+  return {
+    ...p,
+    ...base,
+    kind: p.kind === 'otp' ? 'unknown' : p.kind, // advice already removed; a leftover OTP word is not a reason to drop it
+    txnTime: p.kind === 'txn' ? extractTxnTime(cleaned, arrivedAt) : undefined,
+  };
+};

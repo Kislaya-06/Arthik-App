@@ -40,12 +40,15 @@ export const REVIEW_LABEL: Record<ReviewReason, string> = {
   unrecognized: 'Unrecognized message',
   notification_only: "Bank SMS didn't arrive",
   no_account: 'Account unclear',
+  ambiguous_match: 'Might be a duplicate',
+  unknown_sender: 'New email sender',
 };
 
 export const reviewLabelFor = (e: AutoLogEvent) =>
   e.status === 'logged' && e.needsCategory ? REVIEW_LABEL.category : e.reviewReason ? REVIEW_LABEL[e.reviewReason] : 'Review';
 
-export const sourceLabel = (e: AutoLogEvent) => (e.source === 'sms' ? `${e.sender} SMS` : `${e.sender} notification`);
+export const sourceLabel = (e: AutoLogEvent) =>
+  e.source === 'sms' ? `${e.sender} SMS` : e.source === 'email' ? `${e.sender} email` : `${e.sender} notification`;
 
 export const statusLine = (e: AutoLogEvent): string => {
   switch (e.status) {

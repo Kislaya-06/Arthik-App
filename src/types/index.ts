@@ -19,6 +19,7 @@ export type RootStackParamList = {
   // Automatic Logging (v2.0)
   AutoLogCenter: undefined;
   AutoLogIntro: undefined;
+  AutoLogEmail: undefined;
   AutoLogSetup: {
     mode: 'first' | 'resetup' | 'learn';
     from?: number;

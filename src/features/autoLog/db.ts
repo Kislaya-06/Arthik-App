@@ -256,7 +256,14 @@ export const getEventsForExpense = async (expenseId: string): Promise<AutoLogEve
   const matched = await db.getAllAsync<EventRow>(
     `SELECT * FROM events WHERE matched_id IN (${ids.map(() => '?').join(',')})`, ...ids
   );
-  return [...main, ...matched].map(toEvent);
+  // v2.1: a source can be merged into a source that was later merged into the main one
+  // (email → notification → SMS). Walk one more level so every source is shown.
+  const childIds = matched.map((m) => m.id);
+  const grand = childIds.length
+    ? await db.getAllAsync<EventRow>(`SELECT * FROM events WHERE matched_id IN (${childIds.map(() => '?').join(',')})`, ...childIds)
+    : [];
+  const seen = new Set<string>();
+  return [...main, ...matched, ...grand].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true))).map(toEvent);
 };
 
 export const findEvents = async (where: string, ...params: (string | number | null)[]): Promise<AutoLogEvent[]> =>

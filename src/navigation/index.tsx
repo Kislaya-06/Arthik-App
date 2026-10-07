@@ -30,6 +30,7 @@ import { FaqScreen } from '../screens/FaqScreen';
 import { GullakDepositDetailScreen } from '../screens/GullakDepositDetailScreen';
 import { AutoLogCenterScreen } from '../screens/autolog/AutoLogCenterScreen';
 import { AutoLogIntroScreen } from '../screens/autolog/AutoLogIntroScreen';
+import { AutoLogEmailScreen } from '../screens/autolog/AutoLogEmailScreen';
 import { AutoLogSetupScreen } from '../screens/autolog/AutoLogSetupScreen';
 import { AutoLogWelcomeBackScreen } from '../screens/autolog/AutoLogWelcomeBackScreen';
 import { AutoLogReviewScreen } from '../screens/autolog/AutoLogReviewScreen';
@@ -254,6 +255,7 @@ export function AppNavigation({
         <Stack.Screen name="AutoLogSetup" component={AutoLogSetupScreen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="AutoLogWelcomeBack" component={AutoLogWelcomeBackScreen} options={{ gestureEnabled: false, animation: 'fade_from_bottom' }} />
         <Stack.Screen name="AutoLogReview" component={AutoLogReviewScreen} />
+        <Stack.Screen name="AutoLogEmail" component={AutoLogEmailScreen} />
         <Stack.Screen name="AutoLogAccounts" component={AutoLogAccountsScreen} />
         <Stack.Screen name="AutoLogInfo" component={AutoLogInfoScreen} />
       </Stack.Navigator>

@@ -89,6 +89,10 @@ const FAQ_DATA = [
    'Automatic Logging stops. When you sign in again you choose: recover missed transactions from that period, or only learn from it. If the app was uninstalled or its data was cleared, setup starts fresh and that period is never added.'],
   ['al_6', 'Automatic Logging', 'Transactions are not detected when the app is closed',
    'Your phone may be limiting Arthik in the background. Open Automatic Logging → Background access → Fix and set Battery usage to Unrestricted. On some phones also enable "Autostart" for Arthik.'],
+  ['al_7', 'Automatic Logging', 'Can Arthik detect transactions from bank emails?',
+   'Yes (Arthik 2.1+). Turn on Automatic Logging → Email notifications. Arthik reads only bank and payment email notifications shown by Gmail, Outlook and other supported email apps, on your phone. Personal, OTP, login and promotional emails are not used, and old emails are never imported.'],
+  ['al_8', 'Automatic Logging', 'Will the same payment be added twice if I get an SMS, a notification and an email?',
+   'No. Arthik checks whether a new message describes a payment it already has — by the transaction reference, or by amount, account and merchant — even if the email arrives hours later. They become one transaction with all sources listed. If a message could match more than one payment, it waits in Pending Review instead of guessing.'],
 
   // Offline & Privacy
   ['op_1', 'Offline & Privacy', 'Does the app work without an internet connection?',

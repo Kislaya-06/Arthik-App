@@ -7,9 +7,9 @@
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
-[![Version](https://img.shields.io/badge/Version-2.0.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/b305782289c8adc7629de118762576f18d9e1a67bdde620dd03a9874ea73865c)
-[![Tests](https://img.shields.io/badge/Tests-1071_passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/Tests-1103_passing-brightgreen.svg)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -58,6 +58,7 @@ Log expenses and income without typing them.
 - **Discovery, not backfill.** Old messages are used only to learn your banks and formats — they are never added to your history.
 - **Transparent.** Every automatic transaction shows its sources and *"Why was this logged?"*, with **Report a problem**.
 - **Learns from you.** "Remember Zomato → Food", "Ignore similar messages" (exact format only, never "every ₹20").
+- **Bank emails too (v2.1, optional).** For banks and cards that email instead of sending an SMS: alert emails from Gmail, Outlook and other email apps are read from their notifications, on your phone. SMS, app notification and email for the same payment become **one** transaction — even when the email arrives hours later. Unclear matches wait in review.
 - **Welcome back.** After signing out or pausing, choose to *recover* the missed period or only *learn* from it.
 
 > Beta is rolling out gradually, starting with people who used Arthik before v2.0. It is controlled server-side (no app update needed to widen it).
@@ -93,7 +94,7 @@ Log expenses and income without typing them.
 | Updates | EAS Build (APK), EAS Update (OTA), in-app APK updater (`expo-file-system`, `expo-intent-launcher`) |
 | UI | `lucide-react-native`, Quicksand, `react-native-svg`, Reanimated, Gesture Handler |
 | Dates | `date-fns`, Indian number formatting (₹) |
-| Tests | Vitest (65 files, 1071 tests) |
+| Tests | Vitest (66 files, 1103 tests) |
 
 ---
 

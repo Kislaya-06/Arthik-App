@@ -57,7 +57,9 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
   if (!main) return null;
   const matched = events.filter((e) => e.id !== main.id);
   const last4 = main.accountKey?.split(':')[1];
-  const sources = [main, ...matched].map((e) => (e.source === 'sms' ? `${e.sender} SMS` : `${e.sender} notification`));
+  const kindWord = (e: AutoLogEvent) => (e.source === 'sms' ? 'SMS' : e.source === 'email' ? 'email' : 'notification');
+  const sources = [main, ...matched].map((e) => `${e.sender} ${kindWord(e)}`);
+  const sameRef = !!main.ref && matched.some((m) => m.ref === main.ref);
 
   const act = async (reason: ProblemReason, ignoreSimilar = false) => {
     setReporting(false);
@@ -110,17 +112,23 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
         <View style={[styles.why, { borderTopColor: colors.borderSubtle }]}>
           <Text style={[styles.text, { color: colors.textPrimary }]}>{money(main.amount)}{main.merchant ? ` · ${main.merchant}` : ''}</Text>
           <Text style={[styles.sub, { color: colors.textSecondary }]}>Arthik detected:</Text>
-          <Text style={[styles.text, { color: colors.textPrimary }]}>• {main.sender} transaction {main.source === 'sms' ? 'SMS' : 'notification'}</Text>
+          <Text style={[styles.text, { color: colors.textPrimary }]}>
+            • {main.source === 'email' ? `Financial email detected (${main.sender})` : `${main.sender} transaction ${kindWord(main)}`}
+          </Text>
           <Text style={[styles.text, { color: colors.textPrimary }]}>• Amount: {money(main.amount)}</Text>
           <Text style={[styles.text, { color: colors.textPrimary }]}>• {main.direction === 'credit' ? 'Credit' : 'Debit'} transaction</Text>
           {last4 ? <Text style={[styles.text, { color: colors.textPrimary }]}>• Tracked account: ••••{last4}</Text> : null}
+          {main.merchant ? <Text style={[styles.text, { color: colors.textPrimary }]}>• Merchant: {main.merchant}</Text> : null}
           {matched.length ? (
             <>
               <Text style={[styles.sub, { color: colors.textSecondary }]}>Matched with:</Text>
               {matched.map((m) => (
-                <Text key={m.id} style={[styles.text, { color: colors.textPrimary }]}>• {m.sender} {m.source === 'sms' ? 'SMS' : 'notification'}</Text>
+                <Text key={m.id} style={[styles.text, { color: colors.textPrimary }]}>• {m.sender} {kindWord(m)}</Text>
               ))}
-              <Text style={[styles.text, { color: colors.textSecondary, marginTop: Spacing.element }]}>Both sources referred to the same payment, so they were combined into one transaction.</Text>
+              {sameRef ? <Text style={[styles.text, { color: colors.textPrimary }]}>• Same transaction reference</Text> : null}
+              <Text style={[styles.text, { color: colors.textSecondary, marginTop: Spacing.element }]}>
+                {matched.length > 1 ? 'All sources' : 'Both sources'} referred to the same payment, so they were combined into one transaction.
+              </Text>
             </>
           ) : null}
           {main.origin === 'recovery' ? (

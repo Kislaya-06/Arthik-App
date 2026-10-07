@@ -9,7 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] — Automatic Logging ⚡
+## [2.1.0] — Bank emails in Automatic Logging ✉️
+
+> **Native release — new APK required** (email apps added to the native notification listener). Force-update users to 2.1.0 (see `docs/RELEASE_PROCESS.md`).
+
+### Added
+- **Email notifications as a third Automatic Logging source** (optional, off by default). Bank / payment alert emails shown by Gmail, Outlook, Samsung Email, Yahoo Mail, Proton Mail, Spark and Zoho Mail are read **from their notifications, on the device**. No inbox access, nothing uploaded, old emails never imported.
+  - Native (`modules/arthik-autolog`): `EMAIL_APPS` allow-list, `isFinancialEmail` privacy gate (drops non-financial and real OTP / login / password mails; a "never share your OTP" footer does not drop a bank alert), separate `email_enabled` switch (`setEmailEnabled` / `isEmailEnabled`), group-summary notifications skipped. Queue event type `email`.
+  - Parser: `parseEmail`, `resolveEmailSender` (bank / payment provider / unknown sender), `extractTxnTime` (transaction time written in the email, used instead of arrival time when trustworthy).
+  - Engine: `processEmail`. **Source-agnostic identity** (`matching.ts`: `identityScore`, `decideIdentity`): same reference = same transaction across SMS / notification / email even hours apart; without a reference, amount + direction plus account / merchant / day / time must agree; contradictions never merge; same source never fuzzy-merges; a transaction takes at most one source of each kind without a shared reference; two or more possible matches (or only a weak one) → Pending Review.
+  - Email-only transactions are logged when the sender is a recognised bank / payment provider and the account is tracked. Unknown sender → review (`unknown_sender`). Account named but not tracked → never logged. Payment-provider / unknown-sender emails map to the tracked account by last 4 digits only when exactly one matches.
+  - An email can confirm a waiting payment-app notification (SMS is not mandatory) and enrich an existing transaction (merchant). A bank SMS arriving after an email joins that transaction.
+  - New review reasons: **Might be a duplicate** (`ambiguous_match`), **New email sender** (`unknown_sender`).
+- **Email notifications screen** (`AutoLogEmailScreen`): explanation (what is / isn't used), status, turn on / off; independent of SMS and payment-app detection.
+- **Setup**: new optional "Bank emails" step after payment notifications (v2.1 binaries only).
+- **Center**: "Email notifications" health line and row; dev tool "Bank email · ₹349 Zomato".
+- **Privacy**: SMS / notification / email access lines, tracked accounts, email privacy bullets. **How it works**: bank emails section.
+- **Why was this logged?**: email sources, "Financial email detected", merchant, "Same transaction reference", three-source wording. Transactions show every source (email → notification → SMS chains included).
+- FAQ: 2 email questions.
+- Tests: `tests/autoLogEmail.test.ts` (32) — parser, identity rules, email-only, account filtering, unknown sender, OTP/login, duplicates, SMS↔email, notification↔email, all three sources, delayed email, ambiguous matches, independent sources, old emails.
+
+### Changed
+- A shared transaction reference now matches SMS ↔ payment notification at any delay (previously only within 15 minutes). Different references still never match.
+- `db.getEventsForExpense` also returns sources merged into a merged source.
+- Version 2.1.0.
+
+ — Automatic Logging ⚡
 
 > **Native release — new APK required.** Native changes (SMS receiver, notification listener, SQLCipher, background tasks) cannot be delivered by OTA.
 

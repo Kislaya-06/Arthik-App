@@ -23,6 +23,9 @@ interface ArthikAutoLogNative {
   setCaptureEnabled(enabled: boolean): void;
   isCaptureEnabled(): boolean;
   getLastEventAt(): number;
+  /** v2.1: separate opt-in for email-app notifications. Missing on v2.0 binaries. */
+  setEmailEnabled?(enabled: boolean): void;
+  isEmailEnabled?(): boolean;
   drainQueue(): string[];
   getQueueSize(): number;
   clearQueue(): void;

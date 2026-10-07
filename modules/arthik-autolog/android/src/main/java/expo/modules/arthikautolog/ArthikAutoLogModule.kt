@@ -25,6 +25,8 @@ class ArthikAutoLogModule : Module() {
     Function("setCaptureEnabled") { enabled: Boolean -> EventQueue.setCaptureEnabled(context, enabled) }
     Function("isCaptureEnabled") { EventQueue.isCaptureEnabled(context) }
     Function("getLastEventAt") { EventQueue.lastEventAt(context).toDouble() }
+    Function("setEmailEnabled") { enabled: Boolean -> EventQueue.setEmailEnabled(context, enabled) }
+    Function("isEmailEnabled") { EventQueue.isEmailEnabled(context) }
 
     // ── Queue ──
     Function("drainQueue") { EventQueue.drain(context) }

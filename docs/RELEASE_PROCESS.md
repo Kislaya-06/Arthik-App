@@ -1,4 +1,6 @@
-# Release Process — Arthik v2.0.0 (aur aage ke saare APK releases)
+# Release Process — Arthik (v2.0.0 se, aur aage ke saare APK releases)
+
+> **Abhi ka release: v2.1.0** (bank emails). Neeche ke steps same hain — bas har jagah `2.0.0` / `v2.0.0` ki jagah `2.1.0` / `v2.1.0` likho. Ready-made SQL: Section 9.
 
 > Ye playbook ek baar dhyan se poori padh lo, phir upar se neeche **order me** karo.
 > Har phase ke end me ek **✅ Check** hai. Check pass na ho to **aage mat badho**.
@@ -311,3 +313,28 @@ App flag ko login ke baad padhti hai (aur last value yaad rakhti hai). Change di
 [ ] Apne phone pe end-to-end
 ```
 Sirf JS change? → APK nahi, bas `eas update --branch preview`.
+
+---
+
+## 9. v2.1.0 (Bank emails) — ready SQL
+
+Phase 5.2 ki jagah ye chalao (Phase 1–4 poore hone ke baad, `v2.1.0` release aur `Arthik.apk` upload ho chuka ho):
+```sql
+UPDATE public.app_config
+SET value = jsonb_build_object(
+      'min_supported_version', '2.1.0',
+      'force_update_enabled', true,
+      'release_url', 'https://github.com/Kislaya-06/Arthik-App/releases/download/v2.1.0/Arthik.apk',
+      'apk_url',     'https://github.com/Kislaya-06/Arthik-App/releases/download/v2.1.0/Arthik.apk',
+      'update_title', 'Arthik 2.1 — bank emails',
+      'update_highlights', jsonb_build_array(
+        'Automatic Logging can now read bank and payment emails (optional)',
+        'One payment = one transaction across SMS, app notification and email',
+        'Unsure matches wait for your review instead of creating duplicates'
+      )
+    ),
+    updated_at = NOW()
+WHERE key = 'version_control';
+```
+Koi naya Supabase table / migration nahi hai is release me. Feature flag (`feature_flags`) wahi rehta hai.
+

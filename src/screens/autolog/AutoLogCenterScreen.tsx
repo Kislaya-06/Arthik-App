@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { Inbox, Landmark, BookOpen, Lock, PauseCircle, PlayCircle, Power, Zap, ShieldCheck, Smartphone } from 'lucide-react-native';
+import { Mail, Inbox, Landmark, BookOpen, Lock, PauseCircle, PlayCircle, Power, Zap, ShieldCheck, Smartphone } from 'lucide-react-native';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
@@ -187,6 +187,9 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
             )}
             <CheckLine ok={s.health.sms} label="SMS access" onFix={() => Linking.openSettings()} />
             <CheckLine ok={s.health.notifications} label="Notification access" optional onFix={openNotificationAccess} />
+            {service.emailSupported() ? (
+              <CheckLine ok={s.health.email} label="Email notifications" optional onFix={() => navigation.navigate('AutoLogEmail')} />
+            ) : null}
             <CheckLine ok={s.health.accounts} label="Tracked accounts" onFix={() => navigation.navigate('AutoLogAccounts')} />
             <CheckLine ok={s.health.battery} label="Background access" onFix={openBatterySettings} />
           </Card>
@@ -243,11 +246,12 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
           <Card>
             <SectionLabel>Developer test tools (dev build only)</SectionLabel>
             <Body muted style={{ marginBottom: Spacing.group }}>
-              Sends fake events through the real pipeline. Try 1 → 2 to see a notification + SMS merge into one transaction.
+              Sends fake events through the real pipeline. Try 1 → 2 → 3 to see a notification, an SMS and an email become one transaction.
             </Body>
             {([
               ['notification_debit', '1. PhonePe notification · ₹349 Zomato'],
               ['sms_debit', '2. Bank SMS · ₹349 Zomato'],
+              ['email_debit', '3. Bank email · ₹349 Zomato'],
               ['sms_credit_person', 'Bank SMS · ₹2,000 from Rahul (review)'],
               ['sms_unreadable', 'Unreadable bank message (review)'],
               ['expire_previews', 'Skip 20 min (expire waiting previews)'],
@@ -276,6 +280,14 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
             <>
               <NavRow icon={<Inbox size={18} color={colors.textPrimary} />} label="Pending Review" badge={s.pendingCount} onPress={() => navigation.navigate('AutoLogReview')} />
               <NavRow icon={<Landmark size={18} color={colors.textPrimary} />} label="Tracked Accounts" detail={`${tracked.length} tracked`} onPress={() => navigation.navigate('AutoLogAccounts')} />
+              {service.emailSupported() ? (
+                <NavRow
+                  icon={<Mail size={18} color={colors.textPrimary} />}
+                  label="Email notifications"
+                  detail={s.emailEnabled ? (s.health?.email ? 'On' : 'On · needs notification access') : 'Off'}
+                  onPress={() => navigation.navigate('AutoLogEmail')}
+                />
+              ) : null}
             </>
           ) : null}
           <NavRow icon={<BookOpen size={18} color={colors.textPrimary} />} label="How Automatic Logging Works" onPress={() => navigation.navigate('AutoLogInfo', { section: 'how' })} />

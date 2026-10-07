@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
-import { MessageSquareText, BellRing, BatteryCharging, ShieldCheck, Zap, Search, CheckCircle2, CloudOff } from 'lucide-react-native';
+import { Mail, MessageSquareText, BellRing, BatteryCharging, ShieldCheck, Zap, Search, CheckCircle2, CloudOff } from 'lucide-react-native';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
@@ -13,6 +13,7 @@ import { AppButton } from '../../components/ui/AppButton';
 import { GradientIconBadge } from '../../components/GradientIconBadge';
 import { BetaPill, Body, Bullet, Card, Checkbox, Heading, ProgressBar, Reassurance, ScreenHeader, SectionLabel, StepDots } from '../../components/autolog/AutoLogUi';
 import { ReviewSheet } from '../../components/autolog/ReviewSheet';
+import { EmailSourceInfo } from '../../components/autolog/EmailSourceInfo';
 import * as service from '../../features/autoLog/service';
 import * as db from '../../features/autoLog/db';
 import {
@@ -26,7 +27,7 @@ import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types'
 import type { RemoteAccount } from '../../features/autoLog/remote';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogSetup'>;
-type Step = 'dataLoss' | 'intro' | 'sms' | 'notifications' | 'battery' | 'discovery' | 'accounts' | 'review' | 'complete';
+type Step = 'dataLoss' | 'intro' | 'sms' | 'notifications' | 'email' | 'battery' | 'discovery' | 'accounts' | 'review' | 'complete';
 
 const keyOf = (a: RemoteAccount) => `${a.bankCode}:${a.last4}`;
 
@@ -41,7 +42,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
     () =>
       mode === 'learn'
         ? ['discovery', 'accounts', 'review', 'complete']
-        : [...(mode === 'resetup' ? (['dataLoss'] as Step[]) : []), 'intro', 'sms', 'notifications', 'battery', 'discovery', 'accounts', 'review', 'complete'],
+        : [...(mode === 'resetup' ? (['dataLoss'] as Step[]) : []), 'intro', 'sms', 'notifications', ...(service.emailSupported() ? (['email'] as Step[]) : []), 'battery', 'discovery', 'accounts', 'review', 'complete'],
     [mode]
   );
   const [step, setStep] = useState<Step>(steps[0]);
@@ -51,6 +52,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
   const [smsState, setSmsState] = useState<'unknown' | 'granted' | 'denied' | 'blocked'>('unknown');
   const [notifOk, setNotifOk] = useState(false);
   const [batteryOk, setBatteryOk] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
 
   // discovery
   const [progress, setProgress] = useState({ checked: 0, total: 0, phase: 'reading' as 'reading' | 'understanding' });
@@ -324,7 +326,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
             <Bullet tone="ok">Google Pay, PhonePe, Paytm, Navi and other supported payment apps usually notify you first.</Bullet>
             <Bullet tone="ok">Arthik shows it as a preview: "Payment detected · Waiting for bank confirmation".</Bullet>
             <Bullet tone="ok">The bank SMS stays the source of truth. Both are combined into one transaction.</Bullet>
-            <Bullet tone="no">Notifications from other apps (chats, social, email) are ignored.</Bullet>
+            <Bullet tone="no">Notifications from other apps (chats, social) are ignored. Email apps only if you turn on email detection next.</Bullet>
           </Card>
           <Card>
             <Body muted>
@@ -345,6 +347,40 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
         </>
       );
       break;
+    case 'email': {
+      const chooseEmail = async (on: boolean) => {
+        if (!userId) return;
+        setEmailBusy(true);
+        await service.setEmailEnabled(userId, on); // saved now, applied when setup completes
+        setEmailBusy(false);
+        next();
+      };
+      body = (
+        <>
+          {hero(<Mail size={30} color={colors.textPrimary} />, 'Bank emails (optional)', 'For banks and cards that email you instead of sending an SMS.')}
+          <EmailSourceInfo />
+          {!notifOk ? (
+            <Card tone="peach">
+              <Body>Email detection uses Notification access. You skipped it — you can turn this on later from Automatic Logging → Email notifications.</Body>
+            </Card>
+          ) : null}
+        </>
+      );
+      footer = (
+        <>
+          <AppButton
+            label="Turn on email detection"
+            size="cta"
+            loading={emailBusy}
+            disabled={!notifOk}
+            icon={<Mail size={18} color={colors.textPrimary} />}
+            onPress={() => chooseEmail(true)}
+          />
+          <AppButton label="Not now" variant="ghost" style={{ marginTop: Spacing.element }} disabled={emailBusy} onPress={() => chooseEmail(false)} />
+        </>
+      );
+      break;
+    }
     case 'battery':
       body = (
         <>

@@ -57,6 +57,7 @@ export const native = {
   inbox: [] as InboxSms[],
   queue: [] as string[],
   capture: false,
+  email: false,
   notifAccess: true,
   battery: true,
 };
@@ -68,6 +69,8 @@ const isFinancial = (address: string, body: string) =>
 export const fakeNative = {
   isAvailable: () => true,
   setCaptureEnabled: (v: boolean) => void (native.capture = v),
+  setEmailEnabled: (v: boolean) => void (native.email = v),
+  isEmailEnabled: () => native.email,
   isCaptureEnabled: () => native.capture,
   getLastEventAt: () => 0,
   drainQueue: () => native.queue.splice(0),
@@ -94,6 +97,10 @@ export const fakeNative = {
 export const receiveSms = (address: string, body: string, date: number) => {
   native.inbox.push({ id: String(native.inbox.length + 1), address, body, date });
   if (native.capture && isFinancial(address, body)) native.queue.push(JSON.stringify({ type: 'sms', address, body, date }));
+};
+/** What the native listener pushes for an email-app notification (only when capture + email are ON). */
+export const receiveEmail = (sender: string, body: string, date: number, app = 'Gmail') => {
+  if (native.capture && native.email) native.queue.push(JSON.stringify({ type: 'email', app, title: sender, body, date }));
 };
 export const receiveNotification = (app: string, title: string, body: string, date: number) => {
   if (native.capture) native.queue.push(JSON.stringify({ type: 'notification', app, title, body, date }));
@@ -156,6 +163,7 @@ export const resetEnv = () => {
   native.inbox = [];
   native.queue = [];
   native.capture = false;
+  native.email = false;
   native.notifAccess = true;
   native.battery = true;
   ledger.txs.clear();

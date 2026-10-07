@@ -23,6 +23,14 @@ object EventQueue {
     ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("capture_enabled", enabled).apply()
   }
 
+  /** Separate opt-in for email notifications (Automatic Logging must also be capturing). */
+  fun isEmailEnabled(ctx: Context): Boolean =
+    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("email_enabled", false)
+
+  fun setEmailEnabled(ctx: Context, enabled: Boolean) {
+    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("email_enabled", enabled).apply()
+  }
+
   fun lastEventAt(ctx: Context): Long =
     ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("last_event_at", 0L)
 

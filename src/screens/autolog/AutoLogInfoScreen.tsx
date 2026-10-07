@@ -7,7 +7,7 @@ import { Lock } from 'lucide-react-native';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../../store/themeStore';
 import { Spacing, FontSize, FontFamily } from '../../config/theme';
-import { Body, Bullet, Card, ScreenHeader, SectionLabel, StatusDot } from '../../components/autolog/AutoLogUi';
+import { Body, Bullet, Card, CheckLine, ScreenHeader, SectionLabel, StatusDot } from '../../components/autolog/AutoLogUi';
 import { useAutoLogStore } from '../../features/autoLog/store';
 import { accountLabel, modeCopy, relative, STATE_COPY } from '../../features/autoLog/copy';
 
@@ -37,6 +37,14 @@ export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
                   {tracked.map((a) => <Text key={a.key} style={[styles.acc, { color: colors.textPrimary }]}>{accountLabel(a)}</Text>)}
                 </View>
               ) : null}
+              {s.health ? (
+                <View style={{ marginTop: Spacing.group }}>
+                  <CheckLine ok={s.health.sms} label="SMS access" />
+                  <CheckLine ok={s.health.notifications} label="Notification access" optional />
+                  <CheckLine ok={s.health.email} label="Email notification access" optional />
+                  <CheckLine ok={s.health.accounts} label={`Tracked accounts: ${tracked.length}`} />
+                </View>
+              ) : null}
               <Body muted style={{ marginTop: Spacing.element }}>Last checked: {relative(s.lastChecked)}</Body>
               <View style={styles.lock}>
                 <Lock size={14} color={colors.mintGreenDark} />
@@ -46,6 +54,8 @@ export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
             <Card>
               <SectionLabel>On this phone</SectionLabel>
               <Bullet tone="ok">SMS content: Not uploaded for transaction detection</Bullet>
+              <Bullet tone="ok">Email content: Not uploaded — only bank / payment email notifications are read, on this phone</Bullet>
+              <Bullet tone="ok">Non-financial, OTP, login and password emails: Not transaction inputs</Bullet>
               <Bullet tone="ok">Personal messages: Not processed — SMS from phone numbers are dropped before anything else runs</Bullet>
               <Bullet tone="ok">OTP messages: Not processed</Bullet>
               <Bullet tone="ok">Detection data is stored in an encrypted database that only Arthik can open</Bullet>
@@ -56,11 +66,13 @@ export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={[styles.sub, { color: colors.textPrimary }]}>Used</Text>
               <Bullet tone="ok">Supported bank transaction SMS</Bullet>
               <Bullet tone="ok">Payment notifications from Google Pay, PhonePe, Paytm, Navi, BHIM, CRED, Amazon Pay, MobiKwik, super.money</Bullet>
+              <Bullet tone="ok">If you turn it on: bank / payment email notifications from Gmail, Outlook and other supported email apps (sender, subject, preview only — not your inbox)</Bullet>
               <Text style={[styles.sub, { color: colors.textPrimary, marginTop: Spacing.group }]}>Not used as transaction inputs</Text>
               <Bullet tone="no">OTP messages</Bullet>
               <Bullet tone="no">Personal SMS</Bullet>
               <Bullet tone="no">Promotional / unrelated messages</Bullet>
               <Bullet tone="no">Notifications from any other app</Bullet>
+              <Bullet tone="no">Personal or unrelated emails, and old emails from before you turned email on</Bullet>
             </Card>
             <Card>
               <SectionLabel>What leaves your phone</SectionLabel>
@@ -95,6 +107,13 @@ export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
               <Bullet>If both describe the same payment, they become one transaction ("Matched automatically").</Bullet>
               <Bullet>Sure about it → logged automatically. Not sure → Pending Review. Arthik never guesses.</Bullet>
               <Bullet>If no bank SMS comes within 20 minutes, the payment waits in Pending Review instead of being logged.</Bullet>
+            </Card>
+            <Card>
+              <SectionLabel>Bank emails (optional)</SectionLabel>
+              <Bullet>Some banks and cards send an email instead of an SMS. Turn on Automatic Logging → Email notifications.</Bullet>
+              <Bullet>An email alone can log a transaction when the sender is a known bank / payment app and the account is one you track.</Bullet>
+              <Bullet>If the email describes a payment Arthik already has (same reference, or the same amount, account and merchant), it is added as another source — never a second transaction, even if it arrives hours later.</Bullet>
+              <Bullet>If it could be more than one existing payment, it waits in Pending Review.</Bullet>
             </Card>
             <Card>
               <SectionLabel>Accuracy rules</SectionLabel>

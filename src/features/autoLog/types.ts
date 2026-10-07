@@ -4,7 +4,7 @@
  */
 
 export type Direction = 'debit' | 'credit';
-export type EventSource = 'sms' | 'notification';
+export type EventSource = 'sms' | 'notification' | 'email';
 
 /** Why an event exists in the pipeline. Discovery never creates transactions. */
 export type EventOrigin = 'live' | 'recovery' | 'discovery';
@@ -36,6 +36,12 @@ export interface ParsedMessage {
   isCardBill?: boolean;
   creditKind?: CreditKind;
   template: string;  // privacy-safe format signature (numbers/names removed)
+  /** Email only: sender is a known bank / payment provider (unknown senders get lower confidence). */
+  senderRecognized?: boolean;
+  /** Email only: the sender is the bank itself, so `bankCode:last4` names the account exactly. */
+  senderIsBank?: boolean;
+  /** When the transaction happened, if the message says so (emails often arrive hours later). */
+  txnTime?: number;
 }
 
 export type EventStatus =
@@ -56,7 +62,9 @@ export type ReviewReason =
   | 'possible_duplicate' // a manual entry looks the same
   | 'unrecognized'       // financial-looking, could not parse safely
   | 'notification_only'  // bank SMS never arrived
-  | 'no_account';        // could not tell which account
+  | 'no_account'         // could not tell which account
+  | 'ambiguous_match'    // could be the same as more than one existing transaction (or only weakly matches one)
+  | 'unknown_sender';    // financial email from a sender Arthik does not recognise yet
 
 export interface AutoLogEvent {
   id: string;
@@ -102,4 +110,6 @@ export interface HealthReport {
   notifications: boolean;
   battery: boolean;
   accounts: boolean;
+  /** Email notifications: on AND notification access granted. Optional source — never "needs attention". */
+  email: boolean;
 }

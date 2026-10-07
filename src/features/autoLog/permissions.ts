@@ -57,12 +57,13 @@ export const openBatterySettings = () => {
   }
 };
 
-export const getHealth = async (trackedCount: number): Promise<HealthReport> => ({
+export const getHealth = async (trackedCount: number, emailOn = false): Promise<HealthReport> => ({
   nativeAvailable: isAutoLogNativeAvailable(),
   sms: await hasSmsPermission(),
   notifications: hasNotificationAccess(),
   battery: isBatteryUnrestricted(),
   accounts: trackedCount > 0,
+  email: emailOn && hasNotificationAccess(),
 });
 
 /** Notification access is a "fast preview" bonus; SMS, battery and accounts are required. */

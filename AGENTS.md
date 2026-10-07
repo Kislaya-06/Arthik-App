@@ -492,3 +492,15 @@ Read `docs/RELEASE_PROCESS.md` and `docs/AGENT_BRIEF.md`.
 - **Automatic Logging is Beta**, gated by `app_config.feature_flags.autolog.audience` (`existing` | `all` | `none`). Logic in `src/features/autoLog/rollout.ts`; never hide it from someone already using it; the one-time intro is for existing users only. Every place that names the feature shows the `BetaPill`.
 - Manual-only (owner): SQL in Supabase, EAS builds/credentials, GitHub Releases, device testing.
 
+# 14. Email Notification Source (v2.1) — Invariants
+
+See `docs/AUTO_LOGGING.md` §9 and the product spec `docs/specs/EMAIL_AUTO_LOGGING_SPEC.md`.
+- Email is a **source**, not a separate system: every email goes through `engine.processEmail` → the same events table, review, ledger.
+- Identity is source-agnostic (`matching.identityScore` / `decideIdentity`): same reference wins at any delay; without one, amount + direction **and** supporting details must agree; contradictions (different last 4 / merchant / reference) never merge; same-source events never fuzzy-merge; ≥2 possible matches or only weak evidence → Pending Review (`ambiguous_match`).
+- Arrival time is not identity; use `parser.extractTxnTime` when the email states the transaction time.
+- Never log an email whose account is named but not tracked. Payment-provider / unknown-sender emails map to a tracked account by last 4 only if exactly one matches.
+- Unknown email senders never auto-log (`unknown_sender` review).
+- Email is opt-in (`meta.email_enabled` + native `email_enabled`). Email failures must never break SMS / notification processing (`processQueue` wraps email in try/catch).
+- No email text, sender address, or inbox access leaves the device; old emails are never imported (email is live-only).
+- Native email allow-list lives in `FinancialFilter.kt` (`EMAIL_APPS`) and must match `SUPPORTED_EMAIL_APPS` in `EmailSourceInfo.tsx`. Changing it needs a new APK.
+

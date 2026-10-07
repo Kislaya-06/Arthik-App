@@ -1,9 +1,13 @@
 import * as Crypto from 'expo-crypto';
-import { hash, maskSensitive, parseNotification, parseSms } from './parser';
+import { hash, maskSensitive, parseEmail, parseNotification, parseSms } from './parser';
 import {
   CROSS_SOURCE_WINDOW_MS,
   NOTIFICATION_WAIT_MS,
   TRANSFER_WINDOW_MS,
+  IDENTITY_WINDOW_MS,
+  IdentitySource,
+  decideIdentity,
+  identityScore,
   isCrossSourceMatch,
   isOwnTransferPair,
   isSameSourceDuplicate,
@@ -21,6 +25,8 @@ import type { AutoLogEvent, EventOrigin, EventStatus, ParsedMessage, ReviewReaso
 
 export interface RawSms { address: string; body: string; date: number }
 export interface RawNotification { app: string; title: string; body: string; date: number }
+/** Email-app notification: title = sender display name, body = subject + preview. */
+export interface RawEmail { app: string; title: string; body: string; date: number }
 
 export interface ProcessOptions {
   origin: EventOrigin;
@@ -49,7 +55,7 @@ const baseEvent = (
   fingerprint: string,
   origin: EventOrigin
 ): AutoLogEvent => ({
-  id: `${p.source === 'sms' ? 'sms' : 'ntf'}:${fingerprint}:${Math.floor(occurredAt / 1000)}`,
+  id: `${p.source === 'sms' ? 'sms' : p.source === 'email' ? 'eml' : 'ntf'}:${fingerprint}:${Math.floor(occurredAt / 1000)}`,
   source: p.source,
   origin,
   sender,
@@ -95,6 +101,66 @@ const autoExpenseIds = async (): Promise<Set<string>> => {
   return new Set(rows.map((r) => r.expenseId as string));
 };
 
+// ─── Source-agnostic identity (v2.1) ─────────────────────────────────────────
+
+const ROOT_STATUSES = ['logged', 'queued', 'pending', 'awaiting_sms'];
+
+/** Does this transaction (root event) already have a source of this type? One email per transaction, etc. */
+const rootHasSource = async (root: AutoLogEvent, source: IdentitySource): Promise<boolean> => {
+  if (root.source === source) return true;
+  return (await db.findEvents('matched_id = ? AND source = ?', root.id, source)).length > 0;
+};
+
+interface IdentityResult {
+  kind: 'none' | 'match' | 'ambiguous' | 'weak';
+  root?: AutoLogEvent;
+  evidence?: AutoLogEvent;
+  byReference?: boolean;
+}
+
+/**
+ * "Does this new event describe a transaction we already have?" — for any source.
+ * Looks at events of `sources`, follows merged → root, scores each root once.
+ */
+const findIdentity = async (e: AutoLogEvent, sources: IdentitySource[]): Promise<IdentityResult> => {
+  if (e.amount == null || !e.direction) return { kind: 'none' };
+  const rows = await db.findEvents(
+    `source IN (${sources.map(() => '?').join(',')}) AND id != ? AND direction = ? AND amount = ?
+     AND status IN ('logged','queued','pending','awaiting_sms','merged')
+     AND ((occurred_at BETWEEN ? AND ?) OR (ref IS NOT NULL AND ref = ?))`,
+    ...sources, e.id, e.direction, e.amount, e.occurredAt - IDENTITY_WINDOW_MS, e.occurredAt + IDENTITY_WINDOW_MS, e.ref ?? '\u0000'
+  );
+  // Best evidence per root transaction.
+  const perRoot = new Map<string, { root: AutoLogEvent; evidence: AutoLogEvent; score: number }>();
+  for (const r of rows) {
+    let root = r;
+    if (r.status === 'merged') {
+      const t = r.matchedId ? await db.getEvent(r.matchedId) : null;
+      if (!t) continue;
+      root = t;
+    }
+    if (!ROOT_STATUSES.includes(root.status)) continue;
+    const s = identityScore(e as any, r as any);
+    if (s === null) continue;
+    // Without a shared reference, a transaction that already has this kind of source can't take another one.
+    if (s < 100 && (await rootHasSource(root, e.source))) continue;
+    const prev = perRoot.get(root.id);
+    if (!prev || s > prev.score) perRoot.set(root.id, { root, evidence: r, score: s });
+  }
+  const reps = Array.from(perRoot.values());
+  const decision = decideIdentity(e as any, reps.map((x) => ({ ...x.evidence, __root: x.root }) as any));
+  if (decision.kind === 'match') {
+    const t = decision.target as any;
+    return { kind: 'match', root: t.__root, evidence: t, byReference: decision.byReference };
+  }
+  return { kind: decision.kind };
+};
+
+/** Statuses where a stronger, account-backed source should take over as the main record. */
+const canTakeOver = (root: AutoLogEvent) =>
+  root.status === 'awaiting_sms' ||
+  (root.status === 'pending' && (root.reviewReason === 'notification_only' || root.reviewReason === 'no_account' || root.reviewReason === 'unknown_sender'));
+
 const reviewQuestion: Record<ReviewReason, string> = {
   type: 'Is this income or an expense?',
   category: 'Choose a category.',
@@ -102,6 +168,8 @@ const reviewQuestion: Record<ReviewReason, string> = {
   unrecognized: 'Arthik could not read this message safely.',
   notification_only: 'Bank confirmation did not arrive.',
   no_account: 'Which account was this?',
+  ambiguous_match: 'This may already be logged. Please check.',
+  unknown_sender: 'Financial email from a new sender.',
 };
 
 const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: ProcessOptions) => {
@@ -241,10 +309,27 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
     return { status: 'transfer', eventId: e.id };
   }
 
+  // ── v2.1: does an EMAIL already describe this payment? (email may have arrived first) ──
+  let takeOverRoot: AutoLogEvent | null = null;
+  const viaEmail = await findIdentity(e, ['email']);
+  if (viaEmail.kind === 'match' && viaEmail.root) {
+    const root = viaEmail.root;
+    if (root.status === 'logged' || root.status === 'queued' || !canTakeOver(root)) {
+      e.status = 'merged';
+      e.matchedId = root.id;
+      await db.insertEvent(e);
+      if (!root.merchant && e.merchant) await db.updateEvent(root.id, { merchant: e.merchant });
+      return { status: 'merged', eventId: e.id, accountKey: e.accountKey, isNewAccount };
+    }
+    takeOverRoot = root; // the bank SMS confirms a pending email → SMS becomes the main record below
+  } else if (viaEmail.kind === 'ambiguous' || viaEmail.kind === 'weak') {
+    return { ...(await finalizePending(e, 'ambiguous_match', opts)), isNewAccount };
+  }
+
   // ── Cross-source match with a payment notification (spec §16, §38.1) ──
   const notifs = await db.findEvents(
-    "source = 'notification' AND status IN ('awaiting_sms','pending') AND occurred_at BETWEEN ? AND ?",
-    e.occurredAt - CROSS_SOURCE_WINDOW_MS, e.occurredAt + CROSS_SOURCE_WINDOW_MS
+    "source = 'notification' AND status IN ('awaiting_sms','pending') AND ((occurred_at BETWEEN ? AND ?) OR (ref IS NOT NULL AND ref = ?))",
+    e.occurredAt - CROSS_SOURCE_WINDOW_MS, e.occurredAt + CROSS_SOURCE_WINDOW_MS, e.ref ?? '\u0000'
   );
   const match = notifs
     .filter((n) => isCrossSourceMatch(n, e))
@@ -269,6 +354,7 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
 
   await logEvent(e, type, pref?.category_id ?? null, account.kind, opts);
   await db.insertEvent(e);
+  if (takeOverRoot) await db.updateEvent(takeOverRoot.id, { status: 'merged', matchedId: e.id, reviewReason: null });
   return { status: e.status, eventId: e.id, accountKey: e.accountKey, isNewAccount };
 };
 
@@ -298,8 +384,8 @@ export const processNotification = async (raw: RawNotification, opts: ProcessOpt
 
   // Bank SMS may have arrived first.
   const smsEvents = await db.findEvents(
-    "source = 'sms' AND status IN ('logged','pending','queued') AND occurred_at BETWEEN ? AND ?",
-    e.occurredAt - CROSS_SOURCE_WINDOW_MS, e.occurredAt + CROSS_SOURCE_WINDOW_MS
+    "source = 'sms' AND status IN ('logged','pending','queued') AND ((occurred_at BETWEEN ? AND ?) OR (ref IS NOT NULL AND ref = ?))",
+    e.occurredAt - CROSS_SOURCE_WINDOW_MS, e.occurredAt + CROSS_SOURCE_WINDOW_MS, e.ref ?? '\u0000'
   );
   for (const s of smsEvents) {
     if (!isCrossSourceMatch(s, e)) continue;
@@ -312,10 +398,163 @@ export const processNotification = async (raw: RawNotification, opts: ProcessOpt
     return { status: 'merged', eventId: e.id };
   }
 
+  // v2.1: an email may already describe this payment.
+  const viaEmail = await findIdentity(e, ['email']);
+  if (viaEmail.kind === 'match' && viaEmail.root) {
+    e.status = 'merged';
+    e.matchedId = viaEmail.root.id;
+    await db.insertEvent(e);
+    if (!viaEmail.root.merchant && e.merchant) await db.updateEvent(viaEmail.root.id, { merchant: e.merchant });
+    return { status: 'merged', eventId: e.id };
+  }
+
   e.status = 'awaiting_sms';
   await db.insertEvent(e);
   if (opts.notify) await notifyPreview(e.id, e.amount, e.merchant);
   return { status: 'awaiting_sms', eventId: e.id };
+};
+
+// ─── Email notifications (v2.1, live only) ──────────────────────────────────
+
+/**
+ * Email is one more source of evidence, not a separate system (spec email §1, §40):
+ * parse → filter → account check → identity against ALL sources → merge / review / new transaction.
+ */
+export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise<ProcessResult> => {
+  if (opts.origin !== 'live') return { status: 'skipped' }; // old emails are never imported
+  const parsed = parseEmail(raw.title, raw.body, raw.date);
+  if (parsed.kind === 'otp') return { status: 'skipped' }; // OTP / login / password mails: never stored
+
+  const text = `${raw.title}: ${raw.body}`.trim();
+  const fingerprint = hash(`email|${raw.title}|${normalizeBody(raw.body)}`);
+  const occurredAt = parsed.txnTime ?? raw.date; // transaction time, not arrival time (spec email §17)
+  const e = baseEvent(parsed, parsed.bank, text, occurredAt, fingerprint, 'live');
+  if (await db.getEvent(e.id)) return { status: 'duplicate', eventId: e.id };
+  // The same email shown again (notification updated / re-posted).
+  const same = await db.findEvents(
+    "source = 'email' AND fingerprint = ? AND occurred_at BETWEEN ? AND ?",
+    fingerprint, occurredAt - 3 * 86400_000, occurredAt + 3 * 86400_000
+  );
+  if (same.length) return { status: 'duplicate' };
+
+  if (parsed.kind === 'future' || parsed.kind === 'failed' || parsed.kind === 'balance' || parsed.kind === 'promo') {
+    e.status = 'ignored';
+    await db.insertEvent(e);
+    return { status: 'ignored' };
+  }
+
+  // Which account? A bank's own email names it exactly (bank + last 4). A payment provider or an
+  // unknown sender only knows the last 4 digits → use the tracked account with those digits, if exactly one.
+  let isNewAccount = false;
+  if (parsed.last4) {
+    if (parsed.senderIsBank && e.accountKey) {
+      isNewAccount = !(await db.getAccount(e.accountKey));
+      await db.touchAccount(
+        { key: e.accountKey, bank: parsed.bank, bankCode: parsed.bankCode, last4: parsed.last4, kind: parsed.accountKind || 'bank' },
+        occurredAt,
+        isNewAccount
+      );
+    } else {
+      const sameDigits = (await db.listAccounts()).filter((a) => a.last4 === parsed.last4);
+      const tracked = sameDigits.filter((a) => a.tracked);
+      if (tracked.length === 1) e.accountKey = tracked[0].key;
+      else if (sameDigits.length >= 1 && tracked.length === 0) e.accountKey = sameDigits[0].key; // known, untracked → filtered below
+      else e.accountKey = null; // unknown or ambiguous → never guess the account (spec email §34)
+    }
+  }
+
+  const verdict = await ruleVerdict(e);
+  if (verdict === 'ignore') {
+    e.status = 'ignored';
+    await db.insertEvent(e);
+    return { status: 'ignored', accountKey: e.accountKey, isNewAccount };
+  }
+  if (verdict && parsed.kind === 'unknown') {
+    const amount = looseAmount(raw.body);
+    if (amount) {
+      e.kind = 'txn';
+      e.amount = amount;
+      e.direction = verdict.accept;
+    }
+  }
+  if (e.kind !== 'txn' || e.amount == null || !e.direction) {
+    return { ...(await finalizePending(e, 'unrecognized', opts)), isNewAccount }; // no silent data loss
+  }
+
+  // Account filtering: an email that names an account the user did not select is never logged (spec email §33).
+  const account = e.accountKey ? await db.getAccount(e.accountKey) : null;
+  if (e.accountKey && !account?.tracked) {
+    e.status = 'untracked';
+    await db.insertEvent(e);
+    return { status: 'untracked', accountKey: e.accountKey, isNewAccount };
+  }
+
+  // Identity against every source (spec email §14–24).
+  const id = await findIdentity(e, ['sms', 'notification', 'email']);
+  let takeOverRoot: AutoLogEvent | null = null;
+  if (id.kind === 'match' && id.root) {
+    const root = id.root;
+    if (id.byReference && id.evidence?.source === 'email') {
+      e.status = 'duplicate'; // the same email again
+      await db.insertEvent(e);
+      return { status: 'duplicate' };
+    }
+    if (root.status === 'logged' || root.status === 'queued' || !account || !canTakeOver(root)) {
+      // Confirmation / enrichment of an existing transaction (spec email §8–10, §27).
+      e.status = 'merged';
+      e.matchedId = root.id;
+      await db.insertEvent(e);
+      if (!root.merchant && e.merchant) await db.updateEvent(root.id, { merchant: e.merchant });
+      return { status: 'merged', eventId: e.id, accountKey: e.accountKey, isNewAccount };
+    }
+    takeOverRoot = root; // e.g. notification waiting for an SMS that never came — the email confirms it
+    if (!e.merchant && root.merchant) e.merchant = root.merchant;
+  } else if (id.kind === 'ambiguous' || id.kind === 'weak') {
+    return { ...(await finalizePending(e, 'ambiguous_match', opts)), isNewAccount }; // spec email §21
+  }
+
+  const finishTakeOver = async () => {
+    if (takeOverRoot) await db.updateEvent(takeOverRoot.id, { status: 'merged', matchedId: e.id, reviewReason: null });
+  };
+
+  // New transaction from email (email-only is valid, spec email §7, §28).
+  if (!parsed.senderRecognized) {
+    const r = await finalizePending(e, 'unknown_sender', opts); // spec email §32
+    await finishTakeOver();
+    return { ...r, isNewAccount };
+  }
+  if (!e.accountKey || !account) {
+    const r = await finalizePending(e, 'no_account', opts);
+    await finishTakeOver();
+    return { ...r, isNewAccount };
+  }
+  if (parsed.isCardBill) {
+    e.status = 'transfer';
+    await db.insertEvent(e);
+    await finishTakeOver();
+    return { status: 'transfer', eventId: e.id };
+  }
+
+  const pref = await db.getMerchantPref(e.merchant);
+  let type: 'expense' | 'income' | null = null;
+  if (e.direction === 'debit') type = 'expense';
+  else if (parsed.creditKind === 'salary' || parsed.creditKind === 'interest' || parsed.creditKind === 'refund') type = 'income';
+  else if (pref?.type === 'income' || pref?.type === 'expense') type = pref.type;
+  if (!type) {
+    const r = await finalizePending(e, 'type', opts);
+    await finishTakeOver();
+    return { ...r, isNewAccount };
+  }
+  if (findManualLookalike(e.amount, type, e.occurredAt, await autoExpenseIds())) {
+    const r = await finalizePending(e, 'possible_duplicate', opts);
+    await finishTakeOver();
+    return { ...r, isNewAccount };
+  }
+
+  await logEvent(e, type, pref?.category_id ?? null, account.kind, opts);
+  await db.insertEvent(e);
+  await finishTakeOver();
+  return { status: e.status, eventId: e.id, accountKey: e.accountKey, isNewAccount };
 };
 
 /** Previews whose bank SMS never came → Pending Review (never auto-logged). */

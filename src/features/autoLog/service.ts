@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { ArthikAutoLog, isAutoLogNativeAvailable } from '../../../modules/arthik-autolog';
 import * as db from './db';
-import { flushQueued, processNotification, processSms, RawSms, sweepAwaiting } from './engine';
+import { flushQueued, processEmail, processNotification, processSms, RawSms, sweepAwaiting } from './engine';
 import { DISCOVERY_DAYS, DISCOVERY_MAX_MESSAGES } from './matching';
 import { hasSmsPermission } from './permissions';
 import { fetchRemoteProfile, RemoteAccount, upsertRemoteProfile } from './remote';
@@ -27,6 +27,37 @@ export const isSupported = () => isAutoLogNativeAvailable();
 const setCapture = (on: boolean) => {
   try { ArthikAutoLog?.setCaptureEnabled(on); } catch {}
 };
+
+// ─── Email notifications (v2.1) — separate opt-in, independent of SMS ───────
+
+const setNativeEmail = (on: boolean) => {
+  try { ArthikAutoLog?.setEmailEnabled?.(on); } catch {}
+};
+
+/** Re-applies the saved email choice to the native listener (after sign-in, resume, setup). */
+const applyEmailFlag = async () => setNativeEmail((await db.getMeta('email_enabled')) === '1');
+
+/** True when this app binary can read email notifications (v2.1+ native module). */
+export const emailSupported = () => {
+  try {
+    return !!ArthikAutoLog && typeof ArthikAutoLog.setEmailEnabled === 'function';
+  } catch {
+    return false;
+  }
+};
+
+export const isEmailEnabled = async (userId: string): Promise<boolean> => {
+  await db.openDb(userId);
+  return (await db.getMeta('email_enabled')) === '1';
+};
+
+/** Turns email notification detection on/off. Never touches SMS or payment-app notifications. */
+export const setEmailEnabled = (userId: string, on: boolean) =>
+  serial(async () => {
+    await db.openDb(userId);
+    await db.setMeta('email_enabled', on ? '1' : '0');
+    setNativeEmail(on);
+  });
 
 // ─── State helpers ──────────────────────────────────────────────────────────
 
@@ -70,6 +101,7 @@ export const evaluateEntry = (userId: string): Promise<EntryInfo> =>
         return { decision: { kind: 'welcome_back', from: local.signedOutAt, to: Date.now() }, remoteEnabled: true };
       }
       setCapture(!local.pausedAt);
+      await applyEmailFlag();
       return { decision: { kind: 'none' }, remoteEnabled: true };
     }
     // No local state. If the account had Automatic Logging before, this device lost it (spec §30–31).
@@ -95,7 +127,7 @@ export const dismissDataLoss = async (userId: string) => {
 
 // ─── Live processing ────────────────────────────────────────────────────────
 
-interface QueueLine { type: 'sms' | 'notification'; address?: string; body?: string; date?: number; app?: string; title?: string }
+interface QueueLine { type: 'sms' | 'notification' | 'email'; address?: string; body?: string; date?: number; app?: string; title?: string }
 
 const catchUpInbox = async (since: number, notify: boolean) => {
   if (!(await hasSmsPermission()) || !ArthikAutoLog) return;
@@ -133,6 +165,13 @@ export const processQueue = (userId: string, opts: { notify: boolean } = { notif
         await processSms({ address: ev.address, body: ev.body, date: ev.date }, { origin: 'live', notify: opts.notify });
       } else if (ev.type === 'notification' && ev.app) {
         await processNotification({ app: ev.app, title: ev.title ?? '', body: ev.body ?? '', date: ev.date }, { origin: 'live', notify: opts.notify });
+      } else if (ev.type === 'email' && ev.app) {
+        // Email failure must never break SMS / notification processing (spec email §38–39).
+        try {
+          if ((await db.getMeta('email_enabled')) === '1') {
+            await processEmail({ app: ev.app, title: ev.title ?? '', body: ev.body ?? '', date: ev.date }, { origin: 'live', notify: opts.notify });
+          }
+        } catch {}
       }
     }
     // Safety net: SMS the receiver may have missed (OEM killed the app, etc.).
@@ -260,6 +299,7 @@ export const completeSetup = (
     await db.setMeta('paused_at', null);
     try { ArthikAutoLog?.clearQueue(); } catch {}
     setCapture(true);
+    await applyEmailFlag();
     await SecureStore.deleteItemAsync(dismissKey(userId));
     await syncRemoteAccounts(userId, { enabled: true, setup_at: new Date(now).toISOString(), signed_out_at: null, last_active_at: new Date(now).toISOString() });
     await ensureBackgroundRegistered();
@@ -275,6 +315,7 @@ export const resumeLive = (userId: string) =>
     await db.setMeta('last_checked', String(now));
     try { ArthikAutoLog?.clearQueue(); } catch {}
     setCapture(true);
+    await applyEmailFlag();
     upsertRemoteProfile(userId, { signed_out_at: null, last_active_at: new Date(now).toISOString() });
     await ensureBackgroundRegistered();
   });
@@ -313,6 +354,7 @@ export const onBeforeSignOut = async (userId: string) => {
 export const turnOff = (userId: string) =>
   serial(async () => {
     setCapture(false);
+    setNativeEmail(false);
     try { ArthikAutoLog?.clearQueue(); } catch {}
     await db.deleteLocalData(userId);
     await upsertRemoteProfile(userId, { enabled: false, tracked_accounts: [], signed_out_at: null });
@@ -360,7 +402,7 @@ const unregisterBackground = async () => {
 
 // ─── Developer test tools (used only from __DEV__ UI; never shown in release builds) ──
 
-export type DevSimulation = 'notification_debit' | 'sms_debit' | 'sms_credit_person' | 'sms_unreadable' | 'expire_previews';
+export type DevSimulation = 'notification_debit' | 'sms_debit' | 'email_debit' | 'sms_credit_person' | 'sms_unreadable' | 'expire_previews';
 
 /**
  * Pushes realistic fake events through the REAL live pipeline (parser → engine → ledger),
@@ -382,6 +424,21 @@ export const devSimulate = (userId: string, kind: DevSimulation): Promise<string
     }
     const acc = (await db.listAccounts()).find((a) => a.tracked);
     if (!acc) return 'Track at least one account first.';
+    if (kind === 'email_debit') {
+      const d = new Date(now);
+      const dd = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const r = await processEmail(
+        {
+          app: 'Gmail',
+          title: `${acc.bank} Alerts`,
+          body: `Transaction alert. Rs. 349.00 has been debited from your account XX${acc.last4} for a UPI payment to ZOMATO on ${dd} at ${hm}. Never share your OTP or password with anyone.`,
+          date: now,
+        },
+        { origin: 'live', notify: true }
+      );
+      return `Bank email → ${r.status}${r.reviewReason ? ` (${r.reviewReason})` : ''}`;
+    }
     const sender = `VM-${acc.bankCode}`;
     const ref = String(now).slice(-12).padStart(12, '6');
     const body =
