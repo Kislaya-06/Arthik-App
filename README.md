@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/b305782289c8adc7629de118762576f18d9e1a67bdde620dd03a9874ea73865c)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/fe28fa0f8c19f036ebbeffcbee7f26162e130069cb50d16fe6e498d32d16b271)
 [![Tests](https://img.shields.io/badge/Tests-1103_passing-brightgreen.svg)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
