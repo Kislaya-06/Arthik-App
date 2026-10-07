@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+- `AGENTS.md`: duplicate section numbers fixed (Auto Logging / release / email are now §23 / §24 / §25), new §26 documentation map + local-only files; tech table, repo map, Expo module list, blast-radius files, dev-build notes (two devices, dev tools), test rules for Auto Logging and frozen dates, doc-sync rules for Auto Logging / release.
+- `docs/architecture.md`: test counts (66 files / 1103 tests), Automatic Logging layer, force-update note.
+- Release asset naming: **`Arthik-vX.Y.Z.apk`** (versioned, used by force-update links) **+ `Arthik.apk`** copy (permanent `releases/latest/download/Arthik.apk`). Updated README, AGENTS.md §24, `docs/RELEASE_PROCESS.md` (rewritten as a generic, version-agnostic playbook).
+- `.gitignore`: local guides and APK/AAB build files.
+
 ## [2.1.0] — Bank emails in Automatic Logging ✉️
 
 > **Native release — new APK required** (email apps added to the native notification listener). Force-update users to 2.1.0 (see `docs/RELEASE_PROCESS.md`).
@@ -66,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BetaPill` on the Profile row, Automatic Logging Center and setup; Beta note in setup and FAQ.
 - Migration `supabase/migrations/20261007_release_v2_flags.sql`.
 - `eas.json` preview profile: `autoIncrement: true` (versionCode).
-- Docs: `docs/RELEASE_PROCESS.md` (step-by-step release, force update, rollback, rollout SQL), `docs/AGENT_BRIEF.md`; README rewritten; AGENTS.md §13; Play Store doc updated for the in-app updater.
+- Docs: `docs/RELEASE_PROCESS.md` (step-by-step release, force update, rollback, rollout SQL), `docs/AGENT_BRIEF.md`; README rewritten; AGENTS.md §24; Play Store doc updated for the in-app updater.
 - Tests: `tests/appUpdate.test.ts` (8), `tests/autoLogRollout.test.ts` (11). Suite: 1071 passing.
 
 ### Changed

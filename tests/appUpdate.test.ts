@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateVersionRequirement, resolveApkUrl, DEFAULT_RELEASE_URL } from '../src/lib/versionCheck';
 
-const APK = 'https://github.com/Kislaya-06/Arthik-App/releases/download/v2.0.0/Arthik.apk';
+const APK = 'https://github.com/Kislaya-06/Arthik-App/releases/download/v2.0.0/Arthik-v2.0.0.apk';
 
 describe('force update to v2.0.0', () => {
   const cfg = {

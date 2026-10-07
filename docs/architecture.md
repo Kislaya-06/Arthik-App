@@ -49,7 +49,8 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` |
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**` |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (61 files, 993 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (66 files, 1103 tests) | `tests/**` |
+| **Automatic Logging** | On-device SMS / notification / email → transactions | `modules/arthik-autolog/**`, `src/features/autoLog/**` — see [AUTO_LOGGING.md](AUTO_LOGGING.md) |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
 ### Strict boundary rule
@@ -276,6 +277,8 @@ See [ADR 0006](adr/0006-ota-updates-tied-to-app-version.md).
 
 `runtimeVersion.policy = "appVersion"` — OTA only reaches devices on the exact matching `expo.version`.
 
+**Force update (v2):** `app_config.version_control` → `UpdateRequiredScreen` (no skip). v2+ downloads the APK in-app (`src/lib/apkInstaller.ts`) and opens Android's installer; v1.x opens `release_url` in the browser. Release assets: `Arthik-vX.Y.Z.apk` + copy `Arthik.apk`. Full playbook: [RELEASE_PROCESS.md](RELEASE_PROCESS.md).
+
 ### 11.1 Release Invariants
 - **In-App Update Modal Highlights (`OtaUpdateModal`)**: When publishing an OTA release without bumping the version, always update `app.json` (`expo.extra.otaUpdate.title` and `expo.extra.otaUpdate.highlights`) and `src/store/otaStore.ts` to ensure the on-device update popup displays accurate "What's New" information to users upon downloading the update.
 - **Version Bump Guard & Pre-OTA Confirmation (CRITICAL)**: Because OTA bundles only target matching `appVersion` binaries, publishing an OTA update with a bumped version that does not match the user's installed APK runtime will cause the update to be ignored by all user devices. The agent must verify `app.json` / `package.json` version before every OTA run, and MUST stop and request explicit user confirmation whenever a version bump is present. Version bumps are permitted only when specifically requested by the user for new binary builds, with mandatory confirmation before execution.
@@ -288,7 +291,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v1.2.4**: 61 test files, 993 tests, ~2.5s execution time.
+**Coverage as of v2.1.0**: 66 test files, 1103 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate` (+ `helpers/autoLogTestEnv.ts`).
 
 | Test file | What it covers |
 |---|---|

@@ -1,7 +1,7 @@
 # Arthik
 
 > A premium, offline-first personal expense and savings tracker for India — built with React Native, Expo & Supabase.
-> **New in 2.0:** ⚡ Automatic Logging (Beta) — bank SMS and UPI payments become transactions automatically, processed on your phone.
+> ⚡ **Automatic Logging (Beta)** — bank SMS, UPI payment notifications and (new in 2.1) bank emails become transactions automatically, processed on your phone.
 
 [![React Native](https://img.shields.io/badge/React_Native-0.86-blue.svg)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
@@ -22,7 +22,7 @@ Arthik is **100% safe, ad-free, tracker-free, and open-source**. Every release A
   <img src="./assets/virustotal-scan.png" alt="VirusTotal Security Scan 0/67 Clean" width="100%" />
 </p>
 
-> **🔒 Privacy-First Guarantee**: All bank SMS parsing and UPI notification detection run **strictly on your device**. Personal SMS, OTPs, balance queries, and personal chats are completely filtered out. No SMS text, notification data, or raw financial messages ever leave your phone.
+> **🔒 Privacy-First Guarantee**: All bank SMS parsing, UPI notification detection and bank-email notification detection run **strictly on your device**. Personal SMS and emails, OTPs, login/security mails, balance queries and personal chats are filtered out. No SMS text, email content, notification data or raw financial messages ever leave your phone.
 
 ---
 
@@ -31,6 +31,8 @@ Arthik is **100% safe, ad-free, tracker-free, and open-source**. Every release A
 Arthik is distributed as an Android APK on GitHub — no Play Store needed.
 
 **[⬇️ Download Arthik v2.1.0 APK](https://github.com/Kislaya-06/Arthik-App/releases/download/v2.1.0/Arthik-v2.1.0.apk)** *(or get it from [Latest Releases](https://github.com/Kislaya-06/Arthik-App/releases/latest))*
+
+Always-latest link (share this one): `https://github.com/Kislaya-06/Arthik-App/releases/latest/download/Arthik.apk`
 
 1. Tap the link above on your Android phone (or open [GitHub Releases](https://github.com/Kislaya-06/Arthik-App/releases/latest) → **Assets** → `Arthik-v2.1.0.apk`).
 2. If the browser warns *"This type of file can harm your device"*, tap **Download anyway**.
@@ -203,7 +205,8 @@ Full checklist: [`docs/RELEASE_PROCESS.md`](./docs/RELEASE_PROCESS.md).
 eas build -p android --profile preview                       # release APK (versionCode auto-increments)
 eas update --branch preview --message "Fix: …"               # OTA for JS-only fixes (same app version)
 ```
-Force-update everyone: update the `version_control` row in `app_config` (min version + direct APK link).
+Release assets: **`Arthik-vX.Y.Z.apk`** (required, used by force-update links) **+ `Arthik.apk`** (same file, powers the always-latest link). Tag `vX.Y.Z`.
+Force-update everyone: update the `version_control` row in `app_config` (min version + the versioned direct APK link).
 Widen the Automatic Logging Beta: set `feature_flags.autolog.audience` to `all`.
 
 ---

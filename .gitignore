@@ -63,18 +63,22 @@ supabase/.temp/
 Arthik/
 brag-output/
 
-# Personal Codebase Explainer (Hinglish Guide)
-CODEBASE_EXPLAINER.md
-
-# Local dev scripts & docs
-dev-both.ps1
-install-dev-apk.ps1
-DEV_SETUP_PHONE_AND_EMULATOR.md
-MANUAL_STEPS.md
-AGENT_BRIEF.md
-docs/AGENT_BRIEF.md
-RELEASE_PROCESS.md
-DISTRIBUTE_UPDATE_v2.1.0.md
-DISTRIBUTE_*.md
-
-
+# ─── Local-only guides & scripts (kept on your laptop, never pushed) ───
+# Leading "/" = only the file in the project ROOT. Without it Git ignores the name in
+# every folder (that used to hide docs/RELEASE_PROCESS.md, which IS part of the repo).
+/CODEBASE_EXPLAINER.md
+/CODEBASE_EXPLAINER_OLD.md
+/AGENT_BRIEF.md
+/DEV_SETUP_PHONE_AND_EMULATOR.md
+/DISTRIBUTE_*.md
+/dev-both.ps1
+/install-dev-apk.ps1
+# Hand-off notes that come with update zips
+/PASTE_GUIDE.md
+/PLACEMENT_GUIDE.md
+/AUTO_LOGGING_EXPLAINED.md
+/PROJECT_EXPLAINED.md
+# Old local copies (safe to delete; kept ignored in case they still exist)
+/MANUAL_STEPS.md
+/RELEASE_PROCESS.md
+/docs/AGENT_BRIEF.md

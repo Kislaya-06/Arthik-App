@@ -23,7 +23,11 @@ Arthik is a personal finance, expense and daily-savings tracking app.
 | Fonts | Quicksand via `@expo-google-fonts/quicksand` |
 | Updates | `expo-updates` (EAS Update, OTA) |
 | Offline | `@react-native-community/netinfo` + AsyncStorage pending queues |
-| Tests | Vitest (`npm test` → `vitest run`, config: `vitest.config.mjs`) |
+| On-device secure storage | `expo-sqlite` with **SQLCipher** (Automatic Logging DB), `expo-secure-store` (DB key) |
+| Native (Android) | Local Expo module `modules/arthik-autolog` (Kotlin): SMS receiver, payment/email notification listener, headless task |
+| Background | `expo-task-manager`, `expo-background-task` |
+| In-app APK updates | `expo-file-system`, `expo-intent-launcher`, `expo-application` (+ `REQUEST_INSTALL_PACKAGES`) |
+| Tests | Vitest (`npm test` → `vitest run`, config: `vitest.config.mjs`) — **Node 22+** (Auto Logging tests use `node:sqlite`) |
 
 Android is the only shipped platform today (package `com.kislaya_agarwal.arthik`). iOS config exists but is untested — do not claim iOS support. Follow the existing architecture, patterns, and conventions.
 
@@ -32,29 +36,40 @@ Android is the only shipped platform today (package `com.kislaya_agarwal.arthik`
 # 2. Repository Map
 
 ```
-App.tsx                 # fonts, theme boot, OTA update listener, network listener, deep links, startup hydration
+App.tsx                 # fonts, theme boot, version check (force update), OTA listener, network listener, deep links, startup hydration
+index.ts                # entry; imports src/features/autoLog/background (headless + periodic tasks) — must stay
 schema.sql              # Supabase DDL + RLS policies (source of truth for DB)
 CHANGELOG.md            # user-facing change log — keep updated
-tests/                  # Vitest unit tests (run with npm test)
+tests/                  # Vitest unit tests (run with npm test); helpers/autoLogTestEnv.ts = Auto Logging test doubles
+docs/                   # architecture, AUTO_LOGGING, RELEASE_PROCESS, PLAY_STORE_AUTOLOG, design system, adr/, specs/
+supabase/               # migrations/ (budget modes, autolog_profiles, release flags), functions/delete-user-account
+modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
+                        # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
 src/
-├── components/   BottomNavBar, BrandedHeroCard, CadenceSwitchModal, VaultSpendingGuardModal,
+├── components/   ui/ (AppButton, AppInput, AmountText, SegmentedControl, BottomSheetModal, …),
+│                 BottomNavBar, BrandedHeroCard, CadenceSwitchModal, VaultSpendingGuardModal,
 │                 PeriodRenewalModal, CustomDatePickerModal, ErrorBoundary, OfflineBanner, SyncFailedBanner,
-│                 StreakCalendarModal, GradientIconBadge, PiggyBankCoinIcon
+│                 StreakCalendarModal, GradientIconBadge, PiggyBankCoinIcon,
+│                 autolog/ (AutoLogUi + BetaPill, ReviewSheet, WhyLoggedCard, AutoLogHomeBanner, AutoLogGate, EmailSourceInfo)
+├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, rollout, background,
+│                 notify, permissions, remote, store, copy, types)
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
-├── hooks/        useExpenseForm.ts, useSavingsDashboard.ts, useScrollDirection.ts
+├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationService.ts, authLinkHandler.ts,
-│                 budgetCalculations.ts, amountKeypad.ts, budgetModeUtils.ts
+│                 budgetCalculations.ts, amountKeypad.ts, budgetModeUtils.ts,
+│                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install)
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History, Insights,
 │                 Savings, ExpenseForm, ExpenseDetail, CategoryDetail, ManageCategories,
-│                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq
+│                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
+│                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
 ├── store/        authStore, expenseStore, categoryStore, dailyBudgetStore,
-│                 notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore
+│                 notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
-**High blast-radius files**: `dailyBudgetStore.ts`, `expenseStore.ts`, `budgetPeriods.ts`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `budgetCalculations.ts`.
+**High blast-radius files**: `dailyBudgetStore.ts`, `expenseStore.ts`, `budgetPeriods.ts`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `budgetCalculations.ts`, `features/autoLog/engine.ts`, `features/autoLog/matching.ts`, `features/autoLog/service.ts`, `modules/arthik-autolog/**` (native → APK), `UpdateRequiredScreen.tsx` + `lib/versionCheck.ts` (force update for every user).
 > **File inspection rule**: Inspect ONLY the relevant sections/functions needed for the current task. Do NOT scan entire files or read whole files end-to-end unless the task strictly requires it.
 
 ---
@@ -64,7 +79,8 @@ src/
 ```bash
 npm install                      # install dependencies
 npm test                         # vitest run — all unit tests
-npx tsc --noEmit                 # type check (covers src/ and tests/) — run after every change
+npx tsc --noEmit                 # type check (covers src/ and tests/) — same as npm run typecheck
+npx vitest run tests/autoLogParser.test.ts tests/autoLogFlows.test.ts tests/autoLogEmail.test.ts   # Auto Logging only
 ```
 
 **Always run both checks before reporting done:**
@@ -80,7 +96,7 @@ There is **no ESLint and no Prettier** in this repo. Do not add or run them.
 
 # 4. Expo Version & Documentation
 
-Target is **Expo SDK 57** (`expo-dev-client`, no Expo Go). Installed modules: `expo-auth-session`, `expo-constants`, `expo-crypto`, `expo-dev-client`, `expo-font`, `expo-linking`, `expo-local-authentication`, `expo-notifications`, `expo-status-bar`, `expo-updates`, `expo-web-browser`.
+Target is **Expo SDK 57** (`expo-dev-client`, no Expo Go). Installed Expo modules: `expo-application`, `expo-auth-session`, `expo-background-task`, `expo-constants`, `expo-crypto`, `expo-dev-client`, `expo-file-system`, `expo-font`, `expo-haptics`, `expo-intent-launcher`, `expo-linking`, `expo-local-authentication`, `expo-notifications`, `expo-secure-store`, `expo-sqlite` (SQLCipher), `expo-status-bar`, `expo-task-manager`, `expo-updates`, `expo-web-browser`. Also `react-native-reanimated` + `react-native-worklets`, `react-native-gesture-handler`, `@shopify/flash-list` (installed for future work; existing screens not refactored). Always add native deps with `npx expo install` and confirm with `npx expo install --check`.
 
 Consult external Expo 57 docs only when debugging unfamiliar native build/config issues; standard React Native and Expo APIs do not require doc lookups.
 
@@ -239,13 +255,16 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 | Profile | Use | Output |
 | --- | --- | --- |
 | `development` | dev client for emulator/device debugging | debug APK |
-| `preview` | internal test / distributed APK, channel `preview` | APK |
+| `preview` | the GitHub-distributed APK, channel `preview`, `autoIncrement` versionCode | APK |
 | `production` | store-style release, channel `production`, auto-increments | AAB |
 
 ## 11.2 Full APK build vs OTA Update
 - **Full APK (`eas build -p android --profile preview`)**: required when native code, permissions, native plugins, or app version changes.
 - **OTA update (`eas update --branch preview --message "..."`)**: JS/TS, UI, and logic changes only.
 - `runtimeVersion` is tied to `expo.version`. Bump version in `app.json` and `package.json` only when building a new APK binary. Update `CHANGELOG.md` in the same commit.
+
+## 11.2a Releasing an APK & forcing the update
+Follow `docs/RELEASE_PROCESS.md` (generic `X.Y.Z` playbook). Key points: same keystore every release; GitHub tag `vX.Y.Z` with assets **`Arthik-vX.Y.Z.apk`** + copy **`Arthik.apk`**; force update = Supabase `app_config.version_control` (see §24). The agent never runs builds, uploads releases or runs SQL — it prepares code/docs and writes the exact manual steps.
 
 ## 11.3 In-App OTA Update Popup Invariant (`OtaUpdateModal` & `app.json`)
 - **"What's New" Highlights Update**: Whenever an OTA release is prepared without bumping the version (the standard OTA workflow), you MUST update `app.json` (`expo.extra.otaUpdate.title` and `expo.extra.otaUpdate.highlights`) and `src/store/otaStore.ts` (fallback highlights).
@@ -266,6 +285,9 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 - Dev client URL: `arthik://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081`
 - App package: `com.kislaya_agarwal.arthik`
 - Dev client start: `npx expo start --port 8081`
+- Phone **and** emulator together: run `adb -s <device> reverse tcp:8081 tcp:8081` per device (`npm run android` fails with "more than one device"). The owner's local `dev-both.ps1` does this.
+- Native change (Kotlin / plugins / permissions / native deps) → new dev build (`eas build -p android --profile development`); JS changes hot-reload.
+- Emulators cannot send bank-style SMS (numeric senders are dropped as personal). Use **Developer test tools** (Automatic Logging Center, `__DEV__` only).
 
 ---
 
@@ -332,6 +354,8 @@ Before reporting done:
   - **Stores, routes, or architecture touched**: Update `docs/architecture.md`, `docs/README.md`, and relevant doc maps.
   - **User-facing changes or bugfixes**: Update `CHANGELOG.md` under `[Unreleased]` with a clear, concise bullet, and update `docs/prd.md` if product requirements evolved.
   - **Rules, guidelines, or procedures updated**: Update `AGENTS.md` and cross-reference corresponding files.
+  - **Automatic Logging touched**: Update `docs/AUTO_LOGGING.md` (and §23 / §25 here if an invariant changes).
+  - **Release / update / rollout process touched**: Update `docs/RELEASE_PROCESS.md` and §24 here.
 - Small, focused commits with imperative commit messages (e.g. `feat(home): ...`, `fix(savings): ...`, `docs(agents): ...`).
 - User-visible changes get a `CHANGELOG.md` entry in the same commit.
 
@@ -353,6 +377,10 @@ This repo uses **Vitest** (`npm test`). Tests live in `tests/<subject>.test.ts`.
 - User isolation logic (per-user keys, sign-out reset).
 - Income/expense classification and financial math (rollover, streak, budget calculations).
 - Auth deep link or session handling.
+
+- Automatic Logging: every parser / matching / engine behaviour. New bank SMS or email format → write the failing test first (`tests/autoLogParser.test.ts` or `tests/autoLogEmail.test.ts`), then fix `parser.ts`. Flow changes → `tests/autoLogFlows.test.ts` / `tests/autoLogEmail.test.ts` using `tests/helpers/autoLogTestEnv.ts` (real db + engine + service on Node SQLite; fake native, ledger, server).
+- Force update / rollout rules → `tests/appUpdate.test.ts`, `tests/autoLogRollout.test.ts`.
+- Tests that depend on "today" must freeze the clock (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`) — see `tests/budgetModesStore.test.ts`.
 
 ## 21.2 What does NOT need a test
 - Pure UI layout, colors, spacing, or animation changes.
@@ -471,7 +499,7 @@ If these questions cannot be answered convincingly, **leave the existing impleme
 
 This policy takes precedence over speculative polish and should be followed for all future feature implementation, refactoring, debugging, UX review, and design work.
 
-# 12. Automatic Logging (v2.0) — Invariants
+# 23. Automatic Logging (v2.0) — Invariants
 
 Read `docs/AUTO_LOGGING.md` before touching `src/features/autoLog/`, `modules/arthik-autolog/` or `src/screens/autolog/`.
 - **Discovery never creates transactions.** Only `origin: 'live' | 'recovery'` may call `ledger.createTransaction`.
@@ -483,16 +511,16 @@ Read `docs/AUTO_LOGGING.md` before touching `src/features/autoLog/`, `modules/ar
 - Native changes in `modules/arthik-autolog` require a new APK (bump the version); JS changes can ship by OTA.
 - Parser/matching changes must keep `tests/autoLogParser.test.ts` green; add a test for every new bank format.
 
-# 13. Releases, Force Update & Beta Rollout (v2.0)
+# 24. Releases, Force Update & Beta Rollout (v2.0)
 
-Read `docs/RELEASE_PROCESS.md` and `docs/AGENT_BRIEF.md`.
+Read `docs/RELEASE_PROCESS.md`. (The owner may also keep a local, gitignored `AGENT_BRIEF.md` in the project root — read it if present; repo docs win if they disagree.)
 - **Force update** is server-driven: `app_config` row `version_control` (`min_supported_version`, `force_update_enabled`, `release_url`, and v2+ `apk_url`, `update_title`, `update_highlights`). Old clients (v1.2.x) read only `release_url` — keep it a direct `.apk` link when forcing.
 - `UpdateRequiredScreen` has **no skip/later/back**. On Android it downloads inside the app (`src/lib/apkInstaller.ts`) and opens the system installer; anything failing falls back to the browser.
-- Release assets are always named **`Arthik.apk`**; tags `vX.Y.Z`. `eas.json` preview has `autoIncrement` (versionCode).
+- Release assets per GitHub release (tag `vX.Y.Z`): **`Arthik-vX.Y.Z.apk`** (required — force-update `release_url` / `apk_url` always point to `releases/download/vX.Y.Z/Arthik-vX.Y.Z.apk`) **+ `Arthik.apk`** (same file; makes `releases/latest/download/Arthik.apk` a permanent always-latest link). Never use `releases/latest/download/Arthik-vX.Y.Z.apk` (404 after the next release). `eas.json` preview has `autoIncrement` (versionCode).
 - **Automatic Logging is Beta**, gated by `app_config.feature_flags.autolog.audience` (`existing` | `all` | `none`). Logic in `src/features/autoLog/rollout.ts`; never hide it from someone already using it; the one-time intro is for existing users only. Every place that names the feature shows the `BetaPill`.
 - Manual-only (owner): SQL in Supabase, EAS builds/credentials, GitHub Releases, device testing.
 
-# 14. Email Notification Source (v2.1) — Invariants
+# 25. Email Notification Source (v2.1) — Invariants
 
 See `docs/AUTO_LOGGING.md` §9 and the product spec `docs/specs/EMAIL_AUTO_LOGGING_SPEC.md`.
 - Email is a **source**, not a separate system: every email goes through `engine.processEmail` → the same events table, review, ledger.
@@ -503,4 +531,18 @@ See `docs/AUTO_LOGGING.md` §9 and the product spec `docs/specs/EMAIL_AUTO_LOGGI
 - Email is opt-in (`meta.email_enabled` + native `email_enabled`). Email failures must never break SMS / notification processing (`processQueue` wraps email in try/catch).
 - No email text, sender address, or inbox access leaves the device; old emails are never imported (email is live-only).
 - Native email allow-list lives in `FinancialFilter.kt` (`EMAIL_APPS`) and must match `SUPPORTED_EMAIL_APPS` in `EmailSourceInfo.tsx`. Changing it needs a new APK.
+
+# 26. Documentation Map & Local-Only Files
+
+| Need | Read |
+|---|---|
+| Rules (this file) | `AGENTS.md` |
+| Domain model | `CONTEXT.md` |
+| Architecture | `docs/architecture.md`, `docs/adr/` |
+| Automatic Logging (SMS / notification / email) | `docs/AUTO_LOGGING.md`, spec `docs/specs/EMAIL_AUTO_LOGGING_SPEC.md` |
+| Release / force update / Beta rollout | `docs/RELEASE_PROCESS.md` |
+| Play Store (future) | `docs/PLAY_STORE_AUTOLOG.md` |
+| Design | `docs/design-system.md`, `docs/ARTHIK_DESIGN_SYSTEM.md`, `src/config/theme.ts` |
+
+**Local-only (gitignored, project root, may be absent in a clone):** `CODEBASE_EXPLAINER.md` (owner's Hinglish codebase guide), `CODEBASE_EXPLAINER_OLD.md`, `AGENT_BRIEF.md`, `DEV_SETUP_PHONE_AND_EMULATOR.md`, `DISTRIBUTE_*.md`, `dev-both.ps1`, `install-dev-apk.ps1`, hand-off notes (`PASTE_GUIDE.md`, `PLACEMENT_GUIDE.md`, …). Never commit them; `.gitignore` anchors them with a leading `/` so same-named files inside `docs/` stay tracked. If you change something they describe, tell the owner which local file is now stale.
 
