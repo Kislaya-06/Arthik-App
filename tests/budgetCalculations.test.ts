@@ -12,12 +12,15 @@ import {
   evaluateDayStatus,
   computeSpentByDate,
   computeSpentForDate,
+  computeIncomeByDate,
+  computeIncomeForDate,
   buildDefaultTodayRecord,
   filterPastRecords,
   shouldIgnoreDuplicates,
   calculateTodayMetrics,
   filterSavingsRecords,
   shouldSendRolloverNotification,
+  calculateCycleFinancials,
 } from '../src/lib/budgetCalculations';
 import { isIncomeTransaction } from '../src/lib/transactionUtils';
 
@@ -553,6 +556,24 @@ describe('evaluateDayStatus', () => {
     expect(res).toEqual({ saved: 0, status: 'exceeded' });
   });
 
+  it('eligible income increases spendable pool and Gullak deposit (Spec §1 & §3)', () => {
+    // Budget = 100, Income = 25, Spent = 50 -> Spendable = 125, Saved = 75
+    const res = evaluateDayStatus(100, 50, 25);
+    expect(res).toEqual({ saved: 75, status: 'saved' });
+  });
+
+  it('eligible income absorbs overspending before exceeding budget', () => {
+    // Budget = 100, Income = 25, Spent = 110 -> Spendable = 125, Saved = 15
+    const res = evaluateDayStatus(100, 110, 25);
+    expect(res).toEqual({ saved: 15, status: 'saved' });
+  });
+
+  it('excessive overspend exceeding budget + income returns exceeded and saved = 0', () => {
+    // Budget = 100, Income = 25, Spent = 140 -> Spendable = 125, Saved = 0, Exceeded
+    const res = evaluateDayStatus(100, 140, 25);
+    expect(res).toEqual({ saved: 0, status: 'exceeded' });
+  });
+
   it('negative budget inputs are treated as budget <= 0 and return unknown', () => {
     const resWithSpend = evaluateDayStatus(-100, 50);
     expect(resWithSpend).toEqual({ saved: 0, status: 'unknown' });
@@ -564,41 +585,41 @@ describe('evaluateDayStatus', () => {
   describe('100% unspent budget & top-up rollover into Gullak', () => {
     // Base allowance = 200, user sets today's budget to 300 (top-up = 100)
     it('0 spend: full allocated budget 300 is saved to Gullak', () => {
-      const res = evaluateDayStatus(300, 0, 200);
+      const res = evaluateDayStatus(300, 0);
       expect(res).toEqual({ saved: 300, status: 'saved' });
     });
 
     it('partial spend: unspent amount of total budget is 100% saved', () => {
       // User spends 50: 300 - 50 = 250 saved
-      const res = evaluateDayStatus(300, 50, 200);
+      const res = evaluateDayStatus(300, 50);
       expect(res).toEqual({ saved: 250, status: 'saved' });
     });
 
     it('spend exactly 100: 300 - 100 = 200 saved', () => {
-      const res = evaluateDayStatus(300, 100, 200);
+      const res = evaluateDayStatus(300, 100);
       expect(res).toEqual({ saved: 200, status: 'saved' });
     });
 
     it('spend 150: 300 - 150 = 150 saved', () => {
-      const res = evaluateDayStatus(300, 150, 200);
+      const res = evaluateDayStatus(300, 150);
       expect(res).toEqual({ saved: 150, status: 'saved' });
     });
 
     it('spend exactly equals total budget: 0 saved, status even, streak maintained', () => {
-      const res = evaluateDayStatus(300, 300, 200);
+      const res = evaluateDayStatus(300, 300);
       expect(res).toEqual({ saved: 0, status: 'even' });
     });
 
     it('spend exceeds total budget: status exceeded, 0 saved, streak broken', () => {
-      const res = evaluateDayStatus(300, 350, 200);
+      const res = evaluateDayStatus(300, 350);
       expect(res).toEqual({ saved: 0, status: 'exceeded' });
     });
 
     it('budget equal or less than baseBudget: behaves standardly', () => {
-      const resEqual = evaluateDayStatus(200, 50, 200);
+      const resEqual = evaluateDayStatus(200, 50);
       expect(resEqual).toEqual({ saved: 150, status: 'saved' });
 
-      const resLess = evaluateDayStatus(100, 40, 200);
+      const resLess = evaluateDayStatus(100, 40);
       expect(resLess).toEqual({ saved: 60, status: 'saved' });
     });
   });
@@ -670,6 +691,25 @@ describe('computeSpentByDate & computeSpentForDate', () => {
     expect(computeSpentForDate(expenses, nonExistentTarget, isIncome)).toBe(
       computeSpentByDate(expenses, isIncome)[nonExistentTarget] ?? 0
     );
+  });
+
+  describe('computeIncomeByDate & computeIncomeForDate', () => {
+    it('groups eligible income by date correctly and excludes non-income expenses', () => {
+      const expenses = [
+        { amount: 100, type: 'income' as const, expense_date: '2026-09-18' },
+        { amount: 25, type: 'income' as const, expense_date: '2026-09-18' },
+        { amount: 50, type: 'expense' as const, expense_date: '2026-09-18' },
+        { amount: 200, type: 'income' as const, expense_date: '2026-09-19' },
+      ];
+
+      const incomeByDate = computeIncomeByDate(expenses, isIncome);
+      expect(incomeByDate['2026-09-18']).toBe(125);
+      expect(incomeByDate['2026-09-19']).toBe(200);
+
+      expect(computeIncomeForDate(expenses, '2026-09-18', isIncome)).toBe(125);
+      expect(computeIncomeForDate(expenses, '2026-09-19', isIncome)).toBe(200);
+      expect(computeIncomeForDate(expenses, '2026-09-20', isIncome)).toBe(0);
+    });
   });
 
   it('computeSpentForDate and computeSpentByDate[date] agree on a list with several dates, income rows, a NaN amount and an ISO-timestamp date', () => {
@@ -1183,6 +1223,105 @@ describe('shouldSendRolloverNotification - Pure Unit Tests', () => {
       const status = evaluateDayStatus(100, 82.5);
       expect(status.saved).toBe(17.5);
       expect(status.status).toBe('saved');
+    });
+  });
+
+  describe('calculateCycleFinancials - Canonical Single Source of Truth', () => {
+    it('calculates standard cycle within budget correctly', () => {
+      const result = calculateCycleFinancials({
+        scheduledBudget: 100,
+        spent: 50,
+      });
+      expect(result.spendable).toBe(100);
+      expect(result.spent).toBe(50);
+      expect(result.remaining).toBe(50);
+      expect(result.gullakDeposit).toBe(50);
+      expect(result.isOverBudget).toBe(false);
+      expect(result.overAmount).toBe(0);
+      expect(result.status).toBe('saved');
+    });
+
+    it('adds eligible incoming money to spendable pool and increases remaining/Gullak (Spec §1)', () => {
+      const result = calculateCycleFinancials({
+        scheduledBudget: 100,
+        eligibleIncome: 25,
+        spent: 50,
+      });
+      expect(result.spendable).toBe(125);
+      expect(result.spent).toBe(50);
+      expect(result.remaining).toBe(75);
+      expect(result.gullakDeposit).toBe(75);
+      expect(result.isOverBudget).toBe(false);
+      expect(result.overAmount).toBe(0);
+      expect(result.status).toBe('saved');
+    });
+
+    it('adds eligible reimbursement to spendable pool (Spec §3)', () => {
+      const result = calculateCycleFinancials({
+        scheduledBudget: 100,
+        eligibleReimbursements: 25,
+        spent: 50,
+      });
+      expect(result.spendable).toBe(125);
+      expect(result.spent).toBe(50);
+      expect(result.remaining).toBe(75);
+      expect(result.gullakDeposit).toBe(75);
+      expect(result.isOverBudget).toBe(false);
+      expect(result.status).toBe('saved');
+    });
+
+    it('absorbs overspend with incoming money before breaking budget limit', () => {
+      const result = calculateCycleFinancials({
+        scheduledBudget: 100,
+        eligibleIncome: 25,
+        spent: 110,
+      });
+      expect(result.spendable).toBe(125);
+      expect(result.spent).toBe(110);
+      expect(result.remaining).toBe(15);
+      expect(result.gullakDeposit).toBe(15);
+      expect(result.isOverBudget).toBe(false);
+      expect(result.overAmount).toBe(0);
+      expect(result.status).toBe('saved');
+    });
+
+    it('handles net overspending when spent exceeds total spendable pool', () => {
+      const result = calculateCycleFinancials({
+        scheduledBudget: 100,
+        eligibleIncome: 25,
+        spent: 140,
+      });
+      expect(result.spendable).toBe(125);
+      expect(result.spent).toBe(140);
+      expect(result.remaining).toBe(0);
+      expect(result.gullakDeposit).toBe(0);
+      expect(result.isOverBudget).toBe(true);
+      expect(result.overAmount).toBe(15);
+      expect(result.status).toBe('exceeded');
+    });
+
+    it('guarantees remaining and gullakDeposit never diverge', () => {
+      const cases = [
+        { scheduledBudget: 250, eligibleIncome: 100, spent: 300 },
+        { scheduledBudget: 500, eligibleIncome: 0, spent: 250 },
+        { scheduledBudget: 1000, eligibleIncome: 500, eligibleReimbursements: 200, spent: 800 },
+        { scheduledBudget: 100, carriedOverAmount: 50, spent: 70 },
+      ];
+      for (const c of cases) {
+        const res = calculateCycleFinancials(c);
+        expect(res.gullakDeposit).toBe(res.remaining);
+      }
+    });
+
+    it('returns unknown status and 0 metrics for unconfigured zero budget/spend', () => {
+      const result = calculateCycleFinancials({
+        scheduledBudget: 0,
+        spent: 0,
+      });
+      expect(result.spendable).toBe(0);
+      expect(result.remaining).toBe(0);
+      expect(result.gullakDeposit).toBe(0);
+      expect(result.status).toBe('unknown');
     });
   });
 });

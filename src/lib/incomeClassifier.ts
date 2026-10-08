@@ -1,4 +1,4 @@
-import { isIncomeTransaction } from './transactionUtils';
+import { isIncomeTransaction, isEligibleIncome } from './transactionUtils';
 
 export interface MinimalCategory {
   id: string;
@@ -9,10 +9,13 @@ export interface MinimalCategory {
 export interface MinimalExpense {
   category_id?: string | null;
   type?: 'expense' | 'income' | string;
+  note?: string | null;
+  status?: string;
   [key: string]: any;
 }
 
 const classifierCache = new WeakMap<readonly MinimalCategory[], (e: MinimalExpense) => boolean>();
+const eligibleClassifierCache = new WeakMap<readonly MinimalCategory[], (e: MinimalExpense) => boolean>();
 
 /**
  * Creates an income classifier predicate function `(e: MinimalExpense) => boolean`.
@@ -46,6 +49,44 @@ export function makeIncomeClassifier<T extends MinimalCategory = MinimalCategory
 
   try {
     classifierCache.set(categories, classifier);
+  } catch {
+    // If categories cannot be a WeakMap key, ignore
+  }
+
+  return classifier;
+}
+
+/**
+ * Creates an eligible income classifier predicate function `(e: MinimalExpense) => boolean`.
+ * Excludes internal transfers between user accounts from spendable income.
+ */
+export function makeEligibleIncomeClassifier<T extends MinimalCategory = MinimalCategory>(
+  categories?: readonly T[] | null
+): (e: MinimalExpense) => boolean {
+  if (!categories || categories.length === 0) {
+    return (e: MinimalExpense) => isEligibleIncome(e, undefined);
+  }
+
+  const cached = eligibleClassifierCache.get(categories);
+  if (cached) {
+    return cached;
+  }
+
+  const categoryMap = new Map<string, T>();
+  for (let i = 0; i < categories.length; i++) {
+    const cat = categories[i];
+    if (cat && cat.id) {
+      categoryMap.set(cat.id, cat);
+    }
+  }
+
+  const classifier = (e: MinimalExpense): boolean => {
+    const cat = e.category_id ? categoryMap.get(e.category_id) : undefined;
+    return isEligibleIncome(e, cat);
+  };
+
+  try {
+    eligibleClassifierCache.set(categories, classifier);
   } catch {
     // If categories cannot be a WeakMap key, ignore
   }

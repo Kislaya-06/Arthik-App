@@ -172,27 +172,25 @@ export interface DayEvaluation {
 }
 
 /**
- * Evaluates savings and DayStatus for a finalized day given its budget and spending.
+ * Evaluates savings and DayStatus for a finalized day given its budget, spending, and eligible income.
+ * Uses the canonical calculateCycleFinancials engine.
  *
  * @param budget Daily budget amount.
  * @param spent Amount spent on that day.
+ * @param eligibleIncome Optional additional eligible income received on that day.
  */
 export const evaluateDayStatus = (
   budget: number,
   spent: number,
+  eligibleIncome: number = 0,
   _baseBudget?: number
 ): DayEvaluation => {
-  if (budget <= 0) {
-    return {
-      saved: 0,
-      status: 'unknown',
-    };
-  }
-
-  // Unspent daily budget rolls over into Gullak
-  const saved = Math.max(0, round2(budget - spent));
-  const status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
-  return { saved, status };
+  const result = calculateCycleFinancials({
+    scheduledBudget: budget,
+    eligibleIncome: typeof eligibleIncome === 'number' && eligibleIncome > 0 ? eligibleIncome : 0,
+    spent,
+  });
+  return { saved: result.gullakDeposit, status: result.status };
 };
 
 export interface ExpenseItem {
@@ -260,6 +258,61 @@ export const computeSpentForDate = <T extends ExpenseItem>(
     }
   }
   return totalSpent;
+};
+
+/**
+ * Extracts date ('yyyy-MM-dd') and amount for eligible income entries.
+ * Returns null if the entry is not income or has no clean date.
+ */
+export const extractEligibleIncome = <T extends ExpenseItem>(
+  expense: T,
+  isEligibleIncomeFn: (expense: T) => boolean
+): NonIncomeExpenseEntry | null => {
+  const isIncome = isEligibleIncomeFn(expense);
+  const cleanDate = expense.expense_date?.split('T')[0]?.trim();
+  if (isIncome && cleanDate) {
+    const amt = Number(expense.amount);
+    return {
+      date: cleanDate,
+      amount: Number.isFinite(amt) && amt > 0 ? amt : 0,
+    };
+  }
+  return null;
+};
+
+/**
+ * Groups all eligible incoming money by date ('yyyy-MM-dd') in a single pass.
+ */
+export const computeIncomeByDate = <T extends ExpenseItem>(
+  expenses: T[],
+  isEligibleIncomeFn: (expense: T) => boolean
+): Record<string, number> => {
+  const incomeByDate: Record<string, number> = {};
+  for (let i = 0; i < expenses.length; i++) {
+    const entry = extractEligibleIncome(expenses[i], isEligibleIncomeFn);
+    if (entry) {
+      incomeByDate[entry.date] = round2((incomeByDate[entry.date] || 0) + entry.amount);
+    }
+  }
+  return incomeByDate;
+};
+
+/**
+ * Computes eligible incoming money for a single target date ('yyyy-MM-dd').
+ */
+export const computeIncomeForDate = <T extends ExpenseItem>(
+  expenses: T[],
+  targetDate: string,
+  isEligibleIncomeFn: (expense: T) => boolean
+): number => {
+  let totalIncome = 0;
+  for (let i = 0; i < expenses.length; i++) {
+    const entry = extractEligibleIncome(expenses[i], isEligibleIncomeFn);
+    if (entry && entry.date === targetDate) {
+      totalIncome = round2(totalIncome + entry.amount);
+    }
+  }
+  return totalIncome;
 };
 
 /**
@@ -383,6 +436,88 @@ export const shouldSendRolloverNotification = (params: RolloverNotificationParam
   if (params.skipRolloverNotification) return false;
   if (params.lastRolloverNotifiedDate === params.date) return false;
   return true;
+};
+
+export interface CycleFinancialInput {
+  /** The base budget allocated for this cycle (Daily allowance, Weekly budget, or Monthly budget) */
+  scheduledBudget: number;
+  /** Direct eligible income received in this cycle (excluding self-transfers) */
+  eligibleIncome?: number;
+  /** Recovered friend shares / refunds that offset spending */
+  eligibleReimbursements?: number;
+  /** Carried-over unspent allocation from a previous period/cadence switch (if additive) */
+  carriedOverAmount?: number;
+  /** Total non-income expenses incurred in this cycle */
+  spent: number;
+}
+
+export interface CycleFinancialResult {
+  /** Total spendable money in the pool: scheduledBudget + carriedOver + eligibleIncome + reimbursements */
+  spendable: number;
+  /** Total spent in this cycle */
+  spent: number;
+  /** Real unspent money remaining in the cycle: max(0, spendable - spent) */
+  remaining: number;
+  /** True if user spent more than the total spendable pool */
+  isOverBudget: boolean;
+  /** Amount exceeded beyond spendable (0 if within budget) */
+  overAmount: number;
+  /** EXACT amount to deposit into Gullak at cycle close (guaranteed == remaining) */
+  gullakDeposit: number;
+  /** Canonical status for the period/day */
+  status: 'saved' | 'exceeded' | 'even' | 'unknown';
+}
+
+/**
+ * THE CANONICAL FINANCIAL ENGINE FOR ALL ARTHIK CYCLES.
+ * Single source of truth for Daily, Weekly, Monthly, and Gullak calculations.
+ */
+export const calculateCycleFinancials = (input: CycleFinancialInput): CycleFinancialResult => {
+  const budget = Math.max(0, input.scheduledBudget || 0);
+  const carried = Math.max(0, input.carriedOverAmount || 0);
+  const income = Math.max(0, input.eligibleIncome || 0);
+  const reimbursements = Math.max(0, input.eligibleReimbursements || 0);
+  const spent = Math.max(0, round2(input.spent || 0));
+
+  const spendable = round2(budget + carried + income + reimbursements);
+
+  if (spendable <= 0 && spent <= 0) {
+    return {
+      spendable: 0,
+      spent: 0,
+      remaining: 0,
+      isOverBudget: false,
+      overAmount: 0,
+      gullakDeposit: 0,
+      status: 'unknown',
+    };
+  }
+
+  const remaining = round2(Math.max(0, spendable - spent));
+  const isOverBudget = spent > spendable && spendable > 0;
+  const overAmount = isOverBudget ? round2(spent - spendable) : 0;
+  const gullakDeposit = isOverBudget ? 0 : remaining;
+
+  let status: 'saved' | 'exceeded' | 'even' | 'unknown';
+  if (spendable <= 0) {
+    status = 'unknown';
+  } else if (isOverBudget) {
+    status = 'exceeded';
+  } else if (remaining > 0) {
+    status = 'saved';
+  } else {
+    status = 'even';
+  }
+
+  return {
+    spendable,
+    spent,
+    remaining,
+    isOverBudget,
+    overAmount,
+    gullakDeposit,
+    status,
+  };
 };
 
 

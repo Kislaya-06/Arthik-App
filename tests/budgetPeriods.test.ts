@@ -1609,5 +1609,77 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       });
     });
   });
+
+  // =========================================================================
+  // 13. Weekly & Monthly Gullak Calculation with Eligible Income (Spec §1)
+  // =========================================================================
+  describe('13. Weekly & Monthly Gullak Calculation with Eligible Income', () => {
+    it('Weekly finalization includes eligible income in spendable pool and Gullak deposit', () => {
+      // Week of Mon 2026-10-05 .. Sun 2026-10-11, weekly budget 1000
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-05',
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 1000,
+        },
+      ];
+
+      // Income received on Wednesday: +500
+      const incomeByDate = { '2026-10-07': 500 };
+      // Expenses: 800 total (e.g. 500 on Mon, 300 on Thu)
+      const spentByDate = { '2026-10-05': 500, '2026-10-08': 300 };
+
+      // Finalize on Monday 2026-10-12
+      const periods = buildPeriodsToFinalize(
+        changes,
+        spentByDate,
+        '2026-10-12',
+        undefined,
+        undefined,
+        incomeByDate
+      );
+
+      expect(periods.length).toBe(1);
+      // Spendable pool: 1000 budget + 500 income = 1500
+      expect(periods[0].budgetAmount).toBe(1500);
+      expect(periods[0].spentAmount).toBe(800);
+      // Unspent / Gullak deposit: 1500 - 800 = 700
+      expect(periods[0].amountSaved).toBe(700);
+      expect(periods[0].status).toBe('saved');
+    });
+
+    it('Monthly live summary includes eligible income in spendable remaining', () => {
+      const changes: BudgetPlanChange[] = [
+        {
+          id: '1',
+          userId: 'u1',
+          effectiveFrom: '2026-10-01',
+          isEnabled: true,
+          cadence: 'monthly',
+          amount: 5000,
+        },
+      ];
+
+      const incomeByDate = { '2026-10-05': 2000 };
+      const spentByDate = { '2026-10-02': 1500, '2026-10-10': 2500 }; // 4000 total spent
+
+      const summary = getCurrentPeriodSummary(
+        changes,
+        spentByDate,
+        '2026-10-15',
+        incomeByDate
+      );
+
+      expect(summary).not.toBeNull();
+      // Total spendable: 5000 budget + 2000 income = 7000
+      expect(summary?.budget).toBe(7000);
+      expect(summary?.spent).toBe(4000);
+      expect(summary?.remaining).toBe(3000);
+      expect(summary?.isOver).toBe(false);
+    });
+  });
 });
 

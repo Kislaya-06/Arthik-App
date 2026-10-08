@@ -302,4 +302,26 @@ describe('Independent sources (spec §38–39)', () => {
     expect(await service.devSimulate(U, 'email_debit')).toContain('merged');
     expect(txs()).toHaveLength(1);
   });
+
+  it('notification → email confirms immediately (takeOverRoot) → late SMS merges into existing transaction', async () => {
+    await goLive();
+    const t = Date.now();
+    receiveNotification('Google Pay', '₹450 paid to Swiggy', '', t);
+    await run();
+    expect(txs()).toHaveLength(0); // awaiting bank confirmation
+
+    // Bank email arrives 2 minutes later and immediately confirms
+    receiveEmail(HDFC_EMAIL, emailDebit(450, 'SWIGGY', t, { ref: '987654321000' }), t + 2 * MIN);
+    await run();
+    expect(txs()).toHaveLength(1);
+    const expenseId = txs()[0].id;
+    expect(await sourcesOf(expenseId)).toEqual(['email', 'notification']);
+
+    // Bank SMS arrives 15 minutes later and joins the existing transaction
+    receiveSms(HDFC, smsDebit(450, 'SWIGGY', '987654321000'), t + 15 * MIN);
+    await run();
+    expect(txs()).toHaveLength(1);
+    expect(await sourcesOf(expenseId)).toEqual(['email', 'notification', 'sms']);
+  });
 });
+

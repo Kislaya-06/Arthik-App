@@ -29,6 +29,7 @@ import {
   getDaysInMonth,
 } from 'date-fns';
 import { round2 } from './formatters';
+import { calculateCycleFinancials } from './budgetCalculations';
 import {
   BudgetCadence,
   BudgetPlanChange,
@@ -222,7 +223,8 @@ export function buildPeriodsToFinalize(
   spentByDate: Record<string, number>,
   todayStr: string,
   alreadyFinalizedKeys?: Set<string> | string[],
-  userCreatedAtStr?: string
+  userCreatedAtStr?: string,
+  incomeByDate?: Record<string, number>
 ): BudgetPeriodRecord[] {
   const today = parseISO(todayStr);
   const yesterday = subDays(today, 1);
@@ -350,12 +352,11 @@ export function buildPeriodsToFinalize(
     const baseBudget = slice.amount;
     const carriedOver = slicePlan?.carriedOverAmount || 0;
     const carryMode = slicePlan?.carryMode;
-    const budgetAmount =
-      carryMode === 'additive' ? round2(baseBudget + carriedOver) : baseBudget;
     const isProrated = false;
 
     // Sum spend in active slice
     let spentAmount = 0;
+    let sliceIncome = 0;
     const sliceDays = eachDayOfInterval({
       start: parseISO(slice.activeStart),
       end: parseISO(slice.activeEnd),
@@ -363,10 +364,23 @@ export function buildPeriodsToFinalize(
     for (const sd of sliceDays) {
       const sdStr = format(sd, 'yyyy-MM-dd');
       spentAmount += Number(spentByDate[sdStr]) || 0;
+      if (incomeByDate) {
+        sliceIncome += Number(incomeByDate[sdStr]) || 0;
+      }
     }
     spentAmount = round2(spentAmount);
+    sliceIncome = round2(sliceIncome);
 
-    const unspentInSlice = round2(Math.max(0, budgetAmount - spentAmount));
+    const fin = calculateCycleFinancials({
+      scheduledBudget: baseBudget,
+      carriedOverAmount: carryMode === 'additive' ? carriedOver : 0,
+      eligibleIncome: sliceIncome,
+      spent: spentAmount,
+    });
+
+    const budgetAmount = fin.spendable;
+    const unspentInSlice = fin.remaining;
+
     // GOLDEN INVARIANT (Audio Clips 1 & 3):
     // Gullak deposits ONLY happen when a period ends naturally!
     // If a period slice ends early due to a cadence switch, amountSaved = 0 (Gullak gets 0).
@@ -374,18 +388,9 @@ export function buildPeriodsToFinalize(
       ? 0
       : budgetAmount <= 0
       ? 0
-      : unspentInSlice;
+      : fin.gullakDeposit;
 
-    let status: BudgetPeriodStatus;
-    if (budgetAmount <= 0) {
-      status = 'unknown';
-    } else if (spentAmount > budgetAmount) {
-      status = 'missed';
-    } else if (spentAmount === budgetAmount) {
-      status = 'even';
-    } else {
-      status = 'saved';
-    }
+    let status: BudgetPeriodStatus = fin.status === 'exceeded' ? 'missed' : fin.status;
 
     recordsToFinalize.push({
       id: key,
@@ -416,7 +421,8 @@ export function buildPeriodsToFinalize(
 export function getCurrentPeriodSummary(
   changes: BudgetPlanChange[],
   spentByDate: Record<string, number>,
-  todayStr: string
+  todayStr: string,
+  incomeByDate?: Record<string, number>
 ): PeriodSummaryInfo | null {
   const owner = getDateOwner(changes, todayStr);
   if (owner === 'paused' || owner === 'daily') {
@@ -463,11 +469,10 @@ export function getCurrentPeriodSummary(
   // 100% Real Money Invariant: Budget pool is fully intact without proration
   const carryMode = plan?.carryMode;
   const carriedOverAmount = plan?.carriedOverAmount || 0;
-  const budget =
-    carryMode === 'additive' ? round2(fullAmount + carriedOverAmount) : fullAmount;
 
-  // Sum spend from activeStart to todayStr
+  // Sum spend and income from activeStart to todayStr
   let spent = 0;
+  let income = 0;
   const daysSoFar = eachDayOfInterval({
     start: parseISO(activeStart),
     end: parseISO(todayStr),
@@ -475,12 +480,24 @@ export function getCurrentPeriodSummary(
   for (const d of daysSoFar) {
     const dStr = format(d, 'yyyy-MM-dd');
     spent += Number(spentByDate[dStr]) || 0;
+    if (incomeByDate) {
+      income += Number(incomeByDate[dStr]) || 0;
+    }
   }
   spent = round2(spent);
+  income = round2(income);
 
-  const remaining = round2(Math.max(0, budget - spent));
-  const isOver = spent > budget && budget > 0;
-  const overBy = round2(isOver ? spent - budget : 0);
+  const fin = calculateCycleFinancials({
+    scheduledBudget: fullAmount,
+    carriedOverAmount: carryMode === 'additive' ? carriedOverAmount : 0,
+    eligibleIncome: income,
+    spent,
+  });
+
+  const budget = fin.spendable;
+  const remaining = fin.remaining;
+  const isOver = fin.isOverBudget;
+  const overBy = fin.overAmount;
 
   // Dynamic Pace Suggestions (Non-binding guidance):
   const today = parseISO(todayStr);

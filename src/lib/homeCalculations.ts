@@ -19,7 +19,7 @@
 
 import { format, parseISO, startOfWeek, startOfMonth, eachDayOfInterval } from 'date-fns';
 import { formatCurrency, round2 } from './formatters';
-import { DailyRecord } from './budgetCalculations';
+import { DailyRecord, calculateCycleFinancials } from './budgetCalculations';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { isIncomeTransaction } from './transactionUtils';
 import { resolvePlanForDate } from './budgetPeriods';
@@ -189,10 +189,17 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   const spent = round2(totalSpent);
 
   const budgetPool = round2(activeFilter === 'Daily' ? activeDailyBudget : periodBudget);
-  const available = round2(budgetPool + income + externalDepositsInPeriod);
-  const isOver = spent > available && available > 0;
-  const remaining = round2(Math.max(0, available - spent));
-  const overAmount = round2(isOver ? spent - available : 0);
+  const cycle = calculateCycleFinancials({
+    scheduledBudget: budgetPool,
+    eligibleIncome: income,
+    carriedOverAmount: externalDepositsInPeriod,
+    spent,
+  });
+
+  const available = cycle.spendable;
+  const isOver = cycle.isOverBudget;
+  const remaining = cycle.remaining;
+  const overAmount = cycle.overAmount;
 
   const isPeriodFilter = activeFilter === 'Weekly' || activeFilter === 'Monthly';
   const prefix = activeFilter === 'Daily' ? 'Daily' : (activeFilter === 'All' ? 'Total' : activeFilter);

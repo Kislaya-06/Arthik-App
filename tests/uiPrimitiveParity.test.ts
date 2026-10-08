@@ -48,4 +48,8 @@ describe('AuthFormField: original field rhythm', () => {
     const count = (rp.match(/topSpacing=\{16\}/g) || []).length;
     expect(count).toBe(2); // both NEW PASSWORD and CONFIRM NEW PASSWORD fields
   });
+  it('input specifies includeFontPadding false and textAlignVertical center for Android parity', () => {
+    expect(src).toMatch(/includeFontPadding:\s*false/);
+    expect(src).toMatch(/textAlignVertical:\s*'center'/);
+  });
 });

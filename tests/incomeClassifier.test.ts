@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeIncomeClassifier } from '../src/lib/incomeClassifier';
+import { makeIncomeClassifier, makeEligibleIncomeClassifier } from '../src/lib/incomeClassifier';
 
 describe('incomeClassifier (makeIncomeClassifier)', () => {
   const categories = [
@@ -58,5 +58,26 @@ describe('incomeClassifier (makeIncomeClassifier)', () => {
     const classifier2 = makeIncomeClassifier(newCategories);
     expect(classifier1).not.toBe(classifier2);
     expect(classifier2({ category_id: 'cat-5', amount: 200 })).toBe(true);
+  });
+
+  describe('makeEligibleIncomeClassifier', () => {
+    const categoriesWithTransfer = [
+      { id: 'cat-1', name: 'Salary' },
+      { id: 'cat-2', name: 'Self Transfer' },
+      { id: 'cat-3', name: 'Account Transfer' },
+      { id: 'cat-4', name: 'Food & Dining' },
+    ];
+
+    it('classifies salary as eligible income', () => {
+      const isEligible = makeEligibleIncomeClassifier(categoriesWithTransfer);
+      expect(isEligible({ category_id: 'cat-1', type: 'income', amount: 5000 })).toBe(true);
+    });
+
+    it('excludes internal transfers from eligible income', () => {
+      const isEligible = makeEligibleIncomeClassifier(categoriesWithTransfer);
+      expect(isEligible({ category_id: 'cat-2', type: 'income', amount: 5000 })).toBe(false);
+      expect(isEligible({ category_id: 'cat-3', type: 'income', amount: 5000 })).toBe(false);
+      expect(isEligible({ category_id: 'cat-4', note: 'Self transfer to SBI', amount: 5000 })).toBe(false);
+    });
   });
 });

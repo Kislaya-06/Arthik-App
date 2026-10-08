@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -424,14 +423,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               rollOnFocus
             />
 
-            {/* Subtext Chips (Budget mode only): horizontal single-row scroll keeps card height 100% stable */}
+            {/* Subtext Chips (Budget mode only): Vertically stacked chips so income appears below budget */}
             {isBudgetModeEnabled && subtextParts.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.subtextScroll}
-                contentContainerStyle={styles.subtextContainer}
-              >
+              <View style={styles.subtextContainer}>
                 {subtextParts.map((part, idx) => (
                   <View
                     key={idx}
@@ -451,7 +445,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                     </Text>
                   </View>
                 ))}
-              </ScrollView>
+              </View>
             )}
           </View>
 
@@ -632,20 +626,18 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     fontVariant: ['tabular-nums'],
   },
-  subtextScroll: {
-    marginTop: 8,
-    maxHeight: 28,
-  },
   subtextContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    marginTop: 8,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 4,
   },
   subtextChip: {
     backgroundColor: 'rgba(26, 43, 76, 0.08)',
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 8,
+    alignSelf: 'flex-start',
   },
   subtextChipText: {
     fontSize: 12,

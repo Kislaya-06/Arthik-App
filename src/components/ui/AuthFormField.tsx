@@ -170,6 +170,9 @@ const styles = StyleSheet.create({
   input: {
     fontSize: FontSize.body,
     height: '100%',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    paddingVertical: 0,
   },
   eyeIcon: {
     position: 'absolute',
