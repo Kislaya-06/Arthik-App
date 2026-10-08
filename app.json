@@ -63,11 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Bank emails in Automatic Logging ✉️",
+        "title": "Budget & Gullak Sync, Reimbursements & Hero Card Polish 💰✨",
         "highlights": [
-          "Automatic Logging can now detect transactions from bank and payment emails (optional)",
-          "One payment, one transaction — SMS, app notification and email are combined, even when an email arrives late",
-          "Unsure matches wait in Pending Review instead of creating duplicates"
+          "Unified Cycle Financials: Daily, Weekly, and Monthly remaining balances and Gullak rollovers now use one synchronized formula",
+          "Smart Income & Reimbursements: Self-transfers are excluded from budget pools, while reimbursements restore your spendable allowance cleanly",
+          "Enhanced Hero Summary Card: Incoming funds and allowances stack vertically with dynamic height adaptation for clean scannability",
+          "Auto-Logging & Auth Polish: Bank emails confirm immediately without SMS dependencies, and login password fields ensure zero character clipping"
         ]
       }
     }

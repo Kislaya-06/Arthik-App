@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Unified Cycle Financials Single Source of Truth**: Unified all calculation engines across Daily rollover, Weekly and Monthly period slicing, and Home Hero Summary card through canonical `calculateCycleFinancials`.
+- **Smart Income & Reimbursement Classification**: Categorized internal account transfers (Self-Transfers, Card Bills) to exclude them from spendable pools, and added reimbursement detection (Option B) restoring spending allowances without inflating total income.
+- **Vertical Hero Card Chip Stacking**: Enhanced `BrandedHeroCard` to stack income and deposit chips on their own lines directly beneath budget allowances, auto-expanding card height smoothly with dynamic concentric SVG notched backgrounds.
+- **AutoLog Bank Email Direct Confirmation**: Bank emails from verified senders with tracked accounts now confirm immediately without requiring SMS, while payment notifications waiting in `awaiting_sms` immediately merge and confirm via `takeOverRoot`.
+- **Android Login Password Field Fix**: Added `includeFontPadding: false` and vertical centering to `AuthFormField` to prevent password bullet masks and character descenders from clipping on Android devices.
+
 ### Docs
 - `AGENTS.md`: duplicate section numbers fixed (Auto Logging / release / email are now §23 / §24 / §25), new §26 documentation map + local-only files; tech table, repo map, Expo module list, blast-radius files, dev-build notes (two devices, dev tools), test rules for Auto Logging and frozen dates, doc-sync rules for Auto Logging / release.
 - `docs/architecture.md`: test counts (66 files / 1103 tests), Automatic Logging layer, force-update note.

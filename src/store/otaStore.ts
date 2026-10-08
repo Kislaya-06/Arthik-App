@@ -18,15 +18,15 @@ interface OtaState {
 const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
-    version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '1.2.4',
-    title: ota?.title || 'UI Polish & Stability Improvements ✨⚡',
+    version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
+    title: ota?.title || 'Budget & Gullak Sync, Reimbursements & Hero Card Polish 💰✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Pixel-Perfect UI Alignment: Restored exact spacing, radii, and keypad gaps across forms, modals, and auth screens",
-          "Modal & Sheet Lifecycle: Enhanced bottom sheet animation transitions and dismissal stability",
-          "Hardened Test Coverage: Comprehensive reliability validations across core hooks, navigation, and state stores",
-          "Optimized Fluidity: Instant responsiveness and zero redundant renders across all views",
+          "Unified Cycle Financials: Daily, Weekly, and Monthly remaining balances and Gullak rollovers now use one synchronized formula",
+          "Smart Income & Reimbursements: Self-transfers are excluded from budget pools, while reimbursements restore your spendable allowance cleanly",
+          "Enhanced Hero Summary Card: Incoming funds and allowances stack vertically with dynamic height adaptation for clean scannability",
+          "Auto-Logging & Auth Polish: Bank emails confirm immediately without SMS dependencies, and login password fields ensure zero character clipping",
         ],
   };
 };
