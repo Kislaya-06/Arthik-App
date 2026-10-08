@@ -53,10 +53,10 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
     return () => { alive = false; };
   }, [expenseId, userId, autoLogOff]);
 
-  const main = events.find((e) => e.expenseId === expenseId);
+  const main = events.find((e) => e.expenseId === expenseId) || events[0];
   if (!main) return null;
   const matched = events.filter((e) => e.id !== main.id);
-  const last4 = main.accountKey?.split(':')[1];
+  const last4 = main.accountKey?.split(':')[1] || matched.find((m) => m.accountKey)?.accountKey?.split(':')[1];
   const kindWord = (e: AutoLogEvent) => (e.source === 'sms' ? 'SMS' : e.source === 'email' ? 'email' : 'notification');
   const sources = [main, ...matched].map((e) => `${e.sender} ${kindWord(e)}`);
   const sameRef = !!main.ref && matched.some((m) => m.ref === main.ref);

@@ -557,10 +557,16 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
   return { status: e.status, eventId: e.id, accountKey: e.accountKey, isNewAccount };
 };
 
-/** Previews whose bank SMS never came → Pending Review (never auto-logged). */
+/** Previews whose bank SMS never came → Pending Review (never auto-logged), unless an email/SMS already confirmed it. */
 export const sweepAwaiting = async (now: number, notify: boolean) => {
   const stale = await db.findEvents("status = 'awaiting_sms' AND occurred_at < ?", now - NOTIFICATION_WAIT_MS);
   for (const e of stale) {
+    const id = await findIdentity(e, ['email', 'sms']);
+    if (id.kind === 'match' && id.root && (id.root.status === 'logged' || id.root.status === 'queued')) {
+      await db.updateEvent(e.id, { status: 'merged', matchedId: id.root.id, reviewReason: null });
+      if (!id.root.merchant && e.merchant) await db.updateEvent(id.root.id, { merchant: e.merchant });
+      continue;
+    }
     await db.updateEvent(e.id, { status: 'pending', reviewReason: 'notification_only' });
     if (notify) await notifyNeedsReview(e.id, e.amount, e.merchant, reviewQuestion.notification_only);
   }

@@ -89,7 +89,13 @@ export interface IdentityEvidence extends Matchable {
 }
 
 const last4Of = (key: string | null) => (key ? key.split(':').pop() || null : null);
-const normMerchant = (m: string | null) => (m ? m.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+const normMerchant = (m: string | null) => {
+  if (!m) return '';
+  let s = m.toLowerCase();
+  s = s.replace(/^(?:upi\/(?:\d+\/)?|vpa\s+|trf\s+to\s+|paid\s+to\s+|info:?\s*)+/i, '');
+  if (s.includes('@')) s = s.split('@')[0];
+  return s.replace(/[^a-z0-9]/g, '');
+};
 
 export const merchantsAgree = (a: string | null, b: string | null): boolean | null => {
   const x = normMerchant(a);

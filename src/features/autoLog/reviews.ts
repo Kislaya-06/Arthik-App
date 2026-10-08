@@ -1,6 +1,7 @@
 import * as db from './db';
 import { logEvent } from './engine';
 import { deleteTransaction, setTransactionCategory, setTransactionType } from './ledger';
+import { identityScore } from './matching';
 import type { AutoLogEvent } from './types';
 
 /**
@@ -33,6 +34,25 @@ export const classifyEvent = async (
   await db.addRule({ kind: 'accept_template', sender: e.sender, template: e.template, fingerprint: null, direction: e.direction });
   await db.learnTemplate(e.template, e.sender, e.source);
   if (rememberMerchant && e.merchant) await db.setMerchantPref(e.merchant, categoryId, type);
+
+  // Immediately reconcile compatible awaiting_sms notifications for this newly confirmed transaction
+  if (e.status === 'logged' || e.status === 'queued') {
+    const awaitingNotifs = await db.findEvents(
+      "source = 'notification' AND status = 'awaiting_sms' AND amount = ? AND direction = ?",
+      e.amount, e.direction
+    );
+    for (const notif of awaitingNotifs) {
+      const score = identityScore(notif as any, e as any);
+      if (score !== null && (score >= 100 || score >= 3)) {
+        await db.updateEvent(notif.id, { status: 'merged', matchedId: e.id, reviewReason: null });
+        if (!e.merchant && notif.merchant) {
+          e.merchant = notif.merchant;
+          await db.updateEvent(e.id, { merchant: notif.merchant });
+        }
+      }
+    }
+  }
+
   return e;
 };
 

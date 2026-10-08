@@ -19,14 +19,14 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Budget & Gullak Sync, Reimbursements & Hero Card Polish 💰✨',
+    title: ota?.title || 'Auto-Log Email Confirmation & Multi-Source Sync ⚡📧',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Unified Cycle Financials: Daily, Weekly, and Monthly remaining balances and Gullak rollovers now use one synchronized formula",
-          "Smart Income & Reimbursements: Self-transfers are excluded from budget pools, while reimbursements restore your spendable allowance cleanly",
-          "Enhanced Hero Summary Card: Incoming funds and allowances stack vertically with dynamic height adaptation for clean scannability",
-          "Auto-Logging & Auth Polish: Bank emails confirm immediately without SMS dependencies, and login password fields ensure zero character clipping",
+          "Email-First Finality: Bank and receipt emails confirm transactions immediately as terminal records without waiting for SMS",
+          "Smart Notification Reconciliation: Background sweeper automatically links confirmed transactions without false re-reviews",
+          "Seamless Multi-Source Fusion: Late-arriving bank SMS and payment app notifications cleanly attach as secondary sources",
+          "Enhanced Source Transparency: 'Why was this logged?' card clearly displays all linked source proofs and accounts",
         ],
   };
 };

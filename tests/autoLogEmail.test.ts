@@ -23,6 +23,8 @@ import * as service from '../src/features/autoLog/service';
 import * as db from '../src/features/autoLog/db';
 import { parseEmail, extractTxnTime, resolveEmailSender } from '../src/features/autoLog/parser';
 import { decideIdentity, identityScore } from '../src/features/autoLog/matching';
+import { classifyEvent } from '../src/features/autoLog/reviews';
+import { sweepAwaiting } from '../src/features/autoLog/engine';
 
 const U = 'user-1';
 const MIN = 60_000;
@@ -35,18 +37,18 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const dmy = (t: number) => { const d = new Date(t); return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`; };
 const hm = (t: number) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
-const smsDebit = (amt: number, to: string, ref: string) =>
-  `Sent Rs.${amt}.00 From HDFC Bank A/C *1234 To ${to} On 05/10/26 Ref ${ref} Not You? Call 18002586161`;
+const smsDebit = (amt: number, to: string, ref: string, opts: { account?: string } = {}) =>
+  `Sent Rs.${amt}.00 From HDFC Bank A/C *${opts.account ?? '1234'} To ${to} On 05/10/26 Ref ${ref} Not You? Call 18002586161`;
 const emailDebit = (amt: number, to: string, at: number, opts: { ref?: string; account?: string } = {}) =>
   `Transaction alert. Rs. ${amt}.00 has been debited from your account ${opts.account ?? 'XX1234'} for a UPI payment to ${to} on ${dmy(at)} at ${hm(at)}.` +
   (opts.ref ? ` UPI Ref ${opts.ref}.` : '') +
   ' Never share your OTP or password with anyone.';
 
 /** Live with HDFC ••••1234 tracked and email detection ON. */
-const goLive = async (emailOn = true) => {
+const goLive = async (emailOn = true, trackedKeys = ['HDFC:1234']) => {
   receiveSms(HDFC, smsDebit(10, 'OLD SHOP', '600000000001'), Date.now() - 10 * DAY);
   await service.runDiscovery(U);
-  await service.completeSetup(U, { trackedKeys: ['HDFC:1234'], keepAccounts: [] });
+  await service.completeSetup(U, { trackedKeys, keepAccounts: [] });
   if (emailOn) await service.setEmailEnabled(U, true);
 };
 const run = () => service.processQueue(U, { notify: false });
@@ -324,4 +326,130 @@ describe('Independent sources (spec §38–39)', () => {
     expect(await sourcesOf(expenseId)).toEqual(['email', 'notification', 'sms']);
   });
 });
+
+describe('Email-First Transaction Confirmation & Source Reconciliation', () => {
+  it('1. Email only → user confirms → no SMS ever arrives → terminal, exactly 1 transaction, zero future reviews', async () => {
+    await goLive();
+    const t = Date.now();
+    // Unknown sender email (e.g. merchant invoice) goes to review
+    receiveEmail('Coffee Shop', emailDebit(150, 'Blue Tokai', t), t);
+    await run();
+    expect(txs()).toHaveLength(0);
+    const pending = await db.findEvents("status = 'pending'");
+    expect(pending).toHaveLength(1);
+
+    // User explicitly confirms the email transaction
+    await classifyEvent(pending[0], 'expense', null, false);
+    expect(txs()).toHaveLength(1);
+    expect(txs()[0].amount).toBe(150);
+    expect((await db.findEvents("status = 'pending'")).length).toBe(0);
+
+    // Background jobs and sweepers run hours later
+    await sweepAwaiting(t + 4 * HOUR, true);
+    await run();
+    expect(txs()).toHaveLength(1);
+    expect((await db.findEvents("status = 'pending'")).length).toBe(0);
+  });
+
+  it('2. Email → confirm → late SMS arrives without exact RRN → merges into single transaction with two sources', async () => {
+    await goLive();
+    const t = Date.now();
+    receiveEmail(HDFC_EMAIL, emailDebit(350, 'SWIGGY', t), t);
+    await run();
+    expect(txs()).toHaveLength(1);
+    const expenseId = txs()[0].id;
+
+    // Late SMS arrives 40 minutes later with its own bank reference
+    receiveSms(HDFC, smsDebit(350, 'SWIGGY', '839201928330'), t + 40 * MIN);
+    await run();
+
+    expect(txs()).toHaveLength(1);
+    expect(await sourcesOf(expenseId)).toEqual(['email', 'sms']);
+    expect((await db.findEvents("status = 'pending'")).length).toBe(0);
+  });
+
+  it('3. Notification first → email confirmed → sweepAwaiting runs → notification merged cleanly without review', async () => {
+    await goLive();
+    const t = Date.now();
+    receiveNotification('PhonePe', 'Paid ₹500 to Zomato', 'Payment successful', t);
+    await run();
+    expect(txs()).toHaveLength(0); // sitting in awaiting_sms
+
+    // Email arrives and confirms the transaction
+    receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t), t + 3 * MIN);
+    await run();
+    expect(txs()).toHaveLength(1);
+    const expenseId = txs()[0].id;
+
+    // 25 minutes later, sweepAwaiting runs
+    await sweepAwaiting(t + 25 * MIN, true);
+    await run();
+
+    expect(txs()).toHaveLength(1);
+    expect(await sourcesOf(expenseId)).toEqual(['email', 'notification']);
+    expect((await db.findEvents("status = 'pending'")).length).toBe(0);
+  });
+
+  it('4. Email → confirm → SMS delayed by hours → still one transaction with two sources', async () => {
+    await goLive();
+    const t = Date.now();
+    receiveEmail(HDFC_EMAIL, emailDebit(1250, 'AMAZON', t), t);
+    await run();
+    expect(txs()).toHaveLength(1);
+    const expenseId = txs()[0].id;
+
+    // SMS arrives 6 hours later on the same day
+    receiveSms(HDFC, smsDebit(1250, 'AMAZON', '998877665544'), t + 6 * HOUR);
+    await run();
+
+    expect(txs()).toHaveLength(1);
+    expect(await sourcesOf(expenseId)).toEqual(['email', 'sms']);
+    expect((await db.findEvents("status = 'pending'")).length).toBe(0);
+  });
+
+  it('5. Two separate same-source ₹20 transactions → remain two distinct transactions', async () => {
+    await goLive();
+    const t = Date.now();
+    receiveEmail(HDFC_EMAIL, emailDebit(20, 'TEA STALL', t - 10 * MIN), t);
+    receiveEmail(HDFC_EMAIL, emailDebit(20, 'TEA STALL', t - 2 * MIN), t + MIN);
+    await run();
+
+    expect(txs()).toHaveLength(2);
+    expect(txs()[0].amount).toBe(20);
+    expect(txs()[1].amount).toBe(20);
+  });
+
+  it('6. Email + SMS with exact RRN/UTR → exact reference merge', async () => {
+    await goLive();
+    const t = Date.now();
+    receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t, { ref: '839201928311' }), t);
+    receiveSms(HDFC, smsDebit(500, 'ZOMATO', '839201928311'), t + 30 * MIN);
+    await run();
+
+    expect(txs()).toHaveLength(1);
+    expect(await sourcesOf(txs()[0].id)).toEqual(['email', 'sms']);
+  });
+
+  it('7. Conflicting account SMS does NOT silently merge into unrelated email transaction', async () => {
+    receiveSms(HDFC, smsDebit(10, 'OLD SHOP 1', '600000000001', { account: '1234' }), Date.now() - 10 * DAY);
+    receiveSms(HDFC, smsDebit(10, 'OLD SHOP 2', '600000000002', { account: '5678' }), Date.now() - 9 * DAY);
+    await service.runDiscovery(U);
+    await service.completeSetup(U, { trackedKeys: ['HDFC:1234', 'HDFC:5678'], keepAccounts: [] });
+    await service.setEmailEnabled(U, true);
+
+    const t = Date.now();
+    // Email on account 1234
+    receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t, { account: 'XX1234' }), t);
+    await run();
+    expect(txs()).toHaveLength(1);
+
+    // SMS on a different tracked account 5678
+    receiveSms(HDFC, smsDebit(500, 'ZOMATO', '839201928399', { account: '5678' }), t + 5 * MIN);
+    await run();
+
+    // Two different accounts = two separate transactions, never silently merged
+    expect(txs()).toHaveLength(2);
+  });
+});
+
 
