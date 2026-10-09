@@ -3,6 +3,8 @@
 Guide for AI coding agents working on **Arthik** (personal expense + savings tracker).
 Read this fully before touching code. If a rule here conflicts with a user instruction, the user wins — but say out loud which rule you are breaking and why.
 
+> **STRICT GIT & RELEASE INVARIANT (CRITICAL)**: Under NO circumstances should any code be committed (`git commit`), pushed to remote (`git push`), merged (`git merge`), or released as an OTA update (`eas update`) unless the user explicitly and directly instructs you to do so in their prompt. The agent must never autonomously commit, push, merge, or release updates without direct, explicit, and unambiguous user command.
+
 ---
 
 # 1. Project Overview
@@ -250,6 +252,10 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 ---
 
 # 11. Deployment, Versioning & OTA Updates
+
+## 11.0 Autonomous Commit, Push, Merge & OTA Prohibition (CRITICAL INVARIANT)
+- **Never Commit, Push, Merge, or Release Without Explicit User Command**: Under NO circumstances should any code be committed (`git commit`), pushed to remote (`git push`), merged (`git merge`), or released as an OTA update (`eas update`) unless the user explicitly and directly instructs you to do so in their prompt.
+- The agent must test and verify changes locally (via `npm test` and `npx tsc --noEmit`), but **MUST NEVER** autonomously execute `git commit`, `git push`, `git merge`, or `eas update` without direct, explicit, and unambiguous user command.
 
 ## 11.1 Build profiles (`eas.json`)
 | Profile | Use | Output |
