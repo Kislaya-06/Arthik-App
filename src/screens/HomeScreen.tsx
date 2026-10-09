@@ -428,8 +428,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         referenceDate,
         externalDepositsInPeriod,
         planChanges,
+        todaySpent: todayRecordSpent,
+        spentByDate,
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate]
   );
 
   // Date range label shown below filter pills for quick orientation

@@ -1242,8 +1242,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
         });
         const todayRec = records[todayStr];
-        if (todayRec && todayRec.budget > 0 && todayRec.spent > todayRec.budget) {
-          totalOverspent += (todayRec.spent - todayRec.budget);
+        const expenses = getCurrentExpenses();
+        const todayLiveSpent = computeSpentForDate(expenses, todayStr, isIncome);
+        const todayBudgetAmt = todayRec?.budget ?? (get().isBudgetModeEnabled && get().isAutoRenew ? get().dailyBudgetAmount : 0);
+        const todaySpentAmt = Math.max(todayRec?.spent ?? 0, todayLiveSpent);
+        if (todayBudgetAmt > 0 && todaySpentAmt > todayBudgetAmt) {
+          totalOverspent += (todaySpentAmt - todayBudgetAmt);
         }
         return round2(Math.max(0, grossIncome - totalOverspent));
       },

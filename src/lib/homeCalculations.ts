@@ -69,6 +69,10 @@ export interface PeriodCalculationParams {
   referenceDate: Date;
   externalDepositsInPeriod?: number;
   planChanges?: BudgetPlanChange[];
+  /** Optional live today spent for zero-lag reactivity */
+  todaySpent?: number;
+  /** Optional map of date -> spent for accurate per-day overspend calculation */
+  spentByDate?: Record<string, number>;
 }
 
 export interface PeriodSummary {
@@ -82,6 +86,8 @@ export interface PeriodSummary {
   periodSpent: number;
   periodBudgetPool: number;
   isBudgetConfigured: boolean;
+  remainingIncome?: number;
+  remainingDeposits?: number;
 }
 
 /**
@@ -210,6 +216,62 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
 
   let label: string;
   let subtext: string | null = null;
+  let remainingPeriodIncome = income;
+  let remainingPeriodDeposits = externalDepositsInPeriod;
+
+  // Calculate daily limit overspending across all days in this active period
+  let dailyOverspentInPeriod = 0;
+  if (isBudgetConfigured) {
+    periodDates.forEach((d) => {
+      if (d === todayStr) {
+        const dayBudget = todayBudget > 0 ? todayBudget : dailyBudgetAmount;
+        const daySpent = params.todaySpent !== undefined
+          ? params.todaySpent
+          : (params.spentByDate && params.spentByDate[todayStr] !== undefined
+            ? params.spentByDate[todayStr]
+            : (dailyRecords[todayStr]?.spent !== undefined ? dailyRecords[todayStr].spent : (activeFilter === 'Daily' ? spent : 0)));
+        if (dayBudget > 0 && daySpent > dayBudget) {
+          dailyOverspentInPeriod += round2(daySpent - dayBudget);
+        }
+      } else {
+        let b = 0;
+        let s = 0;
+        if (params.spentByDate && params.spentByDate[d] !== undefined) {
+          s = Number(params.spentByDate[d]) || 0;
+          if (dailyRecords[d] && dailyRecords[d].status !== 'unknown') {
+            b = Number(dailyRecords[d].budget) || 0;
+          } else if (planChanges && planChanges.length > 0) {
+            const plan = resolvePlanForDate(planChanges, d);
+            b = (plan && plan.isEnabled && plan.cadence === 'daily') ? Number(plan.amount) || 0 : dailyBudgetAmount;
+          } else {
+            b = dailyBudgetAmount;
+          }
+        } else if (dailyRecords[d] && dailyRecords[d].status !== 'unknown') {
+          b = Number(dailyRecords[d].budget) || 0;
+          s = Number(dailyRecords[d].spent) || 0;
+        }
+        if (b > 0 && s > b) {
+          dailyOverspentInPeriod += round2(s - b);
+        }
+      }
+    });
+    dailyOverspentInPeriod = round2(dailyOverspentInPeriod);
+  }
+
+  // Real-time absorption: Overspending beyond daily limits (or period budgetPool)
+  // is deducted first from Income, then Gullak deposits
+  const overspentBeyondBudget = isBudgetConfigured
+    ? (budgetPool > 0
+        ? Math.max(dailyOverspentInPeriod, Math.max(0, round2(spent - budgetPool)))
+        : dailyOverspentInPeriod)
+    : 0;
+
+  const overspentFromIncome = Math.min(income, overspentBeyondBudget);
+  remainingPeriodIncome = round2(income - overspentFromIncome);
+
+  const overspentBeyondIncome = round2(overspentBeyondBudget - overspentFromIncome);
+  const overspentFromGullak = Math.min(externalDepositsInPeriod, overspentBeyondIncome);
+  remainingPeriodDeposits = round2(externalDepositsInPeriod - overspentFromGullak);
 
   if (!isBudgetConfigured && income === 0 && externalDepositsInPeriod === 0) {
     label = activeFilter === 'Daily' ? 'Spent Today' : `${prefix} Spent`;
@@ -218,18 +280,6 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     subtext = `Exceeded ${prefix.toLowerCase()} limit by ${formatCurrency(overAmount)}`;
   } else {
     label = activeFilter === 'Daily' ? 'Remaining to Spend' : `${prefix} Remaining`;
-
-    // Real-time absorption: Overspending beyond budgetPool is deducted first from Income, then Gullak deposits
-    const overspentBeyondBudget = isBudgetConfigured && budgetPool > 0
-      ? Math.max(0, round2(spent - budgetPool))
-      : 0;
-
-    const overspentFromIncome = Math.min(income, overspentBeyondBudget);
-    const remainingPeriodIncome = round2(income - overspentFromIncome);
-
-    const overspentBeyondIncome = round2(overspentBeyondBudget - overspentFromIncome);
-    const overspentFromGullak = Math.min(externalDepositsInPeriod, overspentBeyondIncome);
-    const remainingPeriodDeposits = round2(externalDepositsInPeriod - overspentFromGullak);
 
     if (isBudgetConfigured && budgetPool > 0) {
       const daysSuffix = isPeriodFilter ? ` (${daysCount} ${daysCount === 1 ? 'day' : 'days'})` : '';
@@ -246,9 +296,9 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       }
     } else if (externalDepositsInPeriod > 0) {
       if (income > 0) {
-        subtext = `${formatCurrency(income)} income + ${formatCurrency(externalDepositsInPeriod)} deposits to Gullak`;
+        subtext = `${formatCurrency(remainingPeriodIncome)} income + ${formatCurrency(remainingPeriodDeposits)} deposits to Gullak`;
       } else {
-        subtext = `${formatCurrency(externalDepositsInPeriod)} deposits to Gullak`;
+        subtext = `${formatCurrency(remainingPeriodDeposits)} deposits to Gullak`;
       }
     }
   }
@@ -266,6 +316,8 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     periodSpent: spent,
     periodBudgetPool: budgetPool,
     isBudgetConfigured,
+    remainingIncome: remainingPeriodIncome,
+    remainingDeposits: remainingPeriodDeposits,
   };
 };
 
