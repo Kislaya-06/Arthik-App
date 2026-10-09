@@ -8,6 +8,7 @@ import {
   Animated,
   LayoutAnimation,
   useAnimatedValue,
+  AppState,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
@@ -235,8 +236,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }, [loadData, showNavBar])
   );
 
+  // Auto-refresh when app comes to foreground from background across midnight
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        const nowKey = format(new Date(), 'yyyy-MM-dd');
+        setTodayKey((prev) => {
+          if (prev !== nowKey) {
+            loadData(true);
+            return nowKey;
+          }
+          return prev;
+        });
+      }
+    });
+    return () => sub.remove();
+  }, [loadData]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Explicitly update today's date key on pull-to-refresh in case midnight just passed
+    const nowKey = format(new Date(), 'yyyy-MM-dd');
+    setTodayKey((prev) => (prev !== nowKey ? nowKey : prev));
     const currentUser = useAuthStore.getState().user;
     if (currentUser) {
       await useDailyBudgetStore.getState().hydrateFromSupabase(currentUser.id);

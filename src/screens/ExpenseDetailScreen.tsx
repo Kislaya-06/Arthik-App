@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Alert, ScrollView,
 } from 'react-native';
@@ -23,6 +23,8 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { AppButton } from '../components/ui/AppButton';
 import { WhyLoggedCard } from '../components/autolog/WhyLoggedCard';
 import { SharesDetailCard } from '../components/shares/SharesDetailCard';
+import { ExpenseFundingCard } from '../components/ExpenseFundingCard';
+import { calculateExpenseFunding } from '../lib/transactionFunding';
 import { useSharesStore } from '../store/sharesStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
@@ -34,6 +36,12 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const deleteExpense = useExpenseStore((s) => s.deleteExpense);
   const categories = useCategoryStore((s) => s.categories);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
+  const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
+  const planChanges = useDailyBudgetStore((s) => s.planChanges);
+  const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
+  const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
+  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -43,6 +51,35 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const expense = expenses.find((e) => e.id === expenseId);
   const category = categories.find((c) => c.id === expense?.category_id);
+
+  const fundingInfo = useMemo(() => {
+    if (!expense) return null;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayBudget = dailyRecords[todayStr]?.budget ?? dailyBudgetAmount;
+    return calculateExpenseFunding({
+      expense,
+      allExpenses: expenses,
+      categories,
+      records: dailyRecords,
+      planChanges,
+      todayBudget,
+      dailyBudgetAmount,
+      isBudgetModeEnabled,
+      isAutoRenew,
+      deposits: gullakDeposits,
+      todayStr,
+    });
+  }, [
+    expense,
+    expenses,
+    categories,
+    dailyRecords,
+    planChanges,
+    dailyBudgetAmount,
+    isBudgetModeEnabled,
+    isAutoRenew,
+    gullakDeposits,
+  ]);
 
   if (!expense) {
     return (
@@ -242,6 +279,30 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             </View>
 
+            {/* Deducted From / Destination Row */}
+            {fundingInfo && (
+              <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
+                <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                  {isIncome ? 'Destination' : 'Deducted from'}
+                </Text>
+                <Text
+                  style={[
+                    styles.cardValue,
+                    {
+                      color: fundingInfo.coveredByGullak > 0
+                        ? colors.coral
+                        : fundingInfo.coveredByIncome > 0
+                        ? colors.mintGreenDark
+                        : colors.textPrimary,
+                      fontFamily: FontFamily.bold,
+                    },
+                  ]}
+                >
+                  {fundingInfo.summaryLabel}
+                </Text>
+              </View>
+            )}
+
             {/* Note Row */}
             <View style={[styles.cardRow, styles.cardRowLast, styles.noteRow]}>
               <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>Note</Text>
@@ -260,6 +321,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               )}
             </View>
           </View>
+
+          {/* Funding Breakdown Card */}
+          {fundingInfo && <ExpenseFundingCard funding={fundingInfo} />}
 
           {/* Friend shares / reimbursement / self-transfer details */}
           <SharesDetailCard expense={expense} />
