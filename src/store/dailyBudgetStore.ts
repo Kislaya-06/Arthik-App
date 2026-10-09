@@ -278,9 +278,54 @@ const computeMetrics = (
   for (const p of periodsList) {
     periodsSaved += Number(p.amountSaved) || 0;
   }
-  periodsSaved = round2(periodsSaved);
+  const rawAccumulatedSavings = round2(dailyMetrics.totalAccumulatedSavings + periodsSaved);
 
-  const totalAccumulatedSavings = round2(dailyMetrics.totalAccumulatedSavings + periodsSaved);
+  // Hard Real-Money Invariant: Gullak savings cannot exceed Total Account Remaining
+  const expensesList = getCurrentExpenses();
+  let totalAccumulatedSavings = rawAccumulatedSavings;
+
+  if (expensesList && expensesList.length > 0) {
+    const isIncomeFn = buildCategoryClassifier();
+    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
+    const isReimbFn = buildReimbursementClassifier();
+
+    let allTimeBudget = 0;
+    for (const r of Object.values(records)) {
+      if (r.status !== 'unknown' && r.budget > 0) {
+        allTimeBudget += Number(r.budget) || 0;
+      }
+    }
+    if (budgetPeriods) {
+      for (const bp of Object.values(budgetPeriods)) {
+        allTimeBudget += Number(bp.budgetAmount) || 0;
+      }
+    }
+
+    let allTimeIncome = 0;
+    let allTimeReimb = 0;
+    let allTimeSpent = 0;
+    for (let i = 0; i < expensesList.length; i++) {
+      const e = expensesList[i];
+      const amt = Number(e.amount) || 0;
+      if (amt <= 0) continue;
+      if (isIncomeFn(e)) {
+        if (isEligibleIncomeFn(e)) allTimeIncome += amt;
+      } else if (isReimbFn(e)) {
+        allTimeReimb += amt;
+      } else {
+        allTimeSpent += amt;
+      }
+    }
+
+    const externalDeposits = (deposits && Array.isArray(deposits))
+      ? deposits.reduce((s, d) => s + (d.source !== 'income' ? (Number(d.amount) || 0) : 0), 0)
+      : 0;
+
+    const totalInflow = round2(allTimeBudget + allTimeIncome + allTimeReimb + externalDeposits);
+    const totalAccountRemaining = Math.max(0, round2(totalInflow - allTimeSpent));
+
+    totalAccumulatedSavings = Math.min(rawAccumulatedSavings, totalAccountRemaining);
+  }
 
   const todayStr = getTodayDateStr();
   const uCreatedAt = userCreatedAt ?? getUserCreatedAtStr();
