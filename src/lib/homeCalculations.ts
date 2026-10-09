@@ -218,13 +218,26 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     subtext = `Exceeded ${prefix.toLowerCase()} limit by ${formatCurrency(overAmount)}`;
   } else {
     label = activeFilter === 'Daily' ? 'Remaining to Spend' : `${prefix} Remaining`;
+
+    // Real-time absorption: Overspending beyond budgetPool is deducted first from Income, then Gullak deposits
+    const overspentBeyondBudget = isBudgetConfigured && budgetPool > 0
+      ? Math.max(0, round2(spent - budgetPool))
+      : 0;
+
+    const overspentFromIncome = Math.min(income, overspentBeyondBudget);
+    const remainingPeriodIncome = round2(income - overspentFromIncome);
+
+    const overspentBeyondIncome = round2(overspentBeyondBudget - overspentFromIncome);
+    const overspentFromGullak = Math.min(externalDepositsInPeriod, overspentBeyondIncome);
+    const remainingPeriodDeposits = round2(externalDepositsInPeriod - overspentFromGullak);
+
     if (isBudgetConfigured && budgetPool > 0) {
       const daysSuffix = isPeriodFilter ? ` (${daysCount} ${daysCount === 1 ? 'day' : 'days'})` : '';
       const parts: string[] = [];
       parts.push(`${formatCurrency(budgetPool)} budget${daysSuffix}`);
-      if (income > 0) parts.push(`${formatCurrency(income)} income`);
+      if (income > 0) parts.push(`${formatCurrency(remainingPeriodIncome)} income`);
       if (totalReimbursements > 0) parts.push(`${formatCurrency(round2(totalReimbursements))} reimbursed`);
-      if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(externalDepositsInPeriod)} deposits to Gullak`);
+      if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(remainingPeriodDeposits)} deposits to Gullak`);
       if (parts.length > 1) {
         subtext = parts.join(' + ');
       } else {

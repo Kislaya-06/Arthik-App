@@ -1228,7 +1228,24 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const isIncome = buildCategoryClassifier();
         const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, undefined) && isIncome(e) ? (Number(e.amount) || 0) : 0), 0);
         const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
-        return round2(Math.max(0, totalIncome - incomeDeposits));
+        const grossIncome = Math.max(0, totalIncome - incomeDeposits);
+        const records = get().dailyRecords || {};
+        const todayStr = getTodayDateStr();
+        const userCreatedAt = getUserCreatedAtStr();
+        let totalOverspent = 0;
+        Object.values(records).forEach((r) => {
+          if (r.isFinalized && r.date < todayStr && r.status !== 'unknown') {
+            if (userCreatedAt && r.date < userCreatedAt) return;
+            if (r.budget > 0 && r.spent > r.budget) {
+              totalOverspent += (r.spent - r.budget);
+            }
+          }
+        });
+        const todayRec = records[todayStr];
+        if (todayRec && todayRec.budget > 0 && todayRec.spent > todayRec.budget) {
+          totalOverspent += (todayRec.spent - todayRec.budget);
+        }
+        return round2(Math.max(0, grossIncome - totalOverspent));
       },
 
       syncWithExpenses: (expenses: Expense[]) => {
