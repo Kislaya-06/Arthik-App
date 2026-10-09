@@ -1,4 +1,4 @@
-import { isIncomeTransaction, isEligibleIncome } from './transactionUtils';
+import { isIncomeTransaction, isEligibleIncome, isEligibleReimbursement } from './transactionUtils';
 
 export interface MinimalCategory {
   id: string;
@@ -11,6 +11,7 @@ export interface MinimalExpense {
   type?: 'expense' | 'income' | string;
   note?: string | null;
   status?: string;
+  transaction_class?: string | null;
   [key: string]: any;
 }
 
@@ -92,4 +93,9 @@ export function makeEligibleIncomeClassifier<T extends MinimalCategory = Minimal
   }
 
   return classifier;
+}
+
+/** Predicate for confirmed reimbursements (feeds the eligibleReimbursements channel, never income). */
+export function makeReimbursementClassifier(): (e: MinimalExpense) => boolean {
+  return (e: MinimalExpense) => isEligibleReimbursement(e);
 }

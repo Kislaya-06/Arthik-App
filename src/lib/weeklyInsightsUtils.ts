@@ -1,5 +1,5 @@
 import { parseISO, format, differenceInCalendarDays, getDay, addDays } from 'date-fns';
-import { isIncomeTransaction } from './transactionUtils';
+import { isIncomeTransaction, isExcludedFromTotals } from './transactionUtils';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -38,7 +38,7 @@ export function computeWeeklySpend(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       total += exp.amount;
@@ -283,7 +283,7 @@ export function computeLargestSingleOutflow(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       weekExpenses.push(exp);

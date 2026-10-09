@@ -8,7 +8,7 @@ import {
   IdentitySource,
   decideIdentity,
   identityScore,
-  isCrossSourceMatch,
+  STRONG_SCORE,
   isOwnTransferPair,
   isSameSourceDuplicate,
 } from './matching';
@@ -332,7 +332,10 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
     e.occurredAt - CROSS_SOURCE_WINDOW_MS, e.occurredAt + CROSS_SOURCE_WINDOW_MS, e.ref ?? '\u0000'
   );
   const match = notifs
-    .filter((n) => isCrossSourceMatch(n, e))
+    .filter((n) => {
+      const sc = identityScore(n as any, e as any);
+      return sc !== null && sc >= STRONG_SCORE;
+    })
     .sort((a, b) => Math.abs(a.occurredAt - e.occurredAt) - Math.abs(b.occurredAt - e.occurredAt))[0];
   if (match) {
     await db.updateEvent(match.id, { status: 'merged', matchedId: e.id, reviewReason: null });
@@ -388,7 +391,8 @@ export const processNotification = async (raw: RawNotification, opts: ProcessOpt
     e.occurredAt - CROSS_SOURCE_WINDOW_MS, e.occurredAt + CROSS_SOURCE_WINDOW_MS, e.ref ?? '\u0000'
   );
   for (const s of smsEvents) {
-    if (!isCrossSourceMatch(s, e)) continue;
+    const sc = identityScore(s as any, e as any);
+    if (sc === null || sc < STRONG_SCORE) continue;
     const already = await db.findEvents("matched_id = ? AND source = 'notification'", s.id);
     if (already.length) continue;
     e.status = 'merged';

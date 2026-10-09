@@ -16,6 +16,12 @@ export interface Expense {
   note?: string;
   payment_mode: 'cash' | 'upi' | 'card';
   expense_date: string; // YYYY-MM-DD
+  /** 'normal' (default), 'reimbursement' (repays a friend share, not income) or 'self_transfer'. */
+  transaction_class?: 'normal' | 'reimbursement' | 'self_transfer';
+  /** Reimbursements only: the expense_shares row this payment repays. */
+  reimburses_share_id?: string | null;
+  /** Self-transfers only: the remembered rule that classified it. */
+  transfer_rule_id?: string | null;
   created_at?: string;
   pending?: boolean;
   retryCount?: number;
@@ -52,7 +58,12 @@ interface ExpenseState {
     paymentMode: 'cash' | 'upi' | 'card',
     date: string,
     type?: 'expense' | 'income',
-    options?: { id?: string }
+    options?: {
+      id?: string;
+      transactionClass?: 'normal' | 'reimbursement' | 'self_transfer';
+      reimbursesShareId?: string | null;
+      transferRuleId?: string | null;
+    }
   ) => Promise<void>;
   updateExpense: (
     id: string,
@@ -466,6 +477,9 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
               expense_date: item.expense_date,
               type: item.type,
               category_id: item.category_id || null,
+              transaction_class: item.transaction_class ?? 'normal',
+              reimburses_share_id: item.reimburses_share_id ?? null,
+              transfer_rule_id: item.transfer_rule_id ?? null,
             };
 
             // P0.4: upsert with onConflict: 'id', ignoreDuplicates: true
@@ -876,6 +890,9 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       payment_mode: paymentMode,
       expense_date: date,
       type,
+      transaction_class: options?.transactionClass ?? 'normal',
+      reimburses_share_id: options?.reimbursesShareId ?? null,
+      transfer_rule_id: options?.transferRuleId ?? null,
       created_at: nowIso,
       pending: true,
     };
@@ -903,6 +920,9 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         expense_date: date,
         type,
         category_id: categoryId || null,
+        transaction_class: options?.transactionClass ?? 'normal',
+        reimburses_share_id: options?.reimbursesShareId ?? null,
+        transfer_rule_id: options?.transferRuleId ?? null,
       };
 
       // P0.4: upsert with onConflict: 'id', ignoreDuplicates: true

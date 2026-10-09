@@ -42,13 +42,16 @@ import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
-import { makeIncomeClassifier, makeEligibleIncomeClassifier } from '../lib/incomeClassifier';
+import { makeIncomeClassifier, makeEligibleIncomeClassifier, makeReimbursementClassifier } from '../lib/incomeClassifier';
+import { isCountedIncome } from '../lib/transactionUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 import { round2 } from '../lib/formatters';
 
 const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
   return makeIncomeClassifier(useCategoryStore.getState().categories);
 };
+
+const buildReimbursementClassifier = (): ((e: Expense) => boolean) => makeReimbursementClassifier();
 
 const buildEligibleIncomeClassifier = (): ((e: Expense) => boolean) => {
   return makeEligibleIncomeClassifier(useCategoryStore.getState().categories);
@@ -66,6 +69,8 @@ import {
   computeSpentForDate,
   computeIncomeByDate,
   computeIncomeForDate,
+  computeReimbursementsByDate,
+  computeReimbursementsForDate,
   calculateCycleFinancials,
   buildDefaultTodayRecord,
   filterPastRecords,
@@ -74,6 +79,8 @@ import {
 } from '../lib/budgetCalculations';
 export type { DailyRecord, SavingsMetrics, DayStatus, DayEvaluation };
 export {
+  computeReimbursementsByDate,
+  computeReimbursementsForDate,
   calculateSavingsMetrics,
   evaluateDayStatus,
   computeSpentByDate,
@@ -250,7 +257,7 @@ const computeMetrics = (
   let incomeAvail = availableIncome;
   if (incomeAvail === undefined) {
     const isIncomeFn = buildCategoryClassifier();
-    const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isIncomeFn(e) ? (Number(e.amount) || 0) : 0), 0);
+    const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, undefined) && isIncomeFn(e) ? (Number(e.amount) || 0) : 0), 0);
     const incomeDeposits = (deposits && Array.isArray(deposits))
       ? deposits.reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0)
       : 0;
@@ -486,8 +493,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const spent = existing?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const { saved } = evaluateDayStatus(cleanAmount, spent, todayIncome);
-          const spendable = cleanAmount + todayIncome;
+          const todayReimb = computeReimbursementsForDate(getCurrentExpenses(), todayStr, buildReimbursementClassifier());
+          const { saved } = evaluateDayStatus(cleanAmount, spent, todayIncome, undefined, todayReimb);
+          const spendable = cleanAmount + todayIncome + todayReimb;
           records[todayStr] = {
             date: todayStr,
             budget: cleanAmount,
@@ -590,8 +598,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const spent = currentToday?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const { saved } = evaluateDayStatus(budget, spent, todayIncome);
-          const spendable = budget + todayIncome;
+          const todayReimb = computeReimbursementsForDate(getCurrentExpenses(), todayStr, buildReimbursementClassifier());
+          const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
+          const spendable = budget + todayIncome + todayReimb;
           records[todayStr] = {
             date: todayStr,
             budget,
@@ -710,8 +719,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const spent = records[todayStr]?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const { saved } = evaluateDayStatus(budget, spent, todayIncome);
-          const spendable = budget + todayIncome;
+          const todayReimb = computeReimbursementsForDate(getCurrentExpenses(), todayStr, buildReimbursementClassifier());
+          const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
+          const spendable = budget + todayIncome + todayReimb;
           records[todayStr] = {
             date: todayStr,
             budget,
@@ -1216,7 +1226,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
       getAvailableIncomeBalance: () => {
         const isIncome = buildCategoryClassifier();
-        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isIncome(e) ? (Number(e.amount) || 0) : 0), 0);
+        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, undefined) && isIncome(e) ? (Number(e.amount) || 0) : 0), 0);
         const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
         return round2(Math.max(0, totalIncome - incomeDeposits));
       },
@@ -1229,6 +1239,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
         const todayEligibleIncome = computeIncomeForDate(expenses, todayStr, isEligibleIncomeFn);
+        const isReimbursementFn = buildReimbursementClassifier();
+        const todayReimb = computeReimbursementsForDate(expenses, todayStr, isReimbursementFn);
+        const reimbByDate = computeReimbursementsByDate(expenses, isReimbursementFn);
 
         let todayRecord = records[todayStr];
         let hasTodayChanged = false;
@@ -1237,8 +1250,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         if (!todayRecord) {
           const budget = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0;
-          const { saved } = evaluateDayStatus(budget, todaySpent, todayEligibleIncome);
-          const effectiveSpendable = budget + todayEligibleIncome;
+          const { saved } = evaluateDayStatus(budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
+          const effectiveSpendable = budget + todayEligibleIncome + todayReimb;
           todayRecord = {
             date: todayStr,
             budget,
@@ -1260,8 +1273,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             hasTodayChanged = true;
           }
         } else {
-          const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, todayEligibleIncome);
-          const effectiveSpendable = todayRecord.budget + todayEligibleIncome;
+          const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
+          const effectiveSpendable = todayRecord.budget + todayEligibleIncome + todayReimb;
           const newStatus =
             todaySpent > effectiveSpendable && effectiveSpendable > 0
               ? 'exceeded'
@@ -1280,8 +1293,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         records[todayStr] = todayRecord;
 
         // Check for smart alerts & trigger native phone notifications
-        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && (todayRecord.budget > 0 || todayEligibleIncome > 0)) {
-          const spendable = todayRecord.budget + todayEligibleIncome;
+        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && (todayRecord.budget > 0 || todayEligibleIncome > 0 || todayReimb > 0)) {
+          const spendable = todayRecord.budget + todayEligibleIncome + todayReimb;
           const ratio = spendable > 0 ? todaySpent / spendable : (todaySpent > 0 ? 1 : 0);
           const remaining = Math.max(0, spendable - todaySpent);
           if (ratio >= 1) {
@@ -1314,7 +1327,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         } else if (get().isBudgetModeEnabled && (get().budgetCadence === 'weekly' || get().budgetCadence === 'monthly')) {
           const spentByDate = computeSpentByDate(expenses, isIncomeFn);
           const incomeByDate = computeIncomeByDate(expenses, isEligibleIncomeFn);
-          const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr, incomeByDate);
+          const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr, incomeByDate, reimbByDate);
           if (summary && summary.budget > 0) {
             const ratio = summary.spent / summary.budget;
             const periodKey = `${summary.cadence}_${summary.periodStart}`;
@@ -1397,6 +1410,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         // 1. Group all non-income expenses by date in a single O(N) pass
         const spentByDate = computeSpentByDate(expenses, isIncomeFn);
         const incomeByDate = computeIncomeByDate(expenses, isEligibleIncomeFn);
+        const reimbByDateAll = computeReimbursementsByDate(expenses, buildReimbursementClassifier());
 
         // 2. Identify all past dates (< todayStr) from existing records and expenses
         const pastDates = new Set<string>();
@@ -1443,6 +1457,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const existing = records[d];
           const spent = spentByDate[d] || 0;
           const dayIncome = incomeByDate[d] || 0;
+          const dayReimb = reimbByDateAll[d] || 0;
 
           let budget = 0;
           let saved = 0;
@@ -1456,7 +1471,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           } else if (existing && (existing.budget > 0 || existing.isFinalized)) {
             // Lock to budget-at-the-time persisted in existing record (resolved via pure helper)
             budget = resolveRolloverBudget(existing.budget, get().dailyBudgetAmount);
-            const evaluated = evaluateDayStatus(budget, spent, dayIncome);
+            const evaluated = evaluateDayStatus(budget, spent, dayIncome, undefined, dayReimb);
             saved = evaluated.saved;
             status = evaluated.status;
           } else if (!existing) {
@@ -1470,7 +1485,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               // No prior record, 0 budget, 0 spent: skip
               continue;
             }
-            const evaluated = evaluateDayStatus(budget, spent, dayIncome);
+            const evaluated = evaluateDayStatus(budget, spent, dayIncome, undefined, dayReimb);
             saved = evaluated.saved;
             status = evaluated.status;
           } else {
@@ -1480,7 +1495,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             } else {
               budget = 0;
             }
-            const evaluated = evaluateDayStatus(budget, spent, dayIncome);
+            const evaluated = evaluateDayStatus(budget, spent, dayIncome, undefined, dayReimb);
             saved = evaluated.saved;
             status = evaluated.status;
           }
@@ -1577,7 +1592,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           spentByDate,
           todayStr,
           Object.keys(get().budgetPeriods),
-          userCreatedAtStr
+          userCreatedAtStr,
+          incomeByDate,
+          reimbByDateAll
         );
 
         if (periodsToFinalize.length > 0) {
@@ -2055,6 +2072,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
           const incomeByDate = computeIncomeByDate(currentExpenses, isEligibleIncomeFn);
+          const hydrateReimbByDate = computeReimbursementsByDate(currentExpenses, buildReimbursementClassifier());
 
           // Trigger recovery only when Supabase returned the migration-default 500.
           // This covers both the live case (resolvedBudget===500 via pendingSettings) and the
@@ -2153,7 +2171,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
               // --- 2. RECALCULATE SAVED & STATUS ---
               const dayIncome = incomeByDate[d] || 0;
-              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, dayIncome);
+              const dayReimb = hydrateReimbByDate[d] || 0;
+              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, dayIncome, undefined, dayReimb);
 
               records[d] = {
                 date: d,

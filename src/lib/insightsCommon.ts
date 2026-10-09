@@ -15,6 +15,7 @@ export interface ExpenseLike {
   payment_mode?: string;
   notes?: string | null;
   type?: 'expense' | 'income' | string;
+  transaction_class?: string | null;
 }
 
 export type InsightTakeawayStatus = 'coral' | 'mint' | 'mintGreen' | 'neutral';

@@ -224,7 +224,8 @@ export function buildPeriodsToFinalize(
   todayStr: string,
   alreadyFinalizedKeys?: Set<string> | string[],
   userCreatedAtStr?: string,
-  incomeByDate?: Record<string, number>
+  incomeByDate?: Record<string, number>,
+  reimbursementByDate?: Record<string, number>
 ): BudgetPeriodRecord[] {
   const today = parseISO(todayStr);
   const yesterday = subDays(today, 1);
@@ -357,6 +358,7 @@ export function buildPeriodsToFinalize(
     // Sum spend in active slice
     let spentAmount = 0;
     let sliceIncome = 0;
+    let sliceReimb = 0;
     const sliceDays = eachDayOfInterval({
       start: parseISO(slice.activeStart),
       end: parseISO(slice.activeEnd),
@@ -367,14 +369,19 @@ export function buildPeriodsToFinalize(
       if (incomeByDate) {
         sliceIncome += Number(incomeByDate[sdStr]) || 0;
       }
+      if (reimbursementByDate) {
+        sliceReimb += Number(reimbursementByDate[sdStr]) || 0;
+      }
     }
     spentAmount = round2(spentAmount);
     sliceIncome = round2(sliceIncome);
+    sliceReimb = round2(sliceReimb);
 
     const fin = calculateCycleFinancials({
       scheduledBudget: baseBudget,
       carriedOverAmount: carryMode === 'additive' ? carriedOver : 0,
       eligibleIncome: sliceIncome,
+      eligibleReimbursements: sliceReimb,
       spent: spentAmount,
     });
 
@@ -422,7 +429,8 @@ export function getCurrentPeriodSummary(
   changes: BudgetPlanChange[],
   spentByDate: Record<string, number>,
   todayStr: string,
-  incomeByDate?: Record<string, number>
+  incomeByDate?: Record<string, number>,
+  reimbursementByDate?: Record<string, number>
 ): PeriodSummaryInfo | null {
   const owner = getDateOwner(changes, todayStr);
   if (owner === 'paused' || owner === 'daily') {
@@ -473,6 +481,7 @@ export function getCurrentPeriodSummary(
   // Sum spend and income from activeStart to todayStr
   let spent = 0;
   let income = 0;
+  let reimb = 0;
   const daysSoFar = eachDayOfInterval({
     start: parseISO(activeStart),
     end: parseISO(todayStr),
@@ -483,14 +492,19 @@ export function getCurrentPeriodSummary(
     if (incomeByDate) {
       income += Number(incomeByDate[dStr]) || 0;
     }
+    if (reimbursementByDate) {
+      reimb += Number(reimbursementByDate[dStr]) || 0;
+    }
   }
   spent = round2(spent);
   income = round2(income);
+  reimb = round2(reimb);
 
   const fin = calculateCycleFinancials({
     scheduledBudget: fullAmount,
     carriedOverAmount: carryMode === 'additive' ? carriedOverAmount : 0,
     eligibleIncome: income,
+    eligibleReimbursements: reimb,
     spent,
   });
 

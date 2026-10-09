@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Part 2
+- **No false merges**: a notification/SMS/email pair is no longer treated as one payment on amount + direction + time alone. A matching account or merchant (or an exact reference) must also agree; otherwise it goes to review. Same-source duplicate protection is unchanged.
+- **Email confirmation is final**: a confirmed email transaction never needs an SMS. Notifications still waiting, or already sent to "bank confirmation missing" review, are merged into it when the email is confirmed. Later SMS/notifications attach as extra sources.
+- **Why was this logged?** now says the SMS arrived later and was not needed (or that none is expected).
+- **Login password field**: removed the fixed 100% height that cropped characters; uses a min-height container and an explicit line box (no per-device offsets).
+- Home hero shows a "reimbursed" chip so the chips add up to the spendable total. Income stays stacked below the budget.
+
+### Added — Part 1: Expense shares, reimbursements & self-transfers
+- **Split expense** (optional, compact): record friends' shares on an expense. The original amount is never changed; the detail screen shows each friend's share and your own share. Shares can be edited later from the expense detail.
+- **Reimbursements**: when an incoming payment plausibly matches an outstanding friend share, Arthik asks "Is this your friend's share for a previous expense?" (never otherwise). One match is offered directly, several make you choose, partial repayments are supported, nothing is linked until you tap. The payment stays on the day it was received and is labelled **Reimbursement**.
+- **Self-transfers**: "Transfer between your own accounts?" switch, with "Always remember / Only this transaction". Remembered rules match on the note descriptor only, never on amount.
+- New `transaction_class` column (`normal` / `reimbursement` / `self_transfer`), `expense_shares` and `self_transfer_rules` tables with RLS (`supabase/migrations/20261009_shares_reimbursements_transfers.sql`).
+- New `src/lib/shares.ts` (pure logic), `src/store/sharesStore.ts`, `src/components/shares/*`.
+
+### Changed — Part 1
+- Reimbursements are real cash but **no longer count as income** (totals, charts, history, Insights, Gullak cushion). They feed the existing `eligibleReimbursements` channel of `calculateCycleFinancials`, which was declared but never populated before. Wired into daily, weekly/monthly period finalisation, hydration, `syncWithExpenses` and the Home hero.
+- Self-transfers (either leg) are excluded from income, expenses, spendable money and Gullak. Detection now uses the structured `transaction_class`; the old note/category keyword guess remains only as a legacy fallback for rows without it.
+- `buildPeriodsToFinalize` is now actually given income (it was previously called without it) plus reimbursements.
+- "Amount reimbursed so far" is derived from linked reimbursement rows rather than stored, so it cannot drift.
+
 ### Added
 - **Unified Cycle Financials Single Source of Truth**: Unified all calculation engines across Daily rollover, Weekly and Monthly period slicing, and Home Hero Summary card through canonical `calculateCycleFinancials`.
 - **Smart Income & Reimbursement Classification**: Categorized internal account transfers (Self-Transfers, Card Bills) to exclude them from spendable pools, and added reimbursement detection (Option B) restoring spending allowances without inflating total income.

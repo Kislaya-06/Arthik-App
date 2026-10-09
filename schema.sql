@@ -694,3 +694,116 @@ VALUES (
   )
 )
 ON CONFLICT (key) DO NOTHING;
+
+-- ═══ Part 1: Expense Shares, Reimbursements & Self-Transfers — see supabase/migrations/20261009_shares_reimbursements_transfers.sql ═══
+-- Part 1: Expense Shares, Reimbursements & Self-Transfers
+-- Run once in Supabase → SQL Editor (safe to re-run; uses IF NOT EXISTS / DROP POLICY IF EXISTS).
+
+-- ------------------------------------------------------------------------------
+-- 1. expenses: classification + links
+-- ------------------------------------------------------------------------------
+-- 'normal'       -> a regular expense or regular income (existing behaviour, default)
+-- 'reimbursement'-> incoming money that repays a previously recorded friend share.
+--                   Real cash (increases balance) but NEVER counted as income.
+-- 'self_transfer'-> movement between the user's own accounts.
+--                   NEVER counted as income or expense.
+ALTER TABLE public.expenses
+    ADD COLUMN IF NOT EXISTS transaction_class TEXT NOT NULL DEFAULT 'normal';
+
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_transaction_class_valid;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_transaction_class_valid
+    CHECK (transaction_class IN ('normal', 'reimbursement', 'self_transfer'));
+
+-- Links a reimbursement transaction back to the friend-share it repays.
+ALTER TABLE public.expenses
+    ADD COLUMN IF NOT EXISTS reimburses_share_id UUID;
+
+-- Links a self-transfer transaction to the "always remember" rule that classified it (optional).
+ALTER TABLE public.expenses
+    ADD COLUMN IF NOT EXISTS transfer_rule_id UUID;
+
+CREATE INDEX IF NOT EXISTS idx_expenses_reimburses_share_id ON public.expenses(reimburses_share_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_transaction_class ON public.expenses(user_id, transaction_class);
+
+-- ------------------------------------------------------------------------------
+-- 2. expense_shares — friend/person shares recorded against an expense.
+--    'Amount reimbursed so far' is intentionally NOT stored: it is derived from the linked
+--    reimbursement rows (expenses.reimburses_share_id), so it can never drift or be double-counted.
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.expense_shares (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    expense_id UUID NOT NULL REFERENCES public.expenses(id) ON DELETE CASCADE,
+    friend_label TEXT NOT NULL,
+    amount_owed NUMERIC(12, 2) NOT NULL CHECK (amount_owed > 0),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.expense_shares DROP CONSTRAINT IF EXISTS expense_shares_label_len;
+ALTER TABLE public.expense_shares ADD CONSTRAINT expense_shares_label_len
+    CHECK (char_length(friend_label) BETWEEN 1 AND 80);
+
+CREATE INDEX IF NOT EXISTS idx_expense_shares_expense_id ON public.expense_shares(expense_id);
+CREATE INDEX IF NOT EXISTS idx_expense_shares_user ON public.expense_shares(user_id);
+
+ALTER TABLE public.expense_shares ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "expense_shares_select_own" ON public.expense_shares;
+CREATE POLICY "expense_shares_select_own" ON public.expense_shares
+    FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "expense_shares_insert_own" ON public.expense_shares;
+CREATE POLICY "expense_shares_insert_own" ON public.expense_shares
+    FOR INSERT TO authenticated WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "expense_shares_update_own" ON public.expense_shares;
+CREATE POLICY "expense_shares_update_own" ON public.expense_shares
+    FOR UPDATE TO authenticated USING ((select auth.uid()) = user_id) WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "expense_shares_delete_own" ON public.expense_shares;
+CREATE POLICY "expense_shares_delete_own" ON public.expense_shares
+    FOR DELETE TO authenticated USING ((select auth.uid()) = user_id);
+
+-- Now that expense_shares exists, point expenses.reimburses_share_id at it.
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_reimburses_share_id_fkey;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_reimburses_share_id_fkey
+    FOREIGN KEY (reimburses_share_id) REFERENCES public.expense_shares(id) ON DELETE SET NULL;
+
+-- ------------------------------------------------------------------------------
+-- 3. self_transfer_rules — narrow "always remember" rules for self-transfer matching
+--    Matching is based on supported identifiers/context only (never amount alone).
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.self_transfer_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    descriptor TEXT NOT NULL, -- normalized matching key, e.g. bank code + last4, or a stable note descriptor
+    label TEXT, -- human-readable label shown to the user, e.g. "HDFC •1234 ↔ SBI •5678"
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.self_transfer_rules DROP CONSTRAINT IF EXISTS self_transfer_rules_descriptor_len;
+ALTER TABLE public.self_transfer_rules ADD CONSTRAINT self_transfer_rules_descriptor_len
+    CHECK (char_length(descriptor) BETWEEN 1 AND 120);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_self_transfer_rules_user_descriptor
+    ON public.self_transfer_rules(user_id, descriptor);
+
+ALTER TABLE public.self_transfer_rules ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "self_transfer_rules_select_own" ON public.self_transfer_rules;
+CREATE POLICY "self_transfer_rules_select_own" ON public.self_transfer_rules
+    FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "self_transfer_rules_insert_own" ON public.self_transfer_rules;
+CREATE POLICY "self_transfer_rules_insert_own" ON public.self_transfer_rules
+    FOR INSERT TO authenticated WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "self_transfer_rules_delete_own" ON public.self_transfer_rules;
+CREATE POLICY "self_transfer_rules_delete_own" ON public.self_transfer_rules
+    FOR DELETE TO authenticated USING ((select auth.uid()) = user_id);
+
+-- Now that self_transfer_rules exists, point expenses.transfer_rule_id at it.
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_transfer_rule_id_fkey;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_transfer_rule_id_fkey
+    FOREIGN KEY (transfer_rule_id) REFERENCES public.self_transfer_rules(id) ON DELETE SET NULL;

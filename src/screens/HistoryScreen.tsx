@@ -19,7 +19,7 @@ import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
 import { TabParamList, RootStackParamList } from '../types';
 import { formatCurrency } from '../lib/formatters';
-import { isIncomeTransaction } from '../lib/transactionUtils';
+import { isIncomeTransaction, isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
 import { ThemeColors, Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
@@ -174,9 +174,9 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
       });
 
       const category = expense.category_id ? categoryMap.get(expense.category_id) : undefined;
-      if (isIncomeTransaction(expense, category)) {
+      if (isCountedIncome(expense, category)) {
         incomeTotals[dateKey] = (incomeTotals[dateKey] || 0) + expense.amount;
-      } else {
+      } else if (isCountedExpense(expense, category)) {
         spentTotals[dateKey] = (spentTotals[dateKey] || 0) + expense.amount;
       }
     });

@@ -19,14 +19,14 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Auto-Log Email Confirmation & Multi-Source Sync ⚡📧',
+    title: ota?.title || 'Expense Splits, Reimbursements & Self-Transfers 🤝💸',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Email-First Finality: Bank and receipt emails confirm transactions immediately as terminal records without waiting for SMS",
-          "Smart Notification Reconciliation: Background sweeper automatically links confirmed transactions without false re-reviews",
-          "Seamless Multi-Source Fusion: Late-arriving bank SMS and payment app notifications cleanly attach as secondary sources",
-          "Enhanced Source Transparency: 'Why was this logged?' card clearly displays all linked source proofs and accounts",
+          "Split Expenses with Friends: Record friends' shares easily without altering original total expense records",
+          "Smart Reimbursements: Repayments automatically match outstanding shares and restore spending power without inflating income",
+          "Self-Transfers: Mark internal transfers between your own accounts and exclude them from totals & analytics",
+          "Auto-Log Refinements: Stricter multi-source validation and instant email transaction finality",
         ],
   };
 };

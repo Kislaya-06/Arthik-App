@@ -27,7 +27,7 @@ import {
   addDays,
   isAfter,
 } from 'date-fns';
-import { isIncomeTransaction } from './transactionUtils';
+import { isIncomeTransaction, isExcludedFromTotals, isCountedIncome, isCountedExpense } from './transactionUtils';
 import { round2, formatCurrency } from './formatters';
 import { ExpenseLike, toDateStr, toDateObj, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -121,7 +121,7 @@ export function computeYearlySpend(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       total += exp.amount;
@@ -179,7 +179,7 @@ export function computeYearlyComparison(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     if (isDateInBounds(cleanDate, currStartStr, currEndStr)) {
       currentTotal += exp.amount;
@@ -280,7 +280,7 @@ export function computeYearlyInflow(
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) {
+      if (isCountedIncome(exp, cat)) {
         totalInflow += exp.amount;
       }
     }
@@ -483,9 +483,9 @@ export function compute12MonthCashFlow(
 
         if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
           const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-          if (isIncomeTransaction(exp, cat)) {
+          if (isCountedIncome(exp, cat)) {
             monthIncome += exp.amount;
-          } else {
+          } else if (isCountedExpense(exp, cat)) {
             monthSpent += exp.amount;
           }
         }
@@ -640,7 +640,7 @@ export function computeAnnualBudgetDiscipline(
       const cleanDate = toDateStr(exp.expense_date);
       if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
         const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-        if (!isIncomeTransaction(exp, cat)) {
+        if (isCountedExpense(exp, cat)) {
           monthSpend += exp.amount;
         }
       }
@@ -704,7 +704,7 @@ export function computeAnnualCapitalOutlier(
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
       if (exp.amount > maxAmount) {
         maxAmount = exp.amount;
@@ -809,7 +809,7 @@ export function computeAnnualCategoryTrajectory(
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
       const catId = exp.category_id || 'others';
 

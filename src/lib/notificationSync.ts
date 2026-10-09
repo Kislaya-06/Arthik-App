@@ -81,7 +81,7 @@ export function buildPlanContext(now: Date): PlanContext {
     }
     if (d === todayStr || enteredToday) loggedToday = true;
 
-    if (isIncome(e)) continue;
+    if (isIncome(e) || e.transaction_class === 'self_transfer' || e.transaction_class === 'reimbursement') continue;
     const amount = Number(e.amount) || 0;
     const name = (e.category_id && catMap.get(e.category_id)?.name) || 'Other';
     const add = (b: Bucket) => {

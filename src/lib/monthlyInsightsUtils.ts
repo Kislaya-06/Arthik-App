@@ -20,7 +20,7 @@ import {
   addDays,
   getDaysInMonth,
 } from 'date-fns';
-import { isIncomeTransaction } from './transactionUtils';
+import { isIncomeTransaction, isExcludedFromTotals } from './transactionUtils';
 import { round2, formatAmountWithCommas } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -54,7 +54,7 @@ export function computeMonthlySpend(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       total += exp.amount;
@@ -339,7 +339,7 @@ export function computeMonthlyComparison(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
       currTotal += exp.amount;
@@ -452,7 +452,7 @@ export function computeMonthlyLargestOutflow(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       txnCount++;
@@ -549,7 +549,7 @@ export function computeMonthlyCategoryShift(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat)) continue;
+    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
     const key = exp.category_id || 'others';
 

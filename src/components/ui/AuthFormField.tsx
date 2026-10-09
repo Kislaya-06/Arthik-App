@@ -161,18 +161,23 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   inputContainer: {
-    height: ControlHeight.row,
+    // minHeight (not a fixed height) so large font scales / dense screens can never crop the text.
+    minHeight: ControlHeight.row,
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.micro,
     justifyContent: 'center',
     position: 'relative',
   },
   input: {
     fontSize: FontSize.body,
-    height: '100%',
+    // Explicit line box taller than the font's ascent+descent so descenders (g, p, y, j) and
+    // secure-entry bullets are not clipped. Same value for every density; no device offsets.
+    lineHeight: Math.ceil(FontSize.body * 1.4),
+    minHeight: Math.ceil(FontSize.body * 1.4) + 8,
     includeFontPadding: false,
     textAlignVertical: 'center',
-    paddingVertical: 0,
+    paddingVertical: 4,
   },
   eyeIcon: {
     position: 'absolute',

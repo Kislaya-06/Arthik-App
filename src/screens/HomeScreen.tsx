@@ -36,7 +36,7 @@ import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { round2 } from '../lib/formatters';
-import { isIncomeTransaction } from '../lib/transactionUtils';
+import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
@@ -267,7 +267,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [expenses, activeFilter, referenceDate]
   );
 
-  const { totalIncome, totalSpent } = useMemo(
+  const { totalIncome, totalSpent, totalReimbursements } = useMemo(
     () => calculateExpenseTotals(filtered, catMap),
     [filtered, catMap]
   );
@@ -314,8 +314,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       const e = expenses[i];
       const cleanDate = e.expense_date?.split('T')[0]?.trim();
       const cat = e.category_id ? catMap[e.category_id] : undefined;
-      const isIncome = isIncomeTransaction(e, cat);
-      if (cleanDate === todayStr && !isIncome) {
+      if (cleanDate === todayStr && isCountedExpense(e, cat)) {
         spent += Number(e.amount) || 0;
       }
     }
@@ -336,7 +335,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     for (let i = 0; i < expenses.length; i++) {
       const e = expenses[i];
       const cat = e.category_id ? catMap[e.category_id] : undefined;
-      if (isIncomeTransaction(e, cat)) continue;
+      if (!isCountedExpense(e, cat)) continue;
       const cleanDate = e.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       map[cleanDate] = (map[cleanDate] || 0) + (Number(e.amount) || 0);
@@ -423,13 +422,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         dailyRecords,
         totalIncome,
         totalSpent,
+        totalReimbursements,
         filtered,
         userCreatedAtStr,
         referenceDate,
         externalDepositsInPeriod,
         planChanges,
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges]
   );
 
   // Date range label shown below filter pills for quick orientation

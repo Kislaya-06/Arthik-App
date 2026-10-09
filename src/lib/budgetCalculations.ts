@@ -183,11 +183,13 @@ export const evaluateDayStatus = (
   budget: number,
   spent: number,
   eligibleIncome: number = 0,
-  _baseBudget?: number
+  _baseBudget?: number,
+  eligibleReimbursements: number = 0
 ): DayEvaluation => {
   const result = calculateCycleFinancials({
     scheduledBudget: budget,
     eligibleIncome: typeof eligibleIncome === 'number' && eligibleIncome > 0 ? eligibleIncome : 0,
+    eligibleReimbursements: typeof eligibleReimbursements === 'number' && eligibleReimbursements > 0 ? eligibleReimbursements : 0,
     spent,
   });
   return { saved: result.gullakDeposit, status: result.status };
@@ -198,6 +200,7 @@ export interface ExpenseItem {
   type?: 'expense' | 'income';
   category_id?: string | null;
   expense_date?: string;
+  transaction_class?: string | null;
 }
 
 export interface NonIncomeExpenseEntry {
@@ -213,6 +216,8 @@ export const extractNonIncomeExpense = <T extends ExpenseItem>(
   expense: T,
   isIncomeFn: (expense: T) => boolean
 ): NonIncomeExpenseEntry | null => {
+  // Self-transfers (either leg) and reimbursements are never money spent.
+  if (expense.transaction_class === 'self_transfer' || expense.transaction_class === 'reimbursement') return null;
   const isIncome = isIncomeFn(expense);
   const cleanDate = expense.expense_date?.split('T')[0]?.trim();
   if (!isIncome && cleanDate) {
@@ -313,6 +318,47 @@ export const computeIncomeForDate = <T extends ExpenseItem>(
     }
   }
   return totalIncome;
+};
+
+/**
+ * Extracts date and amount for confirmed reimbursements (real incoming cash that repays a friend share).
+ * These are NOT income; they feed the separate `eligibleReimbursements` channel.
+ */
+export const extractEligibleReimbursement = <T extends ExpenseItem>(
+  expense: T,
+  isReimbursementFn: (expense: T) => boolean
+): NonIncomeExpenseEntry | null => {
+  const cleanDate = expense.expense_date?.split('T')[0]?.trim();
+  if (cleanDate && isReimbursementFn(expense)) {
+    const amt = Number(expense.amount);
+    return { date: cleanDate, amount: Number.isFinite(amt) && amt > 0 ? amt : 0 };
+  }
+  return null;
+};
+
+export const computeReimbursementsByDate = <T extends ExpenseItem>(
+  expenses: T[],
+  isReimbursementFn: (expense: T) => boolean
+): Record<string, number> => {
+  const byDate: Record<string, number> = {};
+  for (let i = 0; i < expenses.length; i++) {
+    const entry = extractEligibleReimbursement(expenses[i], isReimbursementFn);
+    if (entry) byDate[entry.date] = round2((byDate[entry.date] || 0) + entry.amount);
+  }
+  return byDate;
+};
+
+export const computeReimbursementsForDate = <T extends ExpenseItem>(
+  expenses: T[],
+  targetDate: string,
+  isReimbursementFn: (expense: T) => boolean
+): number => {
+  let total = 0;
+  for (let i = 0; i < expenses.length; i++) {
+    const entry = extractEligibleReimbursement(expenses[i], isReimbursementFn);
+    if (entry && entry.date === targetDate) total = round2(total + entry.amount);
+  }
+  return total;
 };
 
 /**

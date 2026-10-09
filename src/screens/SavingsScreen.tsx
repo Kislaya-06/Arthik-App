@@ -40,7 +40,7 @@ import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
-import { isIncomeTransaction } from '../lib/transactionUtils';
+import { isIncomeTransaction, isExcludedFromTotals } from '../lib/transactionUtils';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { SavingsRecordRow } from '../components/SavingsRecordRow';
@@ -212,7 +212,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     for (let i = 0; i < expenses.length; i++) {
       const e = expenses[i];
       const cat = e.category_id ? catMap[e.category_id] : undefined;
-      if (isIncomeTransaction(e, cat)) continue;
+      if (isIncomeTransaction(e, cat) || isExcludedFromTotals(e)) continue;
       const cleanDate = e.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       map[cleanDate] = (map[cleanDate] || 0) + (Number(e.amount) || 0);

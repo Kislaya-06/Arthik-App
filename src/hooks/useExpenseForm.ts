@@ -16,7 +16,18 @@ import {
 } from '../lib/amountKeypad';
 import { getNoteSuggestions } from '../lib/noteSuggestions';
 import { calculateVaultLiquidity } from '../lib/vaultSpendingGuard';
-import { isIncomeTransaction } from '../lib/transactionUtils';
+import * as Crypto from 'expo-crypto';
+import { isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
+import { useSharesStore } from '../store/sharesStore';
+import {
+  ShareDraft,
+  ReimbursementCandidate,
+  findReimbursementCandidates,
+  reimbursedByShare,
+  findMatchingTransferRule,
+  normalizeTransferDescriptor,
+  validateShares,
+} from '../lib/shares';
 
 export const MAX_NOTE_WORDS = 50;
 export const MAX_NOTE_CHARS = 250;
@@ -72,6 +83,23 @@ export interface UseExpenseFormReturn {
   handleSave: (onSuccess?: () => Promise<void> | void) => Promise<void>;
   noteSuggestions: string[];
   handleSelectNoteSuggestion: (suggestion: string) => void;
+
+  // Shares / reimbursement / self-transfer (Part 1)
+  shareDrafts: ShareDraft[];
+  setShareDrafts: (drafts: ShareDraft[]) => void;
+  showSplit: boolean;
+  setShowSplit: (show: boolean) => void;
+  reimbursementCandidates: ReimbursementCandidate[];
+  linkedShareId: string | null;
+  setLinkedShareId: (id: string | null) => void;
+  linkDeclined: boolean;
+  declineLink: () => void;
+  isSelfTransfer: boolean;
+  toggleSelfTransfer: (on: boolean) => void;
+  rememberMode: 'always' | 'once';
+  setRememberMode: (m: 'always' | 'once') => void;
+  canRememberTransfer: boolean;
+  transferRuleMatched: boolean;
 }
 
 
@@ -98,6 +126,18 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVaultGuard, setShowVaultGuard] = useState(false);
 
+  const [shareDrafts, setShareDrafts] = useState<ShareDraft[]>([]);
+  const [showSplit, setShowSplit] = useState(false);
+  const [linkedShareId, setLinkedShareId] = useState<string | null>(null);
+  const [linkDeclined, setLinkDeclined] = useState(false);
+  const [isSelfTransfer, setIsSelfTransfer] = useState(false);
+  const [rememberMode, setRememberMode] = useState<'always' | 'once'>('once');
+  const selfTransferTouched = useRef(false);
+
+  const shares = useSharesStore((s) => s.shares);
+  const transferRules = useSharesStore((s) => s.rules);
+  const fetchShares = useSharesStore((s) => s.fetchAll);
+
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
@@ -121,9 +161,9 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
       const e = expenses[i];
       const cat = e.category_id ? catMap[e.category_id] : undefined;
       const amt = Number(e.amount) || 0;
-      if (isIncomeTransaction(e, cat)) {
+      if (isCountedIncome(e, cat)) {
         inc += amt;
-      } else {
+      } else if (isCountedExpense(e, cat)) {
         exp += amt;
       }
     }
@@ -174,6 +214,10 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   }, [fetchCategories]);
 
   useEffect(() => {
+    if (!isEdit) fetchShares();
+  }, [isEdit, fetchShares]);
+
+  useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       fetchCategories(true);
     });
@@ -206,6 +250,9 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const handleTypeChange = useCallback(
     (type: 'expense' | 'income') => {
       setTransactionType(type);
+      setLinkedShareId(null);
+      setLinkDeclined(false);
+      if (type === 'income') setShareDrafts([]);
       // Auto-fallback: Card is excluded in Add Money mode
       if (type === 'income' && paymentMode === 'card') {
         setPaymentMode('upi');
@@ -224,6 +271,53 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   } = useMemo(() => evaluateExpression(amount), [amount]);
 
   const formattedExpression = useMemo(() => formatExpressionWithCommas(amount), [amount]);
+
+  // ─── Reimbursement suggestions: only when an outstanding share plausibly matches ───
+  const dateStrForMatch = format(selectedDate, 'yyyy-MM-dd');
+  const reimbursementCandidates = useMemo(() => {
+    if (isEdit || transactionType !== 'income' || !(evaluatedAmount > 0) || shares.length === 0) return [];
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+    const withExpense = shares.flatMap((share) => {
+      const exp = byId.get(share.expense_id);
+      if (!exp) return [];
+      return [{ share, expenseDate: exp.expense_date.split('T')[0], expenseAmount: Number(exp.amount) || 0 }];
+    });
+    return findReimbursementCandidates(withExpense, reimbursedByShare(expenses), {
+      amount: evaluatedAmount,
+      date: dateStrForMatch,
+    });
+  }, [isEdit, transactionType, evaluatedAmount, shares, expenses, dateStrForMatch]);
+
+  // A single plausible share is offered directly but never auto-confirmed: linkedShareId stays null
+  // until the user taps it. Drop a stale link if it no longer matches.
+  useEffect(() => {
+    if (linkedShareId && !reimbursementCandidates.some((c) => c.share.id === linkedShareId)) {
+      setLinkedShareId(null);
+    }
+  }, [reimbursementCandidates, linkedShareId]);
+
+  // ─── Self-transfer: remembered rule suggestion (visible + reversible) ───
+  const matchedRule = useMemo(() => findMatchingTransferRule(transferRules, note), [transferRules, note]);
+  useEffect(() => {
+    if (isEdit || selfTransferTouched.current) return;
+    setIsSelfTransfer(!!matchedRule);
+  }, [matchedRule, isEdit]);
+
+  const canRememberTransfer = !!normalizeTransferDescriptor(note);
+
+  const toggleSelfTransfer = useCallback((on: boolean) => {
+    selfTransferTouched.current = true;
+    setIsSelfTransfer(on);
+    if (on) {
+      setLinkedShareId(null);
+      setShareDrafts([]);
+    }
+  }, []);
+
+  const declineLink = useCallback(() => {
+    setLinkDeclined(true);
+    setLinkedShareId(null);
+  }, []);
 
   // ─── Keypad handler ───────────────────────────────────────────────────────
   const handleKeyPress = useCallback((val: string) => {
@@ -268,9 +362,10 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     const numAmount = evaluatedAmount;
     if (numAmount <= 0) return;
 
-    let categoryIdToSave = transactionType === 'income' ? null : selectedCategoryId;
+    const selfTransferNow = !isEdit && isSelfTransfer;
+    let categoryIdToSave = transactionType === 'income' || selfTransferNow ? null : selectedCategoryId;
 
-    if (transactionType === 'expense') {
+    if (transactionType === 'expense' && !selfTransferNow) {
       // ─── Digital Vault Spending Guard (ADR 0011 / Clip 5-8) ─────────────
       if (!isEdit && !vaultLiquidity.canAddExpense) {
         setShowVaultGuard(true);
@@ -317,14 +412,51 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
           transactionType
         );
       } else {
-        await addExpense(
-          numAmount,
-          categoryIdToSave,
-          clampedNote,
-          paymentMode,
-          dateStr,
-          transactionType
-        );
+        const newId = Crypto.randomUUID();
+        let transactionClass: 'normal' | 'reimbursement' | 'self_transfer' = 'normal';
+        let transferRuleId: string | null = null;
+        if (selfTransferNow) {
+          transactionClass = 'self_transfer';
+          if (matchedRule) {
+            transferRuleId = matchedRule.id;
+          } else if (rememberMode === 'always' && canRememberTransfer) {
+            try {
+              const rule = await useSharesStore.getState().addRule(clampedNote, clampedNote);
+              transferRuleId = rule?.id ?? null;
+            } catch {
+              // Remembering is best-effort; the transaction itself must still be saved.
+            }
+          }
+        } else if (transactionType === 'income' && linkedShareId) {
+          transactionClass = 'reimbursement';
+        }
+
+        const shareError = !selfTransferNow && transactionType === 'expense' && shareDrafts.length
+          ? validateShares(numAmount, shareDrafts)
+          : null;
+        if (shareError) {
+          setIsSubmitting(false);
+          Alert.alert('Check the split', shareError);
+          return;
+        }
+
+        await addExpense(numAmount, categoryIdToSave, clampedNote, paymentMode, dateStr, transactionType, {
+          id: newId,
+          transactionClass,
+          reimbursesShareId: transactionClass === 'reimbursement' ? linkedShareId : null,
+          transferRuleId,
+        });
+
+        if (!selfTransferNow && transactionType === 'expense' && shareDrafts.length) {
+          try {
+            await useSharesStore.getState().addShares(newId, numAmount, shareDrafts);
+          } catch {
+            Alert.alert(
+              'Expense saved',
+              "We couldn't save the split right now. Open the expense and use “Edit split” to add it again."
+            );
+          }
+        }
       }
       // Keep daily budget and smart notifications in sync
       const currentExpenses = useExpenseStore.getState().expenses;
@@ -387,5 +519,20 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     handleSave,
     noteSuggestions,
     handleSelectNoteSuggestion,
+    shareDrafts,
+    setShareDrafts,
+    showSplit,
+    setShowSplit,
+    reimbursementCandidates,
+    linkedShareId,
+    setLinkedShareId,
+    linkDeclined,
+    declineLink,
+    isSelfTransfer,
+    toggleSelfTransfer,
+    rememberMode,
+    setRememberMode,
+    canRememberTransfer,
+    transferRuleMatched: !!matchedRule,
   };
 }

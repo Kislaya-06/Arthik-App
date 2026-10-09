@@ -35,6 +35,18 @@ vi.mock('../src/store/categoryStore', async () => {
   });
   return { useCategoryStore };
 });
+vi.mock('expo-crypto', () => ({ randomUUID: () => '11111111-1111-4111-8111-111111111111' }));
+vi.mock('../src/store/sharesStore', async () => {
+  const { createFakeStore } = await import('./helpers/fakeStore');
+  const useSharesStore = createFakeStore<any>({
+    shares: [],
+    rules: [],
+    fetchAll: vi.fn(),
+    addShares: vi.fn(async () => {}),
+    addRule: vi.fn(async () => null),
+  });
+  return { useSharesStore };
+});
 vi.mock('../src/store/dailyBudgetStore', async () => {
   const { createFakeStore } = await import('./helpers/fakeStore');
   const useDailyBudgetStore = createFakeStore<any>({
@@ -258,7 +270,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       });
 
       expect(mocks.addExpense).toHaveBeenCalledTimes(1);
-      expect(mocks.addExpense).toHaveBeenCalledWith(250, 'c2', 'Metro', 'cash', '2026-10-04', 'expense');
+      expect(mocks.addExpense).toHaveBeenCalledWith(250, 'c2', 'Metro', 'cash', '2026-10-04', 'expense', expect.objectContaining({ transactionClass: 'normal', reimbursesShareId: null, transferRuleId: null }));
       expect(mocks.syncWithExpenses).toHaveBeenCalledWith(useExpenseStore.getState().expenses);
       expect(nav.goBack).toHaveBeenCalledTimes(1);
       expect(mocks.alert).not.toHaveBeenCalled();
@@ -431,7 +443,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.addExpense).toHaveBeenCalledWith(3000, null, '', 'upi', '2026-10-04', 'income');
+      expect(mocks.addExpense).toHaveBeenCalledWith(3000, null, '', 'upi', '2026-10-04', 'income', expect.objectContaining({ transactionClass: 'normal', reimbursesShareId: null, transferRuleId: null }));
       expect(mocks.alert).not.toHaveBeenCalled();
     });
 

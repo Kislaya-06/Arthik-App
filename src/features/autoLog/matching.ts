@@ -78,7 +78,7 @@ export const formatGap = (ms: number): string => {
 export const IDENTITY_WINDOW_MS = 48 * 60 * 60 * 1000;
 /** Same reference may still match this long after (very delayed SMS / email). */
 export const REFERENCE_WINDOW_MS = 30 * 86400_000;
-const STRONG_SCORE = 3;
+export const STRONG_SCORE = 3;
 
 export type IdentitySource = 'sms' | 'notification' | 'email';
 
@@ -122,10 +122,14 @@ export const identityScore = (a: IdentityEvidence, b: IdentityEvidence): number 
   const m = merchantsAgree(a.merchant, b.merchant);
   if (m === false) return null; // different merchants
   let score = 1;
-  if (la && lb && la === lb) score += 2;
+  const accountAgrees = !!(la && lb && la === lb);
+  if (accountAgrees) score += 2;
   if (m === true) score += 2;
   if (new Date(a.occurredAt).toDateString() === new Date(b.occurredAt).toDateString()) score += 1;
   if (dt <= 30 * 60_000) score += 1;
+  // Amount + direction + time alone is never enough: another independent detail (same account
+  // or same merchant) must agree. Otherwise it stays "weak" and goes to review, never auto-merged.
+  if (!accountAgrees && m !== true) return Math.min(score, STRONG_SCORE - 1);
   return score;
 };
 

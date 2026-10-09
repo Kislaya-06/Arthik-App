@@ -22,6 +22,8 @@ import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { AppButton } from '../components/ui/AppButton';
 import { WhyLoggedCard } from '../components/autolog/WhyLoggedCard';
+import { SharesDetailCard } from '../components/shares/SharesDetailCard';
+import { useSharesStore } from '../store/sharesStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
@@ -83,6 +85,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style: 'destructive',
             onPress: async () => {
               await deleteExpense(expense.id);
+              useSharesStore.getState().fetchAll();
               useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
               navigation.pop(1);
             },
@@ -103,6 +106,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style: 'destructive',
             onPress: async () => {
               await deleteExpense(expense.id);
+              useSharesStore.getState().fetchAll();
               useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
               navigation.pop(1);
             },
@@ -122,6 +126,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             await deleteExpense(expense.id);
+              useSharesStore.getState().fetchAll();
             useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
             navigation.pop(1);
           },
@@ -200,8 +205,12 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
             <StatusBadge
-              variant={isIncome ? 'success' : 'danger'}
-              label={isIncome ? 'INCOME' : 'EXPENSE'}
+              variant={expense.transaction_class === 'self_transfer' || expense.transaction_class === 'reimbursement' ? 'neutral' : isIncome ? 'success' : 'danger'}
+              label={
+                expense.transaction_class === 'self_transfer' ? 'TRANSFER'
+                : expense.transaction_class === 'reimbursement' ? 'REIMBURSEMENT'
+                : isIncome ? 'INCOME' : 'EXPENSE'
+              }
             />
           </View>
 
@@ -251,6 +260,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               )}
             </View>
           </View>
+
+          {/* Friend shares / reimbursement / self-transfer details */}
+          <SharesDetailCard expense={expense} />
 
           {/* Automatic Logging: source + "Why was this logged?" (renders nothing for manual entries) */}
           <WhyLoggedCard

@@ -562,7 +562,7 @@ export interface MonthlyWeekSpending {
 export function computeMonthlyWeeksData(
   monthStart: Date,
   monthEnd: Date,
-  expenses: Array<{ amount: number; expense_date: string; category_id?: string | null }>,
+  expenses: Array<{ amount: number; expense_date: string; category_id?: string | null; transaction_class?: string | null }>,
   isIncomeCheck?: (expense: any) => boolean,
   userCreatedAtStr?: string
 ): { weeks: MonthlyWeekSpending[]; maxWeek: MonthlyWeekSpending | null } {
@@ -597,7 +597,7 @@ export function computeMonthlyWeeksData(
 
     let sum = 0;
     for (const exp of expenses) {
-      if (isIncomeCheck && isIncomeCheck(exp)) continue;
+      if ((isIncomeCheck && isIncomeCheck(exp)) || exp.transaction_class === 'self_transfer' || exp.transaction_class === 'reimbursement') continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       // Exclude expenses before account registration
@@ -614,7 +614,7 @@ export function computeMonthlyWeeksData(
     while (!isAfter(curDay, rangeEnd)) {
       const curStr = format(curDay, 'yyyy-MM-dd');
       const hasExpense = expenses.some((exp) => {
-        if (isIncomeCheck && isIncomeCheck(exp)) return false;
+        if ((isIncomeCheck && isIncomeCheck(exp)) || exp.transaction_class === 'self_transfer' || exp.transaction_class === 'reimbursement') return false;
         const cleanDate = exp.expense_date?.split('T')[0]?.trim();
         if (!cleanDate) return false;
         if (userCreatedAtStr && cleanDate < userCreatedAtStr) return false;
@@ -677,7 +677,7 @@ export interface MonthlyCashFlowBudgetConfig {
 export function computeMonthlyCashFlowData(
   monthStart: Date,
   monthEnd: Date,
-  expenses: Array<{ amount: number; expense_date: string; type?: string; category_id?: string | null }>,
+  expenses: Array<{ amount: number; expense_date: string; type?: string; category_id?: string | null; transaction_class?: string | null }>,
   gullakDeposits: Array<{ date: string; amount: number; source?: string }>,
   isIncomeCheck?: (expense: any) => boolean,
   userCreatedAtStr?: string,
@@ -759,6 +759,7 @@ export function computeMonthlyCashFlowData(
       if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
 
       if (cleanDate >= startStr && cleanDate <= endStr) {
+        if (exp.transaction_class === 'self_transfer' || exp.transaction_class === 'reimbursement') continue;
         const isIncome = isIncomeCheck ? isIncomeCheck(exp) : exp.type === 'income';
         if (isIncome) {
           weekIncome += exp.amount;

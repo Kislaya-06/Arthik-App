@@ -38,7 +38,7 @@ export const classifyEvent = async (
   // Immediately reconcile compatible awaiting_sms notifications for this newly confirmed transaction
   if (e.status === 'logged' || e.status === 'queued') {
     const awaitingNotifs = await db.findEvents(
-      "source = 'notification' AND status = 'awaiting_sms' AND amount = ? AND direction = ?",
+      "source = 'notification' AND (status = 'awaiting_sms' OR (status = 'pending' AND review_reason = 'notification_only')) AND amount = ? AND direction = ?",
       e.amount, e.direction
     );
     for (const notif of awaitingNotifs) {

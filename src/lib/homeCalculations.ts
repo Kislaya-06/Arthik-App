@@ -21,7 +21,7 @@ import { format, parseISO, startOfWeek, startOfMonth, eachDayOfInterval } from '
 import { formatCurrency, round2 } from './formatters';
 import { DailyRecord, calculateCycleFinancials } from './budgetCalculations';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
-import { isIncomeTransaction } from './transactionUtils';
+import { isCountedExpense, isCountedIncome, isEligibleReimbursement } from './transactionUtils';
 import { resolvePlanForDate } from './budgetPeriods';
 import { BudgetPlanChange } from '../types';
 
@@ -62,6 +62,8 @@ export interface PeriodCalculationParams {
   dailyRecords: Record<string, DailyRecord>;
   totalIncome: number;
   totalSpent: number;
+  /** Confirmed friend reimbursements in the period. Real cash, NOT income. */
+  totalReimbursements?: number;
   filtered: ExpenseDateItem[];
   userCreatedAtStr?: string;
   referenceDate: Date;
@@ -99,6 +101,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     dailyRecords,
     totalIncome,
     totalSpent,
+    totalReimbursements = 0,
     filtered,
     userCreatedAtStr,
     referenceDate,
@@ -192,6 +195,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   const cycle = calculateCycleFinancials({
     scheduledBudget: budgetPool,
     eligibleIncome: income,
+    eligibleReimbursements: round2(totalReimbursements),
     carriedOverAmount: externalDepositsInPeriod,
     spent,
   });
@@ -219,6 +223,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       const parts: string[] = [];
       parts.push(`${formatCurrency(budgetPool)} budget${daysSuffix}`);
       if (income > 0) parts.push(`${formatCurrency(income)} income`);
+      if (totalReimbursements > 0) parts.push(`${formatCurrency(round2(totalReimbursements))} reimbursed`);
       if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(externalDepositsInPeriod)} deposits to Gullak`);
       if (parts.length > 1) {
         subtext = parts.join(' + ');
@@ -344,6 +349,8 @@ export const calculatePureHeroMetrics = (
 export interface ExpenseTotals {
   totalIncome: number;
   totalSpent: number;
+  /** Confirmed friend reimbursements (not income). */
+  totalReimbursements: number;
 }
 
 /**
@@ -351,20 +358,24 @@ export interface ExpenseTotals {
  * Extracted from HomeScreen to resolve accumulation logic leakage (.scratch/home/issues/05).
  */
 export const calculateExpenseTotals = (
-  expenses: Array<{ amount: number | string; category_id?: string | null; type?: string }>,
+  expenses: Array<{ amount: number | string; category_id?: string | null; type?: string; transaction_class?: string | null }>,
   catMap: Record<string, { name?: string; is_income?: boolean } | undefined>
 ): ExpenseTotals => {
   let income = 0;
   let spent = 0;
+  let reimbursements = 0;
   for (let i = 0; i < expenses.length; i++) {
     const e = expenses[i];
     const cat = e.category_id ? catMap[e.category_id] : undefined;
-    const isIncome = isIncomeTransaction(e, cat);
-    if (isIncome) income += Number(e.amount) || 0;
-    else spent += Number(e.amount) || 0;
+    const amt = Number(e.amount) || 0;
+    if (isEligibleReimbursement(e)) reimbursements += amt;
+    else if (isCountedIncome(e, cat)) income += amt;
+    else if (isCountedExpense(e, cat)) spent += amt;
+    // self-transfers fall through: neither income nor expense
   }
   return {
     totalIncome: round2(income),
     totalSpent: round2(spent),
+    totalReimbursements: round2(reimbursements),
   };
 };

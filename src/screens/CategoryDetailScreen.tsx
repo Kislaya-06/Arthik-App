@@ -17,7 +17,7 @@ import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
-import { isIncomeTransaction } from '../lib/transactionUtils';
+import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
@@ -48,7 +48,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const totalSpent = useMemo(() =>
     categoryExpenses.reduce((sum, e) => {
-      return isIncomeTransaction(e, category) ? sum : sum + e.amount;
+      return isCountedExpense(e, category) ? sum + e.amount : sum;
     }, 0),
   [categoryExpenses, category]);
 

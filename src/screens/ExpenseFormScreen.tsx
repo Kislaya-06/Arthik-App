@@ -15,6 +15,8 @@ import {
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
 import { VaultSpendingGuardModal } from '../components/VaultSpendingGuardModal';
+import { SplitExpenseModal } from '../components/shares/SplitExpenseModal';
+import { TransactionExtras } from '../components/shares/TransactionExtras';
 import { BouncyTypeToggle } from '../components/BouncyTypeToggle';
 import {
   BouncyPaymentToggle,
@@ -213,6 +215,21 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleSave,
     noteSuggestions,
     handleSelectNoteSuggestion,
+    shareDrafts,
+    setShareDrafts,
+    showSplit,
+    setShowSplit,
+    reimbursementCandidates,
+    linkedShareId,
+    setLinkedShareId,
+    linkDeclined,
+    declineLink,
+    isSelfTransfer,
+    toggleSelfTransfer,
+    rememberMode,
+    setRememberMode,
+    canRememberTransfer,
+    transferRuleMatched,
   } = useExpenseForm({ route, navigation });
 
   const isIncome = transactionType === 'income';
@@ -708,6 +725,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           onClose={() => setShowDatePicker(false)}
         />
 
+        <SplitExpenseModal
+          visible={showSplit}
+          total={evaluatedAmount}
+          initial={shareDrafts}
+          onClose={() => setShowSplit(false)}
+          onSave={(drafts) => { setShareDrafts(drafts); setShowSplit(false); }}
+        />
         <VaultSpendingGuardModal
           visible={showVaultGuard}
           onClose={() => setShowVaultGuard(false)}
@@ -734,6 +758,29 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
           />
         </View>
+
+        {/* Split / reimbursement link / self-transfer (new transactions only) */}
+        {!isEdit && (
+          <View style={styles.formSectionPadding}>
+            <TransactionExtras
+              transactionType={transactionType}
+              amount={evaluatedAmount}
+              shareDrafts={shareDrafts}
+              onOpenSplit={() => { hideKeypad(); setShowSplit(true); }}
+              candidates={reimbursementCandidates}
+              linkedShareId={linkedShareId}
+              onLinkShare={setLinkedShareId}
+              linkDeclined={linkDeclined}
+              onDeclineLink={declineLink}
+              isSelfTransfer={isSelfTransfer}
+              onToggleSelfTransfer={toggleSelfTransfer}
+              rememberMode={rememberMode}
+              onRememberMode={setRememberMode}
+              canRemember={canRememberTransfer}
+              ruleMatched={transferRuleMatched}
+            />
+          </View>
+        )}
       </ScrollView>
       </View>
 

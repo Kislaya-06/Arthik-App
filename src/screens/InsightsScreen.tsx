@@ -28,7 +28,7 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';
-import { isIncomeTransaction } from '../lib/transactionUtils';
+import { isIncomeTransaction, isExcludedFromTotals, isCountedIncome } from '../lib/transactionUtils';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
@@ -400,7 +400,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       const cleanDate = exp.expense_date.split('T')[0]?.trim();
       if (!cleanDate) continue;
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       if (!earliest || cleanDate < earliest) {
         earliest = cleanDate;
       }
@@ -479,7 +479,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
     for (const exp of expenses) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -538,7 +538,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
     for (const exp of expenses) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -565,7 +565,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       gullakDeposits,
       (exp) => {
         const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-        return isIncomeTransaction(exp, cat);
+        return isCountedIncome(exp, cat);
       },
       user?.created_at,
       {
@@ -792,7 +792,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
         const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-        if (isIncomeTransaction(exp, cat)) {
+        if (isCountedIncome(exp, cat)) {
           income += exp.amount;
         }
       }
@@ -859,7 +859,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     let count = 0;
     for (const exp of expenses) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
@@ -962,7 +962,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     let count = 0;
     for (const exp of expenses) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
@@ -1167,7 +1167,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     let count = 0;
     for (const exp of expenses) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {

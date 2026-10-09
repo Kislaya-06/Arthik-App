@@ -128,8 +128,15 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
               {sameRef ? <Text style={[styles.text, { color: colors.textPrimary }]}>• Same transaction reference</Text> : null}
               <Text style={[styles.text, { color: colors.textSecondary, marginTop: Spacing.element }]}>
                 {matched.length > 1 ? 'All sources' : 'Both sources'} referred to the same payment, so they were combined into one transaction.
+                {main.source === 'email' && matched.some((m) => m.source === 'sms')
+                  ? ' The bank SMS arrived later and was matched to this email; it was not needed to confirm it.'
+                  : ''}
               </Text>
             </>
+          ) : main.source === 'email' ? (
+            <Text style={[styles.text, { color: colors.textSecondary, marginTop: Spacing.element }]}>
+              Confirmed from the bank email. A bank SMS is optional, so none is expected.
+            </Text>
           ) : null}
           {main.origin === 'recovery' ? (
             <Text style={[styles.text, { color: colors.textSecondary, marginTop: Spacing.element }]}>Found while recovering the period you were signed out.</Text>
