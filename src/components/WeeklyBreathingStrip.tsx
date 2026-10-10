@@ -40,7 +40,7 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
   const leftSubtext = isBudgetMode
     ? isCurrentWeek
       ? isOverBudget
-        ? 'Budget exceeded · spend cautiously'
+        ? 'Budget exceeded\nspend cautiously'
         : addedIncome > 0
         ? `Boosted by ₹${formatAmountWithCommas(String(addedIncome))} income · ${remainingDays}d left`
         : `${remainingDaysLabel} left to pace safely`

@@ -263,6 +263,7 @@ export const RollingText: React.FC<RollingTextProps> = ({
     if (!minScale || !(available > 0)) return 1;
     const natural = measureTextWidth(text, family, baseSize * fontScale);
     if (!(natural > 0)) return 1;
+    if (natural <= available * 1.02) return 1;
     return Math.max(minScale, Math.min(1, (available * 0.985) / natural));
   }, [minScale, available, text, family, baseSize, fontScale]);
 
@@ -430,7 +431,7 @@ export const RollingText: React.FC<RollingTextProps> = ({
   flush();
 
   // Clip only when the text is genuinely wider than its slot (even at minScale); otherwise let wheel glyphs overhang freely.
-  const needsClip = !!minScale && available > 0 && measureTextWidth(text, family, fontSize) > available * 1.01;
+  const needsClip = !!minScale && fitWidth !== undefined && available > 0 && measureTextWidth(text, family, fontSize) > available * 1.01;
 
   const content = (
     <View style={[styles.row, { height: lineHeight }, needsClip ? { maxWidth: available, overflow: 'hidden' } : null]}>

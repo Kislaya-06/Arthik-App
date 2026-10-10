@@ -436,6 +436,8 @@ export function computeDayMatchedPreviousComparison(
     const diff = currentTotal - prevMatchedTotal;
     const isIncrease = diff >= 0;
 
+    const dayName = format(referenceNow, 'EEEE');
+
     // Low-base guard: if base spending was < ₹100, percentage changes become misleadingly huge (e.g. 1140%)
     if (prevMatchedTotal < 100) {
       const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
@@ -444,8 +446,8 @@ export function computeDayMatchedPreviousComparison(
         percentageChange: absDiff > 0 ? absDiff : null,
         isIncrease,
         trendLabel: diff === 0
-          ? 'Same as same days last week'
-          : `${sign}₹${formatAmountWithCommas(String(absDiff))} vs same days last week`,
+          ? `Same as previous ${dayName}`
+          : `${sign}₹${formatAmountWithCommas(String(absDiff))} vs previous ${dayName}`,
       };
     }
 
@@ -454,7 +456,7 @@ export function computeDayMatchedPreviousComparison(
     return {
       percentageChange: pct,
       isIncrease,
-      trendLabel: `${pct}% vs same days last week`,
+      trendLabel: `${pct}% vs previous ${dayName}`,
     };
   }
 

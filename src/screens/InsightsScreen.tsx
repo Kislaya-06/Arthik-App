@@ -817,6 +817,14 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     const remaining = Math.max(0, rawRemaining);
     const progressRatio = totalPool > 0 ? Math.min(1, Math.max(0, currentTotal / totalPool)) : 0;
 
+    const amountLabel = isOver
+      ? `₹${formatAmountWithCommas(String(overAmount))} over`
+      : `₹${formatAmountWithCommas(String(remaining))} left of`;
+
+    const poolLabel = currentPeriodIncome > 0
+      ? `₹${formatAmountWithCommas(String(totalPool))} pool (₹${formatAmountWithCommas(String(baseBudget))} est. + ₹${formatAmountWithCommas(String(currentPeriodIncome))} income)`
+      : `₹${formatAmountWithCommas(String(baseBudget))} estimated`;
+
     return {
       baseBudget,
       totalPool,
@@ -826,6 +834,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       progressRatio,
       hasIncomeAdded: currentPeriodIncome > 0,
       addedIncome: currentPeriodIncome,
+      statusText: `${amountLabel} ${poolLabel}`,
     };
   }, [
     isBudgetModeEnabled,
@@ -1187,6 +1196,19 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   // Left arrow is enabled as long as there is an older period within the available history
   const hasPrevData = offset > minOff;
 
+  const handleCategoryPress = useCallback((catId: string) => {
+    if (selectedCategoryId === catId) {
+      navigation.navigate('CategoryDetail', {
+        categoryId: catId,
+        startDate: format(currentInterval.start, 'yyyy-MM-dd'),
+        endDate: format(currentInterval.end, 'yyyy-MM-dd'),
+        dateRangeLabel: dateLabel,
+      });
+    } else {
+      setSelectedCategoryId(catId);
+    }
+  }, [selectedCategoryId, navigation, currentInterval, dateLabel]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <AmbientBackground />
@@ -1275,18 +1297,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 />
               </View>
 
-              <Text style={[styles.heroProgressText, { fontFamily: FontFamily.medium }]} numberOfLines={1}>
-                {activeBudgetPool.isOver ? (
-                  activeBudgetPool.hasIncomeAdded ? (
-                    `₹${formatAmountWithCommas(String(activeBudgetPool.overAmount))} over ₹${formatAmountWithCommas(String(activeBudgetPool.totalPool))} pool`
-                  ) : (
-                    `₹${formatAmountWithCommas(String(activeBudgetPool.overAmount))} over ₹${formatAmountWithCommas(String(activeBudgetPool.baseBudget))} estimated`
-                  )
-                ) : activeBudgetPool.hasIncomeAdded ? (
-                  `₹${formatAmountWithCommas(String(activeBudgetPool.remaining))} left of ₹${formatAmountWithCommas(String(activeBudgetPool.totalPool))} pool (₹${formatAmountWithCommas(String(activeBudgetPool.baseBudget))} est. + ₹${formatAmountWithCommas(String(activeBudgetPool.addedIncome))} income)`
-                ) : (
-                  `₹${formatAmountWithCommas(String(activeBudgetPool.remaining))} left of ₹${formatAmountWithCommas(String(activeBudgetPool.baseBudget))} estimated`
-                )}
+              <Text style={[styles.heroProgressText, { fontFamily: FontFamily.medium }]} numberOfLines={2}>
+                {activeBudgetPool.statusText}
               </Text>
             </View>
           )}
@@ -1344,7 +1356,15 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ── Weekly Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Weekly' && (
-          <View style={{ marginTop: Spacing.gutter }}>
+          <View style={{ marginTop: Spacing.surface }}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: 0 },
+              ]}
+            >
+              {offset === 0 ? 'Till Now This Week' : 'Week Summary'}
+            </Text>
             <WeeklyBreathingStrip
               takeaway={smartTakeaway}
               isBudgetMode={isBudgetModeEnabled}
@@ -1366,7 +1386,15 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ── Monthly Financial Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Monthly' && (
-          <View style={{ marginTop: Spacing.gutter }}>
+          <View style={{ marginTop: Spacing.surface }}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: 0 },
+              ]}
+            >
+              {offset === 0 ? 'Till Now This Month' : 'Month Summary'}
+            </Text>
             <MonthlyBreathingStrip
               takeaway={smartMonthlyTakeaway}
               isBudgetMode={isBudgetModeEnabled}
@@ -1388,7 +1416,15 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ── Yearly Financial Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Yearly' && (
-          <View style={{ marginTop: Spacing.gutter }}>
+          <View style={{ marginTop: Spacing.surface }}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: 0 },
+              ]}
+            >
+              {offset === 0 ? 'Till Now This Year' : 'Year Summary'}
+            </Text>
             <YearlyBreathingStrip
               takeaway={smartYearlyTakeaway}
               netCashFlow={yearlyNetCashFlow.netCashFlow}
@@ -1529,13 +1565,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                           marginHorizontal: -8,
                         },
                       ]}
-                      onPress={() => {
-                        if (selectedCategoryId === seg.id) {
-                          navigation.navigate('CategoryDetail', { categoryId: seg.id });
-                        } else {
-                          setSelectedCategoryId(seg.id);
-                        }
-                      }}
+                      onPress={() => handleCategoryPress(seg.id)}
                     >
                       <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
                       <View style={styles.categoryStackTextWrapper}>
@@ -1608,13 +1638,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                           paddingVertical: 4,
                         },
                       ]}
-                      onPress={() => {
-                        if (selectedCategoryId === seg.id) {
-                          navigation.navigate('CategoryDetail', { categoryId: seg.id });
-                        } else {
-                          setSelectedCategoryId(seg.id);
-                        }
-                      }}
+                      onPress={() => handleCategoryPress(seg.id)}
                     >
                       <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
                       <View style={{ flex: 1 }}>
@@ -1641,7 +1665,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             )}
 
             {/* ── Behavioral Insights (Weekly, Monthly & Yearly) ── */}
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: Spacing.section }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               Behavioral Insights
             </Text>
 
@@ -1894,8 +1918,8 @@ const styles = StyleSheet.create({
   heroComparisonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.group,
+    justifyContent: 'flex-start',
+    gap: 6,
     marginTop: Spacing.element,
   },
   trendBadge: {
@@ -1903,17 +1927,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(60, 35, 35, 0.08)',
     borderRadius: BorderRadius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    gap: Spacing.micro,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
   },
-  trendText: { fontSize: 11.5 },
+  trendText: { fontSize: 11 },
 
   sectionTitle: {
     fontSize: FontSize.titleMedium,
     lineHeight: LineHeight.titleMedium,
-    marginTop: Spacing.section,
-    marginBottom: Spacing.gutter,
+    marginTop: Spacing.surface,
+    marginBottom: 10,
   },
   byCategoryRow: {
     flexDirection: 'row',

@@ -12,6 +12,7 @@ import {
   ThemeColors,
   FontFamily,
   FontSize,
+  LineHeight,
   Spacing,
   BorderRadius,
 } from '../config/theme';
@@ -74,54 +75,57 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
   const effectiveMax = Math.max(maxAmount, 100);
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isDark ? colors.borderSubtle : colors.border,
-        },
-      ]}
-    >
-      {/* ── Card Header ── */}
-      <View style={styles.headerRow}>
-        <View style={styles.titleContainer}>
-          <Text style={[styles.title, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-            {title}
-          </Text>
-          {subTitle ? (
-            <Text style={[styles.subTitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              {subTitle}
-            </Text>
-          ) : null}
+    <View style={styles.container}>
+      {title ? (
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+          {title}
+        </Text>
+      ) : null}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: isDark ? colors.borderSubtle : colors.border,
+          },
+        ]}
+      >
+        {/* ── Card Header (Subtitle & Legend) ── */}
+        <View style={styles.headerRow}>
+          <View style={styles.titleContainer}>
+            {subTitle ? (
+              <Text style={[styles.subTitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                {subTitle}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Legend Capsule */}
+          <View
+            style={[
+              styles.legendCapsule,
+              {
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+              },
+            ]}
+          >
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: inColor }]} />
+              <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                In
+              </Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: outColor }]} />
+              <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                Out
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Legend Capsule */}
-        <View
-          style={[
-            styles.legendCapsule,
-            {
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-            },
-          ]}
-        >
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: inColor }]} />
-            <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              In
-            </Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: outColor }]} />
-            <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              Out
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* ── 12-Month Dual Bars Grid ── */}
+        {/* ── 12-Month Dual Bars Grid ── */}
       <View style={styles.chartContainer}>
         <View style={styles.monthsRow}>
           {months.map((m) => {
@@ -224,37 +228,39 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
         </View>
       </View>
     </View>
+  </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginTop: Spacing.surface,
+  },
+  sectionTitle: {
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
+    marginBottom: 10,
+  },
   card: {
     borderRadius: BorderRadius.cardLarge,
     paddingHorizontal: Spacing.block,
     paddingTop: Spacing.block,
     paddingBottom: Spacing.group,
     borderWidth: 1,
-    marginTop: Spacing.section,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.block,
+    marginBottom: 8,
   },
   titleContainer: {
     flex: 1,
     paddingRight: Spacing.element,
   },
-  title: {
-    fontSize: FontSize.titleSmall,
-    fontFamily: FontFamily.bold,
-    letterSpacing: -0.2,
-  },
   subTitle: {
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.medium,
-    marginTop: 2,
     lineHeight: 18,
   },
   legendCapsule: {

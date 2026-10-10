@@ -8,7 +8,7 @@ export type RootStackParamList = {
   EditExpense: { expenseId: string };
   ExpenseDetail: { expenseId: string };
   GullakDepositDetail: { depositId: string };
-  CategoryDetail: { categoryId: string };
+  CategoryDetail: { categoryId: string; startDate?: string; endDate?: string; dateRangeLabel?: string };
   ManageCategories: undefined;
   AddEditCategory: { categoryId?: string } | undefined;
   Notifications: undefined;

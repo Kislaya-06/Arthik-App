@@ -12,6 +12,7 @@ export interface BreathingStripTileConfig {
   subtext?: string;
   subtextFontFamily?: string;
   subtextStyle?: StyleProp<TextStyle>;
+  subtextNumberOfLines?: number;
   adjustsFontSizeToFit?: boolean;
   minimumFontScale?: number;
   pillText?: string;
@@ -82,7 +83,6 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
               fontFamily: FontFamily.bold,
               color: tile.valueColor || colors.textPrimary,
             }}
-            minScale={0.75}
             rollOnFocus
           />
           {tile.unit ? (
@@ -107,7 +107,7 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
               },
               tile.subtextStyle,
             ]}
-            numberOfLines={1}
+            numberOfLines={tile.subtextNumberOfLines ?? 2}
             adjustsFontSizeToFit={tile.adjustsFontSizeToFit}
             minimumFontScale={tile.minimumFontScale}
           >

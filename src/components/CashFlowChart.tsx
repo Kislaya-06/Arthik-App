@@ -13,6 +13,7 @@ import {
   ThemeColors,
   FontFamily,
   FontSize,
+  LineHeight,
   Spacing,
   BorderRadius,
 } from '../config/theme';
@@ -97,61 +98,64 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   const statusLabel = isSurplus ? 'Surplus' : isDeficit ? 'Deficit' : 'Balanced';
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isDark ? colors.borderSubtle : colors.border,
-        },
-      ]}
-    >
-      {/* ── Card Header ── */}
-      <View style={styles.headerRow}>
-        <View style={styles.titleContainer}>
-          <Text style={[styles.title, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-            {title}
-          </Text>
-          {subTitle ? (
-            <Text style={[styles.subTitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              {subTitle}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Legend Capsule with bold, legible typography */}
-        <View
-          style={[
-            styles.legendCapsule,
-            {
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.035)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-            },
-          ]}
-        >
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: inAccent }]} />
-            <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              In
-            </Text>
+    <View style={styles.container}>
+      {title ? (
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+          {title}
+        </Text>
+      ) : null}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: isDark ? colors.borderSubtle : colors.border,
+          },
+        ]}
+      >
+        {/* ── Card Header (Subtitle & Legend) ── */}
+        <View style={styles.headerRow}>
+          <View style={styles.titleContainer}>
+            {subTitle ? (
+              <Text style={[styles.subTitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                {subTitle}
+              </Text>
+            ) : null}
           </View>
+
+          {/* Legend Capsule with bold, legible typography */}
           <View
             style={[
-              styles.legendDivider,
-              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)' },
+              styles.legendCapsule,
+              {
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.035)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+              },
             ]}
-          />
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: outAccent }]} />
-            <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              Out
-            </Text>
+          >
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: inAccent }]} />
+              <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                In
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.legendDivider,
+                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)' },
+              ]}
+            />
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: outAccent }]} />
+              <Text style={[styles.legendText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                Out
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* ── Executive Summary Section (Clean, Non-boxy) ── */}
-      <View style={styles.summarySection}>
+        {/* ── Executive Summary Section (Clean, Non-boxy) ── */}
+        <View style={styles.summarySection}>
         {/* Left: Net Cash Flow Stat + Status Chip */}
         <View style={styles.summaryLeft}>
           <Text
@@ -450,32 +454,38 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
         })}
       </View>
     </View>
+  </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginTop: Spacing.surface,
+  },
+  sectionTitle: {
+    fontSize: FontSize.titleMedium,
+    lineHeight: LineHeight.titleMedium,
+    marginBottom: 10,
+  },
   card: {
     borderRadius: BorderRadius.cardLarge,
-    padding: Spacing.surface,
+    paddingHorizontal: Spacing.surface,
+    paddingTop: Spacing.block,
+    paddingBottom: Spacing.block,
     borderWidth: 1,
-    marginTop: Spacing.section,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.group,
+    marginBottom: 8,
   },
   titleContainer: {
     flex: 1,
     marginRight: Spacing.element,
   },
-  title: {
-    fontSize: 18,
-  },
   subTitle: {
     fontSize: FontSize.bodySmall,
-    marginTop: Spacing.nano,
   },
   legendCapsule: {
     flexDirection: 'row',

@@ -256,7 +256,7 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       // Prev matched (Mon-Wed) = 1500. Curr = 1800. Diff = +300 (+20%)
       expect(res.percentageChange).toBe(20);
       expect(res.isIncrease).toBe(true);
-      expect(res.trendLabel).toBe('20% vs same days last week');
+      expect(res.trendLabel).toBe('20% vs previous Wednesday');
     });
 
     it('returns first week label if no previous week data exists', () => {
@@ -295,7 +295,7 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
 
       // Diff is +₹285. Instead of 1140%, it should show +₹285 vs same days last week
       expect(res.isIncrease).toBe(true);
-      expect(res.trendLabel).toBe('+₹285 vs same days last week');
+      expect(res.trendLabel).toBe('+₹285 vs previous Thursday');
       expect(res.percentageChange).toBe(285);
     });
   });

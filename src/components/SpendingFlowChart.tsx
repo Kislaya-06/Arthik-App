@@ -13,6 +13,7 @@ import {
   ThemeColors,
   FontFamily,
   FontSize,
+  LineHeight,
   Spacing,
   BorderRadius,
 } from '../config/theme';
@@ -274,9 +275,8 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    paddingVertical: Spacing.gutter,
-    paddingHorizontal: 10,
-    borderRadius: BorderRadius.card,
+    marginTop: Spacing.surface,
+    paddingHorizontal: 0,
     backgroundColor: 'transparent',
     overflow: 'hidden',
   },
@@ -284,15 +284,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: Spacing.section,
-    paddingHorizontal: 8,
+    marginBottom: 10,
+    paddingHorizontal: 0,
   },
   titleContainer: {
     flex: 1,
   },
   title: {
     fontSize: FontSize.titleMedium,
-    lineHeight: FontSize.titleMedium * 1.25,
+    lineHeight: LineHeight.titleMedium,
     letterSpacing: -0.2,
   },
   subTitle: {
@@ -315,6 +315,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     height: DEFAULT_TRACK_HEIGHT + 44,
+    paddingHorizontal: 4,
   },
   column: {
     flex: 1,

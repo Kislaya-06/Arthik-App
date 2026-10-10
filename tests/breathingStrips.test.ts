@@ -78,7 +78,7 @@ describe('Breathing Strips (Seam: WeeklyBreathingStrip, MonthlyBreathingStrip, Y
       }) as any;
 
       expect(JSON.stringify(el)).toContain('Warning: Exceeded weekly allowance.');
-      expect(JSON.stringify(el)).toContain('Budget exceeded · spend cautiously');
+      expect(JSON.stringify(el)).toContain('Budget exceeded\\nspend cautiously');
       expect(JSON.stringify(el)).toContain('Saved Days');
     });
 

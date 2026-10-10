@@ -19,14 +19,14 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Expense Splits, Reimbursements & Self-Transfers 🤝💸',
+    title: ota?.title || 'Insights Polish & Analytics Refinements 📊✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          "Split Expenses with Friends: Record friends' shares easily without altering original total expense records",
-          "Smart Reimbursements: Repayments automatically match outstanding shares and restore spending power without inflating income",
-          "Self-Transfers: Mark internal transfers between your own accounts and exclude them from totals & analytics",
-          "Auto-Log Refinements: Stricter multi-source validation and instant email transaction finality",
+          'Dynamic Insights Headers: Unified period headings for Week, Month, and Year summary views',
+          'Streamlined Cash Flow: External section headings and compact card layouts across monthly and yearly flows',
+          'Hero Comparison & Pill Alignment: Adjacent, responsive comparison badges that fit cleanly on all screen sizes',
+          'Rolling Text Stability: Smooth number animations without text clipping or layout jitter',
         ],
   };
 };

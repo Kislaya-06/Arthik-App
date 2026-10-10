@@ -18,12 +18,13 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
+import { isDateInBounds } from '../lib/insightsCommon';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
 
 export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { categoryId } = route.params;
+  const { categoryId, startDate, endDate, dateRangeLabel } = route.params;
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { categories, fetchCategories } = useCategoryStore();
@@ -36,15 +37,22 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
     }, [fetchCategories, fetchExpenses]),
   );
 
-  const category = categories.find(c => c.id === categoryId);
+  const category = categories.find((c) => c.id === categoryId);
   const CategoryIcon = getCategoryIcon(category?.icon || '');
   const categoryColor = category?.color || '#ADEBB3';
 
   const categoryExpenses = useMemo(() =>
     expenses
-      .filter(e => e.category_id === categoryId)
+      .filter((e) => {
+        if (e.category_id !== categoryId) return false;
+        if (startDate && endDate) {
+          const cleanDate = e.expense_date?.split('T')[0]?.trim();
+          return cleanDate ? isDateInBounds(cleanDate, startDate, endDate) : false;
+        }
+        return true;
+      })
       .sort((a, b) => b.expense_date.localeCompare(a.expense_date)),
-  [expenses, categoryId]);
+  [expenses, categoryId, startDate, endDate]);
 
   const totalSpent = useMemo(() =>
     categoryExpenses.reduce((sum, e) => {
@@ -134,7 +142,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
         <View style={styles.summaryCircle2} />
 
         <Text style={[styles.summaryLabel, { fontFamily: FontFamily.bold }]}>
-          TOTAL SPENT
+          {dateRangeLabel ? `TOTAL SPENT (${dateRangeLabel.toUpperCase()})` : 'TOTAL SPENT'}
         </Text>
         <View style={styles.summaryAmountRow}>
           <AmountText
@@ -161,7 +169,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
       {categoryExpenses.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: FontFamily.medium }]}>
-            No transactions in this category yet.
+            {dateRangeLabel ? `No transactions in this category for ${dateRangeLabel}.` : 'No transactions in this category yet.'}
           </Text>
         </View>
       ) : (
