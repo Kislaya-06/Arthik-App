@@ -282,7 +282,12 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 </GradientIconBadge>
                 <View style={styles.sourceTextWrap}>
                   <View style={styles.sourceTitleRow}>
-                    <Text style={[styles.sourceTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.sourceTitle, { color: '#FFFFFF' }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.85}
+                    >
                       From Income
                     </Text>
                     <View
@@ -300,6 +305,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                           { color: '#ADEBB3' },
                         ]}
                         numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.8}
                       >
                         {formatCurrency(availableIncome)} avail.
                       </Text>
@@ -336,7 +343,12 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 </GradientIconBadge>
                 <View style={styles.sourceTextWrap}>
                   <View style={styles.sourceTitleRow}>
-                    <Text style={[styles.sourceTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.sourceTitle, { color: '#FFFFFF' }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.85}
+                    >
                       Add New Money
                     </Text>
                     <View
@@ -351,6 +363,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                       <Text
                         style={[styles.badgeText, { color: '#BFDBFE' }]}
                         numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.85}
                       >
                         New Funds
                       </Text>
@@ -837,7 +851,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
-    flexShrink: 0,
+    flexShrink: 1,
+    maxWidth: '55%',
   },
   badgeText: {
     fontSize: 11,

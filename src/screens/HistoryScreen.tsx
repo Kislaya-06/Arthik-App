@@ -351,7 +351,12 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
 
     return (
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textMuted, fontFamily: FontFamily.bold }]}>
+        <Text
+          style={[styles.sectionTitle, { color: colors.textMuted, fontFamily: FontFamily.bold }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
           {section.title}
         </Text>
         <Text
@@ -364,6 +369,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
               fontFamily: FontFamily.bold,
             },
           ]}
+          numberOfLines={1}
         >
           {text}
         </Text>
@@ -578,9 +584,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FontSize.caption,
     letterSpacing: 1,
+    flex: 1,
+    marginRight: Spacing.element,
   },
   sectionTotal: {
     fontSize: FontSize.caption,
+    flexShrink: 0,
   },
   emptyContainer: {
     flex: 1,

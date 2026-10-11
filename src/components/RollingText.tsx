@@ -149,25 +149,20 @@ const DigitWheel: React.FC<DigitWheelProps> = ({ roll, fontSize, lineHeight, fam
   }, []);
 
   const wheel = useMemo(() => Animated.modulo(position, 10), [position]);
-  const translateY = useMemo(() => Animated.multiply(wheel, -lineHeight), [wheel, lineHeight]);
-  const opacities = useMemo(
+  const translateY = useMemo(
     () =>
-      GLYPHS.map((_, k) =>
-        wheel.interpolate({
-          inputRange: [k - 1, k - 0.25, k, k + 0.25, k + 1],
-          outputRange: [0, 1, 1, 1, 0],
-          extrapolate: 'clamp',
-        })
-      ),
-    [wheel]
+      wheel.interpolate({
+        inputRange: [0, 10],
+        outputRange: [0, -10 * lineHeight],
+      }),
+    [wheel, lineHeight]
   );
-
   return (
     <View style={{ width: cellWidth, height: lineHeight }}>
       <View style={[styles.clipBox, { width: boxWidth, height: lineHeight, left: (cellWidth - boxWidth) / 2 }]}>
         <Animated.View style={{ width: boxWidth, transform: [{ translateY }] }}>
           {GLYPHS.map((d, k) => (
-            <Animated.Text
+            <Text
               key={k}
               allowFontScaling={false}
               style={[
@@ -179,12 +174,11 @@ const DigitWheel: React.FC<DigitWheelProps> = ({ roll, fontSize, lineHeight, fam
                   lineHeight,
                   fontSize,
                   textAlign: 'center',
-                  opacity: opacities[k],
                 },
               ]}
             >
               {d}
-            </Animated.Text>
+            </Text>
           ))}
         </Animated.View>
       </View>

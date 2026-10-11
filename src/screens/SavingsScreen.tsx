@@ -371,6 +371,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
             <Text
               style={[styles.screenTitle, { color: colors.textPrimary }]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
               {budgetCadence === 'weekly' ? 'Weekly Savings' : budgetCadence === 'monthly' ? 'Monthly Savings' : 'Daily Savings'}
             </Text>
@@ -443,8 +445,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
               <Text style={[styles.heroSub, { color: 'rgba(255, 255, 255, 0.8)' }]}>
                 Total Lifetime Savings
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.heroTitle, { color: '#FFFFFF' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                <Text
+                  style={[styles.heroTitle, { color: '#FFFFFF' }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
                   Your {budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily'} Gullak
                 </Text>
                 <MoneyHelpBadge
@@ -1088,6 +1095,8 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   heroTitleWrap: {
+    flex: 1,
+    marginRight: Spacing.element,
     justifyContent: 'center',
   },
   heroSub: {

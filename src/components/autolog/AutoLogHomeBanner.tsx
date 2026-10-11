@@ -22,8 +22,13 @@ export const AutoLogHomeBanner: React.FC = () => {
       style={[styles.wrap, { backgroundColor: isReview ? colors.peachSoft : colors.cardSubtle, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}
     >
       {isReview ? <Inbox size={16} color={colors.peachCoral} /> : <AlertTriangle size={16} color="#F59E0B" />}
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.text, { color: colors.textPrimary }]} numberOfLines={1}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          style={[styles.text, { color: colors.textPrimary }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
           {isReview ? `${pending} transaction${pending === 1 ? '' : 's'} need${pending === 1 ? 's' : ''} your review` : 'Auto-Logging needs attention'}
         </Text>
       </View>

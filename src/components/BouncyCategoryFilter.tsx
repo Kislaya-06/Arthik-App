@@ -77,6 +77,8 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
       prevKey.current = activeKey;
 
       // 1. Primary slide: Apple-calibrated critically damped spring (zero overshoot)
+      pillLeft.stopAnimation();
+      pillWidth.stopAnimation();
       Animated.parallel([
         Animated.spring(pillLeft, {
           toValue: activeLayout.x,
@@ -92,60 +94,62 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
         }),
       ]).start();
 
-      // 2. Dual-Edge Liquid Morph: leading edge stretch & vertical volume squish
-      const maxStretch = Math.min(1.22, 1 + distance * 0.06);
-      const minSquish = Math.max(0.90, 1 - distance * 0.03);
-      const maxLead = Math.min(12, distance * 3.5) * direction;
-      const launchDuration = Math.min(120, 50 + distance * 20);
+      // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
+      if (distance > 0) {
+        const maxStretch = Math.min(1.14, 1 + distance * 0.05);
+        const minSquish = Math.max(0.95, 1 - distance * 0.02);
+        const maxLead = Math.min(6, distance * 2) * direction;
+        const launchDuration = Math.min(95, 50 + distance * 15);
 
-      stretchAnim.stopAnimation();
-      squishAnim.stopAnimation();
-      leadAnim.stopAnimation();
+        stretchAnim.stopAnimation();
+        squishAnim.stopAnimation();
+        leadAnim.stopAnimation();
 
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(stretchAnim, {
-            toValue: maxStretch,
-            duration: launchDuration,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: false,
-          }),
-          Animated.spring(stretchAnim, {
-            toValue: 1,
-            tension: 140,
-            friction: 14,
-            useNativeDriver: false,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(squishAnim, {
-            toValue: minSquish,
-            duration: launchDuration,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: false,
-          }),
-          Animated.spring(squishAnim, {
-            toValue: 1,
-            tension: 140,
-            friction: 14,
-            useNativeDriver: false,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(leadAnim, {
-            toValue: maxLead,
-            duration: launchDuration,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: false,
-          }),
-          Animated.spring(leadAnim, {
-            toValue: 0,
-            tension: 140,
-            friction: 14,
-            useNativeDriver: false,
-          }),
-        ]),
-      ]).start();
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(stretchAnim, {
+              toValue: maxStretch,
+              duration: launchDuration,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: false,
+            }),
+            Animated.spring(stretchAnim, {
+              toValue: 1,
+              tension: 160,
+              friction: 16,
+              useNativeDriver: false,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(squishAnim, {
+              toValue: minSquish,
+              duration: launchDuration,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: false,
+            }),
+            Animated.spring(squishAnim, {
+              toValue: 1,
+              tension: 160,
+              friction: 16,
+              useNativeDriver: false,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(leadAnim, {
+              toValue: maxLead,
+              duration: launchDuration,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: false,
+            }),
+            Animated.spring(leadAnim, {
+              toValue: 0,
+              tension: 160,
+              friction: 16,
+              useNativeDriver: false,
+            }),
+          ]),
+        ]).start();
+      }
 
       // Auto-scrolling on click is deliberately removed per user request.
       // The user scrolls manually; the pill glides to the selected item with liquid morph.
@@ -189,7 +193,7 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
         />
 
         {/* Items */}
-        {options.map((opt) => {
+        {options.map((opt, idx) => {
           const key = opt.id ?? 'all';
           const isActive = value === opt.id;
           const scale = scales[key];
@@ -205,14 +209,20 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
                 });
               }}
               onPressIn={() =>
-                Animated.spring(scale, { toValue: 0.93, useNativeDriver: true }).start()
+                Animated.spring(scale, { toValue: 0.94, useNativeDriver: true }).start()
               }
               onPressOut={() =>
                 Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }).start()
               }
               onPress={() => onChange(opt.id)}
               style={styles.item}
-              hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
+              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              hitSlop={{
+                top: 8,
+                bottom: 8,
+                left: idx === 0 ? 16 : 2,
+                right: idx === options.length - 1 ? 16 : 2,
+              }}
             >
               <Animated.View style={{ transform: [{ scale }] }}>
                 <Text

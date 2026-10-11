@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed & Refined — UI/UX & Responsive Polish
+- **Home Hero Card (`BrandedHeroCard`)**: Scaled up primary amount to 40px bold and footer amounts to 22px bold with 24px trend badges; removed artificial `minHeight: 68` dead-space canyons; tightened subtext chip styling and vertical spacing; added `fitWidth` and `minScale={0.55}` to prevent text wrapping on narrow screens.
+- **App-Wide Responsiveness**: Added `adjustsFontSizeToFit` and `minimumFontScale` safeguards across `SavingsScreen`, `YearlySavingsMilestoneCard`, `CashFlowChart`, `CategoryDetailScreen`, `ExpenseDetailScreen`, `DepositGullakModal`, `InsightsScreen`, `AutoLogHomeBanner`, `HistoryScreen`, and `SavingsRecordRow`.
+- **Segmented Controls & Filter Pills**: Standardized liquid-morph spring animation parameters, eliminated excessive stretch physics on wide pill shifts, and enhanced touch responsiveness across all category and interval filters.
+
 ### Fixed — Part 2
 - **No false merges**: a notification/SMS/email pair is no longer treated as one payment on amount + direction + time alone. A matching account or merchant (or an exact reference) must also agree; otherwise it goes to review. Same-source duplicate protection is unchanged.
 - **Email confirmation is final**: a confirmed email transaction never needs an SMS. Notifications still waiting, or already sent to "bank confirmation missing" review, are merged into it when the email is confirmed. Later SMS/notifications attach as extra sources.

@@ -289,6 +289,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={[
                     styles.cardValue,
                     {
+                      flex: 1,
                       color: fundingInfo.coveredByGullak > 0
                         ? colors.coral
                         : fundingInfo.coveredByIncome > 0
@@ -297,6 +298,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       fontFamily: FontFamily.bold,
                     },
                   ]}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                 >
                   {fundingInfo.summaryLabel}
                 </Text>
@@ -476,10 +480,13 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: FontSize.bodySmall,
     color: '#8A8FA3',
+    flexShrink: 0,
+    marginRight: Spacing.element,
   },
   cardValue: {
     fontSize: FontSize.bodySmall,
     color: '#1A2B4C',
+    textAlign: 'right',
   },
   paidViaContainer: {
     flexDirection: 'row',

@@ -90,7 +90,12 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
           <Text style={[styles.currencySymbol, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             ₹
           </Text>
-          <Text style={[styles.amountValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+          <Text
+            style={[styles.amountValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             {formatAmountWithCommas(String(Math.round(totalSavedInYear)))}
           </Text>
         </View>
@@ -124,10 +129,17 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
           <Text
             style={[styles.statValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
           >
             {bestSavingsMonth.month !== 'None' ? bestSavingsMonth.month : '—'}
           </Text>
-          <Text style={[styles.statSubtext, { color: iconColor, fontFamily: FontFamily.bold }]}>
+          <Text
+            style={[styles.statSubtext, { color: iconColor, fontFamily: FontFamily.bold }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
             {bestSavingsMonth.amount > 0 ? formatCurrency(Math.round(bestSavingsMonth.amount)) : 'No savings'}
           </Text>
         </View>
@@ -153,6 +165,8 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
           <Text
             style={[styles.statValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
           >
             {isBudgetMode
               ? (bestStreakInYear > 0 ? `${bestStreakInYear} Days` : '0 Days')
@@ -224,6 +238,7 @@ const styles = StyleSheet.create({
   },
   amountValue: {
     fontSize: 34,
+    flexShrink: 1,
   },
   helperNote: {
     fontSize: FontSize.bodySmall,

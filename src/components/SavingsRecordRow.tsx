@@ -196,10 +196,20 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       </GradientIconBadge>
 
       <View style={styles.recordDetails}>
-        <Text style={[styles.recordTitleText, { color: colors.textPrimary }]} numberOfLines={1}>
+        <Text
+          style={[styles.recordTitleText, { color: colors.textPrimary }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
+        >
           {mainTitle}
         </Text>
-        <Text style={[styles.recordSubText, { color: colors.textSecondary }]} numberOfLines={1}>
+        <Text
+          style={[styles.recordSubText, { color: colors.textSecondary }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
+        >
           {subtitle}
         </Text>
       </View>
@@ -266,6 +276,7 @@ const styles = StyleSheet.create({
   },
   recordDetails: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 14,
     justifyContent: 'center',
   },
@@ -284,6 +295,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginLeft: 12,
+    flexShrink: 0,
   },
   recordAmountCol: {
     alignItems: 'flex-end',

@@ -162,20 +162,25 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
     }, [scrollY, pullDepth, syncRefreshLock]);
 
     // The scroll offset can never be drawn outside [0, maxScroll], even if a fling overshoots for a frame.
-    const clampedScroll = useMemo(
+    // Independent scroll and pull transforms — eliminates compound Animated.add node that causes
+    // Fabric disconnectAnimatedNodes / connectAnimatedNodes crashes on screen transitions.
+    const scrollTranslateY = useMemo(
       () =>
         scrollY.interpolate({
           inputRange: [0, Math.max(maxScroll, 1)],
-          outputRange: [0, maxScroll],
+          outputRange: [0, -maxScroll],
           extrapolate: 'clamp',
         }),
       [scrollY, maxScroll]
     );
 
-    // translateY = -(scroll + pull). Rows AND footer share this one transform; nothing ever moves down.
-    const translateY = useMemo(
-      () => Animated.multiply(Animated.add(clampedScroll, pullDepth), -1),
-      [clampedScroll, pullDepth]
+    const pullTranslateY = useMemo(
+      () =>
+        pullDepth.interpolate({
+          inputRange: [-10000, 10000],
+          outputRange: [10000, -10000],
+        }),
+      [pullDepth]
     );
 
     // If rows/viewport change while resting (new transaction, rotation), keep the offset legal.
@@ -381,7 +386,7 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
             {
               // Short lists: still push the footer just below the visible area so it is hidden at rest.
               minHeight: viewportH + FOOTER_PEEK + PULL_FOOTER_HEIGHT,
-              transform: [{ translateY }],
+              transform: [{ translateY: scrollTranslateY }, { translateY: pullTranslateY }],
             },
           ]}
         >

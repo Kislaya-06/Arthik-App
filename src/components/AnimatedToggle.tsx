@@ -35,8 +35,8 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   useEffect(() => {
     Animated.spring(animValue, {
       toValue: value ? 1 : 0,
-      tension: 70,
-      friction: 8,
+      tension: 100,
+      friction: 16,
       useNativeDriver: false, // color interpolation
     }).start();
   }, [value, animValue]);

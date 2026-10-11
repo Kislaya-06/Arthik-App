@@ -63,12 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Insights Polish & Analytics Refinements 📊✨",
+        "title": "UI/UX & Responsive Experience Polish ✨📱",
         "highlights": [
-          "Dynamic Insights Headers: Unified period headings for Week, Month, and Year summary views",
-          "Streamlined Cash Flow: External section headings and compact card layouts across monthly and yearly flows",
-          "Hero Comparison & Pill Alignment: Adjacent, responsive comparison badges that fit cleanly on all screen sizes",
-          "Rolling Text Stability: Smooth number animations without text clipping or layout jitter"
+          "Hero Card Visual Balance: Optimized typography hierarchy, eliminated dead spaces, and tightened alignment on Home summary card",
+          "App-Wide Screen Responsiveness: Scaled typography dynamically with adjustsFontSizeToFit safeguards across all device sizes",
+          "Filter & Category Interaction: Streamlined dual-edge glide physics with direct touch responsiveness on all tabs",
+          "Adaptive Rolling Text: Fluid numerical transitions with constrained width boundaries preventing text collisions"
         ]
       }
     }

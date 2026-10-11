@@ -198,7 +198,7 @@ const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
     const maxStretch = 16 + distance * DOT_SLOT;
     const targetLeft = to * DOT_SLOT;
 
-    const springCfg = { tension: 70, friction: 8, useNativeDriver: false };
+    const springCfg = { tension: 100, friction: 16, useNativeDriver: false };
     const timeCfg = { duration: 130, easing: Easing.out(Easing.quad), useNativeDriver: false };
 
     Animated.sequence([
@@ -231,9 +231,23 @@ const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
         </Pressable>
 
         <View style={navStyles.labelBlock}>
-          <Text style={[navStyles.dateLabel, { fontFamily: FontFamily.bold }]}>{dateLabel}</Text>
+          <Text
+            style={[navStyles.dateLabel, { fontFamily: FontFamily.bold }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            {dateLabel}
+          </Text>
           {!!subLabel && (
-            <Text style={[navStyles.subLabel, { fontFamily: FontFamily.medium }]}>{subLabel}</Text>
+            <Text
+              style={[navStyles.subLabel, { fontFamily: FontFamily.medium }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              {subLabel}
+            </Text>
           )}
         </View>
 
@@ -300,7 +314,7 @@ const navStyles = StyleSheet.create({
     backgroundColor: 'rgba(60,35,35,0.06)',
   },
   arrowDisabled: { opacity: 0.35 },
-  labelBlock: { alignItems: 'center', minWidth: 175 },
+  labelBlock: { alignItems: 'center', minWidth: 160, maxWidth: 220, flexShrink: 1 },
   dateLabel: { fontSize: FontSize.cta, color: '#2D1E1E' },
   subLabel: { fontSize: FontSize.bodySmall, color: 'rgba(60,35,35,0.6)', marginTop: Spacing.nano },
   dotsRow: {

@@ -73,10 +73,9 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
 
-  // Icon initial entrance & punch
-  const iconEntranceScale = useAnimatedValue(0.6);
+  // Icon initial entrance & punch (single native value avoids Fabric compound node race conditions)
+  const iconScale = useAnimatedValue(0.6);
   const iconEntranceOpacity = useAnimatedValue(0);
-  const iconPunch = useAnimatedValue(1);
 
   // 3 line creation / draw progress values (0 -> 1)
   const lineProgress = [
@@ -215,7 +214,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.spring(iconEntranceScale, {
+        Animated.spring(iconScale, {
           toValue: 1,
           tension: 75,
           friction: 8,
@@ -238,13 +237,13 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
       // C. Tactile spring punch — lines lock firmly into place!
       Animated.sequence([
-        Animated.timing(iconPunch, {
+        Animated.timing(iconScale, {
           toValue: 1.08,
           duration: 70,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.spring(iconPunch, {
+        Animated.spring(iconScale, {
           toValue: 1,
           tension: 75,
           friction: 8,
@@ -427,7 +426,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
                   borderWidth: isDark ? 1 : 0,
                   borderColor: colors.borderSubtle,
                   shadowColor: isDark ? '#000000' : '#1A2B4C',
-                  transform: [{ scale: Animated.multiply(iconEntranceScale, iconPunch) }],
+                  transform: [{ scale: iconScale }],
                 },
               ]}
             >

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
-  LayoutAnimation,
   useAnimatedValue,
   AppState,
 } from 'react-native';
@@ -41,7 +40,6 @@ import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
-import { configureLayoutAnimation } from '../lib/animationUtils';
 import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type HomeScreenProps = CompositeScreenProps<
@@ -166,7 +164,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const handleFilterChange = useCallback((newFilter: Filter) => {
     if (newFilter !== activeFilter) {
-      configureLayoutAnimation(LayoutAnimation.Presets.easeInEaseOut);
       setActiveFilter(newFilter);
     }
   }, [activeFilter]);

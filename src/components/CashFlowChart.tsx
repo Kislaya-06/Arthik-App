@@ -173,6 +173,8 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 { color: netStatusColor, fontFamily: FontFamily.bold },
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
               {netFlowFormatted}
             </Text>
@@ -535,11 +537,13 @@ const styles = StyleSheet.create({
   netAmountText: {
     fontSize: 22,
     letterSpacing: -0.2,
+    flexShrink: 1,
   },
   statusChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.pill,
+    flexShrink: 0,
   },
   statusChipText: {
     fontSize: 11,

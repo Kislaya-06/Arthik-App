@@ -211,12 +211,12 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
         useNativeDriver: true,
       }).start();
 
-      // 2. Dual-Edge Liquid Morph: leading edge stretch & vertical volume squish
+      // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
       if (distance > 0) {
-        const maxStretch = Math.min(1.28, 1 + distance * 0.08);
-        const minSquish = Math.max(0.88, 1 - distance * 0.04);
-        const maxLead = Math.min(14, distance * 4.5) * direction;
-        const launchDuration = Math.min(130, 60 + distance * 22);
+        const maxStretch = Math.min(1.14, 1 + distance * 0.05);
+        const minSquish = Math.max(0.95, 1 - distance * 0.02);
+        const maxLead = Math.min(6, distance * 2) * direction;
+        const launchDuration = Math.min(95, 50 + distance * 15);
 
         stretchAnim.stopAnimation();
         squishAnim.stopAnimation();
@@ -232,8 +232,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             }),
             Animated.spring(stretchAnim, {
               toValue: 1,
-              tension: 140,
-              friction: 14,
+              tension: 160,
+              friction: 16,
               useNativeDriver: true,
             }),
           ]),
@@ -246,8 +246,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             }),
             Animated.spring(squishAnim, {
               toValue: 1,
-              tension: 140,
-              friction: 14,
+              tension: 160,
+              friction: 16,
               useNativeDriver: true,
             }),
           ]),
@@ -260,8 +260,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             }),
             Animated.spring(leadAnim, {
               toValue: 0,
-              tension: 140,
-              friction: 14,
+              tension: 160,
+              friction: 16,
               useNativeDriver: true,
             }),
           ]),

@@ -106,6 +106,8 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           <Text
             numberOfLines={1}
             ellipsizeMode="tail"
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
             style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
           >
             {category.name}
@@ -241,6 +243,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: FontSize.titleMedium,
     lineHeight: LineHeight.titleMedium,
+    flexShrink: 1,
   },
 
   // Summary Card
