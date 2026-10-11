@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed & Refined — Insights & UI Polish Refinements
+- **Insights Hero Card Geometry**: Reduced excess bottom padding below the period navigator and pagination dots to `Spacing.gutter` (24px) with tighter dot margins, eliminating awkward empty vertical space while safeguarding corner curvature clearance.
+- **Unified Savings & Gullak Pills**: Standardized Gullak saved days indicators across Weekly, Monthly, and Yearly breathing strips to sleek frosted black capsules (`rgba(255, 255, 255, 0.05)` with `rgba(255, 255, 255, 0.08)` borders) paired with vibrant bold mint green typography (`colors.mintGreen`), matching Cash Flow's capsule language.
+- **Cash Flow Palette Synchronization**: Harmonized Cash Flow card Net Cash Flow metrics and positive cash flow digits to use Arthik's signature mint green (`#B8E0C8`), achieving visual consistency with Gullak savings badges.
+- **Navbar Touch & Haptics Optimization**: Expanded touch targets and hitSlops across Bottom Navigation Bar tabs and Add buttons with instant zero-delay press feedback and tactile haptics.
+
 ### Fixed & Refined — Visual Balance & Typography Refinements
 - **Hero Cards Visual Harmony (`BrandedHeroCard` & `InsightsScreen`)**: Scaled down oversized primary amount text to 32px bold and metrics amounts to 18px bold, bringing calm, balanced visual weight to Home and Insights hero cards.
 - **Insights Card Tag & Chip Consistency**: Replaced round capsule pill (`BorderRadius.pill`) with sleek squarish tags (`borderRadius: 8`, 11px semibold text) in `InsightsScreen` hero card matching Home summary styling; expanded bottom padding to eliminate edge truncation and added subtle glassmorphic highlights.

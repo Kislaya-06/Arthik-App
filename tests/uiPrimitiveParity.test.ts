@@ -53,3 +53,53 @@ describe('AuthFormField: original field rhythm', () => {
     expect(src).toMatch(/textAlignVertical:\s*'center'/);
   });
 });
+
+describe('InsightsScreen hero card: bottom clipping & pagination dots clearance invariants', () => {
+  const src = read('src/screens/InsightsScreen.tsx');
+
+  it('heroCard paddingBottom uses Spacing.gutter to maintain compact layout without excessive bottom gap', () => {
+    expect(src).toMatch(/heroCard:\s*\{[\s\S]*?paddingBottom:\s*Spacing\.gutter/);
+  });
+
+  it('heroCard specifies cardLarge radius and hardware clipping', () => {
+    expect(src).toMatch(/heroCard:\s*\{[\s\S]*?borderRadius:\s*BorderRadius\.cardLarge/);
+    expect(src).toMatch(/heroCard:\s*\{[\s\S]*?overflow:\s*'hidden'/);
+  });
+
+  it('heroCard label uses Title Case and bold styling matching BrandedHeroCard', () => {
+    expect(src).toMatch(/Total Spent This Month/);
+    expect(src).toMatch(/Total Spent This Week/);
+    expect(src).toMatch(/Total Spent This Year/);
+    expect(src).toMatch(/heroLabel:\s*\{[\s\S]*?fontSize:\s*FontSize\.body/);
+    expect(src).toMatch(/heroLabel:\s*\{[\s\S]*?fontFamily:\s*FontFamily\.bold/);
+  });
+
+  it('PeriodNavigator dotsRow maintains compact top margin spacing', () => {
+    expect(src).toMatch(/dotsRow:\s*\{[\s\S]*?marginTop:\s*Spacing\.element/);
+  });
+});
+
+describe('BreathingStripShell: unified black capsule with green text styling parity', () => {
+  const shellSrc = read('src/components/BreathingStripShell.tsx');
+  const weeklySrc = read('src/components/WeeklyBreathingStrip.tsx');
+  const monthlySrc = read('src/components/MonthlyBreathingStrip.tsx');
+  const yearlySrc = read('src/components/YearlyBreathingStrip.tsx');
+
+  it('BreathingStripShell renders neutral capsule styling with transparent backdrop, border, and green text', () => {
+    expect(shellSrc).toMatch(/pillVariant\?:\s*'mint'\s*\|\s*'neutral'/);
+    // Neutral pill matches CashFlowChart legend capsule rgba styling
+    expect(shellSrc).toMatch(/rgba\(255,\s*255,\s*255,\s*0\.05\)/);
+    expect(shellSrc).toMatch(/rgba\(0,\s*0,\s*0,\s*0\.035\)/);
+    // Text inside pill is green matching app mint accent
+    expect(shellSrc).toMatch(/color:\s*tile\.pillTextColor\s*\|\|\s*\(isDark\s*\?\s*colors\.mintGreen\s*:\s*colors\.mintGreenDark\)/);
+  });
+
+  it('Weekly, Monthly and Yearly breathing strips uniformly use neutral pillVariant', () => {
+    expect(weeklySrc).toMatch(/pillVariant:\s*'neutral'/);
+    expect(monthlySrc).toMatch(/pillVariant:\s*'neutral'/);
+    expect(yearlySrc).toMatch(/pillVariant:\s*'neutral'/);
+  });
+});
+
+
+

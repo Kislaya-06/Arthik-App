@@ -101,6 +101,7 @@ export const YearlyBreathingStrip: React.FC<YearlyBreathingStripProps> = ({
               : colors.forestGreen
             : colors.textPrimary,
         pillText: rightPillText,
+        pillVariant: 'neutral',
         onPress: onPressSavings,
         accessibilityLabel: `Annual Gullak savings: ${
           totalYearSavings > 0

@@ -63,7 +63,6 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   // Vibrant, executive palette matching app's theme
   const {
-    inColor: inAccent,
     outColor: outAccent,
     inGradStart,
     inGradEnd,
@@ -71,6 +70,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
     outGradEnd,
     trackBg,
   } = getCashFlowChartColors(isDark);
+
+  // Exact green matching Auto-Saved to Gullak (colors.mintGreen / colors.forestGreen)
+  const inAccent = isDark ? colors.mintGreen : colors.forestGreen;
 
   // Executive net flow calculation (rounded to whole rupees for clean dashboard display)
   const roundedNet = Math.round(totalIncome - totalSpent);

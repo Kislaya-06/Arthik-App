@@ -137,6 +137,7 @@ function TabNavigator() {
       screenOptions={{
         headerShown: false,
         freezeOnBlur: true,
+        animation: 'fade',
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: 'transparent',

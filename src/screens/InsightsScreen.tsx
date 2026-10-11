@@ -432,10 +432,12 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     const current = buildInterval(period, offset);
     const previous = buildInterval(period, offset - 1);
 
-    // Hero card uppercase label, e.g. "THIS WEEK" / "WEEK (PAST)"
+    // Hero card label matching HomeScreen BrandedHeroCard style (Title Case)
     const pLabel = offset === 0
-      ? (period === 'Weekly' ? 'THIS WEEK' : period === 'Monthly' ? 'THIS MONTH' : 'THIS YEAR')
-      : (period === 'Weekly' ? 'WEEK' : period === 'Monthly' ? 'MONTH' : 'YEAR');
+      ? (period === 'Weekly' ? 'Total Spent This Week' : period === 'Monthly' ? 'Total Spent This Month' : 'Total Spent This Year')
+      : offset === -1
+      ? (period === 'Weekly' ? 'Total Spent Last Week' : period === 'Monthly' ? 'Total Spent Last Month' : 'Total Spent Last Year')
+      : 'Total Spent';
 
     // Navigator main label, e.g. "This Week" / "Last Week" / "15 – 21 Sep"
     const dLabel = buildDateLabel(period, offset);
@@ -1260,7 +1262,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             styles.heroCard,
             {
               borderWidth: 1,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(60, 35, 35, 0.08)',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(60, 35, 35, 0.10)',
             },
           ]}
         >
@@ -1281,8 +1283,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={[styles.heroCircle1, { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]} />
           <View style={[styles.heroCircle2, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
 
-          <Text style={[styles.heroLabel, { fontFamily: FontFamily.semibold }]}>
-            TOTAL SPENT {periodLabel}
+          <Text
+            style={styles.heroLabel}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {periodLabel}
           </Text>
 
           <View style={styles.heroAmountRow}>
@@ -1906,11 +1913,11 @@ const styles = StyleSheet.create({
     width: 150, height: 150, borderRadius: 75, opacity: 0.3,
   },
   heroLabel: {
-    fontSize: FontSize.caption,
-    color: 'rgba(60, 35, 35, 0.75)',
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
+    color: 'rgba(45, 30, 30, 0.85)',
     letterSpacing: 0.15,
-    textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   heroAmountRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.micro },
   heroCurrency: { fontSize: FontSize.titleLarge, color: '#2D1E1E', marginRight: 6 },

@@ -62,7 +62,6 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
 
   // Premium, harmonious palette matching Arthik design system
   const {
-    inColor,
     outColor,
     inGradStart,
     inGradEnd,
@@ -70,6 +69,9 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
     outGradEnd,
     trackBg,
   } = getCashFlowChartColors(isDark);
+
+  // Exact green matching Auto-Saved to Gullak (colors.mintGreen / colors.forestGreen)
+  const inColor = isDark ? colors.mintGreen : colors.forestGreen;
 
   // Safe ceiling for bar scaling
   const effectiveMax = Math.max(maxAmount, 100);

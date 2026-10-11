@@ -299,7 +299,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   const mintBase = colors.mintGreen; // #B8E0C8
   const cardBorderColor = isDark ? 'rgba(184, 224, 200, 0.35)' : 'rgba(26, 43, 76, 0.12)';
   const textColorPrimary = '#1A2B4C';
-  const textColorSecondary = 'rgba(26, 43, 76, 0.65)';
+  const textColorSecondary = isDark ? 'rgba(26, 43, 76, 0.85)' : 'rgba(26, 43, 76, 0.80)';
 
   // Split breakdown into distinct, atomic micro-chips for effortless scanning (Budget mode only)
   const subtextParts = useMemo(() => {
@@ -413,7 +413,12 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           {/* Top Section: Constrained width to clear the notched chart pod */}
           <View style={[styles.topSection, { paddingRight: podSize + GAP + 6 }]}>
             {/* Label & Amount */}
-            <Text style={[styles.primaryLabel, { color: textColorSecondary }]}>
+            <Text
+              style={[styles.primaryLabel, { color: textColorSecondary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {effectivePrimaryLabel}
             </Text>
             <RollingText
@@ -616,10 +621,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   primaryLabel: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.body, // 16px (~1.5x of 11px metricColLabel for strong card heading hierarchy)
+    fontFamily: FontFamily.bold,
     letterSpacing: 0.15,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   primaryAmount: {
     fontSize: 32,

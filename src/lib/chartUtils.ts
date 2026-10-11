@@ -1104,10 +1104,10 @@ export interface CashFlowChartPalette {
  */
 export function getCashFlowChartColors(isDark: boolean): CashFlowChartPalette {
   return {
-    inColor: isDark ? '#7CD49A' : '#3DA862',
-    outColor: isDark ? '#F59682' : '#D9533B',
-    inGradStart: isDark ? '#ADEBB3' : '#7CD49A',
-    inGradEnd: isDark ? '#3DA862' : '#2E8C4A',
+    inColor: isDark ? '#B8E0C8' : '#1A2B4C',
+    outColor: isDark ? '#F4B8AE' : '#D9533B',
+    inGradStart: isDark ? '#B8E0C8' : '#7CD49A',
+    inGradEnd: isDark ? '#65A882' : '#2E8C4A',
     outGradStart: isDark ? '#FBCAC1' : '#F59682',
     outGradEnd: isDark ? '#D9533B' : '#C1412A',
     trackBg: isDark ? 'rgba(255, 255, 255, 0.045)' : 'rgba(0, 0, 0, 0.035)',

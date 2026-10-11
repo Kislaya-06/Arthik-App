@@ -16,6 +16,8 @@ export interface BreathingStripTileConfig {
   adjustsFontSizeToFit?: boolean;
   minimumFontScale?: number;
   pillText?: string;
+  pillVariant?: 'mint' | 'neutral';
+  pillTextColor?: string;
   onPress?: () => void;
   accessibilityLabel?: string;
   accessibilityRole?: 'button' | 'none' | 'header' | 'link' | 'image' | 'text';
@@ -115,32 +117,42 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
           </Text>
         ) : null}
 
-        {tile.pillText ? (
-          <View
-            style={[
-              styles.savingsPill,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(184, 224, 200, 0.14)'
-                  : colors.mintGreenSoft,
-                borderColor: colors.mintGreen,
-              },
-            ]}
-          >
-            <Text
+        {tile.pillText ? (() => {
+          const isNeutralPill = tile.pillVariant === 'neutral' || (!tile.pillVariant && tile.pillText.includes('0 Saved Day'));
+          return (
+            <View
               style={[
-                styles.savingsPillText,
-                {
-                  color: isDark ? colors.mintGreen : colors.mintGreenDark,
-                  fontFamily: FontFamily.bold,
-                },
+                styles.savingsPill,
+                isNeutralPill
+                  ? {
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.035)',
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                      borderWidth: 1,
+                    }
+                  : {
+                      backgroundColor: isDark
+                        ? 'rgba(184, 224, 200, 0.14)'
+                        : colors.mintGreenSoft,
+                      borderColor: colors.mintGreen,
+                      borderWidth: 0.8,
+                    },
               ]}
-              numberOfLines={1}
             >
-              {tile.pillText}
-            </Text>
-          </View>
-        ) : null}
+              <Text
+                style={[
+                  styles.savingsPillText,
+                  {
+                    color: tile.pillTextColor || (isDark ? colors.mintGreen : colors.mintGreenDark),
+                    fontFamily: FontFamily.bold,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {tile.pillText}
+              </Text>
+            </View>
+          );
+        })() : null}
       </Container>
     );
   };

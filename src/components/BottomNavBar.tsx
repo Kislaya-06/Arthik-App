@@ -16,6 +16,7 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { Spacing, FontFamily } from '../config/theme';
+import * as Haptics from 'expo-haptics';
 
 // ─── Dual-Layer Cross-Fading Icon ───────────────────────────────────────────
 const AnimatedIcon = ({
@@ -136,8 +137,10 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      unstable_pressDelay={0}
+      pressRetentionOffset={{ top: 20, bottom: 20, left: 16, right: 16 }}
       style={styles.tabPressable}
-      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+      hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
     >
       <Animated.View style={{ transform: [{ scale: pressScale }] }}>
         <Animated.View
@@ -207,8 +210,10 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      unstable_pressDelay={0}
+      pressRetentionOffset={{ top: 20, bottom: 20, left: 16, right: 16 }}
       style={styles.addButtonWrapper}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
       <Animated.View
         style={[
@@ -254,8 +259,10 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      unstable_pressDelay={0}
+      pressRetentionOffset={{ top: 20, bottom: 20, left: 16, right: 16 }}
       style={styles.individualFabWrapper}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
       <Animated.View
         style={[
@@ -315,6 +322,8 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 
   const navigateTo = useCallback(
     (routeName: string, routeIndex: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
       const event = navigation.emit({
         type: 'tabPress',
         target: state.routes[routeIndex]?.key || '',
@@ -329,6 +338,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
   );
 
   const handleAddExpense = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     navigation.navigate('AddExpense');
   }, [navigation]);
 
@@ -547,6 +557,7 @@ const styles = StyleSheet.create({
   },
   tabWing: {
     flex: 1,
+    height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -554,10 +565,13 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     width: 68,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabPressable: {
+    height: '100%',
+    minWidth: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -592,6 +606,8 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   addButtonWrapper: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },

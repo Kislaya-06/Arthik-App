@@ -63,12 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Visual Balance & Typography Refinements ✨📱",
+        "title": "Insights & UI Polish Refinements ✨📊",
         "highlights": [
-          "Hero Cards Visual Harmony: Refined typographic scaling on Home & Insights cards for a balanced, premium fintech look",
-          "Tag & Chip Consistency: Replaced round pills with sleek squarish tags in Insights card matching Home summary styling",
-          "Bottom Clipping Fix: Added generous breathing room and crisp glassmorphic highlights to prevent edge truncation",
-          "App-Wide Token Standardization: Normalized typography scales and eliminated dead vertical spaces across all main screens"
+          "Hero Card Geometry: Reduced bottom gap below period navigation for a compact, well-balanced card layout",
+          "Unified Savings Pill: Standardized Gullak saved days pills with sleek black capsule styling and crisp mint green typography",
+          "Cash Flow Palette Harmony: Synchronized cash flow metrics and accent digits with app-wide signature mint green",
+          "Navbar Responsiveness: Enhanced bottom tab bar touch targets and tactile haptic feedback on navigation"
         ]
       }
     }

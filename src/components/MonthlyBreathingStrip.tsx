@@ -77,6 +77,7 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
               : colors.forestGreen
             : colors.textPrimary,
         pillText: `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
+        pillVariant: 'neutral',
         onPress: onPressSavings,
         accessibilityLabel: `Gullak savings this month: ${
           totalMonthSavings > 0
