@@ -211,13 +211,13 @@ const styles = StyleSheet.create({
   },
   heroSymbol: {
     fontFamily: FontFamily.bold,
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: 24,
+    lineHeight: 32,
     marginRight: 2,
   },
   heroNumber: {
     fontFamily: FontFamily.bold,
-    fontSize: 36,
+    fontSize: 32,
     lineHeight: LineHeight.display,
   },
 });

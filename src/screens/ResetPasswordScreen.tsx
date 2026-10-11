@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
     color: '#1A2B4C',
   },
   iconContainer: {
@@ -426,11 +426,11 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.micro,
   },
   matchTextSuccess: {
-    fontSize: 13,
+    fontSize: FontSize.caption,
     color: '#4CAF50',
   },
   matchTextError: {
-    fontSize: 13,
+    fontSize: FontSize.caption,
     color: '#E87070',
   },
   submitBtn: {

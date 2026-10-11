@@ -63,12 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "UI/UX & Responsive Experience Polish ✨📱",
+        "title": "Visual Balance & Typography Refinements ✨📱",
         "highlights": [
-          "Hero Card Visual Balance: Optimized typography hierarchy, eliminated dead spaces, and tightened alignment on Home summary card",
-          "App-Wide Screen Responsiveness: Scaled typography dynamically with adjustsFontSizeToFit safeguards across all device sizes",
-          "Filter & Category Interaction: Streamlined dual-edge glide physics with direct touch responsiveness on all tabs",
-          "Adaptive Rolling Text: Fluid numerical transitions with constrained width boundaries preventing text collisions"
+          "Hero Cards Visual Harmony: Refined typographic scaling on Home & Insights cards for a balanced, premium fintech look",
+          "Tag & Chip Consistency: Replaced round pills with sleek squarish tags in Insights card matching Home summary styling",
+          "Bottom Clipping Fix: Added generous breathing room and crisp glassmorphic highlights to prevent edge truncation",
+          "App-Wide Token Standardization: Normalized typography scales and eliminated dead vertical spaces across all main screens"
         ]
       }
     }

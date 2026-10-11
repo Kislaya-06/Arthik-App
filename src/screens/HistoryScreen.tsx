@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: Spacing.block,
-    marginBottom: Spacing.element,
+    marginBottom: Spacing.block,
   },
   headerTitle: {
     fontSize: FontSize.titleLarge,
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   filterWrapper: {
-    marginTop: 24,
+    marginTop: 0,
     marginBottom: Spacing.element,
   },
   filterWrapperSearchOpen: {
@@ -578,8 +578,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: Spacing.gutter,
-    marginBottom: Spacing.group,
+    marginTop: Spacing.block,
+    marginBottom: Spacing.element,
   },
   sectionTitle: {
     fontSize: FontSize.caption,

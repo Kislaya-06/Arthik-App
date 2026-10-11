@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed & Refined — UI/UX & Responsive Polish
-- **Home Hero Card (`BrandedHeroCard`)**: Scaled up primary amount to 40px bold and footer amounts to 22px bold with 24px trend badges; removed artificial `minHeight: 68` dead-space canyons; tightened subtext chip styling and vertical spacing; added `fitWidth` and `minScale={0.55}` to prevent text wrapping on narrow screens.
-- **App-Wide Responsiveness**: Added `adjustsFontSizeToFit` and `minimumFontScale` safeguards across `SavingsScreen`, `YearlySavingsMilestoneCard`, `CashFlowChart`, `CategoryDetailScreen`, `ExpenseDetailScreen`, `DepositGullakModal`, `InsightsScreen`, `AutoLogHomeBanner`, `HistoryScreen`, and `SavingsRecordRow`.
-- **Segmented Controls & Filter Pills**: Standardized liquid-morph spring animation parameters, eliminated excessive stretch physics on wide pill shifts, and enhanced touch responsiveness across all category and interval filters.
+### Fixed & Refined — Visual Balance & Typography Refinements
+- **Hero Cards Visual Harmony (`BrandedHeroCard` & `InsightsScreen`)**: Scaled down oversized primary amount text to 32px bold and metrics amounts to 18px bold, bringing calm, balanced visual weight to Home and Insights hero cards.
+- **Insights Card Tag & Chip Consistency**: Replaced round capsule pill (`BorderRadius.pill`) with sleek squarish tags (`borderRadius: 8`, 11px semibold text) in `InsightsScreen` hero card matching Home summary styling; expanded bottom padding to eliminate edge truncation and added subtle glassmorphic highlights.
+- **Design Token Standardization**: Replaced legacy font tokens and raw numbers across `AmountText`, `CategoryDetailScreen`, `GullakDepositDetailScreen`, `HistoryScreen`, `OnboardingScreen`, `ProfileScreen`, `ResetPasswordScreen`, `SavingsScreen`, `SplashScreen`, and `UpdateRequiredScreen`.
+- **Vertical Spacing Rhythm**: Eliminated dead vertical gaps and normalized section headers across History, Profile, and Savings screens.
 
 ### Fixed — Part 2
 - **No false merges**: a notification/SMS/email pair is no longer treated as one payment on amount + direction + time alone. A matching account or merchant (or an exact reference) must also agree; otherwise it goes to review. Same-source duplicate protection is unchanged.

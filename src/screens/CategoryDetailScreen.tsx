@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: FontSize.body,
     color: '#B0B4C0',
   },
 });

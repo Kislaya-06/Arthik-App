@@ -342,7 +342,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <AmbientBackground />
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
@@ -351,7 +351,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: insets.top + 16,
+            paddingTop: 16,
             paddingBottom: insets.bottom + 120,
           },
         ]}
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 18,
-    marginBottom: 12,
+    marginBottom: Spacing.block,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
@@ -1100,12 +1100,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroSub: {
-    fontSize: 11,
-    fontFamily: FontFamily.medium,
-    marginBottom: 1,
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   heroTitle: {
-    fontSize: 17,
+    fontSize: FontSize.titleSmall,
     fontFamily: FontFamily.bold,
   },
   heroIconWrap: {
@@ -1120,9 +1122,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heroHelperText: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.medium,
-    lineHeight: 18,
+    lineHeight: LineHeight.bodySmall,
     marginTop: 3,
   },
   heroStatsRow: {
@@ -1150,12 +1152,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroStatLabel: {
-    fontSize: 10,
+    fontSize: FontSize.micro,
     fontFamily: FontFamily.medium,
     marginBottom: 1,
   },
   heroStatValue: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
   },
 
@@ -1165,7 +1167,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 16,
-    marginBottom: Spacing.block,
+    marginBottom: Spacing.surface,
   },
   // Top Row: Title + Date Pill left, Status Pill right
   ucTopRow: {
@@ -1181,7 +1183,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   ucTitle: {
-    fontSize: 15,
+    fontSize: FontSize.body,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
   },
@@ -1192,7 +1194,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   ucDateBadgeText: {
-    fontSize: 11,
+    fontSize: FontSize.micro,
     fontFamily: FontFamily.semibold,
   },
   // Status Indicator (Unboxed, high visibility)
@@ -1207,7 +1209,7 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   ucStatusText: {
-    fontSize: 13,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
     letterSpacing: 0.1,
   },
@@ -1226,7 +1228,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ucHeroLabel: {
-    fontSize: 10.5,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
     letterSpacing: 0.6,
     marginBottom: 1,
@@ -1236,12 +1238,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ucHeroCurrencySymbol: {
-    fontSize: 20,
+    fontSize: FontSize.titleMedium,
     fontFamily: FontFamily.bold,
     marginRight: 2,
   },
   ucHeroAmount: {
-    fontSize: 28,
+    fontSize: FontSize.titleLarge,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.5,
     fontVariant: ['tabular-nums'],
@@ -1264,7 +1266,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   ucChangeBtnText: {
-    fontSize: 12.5,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
     color: '#FFFFFF',
   },
@@ -1287,7 +1289,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   ucProgressLabelText: {
-    fontSize: 11.5,
+    fontSize: FontSize.micro,
     fontFamily: FontFamily.medium,
     fontVariant: ['tabular-nums'],
   },
@@ -1314,14 +1316,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ucAutoSaveLabel: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
     marginBottom: 2,
   },
   ucFooterHint: {
-    fontSize: 12.5,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.medium,
-    lineHeight: 16,
+    lineHeight: LineHeight.caption,
   },
 
   // Scheduled Banner
@@ -1337,7 +1339,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
   },
   scheduledBannerSubtitle: {
-    fontSize: 11,
+    fontSize: FontSize.micro,
     marginTop: 1,
   },
 
@@ -1361,7 +1363,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pausedTitle: {
-    fontSize: 14,
+    fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
     marginBottom: 2,
   },
@@ -1380,19 +1382,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pausedSubLabel: {
-    fontSize: 11,
+    fontSize: FontSize.micro,
     fontFamily: FontFamily.medium,
     marginBottom: 2,
   },
   pausedAmountText: {
-    fontSize: 16,
+    fontSize: FontSize.body,
     fontFamily: FontFamily.bold,
   },
 
   // History Section
   historySectionHeader: {
-    marginTop: Spacing.block,
-    marginBottom: 14,
+    marginTop: 0,
+    marginBottom: Spacing.group,
   },
   sectionTitle: {
     fontSize: FontSize.titleMedium,
@@ -1439,7 +1441,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   depositCtaBtnText: {
-    fontSize: 15.5,
+    fontSize: FontSize.body,
     fontFamily: FontFamily.bold,
   },
   seeMoreBtn: {

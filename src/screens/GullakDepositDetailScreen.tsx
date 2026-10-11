@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.gutter,
   },
   notFoundText: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
     marginBottom: Spacing.block,
   },
   backButtonFallback: {

@@ -339,14 +339,14 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   title: {
-    fontSize: FontSize.screenTitle,
+    fontSize: FontSize.titleLarge,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
     textAlign: 'center',
     marginTop: 40,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: FontSize.titleSmall,
     color: '#8A8FA3',
     fontFamily: FontFamily.medium,
     textAlign: 'center',
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   buttonText: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.titleSmall,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
   },

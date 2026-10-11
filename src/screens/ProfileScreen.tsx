@@ -355,7 +355,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               activeOpacity={0.7}
             >
               <MoneyHelpBadge size={16} onPress={() => setShowMoneyExplainer(true)} />
-              <Text style={{ marginLeft: 6, fontSize: 13, color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.bold }}>
+              <Text style={{ marginLeft: 6, fontSize: FontSize.bodySmall, color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.bold }}>
                 See what happens to your funds
               </Text>
             </TouchableOpacity>
@@ -710,7 +710,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
                 <BetaPill small />
               </View>
-              <Text style={{ fontSize: 12, color: autoLogMode === 'live' && !autoLogAttention ? colors.mintGreenDark : colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+              <Text style={{ fontSize: FontSize.caption, color: autoLogMode === 'live' && !autoLogAttention ? colors.mintGreenDark : colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
                 {autoLogMode === 'off' ? 'Log bank SMS & UPI payments automatically' : modeCopy(autoLogMode, autoLogAttention).title}
                 {autoLogPending > 0 ? ` · ${autoLogPending} to review` : ''}
               </Text>
@@ -743,7 +743,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
                   Theme
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+                <Text style={{ fontSize: FontSize.caption, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
                   {activeTheme === 'amoled'
                     ? 'AMOLED (Pure Black)'
                     : activeTheme === 'dark'
@@ -777,7 +777,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
                 Ambient Background
               </Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+              <Text style={{ fontSize: FontSize.caption, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
                 Soft moving light at the top of screens
               </Text>
             </View>
@@ -796,7 +796,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
                 App Lock
               </Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
+              <Text style={{ fontSize: FontSize.caption, color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
                 Fingerprint or Device PIN
               </Text>
             </View>
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.element,
+    marginBottom: Spacing.block,
   },
   backBtn: {
     marginRight: Spacing.block,
@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
   // Profile Card
   profileCard: {
     borderRadius: BorderRadius.card,
-    marginTop: Spacing.gutter,
+    marginTop: 0,
     padding: Spacing.gutter,
     alignItems: 'center',
     shadowColor: '#000',
@@ -919,7 +919,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: FontSize.titleLarge,
     color: '#1A2B4C',
   },
   cameraBadge: {
@@ -1038,7 +1038,7 @@ const styles = StyleSheet.create({
   },
   amoledBadgeText: {
     color: '#000000',
-    fontSize: 8.5,
+    fontSize: FontSize.micro,
     fontFamily: FontFamily.bold,
   },
   themeOptionLabel: {
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   modalTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
     marginBottom: Spacing.surface,
   },
   modalLabel: {
@@ -1102,11 +1102,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.row,
   },
   modalCancelText: {
-    fontSize: 15,
+    fontSize: FontSize.body,
   },
   modalSaveText: {
     color: '#1A2B4C',
-    fontSize: 15,
+    fontSize: FontSize.body,
   },
   deleteAccountBtn: {
     flexDirection: 'row',
@@ -1120,7 +1120,7 @@ const styles = StyleSheet.create({
     gap: Spacing.element,
   },
   deleteAccountText: {
-    fontSize: 15,
+    fontSize: FontSize.body,
   },
   deleteWarningIconWrap: {
     width: 48,
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.element,
   },
   deleteModalTitle: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
     marginBottom: Spacing.nano,
   },
   deleteModalDesc: {
@@ -1148,7 +1148,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.element,
   },
   deleteEmailBadgeText: {
-    fontSize: 13,
+    fontSize: FontSize.bodySmall,
   },
   deleteErrorText: {
     fontSize: FontSize.bodySmall,

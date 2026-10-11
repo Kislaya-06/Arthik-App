@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.surface,
   },
   title: {
-    fontSize: FontSize.sectionTitle,
+    fontSize: FontSize.titleMedium,
     fontFamily: FontFamily.bold,
     textAlign: 'center',
     marginBottom: Spacing.element,

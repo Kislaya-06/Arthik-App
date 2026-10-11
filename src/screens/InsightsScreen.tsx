@@ -1259,13 +1259,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           style={[
             styles.heroCard,
             {
-              borderWidth: isDark ? 1 : 0,
-              borderColor: colors.border,
+              borderWidth: 1,
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(60, 35, 35, 0.08)',
             },
           ]}
         >
           {/* Gradient Background */}
-          <View style={StyleSheet.absoluteFill}>
+          <View style={[StyleSheet.absoluteFill, { borderRadius: BorderRadius.cardLarge, overflow: 'hidden' }]}>
             <Svg width="100%" height="100%">
               <Defs>
                 <LinearGradient id="heroGradient" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -1281,7 +1281,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={[styles.heroCircle1, { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]} />
           <View style={[styles.heroCircle2, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
 
-          <Text style={[styles.heroLabel, { fontFamily: FontFamily.bold }]}>
+          <Text style={[styles.heroLabel, { fontFamily: FontFamily.semibold }]}>
             TOTAL SPENT {periodLabel}
           </Text>
 
@@ -1326,21 +1326,21 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               ) : null}
               <Text style={[
                 styles.trendText,
-                { color: '#3E2723', fontFamily: FontFamily.bold },
+                { color: '#3E2723' },
               ]}>
                 {heroTrend.trendLabel}
               </Text>
             </View>
             {period === 'Monthly' && monthlyDailyBurnPace > 0 && (
               <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
-                <Text style={[styles.trendText, { color: '#3E2723', fontFamily: FontFamily.bold }]}>
+                <Text style={[styles.trendText, { color: '#3E2723' }]}>
                   ₹{monthlyDailyBurnPace}/day avg
                 </Text>
               </View>
             )}
             {period === 'Yearly' && yearlyDailyBurn > 0 && (
               <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
-                <Text style={[styles.trendText, { color: '#3E2723', fontFamily: FontFamily.bold }]}>
+                <Text style={[styles.trendText, { color: '#3E2723' }]}>
                   ₹{formatAmountWithCommas(String(yearlyDailyBurn))}/day avg
                 </Text>
               </View>
@@ -1892,8 +1892,8 @@ const styles = StyleSheet.create({
   heroCard: {
     borderRadius: BorderRadius.cardLarge,
     paddingHorizontal: Spacing.surface,
-    paddingTop: Spacing.block,
-    paddingBottom: Spacing.block,
+    paddingTop: Spacing.surface,
+    paddingBottom: Spacing.gutter,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -1905,10 +1905,16 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: -80, right: 40,
     width: 150, height: 150, borderRadius: 75, opacity: 0.3,
   },
-  heroLabel: { fontSize: FontSize.caption, color: 'rgba(60, 35, 35, 0.8)', letterSpacing: 1, textTransform: 'uppercase' },
+  heroLabel: {
+    fontSize: FontSize.caption,
+    color: 'rgba(60, 35, 35, 0.75)',
+    letterSpacing: 0.15,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
   heroAmountRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.micro },
-  heroCurrency: { fontSize: 24, color: '#2D1E1E', marginRight: 6 },
-  heroAmount: { fontSize: 48, color: '#2D1E1E' },
+  heroCurrency: { fontSize: FontSize.titleLarge, color: '#2D1E1E', marginRight: 6 },
+  heroAmount: { fontSize: 32, color: '#2D1E1E' },
   heroProgressSection: {
     marginTop: Spacing.element,
     marginBottom: Spacing.micro,
@@ -1924,8 +1930,8 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   heroProgressText: {
-    fontSize: 11.5,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 15,
     color: '#3E2723',
     marginTop: 4,
   },
@@ -1940,12 +1946,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(60, 35, 35, 0.08)',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
     gap: 4,
   },
-  trendText: { fontSize: 11 },
+  trendText: {
+    fontSize: 11,
+    fontFamily: FontFamily.semibold,
+    includeFontPadding: false,
+  },
 
   sectionTitle: {
     fontSize: FontSize.titleMedium,

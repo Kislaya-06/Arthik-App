@@ -11,7 +11,7 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
 import { useAppLockStore } from '../store/appLockStore';
-import { Spacing, FontFamily } from '../config/theme';
+import { Spacing, FontFamily, FontSize } from '../config/theme';
 import { supabase } from '../config/supabase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
   tagline: {
     position: 'absolute',
     top: 96,
-    fontSize: 17,
+    fontSize: FontSize.body,
     color: '#8A8FA3',
     fontFamily: FontFamily.medium,
   },

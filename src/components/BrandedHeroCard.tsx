@@ -12,7 +12,7 @@ import { DonutChart } from './DonutChart';
 import { DualRingChart } from './DualRingChart';
 import { RollingText } from './RollingText';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
-import { ThemeColors, FontFamily } from '../config/theme';
+import { ThemeColors, FontFamily, FontSize } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { calculatePureHeroMetrics } from '../lib/homeCalculations';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -442,8 +442,6 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                       { color: effectiveIsOver ? '#DC2626' : textColorPrimary },
                     ]}
                     numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.8}
                   >
                     {part}
                   </Text>
@@ -470,7 +468,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                     rollOnFocus
                   />
                   <View style={styles.trendChipIncome}>
-                    <ArrowDownLeft size={13} color="#15803D" strokeWidth={2.5} />
+                    <ArrowDownLeft size={12} color="#15803D" strokeWidth={2.5} />
                   </View>
                 </View>
               </View>
@@ -489,7 +487,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                     rollOnFocus
                   />
                   <View style={styles.trendChipExpense}>
-                    <ArrowUpRight size={13} color="#DC2626" strokeWidth={2.5} />
+                    <ArrowUpRight size={12} color="#DC2626" strokeWidth={2.5} />
                   </View>
                 </View>
               </View>
@@ -509,7 +507,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                     rollOnFocus
                   />
                   <View style={styles.trendChipIncome}>
-                    <ArrowDownLeft size={13} color="#15803D" strokeWidth={2.5} />
+                    <ArrowDownLeft size={12} color="#15803D" strokeWidth={2.5} />
                   </View>
                 </View>
               </View>
@@ -526,7 +524,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
                     rollOnFocus
                   />
                   <View style={styles.trendChipExpense}>
-                    <ArrowUpRight size={13} color="#DC2626" strokeWidth={2.5} />
+                    <ArrowUpRight size={12} color="#DC2626" strokeWidth={2.5} />
                   </View>
                 </View>
               </View>
@@ -611,41 +609,41 @@ const styles = StyleSheet.create({
     minHeight: 160,
   },
   cardInner: {
-    paddingVertical: 16,
-    paddingHorizontal: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   topSection: {
     justifyContent: 'flex-start',
   },
   primaryLabel: {
-    fontSize: 14.5,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.semibold,
     letterSpacing: 0.15,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   primaryAmount: {
-    fontSize: 40,
+    fontSize: 32,
     fontFamily: FontFamily.bold,
     marginTop: 0,
     includeFontPadding: false,
     fontVariant: ['tabular-nums'],
   },
   subtextContainer: {
-    marginTop: 8,
+    marginTop: 6,
     flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: 6,
+    gap: 5,
   },
   subtextChip: {
     backgroundColor: 'rgba(26, 43, 76, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 5.5,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 8,
     alignSelf: 'flex-start',
     maxWidth: '100%',
   },
   subtextChipText: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: FontFamily.semibold,
     color: 'rgba(26, 43, 76, 0.88)',
     includeFontPadding: false,
@@ -655,7 +653,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: 13,
   },
   metricCol: {
     flex: 1,
@@ -666,10 +664,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   metricColLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: FontFamily.medium,
     color: 'rgba(26, 43, 76, 0.70)',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   metricAmountRow: {
     flexDirection: 'row',
@@ -677,29 +675,29 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   metricAmount: {
-    fontSize: 22,
-    fontFamily: FontFamily.bold,
-    includeFontPadding: false,
-    fontVariant: ['tabular-nums'],
-  },
-  pureMetricAmount: {
     fontSize: 18,
     fontFamily: FontFamily.bold,
     includeFontPadding: false,
     fontVariant: ['tabular-nums'],
   },
+  pureMetricAmount: {
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
+    includeFontPadding: false,
+    fontVariant: ['tabular-nums'],
+  },
   trendChipIncome: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: 'rgba(21, 128, 61, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   trendChipExpense: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: 'rgba(220, 38, 38, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -708,8 +706,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
-    paddingVertical: 9,
+    marginTop: 10,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 12,
     backgroundColor: 'rgba(26, 43, 76, 0.06)',
@@ -720,7 +718,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rolloverTextFont: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.semibold,
   },
   chartPod: {

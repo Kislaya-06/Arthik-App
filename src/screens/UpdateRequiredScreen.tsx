@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.screenTitle,
+    fontSize: FontSize.titleLarge,
     textAlign: 'center',
     marginBottom: Spacing.element,
   },
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
   ctaButtonText: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.cta,
+    fontSize: FontSize.titleSmall,
     color: '#1A2B4C',
   },
   instructionFooter: {
