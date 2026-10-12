@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed & Refined — All Card Real-Time Income & Budget Polish
-- **Real-Time Income Reactivity in All Card**: Removed legacy overspending accumulation over historical days in `calculatePeriodSummary` so newly added income reflects immediately in the All card subtext chip without being swallowed by closed past daily overspending.
-- **Accurate Real-Money Income Absorption**: Overspending is absorbed dynamically in real-time based strictly on active live overspending and period pool limits, ensuring past settled days do not create phantom debts on current income.
-- **Direct Gullak Available Income Sync**: Cleaned up `getAvailableIncomeBalance` in `dailyBudgetStore` to eliminate past days accumulation, ensuring newly added income is immediately eligible for Gullak deposits.
-- **Navigation Dispatch Consistency**: Standardized `CommonActions.navigate` calls in `src/navigation/index.tsx` and `src/navigation/navigationRef.ts`.
+### Fixed & Refined — Gullak Savings Balance, All Card Income & Warning Styling
+- **Gullak Savings History & Past Income Records**: Fixed `calculateSavingsMetrics` where past days with income that resulted in savings were mistakenly flagged as overspent if `spent > budget`. Corrected order so records with positive savings or 'saved' status are added to savings first, eliminating false penalties.
+- **Gullak Live Overspend Real-Time Synchronization**: Decoupled today's live overspend from past finalized overspends in `calculateSavingsMetrics` so today's spending only deducts its exact excess beyond available income from Gullak (e.g. exactly ₹2,001.2 from Gullak on ₹5,000 expense).
+- **All Card Historical Income Consumption**: Integrated `availableIncomeBalance` into `calculatePeriodSummary` in `HomeScreen` and `homeCalculations`, ensuring that income spent in the past reflects as ₹0 remaining income on the All card rather than showing unspent lifetime income.
+- **Gullak Spending Warning Badge Styling**: Updated the `using ₹X from Gullak` chip in `BrandedHeroCard` to prominent red warning colors (`#DC2626` text/icon and `rgba(239, 68, 68, 0.12)` background matching Exceeded badges) so users are alerted when Gullak savings are drawn.
 
 ### Fixed & Refined — Insights & UI Polish Refinements
 - **Insights Hero Card Geometry**: Reduced excess bottom padding below the period navigator and pagination dots to `Spacing.gutter` (24px) with tighter dot margins, eliminating awkward empty vertical space while safeguarding corner curvature clearance.

@@ -91,7 +91,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     budgetModal,
     openBudgetModal,
     closeBudgetModal,
-    availableIncome,
+    grossIncome,
   } = useSavingsDashboard();
 
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
@@ -269,15 +269,17 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
         ? `Save ${formatCurrency(cardRemaining)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
         : 'Set a limit to start saving';
     }
-    if (availableIncome >= cardOverAmount) {
+    const fromIncome = Math.min(grossIncome, cardOverAmount);
+    const fromGullak = round2(Math.max(0, cardOverAmount - fromIncome));
+
+    if (fromGullak === 0) {
       return `${formatCurrency(cardOverAmount)} deducted from Income`;
-    } else if (availableIncome > 0) {
-      const fromGullak = round2(cardOverAmount - availableIncome);
-      return `${formatCurrency(availableIncome)} from Income, ${formatCurrency(fromGullak)} from Gullak`;
+    } else if (fromIncome > 0) {
+      return `${formatCurrency(fromIncome)} from Income, ${formatCurrency(fromGullak)} from Gullak`;
     } else {
       return `${formatCurrency(cardOverAmount)} deducted from Gullak`;
     }
-  }, [cardIsOver, cardBudget, cardRemaining, budgetCadence, availableIncome, cardOverAmount]);
+  }, [cardIsOver, cardBudget, cardRemaining, budgetCadence, grossIncome, cardOverAmount]);
 
   // Scheduled budget cancellation handler
   const handleCancelScheduled = useCallback(() => {

@@ -36,6 +36,10 @@ export type BrandedHeroCardProps = {
   isDark: boolean;
   onNavigateSavings: () => void;
   periodIncome?: number;
+  remainingIncome?: number;
+  remainingDeposits?: number;
+  isSpendingFromGullak?: boolean;
+  gullakDrawnAmount?: number;
   cadencePeriodSummary?: PeriodSummaryInfo | null;
 };
 
@@ -111,6 +115,10 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   isDark,
   onNavigateSavings,
   cadencePeriodSummary,
+  periodIncome = 0,
+  remainingIncome = 0,
+  isSpendingFromGullak = false,
+  gullakDrawnAmount = 0,
 }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: DEFAULT_WIDTH,
@@ -301,52 +309,88 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   const textColorPrimary = '#1A2B4C';
   const textColorSecondary = isDark ? 'rgba(26, 43, 76, 0.85)' : 'rgba(26, 43, 76, 0.80)';
 
-  // Split breakdown into distinct, atomic micro-chips for effortless scanning (Budget mode only)
-  const subtextParts = useMemo(() => {
+  // Split breakdown into distinct micro-chips and sort ascending by size (shortest on top, longest on bottom)
+  const subtextChipItems = useMemo(() => {
     if (!effectiveSubtext) return [];
-    if (effectiveSubtext.includes(' + ')) {
-      return effectiveSubtext.split(' + ').map((part, index) => {
-        const trimmed = part.trim();
-        if (index > 0 && !trimmed.startsWith('+')) {
-          return `+${trimmed}`;
+
+    const rawParts = effectiveSubtext.includes(' + ')
+      ? effectiveSubtext.split(' + ')
+      : [effectiveSubtext];
+
+    const items = rawParts.map((rawPart, index) => {
+      const trimmed = rawPart.trim();
+      const text = index > 0 && !trimmed.startsWith('+') ? `+${trimmed}` : trimmed;
+      const lower = text.toLowerCase();
+      const isIncomeChip = lower.includes('income');
+      const isGullakChip = lower.includes('gullak');
+
+      const showGullakSpending =
+        (isIncomeChip && isSpendingFromGullak) ||
+        (!periodIncome && isGullakChip && isSpendingFromGullak);
+
+      let badgeText: string | null = null;
+      if (showGullakSpending) {
+        if (gullakDrawnAmount > 0) {
+          badgeText = `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`;
+        } else {
+          badgeText = 'now spending from Gullak';
         }
-        return trimmed;
-      });
-    }
-    return [effectiveSubtext.trim()];
-  }, [effectiveSubtext]);
+      }
+
+      // Visual length metric: base chip text + badge length
+      const approxSize = text.length + (badgeText ? badgeText.length + 6 : 0);
+
+      return {
+        id: `${index}_${text}`,
+        text,
+        badgeText,
+        approxSize,
+      };
+    });
+
+    // Sort chips by size: shortest chip on top, progressively larger chips below
+    items.sort((a, b) => a.approxSize - b.approxSize);
+
+    return items;
+  }, [effectiveSubtext, isSpendingFromGullak, gullakDrawnAmount, periodIncome]);
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
   // ── Smooth number transition for all values (Remaining/Expense, Income, Expense) ──
   const effectiveTargets = useMemo(() => {
     let targetPrimary = isBudgetModeEnabled ? effectivePrimaryAmount : pureMetrics.totalRemaining;
-    let targetIncome = isBudgetModeEnabled ? totalAvailable : pureMetrics.inflow;
+    let targetIncome = pureMetrics.inflow;
     let targetSpent = isBudgetModeEnabled ? periodSpent : pureMetrics.outflow;
 
-    if (isBudgetModeEnabled && isCadenceMode && cadencePeriodSummary) {
-      if (budgetCadence === 'weekly') {
-        if (activeFilter === 'Weekly') {
-          targetIncome = cadencePeriodSummary.budget;
-          targetSpent = cadencePeriodSummary.spent;
-        } else if (activeFilter === 'Daily') {
-          targetIncome = Math.max(cadencePeriodSummary.suggestedDailyPace, todayRecordSpent);
-          targetSpent = todayRecordSpent;
-        } else if (activeFilter === 'Monthly') {
-          targetIncome = cadencePeriodSummary.projectedMonthlyBudget ?? totalAvailable;
-          targetSpent = periodSpent;
+    if (isBudgetModeEnabled) {
+      if (isCadenceMode && cadencePeriodSummary) {
+        if (budgetCadence === 'weekly') {
+          if (activeFilter === 'Weekly') {
+            targetIncome = cadencePeriodSummary.budget;
+            targetSpent = cadencePeriodSummary.spent;
+          } else if (activeFilter === 'Daily') {
+            targetIncome = Math.max(cadencePeriodSummary.suggestedDailyPace, todayRecordSpent);
+            targetSpent = todayRecordSpent;
+          } else if (activeFilter === 'Monthly') {
+            targetIncome = cadencePeriodSummary.projectedMonthlyBudget ?? totalAvailable;
+            targetSpent = periodSpent;
+          }
+        } else if (budgetCadence === 'monthly') {
+          if (activeFilter === 'Monthly') {
+            targetIncome = cadencePeriodSummary.budget;
+            targetSpent = cadencePeriodSummary.spent;
+          } else if (activeFilter === 'Weekly') {
+            targetIncome = cadencePeriodSummary.suggestedWeeklyPace ?? totalAvailable;
+            targetSpent = periodSpent;
+          } else if (activeFilter === 'Daily') {
+            targetIncome = Math.max(cadencePeriodSummary.suggestedDailyPace, todayRecordSpent);
+            targetSpent = todayRecordSpent;
+          }
         }
-      } else if (budgetCadence === 'monthly') {
-        if (activeFilter === 'Monthly') {
-          targetIncome = cadencePeriodSummary.budget;
-          targetSpent = cadencePeriodSummary.spent;
-        } else if (activeFilter === 'Weekly') {
-          targetIncome = cadencePeriodSummary.suggestedWeeklyPace ?? totalAvailable;
-          targetSpent = periodSpent;
-        } else if (activeFilter === 'Daily') {
-          targetIncome = Math.max(cadencePeriodSummary.suggestedDailyPace, todayRecordSpent);
-          targetSpent = todayRecordSpent;
-        }
+      } else {
+        // Daily Cadence (standard budget mode):
+        // Total available income/inflow for the period (budget + income + deposits)
+        targetIncome = totalAvailable;
       }
     }
 
@@ -359,7 +403,6 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     isBudgetModeEnabled,
     effectivePrimaryAmount,
     pureMetrics.totalRemaining,
-    totalAvailable,
     pureMetrics.inflow,
     periodSpent,
     pureMetrics.outflow,
@@ -368,6 +411,9 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     budgetCadence,
     activeFilter,
     todayRecordSpent,
+    totalAvailable,
+    periodIncome,
+    remainingIncome,
   ]);
 
   // Numbers are handed to <RollingText/> as their FINAL value. Each digit rolls on its own (odometer style,
@@ -431,25 +477,34 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           </View>
 
           {/* Subtext Chips (Budget mode only): Full-width row below topSection */}
-          {isBudgetModeEnabled && subtextParts.length > 0 && (
+          {isBudgetModeEnabled && subtextChipItems.length > 0 && (
             <View style={styles.subtextContainer}>
-              {subtextParts.map((part, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.subtextChip,
-                    effectiveIsOver && { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
-                  ]}
-                >
-                  <Text
+              {subtextChipItems.map((item) => (
+                <View key={item.id} style={styles.subtextChipRow}>
+                  <View
                     style={[
-                      styles.subtextChipText,
-                      { color: effectiveIsOver ? '#DC2626' : textColorPrimary },
+                      styles.subtextChip,
+                      effectiveIsOver && { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
                     ]}
-                    numberOfLines={1}
                   >
-                    {part}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.subtextChipText,
+                        { color: effectiveIsOver ? '#DC2626' : textColorPrimary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.text}
+                    </Text>
+                  </View>
+                  {item.badgeText && (
+                    <View style={styles.gullakSpendingBadge}>
+                      <PiggyBankCoinIcon size={12} color="#DC2626" />
+                      <Text style={styles.gullakSpendingText} numberOfLines={1}>
+                        {item.badgeText}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ))}
             </View>
@@ -575,7 +630,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               size={82}
               strokeWidth={9.5}
               spent={effectiveTargets.targetSpent}
-              total={Math.max(effectiveTargets.targetIncome, effectiveTargets.targetSpent)}
+              total={Math.max(totalAvailable, effectiveTargets.targetSpent)}
               colors={colors}
               trackColor="rgba(255, 255, 255, 0.65)"
               baseColor="rgba(255, 255, 255, 0.92)"
@@ -639,6 +694,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 5,
   },
+  subtextChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   subtextChip: {
     backgroundColor: 'rgba(26, 43, 76, 0.08)',
     paddingHorizontal: 10,
@@ -651,6 +712,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: FontFamily.semibold,
     color: 'rgba(26, 43, 76, 0.88)',
+    includeFontPadding: false,
+  },
+  gullakSpendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4.5,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(220, 38, 38, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  gullakSpendingText: {
+    fontSize: 10.5,
+    fontFamily: FontFamily.bold,
+    color: '#DC2626',
     includeFontPadding: false,
   },
   // Inflow & Outflow unboxed layout matching user reference

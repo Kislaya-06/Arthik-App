@@ -184,6 +184,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
   const lastRenewedPeriodKey = useDailyBudgetStore((s) => s.lastRenewedPeriodKey);
   const setLastRenewedPeriodKey = useDailyBudgetStore((s) => s.setLastRenewedPeriodKey);
+  const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
 
   // Align activeFilter to active cadence on mount or hydration if not yet switched
   const hasAlignedCadenceFilter = useRef(false);
@@ -422,6 +423,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
   // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
+  const availableIncomeBalance = useMemo(
+    () => (typeof getAvailableIncomeBalance === 'function' ? getAvailableIncomeBalance() : 0),
+    [getAvailableIncomeBalance, expenses, dailyRecords, gullakDeposits]
+  );
+
   const {
     primaryAmount,
     primaryLabel,
@@ -430,6 +436,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     totalAvailable,
     isOverBudgetPeriod,
     periodSpent,
+    periodIncome,
+    remainingIncome,
+    remainingDeposits,
+    isSpendingFromGullak,
+    gullakDrawnAmount,
   } = useMemo(
     () =>
       calculatePeriodSummary({
@@ -448,8 +459,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         planChanges,
         todaySpent: todayRecordSpent,
         spentByDate,
+        availableIncomeBalance,
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate]
+    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
   );
 
   // Date range label shown below filter pills for quick orientation
@@ -577,6 +589,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           colors={colors}
           isDark={isDark}
           onNavigateSavings={() => navigation.navigate('Savings' as any)}
+          periodIncome={periodIncome}
+          remainingIncome={remainingIncome}
+          remainingDeposits={remainingDeposits}
+          isSpendingFromGullak={isSpendingFromGullak}
+          gullakDrawnAmount={gullakDrawnAmount}
         />
 
         {/* Automatic Logging: only visible when something needs review/attention */}

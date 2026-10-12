@@ -324,7 +324,19 @@ const computeMetrics = (
     const totalInflow = round2(allTimeBudget + allTimeIncome + allTimeReimb + externalDeposits);
     const totalAccountRemaining = Math.max(0, round2(totalInflow - allTimeSpent));
 
-    totalAccumulatedSavings = Math.min(rawAccumulatedSavings, totalAccountRemaining);
+    const isBudgetOn = useDailyBudgetStore.getState().isBudgetModeEnabled;
+    if (!isBudgetOn) {
+      // In Pure Mode, hard cap Gullak at Total Account Remaining
+      totalAccumulatedSavings = Math.min(rawAccumulatedSavings, totalAccountRemaining);
+    } else {
+      // In Budget Mode: overspending is absorbed first from Income, then Gullak (already computed in rawAccumulatedSavings).
+      // Only cap to 0 if the entire account is in overall deficit (totalAccountRemaining <= 0).
+      if (totalAccountRemaining <= 0) {
+        totalAccumulatedSavings = 0;
+      } else {
+        totalAccumulatedSavings = rawAccumulatedSavings;
+      }
+    }
   }
 
   const todayStr = getTodayDateStr();
@@ -433,6 +445,8 @@ interface DailyBudgetState {
   addGullakDeposit: (amount: number, note?: string, source?: GullakDepositSource) => void;
   removeGullakDeposit: (id: string) => void;
   getAvailableIncomeBalance: () => number;
+  getGrossIncomeBalance: () => number;
+  getPriorAvailableIncomeBalance: () => number;
   syncWithExpenses: (expenses: Expense[]) => void;
   checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
   uploadPendingDailyRecords: () => Promise<void>;
@@ -1270,12 +1284,23 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       getAvailableIncomeBalance: () => {
+        const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
         const isIncome = buildCategoryClassifier();
-        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, undefined) && isIncome(e) ? (Number(e.amount) || 0) : 0), 0);
+        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) ? (Number(e.amount) || 0) : 0), 0);
         const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
         const grossIncome = Math.max(0, totalIncome - incomeDeposits);
         const records = get().dailyRecords || {};
         const todayStr = getTodayDateStr();
+
+        let pastOverspent = 0;
+        Object.values(records).forEach((r) => {
+          if (r.isFinalized && r.date < todayStr) {
+            if (r.status !== 'unknown' && (r.saved || 0) <= 0 && r.status !== 'saved' && r.budget > 0 && r.spent > r.budget) {
+              pastOverspent += (r.spent - r.budget);
+            }
+          }
+        });
+
         const todayRec = records[todayStr];
         const expenses = getCurrentExpenses();
         const todayLiveSpent = computeSpentForDate(expenses, todayStr, isIncome);
@@ -1285,7 +1310,33 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (todayBudgetAmt > 0 && todaySpentAmt > todayBudgetAmt) {
           todayOverspent = (todaySpentAmt - todayBudgetAmt);
         }
-        return round2(Math.max(0, grossIncome - todayOverspent));
+        return round2(Math.max(0, grossIncome - pastOverspent - todayOverspent));
+      },
+
+      getGrossIncomeBalance: () => {
+        const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
+        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) ? (Number(e.amount) || 0) : 0), 0);
+        const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
+        return round2(Math.max(0, totalIncome - incomeDeposits));
+      },
+
+      getPriorAvailableIncomeBalance: () => {
+        const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
+        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) ? (Number(e.amount) || 0) : 0), 0);
+        const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
+        const grossIncome = Math.max(0, totalIncome - incomeDeposits);
+        const records = get().dailyRecords || {};
+        const todayStr = getTodayDateStr();
+
+        let pastOverspent = 0;
+        Object.values(records).forEach((r) => {
+          if (r.isFinalized && r.date < todayStr) {
+            if (r.status !== 'unknown' && (r.saved || 0) <= 0 && r.status !== 'saved' && r.budget > 0 && r.spent > r.budget) {
+              pastOverspent += (r.spent - r.budget);
+            }
+          }
+        });
+        return round2(Math.max(0, grossIncome - pastOverspent));
       },
 
       syncWithExpenses: (expenses: Expense[]) => {

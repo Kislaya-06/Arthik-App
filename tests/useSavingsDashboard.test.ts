@@ -39,6 +39,7 @@ vi.mock('../src/store/dailyBudgetStore', async () => {
     getTodayRecord: () => data.today,
     getPastRecordsList: () => data.past,
     getAvailableIncomeBalance: () => data.income,
+    getGrossIncomeBalance: () => data.income,
   });
   return { useDailyBudgetStore };
 });

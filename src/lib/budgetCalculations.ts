@@ -36,7 +36,7 @@ export const calculateSavingsMetrics = (
   totalAccountRemaining?: number
 ): SavingsMetrics => {
   let totalSaved = 0;
-  let totalOverspent = 0;
+  let pastOverspent = 0;
   const userCreatedAt = userCreatedAtStr;
 
   Object.values(records).forEach((r) => {
@@ -50,25 +50,26 @@ export const calculateSavingsMetrics = (
       if (r.status === 'unknown') {
         return;
       }
-      if (r.budget > 0 && r.spent > r.budget) {
-        totalOverspent += (r.spent - r.budget);
-      } else if ((r.saved || 0) > 0) {
+      if (r.status === 'saved' || (r.saved || 0) > 0) {
         totalSaved += (r.saved || 0);
+      } else if (r.budget > 0 && r.spent > r.budget) {
+        pastOverspent += (r.spent - r.budget);
       }
     }
   });
 
   // Include today's live overspend if user spent more than today's budget
+  let todayLiveOverspent = 0;
   const todayRec = records[todayStr];
   if (todayRec && todayRec.budget > 0 && todayRec.spent > todayRec.budget) {
-    totalOverspent += (todayRec.spent - todayRec.budget);
+    todayLiveOverspent = (todayRec.spent - todayRec.budget);
   }
 
-  // Deduct from income first! Only overspent amount exceeding available income touches Gullak savings
-  const effectiveOverspent = Math.max(0, round2(totalOverspent - Math.max(0, availableIncome)));
+  // Deduct from income first! Only today's overspent exceeding available income touches Gullak savings
+  const todayGullakDeduction = Math.max(0, round2(todayLiveOverspent - Math.max(0, availableIncome)));
 
   // Net accumulated savings cannot drop below 0 (includes manual Gullak deposits)
-  let netSavings = Math.max(0, round2(totalSaved - effectiveOverspent + manualDeposits));
+  let netSavings = Math.max(0, round2(totalSaved - pastOverspent - todayGullakDeduction + manualDeposits));
   if (totalAccountRemaining !== undefined) {
     netSavings = Math.min(netSavings, Math.max(0, round2(totalAccountRemaining)));
   }

@@ -98,34 +98,84 @@ export function calculateExpenseFunding({
     };
   }
 
-  // Available income pool
+  // Available income pool for current active period / today
   const totalIncome = allExpenses.reduce((sum, e) => sum + (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) ? (Number(e.amount) || 0) : 0), 0);
   const incomeDeposits = (deposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
   const totalAvailableIncome = round2(Math.max(0, totalIncome - incomeDeposits));
 
+  const targetDate = expense.expense_date?.split('T')[0] || todayStr;
+  const { poolKey: targetPoolKey, poolBudget: targetPoolBudget } = getPoolBudget(
+    targetDate,
+    todayStr,
+    isBudgetModeEnabled,
+    isAutoRenew,
+    todayBudget,
+    dailyBudgetAmount,
+    records,
+    planChanges
+  );
+
+  const isTodayOrActivePool =
+    targetDate === todayStr ||
+    targetPoolKey.startsWith('weekly_') ||
+    targetPoolKey.startsWith('monthly_');
+
   // Chronological counted expenses
   const counted = allExpenses.filter((e) => isCountedExpense(e, e.category_id ? catMap.get(e.category_id) : undefined));
   if (!counted.some((e) => e.id === expense.id)) counted.push(expense);
-  counted.sort((a, b) => (a.expense_date?.split('T')[0] || '').localeCompare(b.expense_date?.split('T')[0] || '') || (a.created_at || '').localeCompare(b.created_at || '') || (a.id || '').localeCompare(b.id || ''));
 
-  const poolSpent: Record<string, number> = {};
-  let cumOverspent = 0;
+  // Evaluate expenses belonging to the same budget pool/period as the target expense.
+  // Past finalized days' expenses were already settled on their respective days and must NEVER
+  // consume or wipe out today's available income pool.
+  const poolExpenses = counted.filter((item) => {
+    const itemDate = item.expense_date?.split('T')[0] || todayStr;
+    const { poolKey } = getPoolBudget(
+      itemDate,
+      todayStr,
+      isBudgetModeEnabled,
+      isAutoRenew,
+      todayBudget,
+      dailyBudgetAmount,
+      records,
+      planChanges
+    );
+    return poolKey === targetPoolKey;
+  });
+
+  poolExpenses.sort(
+    (a, b) =>
+      (a.expense_date?.split('T')[0] || '').localeCompare(b.expense_date?.split('T')[0] || '') ||
+      (a.created_at || '').localeCompare(b.created_at || '') ||
+      (a.id || '').localeCompare(b.id || '')
+  );
+
+  let poolBudgetSpent = 0;
+  let cumOverspentInPool = 0;
   let bCovered = 0, iCovered = 0, gCovered = 0, isOver = false;
 
-  for (const item of counted) {
-    const itemAmt = Number(item.amount) || 0;
-    const itemDate = item.expense_date?.split('T')[0] || todayStr;
-    const { poolKey, poolBudget } = getPoolBudget(itemDate, todayStr, isBudgetModeEnabled, isAutoRenew, todayBudget, dailyBudgetAmount, records, planChanges);
+  // For the active pool (today or active cadence), the available income is the unspent income pool.
+  // For a past closed day, available income was only whatever income was received on that specific past day.
+  const availableIncomeForPool = isTodayOrActivePool
+    ? totalAvailableIncome
+    : allExpenses
+        .filter(
+          (e) =>
+            isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) &&
+            e.expense_date?.split('T')[0] === targetDate
+        )
+        .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    const poolRem = Math.max(0, round2(poolBudget - (poolSpent[poolKey] || 0)));
+  for (const item of poolExpenses) {
+    const itemAmt = Number(item.amount) || 0;
+    const poolRem = Math.max(0, round2(targetPoolBudget - poolBudgetSpent));
     const itemBudgetCov = Math.min(itemAmt, poolRem);
     const itemOver = round2(Math.max(0, itemAmt - itemBudgetCov));
-    poolSpent[poolKey] = round2((poolSpent[poolKey] || 0) + itemBudgetCov);
+    poolBudgetSpent = round2(poolBudgetSpent + itemBudgetCov);
 
-    const incRem = Math.max(0, round2(totalAvailableIncome - Math.min(totalAvailableIncome, cumOverspent)));
+    const incRem = Math.max(0, round2(availableIncomeForPool - cumOverspentInPool));
     const itemIncCov = Math.min(itemOver, incRem);
     const itemGulCov = round2(Math.max(0, itemOver - itemIncCov));
-    cumOverspent = round2(cumOverspent + itemOver);
+    cumOverspentInPool = round2(cumOverspentInPool + itemOver);
 
     if (item.id === expense.id) {
       bCovered = itemBudgetCov;

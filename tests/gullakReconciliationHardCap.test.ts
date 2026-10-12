@@ -105,6 +105,7 @@ vi.mock('../src/store/notificationStore', () => ({
 import { useDailyBudgetStore, registerExpenseGetter } from '../src/store/dailyBudgetStore';
 import { calculateSavingsMetrics, DailyRecord } from '../src/lib/budgetCalculations';
 import { Expense } from '../src/store/expenseStore';
+import { format, subDays } from 'date-fns';
 
 describe('Gullak Reconciliation & Real-Money Invariant Hard Cap', () => {
   const TODAY_STR = '2026-10-10';
@@ -294,6 +295,75 @@ describe('Gullak Reconciliation & Real-Money Invariant Hard Cap', () => {
       // Inflow = 500 budget. Spent = 3500. Total Remaining = 0 (deficit of 3000).
       // Gullak must be 0!
       expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(0);
+    });
+
+    it('does NOT deduct from Gullak when overspending daily budget is covered by available income', () => {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+      // Yesterday had budget 500, spent 100, saved 400 in Gullak.
+      // Today user has daily budget 500.
+      // User receives ₹1,000 income today.
+      // User spends ₹700 today (over daily limit by ₹200).
+      // Income covers the ₹200 overspend (leaving ₹800 available income).
+      // Gullak MUST remain at ₹400 and NOT be double-deducted!
+      const expenses: Expense[] = [
+        { id: 'inc1', user_id: 'user_budget_test_1', amount: 1000, type: 'income', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr },
+        { id: 'exp1', user_id: 'user_budget_test_1', amount: 100, type: 'expense', expense_date: yesterdayStr, category_id: null, payment_mode: 'upi', created_at: yesterdayStr },
+        { id: 'exp2', user_id: 'user_budget_test_1', amount: 700, type: 'expense', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr },
+      ];
+      registerExpenseGetter(() => expenses);
+
+      useDailyBudgetStore.setState({
+        dailyBudgetAmount: 500,
+        isBudgetModeEnabled: true,
+        isAutoRenew: true,
+        dailyRecords: {
+          [yesterdayStr]: { date: yesterdayStr, budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
+        },
+      });
+
+      useDailyBudgetStore.getState().syncWithExpenses(expenses);
+
+      // Gullak remains exactly 400 (not reduced to 200 or 0!)
+      expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(400);
+      // Available income absorbed 200: 1000 - 200 = 800
+      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(800);
+    });
+
+    it('absorbs all income first, and only deducts excess overspend from Gullak when overspend > income', () => {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+      // Yesterday had budget 500, spent 100, saved 400 in Gullak.
+      // Today user has daily budget 500.
+      // User receives ₹100 income today.
+      // User spends ₹750 today (over daily limit by ₹250).
+      // Income absorbs ₹100 -> remaining income = ₹0.
+      // Excess overspend beyond income is ₹150 (250 - 100).
+      // Gullak absorbs ₹150 -> 400 - 150 = ₹250!
+      const expenses: Expense[] = [
+        { id: 'inc1', user_id: 'user_budget_test_1', amount: 100, type: 'income', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr },
+        { id: 'exp1', user_id: 'user_budget_test_1', amount: 100, type: 'expense', expense_date: yesterdayStr, category_id: null, payment_mode: 'upi', created_at: yesterdayStr },
+        { id: 'exp2', user_id: 'user_budget_test_1', amount: 750, type: 'expense', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr },
+      ];
+      registerExpenseGetter(() => expenses);
+
+      useDailyBudgetStore.setState({
+        dailyBudgetAmount: 500,
+        isBudgetModeEnabled: true,
+        isAutoRenew: true,
+        dailyRecords: {
+          [yesterdayStr]: { date: yesterdayStr, budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
+        },
+      });
+
+      useDailyBudgetStore.getState().syncWithExpenses(expenses);
+
+      // Available income is completely exhausted to 0
+      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(0);
+      // Gullak absorbs the excess 150: 400 - 150 = 250
+      expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(250);
     });
   });
 });

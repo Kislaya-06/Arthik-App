@@ -73,6 +73,8 @@ export interface PeriodCalculationParams {
   todaySpent?: number;
   /** Optional map of date -> spent for accurate per-day overspend calculation */
   spentByDate?: Record<string, number>;
+  /** Optional overall available income balance (e.g. from getAvailableIncomeBalance) for the 'All' filter */
+  availableIncomeBalance?: number;
 }
 
 export interface PeriodSummary {
@@ -88,6 +90,8 @@ export interface PeriodSummary {
   isBudgetConfigured: boolean;
   remainingIncome?: number;
   remainingDeposits?: number;
+  isSpendingFromGullak?: boolean;
+  gullakDrawnAmount?: number;
 }
 
 /**
@@ -239,12 +243,23 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     ? Math.max(todayLiveOverspent, periodOverspent)
     : 0;
 
-  const overspentFromIncome = Math.min(income, overspentBeyondBudget);
-  remainingPeriodIncome = round2(income - overspentFromIncome);
+  if (activeFilter === 'All' && params.availableIncomeBalance !== undefined) {
+    remainingPeriodIncome = round2(Math.max(0, params.availableIncomeBalance));
+  } else {
+    const overspentFromIncome = Math.min(income, overspentBeyondBudget);
+    remainingPeriodIncome = round2(income - overspentFromIncome);
+  }
 
-  const overspentBeyondIncome = round2(overspentBeyondBudget - overspentFromIncome);
+  const effectiveIncomeUsed = round2(Math.max(0, income - remainingPeriodIncome));
+  const overspentBeyondIncome = round2(Math.max(0, overspentBeyondBudget - effectiveIncomeUsed));
   const overspentFromGullak = Math.min(externalDepositsInPeriod, overspentBeyondIncome);
   remainingPeriodDeposits = round2(externalDepositsInPeriod - overspentFromGullak);
+
+  const isSpendingFromGullak = isBudgetConfigured && (
+    (income > 0 && remainingPeriodIncome === 0 && (overspentBeyondBudget >= income || effectiveIncomeUsed >= income)) ||
+    overspentBeyondIncome > 0
+  );
+  const gullakDrawnAmount = isBudgetConfigured ? overspentBeyondIncome : 0;
 
   if (!isBudgetConfigured && income === 0 && externalDepositsInPeriod === 0) {
     label = activeFilter === 'Daily' ? 'Spent Today' : `${prefix} Spent`;
@@ -259,7 +274,9 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       const parts: string[] = [];
       parts.push(`${formatCurrency(budgetPool)} budget${daysSuffix}`);
       if (income > 0) parts.push(`${formatCurrency(remainingPeriodIncome)} income`);
-      if (totalReimbursements > 0) parts.push(`${formatCurrency(round2(totalReimbursements))} reimbursed`);
+      if (totalReimbursements > 0 && activeFilter !== 'All') {
+        parts.push(`${formatCurrency(round2(totalReimbursements))} reimbursed`);
+      }
       if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(remainingPeriodDeposits)} deposits to Gullak`);
       if (parts.length > 1) {
         subtext = parts.join(' + ');
@@ -291,6 +308,8 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     isBudgetConfigured,
     remainingIncome: remainingPeriodIncome,
     remainingDeposits: remainingPeriodDeposits,
+    isSpendingFromGullak,
+    gullakDrawnAmount,
   };
 };
 

@@ -53,6 +53,8 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
       expect(summary.primarySubtext).toContain('₹3,630 deposits to Gullak');
       expect(summary.remainingIncome).toBe(2623.8);
       expect(summary.remainingDeposits).toBe(3630);
+      expect(summary.isSpendingFromGullak).toBe(false);
+      expect(summary.totalAvailable).toBe(9000 + 2823.8 + 3630);
     });
 
     it('absorbs all income and deducts remaining overspend from Gullak in "All" card when overspend exceeds income', () => {
@@ -74,6 +76,8 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
       expect(summary.primarySubtext).toContain('₹3,453.8 deposits to Gullak');
       expect(summary.remainingIncome).toBe(0);
       expect(summary.remainingDeposits).toBe(3453.8);
+      expect(summary.isSpendingFromGullak).toBe(true);
+      expect(summary.totalAvailable).toBe(9000 + 2823.8 + 3630);
     });
 
     it('does NOT deduct past finalized days overspending from income in "All" card when today is within budget', () => {
@@ -206,6 +210,258 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
 
       expect(summary.primarySubtext).not.toContain('income');
       expect(summary.primarySubtext).toContain('₹800 deposits to Gullak');
+    });
+  });
+
+  describe('User Specification: Filter-Specific Income Reporting & Overspend Absorption', () => {
+    it('Daily filter periodIncome reflects only today\'s income', () => {
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Daily',
+        todayBudget: 500,
+        totalIncome: 350,
+        totalSpent: 200,
+      });
+
+      expect(summary.periodIncome).toBe(350);
+      expect(summary.remainingIncome).toBe(350);
+    });
+
+    it('Weekly filter periodIncome reflects this week\'s income', () => {
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Weekly',
+        todayBudget: 500,
+        totalIncome: 1500,
+        totalSpent: 1200,
+      });
+
+      expect(summary.periodIncome).toBe(1500);
+    });
+
+    it('All filter remainingIncome reflects currently available income after deducting overspend', () => {
+      // Total income is 2000. User overspent today by 300 (spent 800 on 500 budget).
+      // Available remaining income must be 1700 (2000 - 300).
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        todayBudget: 500,
+        todaySpent: 800,
+        totalIncome: 2000,
+        totalSpent: 800,
+        externalDepositsInPeriod: 1000,
+      });
+
+      expect(summary.periodIncome).toBe(2000);
+      expect(summary.remainingIncome).toBe(1700);
+      expect(summary.remainingDeposits).toBe(1000); // Gullak untouched
+    });
+
+    it('All filter drops remainingIncome to 0 and brings Gullak into action when overspend exceeds income', () => {
+      // Total income is 200. User overspent today by 500 (spent 1000 on 500 budget).
+      // Income absorbs 200 -> remainingIncome = 0.
+      // Remaining 300 overspend absorbs from Gullak: 1000 - 300 = 700!
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        todayBudget: 500,
+        todaySpent: 1000,
+        totalIncome: 200,
+        totalSpent: 1000,
+        externalDepositsInPeriod: 1000,
+      });
+
+      expect(summary.remainingIncome).toBe(0);
+      expect(summary.remainingDeposits).toBe(700);
+      expect(summary.isSpendingFromGullak).toBe(true);
+      expect(summary.gullakDrawnAmount).toBe(300);
+    });
+  });
+
+  describe('Reimbursement Chip Hiding in "All" Filter (Real Money Preserved)', () => {
+    it('hides reimbursement chip from subtext in "All" filter while preserving the money in totalAvailable and primaryAmount', () => {
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        totalIncome: 1000,
+        totalReimbursements: 500,
+        totalSpent: 400,
+      });
+
+      // Reimbursement chip must be omitted in 'All' filter
+      expect(summary.primarySubtext).not.toContain('reimbursed');
+      expect(summary.primarySubtext).toContain('₹1,000 income');
+
+      // BUT the money is 100% included in spendable / available / remaining
+      // budget pool (9000) + income (1000) + reimbursement (500) + deposits (3630) = 14130
+      expect(summary.totalAvailable).toBe(9000 + 1000 + 500 + 3630);
+      expect(summary.primaryAmount).toBe(14130 - 400); // 13730
+    });
+
+    it('shows reimbursement chip in Daily, Weekly, and Monthly filters', () => {
+      const dailySummary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Daily',
+        todayBudget: 500,
+        totalIncome: 0,
+        totalReimbursements: 350,
+        totalSpent: 100,
+      });
+      expect(dailySummary.primarySubtext).toContain('₹350 reimbursed');
+
+      const weeklySummary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Weekly',
+        dailyBudgetAmount: 500,
+        todayBudget: 500,
+        totalIncome: 0,
+        totalReimbursements: 350,
+        totalSpent: 100,
+      });
+      expect(weeklySummary.primarySubtext).toContain('₹350 reimbursed');
+
+      const monthlySummary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'Monthly',
+        dailyBudgetAmount: 500,
+        todayBudget: 500,
+        totalIncome: 0,
+        totalReimbursements: 350,
+        totalSpent: 100,
+      });
+      expect(monthlySummary.primarySubtext).toContain('₹350 reimbursed');
+    });
+  });
+
+  describe('Partial Income & Partial Gullak Absorption (gullakDrawnAmount)', () => {
+    it('accurately computes gullakDrawnAmount when half overspend comes from income and half from Gullak', () => {
+      // Income = 1000. Daily overspend = 1500 (today spent 2000 on 500 budget).
+      // Income absorbs 1000 -> remainingIncome = 0.
+      // Gullak absorbs remaining 500 -> gullakDrawnAmount = 500!
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        todayBudget: 500,
+        todaySpent: 2000,
+        totalIncome: 1000,
+        totalSpent: 2000,
+        externalDepositsInPeriod: 3000,
+      });
+
+      expect(summary.remainingIncome).toBe(0);
+      expect(summary.remainingDeposits).toBe(2500); // 3000 - 500
+      expect(summary.isSpendingFromGullak).toBe(true);
+      expect(summary.gullakDrawnAmount).toBe(500);
+    });
+  });
+
+  describe('User Scenario: Exact ₹5,000 overspend with ₹2,998.8 income and past saved days', () => {
+    it('deducts exactly ₹2,001.2 from Gullak when ₹5,000 is overspent today with ₹2,998.8 available income and past saved day with income', () => {
+      const records: Record<string, DailyRecord> = {
+        // Past day with income that saved money (spent > budget, but saved > 0)
+        '2026-09-19': {
+          date: '2026-09-19',
+          budget: 200,
+          spent: 681.5,
+          saved: 706.5,
+          isFinalized: true,
+          status: 'saved',
+        },
+        // Past day that had overspend and was finalized
+        '2026-10-11': {
+          date: '2026-10-11',
+          budget: 250,
+          spent: 1485,
+          saved: 0,
+          isFinalized: true,
+          status: 'exceeded',
+        },
+        // Today with ₹5,000 overspend
+        '2026-10-12': {
+          date: '2026-10-12',
+          budget: 250,
+          spent: 5250, // overspent by 5000
+          saved: 0,
+          isFinalized: false,
+          status: 'exceeded',
+        },
+      };
+
+      // Before today's expense (today spent = 0):
+      const recordsBeforeToday: Record<string, DailyRecord> = {
+        ...records,
+        '2026-10-12': {
+          date: '2026-10-12',
+          budget: 250,
+          spent: 0,
+          saved: 250,
+          isFinalized: false,
+          status: 'active',
+        },
+      };
+
+      const metricsBefore = calculateSavingsMetrics(
+        recordsBeforeToday,
+        '2026-10-12',
+        USER_CREATED,
+        REF_DATE,
+        3655,   // manual deposits
+        2998.8  // available income
+      );
+
+      // Now with today's ₹5,000 overspend:
+      const metricsAfter = calculateSavingsMetrics(
+        records,
+        '2026-10-12',
+        USER_CREATED,
+        REF_DATE,
+        3655,   // manual deposits
+        2998.8  // available income
+      );
+
+      // Today's live overspend = 5000.
+      // Income absorbs 2998.8.
+      // Gullak absorbs remaining: 5000 - 2998.8 = 2001.2!
+      // Therefore, Gullak totalAccumulatedSavings must drop by EXACTLY 2001.2!
+      const gullakDrop = Math.round((metricsBefore.totalAccumulatedSavings - metricsAfter.totalAccumulatedSavings) * 100) / 100;
+      expect(gullakDrop).toBe(2001.2);
+    });
+  });
+
+  describe('User Phone Scenario: Past ₹425 Income Already Spent In The Past', () => {
+    it('shows ₹0 income in "All" filter subtext chip when user already spent their entire ₹425 income in the past', () => {
+      // User lifetime income = 425.
+      // But user already spent it in the past (availableIncomeBalance = 0).
+      // 'All' card must display ₹0 income, NOT ₹425 income!
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        totalIncome: 425,
+        totalSpent: 425,
+        todaySpent: 0,
+        availableIncomeBalance: 0,
+      });
+
+      expect(summary.remainingIncome).toBe(0);
+      expect(summary.primarySubtext).toContain('₹0 income');
+      expect(summary.primarySubtext).not.toContain('₹425 income');
+    });
+
+    it('shows only remaining portion (₹225) in "All" filter when ₹200 out of ₹425 was spent in the past', () => {
+      // User lifetime income = 425.
+      // User spent 200 in the past -> availableIncomeBalance = 225.
+      const summary = calculatePeriodSummary({
+        ...baseParams,
+        activeFilter: 'All',
+        totalIncome: 425,
+        totalSpent: 200,
+        todaySpent: 0,
+        availableIncomeBalance: 225,
+      });
+
+      expect(summary.remainingIncome).toBe(225);
+      expect(summary.primarySubtext).toContain('₹225 income');
+      expect(summary.primarySubtext).not.toContain('₹425 income');
     });
   });
 });

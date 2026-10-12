@@ -257,4 +257,92 @@ describe('calculateExpenseFunding', () => {
     });
     expect(resTrans.isTransfer).toBe(true);
   });
+
+  it('ensures past finalized days overspends do not consume today available income', () => {
+    // Past day (yesterday) with an overspend that was settled with Gullak
+    const pastExpense: Expense = {
+      id: 'tx-past',
+      user_id: 'u1',
+      amount: 1485,
+      payment_mode: 'upi',
+      expense_date: '2026-10-11',
+      category_id: 'cat-food',
+    };
+
+    // Income pool: ₹3,023.8 total
+    const incomeTx: Expense = {
+      id: 'tx-inc-total',
+      user_id: 'u1',
+      amount: 3023.8,
+      type: 'income',
+      payment_mode: 'upi',
+      expense_date: '2026-10-12',
+      category_id: 'cat-salary',
+    };
+
+    // Today's 3 expenses: ₹300, ₹800, ₹2200 (Total ₹3300, budget ₹250)
+    const todayTx1: Expense = {
+      id: 'tx-today-1',
+      user_id: 'u1',
+      amount: 300,
+      payment_mode: 'upi',
+      expense_date: '2026-10-12',
+      created_at: '2026-10-12T14:42:16Z',
+      category_id: 'cat-food',
+    };
+
+    const todayTx2: Expense = {
+      id: 'tx-today-2',
+      user_id: 'u1',
+      amount: 800,
+      payment_mode: 'upi',
+      expense_date: '2026-10-12',
+      created_at: '2026-10-12T14:42:34Z',
+      category_id: 'cat-food',
+    };
+
+    const todayTx3: Expense = {
+      id: 'tx-today-3',
+      user_id: 'u1',
+      amount: 2200,
+      payment_mode: 'upi',
+      expense_date: '2026-10-12',
+      created_at: '2026-10-12T14:42:44Z',
+      category_id: 'cat-food',
+    };
+
+    const allExpenses = [pastExpense, incomeTx, todayTx1, todayTx2, todayTx3];
+    const baseParams = {
+      allExpenses,
+      categories: dummyCategories,
+      todayBudget: 250,
+      dailyBudgetAmount: 250,
+      isBudgetModeEnabled: true,
+      todayStr: '2026-10-12',
+      records: {
+        '2026-10-11': { date: '2026-10-11', budget: 250, spent: 1485, saved: -1235, isFinalized: true, status: 'exceeded' as const },
+      },
+    };
+
+    // Tx1 (₹300): ₹250 allowance, ₹50 income, ₹0 Gullak
+    const res1 = calculateExpenseFunding({ ...baseParams, expense: todayTx1 });
+    expect(res1.coveredByBudget).toBe(250);
+    expect(res1.coveredByIncome).toBe(50);
+    expect(res1.coveredByGullak).toBe(0);
+
+    // Tx2 (₹800): ₹0 allowance, ₹800 income, ₹0 Gullak
+    const res2 = calculateExpenseFunding({ ...baseParams, expense: todayTx2 });
+    expect(res2.coveredByBudget).toBe(0);
+    expect(res2.coveredByIncome).toBe(800);
+    expect(res2.coveredByGullak).toBe(0);
+
+    // Tx3 (₹2200): ₹0 allowance, ₹2173.8 income, ₹26.2 Gullak
+    const res3 = calculateExpenseFunding({ ...baseParams, expense: todayTx3 });
+    expect(res3.coveredByBudget).toBe(0);
+    expect(res3.coveredByIncome).toBe(2173.8);
+    expect(res3.coveredByGullak).toBe(26.2);
+    expect(res3.primarySource).toBe('split');
+    expect(res3.summaryLabel).toContain('Income');
+    expect(res3.summaryLabel).toContain('Gullak');
+  });
 });
