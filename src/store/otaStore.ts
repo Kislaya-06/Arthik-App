@@ -19,14 +19,14 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Insights & UI Polish Refinements ✨📊',
+    title: ota?.title || 'All Card Real-Time Income & Budget Polish ⚡💰',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          'Hero Card Geometry: Reduced bottom gap below period navigation for a compact, well-balanced card layout',
-          'Unified Savings Pill: Standardized Gullak saved days pills with sleek black capsule styling and crisp mint green typography',
-          'Cash Flow Palette Harmony: Synchronized cash flow metrics and accent digits with app-wide signature mint green',
-          'Navbar Responsiveness: Enhanced bottom tab bar touch targets and tactile haptic feedback on navigation',
+          'Real-Time Income Reactivity: Newly added income immediately reflects across All, Weekly, and Daily summary cards without historical daily overspending interference',
+          'Accurate Income Accounting: Settled past daily limits no longer penalize current income balances, restoring natural cashflow visibility',
+          'Direct Gullak Balance Sync: Eliminated legacy overspending accumulation from available income balance for immediate Gullak deposits',
+          'Navigation Dispatch Consistency: Streamlined tab routing and imperative navigation ref actions',
         ],
   };
 };

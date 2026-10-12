@@ -55,10 +55,7 @@ const GuardedSavingsTabScreen: React.FC<BottomTabScreenProps<TabParamList, 'Savi
   const redirectToHome = React.useCallback(() => {
     if (navigationRef.isReady()) {
       navigationRef.dispatch(
-        CommonActions.navigate({
-          name: 'AppTabs',
-          params: { screen: 'Home' },
-        })
+        CommonActions.navigate('AppTabs', { screen: 'Home' })
       );
     } else {
       navigation.navigate('Home');
@@ -93,10 +90,7 @@ const GuardedSavingsStackScreen: React.FC<NativeStackScreenProps<RootStackParamL
   const redirectToHome = React.useCallback(() => {
     if (navigationRef.isReady()) {
       navigationRef.dispatch(
-        CommonActions.navigate({
-          name: 'AppTabs',
-          params: { screen: 'Home' },
-        })
+        CommonActions.navigate('AppTabs', { screen: 'Home' })
       );
     } else {
       try {

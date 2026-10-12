@@ -1276,25 +1276,16 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const grossIncome = Math.max(0, totalIncome - incomeDeposits);
         const records = get().dailyRecords || {};
         const todayStr = getTodayDateStr();
-        const userCreatedAt = getUserCreatedAtStr();
-        let totalOverspent = 0;
-        Object.values(records).forEach((r) => {
-          if (r.isFinalized && r.date < todayStr && r.status !== 'unknown') {
-            if (userCreatedAt && r.date < userCreatedAt) return;
-            if (r.budget > 0 && r.spent > r.budget) {
-              totalOverspent += (r.spent - r.budget);
-            }
-          }
-        });
         const todayRec = records[todayStr];
         const expenses = getCurrentExpenses();
         const todayLiveSpent = computeSpentForDate(expenses, todayStr, isIncome);
         const todayBudgetAmt = todayRec?.budget ?? (get().isBudgetModeEnabled && get().isAutoRenew ? get().dailyBudgetAmount : 0);
         const todaySpentAmt = Math.max(todayRec?.spent ?? 0, todayLiveSpent);
+        let todayOverspent = 0;
         if (todayBudgetAmt > 0 && todaySpentAmt > todayBudgetAmt) {
-          totalOverspent += (todaySpentAmt - todayBudgetAmt);
+          todayOverspent = (todaySpentAmt - todayBudgetAmt);
         }
-        return round2(Math.max(0, grossIncome - totalOverspent));
+        return round2(Math.max(0, grossIncome - todayOverspent));
       },
 
       syncWithExpenses: (expenses: Expense[]) => {

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed & Refined — All Card Real-Time Income & Budget Polish
+- **Real-Time Income Reactivity in All Card**: Removed legacy overspending accumulation over historical days in `calculatePeriodSummary` so newly added income reflects immediately in the All card subtext chip without being swallowed by closed past daily overspending.
+- **Accurate Real-Money Income Absorption**: Overspending is absorbed dynamically in real-time based strictly on active live overspending and period pool limits, ensuring past settled days do not create phantom debts on current income.
+- **Direct Gullak Available Income Sync**: Cleaned up `getAvailableIncomeBalance` in `dailyBudgetStore` to eliminate past days accumulation, ensuring newly added income is immediately eligible for Gullak deposits.
+- **Navigation Dispatch Consistency**: Standardized `CommonActions.navigate` calls in `src/navigation/index.tsx` and `src/navigation/navigationRef.ts`.
+
 ### Fixed & Refined — Insights & UI Polish Refinements
 - **Insights Hero Card Geometry**: Reduced excess bottom padding below the period navigator and pagination dots to `Spacing.gutter` (24px) with tighter dot margins, eliminating awkward empty vertical space while safeguarding corner curvature clearance.
 - **Unified Savings & Gullak Pills**: Standardized Gullak saved days indicators across Weekly, Monthly, and Yearly breathing strips to sleek frosted black capsules (`rgba(255, 255, 255, 0.05)` with `rgba(255, 255, 255, 0.08)` borders) paired with vibrant bold mint green typography (`colors.mintGreen`), matching Cash Flow's capsule language.

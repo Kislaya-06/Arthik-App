@@ -219,51 +219,24 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   let remainingPeriodIncome = income;
   let remainingPeriodDeposits = externalDepositsInPeriod;
 
-  // Calculate daily limit overspending across all days in this active period
-  let dailyOverspentInPeriod = 0;
+  // Real-time absorption: Overspending beyond budget is absorbed first from Income, then Gullak deposits.
+  // Past finalized days were already settled on those days and must NEVER penalize current/new income.
+  let todayLiveOverspent = 0;
   if (isBudgetConfigured) {
-    periodDates.forEach((d) => {
-      if (d === todayStr) {
-        const dayBudget = todayBudget > 0 ? todayBudget : dailyBudgetAmount;
-        const daySpent = params.todaySpent !== undefined
-          ? params.todaySpent
-          : (params.spentByDate && params.spentByDate[todayStr] !== undefined
-            ? params.spentByDate[todayStr]
-            : (dailyRecords[todayStr]?.spent !== undefined ? dailyRecords[todayStr].spent : (activeFilter === 'Daily' ? spent : 0)));
-        if (dayBudget > 0 && daySpent > dayBudget) {
-          dailyOverspentInPeriod += round2(daySpent - dayBudget);
-        }
-      } else {
-        let b = 0;
-        let s = 0;
-        if (params.spentByDate && params.spentByDate[d] !== undefined) {
-          s = Number(params.spentByDate[d]) || 0;
-          if (dailyRecords[d] && dailyRecords[d].status !== 'unknown') {
-            b = Number(dailyRecords[d].budget) || 0;
-          } else if (planChanges && planChanges.length > 0) {
-            const plan = resolvePlanForDate(planChanges, d);
-            b = (plan && plan.isEnabled && plan.cadence === 'daily') ? Number(plan.amount) || 0 : dailyBudgetAmount;
-          } else {
-            b = dailyBudgetAmount;
-          }
-        } else if (dailyRecords[d] && dailyRecords[d].status !== 'unknown') {
-          b = Number(dailyRecords[d].budget) || 0;
-          s = Number(dailyRecords[d].spent) || 0;
-        }
-        if (b > 0 && s > b) {
-          dailyOverspentInPeriod += round2(s - b);
-        }
-      }
-    });
-    dailyOverspentInPeriod = round2(dailyOverspentInPeriod);
+    const dayBudget = todayBudget > 0 ? todayBudget : dailyBudgetAmount;
+    const daySpent = params.todaySpent !== undefined
+      ? params.todaySpent
+      : (params.spentByDate && params.spentByDate[todayStr] !== undefined
+        ? params.spentByDate[todayStr]
+        : (dailyRecords[todayStr]?.spent !== undefined ? dailyRecords[todayStr].spent : (activeFilter === 'Daily' ? spent : 0)));
+    if (dayBudget > 0 && daySpent > dayBudget) {
+      todayLiveOverspent = round2(daySpent - dayBudget);
+    }
   }
 
-  // Real-time absorption: Overspending beyond daily limits (or period budgetPool)
-  // is deducted first from Income, then Gullak deposits
+  const periodOverspent = budgetPool > 0 ? Math.max(0, round2(spent - budgetPool)) : 0;
   const overspentBeyondBudget = isBudgetConfigured
-    ? (budgetPool > 0
-        ? Math.max(dailyOverspentInPeriod, Math.max(0, round2(spent - budgetPool)))
-        : dailyOverspentInPeriod)
+    ? Math.max(todayLiveOverspent, periodOverspent)
     : 0;
 
   const overspentFromIncome = Math.min(income, overspentBeyondBudget);

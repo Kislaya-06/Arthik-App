@@ -12,7 +12,7 @@ export function navigateTo<RouteName extends keyof RootStackParamList>(
   params?: RootStackParamList[RouteName]
 ) {
   if (navigationRef.isReady()) {
-    navigationRef.dispatch(CommonActions.navigate({ name, params }));
+    navigationRef.dispatch(CommonActions.navigate(name, params));
     return;
   }
 
@@ -21,7 +21,7 @@ export function navigateTo<RouteName extends keyof RootStackParamList>(
     attempts++;
     if (navigationRef.isReady()) {
       clearInterval(interval);
-      navigationRef.dispatch(CommonActions.navigate({ name, params }));
+      navigationRef.dispatch(CommonActions.navigate(name, params));
     } else if (attempts >= 30) {
       clearInterval(interval);
       if (__DEV__) console.warn('[Navigation] Could not navigate to', name, '- navigationRef never became ready');

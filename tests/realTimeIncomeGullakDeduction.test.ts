@@ -76,9 +76,10 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
       expect(summary.remainingDeposits).toBe(3453.8);
     });
 
-    it('deducts past days overspending from income in "All" card', () => {
-      // Past day 2026-09-10 had budget 500, spent 750 (overspent by 250).
-      // Today spent 500 (within budget).
+    it('does NOT deduct past finalized days overspending from income in "All" card when today is within budget', () => {
+      // Past day 2026-09-10 was finalized as exceeded in the past.
+      // Today spent is 500 (within budget). Total spend 2227 is within 9000 budget pool.
+      // Current/new income must remain fully visible and NOT be penalized by past closed days.
       const summary = calculatePeriodSummary({
         ...baseParams,
         activeFilter: 'All',
@@ -88,7 +89,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
           '2026-09-10': {
             date: '2026-09-10',
             budget: 500,
-            spent: 750, // overspent by 250
+            spent: 750, // past exceeded day
             saved: 0,
             isFinalized: true,
             status: 'exceeded',
@@ -96,10 +97,9 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
         },
       });
 
-      // 2823.8 - 250 = 2573.8
-      expect(summary.primarySubtext).toContain('₹2,573.8 income');
+      expect(summary.primarySubtext).toContain('₹2,823.8 income');
       expect(summary.primarySubtext).toContain('₹3,630 deposits to Gullak');
-      expect(summary.remainingIncome).toBe(2573.8);
+      expect(summary.remainingIncome).toBe(2823.8);
     });
   });
 
