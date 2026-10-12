@@ -170,13 +170,25 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     return { totalIncome: inc, totalExpenses: exp };
   }, [expenses, catMap]);
 
+  // Only EXTERNAL deposits are new money. "From income" deposits just move income into Gullak (already counted).
   const externalGullakSum = useMemo(() => {
     let sum = 0;
     for (let i = 0; i < gullakDeposits.length; i++) {
+      if (gullakDeposits[i].source === 'income') continue;
       sum += Number(gullakDeposits[i].amount) || 0;
     }
     return sum;
   }, [gullakDeposits]);
+
+  const getTotalAccountRemaining = useDailyBudgetStore((s) => s.getTotalAccountRemaining);
+  const dailyRecordsForGuard = useDailyBudgetStore((s) => s.dailyRecords);
+  const budgetPeriodsForGuard = useDailyBudgetStore((s) => s.budgetPeriods);
+  const planChangesForGuard = useDailyBudgetStore((s) => s.planChanges);
+  const accountRemaining = useMemo(
+    () => (isBudgetModeEnabled && typeof getTotalAccountRemaining === 'function' ? getTotalAccountRemaining() : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isBudgetModeEnabled, getTotalAccountRemaining, expenses, gullakDeposits, dailyRecordsForGuard, budgetPeriodsForGuard, planChangesForGuard]
+  );
 
   const vaultLiquidity = useMemo(
     () =>
@@ -190,6 +202,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
         totalExpenses,
         externalGullakDeposits: externalGullakSum,
         isAutoRenew,
+        accountRemaining,
       }),
     [
       isBudgetModeEnabled,
@@ -200,6 +213,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
       totalIncome,
       totalExpenses,
       externalGullakSum,
+      accountRemaining,
       isAutoRenew,
     ]
   );

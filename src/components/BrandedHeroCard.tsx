@@ -228,7 +228,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     return isOverBudgetPeriod;
   }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, pureMetrics.isDeficit, isOverBudgetPeriod]);
 
-  const effectiveSubtext = useMemo(() => {
+  const effectiveSubtextBase = useMemo(() => {
     if (!isBudgetModeEnabled) return null;
     if (isCadenceMode && cadencePeriodSummary) {
       if (budgetCadence === 'weekly') {
@@ -259,6 +259,16 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
     }
     return primarySubtext;
   }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, primarySubtext]);
+
+  // Weekly / Monthly cadence builds its own subtext above (no income in it), so the income chip is
+  // appended here. It shows what is LEFT of the income of this pill (budget first, then income, then Gullak).
+  const effectiveSubtext = useMemo(() => {
+    if (!isBudgetModeEnabled) return null;
+    if (isCadenceMode && cadencePeriodSummary && effectiveSubtextBase && periodIncome > 0) {
+      return `${effectiveSubtextBase} + ${formatCurrency(remainingIncome)} income`;
+    }
+    return effectiveSubtextBase;
+  }, [isBudgetModeEnabled, isCadenceMode, cadencePeriodSummary, effectiveSubtextBase, periodIncome, remainingIncome]);
 
   const showRollover = useMemo(() => {
     if (!isBudgetModeEnabled) return false;
@@ -311,7 +321,17 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   // Split breakdown into distinct micro-chips and sort ascending by size (shortest on top, longest on bottom)
   const subtextChipItems = useMemo(() => {
-    if (!effectiveSubtext) return [];
+    if (!effectiveSubtext) {
+      if (isBudgetModeEnabled && isSpendingFromGullak && gullakDrawnAmount > 0) {
+        return [{
+          id: 'gullak_only',
+          text: `${formatCurrency(0)} income`,
+          badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
+          approxSize: 0,
+        }];
+      }
+      return [];
+    }
 
     const rawParts = effectiveSubtext.includes(' + ')
       ? effectiveSubtext.split(' + ')
@@ -348,11 +368,21 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       };
     });
 
+    // Gullak is being used but no chip carries the badge (e.g. no income in this pill): show it on its own row.
+    if (isSpendingFromGullak && gullakDrawnAmount > 0 && !items.some((i) => i.badgeText)) {
+      items.push({
+        id: 'gullak_only',
+        text: `${formatCurrency(0)} income`,
+        badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
+        approxSize: 0,
+      });
+    }
+
     // Sort chips by size: shortest chip on top, progressively larger chips below
     items.sort((a, b) => a.approxSize - b.approxSize);
 
     return items;
-  }, [effectiveSubtext, isSpendingFromGullak, gullakDrawnAmount, periodIncome]);
+  }, [effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome]);
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 

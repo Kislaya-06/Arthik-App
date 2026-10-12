@@ -380,7 +380,8 @@ export function buildPeriodsToFinalize(
     const fin = calculateCycleFinancials({
       scheduledBudget: baseBudget,
       carriedOverAmount: carryMode === 'additive' ? carriedOver : 0,
-      eligibleIncome: sliceIncome,
+      // Income never rolls into Gullak: only unspent budget does.
+      eligibleIncome: 0,
       eligibleReimbursements: sliceReimb,
       spent: spentAmount,
     });
@@ -503,7 +504,8 @@ export function getCurrentPeriodSummary(
   const fin = calculateCycleFinancials({
     scheduledBudget: fullAmount,
     carriedOverAmount: carryMode === 'additive' ? carriedOverAmount : 0,
-    eligibleIncome: income,
+    // Income is a separate pool (see moneyWaterfall.ts); it is not part of the period budget.
+    eligibleIncome: 0,
     eligibleReimbursements: reimb,
     spent,
   });

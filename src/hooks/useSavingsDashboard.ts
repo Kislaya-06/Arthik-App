@@ -24,7 +24,6 @@ export interface UseSavingsDashboardReturn {
   effectiveBestStreak: number;
   savedDaysCount: number;
   availableIncome: number;
-  grossIncome: number;
   todayRecord: DailyRecord;
   todayMetrics: TodayMetrics;
 
@@ -51,7 +50,6 @@ export interface UseSavingsDashboardReturn {
   };
   openBudgetModal: (mode?: 'recurring') => void;
   closeBudgetModal: () => void;
-  priorAvailableIncome: number;
 }
 
 export function useSavingsDashboard(): UseSavingsDashboardReturn {
@@ -72,23 +70,11 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
   const getPastRecordsList = useDailyBudgetStore((s) => s.getPastRecordsList);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
-  const getGrossIncomeBalance = useDailyBudgetStore((s) => s.getGrossIncomeBalance);
-  const getPriorAvailableIncomeBalance = useDailyBudgetStore((s) => s.getPriorAvailableIncomeBalance);
   const expenses = useExpenseStore((s) => s.expenses);
 
   const availableIncome = useMemo(
     () => getAvailableIncomeBalance(),
-    [getAvailableIncomeBalance, expenses, gullakDeposits, dailyRecords]
-  );
-
-  const grossIncome = useMemo(
-    () => (typeof getGrossIncomeBalance === 'function' ? getGrossIncomeBalance() : (typeof getAvailableIncomeBalance === 'function' ? getAvailableIncomeBalance() : 0)),
-    [getGrossIncomeBalance, getAvailableIncomeBalance, expenses, gullakDeposits]
-  );
-
-  const priorAvailableIncome = useMemo(
-    () => (typeof getPriorAvailableIncomeBalance === 'function' ? getPriorAvailableIncomeBalance() : (typeof getGrossIncomeBalance === 'function' ? getGrossIncomeBalance() : 0)),
-    [getPriorAvailableIncomeBalance, getGrossIncomeBalance, expenses, gullakDeposits, dailyRecords]
+    [getAvailableIncomeBalance, expenses, gullakDeposits]
   );
 
   // Modal state
@@ -208,7 +194,5 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
     openBudgetModal,
     closeBudgetModal,
     availableIncome,
-    grossIncome,
-    priorAvailableIncome,
   };
 }

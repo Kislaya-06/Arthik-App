@@ -42,6 +42,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const shares = useSharesStore((s) => s.shares);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -68,6 +69,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       isAutoRenew,
       deposits: gullakDeposits,
       todayStr,
+      shares,
     });
   }, [
     expense,
@@ -79,6 +81,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     isBudgetModeEnabled,
     isAutoRenew,
     gullakDeposits,
+    shares,
   ]);
 
   if (!expense) {
@@ -327,7 +330,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* Funding Breakdown Card */}
-          {fundingInfo && <ExpenseFundingCard funding={fundingInfo} />}
+          {fundingInfo && isBudgetModeEnabled && <ExpenseFundingCard funding={fundingInfo} />}
 
           {/* Friend shares / reimbursement / self-transfer details */}
           <SharesDetailCard expense={expense} />

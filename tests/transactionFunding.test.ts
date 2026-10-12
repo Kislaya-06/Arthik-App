@@ -218,9 +218,11 @@ describe('calculateExpenseFunding', () => {
       todayStr: '2026-10-10',
     });
 
+    // Pure Mode has no budget / income pool / Gullak: nothing is "paid from Gullak".
     expect(result.coveredByBudget).toBe(0);
-    expect(result.coveredByIncome).toBe(300);
-    expect(result.coveredByGullak).toBe(200);
+    expect(result.coveredByIncome).toBe(0);
+    expect(result.coveredByGullak).toBe(0);
+    expect(result.summaryLabel).toBe('Your balance');
   });
 
   it('correctly identifies income and self-transfer transactions', () => {

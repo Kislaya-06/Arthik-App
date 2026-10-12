@@ -24,6 +24,13 @@ export const getCurrentExpenses = (): Expense[] => {
 };
 
 let expensesLoadedGetter: (() => boolean) | null = null;
+let sharesGetter: (() => Array<{ id: string; expense_id: string }>) | null = null;
+/** Friends' shares (id -> expense), registered by sharesStore. Lets split repayments go back to their source. */
+export const registerSharesGetter = (getter: () => Array<{ id: string; expense_id: string }>) => {
+  sharesGetter = getter;
+};
+const getCurrentShares = (): Array<{ id: string; expense_id: string }> => (sharesGetter ? sharesGetter() : []);
+
 export const registerExpensesLoadedGetter = (getter: () => boolean) => {
   expensesLoadedGetter = getter;
 };
@@ -46,6 +53,7 @@ import { makeIncomeClassifier, makeEligibleIncomeClassifier, makeReimbursementCl
 import { isCountedIncome } from '../lib/transactionUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 import { round2 } from '../lib/formatters';
+import { computeWaterfallFromState, WaterfallResult } from '../lib/moneyWaterfall';
 
 const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
   return makeIncomeClassifier(useCategoryStore.getState().categories);
@@ -240,6 +248,32 @@ const savePendingGullakDelete = async (userId: string, depositId: string): Promi
   if (!list.includes(depositId)) await setStoredList(key, [...list, depositId]);
 };
 
+/**
+ * Replays all money in time order (budget -> income -> Gullak). Single source of truth shared with
+ * the Home hero chips and the expense detail funding card (src/lib/moneyWaterfall.ts).
+ */
+const runWaterfall = (
+  overrides?: { records?: Record<string, DailyRecord>; deposits?: GullakDeposit[]; excludeExpensesFrom?: string; expenses?: Expense[] }
+): WaterfallResult => {
+  const st = useDailyBudgetStore.getState();
+  const records = overrides?.records ?? st.dailyRecords ?? {};
+  const todayStr = getTodayDateStr();
+  return computeWaterfallFromState({
+    expenses: overrides?.expenses ?? getCurrentExpenses(),
+    shares: getCurrentShares(),
+    categories: useCategoryStore.getState().categories,
+    deposits: overrides?.deposits ?? st.gullakDeposits ?? [],
+    isBudgetModeEnabled: st.isBudgetModeEnabled,
+    isAutoRenew: st.isAutoRenew,
+    todayStr,
+    todayBudget: records[todayStr]?.budget,
+    dailyBudgetAmount: st.dailyBudgetAmount,
+    records,
+    planChanges: st.planChanges,
+    excludeExpensesFrom: overrides?.excludeExpensesFrom,
+  });
+};
+
 const computeMetrics = (
   records: Record<string, DailyRecord>,
   deposits?: GullakDeposit[],
@@ -270,7 +304,10 @@ const computeMetrics = (
     userCreatedAt ?? getUserCreatedAtStr(),
     new Date(),
     manual,
-    incomeAvail
+    incomeAvail,
+    undefined,
+    // Overspend really paid from Gullak (budget -> income -> Gullak), not "all overspend".
+    runWaterfall({ records, deposits }).gullakDrawn
   );
 
   let periodsSaved = 0;
@@ -446,6 +483,8 @@ interface DailyBudgetState {
   removeGullakDeposit: (id: string) => void;
   getAvailableIncomeBalance: () => number;
   getGrossIncomeBalance: () => number;
+  /** Everything left across the whole account (budgets + income + reimbursements + external deposits - spent). Can be <= 0. */
+  getTotalAccountRemaining: () => number;
   getPriorAvailableIncomeBalance: () => number;
   syncWithExpenses: (expenses: Expense[]) => void;
   checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
@@ -552,7 +591,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const spent = existing?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const todayReimb = computeReimbursementsForDate(getCurrentExpenses(), todayStr, buildReimbursementClassifier());
+          const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
           const { saved } = evaluateDayStatus(cleanAmount, spent, todayIncome, undefined, todayReimb);
           const spendable = cleanAmount + todayIncome + todayReimb;
           records[todayStr] = {
@@ -657,7 +696,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const spent = currentToday?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const todayReimb = computeReimbursementsForDate(getCurrentExpenses(), todayStr, buildReimbursementClassifier());
+          const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
           const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
           const spendable = budget + todayIncome + todayReimb;
           records[todayStr] = {
@@ -778,7 +817,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const spent = records[todayStr]?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const todayReimb = computeReimbursementsForDate(getCurrentExpenses(), todayStr, buildReimbursementClassifier());
+          const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
           const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
           const spendable = budget + todayIncome + todayReimb;
           records[todayStr] = {
@@ -1283,34 +1322,44 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         });
       },
 
-      getAvailableIncomeBalance: () => {
-        const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
-        const isIncome = buildCategoryClassifier();
-        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) ? (Number(e.amount) || 0) : 0), 0);
-        const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
-        const grossIncome = Math.max(0, totalIncome - incomeDeposits);
-        const records = get().dailyRecords || {};
-        const todayStr = getTodayDateStr();
+      getAvailableIncomeBalance: () => runWaterfall().incomeRemaining,
 
-        let pastOverspent = 0;
-        Object.values(records).forEach((r) => {
-          if (r.isFinalized && r.date < todayStr) {
-            if (r.status !== 'unknown' && (r.saved || 0) <= 0 && r.status !== 'saved' && r.budget > 0 && r.spent > r.budget) {
-              pastOverspent += (r.spent - r.budget);
-            }
-          }
-        });
-
-        const todayRec = records[todayStr];
+      getTotalAccountRemaining: () => {
+        const st = get();
+        const records = st.dailyRecords || {};
         const expenses = getCurrentExpenses();
-        const todayLiveSpent = computeSpentForDate(expenses, todayStr, isIncome);
-        const todayBudgetAmt = todayRec?.budget ?? (get().isBudgetModeEnabled && get().isAutoRenew ? get().dailyBudgetAmount : 0);
-        const todaySpentAmt = Math.max(todayRec?.spent ?? 0, todayLiveSpent);
-        let todayOverspent = 0;
-        if (todayBudgetAmt > 0 && todaySpentAmt > todayBudgetAmt) {
-          todayOverspent = (todaySpentAmt - todayBudgetAmt);
+        const isIncomeFn = buildCategoryClassifier();
+        const isEligibleIncomeFn = buildEligibleIncomeClassifier();
+        const isReimbFn = buildReimbursementClassifier();
+
+        let budget = 0;
+        for (const r of Object.values(records)) {
+          if (r.status !== 'unknown' && r.budget > 0) budget += Number(r.budget) || 0;
         }
-        return round2(Math.max(0, grossIncome - pastOverspent - todayOverspent));
+        for (const bp of Object.values(st.budgetPeriods || {})) budget += Number(bp.budgetAmount) || 0;
+        // The week / month that is still running is not finalized yet, but its budget is real money already.
+        if (st.isBudgetModeEnabled && st.budgetCadence !== 'daily') {
+          const spentByDate = computeSpentByDate(expenses, isIncomeFn);
+          const summary = getCurrentPeriodSummary(st.planChanges, spentByDate, getTodayDateStr());
+          if (summary) budget += Number(summary.budget) || 0;
+        }
+
+        let income = 0;
+        let reimb = 0;
+        let spent = 0;
+        for (const e of expenses) {
+          const amt = Number(e.amount) || 0;
+          if (amt <= 0) continue;
+          if (isIncomeFn(e)) {
+            if (isEligibleIncomeFn(e)) income += amt;
+          } else if (isReimbFn(e)) {
+            reimb += amt;
+          } else {
+            spent += amt;
+          }
+        }
+        const external = (st.gullakDeposits || []).reduce((sum, d) => sum + (d.source !== 'income' ? (Number(d.amount) || 0) : 0), 0);
+        return round2(budget + income + reimb + external - spent);
       },
 
       getGrossIncomeBalance: () => {
@@ -1320,24 +1369,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         return round2(Math.max(0, totalIncome - incomeDeposits));
       },
 
-      getPriorAvailableIncomeBalance: () => {
-        const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
-        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) ? (Number(e.amount) || 0) : 0), 0);
-        const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
-        const grossIncome = Math.max(0, totalIncome - incomeDeposits);
-        const records = get().dailyRecords || {};
-        const todayStr = getTodayDateStr();
-
-        let pastOverspent = 0;
-        Object.values(records).forEach((r) => {
-          if (r.isFinalized && r.date < todayStr) {
-            if (r.status !== 'unknown' && (r.saved || 0) <= 0 && r.status !== 'saved' && r.budget > 0 && r.spent > r.budget) {
-              pastOverspent += (r.spent - r.budget);
-            }
-          }
-        });
-        return round2(Math.max(0, grossIncome - pastOverspent));
-      },
+      getPriorAvailableIncomeBalance: () => runWaterfall({ excludeExpensesFrom: getTodayDateStr() }).incomeRemaining,
 
       syncWithExpenses: (expenses: Expense[]) => {
         const todayStr = getTodayDateStr();
@@ -1347,9 +1379,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
         const todayEligibleIncome = computeIncomeForDate(expenses, todayStr, isEligibleIncomeFn);
-        const isReimbursementFn = buildReimbursementClassifier();
-        const todayReimb = computeReimbursementsForDate(expenses, todayStr, isReimbursementFn);
-        const reimbByDate = computeReimbursementsByDate(expenses, isReimbursementFn);
+        // Only the BUDGET part of a split repayment adds to unspent budget; the income / Gullak parts go back
+        // to the income pool / Gullak (see moneyWaterfall.ts), so nothing is counted twice.
+        const reimbByDate = runWaterfall({ expenses }).reimbBudgetByDate;
+        const todayReimb = reimbByDate[todayStr] || 0;
 
         let todayRecord = records[todayStr];
         let hasTodayChanged = false;
@@ -1359,7 +1392,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (!todayRecord) {
           const budget = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0;
           const { saved } = evaluateDayStatus(budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
-          const effectiveSpendable = budget + todayEligibleIncome + todayReimb;
+          const effectiveSpendable = budget + todayReimb; // income is a separate pool, not allowance
           todayRecord = {
             date: todayStr,
             budget,
@@ -1382,7 +1415,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
         } else {
           const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
-          const effectiveSpendable = todayRecord.budget + todayEligibleIncome + todayReimb;
+          const effectiveSpendable = todayRecord.budget + todayReimb; // income is a separate pool, not allowance
           const newStatus =
             todaySpent > effectiveSpendable && effectiveSpendable > 0
               ? 'exceeded'
@@ -1401,8 +1434,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         records[todayStr] = todayRecord;
 
         // Check for smart alerts & trigger native phone notifications
-        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && (todayRecord.budget > 0 || todayEligibleIncome > 0 || todayReimb > 0)) {
-          const spendable = todayRecord.budget + todayEligibleIncome + todayReimb;
+        // Alerts follow the BUDGET (same as the Home card and the weekly / monthly alerts). Income is a separate
+        // pool that only pays after the budget is used up, so it must not delay the "limit exceeded" alert.
+        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && (todayRecord.budget > 0 || todayReimb > 0)) {
+          const spendable = todayRecord.budget + todayReimb;
           const ratio = spendable > 0 ? todaySpent / spendable : (todaySpent > 0 ? 1 : 0);
           const remaining = Math.max(0, spendable - todaySpent);
           if (ratio >= 1) {
@@ -1518,7 +1553,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         // 1. Group all non-income expenses by date in a single O(N) pass
         const spentByDate = computeSpentByDate(expenses, isIncomeFn);
         const incomeByDate = computeIncomeByDate(expenses, isEligibleIncomeFn);
-        const reimbByDateAll = computeReimbursementsByDate(expenses, buildReimbursementClassifier());
+        const reimbByDateAll = runWaterfall({ expenses }).reimbBudgetByDate;
 
         // 2. Identify all past dates (< todayStr) from existing records and expenses
         const pastDates = new Set<string>();
@@ -1695,15 +1730,42 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
 
         // 4. Multi-cadence period finalization (weekly / monthly)
-        const periodsToFinalize = buildPeriodsToFinalize(
+        // Self-heal: once expenses are really loaded, re-evaluate every weekly/monthly period (not only
+        // brand new ones). Older app versions added INCOME into the period budget and into Gullak savings,
+        // so already-finalized periods may hold wrong numbers. Recomputing from budget + spending fixes
+        // them for existing users. Never done before expenses are loaded (spent would look like 0).
+        const existingPeriods = get().budgetPeriods;
+        const canHealPeriods = areExpensesLoaded();
+        const recomputedPeriods = buildPeriodsToFinalize(
           get().planChanges,
           spentByDate,
           todayStr,
-          Object.keys(get().budgetPeriods),
+          canHealPeriods ? [] : Object.keys(existingPeriods),
           userCreatedAtStr,
           incomeByDate,
           reimbByDateAll
         );
+        // Match old rows by cadence + activeStart (same as the DB unique key), not only by id,
+        // so a healed period can never become a duplicate (which would double the Gullak savings).
+        const prevByKey = new Map<string, BudgetPeriodRecord>();
+        for (const ex of Object.values(existingPeriods)) {
+          prevByKey.set(`${ex.cadence}_${ex.activeStart}`, ex);
+        }
+        const periodsToFinalize = recomputedPeriods
+          .map((p) => {
+            const prev = prevByKey.get(`${p.cadence}_${p.activeStart}`);
+            return prev ? { ...p, id: prev.id, userId: prev.userId, createdAt: prev.createdAt || p.createdAt } : p;
+          })
+          .filter((p) => {
+            const prev = prevByKey.get(`${p.cadence}_${p.activeStart}`);
+            if (!prev) return true;
+            return (
+              round2(prev.budgetAmount) !== round2(p.budgetAmount) ||
+              round2(prev.spentAmount) !== round2(p.spentAmount) ||
+              round2(prev.amountSaved) !== round2(p.amountSaved) ||
+              prev.status !== p.status
+            );
+          });
 
         if (periodsToFinalize.length > 0) {
           const periods = { ...get().budgetPeriods };
@@ -1746,6 +1808,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             // Rollover notification (D10)
             if (
               get().isBudgetModeEnabled &&
+              !prevByKey.has(`${p.cadence}_${p.activeStart}`) &&
               p.amountSaved > 0 &&
               !skipRolloverNotification &&
               areExpensesLoaded() &&
@@ -2180,7 +2243,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
           const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
           const incomeByDate = computeIncomeByDate(currentExpenses, isEligibleIncomeFn);
-          const hydrateReimbByDate = computeReimbursementsByDate(currentExpenses, buildReimbursementClassifier());
+          const hydrateReimbByDate = runWaterfall({ expenses: currentExpenses }).reimbBudgetByDate;
 
           // Trigger recovery only when Supabase returned the migration-default 500.
           // This covers both the live case (resolvedBudget===500 via pendingSettings) and the

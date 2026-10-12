@@ -556,22 +556,20 @@ describe('evaluateDayStatus', () => {
     expect(res).toEqual({ saved: 0, status: 'exceeded' });
   });
 
-  it('eligible income increases spendable pool and Gullak deposit (Spec §1 & §3)', () => {
-    // Budget = 100, Income = 25, Spent = 50 -> Spendable = 125, Saved = 75
+  it('income NEVER rolls into Gullak: only unspent budget is saved', () => {
+    // Budget = 100, Income = 25, Spent = 50 -> saved is 50 (budget leftover), NOT 75
     const res = evaluateDayStatus(100, 50, 25);
-    expect(res).toEqual({ saved: 75, status: 'saved' });
+    expect(res).toEqual({ saved: 50, status: 'saved' });
   });
 
-  it('eligible income absorbs overspending before exceeding budget', () => {
-    // Budget = 100, Income = 25, Spent = 110 -> Spendable = 125, Saved = 15
+  it('overspend beyond budget saves nothing, even when income exists (income pays it via the waterfall)', () => {
+    // Budget = 100, Income = 25, Spent = 110 -> saved 0, exceeded. The waterfall pays the 10 from income.
     const res = evaluateDayStatus(100, 110, 25);
-    expect(res).toEqual({ saved: 15, status: 'saved' });
+    expect(res).toEqual({ saved: 0, status: 'exceeded' });
   });
 
-  it('excessive overspend exceeding budget + income returns exceeded and saved = 0', () => {
-    // Budget = 100, Income = 25, Spent = 140 -> Spendable = 125, Saved = 0, Exceeded
-    const res = evaluateDayStatus(100, 140, 25);
-    expect(res).toEqual({ saved: 0, status: 'exceeded' });
+  it('a day with income but nothing spent saves only the budget', () => {
+    expect(evaluateDayStatus(100, 0, 5000)).toEqual({ saved: 100, status: 'saved' });
   });
 
   it('negative budget inputs are treated as budget <= 0 and return unknown', () => {

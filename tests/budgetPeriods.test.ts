@@ -1613,8 +1613,8 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
   // =========================================================================
   // 13. Weekly & Monthly Gullak Calculation with Eligible Income (Spec §1)
   // =========================================================================
-  describe('13. Weekly & Monthly Gullak Calculation with Eligible Income', () => {
-    it('Weekly finalization includes eligible income in spendable pool and Gullak deposit', () => {
+  describe('13. Weekly & Monthly Gullak Calculation: income is NOT part of the budget', () => {
+    it('Weekly finalization saves only unspent BUDGET, income never rolls into Gullak', () => {
       // Week of Mon 2026-10-05 .. Sun 2026-10-11, weekly budget 1000
       const changes: BudgetPlanChange[] = [
         {
@@ -1643,15 +1643,15 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       );
 
       expect(periods.length).toBe(1);
-      // Spendable pool: 1000 budget + 500 income = 1500
-      expect(periods[0].budgetAmount).toBe(1500);
+      // Pool is the budget only: 1000 (the 500 income is a separate pool)
+      expect(periods[0].budgetAmount).toBe(1000);
       expect(periods[0].spentAmount).toBe(800);
-      // Unspent / Gullak deposit: 1500 - 800 = 700
-      expect(periods[0].amountSaved).toBe(700);
+      // Gullak deposit = unspent budget: 1000 - 800 = 200
+      expect(periods[0].amountSaved).toBe(200);
       expect(periods[0].status).toBe('saved');
     });
 
-    it('Monthly live summary includes eligible income in spendable remaining', () => {
+    it('Monthly live summary does not add income to the budget', () => {
       const changes: BudgetPlanChange[] = [
         {
           id: '1',
@@ -1674,10 +1674,10 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       );
 
       expect(summary).not.toBeNull();
-      // Total spendable: 5000 budget + 2000 income = 7000
-      expect(summary?.budget).toBe(7000);
+      // Budget stays 5000; income (2000) is a separate pool
+      expect(summary?.budget).toBe(5000);
       expect(summary?.spent).toBe(4000);
-      expect(summary?.remaining).toBe(3000);
+      expect(summary?.remaining).toBe(1000);
       expect(summary?.isOver).toBe(false);
     });
   });

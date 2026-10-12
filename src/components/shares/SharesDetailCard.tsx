@@ -8,6 +8,7 @@ import { Spacing, BorderRadius, FontSize, FontFamily } from '../../config/theme'
 import { formatCurrency } from '../../lib/formatters';
 import { computeSplit, outstandingOf, reimbursedByShare } from '../../lib/shares';
 import { SplitExpenseModal } from './SplitExpenseModal';
+import { useMoneyWaterfall } from '../../hooks/useMoneyWaterfall';
 
 const shortDate = (d?: string) => (d ? format(parseISO(d.split('T')[0]), 'd MMM') : '');
 
@@ -18,6 +19,7 @@ export const SharesDetailCard: React.FC<{ expense: Expense }> = ({ expense }) =>
   const shares = useSharesStore((s) => s.shares);
   const fetchAll = useSharesStore((s) => s.fetchAll);
   const [showSplit, setShowSplit] = useState(false);
+  const waterfall = useMoneyWaterfall();
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -39,6 +41,10 @@ export const SharesDetailCard: React.FC<{ expense: Expense }> = ({ expense }) =>
   if (expense.transaction_class === 'reimbursement') {
     const share = shares.find((s) => s.id === expense.reimburses_share_id);
     const original = share ? expenses.find((e) => e.id === share.expense_id) : undefined;
+    const back = waterfall.byReimbursement[expense.id];
+    const paidTotal = share ? reimbursed[share.id] || 0 : 0;
+    const left = share ? outstandingOf(share, paidTotal) : 0;
+    const amount = Number(expense.amount) || 0;
     const unlink = () =>
       Alert.alert('Treat as income instead?', 'This will stop linking it to the friend’s share and count it as regular income.', [
         { text: 'Cancel', style: 'cancel' },
@@ -50,13 +56,48 @@ export const SharesDetailCard: React.FC<{ expense: Expense }> = ({ expense }) =>
           },
         },
       ]);
+    const rows = back
+      ? ([
+          back.toGullak > 0 && { key: 'g', label: 'Back into your Gullak', value: back.toGullak },
+          back.toIncome > 0 && { key: 'i', label: 'Back into your income', value: back.toIncome },
+          back.toBudget > 0 && { key: 'b', label: 'Back into your budget', value: back.toBudget },
+        ].filter(Boolean) as Array<{ key: string; label: string; value: number }>)
+      : [];
     return (
       <View style={cardStyle}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
-          {original ? `Reimbursement for ${shortDate(original.expense_date)} expense (${formatCurrency(Number(original.amount))})` : 'Reimbursement'}
+          {original ? `Split repayment · created on ${shortDate(original.expense_date)}` : 'Split repayment'}
         </Text>
         {share ? <Text style={[styles.sub, { color: colors.textSecondary }]}>From {share.friend_label}</Text> : null}
-        <Text style={[styles.sub, { color: colors.textSecondary }]}>Money received — not counted as income.</Text>
+        {original ? (
+          <Text style={[styles.sub, { color: colors.textSecondary }]}>
+            The split was made on the {shortDate(original.expense_date)} expense of {formatCurrency(Number(original.amount))}
+            {share ? ` (${share.friend_label}’s share ${formatCurrency(share.amount_owed)})` : ''}.
+          </Text>
+        ) : null}
+        <Text style={[styles.sub, { color: colors.textSecondary }]}>
+          {left === 0 && share
+            ? 'This split is fully paid back and closed.'
+            : share
+            ? `${formatCurrency(left)} is still left on this split.`
+            : 'Money received — not counted as income.'}
+        </Text>
+        {rows.length > 0 ? (
+          <>
+            <Text style={[styles.title, { color: colors.textPrimary, marginTop: Spacing.element }]}>
+              Where the {formatCurrency(amount)} went
+            </Text>
+            {rows.map((r) => (
+              <View key={r.key} style={styles.line}>
+                <Text style={[styles.sub, { color: colors.textPrimary }]}>{r.label}</Text>
+                <Text style={[styles.sub, { color: colors.textPrimary }]}>+{formatCurrency(r.value)}</Text>
+              </View>
+            ))}
+            <Text style={[styles.sub, { color: colors.textSecondary, marginTop: Spacing.micro }]}>
+              Money goes back to where that expense was paid from, in the same proportion. Budget money is added to that day’s unspent budget.
+            </Text>
+          </>
+        ) : null}
         <Pressable onPress={unlink}><Text style={[styles.link, { color: colors.mintGreenDark }]}>This is actually income</Text></Pressable>
       </View>
     );

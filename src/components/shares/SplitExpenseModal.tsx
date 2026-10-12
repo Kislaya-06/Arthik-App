@@ -59,6 +59,7 @@ export const SplitExpenseModal: React.FC<Props> = ({ visible, total, initial, on
       visible={visible}
       onClose={onClose}
       title="Split expense"
+      avoidKeyboard
       colors={colors}
       isDark={isDark}
       footer={

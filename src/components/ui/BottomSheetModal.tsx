@@ -10,6 +10,10 @@ import {
   useAnimatedValue,
   StyleProp,
   ViewStyle,
+  Keyboard,
+  Platform,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +31,11 @@ export interface BottomSheetModalProps {
   isDark: boolean;
   contentStyle?: StyleProp<ViewStyle>;
   containerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Sheets with text inputs: lift the whole sheet (inputs AND the footer button) above the keyboard and let the
+   * content scroll, so nothing ends up hidden behind the keyboard. Off by default: other sheets are unchanged.
+   */
+  avoidKeyboard?: boolean;
 }
 
 export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
@@ -41,8 +50,24 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   isDark,
   contentStyle,
   containerStyle,
+  avoidKeyboard = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (!avoidKeyboard) return;
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, (e) => setKeyboardHeight(e?.endCoordinates?.height ?? 0));
+    const hide = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [avoidKeyboard]);
+  const keyboardOpen = avoidKeyboard && keyboardHeight > 0;
   const [isMounted, setIsMounted] = useState(visible);
   const slideAnim = useAnimatedValue(500);
   const fadeAnim = useAnimatedValue(0);
@@ -120,8 +145,13 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
               backgroundColor: colors.card,
               borderColor: colors.borderSubtle,
               borderWidth: isDark ? 1 : 0,
-              paddingBottom: Math.max(insets.bottom, Spacing.block),
+              paddingBottom: keyboardOpen ? Spacing.block : Math.max(insets.bottom, Spacing.block),
               transform: [{ translateY: slideAnim }],
+            },
+            // Keyboard open: sit right above it and never be taller than the space that is left.
+            keyboardOpen && {
+              marginBottom: keyboardHeight,
+              maxHeight: Math.max(240, windowHeight - keyboardHeight - insets.top - Spacing.block),
             },
             containerStyle,
           ]}
@@ -165,7 +195,19 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
             </View>
           )}
 
-          <View style={[styles.contentContainer, contentStyle]}>{children}</View>
+          {avoidKeyboard ? (
+            <ScrollView
+              style={styles.contentContainer}
+              contentContainerStyle={contentStyle as any}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            <View style={[styles.contentContainer, contentStyle]}>{children}</View>
+          )}
 
           {footer ? <View style={styles.footerContainer}>{footer}</View> : null}
         </Animated.View>

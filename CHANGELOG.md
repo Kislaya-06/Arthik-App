@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Weekly/Monthly All pill, vault guard, limit alerts, Pure Mode funding card, split repayments, split keyboard
+
+> **OTA safe (JS only).** No native change, no migration.
+
+- **All pill for weekly / monthly cadence users**: the budget of a week / month is added once per period (it used to be counted as 0, so "Total Remaining" showed "Total Spent" and a wrong total). Daily users unchanged.
+- **Vault guard**: in Budget Mode the liquidity is what is really left (all budgets + income + reimbursements + external deposits - spent, incl. the running weekly / monthly budget). "From income" Gullak deposits are no longer counted as new money. Pure Mode unchanged. New store getter `getTotalAccountRemaining`.
+- **Daily "limit exceeded" alert** follows the budget (like Home and the weekly / monthly alerts); income no longer delays it.
+- **Pure Mode expense detail** no longer says "Paid from Gullak" (shows "Your balance"); the funding card is hidden in Pure Mode.
+- **Split repayments** (a friend pays back a share): the money goes back to where the expense was paid from, in the same proportion - Gullak part to Gullak, income part to income, budget part to unspent budget. Home recent / History say "Split repayment · Rahul" / "Split of 10 Oct · money came back"; the detail screen shows the split date, whether it is closed and where the money went. New `useMoneyWaterfall` hook; `sharesStore` registers shares with the money engine; Home / History load shares.
+- **Split sheet and the keyboard**: the sheet sits above the keyboard and scrolls (`BottomSheetModal` `avoidKeyboard`, only the split sheet uses it).
+- Tests: NEW `tests/moneyFixesFour.test.ts` (16), `tests/splitRepayment.test.ts` (18); `tests/transactionFunding.test.ts` Pure Mode case updated.
+
+### Fixed — Money logic: budget -> income -> Gullak (one source of truth)
+
+> **OTA safe (JS only).** No native change, no database migration. Existing users are repaired automatically on next app open.
+
+**The rules (now enforced everywhere)**
+- Every expense is paid from the budget of the active cadence first (day / week / month), then from income, then from Gullak.
+- **Income never moves into Gullak by itself.** Gullak only receives the unspent *budget* at the natural end of a day / week / month, plus manual deposits.
+- Money is replayed in time order, so income that arrives today is never eaten by an overspend that happened before it arrived.
+
+**What was broken**
+- Expense detail said "Paid from Income" even when income was already 0 (it used lifetime income, Home used a different number).
+- All pill did not show income received today (old overspends were subtracted from new income).
+- Savings "Daily Allowance" card said "deducted from Income" using lifetime income.
+- Days / weeks / months added income into the saved amount, so unspent income was rolled into Gullak.
+- Weekly / Monthly cadence users had no income chip at all, and today was treated as a daily pool.
+
+**Changes**
+- NEW `src/lib/moneyWaterfall.ts`: time-ordered engine (`computeMoneyWaterfall`, `computeWaterfallFromState`, `buildPoolResolver`, `summarizeScope`). Home chips, Gullak total, income balance, Expense detail and the Savings allowance card all read it.
+- `budgetCalculations.ts`: `evaluateDayStatus` ignores income (saved = unspent budget); `calculateSavingsMetrics` takes the real "drawn from Gullak" amount.
+- `budgetPeriods.ts`: weekly / monthly finalization and live summary no longer add income to the budget.
+- `homeCalculations.ts`: income chip and Gullak badge come from the waterfall of each pill (Daily = today's income, Weekly = this week's, Monthly = this month's, All = what is really left).
+- `BrandedHeroCard.tsx`: income chip for weekly / monthly cadence; "₹0 income + using ₹X from Gullak" row when income is finished.
+- `transactionFunding.ts`: expense detail uses the same waterfall (shows budget / income / Gullak split exactly).
+- `dailyBudgetStore.ts`: Gullak total and `getAvailableIncomeBalance` / `getPriorAvailableIncomeBalance` use the waterfall; **self-heal** of already finalized weekly / monthly periods (matched by cadence + start date so no duplicates; never runs before expenses are loaded). Finalized daily records were already recomputed on every sync, so they heal automatically.
+- `HomeScreen.tsx`, `SavingsScreen.tsx`: wired to the waterfall.
+
+**Tests**
+- NEW `tests/moneyWaterfall.test.ts` (34) and `tests/moneyWaterfallStore.test.ts` (9, real store, includes "existing user with corrupted data").
+- Updated 4 old tests that expected income to roll into Gullak (`budgetCalculations`, `budgetPeriods`).
+- Full suite: 1244 passing. Mutation-checked: re-introducing income-into-Gullak, removing the period heal, or ignoring time order each makes tests fail.
+
 ### Fixed & Refined — Gullak Savings Balance, All Card Income & Warning Styling
 - **Gullak Savings History & Past Income Records**: Fixed `calculateSavingsMetrics` where past days with income that resulted in savings were mistakenly flagged as overspent if `spent > budget`. Corrected order so records with positive savings or 'saved' status are added to savings first, eliminating false penalties.
 - **Gullak Live Overspend Real-Time Synchronization**: Decoupled today's live overspend from past finalized overspends in `calculateSavingsMetrics` so today's spending only deducts its exact excess beyond available income from Gullak (e.g. exactly ₹2,001.2 from Gullak on ₹5,000 expense).

@@ -3,6 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useExpenseStore } from './expenseStore';
+import { registerSharesGetter } from './dailyBudgetStore';
 import {
   ExpenseShare,
   ShareDraft,
@@ -133,5 +134,8 @@ export const useSharesStore = create<SharesState>((set, get) => ({
     set((state) => ({ rules: state.rules.filter((r) => r.id !== ruleId) }));
   },
 }));
+
+// Lets the money engine know which expense a repayment belongs to (so it can go back to where it came from).
+registerSharesGetter(() => useSharesStore.getState().shares);
 
 registerStoreResetCallback(() => useSharesStore.getState().reset());

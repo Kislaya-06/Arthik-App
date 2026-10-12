@@ -27,11 +27,14 @@ import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfM
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals } from '../lib/homeCalculations';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
+import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
+import { isDateInPeriod, FilterPeriod } from '../lib/dateFilters';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useSharesStore } from '../store/sharesStore';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
@@ -174,6 +177,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const shares = useSharesStore((s) => s.shares);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
@@ -216,6 +220,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
     lastFetchTime.current = now;
     await fetchExpenses();
+    // Friends' shares: needed so a split repayment goes back to where the expense was paid from.
+    await useSharesStore.getState().fetchAll();
     const cur = useExpenseStore.getState().expenses;
     syncWithExpenses(cur);
   }, [fetchExpenses, syncWithExpenses]);
@@ -428,6 +434,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [getAvailableIncomeBalance, expenses, dailyRecords, gullakDeposits]
   );
 
+  // Money waterfall: budget first -> then income -> then Gullak (time ordered, shared with the
+  // expense detail screen and the Gullak total). Gives each pill its own real income / Gullak numbers.
+  const scopeFunding = useMemo(() => {
+    const waterfall = computeWaterfallFromState({
+      expenses,
+      shares,
+      categories,
+      deposits: gullakDeposits,
+      isBudgetModeEnabled,
+      isAutoRenew,
+      todayStr: todayKey,
+      todayBudget: dailyRecords[todayKey]?.budget,
+      dailyBudgetAmount,
+      records: dailyRecords,
+      planChanges,
+    });
+    const period: FilterPeriod | null =
+      activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
+    return summarizeScope(
+      waterfall,
+      (d) => (period ? isDateInPeriod(d, period, referenceDate) : true),
+      activeFilter === 'All'
+    );
+  }, [expenses, shares, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges, activeFilter, referenceDate]);
+
   const {
     primaryAmount,
     primaryLabel,
@@ -460,8 +491,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         todaySpent: todayRecordSpent,
         spentByDate,
         availableIncomeBalance,
+        funding: { incomeRemaining: scopeFunding.incomeRemaining, gullakDrawn: scopeFunding.gullakDrawn },
       }),
-    [activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
+    [scopeFunding, activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
   );
 
   // Date range label shown below filter pills for quick orientation

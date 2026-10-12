@@ -33,7 +33,13 @@ export const calculateSavingsMetrics = (
   referenceDate: Date,
   manualDeposits: number = 0,
   availableIncome: number = 0,
-  totalAccountRemaining?: number
+  totalAccountRemaining?: number,
+  /**
+   * Total overspend that was really paid from Gullak (computed by the money waterfall:
+   * budget first, then income, then Gullak). When given, it replaces the old
+   * "pastOverspent + today deduction" estimate, so income-covered overspends never hit Gullak.
+   */
+  gullakDrawnOverride?: number
 ): SavingsMetrics => {
   let totalSaved = 0;
   let pastOverspent = 0;
@@ -69,7 +75,11 @@ export const calculateSavingsMetrics = (
   const todayGullakDeduction = Math.max(0, round2(todayLiveOverspent - Math.max(0, availableIncome)));
 
   // Net accumulated savings cannot drop below 0 (includes manual Gullak deposits)
-  let netSavings = Math.max(0, round2(totalSaved - pastOverspent - todayGullakDeduction + manualDeposits));
+  const gullakDrawn =
+    gullakDrawnOverride !== undefined
+      ? Math.max(0, gullakDrawnOverride)
+      : pastOverspent + todayGullakDeduction;
+  let netSavings = Math.max(0, round2(totalSaved - gullakDrawn + manualDeposits));
   if (totalAccountRemaining !== undefined) {
     netSavings = Math.min(netSavings, Math.max(0, round2(totalAccountRemaining)));
   }
@@ -187,13 +197,16 @@ export interface DayEvaluation {
 export const evaluateDayStatus = (
   budget: number,
   spent: number,
-  eligibleIncome: number = 0,
+  _eligibleIncome: number = 0,
   _baseBudget?: number,
   eligibleReimbursements: number = 0
 ): DayEvaluation => {
+  // INCOME NEVER ROLLS INTO GULLAK. Only unspent BUDGET (plus reimbursements, which restore
+  // spending power for money spent on others) is saved. Overspend beyond the budget is paid
+  // from income, then Gullak, by the money waterfall (src/lib/moneyWaterfall.ts).
   const result = calculateCycleFinancials({
     scheduledBudget: budget,
-    eligibleIncome: typeof eligibleIncome === 'number' && eligibleIncome > 0 ? eligibleIncome : 0,
+    eligibleIncome: 0,
     eligibleReimbursements: typeof eligibleReimbursements === 'number' && eligibleReimbursements > 0 ? eligibleReimbursements : 0,
     spent,
   });

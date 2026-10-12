@@ -19,6 +19,11 @@ export interface VaultLiquidityParams {
   totalExpenses: number;
   externalGullakDeposits?: number;
   isAutoRenew?: boolean;
+  /**
+   * What is really left across the whole account: all budgets + income + reimbursements + EXTERNAL deposits
+   * minus everything spent. When given (Budget Mode), it is the liquidity. Without it the old estimate is used.
+   */
+  accountRemaining?: number;
 }
 
 /**
@@ -40,6 +45,7 @@ export function calculateVaultLiquidity(params: VaultLiquidityParams): VaultLiqu
     totalExpenses,
     externalGullakDeposits = 0,
     isAutoRenew = true,
+    accountRemaining,
   } = params;
 
   if (!isBudgetModeEnabled) {
@@ -69,9 +75,11 @@ export function calculateVaultLiquidity(params: VaultLiquidityParams): VaultLiqu
     }
   }
 
-  // In budget mode: liquidity is funded either by an active budget allowance,
-  // logged incomes, or external deposits.
-  const total = round2(activeAllowance + totalIncome + externalGullakDeposits);
+  // In budget mode: liquidity is what is really left after spending. The old estimate ignored what was already
+  // spent, so paying out money that was gone was never blocked.
+  const total = accountRemaining !== undefined
+    ? round2(accountRemaining)
+    : round2(activeAllowance + totalIncome + externalGullakDeposits);
   const canAdd = total > 0;
 
   return {

@@ -39,7 +39,9 @@ import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
+import { useSharesStore } from '../store/sharesStore';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
+import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
 import { isIncomeTransaction, isExcludedFromTotals } from '../lib/transactionUtils';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
@@ -91,7 +93,6 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     budgetModal,
     openBudgetModal,
     closeBudgetModal,
-    grossIncome,
   } = useSavingsDashboard();
 
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
@@ -263,14 +264,38 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const cardOverAmount = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.overBy : overAmount;
   const cardProgressRatio = cardBudget > 0 ? cardSpent / cardBudget : 0;
 
+  const allDailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
+  const shares = useSharesStore((s) => s.shares);
+  const cardScopeFunding = useMemo(() => {
+    const waterfall = computeWaterfallFromState({
+      expenses,
+      shares,
+      categories,
+      deposits: gullakDeposits,
+      isBudgetModeEnabled,
+      isAutoRenew,
+      todayStr: todayKey,
+      todayBudget: allDailyRecords[todayKey]?.budget,
+      dailyBudgetAmount,
+      records: allDailyRecords,
+      planChanges,
+    });
+    const start = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodStart : todayKey;
+    const end = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodEnd : todayKey;
+    return summarizeScope(waterfall, (d) => d >= start && d <= end);
+  }, [expenses, shares, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, allDailyRecords, dailyBudgetAmount, planChanges, isCadenceMode, cadencePeriodSummary]);
+
   const overspendHint = useMemo(() => {
     if (!cardIsOver) {
       return cardBudget > 0
         ? `Save ${formatCurrency(cardRemaining)} if unspent ${budgetCadence === 'weekly' ? 'this week' : budgetCadence === 'monthly' ? 'this month' : 'today'}`
         : 'Set a limit to start saving';
     }
-    const fromIncome = Math.min(grossIncome, cardOverAmount);
-    const fromGullak = round2(Math.max(0, cardOverAmount - fromIncome));
+    // Where did THIS card's overspend really come from? Same time-ordered waterfall as Home and the
+    // expense detail (budget -> income -> Gullak). Using lifetime income here said "Income" even when
+    // that income was already spent.
+    const fromIncome = round2(cardScopeFunding.incomeUsed);
+    const fromGullak = round2(cardScopeFunding.gullakDrawn);
 
     if (fromGullak === 0) {
       return `${formatCurrency(cardOverAmount)} deducted from Income`;
@@ -279,7 +304,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     } else {
       return `${formatCurrency(cardOverAmount)} deducted from Gullak`;
     }
-  }, [cardIsOver, cardBudget, cardRemaining, budgetCadence, grossIncome, cardOverAmount]);
+  }, [cardIsOver, cardBudget, cardRemaining, budgetCadence, cardScopeFunding, cardOverAmount]);
 
   // Scheduled budget cancellation handler
   const handleCancelScheduled = useCallback(() => {

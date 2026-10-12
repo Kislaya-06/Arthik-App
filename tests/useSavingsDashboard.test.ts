@@ -16,7 +16,7 @@ const data = vi.hoisted(() => ({
   today: { date: '2026-10-04', budget: 500, spent: 200, saved: 0, isFinalized: false, status: 'active' } as any,
   past: [] as any[],
   income: 777,
-  fetchExpenses: vi.fn(async () => {}),
+  fetchExpenses: vi.fn(async () => { }),
   syncWithExpenses: vi.fn(),
   toggleAutoRenew: vi.fn(),
   cancelScheduled: vi.fn(),
@@ -39,7 +39,6 @@ vi.mock('../src/store/dailyBudgetStore', async () => {
     getTodayRecord: () => data.today,
     getPastRecordsList: () => data.past,
     getAvailableIncomeBalance: () => data.income,
-    getGrossIncomeBalance: () => data.income,
   });
   return { useDailyBudgetStore };
 });
@@ -146,7 +145,7 @@ describe('useSavingsDashboard (everything the Savings screen shows)', () => {
   describe('loading data when the screen is focused', () => {
     it('the first focus fetches fresh expenses, then syncs the budget with them', async () => {
       renderHook(() => useSavingsDashboard());
-      await act(async () => {});
+      await act(async () => { });
       expect(data.fetchExpenses).toHaveBeenCalledTimes(1);
       expect(data.syncWithExpenses).toHaveBeenCalledTimes(1);
       expect(data.syncWithExpenses).toHaveBeenCalledWith([{ id: 'e1' }]);
@@ -154,33 +153,33 @@ describe('useSavingsDashboard (everything the Savings screen shows)', () => {
 
     it('coming back within a minute only re-syncs from memory (no new network fetch)', async () => {
       const h = renderHook(() => useSavingsDashboard());
-      await act(async () => {});
+      await act(async () => { });
       expect(data.fetchExpenses).toHaveBeenCalledTimes(1);
       data.syncWithExpenses.mockClear();
 
       vi.setSystemTime(new Date('2026-10-04T10:00:30')); // 30 seconds later
       h.freeze();
       h.reveal(); // leave the screen and come back
-      await act(async () => {});
+      await act(async () => { });
       expect(data.fetchExpenses).toHaveBeenCalledTimes(1); // still only the first fetch
       expect(data.syncWithExpenses).toHaveBeenCalledTimes(1); // but the budget was re-synced
     });
 
     it('coming back after a minute fetches fresh expenses again', async () => {
       const h = renderHook(() => useSavingsDashboard());
-      await act(async () => {});
+      await act(async () => { });
       expect(data.fetchExpenses).toHaveBeenCalledTimes(1);
 
       vi.setSystemTime(new Date('2026-10-04T10:01:01')); // 61 seconds later
       h.freeze();
       h.reveal();
-      await act(async () => {});
+      await act(async () => { });
       expect(data.fetchExpenses).toHaveBeenCalledTimes(2);
     });
 
     it('pull to refresh shows the spinner while loading and ALWAYS fetches', async () => {
       const h = renderHook(() => useSavingsDashboard());
-      await act(async () => {});
+      await act(async () => { });
       data.fetchExpenses.mockClear();
 
       let release!: () => void;

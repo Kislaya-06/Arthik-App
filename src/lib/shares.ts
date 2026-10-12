@@ -140,3 +140,39 @@ export const findMatchingTransferRule = (
   if (!d) return null;
   return rules.find((r) => r.descriptor === d) ?? null;
 };
+
+// ─── Split repayment: auto-logged money that equals what a friend still owes ─────────────────────
+
+/**
+ * Only EXACT matches are worth interrupting the user for: an incoming payment whose amount is exactly what a
+ * friend still owes on a split that has not been settled yet. Returns [] when nothing matches (no question).
+ */
+export const findExactSplitCandidates = (
+  shares: ShareWithExpense[],
+  reimbursed: Record<string, number>,
+  incoming: { amount: number; date: string }
+): ReimbursementCandidate[] =>
+  findReimbursementCandidates(shares, reimbursed, incoming).filter((c) => c.exact);
+
+/** "Split of 12 Oct" style text for a repayment row (Home recent / History). */
+export const splitRepaymentLabel = (
+  expense: { transaction_class?: string | null; reimburses_share_id?: string | null },
+  shares: Array<{ id: string; expense_id: string; friend_label?: string }>,
+  expenses: Array<{ id: string; expense_date: string }>
+): { title: string; sub: string; short: string } | null => {
+  if (expense.transaction_class !== 'reimbursement') return null;
+  const share = expense.reimburses_share_id ? shares.find((s) => s.id === expense.reimburses_share_id) : undefined;
+  const original = share ? expenses.find((e) => e.id === share.expense_id) : undefined;
+  if (!original) return { title: 'Split repayment', sub: 'Money received back', short: 'Money came back' };
+  return {
+    title: share?.friend_label ? `Split repayment · ${share.friend_label}` : 'Split repayment',
+    sub: `Money came back for the split created on ${shortDay(original.expense_date)}`,
+    short: `Split of ${shortDay(original.expense_date)} · money came back`,
+  };
+};
+
+const shortDay = (d: string): string => {
+  const [y, m, day] = d.split('T')[0].split('-').map(Number);
+  if (!y || !m || !day) return d;
+  return new Date(y, m - 1, day).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};

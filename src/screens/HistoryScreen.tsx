@@ -12,6 +12,7 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useExpenseStore, Expense } from '../store/expenseStore';
+import { useSharesStore } from '../store/sharesStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
@@ -111,7 +112,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
     lastFetchTime.current = now;
-    await Promise.all([fetchExpenses(), fetchCategories()]);
+    // Shares are needed to label split repayments ("split created on 10 Oct").
+    await Promise.all([fetchExpenses(), fetchCategories(), useSharesStore.getState().fetchAll()]);
   }, [fetchExpenses, fetchCategories]);
 
   useFocusEffect(
