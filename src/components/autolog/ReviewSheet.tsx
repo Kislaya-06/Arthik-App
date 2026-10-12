@@ -9,7 +9,10 @@ import { getCategoryIcon } from '../../lib/iconUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
-import { classifyEvent, ignoreEvent, learnFromDiscovery, resolveDuplicate, setEventCategory } from '../../features/autoLog/reviews';
+import { classifyEvent, ignoreEvent, learnFromDiscovery, resolveDuplicate, resolveSplitRepayment, resolveTransfer, setEventCategory } from '../../features/autoLog/reviews';
+import { findSplitRepaymentCandidates } from '../../features/autoLog/ledger';
+import type { ReimbursementCandidate } from '../../lib/shares';
+import { formatCurrency } from '../../lib/formatters';
 
 /**
  * One sheet for every review decision. Flow (spec §9, §18–21):
@@ -38,6 +41,8 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
   const [amountText, setAmountText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [splitCandidates, setSplitCandidates] = useState<ReimbursementCandidate[]>([]);
+  const [splitDeclined, setSplitDeclined] = useState(false);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
 
@@ -49,8 +54,19 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
       setAmountText('');
       setError(null);
       setBusy(false);
+      setSplitDeclined(false);
+      setSplitCandidates([]);
     }
   }, [visible, event?.id, categoryOnly, event?.direction]);
+
+  // "Is this your friend's share of a split?" needs the friends still owing money for this exact amount.
+  useEffect(() => {
+    let alive = true;
+    if (visible && event?.reviewReason === 'split_repayment' && event.amount != null) {
+      findSplitRepaymentCandidates(event.amount, event.occurredAt).then((c) => { if (alive) setSplitCandidates(c); });
+    }
+    return () => { alive = false; };
+  }, [visible, event?.id, event?.reviewReason, event?.amount, event?.occurredAt]);
 
   const usableCategories = useMemo(() => categories.filter((c) => !c.isPlaceholder), [categories]);
   const chosenCategory = usableCategories.find((c) => c.id === categoryId);
@@ -117,7 +133,76 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
   let footer: React.ReactNode = null;
   let title = 'Review';
 
-  if (step === 'start' && event.reviewReason === 'possible_duplicate') {
+  if (step === 'start' && event.reviewReason === 'split_repayment' && !splitDeclined) {
+    title = 'Friend paid back?';
+    content = (
+      <>
+        {summary}
+        <Text style={[styles.question, { color: colors.textPrimary }]}>
+          {money(amount)} came in. A friend still owes exactly this on a split. Is this the split money?
+        </Text>
+        {splitCandidates.map((c) => (
+          <View key={c.share.id} style={[styles.summary, { backgroundColor: colors.mintGreenSoft }]}>
+            <Text style={[styles.meta, { color: colors.textPrimary }]}>{c.share.friend_label} · {formatCurrency(c.outstanding)} owed</Text>
+            <Text style={[styles.metaMuted, { color: colors.textSecondary }]}>
+              Split created on {c.expenseDate.split('-').reverse().slice(0, 2).join('/')} · expense of {formatCurrency(c.expenseAmount)}
+            </Text>
+          </View>
+        ))}
+        <Text style={[styles.text, { color: colors.textSecondary }]}>
+          If yes, that split is closed and the money goes back to where it was paid from: Gullak, income or budget.
+        </Text>
+      </>
+    );
+    footer = (
+      <View style={styles.footerCol}>
+        {splitCandidates.map((c) => (
+          <AppButton
+            key={c.share.id}
+            label={splitCandidates.length > 1 ? `Yes — from ${c.share.friend_label}` : `Yes, split money from ${c.share.friend_label}`}
+            variant="secondary"
+            loading={busy}
+            onPress={() => run(() => resolveSplitRepayment(event, c.share.id, c.share.friend_label).then(() => undefined), 'Split settled — money added back')}
+          />
+        ))}
+        <AppButton
+          label="No, it's something else"
+          variant="outline"
+          disabled={busy}
+          onPress={async () => {
+            setBusy(true);
+            try {
+              await resolveSplitRepayment(event, null);   // remembers: this one is NOT a split repayment
+              setSplitDeclined(true);                     // continue in the same sheet with "What is this?"
+            } catch (e: any) {
+              setError(e?.message || 'Something went wrong. Please try again.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      </View>
+    );
+  } else if (step === 'start' && event.reviewReason === 'possible_transfer') {
+    title = 'Own transfer?';
+    content = (
+      <>
+        {summary}
+        <Text style={[styles.text, { color: colors.textPrimary }]}>
+          The same amount went out of one of your accounts and came into another within minutes. Is this a transfer between your own accounts?
+        </Text>
+        <Text style={[styles.text, { color: colors.textSecondary }]}>
+          Nothing has been deleted. If you say yes, it will not count as income or expense.
+        </Text>
+      </>
+    );
+    footer = (
+      <View style={styles.footerCol}>
+        <AppButton label="Yes, my own transfer" variant="secondary" loading={busy} onPress={() => run(() => resolveTransfer(event, true), 'Marked as a transfer')} />
+        <AppButton label="No, a separate payment" variant="outline" disabled={busy} onPress={() => run(() => resolveTransfer(event, false), 'Logged as a separate payment')} />
+      </View>
+    );
+  } else if (step === 'start' && event.reviewReason === 'possible_duplicate') {
     title = 'Possible duplicate';
     content = (
       <>

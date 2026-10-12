@@ -19,14 +19,14 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Money Logic, Split Repayments & Budget Polish ⚡💰',
+    title: ota?.title || 'Auto Logging Accuracy & Split Repayment Sync ⚡🤖',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          'Unified Money Waterfall: Every expense draws from budget first, then income, then Gullak with exact time ordering',
-          'Split Repayments: Money returned by friends restores spending power directly to where the expense was paid from',
-          'Weekly & Monthly All Pill Fix: Total Remaining accurately accounts for weekly/monthly budgets and natural period rollovers',
-          'Keyboard-Friendly Split Sheet: Split expense modal smoothly floats above the keyboard with complete accessibility',
+          'Direction-Aware Deduplication: Own-account transfers and identical quick incoming credits accurately logged without dropped entries',
+          'Smart Friend Repayment Detection: Automatic review question when received amount matches an unsettled friend split',
+          'Email as First-Class Source: Bank emails without explicit account numbers log smoothly and pair with subsequent SMS notifications',
+          'Gullak Drawn Clarification: Clear \'₹X drawn from Gullak\' indicator for past overspend coverage on Hero Summary cards',
         ],
   };
 };

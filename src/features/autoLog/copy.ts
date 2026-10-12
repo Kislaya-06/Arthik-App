@@ -42,6 +42,8 @@ export const REVIEW_LABEL: Record<ReviewReason, string> = {
   no_account: 'Account unclear',
   ambiguous_match: 'Might be a duplicate',
   unknown_sender: 'New email sender',
+  possible_transfer: 'Own account transfer?',
+  split_repayment: 'Friend paid back?',
 };
 
 export const reviewLabelFor = (e: AutoLogEvent) =>

@@ -3,17 +3,19 @@ import { hash, maskSensitive, parseEmail, parseNotification, parseSms } from './
 import {
   CROSS_SOURCE_WINDOW_MS,
   NOTIFICATION_WAIT_MS,
+  NOTIFICATION_REPOST_WINDOW_MS,
+  EMAIL_REPOST_WINDOW_MS,
   TRANSFER_WINDOW_MS,
   IDENTITY_WINDOW_MS,
   IdentitySource,
   decideIdentity,
   identityScore,
   STRONG_SCORE,
-  isOwnTransferPair,
+  ownTransferStrength,
   isSameSourceDuplicate,
 } from './matching';
 import * as db from './db';
-import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor } from './ledger';
+import { createTransaction, deleteTransaction, findManualLookalike, findSplitRepaymentCandidates, paymentModeFor } from './ledger';
 import { notifyLogged, notifyNeedsReview, notifyPreview } from './notify';
 import type { AutoLogEvent, EventOrigin, EventStatus, ParsedMessage, ReviewReason } from './types';
 
@@ -44,6 +46,9 @@ export interface ProcessResult {
 }
 
 const normalizeBody = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** Same fingerprint the engine stores for an SMS (used by the inbox catch-up to count what it already has). */
+export const smsFingerprint = (address: string, body: string) => hash(`${address}|${normalizeBody(body)}`);
 
 const accountKeyOf = (p: ParsedMessage) => (p.last4 ? `${p.bankCode}:${p.last4}` : null);
 
@@ -170,6 +175,8 @@ const reviewQuestion: Record<ReviewReason, string> = {
   no_account: 'Which account was this?',
   ambiguous_match: 'This may already be logged. Please check.',
   unknown_sender: 'Financial email from a new sender.',
+  possible_transfer: 'Is this a transfer between your own accounts?',
+  split_repayment: 'Is this your friend’s share of a split?',
 };
 
 const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: ProcessOptions) => {
@@ -180,18 +187,35 @@ const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: Proc
   return { status: e.status, eventId: e.id, reviewReason: reason, accountKey: e.accountKey };
 };
 
+/**
+ * Money in that is exactly what a friend still owes on an unsettled split: ask ONCE instead of guessing.
+ * Returns the pending result, or null when nothing matches (the credit continues the normal way).
+ */
+const askIfSplitRepayment = async (e: AutoLogEvent, parsed: ParsedMessage, opts: ProcessOptions) => {
+  if (e.direction !== 'credit' || e.amount == null) return null;
+  if (parsed.creditKind === 'salary' || parsed.creditKind === 'interest') return null;
+  const candidates = await findSplitRepaymentCandidates(e.amount, e.occurredAt);
+  if (candidates.length === 0) return null;
+  return finalizePending(e, 'split_repayment', opts);
+};
+
 /** Creates the transaction for a decided event. Falls back to `queued` if it cannot be written now. */
 export const logEvent = async (
   e: AutoLogEvent,
   type: 'expense' | 'income',
   categoryId: string | null,
   accountKind: string | null,
-  opts: ProcessOptions
+  opts: ProcessOptions,
+  /** Split repayment: the money is a friend paying back their share (linked to that share). */
+  extra?: { reimbursesShareId: string; note?: string }
 ) => {
   const id = e.expenseId || Crypto.randomUUID();
-  const note = e.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
+  const note = extra?.note || e.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
   const created = await createTransaction(
-    { amount: e.amount as number, type, categoryId, note, paymentMode: paymentModeFor(accountKind, type), occurredAt: e.occurredAt },
+    {
+      amount: e.amount as number, type, categoryId, note, paymentMode: paymentModeFor(accountKind, type), occurredAt: e.occurredAt,
+      ...(extra ? { transactionClass: 'reimbursement' as const, reimbursesShareId: extra.reimbursesShareId } : {}),
+    },
     id
   );
   e.expenseId = id;
@@ -277,8 +301,8 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
 
   // ── Same-source dedupe (never fuzzy) ──
   const near = await db.findEvents(
-    "source = 'sms' AND amount = ? AND occurred_at BETWEEN ? AND ? AND status NOT IN ('duplicate')",
-    e.amount, e.occurredAt - 2 * 86400_000, e.occurredAt + 2 * 86400_000
+    "source = 'sms' AND amount = ? AND direction = ? AND occurred_at BETWEEN ? AND ? AND status NOT IN ('duplicate')",
+    e.amount, e.direction, e.occurredAt - 2 * 86400_000, e.occurredAt + 2 * 86400_000
   );
   if (near.some((n) => isSameSourceDuplicate(n, e))) {
     e.status = 'duplicate';
@@ -299,8 +323,15 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
   for (const o of opposite) {
     const otherAcc = o.accountKey ? await db.getAccount(o.accountKey) : null;
     if (!otherAcc?.tracked) continue;
-    const pair = e.direction === 'debit' ? isOwnTransferPair(e, o) : isOwnTransferPair(o, e);
-    if (!pair) continue;
+    const debitSide = e.direction === 'debit' ? e : o;
+    const creditSide = e.direction === 'debit' ? o : e;
+    const strength = ownTransferStrength(debitSide, creditSide);
+    if (strength === 'no') continue;
+    if (strength === 'likely') {
+      // Same amount, close in time, but nothing proves they belong together (a friend may have paid
+      // you the same amount). NEVER delete anything on a guess: ask once.
+      return { ...(await finalizePending(e, 'possible_transfer', opts)), isNewAccount };
+    }
     if (o.expenseId && o.status === 'logged') await deleteTransaction(o.expenseId);
     await db.updateEvent(o.id, { status: 'transfer', reviewReason: null, matchedId: e.id, needsCategory: false });
     e.status = 'transfer';
@@ -342,6 +373,13 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
     if (match.merchant) e.merchant = match.merchant; // payment apps usually name the merchant better
   }
 
+  // ── A friend paying back a split? Ask once (never guess, never double count). ──
+  const splitAsk = await askIfSplitRepayment(e, parsed, opts);
+  if (splitAsk) {
+    if (takeOverRoot) await db.updateEvent(takeOverRoot.id, { status: 'merged', matchedId: e.id, reviewReason: null });
+    return { ...splitAsk, isNewAccount };
+  }
+
   // ── Confidence & type ──
   const pref = await db.getMerchantPref(e.merchant);
   let type: 'expense' | 'income' | null = null;
@@ -372,10 +410,11 @@ export const processNotification = async (raw: RawNotification, opts: ProcessOpt
   const fingerprint = hash(`${raw.app}|${normalizeBody(text)}`);
   const e = baseEvent(parsed, raw.app, text, raw.date, fingerprint, 'live');
   if (await db.getEvent(e.id)) return { status: 'duplicate' };
-  // Payment apps re-post the same notification; identical text within 5 min is the same payment.
+  // Payment apps re-post (update) the same notification within seconds. A later identical notification
+  // is a NEW payment (₹100 received three times in a row must count three times).
   const same = await db.findEvents(
     "source = 'notification' AND fingerprint = ? AND occurred_at BETWEEN ? AND ?",
-    fingerprint, raw.date - 5 * 60_000, raw.date + 5 * 60_000
+    fingerprint, raw.date - NOTIFICATION_REPOST_WINDOW_MS, raw.date + NOTIFICATION_REPOST_WINDOW_MS
   );
   if (same.length) return { status: 'duplicate' };
 
@@ -437,7 +476,7 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
   // The same email shown again (notification updated / re-posted).
   const same = await db.findEvents(
     "source = 'email' AND fingerprint = ? AND occurred_at BETWEEN ? AND ?",
-    fingerprint, occurredAt - 3 * 86400_000, occurredAt + 3 * 86400_000
+    fingerprint, occurredAt - EMAIL_REPOST_WINDOW_MS, occurredAt + EMAIL_REPOST_WINDOW_MS
   );
   if (same.length) return { status: 'duplicate' };
 
@@ -465,6 +504,11 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
       else if (sameDigits.length >= 1 && tracked.length === 0) e.accountKey = sameDigits[0].key; // known, untracked → filtered below
       else e.accountKey = null; // unknown or ambiguous → never guess the account (spec email §34)
     }
+  } else if (parsed.senderIsBank) {
+    // A bank's own email is a first-class source: it does not have to wait for the bank SMS. Many alerts
+    // name no account number; when the user tracks exactly ONE account at that bank, it can only be that one.
+    const sameBank = (await db.listAccounts()).filter((a) => a.bankCode === parsed.bankCode && a.tracked);
+    if (sameBank.length === 1) e.accountKey = sameBank[0].key;
   }
 
   const verdict = await ruleVerdict(e);
@@ -537,6 +581,12 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
     await db.insertEvent(e);
     await finishTakeOver();
     return { status: 'transfer', eventId: e.id };
+  }
+
+  const splitAskEmail = await askIfSplitRepayment(e, parsed, opts);
+  if (splitAskEmail) {
+    await finishTakeOver();
+    return { ...splitAskEmail, isNewAccount };
   }
 
   const pref = await db.getMerchantPref(e.merchant);

@@ -3,6 +3,8 @@ import * as Crypto from 'expo-crypto';
 import { supabase } from '../../config/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useExpenseStore, isValidUUID, Expense } from '../../store/expenseStore';
+import { useSharesStore } from '../../store/sharesStore';
+import { findExactSplitCandidates, reimbursedByShare, ReimbursementCandidate, ExpenseShare } from '../../lib/shares';
 
 /**
  * Bridge between Automatic Logging and Arthik's normal transaction store.
@@ -18,6 +20,9 @@ export interface NewTransaction {
   note: string;
   paymentMode: 'cash' | 'upi' | 'card';
   occurredAt: number;
+  /** Set when the money is a friend paying back their share of a split. */
+  transactionClass?: 'normal' | 'reimbursement';
+  reimbursesShareId?: string | null;
 }
 
 const storeReady = () => !!useAuthStore.getState().user && useExpenseStore.getState().isExpensesLoaded;
@@ -34,7 +39,11 @@ export const createTransaction = async (tx: NewTransaction, presetId?: string): 
   if (storeReady()) {
     if (useExpenseStore.getState().expenses.some((e) => e.id === id)) return id;
     try {
-      await useExpenseStore.getState().addExpense(tx.amount, categoryId, note, tx.paymentMode, date, tx.type, { id });
+      await useExpenseStore.getState().addExpense(tx.amount, categoryId, note, tx.paymentMode, date, tx.type, {
+        id,
+        transactionClass: tx.transactionClass ?? 'normal',
+        reimbursesShareId: tx.reimbursesShareId ?? null,
+      });
       return id;
     } catch {
       return null;
@@ -46,7 +55,10 @@ export const createTransaction = async (tx: NewTransaction, presetId?: string): 
     const userId = data.session?.user?.id;
     if (!userId) return null;
     const { error } = await supabase.from('expenses').upsert(
-      { id, user_id: userId, amount: tx.amount, note, payment_mode: tx.paymentMode, expense_date: date, type: tx.type, category_id: categoryId },
+      {
+        id, user_id: userId, amount: tx.amount, note, payment_mode: tx.paymentMode, expense_date: date, type: tx.type, category_id: categoryId,
+        transaction_class: tx.transactionClass ?? 'normal', reimburses_share_id: tx.reimbursesShareId ?? null,
+      },
       { onConflict: 'id', ignoreDuplicates: true }
     );
     return error ? null : id;
@@ -122,4 +134,45 @@ export const findManualLookalike = (
     .expenses.find(
       (e) => !autoExpenseIds.has(e.id) && e.expense_date === date && (e.type || 'expense') === type && Math.abs(Number(e.amount) - amount) < 0.01
     );
+};
+
+/**
+ * Open friend shares that exactly match an incoming amount (split not settled yet).
+ * App open: read from the stores. App closed (headless): read the user's rows straight from Supabase.
+ * Best effort: any failure returns [] and the credit is handled the normal way. Never throws.
+ */
+export const findSplitRepaymentCandidates = async (amount: number, occurredAt: number): Promise<ReimbursementCandidate[]> => {
+  try {
+    const date = format(new Date(occurredAt), 'yyyy-MM-dd');
+    let shares: ExpenseShare[];
+    let expenses: Array<{ id: string; expense_date: string; amount: number | string; transaction_class?: string | null; reimburses_share_id?: string | null }>;
+
+    if (storeReady()) {
+      if (!useSharesStore.getState().isLoaded) await useSharesStore.getState().fetchAll();
+      shares = useSharesStore.getState().shares;
+      expenses = useExpenseStore.getState().expenses;
+    } else {
+      const { data: s } = await supabase.from('expense_shares').select('*');
+      shares = ((s as any[]) || []).map((r) => ({ ...r, amount_owed: Number(r.amount_owed) }));
+      if (shares.length === 0) return [];
+      const ids = Array.from(new Set(shares.map((x) => x.expense_id)));
+      const { data: e1 } = await supabase.from('expenses').select('id, expense_date, amount').in('id', ids);
+      const { data: e2 } = await supabase
+        .from('expenses')
+        .select('id, expense_date, amount, transaction_class, reimburses_share_id')
+        .eq('transaction_class', 'reimbursement');
+      expenses = [...((e1 as any[]) || []), ...((e2 as any[]) || [])];
+    }
+    if (shares.length === 0) return [];
+
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+    const withExpense = shares.flatMap((share) => {
+      const exp = byId.get(share.expense_id);
+      if (!exp) return [];
+      return [{ share, expenseDate: exp.expense_date.split('T')[0], expenseAmount: Number(exp.amount) || 0 }];
+    });
+    return findExactSplitCandidates(withExpense, reimbursedByShare(expenses as any), { amount, date });
+  } catch {
+    return [];
+  }
 };

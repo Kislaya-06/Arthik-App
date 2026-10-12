@@ -107,11 +107,14 @@ export const receiveNotification = (app: string, title: string, body: string, da
 };
 
 // ─── ledger ───
-export interface Tx { id: string; amount: number; type: 'expense' | 'income'; categoryId: string | null; note: string; paymentMode: string; occurredAt: number }
+export interface Tx { id: string; amount: number; type: 'expense' | 'income'; categoryId: string | null; note: string; paymentMode: string; occurredAt: number; transactionClass?: string; reimbursesShareId?: string | null }
 export const ledger = {
   txs: new Map<string, Tx>(),
   manual: [] as Array<{ id: string; amount: number; type: 'expense' | 'income'; occurredAt: number }>,
   offline: false,
+  /** Open friend shares of the user (for "is this your friend's share of a split?"). */
+  splitShares: [] as Array<{ share: { id: string; user_id: string; expense_id: string; friend_label: string; amount_owed: number }; expenseDate: string; expenseAmount: number }>,
+  reimbursed: {} as Record<string, number>,
 };
 const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 export const fakeLedger = {
@@ -133,6 +136,12 @@ export const fakeLedger = {
     return !!t;
   },
   deleteTransaction: async (id: string) => ledger.txs.delete(id),
+  findSplitRepaymentCandidates: async (amount: number, occurredAt: number) => {
+    const { findExactSplitCandidates } = await import('../../src/lib/shares');
+    const d = new Date(occurredAt);
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return findExactSplitCandidates(ledger.splitShares, ledger.reimbursed, { amount, date });
+  },
   findManualLookalike: (amount: number, type: 'expense' | 'income', occurredAt: number) =>
     ledger.manual.find((m) => m.amount === amount && m.type === type && sameDay(m.occurredAt, occurredAt)),
 };
@@ -169,6 +178,8 @@ export const resetEnv = () => {
   ledger.txs.clear();
   ledger.manual = [];
   ledger.offline = false;
+  ledger.splitShares = [];
+  ledger.reimbursed = {};
   remote.rows.clear();
   remote.ok = true;
 };

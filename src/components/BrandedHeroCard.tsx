@@ -326,7 +326,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         return [{
           id: 'gullak_only',
           text: `${formatCurrency(0)} income`,
-          badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
+          badgeText: `${formatCurrency(gullakDrawnAmount)} drawn from Gullak`,
           approxSize: 0,
         }];
       }
@@ -351,7 +351,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       let badgeText: string | null = null;
       if (showGullakSpending) {
         if (gullakDrawnAmount > 0) {
-          badgeText = `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`;
+          badgeText = `${formatCurrency(gullakDrawnAmount)} drawn from Gullak`;
         } else {
           badgeText = 'now spending from Gullak';
         }
@@ -373,7 +373,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       items.push({
         id: 'gullak_only',
         text: `${formatCurrency(0)} income`,
-        badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
+        badgeText: `${formatCurrency(gullakDrawnAmount)} drawn from Gullak`,
         approxSize: 0,
       });
     }

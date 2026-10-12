@@ -67,8 +67,17 @@ export const resolveBank = (sender: string): { code: string; name: string } => {
 
 const RE_OTP = /\b(otp|one[ -]?time[ -]?password|verification code|auth(?:entication)? code)\b/i;
 const RE_FAILED = /\b(failed|declined|unsuccessful|could not be (?:processed|completed)|was not successful|insufficient (?:funds|balance))\b/i;
+/**
+ * Messages about something that has NOT happened yet. "will be debited", reminders, collect requests, dues.
+ * NOTE: words like "mandate" / "standing instruction" / "autopay" alone are NOT future: after the money is
+ * really debited the bank still says "debited ... towards Netflix e-mandate". Those are handled by
+ * RE_FUTURE_WORDS_ONLY below (ignored only when no completed-debit/credit verb is present).
+ */
 const RE_FUTURE =
-  /(will be (?:debited|deducted|charged)|to be debited|is due|due (?:on|by|date)|due amount|amount due|e-?mandate|mandate|standing instruction|autopay|auto-?debit (?:is )?(?:scheduled|set)|reminder|collect request|has requested|requested (?:money|rs|inr|₹)|request(?:ed)? (?:of|for) (?:rs|inr|₹)|payment request|bill (?:is )?generated|statement (?:is )?generated|min(?:imum)? (?:amount )?due|total (?:amount )?due)/i;
+  /(will be (?:debited|deducted|charged)|to be debited|is due|due (?:on|by|date)|due amount|amount due|auto-?debit (?:is )?(?:scheduled|set)|reminder|collect request|has requested|requested (?:money|rs|inr|₹)|request(?:ed)? (?:of|for) (?:rs|inr|₹)|payment request|bill (?:is )?generated|statement (?:is )?generated|min(?:imum)? (?:amount )?due|total (?:amount )?due)/i;
+const RE_FUTURE_WORDS_ONLY = /(e-?mandate|mandate|standing instruction|autopay)/i;
+/** A completed money movement: a real verb right next to an amount, or an amount followed by the verb. */
+const RE_COMPLETED = /((?:debited|credited|spent|paid|sent|received|withdrawn|deducted|charged|deposited)\s+(?:by|for|with|of)?\s*(?:rs\.?|inr|₹)?\s*[0-9]|(?:rs\.?|inr|₹)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s+(?:has been |was |is )?(?:debited|credited|spent|paid|sent|received|withdrawn|deducted|charged|deposited))/i;
 const RE_PROMO = /(offer|cashback up to|get up to|win |won |congratulations|pre-?approved|loan (?:of|upto|up to)|apply now|click here|limited period|discount|coupon|voucher|reward points? (?:earned|credited)|t&c)/i;
 
 const RE_DEBIT = /\b(debited|debit(?:ed)? by|spent|paid|withdrawn|withdrawal|sent|purchase|deducted|charged|used at|transferred to|txn of|payment of)\b/i;
@@ -187,11 +196,25 @@ const extractMerchant = (text: string, direction?: Direction): string | undefine
 
 const RE_CARD_BILL =
   /(credit card (?:bill|payment)|cc (?:bill|payment)|payment (?:of .{1,25})?(?:received|credited).{0,40}(?:credit )?card|towards (?:your )?(?:credit )?card|card (?:bill|dues) (?:paid|payment))/i;
+/**
+ * The CARD side of a bill payment: "payment of Rs 15,000 for HDFC Credit Card XX9999 has been received",
+ * "Thank you for your payment ... credit card". The card word may come before or after "received".
+ * Money paid TOWARDS a card is never a new expense (the card's own spends were already counted).
+ */
+const RE_CARD_SIDE_PAYMENT =
+  /((?:payment|paid|received|credited|thank you)[^.]{0,60}\b(?:credit|cc)\s*card\b|\b(?:credit|cc)\s*card\b[^.]{0,60}\b(?:payment|bill)[^.]{0,30}(?:received|credited|successful|processed|paid))/i;
+/** A card PURCHASE ("spent ... on card at ZOMATO") also says "card", so it must be excluded. */
+const RE_CARD_PURCHASE = /\b(?:spent|purchase|used)\b[^.]{0,40}\b(?:at|on)\b/i;
+const looksLikeCardBill = (text: string): boolean =>
+  RE_CARD_BILL.test(text) || (RE_CARD_SIDE_PAYMENT.test(text) && !RE_CARD_PURCHASE.test(text));
 
 const detectCreditKind = (text: string, merchant?: string): CreditKind => {
   if (/salary|sal\b|payroll/i.test(text)) return 'salary';
   if (/interest/i.test(text)) return 'interest';
-  if (/refund|reversal|reversed|cashback/i.test(text)) return 'refund';
+  if (/refund|reversal|reversed/i.test(text)) return 'refund';
+  // Cashback only counts when it is the credit itself ("cashback of Rs 5 credited"), not an extra sentence
+  // after a person's transfer ("credited by VPA friend@ybl. Cashback Rs 5 credited").
+  if (/cashback/i.test(text) && !(merchant && /upi|imps|neft|vpa/i.test(text))) return 'refund';
   if (merchant && /upi|imps|neft|vpa/i.test(text)) return 'person';
   return 'other';
 };
@@ -235,6 +258,7 @@ export const parseSms = (sender: string, body: string): ParsedMessage => {
   if (RE_OTP.test(text)) return kindOnly('otp');
   if (RE_FAILED.test(text)) return kindOnly('failed');
   if (RE_FUTURE.test(text)) return kindOnly('future');
+  if (RE_FUTURE_WORDS_ONLY.test(text) && !RE_COMPLETED.test(text)) return kindOnly('future');
 
   const direction = detectDirection(text);
   if (!direction) {
@@ -242,14 +266,14 @@ export const parseSms = (sender: string, body: string): ParsedMessage => {
     if (hasOnlyBalanceAmount(text) || /\b(balance|bal)\b/i.test(text)) return kindOnly('balance');
     return kindOnly('unknown');
   }
-  if (RE_PROMO.test(text) && !/(debited|credited)/i.test(text)) return kindOnly('promo');
+  if (RE_PROMO.test(text) && !/(debited|credited)/i.test(text) && !RE_COMPLETED.test(text)) return kindOnly('promo');
 
   const amount = extractAmount(text);
   const last4 = extractLast4(text);
   const accountKind = detectAccountKind(text);
   const merchant = extractMerchant(text, direction);
   const ref = extractRef(text);
-  const isCardBill = RE_CARD_BILL.test(text);
+  const isCardBill = looksLikeCardBill(text);
 
   if (!amount) {
     return { ...base, kind: hasOnlyBalanceAmount(text) ? 'balance' : 'unknown', direction, last4, accountKind };
@@ -275,6 +299,9 @@ const RE_N_IGNORE =
   /(failed|declined|pending|processing|request|requested|collect|reminder|due|offer|cashback (?:up ?to|of up)|win|scratch|reward|bill (?:is )?generated|recharge (?:now|due)|expir|expires)/i;
 const RE_N_DEBIT = /(paid|sent|payment of|payment to|debited|spent|you paid|money sent)/i;
 const RE_N_CREDIT = /(received|credited|got|has sent you|sent you)/i;
+// Clear, unambiguous wording (checked first).
+const RE_N_CREDIT_STRONG = /(\b(?:paid|sent) you\b|\byou(?:'ve| have)? received\b|\breceived (?:₹|rs\.?|inr)|\bcredited\b|\bhas sent you\b|\bmoney received\b)/i;
+const RE_N_DEBIT_STRONG = /(\byou (?:paid|sent)\b|\bpaid (?:₹|rs\.?|inr)\s*[0-9]|\bpaid [0-9]|\bpaid to\b|\bpayment (?:of|to)\b|\bsent (?:₹|rs\.?|inr)|\bmoney sent\b|\bdebited\b|\bspent\b)/i;
 
 export const parseNotification = (app: string, title: string, body: string): ParsedMessage => {
   const text = `${title || ''} ${body || ''}`.replace(/\s+/g, ' ').trim();
@@ -282,11 +309,19 @@ export const parseNotification = (app: string, title: string, body: string): Par
   if (RE_OTP.test(text)) return { ...base, kind: 'otp' };
   if (RE_N_IGNORE.test(text)) return { ...base, kind: 'future' };
 
-  const d = firstIndex(RE_N_DEBIT, text);
-  const c = firstIndex(RE_N_CREDIT, text);
+  // Direction. "Rahul paid you ₹500" and "You received ₹500" are CREDITS even though they contain "paid".
+  const creditStrong = firstIndex(RE_N_CREDIT_STRONG, text);
+  const debitStrong = firstIndex(RE_N_DEBIT_STRONG, text);
   let direction: Direction | undefined;
-  if (d >= 0 && (c < 0 || d < c)) direction = 'debit';
-  else if (c >= 0) direction = /has sent you|sent you/i.test(text) || d < 0 ? 'credit' : 'debit';
+  if (creditStrong >= 0 && (debitStrong < 0 || creditStrong < debitStrong)) direction = 'credit';
+  else if (debitStrong >= 0) direction = 'debit';
+  else {
+    // Loose wording: keep the earlier behaviour.
+    const d = firstIndex(RE_N_DEBIT, text);
+    const c = firstIndex(RE_N_CREDIT, text);
+    if (d >= 0 && (c < 0 || d < c)) direction = 'debit';
+    else if (c >= 0) direction = /has sent you|sent you/i.test(text) || d < 0 ? 'credit' : 'debit';
+  }
   if (!direction) return { ...base, kind: 'unknown' };
 
   RE_CURRENCY_AMT.lastIndex = 0;

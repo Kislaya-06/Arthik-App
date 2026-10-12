@@ -64,7 +64,9 @@ export type ReviewReason =
   | 'notification_only'  // bank SMS never arrived
   | 'no_account'         // could not tell which account
   | 'ambiguous_match'    // could be the same as more than one existing transaction (or only weakly matches one)
-  | 'unknown_sender';    // financial email from a sender Arthik does not recognise yet
+  | 'unknown_sender'     // financial email from a sender Arthik does not recognise yet
+  | 'possible_transfer'  // same amount out of one tracked account and into another, nothing proves it is one transfer
+  | 'split_repayment';   // money in that equals what a friend still owes on a split
 
 export interface AutoLogEvent {
   id: string;

@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed & Added — Auto Logging accuracy, email as a first-class source, "Friend paid back?" question
+
+> **OTA safe (JS only).** Apply AFTER the previous update (needs the split repayment code in `src/lib/shares.ts`). The native 3-second debounce note in the scan needs a new APK and is NOT part of this update.
+
+**Auto Logging fixes**
+- **Own transfer with a shared UPI reference**: the credit SMS was dropped as a "duplicate" of the debit, so the debit stayed as an expense. Duplicate checks are now direction-aware (`matching.isSameSourceDuplicate`).
+- **Credit card bill** wording in either order ("payment of Rs X for ... Credit Card ... has been received") is no longer logged as an expense.
+- **Payment-app notifications**: "Rahul paid you ₹500" / "You received ₹500" are credits (they contain "paid"), no more ghost expenses in review.
+- **Real debits no longer ignored**: "debited ... e-mandate", SIP standing instruction, merchants named Discount / Voucher / Offer. Only truly future messages ("will be debited", reminders, requests) are skipped.
+- **Own-transfer guess never deletes anything**: same amount + close in time is only "likely". Certain = same reference, or the messages name the other account (self / own account / last 4 / other bank). Likely → new review question "Own account transfer?" (Yes removes the expense, No logs it).
+- **One failing event no longer throws away the rest** of the queue (per-event try/catch in `processQueue`).
+- **"Cashback" in an extra sentence** no longer turns a friend's credit into an automatic "refund" income.
+- **Database safety**: only a real wrong-key error starts clean. A locked / busy / temporary error is retried and never wipes tracked accounts and rules.
+- **Money arriving 2-3 times quickly is counted every time**: identical SMS (no reference) are no longer merged within 5 minutes (same message = within 2 s). The inbox safety net now counts identical messages instead of matching text, so it neither duplicates nor loses one. Payment-app re-posts are merged only within 15 s, identical emails (no reference) only within 60 s.
+- **Email is a first-class source**: a bank email that names no account number logs immediately when exactly one account of that bank is tracked. A later SMS for the same transaction is added to "Why was this logged?" as another source (no second transaction).
+
+**Friend paid back? (Auto Logging)**
+- New review question when a credit equals exactly what a friend still owes on an unsettled split (SMS and email, also while the app is closed). Yes -> logged as a reimbursement linked to that split (the money then goes back to where the expense was paid from). No -> the normal "Income or Expense?" question.
+- New review question "Own account transfer?" (see above).
+- Tests: NEW `tests/autoLogFixes.test.ts` (39), `tests/autoLogSplit.test.ts` (9); `tests/helpers/autoLogTestEnv.ts` knows about splits.
+
 ### Fixed — Weekly/Monthly All pill, vault guard, limit alerts, Pure Mode funding card, split repayments, split keyboard
 
 > **OTA safe (JS only).** No native change, no migration.

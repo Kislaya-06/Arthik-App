@@ -7,7 +7,16 @@ import type { Direction } from './types';
 export const CROSS_SOURCE_WINDOW_MS = 15 * 60 * 1000;
 export const NOTIFICATION_WAIT_MS = 20 * 60 * 1000;
 export const TRANSFER_WINDOW_MS = 15 * 60 * 1000;
-export const SAME_MESSAGE_WINDOW_MS = 5 * 60 * 1000;
+/**
+ * The SAME physical message delivered twice (receiver + inbox read) differs by at most a couple of seconds.
+ * Anything further apart is a different message, even when the text is identical: when money arrives
+ * 2-3 times in quick succession ("Rs 100 credited" x3) every one of them must be counted.
+ */
+export const SAME_MESSAGE_WINDOW_MS = 2_000;
+/** A payment app re-posting (updating) the very same notification shows up within seconds. */
+export const NOTIFICATION_REPOST_WINDOW_MS = 15_000;
+/** Same email notification shown again by the mail app. Real repeats carry their own time / reference. */
+export const EMAIL_REPOST_WINDOW_MS = 60_000;
 export const MAX_RECOVERY_DAYS = 30;
 export const DISCOVERY_DAYS = 90;
 export const DISCOVERY_MAX_MESSAGES = 5000;
@@ -39,11 +48,18 @@ export const isSameSourceDuplicate = (
   a: Matchable & { fingerprint: string },
   b: Matchable & { fingerprint: string }
 ): boolean => {
-  if (a.ref && b.ref) return a.ref === b.ref;
+  // Same reference only means "the same payment" when it is the same DIRECTION. An own-account UPI
+  // transfer produces a debit SMS and a credit SMS that share one reference: they are two sides of a
+  // transfer, never duplicates of each other.
+  if (a.ref && b.ref) return a.ref === b.ref && !!a.direction && a.direction === b.direction;
   return a.fingerprint === b.fingerprint && Math.abs(a.occurredAt - b.occurredAt) <= SAME_MESSAGE_WINDOW_MS;
 };
 
-/** Debit on one tracked account + credit on another tracked account = own transfer. */
+/**
+ * Debit on one tracked account + credit on another tracked account = own transfer.
+ * Same amount + close in time is only a CANDIDATE (two unrelated ₹500 payments can look the same).
+ * Use `ownTransferStrength` to decide between "certain" and "ask the user".
+ */
 export const isOwnTransferPair = (
   debit: Matchable & { accountKey: string | null },
   credit: Matchable & { accountKey: string | null }
@@ -151,4 +167,41 @@ export const decideIdentity = <T extends IdentityEvidence>(event: IdentityEviden
   if (strong.length > 1) return { kind: 'ambiguous', candidates: strong.map((x) => x.c) };
   if (scored.length) return { kind: 'weak', candidates: scored.map((x) => x.c) };
   return { kind: 'none' };
+};
+
+/**
+ * How sure are we that a debit and a credit are the two sides of one own-account transfer?
+ *  - 'certain': the same reference on both sides, OR the messages themselves point at the user's own
+ *               accounts ("self", "own account", the other account's last 4 digits / bank name).
+ *  - 'likely' : same amount, within 15 min, but nothing else links them (a friend may simply have paid
+ *               you the same amount) → ask the user, never delete anything on a guess.
+ *  - 'no'     : not a pair.
+ */
+export interface TransferSide extends Matchable {
+  accountKey: string | null;
+  merchant?: string | null;
+  body?: string | null;
+}
+
+const SELF_WORDS = /\b(self|own (?:a\/?c|acc(?:oun)?t)|my (?:a\/?c|acc(?:oun)?t)|own transfer|self transfer)\b/i;
+
+const mentionsAccount = (text: string, accountKey: string | null, otherAccountKey: string | null): boolean => {
+  if (!text || !accountKey) return false;
+  const [bank, last4] = accountKey.split(':');
+  const [otherBank] = (otherAccountKey || '').split(':');
+  if (last4 && new RegExp(`(?:^|[^0-9])${last4}(?![0-9])`).test(text)) return true;
+  // Bank name only counts when the two accounts are at DIFFERENT banks (otherwise every message names its own bank).
+  if (bank && bank !== otherBank && new RegExp(`\\b${bank}\\b`, 'i').test(text)) return true;
+  return false;
+};
+
+export const ownTransferStrength = (debit: TransferSide, credit: TransferSide): 'certain' | 'likely' | 'no' => {
+  if (!isOwnTransferPair(debit, credit)) return 'no';
+  if (debit.ref && credit.ref && debit.ref === credit.ref) return 'certain';
+  const debitText = `${debit.merchant || ''} ${debit.body || ''}`;
+  const creditText = `${credit.merchant || ''} ${credit.body || ''}`;
+  if (SELF_WORDS.test(debitText) || SELF_WORDS.test(creditText)) return 'certain';
+  if (mentionsAccount(debitText, credit.accountKey, debit.accountKey)) return 'certain';
+  if (mentionsAccount(creditText, debit.accountKey, credit.accountKey)) return 'certain';
+  return 'likely';
 };

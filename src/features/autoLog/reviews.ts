@@ -1,7 +1,7 @@
 import * as db from './db';
 import { logEvent } from './engine';
 import { deleteTransaction, setTransactionCategory, setTransactionType } from './ledger';
-import { identityScore } from './matching';
+import { identityScore, ownTransferStrength, TRANSFER_WINDOW_MS } from './matching';
 import type { AutoLogEvent } from './types';
 
 /**
@@ -35,25 +35,27 @@ export const classifyEvent = async (
   await db.learnTemplate(e.template, e.sender, e.source);
   if (rememberMerchant && e.merchant) await db.setMerchantPref(e.merchant, categoryId, type);
 
-  // Immediately reconcile compatible awaiting_sms notifications for this newly confirmed transaction
-  if (e.status === 'logged' || e.status === 'queued') {
-    const awaitingNotifs = await db.findEvents(
-      "source = 'notification' AND (status = 'awaiting_sms' OR (status = 'pending' AND review_reason = 'notification_only')) AND amount = ? AND direction = ?",
-      e.amount, e.direction
-    );
-    for (const notif of awaitingNotifs) {
-      const score = identityScore(notif as any, e as any);
-      if (score !== null && (score >= 100 || score >= 3)) {
-        await db.updateEvent(notif.id, { status: 'merged', matchedId: e.id, reviewReason: null });
-        if (!e.merchant && notif.merchant) {
-          e.merchant = notif.merchant;
-          await db.updateEvent(e.id, { merchant: notif.merchant });
-        }
+  await reconcileAwaitingNotifications(e);
+  return e;
+};
+
+/** Immediately reconcile compatible awaiting_sms notifications for a newly confirmed transaction. */
+const reconcileAwaitingNotifications = async (e: AutoLogEvent) => {
+  if (e.status !== 'logged' && e.status !== 'queued') return;
+  const awaitingNotifs = await db.findEvents(
+    "source = 'notification' AND (status = 'awaiting_sms' OR (status = 'pending' AND review_reason = 'notification_only')) AND amount = ? AND direction = ?",
+    e.amount, e.direction
+  );
+  for (const notif of awaitingNotifs) {
+    const score = identityScore(notif as any, e as any);
+    if (score !== null && (score >= 100 || score >= 3)) {
+      await db.updateEvent(notif.id, { status: 'merged', matchedId: e.id, reviewReason: null });
+      if (!e.merchant && notif.merchant) {
+        e.merchant = notif.merchant;
+        await db.updateEvent(e.id, { merchant: notif.merchant });
       }
     }
   }
-
-  return e;
 };
 
 /** Logged already; user picks the category. */
@@ -122,4 +124,57 @@ export const reportProblem = async (
     return 'type_flipped';
   }
   return 'recorded';
+};
+
+/**
+ * "Possible own-account transfer" answer.
+ *  - Yes: the debit side is removed from expenses (if it was logged) and both sides are marked as a transfer.
+ *  - No : it is a separate payment, logged normally.
+ * Nothing is ever deleted unless the user said yes.
+ */
+export const resolveTransfer = async (event: AutoLogEvent, isTransfer: boolean) => {
+  if (!isTransfer) {
+    await classifyEvent(event, event.direction === 'credit' ? 'income' : 'expense', null, false);
+    return;
+  }
+  const opposite = await db.findEvents(
+    "source = ? AND direction = ? AND amount = ? AND occurred_at BETWEEN ? AND ? AND status IN ('logged','queued') AND id != ?",
+    event.source, event.direction === 'debit' ? 'credit' : 'debit', event.amount, event.occurredAt - TRANSFER_WINDOW_MS, event.occurredAt + TRANSFER_WINDOW_MS, event.id
+  );
+  const other = opposite.find((o) => {
+    const debit = event.direction === 'debit' ? event : o;
+    const credit = event.direction === 'debit' ? o : event;
+    return ownTransferStrength(debit as any, credit as any) !== 'no';
+  });
+  if (other) {
+    // `event` is the pending one (never logged); the other side was already logged and is removed now.
+    if (other.expenseId && other.status === 'logged') await deleteTransaction(other.expenseId);
+    await db.updateEvent(other.id, { status: 'transfer', reviewReason: null, matchedId: event.id, needsCategory: false });
+  }
+  await db.updateEvent(event.id, { status: 'transfer', reviewReason: null, matchedId: other?.id ?? null, needsCategory: false });
+};
+
+/**
+ * "Is this your friend's share of a split?"
+ *  - shareId given: the money is logged as a REIMBURSEMENT linked to that share. The split is settled and the
+ *    money goes back to where the expense was paid from (budget / income / Gullak), see moneyWaterfall.ts.
+ *  - shareId null: it is not a split repayment; the normal "Income or Expense?" question follows.
+ */
+export const resolveSplitRepayment = async (event: AutoLogEvent, shareId: string | null, friendLabel?: string) => {
+  if (!shareId) {
+    await db.updateEvent(event.id, { reviewReason: 'type' });
+    return;
+  }
+  const e = { ...event };
+  if (e.amount == null) throw new Error('Amount is missing');
+  const acc = e.accountKey ? await db.getAccount(e.accountKey) : null;
+  await logEvent(e, 'income', null, acc?.kind ?? null, quiet, {
+    reimbursesShareId: shareId,
+    note: friendLabel ? `Split repayment · ${friendLabel}` : 'Split repayment',
+  });
+  await db.updateEvent(e.id, {
+    status: e.status, reviewReason: null, expenseId: e.expenseId, needsCategory: false, direction: 'credit', amount: e.amount,
+  });
+  await reconcileAwaitingNotifications(e);
+  return e;
 };

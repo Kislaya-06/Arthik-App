@@ -62,6 +62,12 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 `;
 
+/** SQLCipher answers a wrong key with "file is not a database" (SQLITE_NOTADB, code 26). */
+export const isWrongKeyError = (e: unknown): boolean => {
+  const msg = String((e as any)?.message ?? e ?? '');
+  return /not a database|notadb|file is encrypted|code 26|\(26\)|sqlite_notadb/i.test(msg);
+};
+
 const openFresh = async (name: string, key: string) => {
   const db = await SQLite.openDatabaseAsync(name);
   await db.execAsync(`PRAGMA key = '${key}';`);
@@ -96,11 +102,18 @@ export const openDb = async (userId: string): Promise<SQLite.SQLiteDatabase> => 
     let db: SQLite.SQLiteDatabase;
     try {
       db = await openFresh(name, key);
-    } catch {
-      // Key no longer matches (app data partially restored): the old state is unusable.
-      // Spec §30: never pretend it still exists → start clean.
-      try { await SQLite.deleteDatabaseAsync(name); } catch {}
-      db = await openFresh(name, key);
+    } catch (first) {
+      if (!isWrongKeyError(first)) {
+        // Locked / busy / low storage / transient failure: the data is fine. Retry once, and if it still
+        // fails, surface the error. NEVER delete the user's tracked accounts and rules for a temporary problem.
+        await new Promise((r) => setTimeout(r, 400));
+        db = await openFresh(name, key);
+      } else {
+        // Key no longer matches (app data partially restored): the old state is unusable.
+        // Spec §30: never pretend it still exists → start clean.
+        try { await SQLite.deleteDatabaseAsync(name); } catch {}
+        db = await openFresh(name, key);
+      }
     }
     await db.execAsync('PRAGMA journal_mode = WAL;');
     await db.execAsync(SCHEMA);

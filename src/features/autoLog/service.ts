@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { ArthikAutoLog, isAutoLogNativeAvailable } from '../../../modules/arthik-autolog';
 import * as db from './db';
-import { flushQueued, processEmail, processNotification, processSms, RawSms, sweepAwaiting } from './engine';
+import { flushQueued, processEmail, processNotification, processSms, RawSms, smsFingerprint, sweepAwaiting } from './engine';
 import { DISCOVERY_DAYS, DISCOVERY_MAX_MESSAGES } from './matching';
 import { hasSmsPermission } from './permissions';
 import { fetchRemoteProfile, RemoteAccount, upsertRemoteProfile } from './remote';
@@ -140,7 +140,27 @@ const catchUpInbox = async (since: number, notify: boolean) => {
     before = page.oldest;
   }
   collected.sort((a, b) => a.date - b.date);
-  for (const m of collected) await processSms(m, { origin: 'live', notify });
+
+  // The receiver already stored most of these. Skip exactly as many identical messages as we already have,
+  // and process the rest. (Matching by text alone would drop a SECOND genuine identical message, e.g. three
+  // "Rs 100 credited" in a row; counting does not.)
+  const groups = new Map<string, RawSms[]>();
+  for (const m of collected) {
+    const fp = smsFingerprint(m.address, m.body);
+    const list = groups.get(fp);
+    if (list) list.push(m);
+    else groups.set(fp, [m]);
+  }
+  const toProcess: RawSms[] = [];
+  for (const [fp, list] of groups) {
+    const from = list[0].date - 2 * 60_000; // receiver time vs inbox time can differ by seconds
+    const stored = await db.findEvents("source = 'sms' AND fingerprint = ? AND occurred_at >= ?", fp, from);
+    toProcess.push(...list.slice(Math.min(stored.length, list.length)));
+  }
+  toProcess.sort((a, b) => a.date - b.date);
+  for (const m of toProcess) {
+    try { await processSms(m, { origin: 'live', notify }); } catch {}
+  }
 };
 
 export const processQueue = (userId: string, opts: { notify: boolean } = { notify: true }): Promise<boolean> =>
@@ -161,17 +181,21 @@ export const processQueue = (userId: string, opts: { notify: boolean } = { notif
     parsed.sort((a, b) => (a.date ?? 0) - (b.date ?? 0));
     for (const ev of parsed) {
       if (!ev.date || ev.date < liveSince) continue; // live boundary (spec §40)
-      if (ev.type === 'sms' && ev.address && ev.body) {
-        await processSms({ address: ev.address, body: ev.body, date: ev.date }, { origin: 'live', notify: opts.notify });
-      } else if (ev.type === 'notification' && ev.app) {
-        await processNotification({ app: ev.app, title: ev.title ?? '', body: ev.body ?? '', date: ev.date }, { origin: 'live', notify: opts.notify });
-      } else if (ev.type === 'email' && ev.app) {
-        // Email failure must never break SMS / notification processing (spec email §38–39).
-        try {
+      // The native queue was already emptied by drainQueue(): one failing event must never throw away the
+      // events behind it. Every event is isolated; a failed SMS is also recovered by the inbox catch-up below.
+      try {
+        if (ev.type === 'sms' && ev.address && ev.body) {
+          await processSms({ address: ev.address, body: ev.body, date: ev.date }, { origin: 'live', notify: opts.notify });
+        } else if (ev.type === 'notification' && ev.app) {
+          await processNotification({ app: ev.app, title: ev.title ?? '', body: ev.body ?? '', date: ev.date }, { origin: 'live', notify: opts.notify });
+        } else if (ev.type === 'email' && ev.app) {
+          // Email failure must never break SMS / notification processing (spec email §38–39).
           if ((await db.getMeta('email_enabled')) === '1') {
             await processEmail({ app: ev.app, title: ev.title ?? '', body: ev.body ?? '', date: ev.date }, { origin: 'live', notify: opts.notify });
           }
-        } catch {}
+        }
+      } catch {
+        // keep going with the next event
       }
     }
     // Safety net: SMS the receiver may have missed (OEM killed the app, etc.).
