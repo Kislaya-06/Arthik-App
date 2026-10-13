@@ -22,16 +22,11 @@ import { formatCadenceStreakLabel } from '../lib/budgetModeUtils';
 import { computeCalendarConnections } from '../lib/budgetPeriods';
 import { StreakFlame } from './StreakFlame';
 import { styles } from './StreakCalendarModal.styles';
+import { DayLogData, mapRemoteRowsToDayLog } from '../lib/streakCalendarData';
 
 interface StreakCalendarModalProps {
   visible: boolean;
   onClose: () => void;
-}
-
-interface DayLogData {
-  date: string;
-  status: 'saved' | 'missed' | 'unknown';
-  amount: number;
 }
 
 interface TooltipState {
@@ -216,23 +211,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
           .lte('date', endDate);
 
         if (!error && data && data.length > 0) {
-          const remoteMap: Record<string, DayLogData> = {};
-          data.forEach((row: any) => {
-            if (row.status === 'unknown') {
-              remoteMap[row.date] = {
-                date: row.date,
-                status: 'unknown',
-                amount: 0,
-              };
-            } else {
-              const isSaved = row.status === 'saved' && Number(row.amount_saved) > 0;
-              remoteMap[row.date] = {
-                date: row.date,
-                status: isSaved ? 'saved' : 'missed',
-                amount: Number(row.amount_saved) || 0,
-              };
-            }
-          });
+          const remoteMap = mapRemoteRowsToDayLog(data);
 
           // Merge remote over local
           monthCache.current[monthKey] = { ...localMap, ...remoteMap };
