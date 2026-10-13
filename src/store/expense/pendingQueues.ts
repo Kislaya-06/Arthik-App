@@ -1,35 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Expense } from '../expenseStore';
+import type {
+  Expense,
+  FailedSyncItem,
+  ExpenseUpdatePayload,
+  PendingUpdate,
+  PendingDelete,
+} from './types';
 
-export interface FailedSyncItem {
-  id: string;
-  type: 'add' | 'update' | 'delete';
-  expense?: Partial<Expense>;
-  errorReason: string;
-  failedAt: string;
-}
-
-export interface ExpenseUpdatePayload {
-  amount?: number;
-  category_id?: string | null;
-  note?: string;
-  payment_mode?: 'cash' | 'upi' | 'card';
-  expense_date?: string;
-  type?: 'expense' | 'income';
-}
-
-export interface PendingUpdate {
-  id: string;
-  payload: ExpenseUpdatePayload;
-  retryCount?: number;
-  lastRetryAt?: number;
-}
-
-export interface PendingDelete {
-  id: string;
-  retryCount?: number;
-  lastRetryAt?: number;
-}
+export type { FailedSyncItem, ExpenseUpdatePayload, PendingUpdate, PendingDelete };
 
 export const getPendingStorageKey = (userId: string) => `@arthik_pending_expenses_${userId}`;
 export const getPendingUpdatesKey = (userId: string) => `@arthik_pending_updates_${userId}`;
