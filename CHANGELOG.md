@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **InsightsScreen Styles (Step 3b)**: Moved StyleSheet styles out of `InsightsScreen.tsx` into `src/screens/insights/InsightsScreen.styles.ts`.
 - **InsightsScreen Data Hook (Step 3c)**: Extracted pure financial and analytics derivations into useInsightsData hook and added comprehensive snapshot tests.
 - **ProfileScreen Split (Step 4)**: Extracted PauseBudgetModal, EditProfileModal, DeleteAccountModal, and StyleSheet styles.
+- **SavingsScreen Split (Step 5a)**: Extracted SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, and StyleSheet styles.
+- **Modal Styles Split (Step 5b)**: Moved StreakCalendarModal and DepositGullakModal styles to dedicated style files.
+- **Streak Calendar Row Mapping (Step 5c)**: Extracted `mapRemoteRowsToDayLog` pure function to `src/lib/streakCalendarData.ts` with unit and mutation tests.
 
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 
