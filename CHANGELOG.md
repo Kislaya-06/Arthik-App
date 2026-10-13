@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Modal Styles Split (Step 5b)**: Moved StreakCalendarModal and DepositGullakModal styles to dedicated style files.
 - **Streak Calendar Row Mapping (Step 5c)**: Extracted `mapRemoteRowsToDayLog` pure function to `src/lib/streakCalendarData.ts` with unit and mutation tests.
 - **ExpenseStore Pending Queues (Step 6a)**: Extracted pending queue storage keys, exponential backoff schedule, UUID validation, and offline queue mutators to `src/store/expense/pendingQueues.ts`.
+- **ExpenseStore Sync Phases (Step 6b)**: Split `syncPendingExpenses` into four discrete phase functions (`syncPendingDeletes`, `syncPendingAdds`, `syncPendingUpdates`, `flushSideQueues`).
 
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 
