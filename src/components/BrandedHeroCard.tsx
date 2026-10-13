@@ -14,7 +14,7 @@ import { RollingText } from './RollingText';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
-import { calculatePureHeroMetrics } from '../lib/homeCalculations';
+import { calculatePureHeroMetrics, buildHeroSubtextChips } from '../lib/homeCalculations';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { PeriodSummaryInfo } from '../lib/budgetPeriods';
 import { formatCadenceRolloverStrip } from '../lib/budgetModeUtils';
@@ -323,69 +323,10 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   const textColorSecondary = isDark ? 'rgba(26, 43, 76, 0.85)' : 'rgba(26, 43, 76, 0.80)';
 
   // Split breakdown into distinct micro-chips and sort ascending by size (shortest on top, longest on bottom)
-  const subtextChipItems = useMemo(() => {
-    if (!effectiveSubtext) {
-      if (isBudgetModeEnabled && isSpendingFromGullak && gullakDrawnAmount > 0) {
-        return [{
-          id: 'gullak_only',
-          text: `${formatCurrency(0)} income`,
-          badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
-          approxSize: 0,
-        }];
-      }
-      return [];
-    }
-
-    const rawParts = effectiveSubtext.includes(' + ')
-      ? effectiveSubtext.split(' + ')
-      : [effectiveSubtext];
-
-    const items = rawParts.map((rawPart, index) => {
-      const trimmed = rawPart.trim();
-      const text = index > 0 && !trimmed.startsWith('+') ? `+${trimmed}` : trimmed;
-      const lower = text.toLowerCase();
-      const isIncomeChip = lower.includes('income');
-      const isGullakChip = lower.includes('gullak');
-
-      const showGullakSpending =
-        (isIncomeChip && isSpendingFromGullak) ||
-        (!periodIncome && isGullakChip && isSpendingFromGullak);
-
-      let badgeText: string | null = null;
-      if (showGullakSpending) {
-        if (gullakDrawnAmount > 0) {
-          badgeText = `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`;
-        } else {
-          badgeText = 'now spending from Gullak';
-        }
-      }
-
-      // Visual length metric: base chip text + badge length
-      const approxSize = text.length + (badgeText ? badgeText.length + 6 : 0);
-
-      return {
-        id: `${index}_${text}`,
-        text,
-        badgeText,
-        approxSize,
-      };
-    });
-
-    // Gullak is being used but no chip carries the badge (e.g. no income in this pill): show it on its own row.
-    if (isSpendingFromGullak && gullakDrawnAmount > 0 && !items.some((i) => i.badgeText)) {
-      items.push({
-        id: 'gullak_only',
-        text: `${formatCurrency(0)} income`,
-        badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
-        approxSize: 0,
-      });
-    }
-
-    // Sort chips by size: shortest chip on top, progressively larger chips below
-    items.sort((a, b) => a.approxSize - b.approxSize);
-
-    return items;
-  }, [effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome]);
+  const subtextChipItems = useMemo(
+    () => buildHeroSubtextChips({ effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome }),
+    [effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome]
+  );
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 

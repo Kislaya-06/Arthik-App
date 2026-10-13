@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
+
+> **OTA safe (JS only).** Apply after OTA 1, 2 and 3. Only two source files change.
+
+- **A deficit now shows only when the budget AND the income are both used up.** The card adds up all income of the period, but money moves day by day: an overspend that happened before an income arrived was paid from Gullak, and that later income is still unspent. Showing "Budget Exceeded" while income was left was wrong. Now the card shows "Remaining" with that income and "Budget used up". A real deficit still shows when no income is left.
+- **No more invented "₹0 income".** The income chip always shows the real income left (also in the deficit state, where it can really be ₹0).
+- **"Drawn ₹136 from Gullak"** instead of "using ₹136 from Gullak" (the money already came out). It is computed live from the period's data: it shrinks if an expense is edited or deleted, and the Monthly card starts again on the 1st.
+- New pure helper `buildHeroSubtextChips` (tested) builds the chips; `BrandedHeroCard` uses it.
+- Tests: NEW `tests/monthlyCardConsistency.test.ts` (9). Mutation-checked.
+
 ### Fixed & Added — Cadence / Pure Mode money logic (ADR 0012), carry-over, split in Review
 
 > **OTA safe (JS only).** No native change, no database migration. Apply AFTER OTA 1 and OTA 2.

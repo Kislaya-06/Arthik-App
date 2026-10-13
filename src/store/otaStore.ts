@@ -19,14 +19,13 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Cadence & Pure Mode Money Logic, Carry-over & Split in Review 🎯✨',
+    title: ota?.title || 'Monthly Card Deficit Rule & Gullak Breakdown 📊✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          'One Budget Per Calendar Period: Pausing (Pure Mode), resuming, or switching cadences inside the same period continues the same budget without double-allocation',
-          'Single Carry-over Addition: Additive carry is added once to the first period only, preventing multi-week budget inflation',
-          'Smart Cadence Switch Options: Choose between \'Add to tomorrow\\\'s budget\' or spreading leftover funds to pay daily budget across days',
-          'In-Review Expense Split: Split auto-logged expenses with friends directly from the pending review sheet during category selection',
+          'Accurate Monthly Remaining: Deficit shows only when both budget and income are used up; unspent income now correctly shows as Remaining',
+          'Realistic Income Chips: No more artificial ₹0 chips; displays real unspent income alongside period spending',
+          'Drawn from Gullak: Live calculation accurately tracks funds drawn from savings to cover budget overspends',
         ],
   };
 };

@@ -265,9 +265,19 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   });
 
   const available = cycle.spendable;
-  const isOver = cycle.isOverBudget;
-  const remaining = cycle.remaining;
+  let isOver = cycle.isOverBudget;
+  let remaining = cycle.remaining;
   const overAmount = cycle.overAmount;
+  // A DEFICIT means the budget AND the income are both used up. The totals above add up all the income of the
+  // period, but money moves day by day: an overspend that happened before an income arrived was paid from Gullak
+  // (shown as "Drawn ... from Gullak"), and that later income is still unspent. While income is left there is no
+  // deficit: the budget is used up and what remains to spend is that income.
+  let budgetUsedUpIncomeLeft = false;
+  if (params.funding && isOver && isBudgetConfigured && params.funding.incomeRemaining > 0) {
+    isOver = false;
+    remaining = round2(params.funding.incomeRemaining);
+    budgetUsedUpIncomeLeft = true;
+  }
 
   const isPeriodFilter = activeFilter === 'Weekly' || activeFilter === 'Monthly';
   const prefix = activeFilter === 'Daily' ? 'Daily' : (activeFilter === 'All' ? 'Total' : activeFilter);
@@ -333,13 +343,15 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
   } else if (isOver) {
     label = `${prefix} Budget Exceeded`;
     subtext = `Exceeded ${prefix.toLowerCase()} limit by ${formatCurrency(overAmount)}`;
+    // Show the real income left (0 when it is used up), so the card never hides it.
+    if (income > 0 && params.funding) subtext += ` + ${formatCurrency(remainingPeriodIncome)} income`;
   } else {
     label = activeFilter === 'Daily' ? 'Remaining to Spend' : `${prefix} Remaining`;
 
     if (isBudgetConfigured && budgetPool > 0) {
       const daysSuffix = isPeriodFilter ? ` (${daysCount} ${daysCount === 1 ? 'day' : 'days'})` : '';
       const parts: string[] = [];
-      parts.push(`${formatCurrency(budgetPool)} budget${daysSuffix}`);
+      parts.push(budgetUsedUpIncomeLeft ? 'Budget used up' : `${formatCurrency(budgetPool)} budget${daysSuffix}`);
       if (income > 0) parts.push(`${formatCurrency(remainingPeriodIncome)} income`);
       if (totalReimbursements > 0 && activeFilter !== 'All') {
         parts.push(`${formatCurrency(round2(totalReimbursements))} reimbursed`);
@@ -505,3 +517,58 @@ export const calculateExpenseTotals = (
     totalReimbursements: round2(reimbursements),
   };
 };
+
+
+export interface HeroSubtextChip {
+  id: string;
+  text: string;
+  badgeText: string | null;
+  approxSize: number;
+}
+
+/** "Drawn ₹136 from Gullak": it already happened, so it is past tense (not "using"). */
+export const drawnFromGullakText = (amount: number): string =>
+  amount > 0 ? `drawn ₹${formatCurrency(amount).replace('₹', '')} from Gullak` : 'drawn from Gullak';
+
+/**
+ * The small chips under the big hero number. The Gullak badge sits on the income chip. When there is no income
+ * chip to carry it, Gullak gets its own chip: it never invents an income number (it used to say "₹0 income").
+ */
+export function buildHeroSubtextChips(input: {
+  effectiveSubtext: string | null | undefined;
+  isBudgetModeEnabled: boolean;
+  isSpendingFromGullak: boolean;
+  gullakDrawnAmount: number;
+  periodIncome: number;
+}): HeroSubtextChip[] {
+  const { effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome } = input;
+  const standalone = (): HeroSubtextChip => {
+    const drawn = drawnFromGullakText(gullakDrawnAmount);
+    const text = drawn.charAt(0).toUpperCase() + drawn.slice(1);
+    return { id: 'gullak_only', text, badgeText: null, approxSize: text.length };
+  };
+
+  if (!effectiveSubtext) {
+    return isBudgetModeEnabled && isSpendingFromGullak && gullakDrawnAmount > 0 ? [standalone()] : [];
+  }
+
+  const rawParts = effectiveSubtext.includes(' + ') ? effectiveSubtext.split(' + ') : [effectiveSubtext];
+  const items: HeroSubtextChip[] = rawParts.map((rawPart, index) => {
+    const trimmed = rawPart.trim();
+    const text = index > 0 && !trimmed.startsWith('+') ? `+${trimmed}` : trimmed;
+    const lower = text.toLowerCase();
+    const isIncomeChip = lower.includes('income');
+    const isGullakChip = lower.includes('gullak');
+
+    const showGullakSpending =
+      (isIncomeChip && isSpendingFromGullak) || (!periodIncome && isGullakChip && isSpendingFromGullak);
+
+    const badgeText = showGullakSpending ? drawnFromGullakText(gullakDrawnAmount) : null;
+    return { id: `${index}_${text}`, text, badgeText, approxSize: text.length + (badgeText ? badgeText.length + 6 : 0) };
+  });
+
+  if (isSpendingFromGullak && gullakDrawnAmount > 0 && !items.some((i) => i.badgeText)) items.push(standalone());
+
+  items.sort((a, b) => a.approxSize - b.approxSize);
+  return items;
+}
