@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { format, subDays, parseISO } from 'date-fns';
-import { Expense } from './expenseStore';
+import type { Expense } from './expense/types';
 import { useNotificationStore } from './notificationStore';
 
 const getUserCreatedAtLocalDate = (createdAt?: string | null): string | undefined => {
