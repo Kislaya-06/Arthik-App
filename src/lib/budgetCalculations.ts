@@ -10,6 +10,8 @@ export interface DailyRecord {
   isFinalized: boolean;
   status: 'saved' | 'exceeded' | 'even' | 'active' | 'unknown';
   needsUpload?: boolean;
+  /** Corrected row: must overwrite the (wrong) server row instead of being insert-only. */
+  forceOverwrite?: boolean;
 }
 
 export interface SavingsMetrics {

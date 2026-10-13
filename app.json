@@ -63,12 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Auto Logging Accuracy & Split Repayment Sync ⚡🤖",
+        "title": "Cadence & Pure Mode Money Logic, Carry-over & Split in Review 🎯✨",
         "highlights": [
-          "Direction-Aware Deduplication: Own-account transfers and identical quick incoming credits accurately logged without dropped entries",
-          "Smart Friend Repayment Detection: Automatic review question when received amount matches an unsettled friend split",
-          "Email as First-Class Source: Bank emails without explicit account numbers log smoothly and pair with subsequent SMS notifications",
-          "Gullak Drawn Clarification: Clear '₹X drawn from Gullak' indicator for past overspend coverage on Hero Summary cards"
+          "One Budget Per Calendar Period: Pausing (Pure Mode), resuming, or switching cadences inside the same period continues the same budget without double-allocation",
+          "Single Carry-over Addition: Additive carry is added once to the first period only, preventing multi-week budget inflation",
+          "Smart Cadence Switch Options: Choose between 'Add to tomorrow's budget' or spreading leftover funds to pay daily budget across days",
+          "In-Review Expense Split: Split auto-logged expenses with friends directly from the pending review sheet during category selection"
         ]
       }
     }

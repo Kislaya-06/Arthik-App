@@ -113,6 +113,7 @@ export const ledger = {
   manual: [] as Array<{ id: string; amount: number; type: 'expense' | 'income'; occurredAt: number }>,
   offline: false,
   /** Open friend shares of the user (for "is this your friend's share of a split?"). */
+  savedShares: [] as Array<{ expenseId: string; total: number; drafts: Array<{ friendLabel: string; amount: number }> }>,
   splitShares: [] as Array<{ share: { id: string; user_id: string; expense_id: string; friend_label: string; amount_owed: number }; expenseDate: string; expenseAmount: number }>,
   reimbursed: {} as Record<string, number>,
 };
@@ -136,6 +137,9 @@ export const fakeLedger = {
     return !!t;
   },
   deleteTransaction: async (id: string) => ledger.txs.delete(id),
+  saveSharesForTransaction: async (expenseId: string, total: number, drafts: Array<{ friendLabel: string; amount: number }>) => {
+    if (drafts.length) ledger.savedShares.push({ expenseId, total, drafts });
+  },
   findSplitRepaymentCandidates: async (amount: number, occurredAt: number) => {
     const { findExactSplitCandidates } = await import('../../src/lib/shares');
     const d = new Date(occurredAt);
@@ -179,6 +183,7 @@ export const resetEnv = () => {
   ledger.manual = [];
   ledger.offline = false;
   ledger.splitShares = [];
+  ledger.savedShares = [];
   ledger.reimbursed = {};
   remote.rows.clear();
   remote.ok = true;

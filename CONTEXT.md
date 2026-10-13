@@ -233,7 +233,7 @@ Credit or debit card transaction (`'card'`). Icon: `CreditCard` (lucide-react-na
 ### 7. Budget Modes & Multi-Cadence Periods
 
 **Pure Mode**:
-The default expense tracking mode (`isBudgetModeEnabled: false`) where users record expenses and income freely without daily allowances, spending limits, or Gullak savings. The bottom navigation renders 4 tabs (`Home`, `History`, `Add`, `Insights`) and the Home screen shows an Inflow/Outflow cashflow overview with a concentric `DualRingChart`.
+The default expense tracking mode (`isBudgetModeEnabled: false`) where users record expenses and income freely without spending limits or warnings. It only changes the screen: money is still accounted budget pool first, then income, then Gullak (ADR 0012). The bottom navigation renders 4 tabs (`Home`, `History`, `Add`, `Insights`) and the Home screen shows an Inflow/Outflow cashflow overview with a concentric `DualRingChart`.
 - *Code location*: `src/store/dailyBudgetStore.ts` (`isBudgetModeEnabled: false`), `src/components/BottomNavBar.tsx`, `src/components/DualRingChart.tsx`
 - *_Avoid_*: Free Mode, Basic Mode, No-Budget Mode
 
@@ -285,7 +285,17 @@ The streak evaluation unit matching the active cadence: Daily evaluates consecut
 - *_Avoid_*: Universal Daily Streak, Pace Streak
 
 **Paused**:
-The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red.
+The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red. Pause changes the screen, not the money: spending on a paused day still comes from the period's budget pool (if alive), then income, then Gullak (ADR 0012).
+
+**Budget Pool**:
+The ONE budget of a calendar period for a cadence (a week for `weekly`, a month for `monthly`). Created the first day Budget Mode is on with that cadence in that period, with the plan amount plus the first-period carry-over. Pausing, resuming or switching away and back inside the period never creates a second one. A pool the user switched away from is *closed*: what was left was carried to the new cadence. A pool whose period ends in Pure Mode turns its unused part into income.
+- *Code location*: `src/lib/budgetPeriods.ts` (`BudgetPool`, `buildBudgetPools`, `poolForDate`, `poolSpentBefore`, `BUDGET_RULES_V2_FROM`), `src/lib/moneyWaterfall.ts`, `docs/adr/0012-one-budget-per-calendar-period.md`
+- *_Avoid_*: Second Budget, Budget Reset, Fresh Budget
+
+**Carry-over**:
+Money left in the running weekly / monthly budget that moves into the new cadence at a switch. Only real, unused money can be carried; a daily day carries nothing (its unused money goes to Gullak that night). Additive carry applies to the first period of the new plan only. Into a daily plan it is either added to tomorrow's budget or spent daily budget by daily budget until used up (the user is told each morning how much to add).
+- *Code location*: `src/lib/budgetPeriods.ts` (`carryForPeriod`, `dailyCarryForDate`), `src/store/dailyBudgetStore.ts` (`getCarryableAmount`, `setBudgetCadence`), `src/lib/notificationPolicy.ts` (`carryCoverCopy`)
+- *_Avoid_*: Rollover (that is the daily / period end deposit into Gullak), Transfer
 - *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`getWeeklyStreakCards`, `getMonthlyStreakGrid`)
 - *_Avoid_*: Stopped, Inactive, Broken, Skipped
 

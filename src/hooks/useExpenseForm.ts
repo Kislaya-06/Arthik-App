@@ -185,7 +185,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const budgetPeriodsForGuard = useDailyBudgetStore((s) => s.budgetPeriods);
   const planChangesForGuard = useDailyBudgetStore((s) => s.planChanges);
   const accountRemaining = useMemo(
-    () => (isBudgetModeEnabled && typeof getTotalAccountRemaining === 'function' ? getTotalAccountRemaining() : undefined),
+    () => (typeof getTotalAccountRemaining === 'function' ? getTotalAccountRemaining() : undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isBudgetModeEnabled, getTotalAccountRemaining, expenses, gullakDeposits, dailyRecordsForGuard, budgetPeriodsForGuard, planChangesForGuard]
   );

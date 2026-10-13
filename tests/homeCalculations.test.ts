@@ -14,6 +14,14 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
   const REF_DATE = new Date(2026, 8, 18, 12, 0, 0);
   const USER_CREATED = '2026-09-14'; // Joined on Monday
 
+  // "All" counts only days the app really tracked (they have a daily record) and today.
+  const TRACKED_DAYS: PeriodCalculationParams['dailyRecords'] = Object.fromEntries(
+    ['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17'].map((d) => [
+      d,
+      { date: d, budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' as const },
+    ])
+  );
+
   const baseParams: PeriodCalculationParams = {
     activeFilter: 'Daily',
     dailyBudgetAmount: 500,
@@ -96,6 +104,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
         totalSpent: 1200,
         totalIncome: 1000,
         userCreatedAtStr: '2026-09-14', // 5 days to 2026-09-18: 14, 15, 16, 17, 18
+        dailyRecords: TRACKED_DAYS,
       });
 
       // 5 days * 500 = 2500 budget pool + 1000 income = 3500 available
@@ -204,6 +213,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
         isAutoRenew: true,
         todayBudget: 500,
         userCreatedAtStr: '2026-09-14', // 5 days * 500 = 2500
+        dailyRecords: TRACKED_DAYS,
         totalIncome: 1000,
         totalSpent: 1500,
       });
@@ -224,6 +234,7 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
         isAutoRenew: true,
         todayBudget: 500,
         userCreatedAtStr: '2026-09-14', // 5 days * 500 = 2500
+        dailyRecords: TRACKED_DAYS,
         totalIncome: 0,
         totalSpent: 3000,
       });

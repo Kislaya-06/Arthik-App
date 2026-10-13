@@ -49,7 +49,9 @@ export function calculateVaultLiquidity(params: VaultLiquidityParams): VaultLiqu
   } = params;
 
   if (!isBudgetModeEnabled) {
-    const net = round2(totalIncome - totalExpenses);
+    // Pure Mode keeps the same books as Budget Mode (budget, then income, then Gullak): when the real remaining
+    // is known it is the liquidity, so unspent budget money still counts. Without it: income - expenses (old).
+    const net = accountRemaining !== undefined ? round2(accountRemaining) : round2(totalIncome - totalExpenses);
     const canAdd = net > 0;
     return {
       totalVaultLiquidity: net,

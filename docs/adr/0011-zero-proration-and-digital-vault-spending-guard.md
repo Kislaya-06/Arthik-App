@@ -3,6 +3,8 @@
 ## Status
 Accepted (October 2026) — supersedes D4 in `0010-budget-cadence-periods.md`.
 
+> **Amended by [ADR 0012](0012-one-budget-per-calendar-period.md).** Zero-proration means the FIRST budget of a week or month is given in full. It never means a second full budget in the same period: pausing, resuming or switching back inside a period continues the same budget. Pure Mode keeps the same books (budget, then income, then Gullak), and the guard uses the real remaining of the account in both modes.
+
 ## Context
 In previous iterations, partial budget periods (e.g. entering a Weekly budget on Friday or a Monthly budget mid-month) were designed with day-count mathematical proration (`fullBudget * remainingDays / totalDays`). 
 

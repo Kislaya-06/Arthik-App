@@ -20,7 +20,7 @@ vi.mock('../src/features/autoLog/background', () => ({ registerBackground: async
 import { resetEnv, ledger, receiveSms, receiveEmail } from './helpers/autoLogTestEnv';
 import * as service from '../src/features/autoLog/service';
 import * as db from '../src/features/autoLog/db';
-import { resolveSplitRepayment, classifyEvent } from '../src/features/autoLog/reviews';
+import { resolveSplitRepayment, classifyEvent, classifyEventAndSplit, setCategoryAndSplit } from '../src/features/autoLog/reviews';
 
 /**
  * A credit that is exactly what a friend still owes on an unsettled split is asked ONCE:
@@ -155,5 +155,54 @@ describe('credit equal to an open split share: ask once', () => {
     const [p] = await pending();
     await resolveSplitRepayment(p, 'sh2', 'Priya');
     expect(txs()[0].reimbursesShareId).toBe('sh2');
+  });
+});
+
+
+describe('Review: "Split this expense" while choosing the category', () => {
+  const debit = (amt: number, ref: string) =>
+    `Sent Rs.${amt}.00 From HDFC Bank A/C *1234 To SHOP On 05/10/26 Ref ${ref} Not You? Call 1`;
+  const friends = [{ friendLabel: 'Rahul', amount: 300 }, { friendLabel: 'Priya', amount: 200 }];
+
+  it('a logged expense that only needs its category: the split is attached to THAT expense', async () => {
+    await goLive();
+    receiveSms(HDFC, debit(1000, '628700000601'), Date.now());
+    await run();
+    const [ev] = await db.findEvents("status = 'logged'");
+    expect(ev.expenseId).toBeTruthy();
+    await setCategoryAndSplit(ev, 'cat-food', false, friends);
+    expect(ledger.savedShares).toHaveLength(1);
+    expect(ledger.savedShares[0]).toMatchObject({ expenseId: ev.expenseId, total: 1000 });
+    expect(ledger.savedShares[0].drafts).toEqual(friends);
+  });
+
+  it('no split chosen: nothing is saved', async () => {
+    await goLive();
+    receiveSms(HDFC, debit(1000, '628700000602'), Date.now());
+    await run();
+    const [ev] = await db.findEvents("status = 'logged'");
+    await setCategoryAndSplit(ev, 'cat-food', false, []);
+    await setCategoryAndSplit(ev, 'cat-food', false, undefined);
+    expect(ledger.savedShares).toHaveLength(0);
+  });
+
+  it('a pending item confirmed as an EXPENSE with a split: transaction first, then its shares', async () => {
+    await goLive();
+    receiveSms(HDFC, credit(700, '628700000603'), Date.now());      // asks "Income or Expense?"
+    await run();
+    const [p] = await pending();
+    const e = await classifyEventAndSplit(p, 'expense', 'cat-food', false, undefined, friends);
+    expect(txs()).toHaveLength(1);
+    expect(ledger.savedShares[0]).toMatchObject({ expenseId: e.expenseId, total: 700 });
+  });
+
+  it('INCOME is never split, even if shares were passed', async () => {
+    await goLive();
+    receiveSms(HDFC, credit(700, '628700000604'), Date.now());
+    await run();
+    const [p] = await pending();
+    await classifyEventAndSplit(p, 'income', null, false, undefined, friends);
+    expect(txs()).toHaveLength(1);
+    expect(ledger.savedShares).toHaveLength(0);
   });
 });

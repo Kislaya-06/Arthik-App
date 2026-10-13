@@ -22,7 +22,7 @@ import { formatCurrency, round2 } from './formatters';
 import { DailyRecord, calculateCycleFinancials } from './budgetCalculations';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { isCountedExpense, isCountedIncome, isEligibleReimbursement } from './transactionUtils';
-import { resolvePlanForDate, getPeriodBounds } from './budgetPeriods';
+import { resolvePlanForDate, getPeriodBounds, carryForPeriod, dailyCarryForDate } from './budgetPeriods';
 import { BudgetPlanChange } from '../types';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
@@ -82,7 +82,29 @@ export interface PeriodCalculationParams {
    * - gullakDrawn: overspend of this pill that had to be paid from Gullak
    */
   funding?: { incomeRemaining: number; gullakDrawn: number };
+  /**
+   * date -> part of that day's daily budget that is carried-over money from an earlier weekly / monthly budget.
+   * That money is already inside the old budget, so the "All" total must not count it a second time.
+   */
+  carryCoveredByDate?: Record<string, number>;
 }
+
+/** Carried-over money inside each daily budget (see `PeriodCalculationParams.carryCoveredByDate`). */
+export const getCarryCoveredByDate = (
+  planChanges: BudgetPlanChange[] | undefined,
+  dailyRecords: Record<string, DailyRecord>,
+  dailyBudgetAmount: number,
+  todayStr: string
+): Record<string, number> => {
+  const out: Record<string, number> = {};
+  if (!planChanges || planChanges.length === 0) return out;
+  const dates = new Set<string>([...Object.keys(dailyRecords || {}), todayStr]);
+  dates.forEach((d) => {
+    const c = dailyCarryForDate(planChanges, (x) => dailyRecords[x]?.budget, dailyBudgetAmount, d);
+    if (c && c.funded > 0) out[d] = c.funded;
+  });
+  return out;
+};
 
 export interface PeriodSummary {
   primaryAmount: number;
@@ -193,19 +215,24 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
         const key = `${cadencePlan.cadence}_${getPeriodBounds(cadencePlan.cadence, d).start}`;
         if (!countedCadencePools.has(key)) {
           countedCadencePools.add(key);
-          const carry = cadencePlan.carryMode === 'additive' ? Number(cadencePlan.carriedOverAmount) || 0 : 0;
-          periodBudget += (Number(cadencePlan.amount) || 0) + carry;
+          const b = getPeriodBounds(cadencePlan.cadence, d);
+          periodBudget += (Number(cadencePlan.amount) || 0) + carryForPeriod(cadencePlan, b.start);
         }
         return;
       }
     }
+    const carryPart = activeFilter === 'All' ? params.carryCoveredByDate?.[d] || 0 : 0;
     if (d === todayStr) {
       // Today: include today's allowance
-      periodBudget += todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
+      periodBudget += Math.max(0, (todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0)) - carryPart);
     } else if (dailyRecords[d]) {
       if (dailyRecords[d].status !== 'unknown') {
-        periodBudget += Number(dailyRecords[d].budget) || 0;
+        periodBudget += Math.max(0, (Number(dailyRecords[d].budget) || 0) - carryPart);
       }
+    } else if (activeFilter === 'All') {
+      // "All" counts only days the app really tracked (they have a record) and today.
+      // A day nobody opened the app has no record and no Gullak entry, so it must not add a budget either
+      // (it used to: 5 untouched days = ₹2,500 of budget that never existed in any other number).
     } else if (planChanges && planChanges.length > 0) {
       // Past day in the period governed by plan changes
       const plan = resolvePlanForDate(planChanges, d);

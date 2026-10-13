@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed & Added — Cadence / Pure Mode money logic (ADR 0012), carry-over, split in Review
+
+> **OTA safe (JS only).** No native change, no database migration. Apply AFTER OTA 1 and OTA 2.
+> Users affected by items 1 and 2 will see a **lower** Gullak after the self-heal (the extra money never existed).
+
+**Fixes**
+1. **No second (daily) budget for weekly / monthly users.** A day owned by a weekly / monthly plan or by Pure Mode no longer gets a daily budget record. Existing wrong records are corrected on the next sync and the server rows are overwritten. (Example: weekly ₹2,100 + leftover daily ₹500 gave Gullak ₹8,300 instead of ₹2,900.)
+2. **Additive carry is added once**, to the first period of the new plan only (it used to be added to every following week / month). Existing periods are recomputed.
+3. **Weekly / monthly -> daily no longer loses the left-over money.** Two choices at the switch: "Add to tomorrow's budget" or "Pay my daily budget from it" (₹100/day over ₹1,550 = 15 days, then ₹50 on day 16). Carried money is counted once in "All". A morning notification says how much to add today ("Nothing to add today" / "Add only ₹50 today"), and the hero shows the same line. Only money that really is left can be carried.
+4. **Switching from daily carries nothing** (today's unused money reaches Gullak tonight; it used to be counted twice). Carried money that is still unused can move on to the next cadence.
+5. **One budget per calendar period** (ADR 0012). Pausing (Pure Mode), resuming or switching back inside the same week / month continues the same budget instead of giving a new full one. **Pure Mode keeps the same books**: budget pool first, then income, then Gullak, so switching back shows exactly what Budget Mode would have shown. A period that ends in Pure Mode turns its unused part into income (nothing to Gullak). Coming back to a cadence you switched away from in the same period leaves nothing in it. New rules apply to periods starting on/after 14 Oct 2026 (`BUDGET_RULES_V2_FROM`); older periods keep their numbers.
+6. **"All" counts only days the app tracked** (and today): days nobody opened the app no longer add budget.
+- The Digital Vault guard uses the real remaining of the account in Pure Mode too.
+- Short messages: Pure Mode confirmation ("Your ₹7,600 budget stays with this month..."), "Welcome back: ₹4,600 left of this month's ₹9,000", "Last month ended in Pure Mode...", and a line in the switch dialog about coming back in the same period. Explainer texts and docs updated.
+
+**New: split an auto-logged expense while reviewing it.** In the Review sheet, after choosing Expense, the category step has a small "Split this expense" row. It opens the existing split sheet; the shares are saved on the expense that is created (or on the already-logged expense that only needed a category). Income is never split.
+
+**Docs**: new `docs/adr/0012-one-budget-per-calendar-period.md`; ADR 0011 marked "amended"; `CONTEXT.md` (Budget Pool, Carry-over, Paused, Pure Mode); ADR indexes.
+
+**Tests**: NEW `tests/cadenceFixes.test.ts` (40, day-by-day simulator of the real store); `tests/autoLogSplit.test.ts` +4; updated old tests that encoded the old behaviour (`homeCalculations`, `gullakDeposits`, `realTimeIncomeGullakDeduction`, `dailyBudgetStore` carry). Mutation-checked.
+
 ### Fixed & Added — Auto Logging accuracy, email as a first-class source, "Friend paid back?" question
 
 > **OTA safe (JS only).** Apply AFTER the previous update (needs the split repayment code in `src/lib/shares.ts`). The native 3-second debounce note in the scan needs a new APK and is NOT part of this update.

@@ -43,7 +43,8 @@ Engineering documentation for the **Arthik** personal finance app.
 | [0008](adr/0008-unified-income-classification.md) | Unified Income Classification via isIncomeTransaction | Active |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest Unit Test Coverage for Store & Library Seams | Active |
 | [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011) |
-| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active |
+| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
+| [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |
 
 ---
 
@@ -58,7 +59,7 @@ Engineering documentation for the **Arthik** personal finance app.
 ## How to Add an ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0011`.
+2. Next available number after `0012`.
 3. Sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the ADR supersedes an older one, add a `## Status: Superseded by NNNN` to the old ADR.
 5. Add the new ADR to the index table above and to `docs/architecture.md §12`.

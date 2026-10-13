@@ -25,7 +25,7 @@ import { applyKeypadPress } from '../lib/amountKeypad';
 import {
   formatEffectiveFrom,
 } from '../lib/budgetModeUtils';
-import { computeEffectiveFrom, getPeriodBounds } from '../lib/budgetPeriods';
+import { computeEffectiveFrom } from '../lib/budgetPeriods';
 import { BudgetCadence } from '../types';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
@@ -62,11 +62,9 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
   const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
-  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
   const getPendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange);
-  const getTodayRecord = useDailyBudgetStore((s) => s.getTodayRecord);
 
   // Store actions
   const setDailyBudget = useDailyBudgetStore((s) => s.setDailyBudget);
@@ -89,10 +87,6 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const expenses = useExpenseStore((s) => s.expenses);
 
   const pendingChange = useMemo(() => getPendingPlanChange(), [getPendingPlanChange, planChanges]);
-  const todayRecord = useMemo(
-    () => getTodayRecord(),
-    [getTodayRecord, dailyRecords, isAutoRenew, isBudgetModeEnabled, dailyBudgetAmount]
-  );
 
 
 
@@ -156,25 +150,14 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
   const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [visible]);
 
-  const currentCadenceBudget = useMemo(() => {
-    if (budgetCadence === 'daily') return todayRecord.budget || dailyBudgetAmount;
-    if (budgetCadence === 'weekly') return weeklyBudgetAmount;
-    return monthlyBudgetAmount;
-  }, [budgetCadence, todayRecord.budget, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount]);
-
-  const currentCadenceSpent = useMemo(() => {
-    if (budgetCadence === 'daily') return todayRecord.spent || 0;
-    const bounds = getPeriodBounds(budgetCadence, todayStr);
-    return expenses
-      .filter(
-        (e) =>
-          e.type !== 'income' &&
-          e.expense_date &&
-          e.expense_date >= bounds.start &&
-          e.expense_date <= todayStr
-      )
-      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  }, [budgetCadence, todayRecord.spent, expenses, todayStr]);
+  // What can really be carried into a new cadence: the money left in the running budget (weekly / monthly), or
+  // carried money that is still unused. A daily day has nothing to carry (today's unused money goes to Gullak).
+  const getCarryableAmount = useDailyBudgetStore((s) => s.getCarryableAmount);
+  const carryableAmount = useMemo(
+    () => (typeof getCarryableAmount === 'function' ? getCarryableAmount() : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getCarryableAmount, expenses, planChanges, dailyRecords, budgetCadence, visible]
+  );
 
   // Compute effective date
   const effectiveFromStr = useMemo(() => {
@@ -563,8 +546,8 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
         currentCadence={budgetCadence}
         targetCadence={selectedCadence}
         initialTargetAmount={evaluatedAmount}
-        currentBudget={currentCadenceBudget}
-        currentSpent={currentCadenceSpent}
+        currentBudget={carryableAmount}
+        currentSpent={0}
         onConfirmSwitch={({ targetCadence: tc, amount, carryMode, carriedOverAmount }) => {
           if (tc === 'daily') setDailyBudget(amount);
           else if (tc === 'weekly') setWeeklyBudget(amount);

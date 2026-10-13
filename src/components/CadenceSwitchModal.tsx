@@ -162,6 +162,19 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
     });
   }, [currentCadence, targetCadence, currentBudget, currentSpent, targetAmount, carryMode, todayStr]);
 
+  const isToDaily = targetCadence === 'daily';
+  const isFromDaily = currentCadence === 'daily';
+  // "Pay my daily budget from it": how many daily budgets the carried money covers.
+  const coverText = (() => {
+    const a = plan.targetBudgetAmount;
+    if (!(a > 0)) return '';
+    const full = Math.floor(plan.unspentAmount / a);
+    const part = Math.round((plan.unspentAmount - full * a) * 100) / 100;
+    const days = `${full} ${full === 1 ? 'day' : 'days'}`;
+    if (full === 0) return `${formatCurrency(part)} of your first day`;
+    return part > 0 ? `${days}, then ${formatCurrency(part)} of day ${full + 1}` : days;
+  })();
+
   const handleApplySafeAmount = useCallback((amount: number) => {
     setTargetAmount(amount);
   }, []);
@@ -229,7 +242,11 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                 Switch to {targetLabel}
               </Text>
               <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
-                {formatCurrency(plan.unspentAmount)} is left from your {currentLabel} budget.
+                {plan.unspentAmount > 0
+                  ? `${formatCurrency(plan.unspentAmount)} is left from your ${currentLabel} budget.`
+                  : isFromDaily
+                  ? "Today's unused daily money goes to your Gullak tonight."
+                  : 'Nothing is left to carry.'}
               </Text>
             </View>
 
@@ -339,7 +356,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     ]}
                   >
                     <Text style={[styles.datePillText, { color: colors.textSecondary }]}>
-                      📅 {targetPeriodInfo.dateRange} ({targetPeriodInfo.remainingDays} days)
+                      📅 {targetPeriodInfo.dateRange}{isToDaily ? '' : ` (${targetPeriodInfo.remainingDays} days)`}
                     </Text>
                   </View>
                 </View>
@@ -376,7 +393,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                         { color: carryMode === 'additive' ? colors.textPrimary : colors.textSecondary },
                       ]}
                     >
-                      Add to {targetLabel} budget
+                      {isToDaily ? "Add to tomorrow's budget" : `Add to ${targetLabel} budget`}
                     </Text>
                     <View
                       style={[
@@ -391,11 +408,11 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    {targetLabel} budget →{' '}
+                    {isToDaily ? "Tomorrow's budget" : `${targetLabel} budget`} →{' '}
                     <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
                       {formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}
                     </Text>
-                    {' '}(for {targetPeriodInfo.remainingDays} days)
+                    {isToDaily ? '. Unused money goes to Gullak at night.' : ` (for ${targetPeriodInfo.remainingDays} days)`}
                   </Text>
                 </TouchableOpacity>
 
@@ -431,7 +448,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                         { color: carryMode === 'allocation' ? colors.textPrimary : colors.textSecondary },
                       ]}
                     >
-                      Keep it at {formatCurrency(plan.targetBudgetAmount)}
+                      {isToDaily ? 'Pay my daily budget from it' : `Keep it at ${formatCurrency(plan.targetBudgetAmount)}`}
                     </Text>
                     <View
                       style={[
@@ -446,11 +463,19 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    {targetLabel} budget stays{' '}
-                    <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
-                      {formatCurrency(plan.targetBudgetAmount)}
-                    </Text>
-                    {' '}(for {targetPeriodInfo.remainingDays} days)
+                    {isToDaily ? (
+                      <>
+                        Your daily {formatCurrency(plan.targetBudgetAmount)} is paid from it for {coverText}. We will tell you each morning how much to add.
+                      </>
+                    ) : (
+                      <>
+                        {targetLabel} budget stays{' '}
+                        <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
+                          {formatCurrency(plan.targetBudgetAmount)}
+                        </Text>
+                        {' '}(for {targetPeriodInfo.remainingDays} days)
+                      </>
+                    )}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -469,6 +494,11 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               <Text style={[styles.activationText, { color: colors.textSecondary }]}>
                 ⓘ Starts tomorrow • Unspent money at cycle end goes to Gullak
               </Text>
+              {!isFromDaily && (
+                <Text style={[styles.activationText, { color: colors.textSecondary, marginTop: 4 }]}>
+                  If you come back to {currentLabel} in the same {currentCadence === 'weekly' ? 'week' : 'month'}, there is no new {currentLabel} budget until the next one starts.
+                </Text>
+              )}
             </View>
           </ScrollView>
 

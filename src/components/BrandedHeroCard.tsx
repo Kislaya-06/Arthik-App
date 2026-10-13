@@ -41,6 +41,8 @@ export type BrandedHeroCardProps = {
   isSpendingFromGullak?: boolean;
   gullakDrawnAmount?: number;
   cadencePeriodSummary?: PeriodSummaryInfo | null;
+  /** e.g. "Add only ₹50 today": part of today's budget is money carried over from the last plan. */
+  carryNote?: string | null;
 };
 
 // Corner & layout geometry constants
@@ -119,6 +121,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   remainingIncome = 0,
   isSpendingFromGullak = false,
   gullakDrawnAmount = 0,
+  carryNote = null,
 }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: DEFAULT_WIDTH,
@@ -326,7 +329,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
         return [{
           id: 'gullak_only',
           text: `${formatCurrency(0)} income`,
-          badgeText: `${formatCurrency(gullakDrawnAmount)} drawn from Gullak`,
+          badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
           approxSize: 0,
         }];
       }
@@ -351,7 +354,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       let badgeText: string | null = null;
       if (showGullakSpending) {
         if (gullakDrawnAmount > 0) {
-          badgeText = `${formatCurrency(gullakDrawnAmount)} drawn from Gullak`;
+          badgeText = `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`;
         } else {
           badgeText = 'now spending from Gullak';
         }
@@ -373,7 +376,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       items.push({
         id: 'gullak_only',
         text: `${formatCurrency(0)} income`,
-        badgeText: `${formatCurrency(gullakDrawnAmount)} drawn from Gullak`,
+        badgeText: `using ₹${formatCurrency(gullakDrawnAmount).replace('₹', '')} from Gullak`,
         approxSize: 0,
       });
     }
@@ -639,6 +642,11 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               <ChevronRight size={14} color={textColorSecondary} />
             </TouchableOpacity>
           )}
+          {showRollover && carryNote ? (
+            <Text style={[styles.carryNote, { color: textColorPrimary }]} numberOfLines={1}>
+              {carryNote}
+            </Text>
+          ) : null}
         </View>
 
         {/* ── Top-Right Chart Pod (Docked in the Notched Pocket) ── */}
@@ -684,6 +692,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  carryNote: { fontSize: FontSize.caption, fontFamily: FontFamily.semibold, marginTop: 6 },
   outerWrapper: {
     width: '100%',
     position: 'relative',

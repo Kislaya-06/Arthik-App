@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
+import { dailyCarryForDate } from './budgetPeriods';
 import { useNotificationStore, NotificationType } from '../store/notificationStore';
 import { makeIncomeClassifier } from './incomeClassifier';
 import { computeSpentByDate } from './budgetCalculations';
@@ -44,6 +45,22 @@ function emptyBucket(): Bucket {
 }
 
 /** Pure-ish: builds the planner input from the current store state. Exported for tests. */
+/** Days (today and the next 2 weeks) on which part of the daily budget is carried-over money. */
+function buildCarryDays(
+  now: Date,
+  budget: ReturnType<typeof useDailyBudgetStore.getState>
+): NonNullable<PlanContext['carryDays']> {
+  const out: NonNullable<PlanContext['carryDays']> = [];
+  if (!budget.isBudgetModeEnabled || !budget.planChanges || budget.planChanges.length === 0) return out;
+  for (let i = 0; i < 14; i++) {
+    const d = format(new Date(now.getFullYear(), now.getMonth(), now.getDate() + i), 'yyyy-MM-dd');
+    const c = dailyCarryForDate(budget.planChanges, (x) => budget.dailyRecords[x]?.budget, budget.dailyBudgetAmount, d);
+    if (!c || c.funded <= 0) continue;
+    out.push({ date: d, mode: c.mode, budget: c.base + c.extraBudget, funded: c.funded, toAdd: c.toAdd, remainingAfter: c.remainingAfter });
+  }
+  return out;
+}
+
 export function buildPlanContext(now: Date): PlanContext {
   const expenses = useExpenseStore.getState().expenses;
   const categories = useCategoryStore.getState().categories;
@@ -164,6 +181,7 @@ export function buildPlanContext(now: Date): PlanContext {
     month: { ...stats(month, prevMonth, monthSaved), daysTracked: 0, daysUnderBudget: 0 },
     period,
     monthName: format(now, 'MMMM'),
+    carryDays: isGullak ? buildCarryDays(now, budget) : undefined,
   };
 }
 

@@ -466,7 +466,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
   });
 
   describe('Slice 7: Cadence Switching with Carry-Forward Modes (Issue #6)', () => {
-    it('schedules next-day cadence switch with additive carry mode and carried-over amount', () => {
+    it('schedules a next-day switch from DAILY and drops the carry (today\'s unused money goes to Gullak tonight)', () => {
       useDailyBudgetStore.getState().resetDailyBudget();
       useDailyBudgetStore.getState().setBudgetModeEnabled(true);
 
@@ -484,11 +484,12 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(pending).not.toBeNull();
       expect(pending?.cadence).toBe('weekly');
       expect(pending?.amount).toBe(7000);
-      expect(pending?.carryMode).toBe('additive');
-      expect(pending?.carriedOverAmount).toBe(3000);
+      // A daily day has no running budget to carry: carrying it too would count today's leftover twice.
+      expect(pending?.carryMode).toBeUndefined();
+      expect(pending?.carriedOverAmount).toBeUndefined();
     });
 
-    it('schedules next-day cadence switch with allocation carry mode', () => {
+    it('a switch from daily to monthly with allocation also carries nothing', () => {
       useDailyBudgetStore.getState().resetDailyBudget();
       useDailyBudgetStore.getState().setBudgetModeEnabled(true);
 
@@ -506,8 +507,8 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(pending).not.toBeNull();
       expect(pending?.cadence).toBe('monthly');
       expect(pending?.amount).toBe(30000);
-      expect(pending?.carryMode).toBe('allocation');
-      expect(pending?.carriedOverAmount).toBe(18000);
+      expect(pending?.carryMode).toBeUndefined();
+      expect(pending?.carriedOverAmount).toBeUndefined();
     });
   });
 

@@ -27,7 +27,7 @@ import { formatCurrency } from './formatters';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type PlanType = 'log_nudge' | 'gullak_reward' | 'weekly_recap' | 'monthly_recap';
+export type PlanType = 'log_nudge' | 'gullak_reward' | 'weekly_recap' | 'monthly_recap' | 'carry_cover';
 export type ChannelKey = 'alerts' | 'reminders' | 'gullak' | 'recaps';
 export type Cadence = 'daily' | 'weekly' | 'monthly';
 export type Profile = 'pure' | 'gullak';
@@ -122,6 +122,25 @@ export interface PlanContext {
   period: CadencePeriod | null;
   /** e.g. "October" — passed in so the planner stays locale-free. */
   monthName: string;
+  /**
+   * Days on which part of the daily budget is paid from money carried over from the previous weekly / monthly
+   * plan (the user already has that money in the bank). Optional: absent for everyone else.
+   */
+  carryDays?: CarryCoverDay[];
+}
+
+export interface CarryCoverDay {
+  /** yyyy-MM-dd */
+  date: string;
+  mode: 'next_day' | 'spread';
+  /** Today's budget (including the extra for next_day). */
+  budget: number;
+  /** Part of it that comes from carried-over money. */
+  funded: number;
+  /** What the user still has to put into the bank today. */
+  toAdd: number;
+  /** Carried money left after this day. */
+  remainingAfter: number;
 }
 
 export interface PlannedNotification {
@@ -142,6 +161,8 @@ export interface PlannedNotification {
 
 export const NUDGE_TIME = { hour: 20, minute: 30 };
 export const REWARD_TIME = { hour: 8, minute: 30 };
+/** Morning message: how much to put into the bank today (carried-over days). */
+export const CARRY_TIME = { hour: 8, minute: 0 };
 export const WEEKLY_RECAP_TIME = { hour: 19, minute: 0 }; // Sunday
 export const MONTHLY_RECAP_TIME = { hour: 21, minute: 0 }; // last day of the month
 /** Evenings (today included) a nudge may be scheduled for. After that we stay silent until the app is opened. */
@@ -158,6 +179,7 @@ const MIN_LEAD_MS = 60_000;
 
 /** Higher wins when two scheduled items land on the same day. */
 const PRIORITY: Record<PlanType, number> = {
+  carry_cover: 5, // "how much to add today" is the one message the user can act on
   monthly_recap: 4,
   weekly_recap: 3,
   gullak_reward: 2,
@@ -304,9 +326,45 @@ export function limitCopy(i: LimitCopyInput): Copy {
   };
 }
 
+/** "How much to add today" when part of today's budget is already in the bank (carried over). */
+export function carryCoverCopy(d: CarryCoverDay): Copy {
+  if (d.mode === 'next_day') {
+    return {
+      title: `Add only ${money(d.toAdd)} today`,
+      body: `Today's budget is ${money(d.budget)}. ${money(d.funded)} of it is carried over from your last plan.`,
+    };
+  }
+  if (d.toAdd <= 0) {
+    return {
+      title: 'Nothing to add today',
+      body: `Today's ${money(d.budget)} is covered by money carried over from your last plan. ${money(d.remainingAfter)} left after today.`,
+    };
+  }
+  return {
+    title: `Add only ${money(d.toAdd)} today`,
+    body: `${money(d.funded)} of today's ${money(d.budget)} comes from money carried over from your last plan.`,
+  };
+}
+
 export function rolloverCopy(cadence: Cadence, amount: number): Copy {
   const from = cadence === 'daily' ? "yesterday's unspent allowance" : cadence === 'weekly' ? "last week's unspent budget" : "last month's unspent budget";
   return { title: `${money(amount)} added to your Gullak`, body: `From ${from}.` };
+}
+
+export function budgetResumedCopy(cadence: 'weekly' | 'monthly', remaining: number, budget: number): Copy {
+  const word = cadence === 'weekly' ? "week's" : "month's";
+  return {
+    title: 'Welcome back',
+    body: `${money(remaining)} left of this ${word} ${money(budget)}. It is the same budget, not a new one.`,
+  };
+}
+
+export function pureEndedCopy(cadence: 'weekly' | 'monthly', left: number, budget: number): Copy {
+  const word = cadence === 'weekly' ? 'week' : 'month';
+  return {
+    title: `Last ${word} ended in Pure Mode`,
+    body: `${money(left)} of ${money(budget)} was unused and is now part of your income. Nothing went to Gullak.`,
+  };
 }
 
 export function budgetUpdatedCopy(amount: number): Copy {
@@ -342,6 +400,22 @@ export function buildNotificationPlan(ctx: PlanContext): PlannedNotification[] {
       inbox: false,
     });
     nudgeIndex++;
+  }
+
+  // 1b) Carry cover — a morning message on every day part of the daily budget is already in the bank.
+  for (const cd of ctx.carryDays || []) {
+    const day = new Date(`${cd.date}T00:00:00`);
+    const fireAt = atTime(day, CARRY_TIME);
+    if (fireAt.getTime() < earliest) continue;
+    items.push({
+      id: `carry_${cd.date}`,
+      type: 'carry_cover',
+      channel: 'gullak',
+      fireAt,
+      ...carryCoverCopy(cd),
+      screen: 'Home',
+      inbox: true,
+    });
   }
 
   // 2) Gullak reward — tomorrow morning, only if today was logged and ended in a real saving.

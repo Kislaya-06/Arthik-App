@@ -114,6 +114,21 @@ export function getPeriodBounds(cadence: BudgetCadence, dateStr: string): Period
 }
 
 /**
+ * Additive carry-over belongs to the FIRST period of the plan only (the one that contains the plan's
+ * effectiveFrom). Later weeks / months must not get it again: a one-time carry of ₹300 used to be added to
+ * EVERY following period (budget ₹2400 instead of ₹2100, every week).
+ */
+export function carryForPeriod(
+  plan: Pick<BudgetPlanChange, 'cadence' | 'carryMode' | 'carriedOverAmount' | 'effectiveFrom'> | null | undefined,
+  periodStart: string
+): number {
+  if (!plan || plan.cadence === 'daily' || plan.carryMode !== 'additive') return 0;
+  const carry = Number(plan.carriedOverAmount) || 0;
+  if (carry <= 0) return 0;
+  return getPeriodBounds(plan.cadence, plan.effectiveFrom).start === periodStart ? carry : 0;
+}
+
+/**
  * 2. Resolves the active BudgetPlanChange in effect on dateStr.
  * Returns the change with the greatest effectiveFrom <= dateStr, or null if none.
  */
@@ -230,6 +245,7 @@ export function buildPeriodsToFinalize(
   const today = parseISO(todayStr);
   const yesterday = subDays(today, 1);
   const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+  const pools = buildBudgetPools(changes, todayStr);
 
   const finalizedSet = alreadyFinalizedKeys instanceof Set
     ? alreadyFinalizedKeys
@@ -350,7 +366,18 @@ export function buildPeriodsToFinalize(
     }
 
     const slicePlan = resolvePlanForDate(changes, slice.activeStart);
-    const baseBudget = slice.amount;
+    let baseBudget = slice.amount;
+    // ADR 0012: a later slice of the SAME calendar period (after Pure Mode / a switch and back) does not get a
+    // new full budget: it continues with what is left of the period's pool. Only for slices from the rule date on.
+    let usePoolRemaining = false;
+    const pool = pools[`${slice.owner}_${slice.periodStart}`];
+    if (pool && slice.activeStart > pool.startedOn && slice.activeStart >= BUDGET_RULES_V2_FROM) {
+      usePoolRemaining = true;
+      baseBudget =
+        pool.closedOn && slice.activeStart >= pool.closedOn
+          ? 0
+          : Math.max(0, round2(pool.budget - poolSpentBefore(pools, changes, pool, slice.activeStart, spentByDate)));
+    }
     const carriedOver = slicePlan?.carriedOverAmount || 0;
     const carryMode = slicePlan?.carryMode;
     const isProrated = false;
@@ -379,7 +406,7 @@ export function buildPeriodsToFinalize(
 
     const fin = calculateCycleFinancials({
       scheduledBudget: baseBudget,
-      carriedOverAmount: carryMode === 'additive' ? carriedOver : 0,
+      carriedOverAmount: usePoolRemaining ? 0 : carryForPeriod(slicePlan, slice.periodStart),
       // Income never rolls into Gullak: only unspent budget does.
       eligibleIncome: 0,
       eligibleReimbursements: sliceReimb,
@@ -501,9 +528,25 @@ export function getCurrentPeriodSummary(
   income = round2(income);
   reimb = round2(reimb);
 
+  // ADR 0012: ONE budget per calendar period. After Pure Mode (or a switch) and back inside the same period the
+  // hero continues with what is left of the period's pool; Pure Mode days spent from the same pool count too.
+  const pools = buildBudgetPools(changes, todayStr);
+  const pool = pools[`${owner}_${bounds.start}`];
+  const poolMode = !!pool && activeStart > pool.startedOn && activeStart >= BUDGET_RULES_V2_FROM;
+  if (poolMode && pool) {
+    const tomorrowStr = format(addDays(parseISO(todayStr), 1), 'yyyy-MM-dd');
+    const through = poolSpentBefore(pools, changes, pool, tomorrowStr, spentByDate);
+    if (pool.closedOn && activeStart >= pool.closedOn) {
+      // Switched away and back inside this period: what was left was carried away, nothing is left here.
+      spent = round2(pool.budget + Math.max(0, through - poolSpentBefore(pools, changes, pool, pool.closedOn, spentByDate)));
+    } else {
+      spent = through;
+    }
+  }
+
   const fin = calculateCycleFinancials({
-    scheduledBudget: fullAmount,
-    carriedOverAmount: carryMode === 'additive' ? carriedOverAmount : 0,
+    scheduledBudget: poolMode && pool ? pool.budget : fullAmount,
+    carriedOverAmount: poolMode ? 0 : carryForPeriod(plan, bounds.start),
     // Income is a separate pool (see moneyWaterfall.ts); it is not part of the period budget.
     eligibleIncome: 0,
     eligibleReimbursements: reimb,
@@ -773,3 +816,190 @@ export function computeCalendarConnections(
   return result;
 }
 
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Budget pools: ONE budget per calendar period (ADR 0012)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The "one budget per calendar period" rules (ADR 0012) apply from this date on.
+ * Anything that started earlier keeps the old numbers: nobody's past Gullak / income is rewritten.
+ */
+export const BUDGET_RULES_V2_FROM = '2026-10-14';
+
+/**
+ * A weekly / monthly budget of ONE calendar period. However many times the user pauses (Pure Mode) and comes
+ * back inside that period, it is still the same pool: spending (also in Pure Mode) uses it, and what is
+ * left is what continues. The full budget is given once, when the pool starts.
+ */
+export interface BudgetPool {
+  /** `${cadence}_${periodStart}` */
+  key: string;
+  cadence: 'weekly' | 'monthly';
+  periodStart: string;
+  periodEnd: string;
+  /** Total of the pool: plan amount + the first-period carry-over. */
+  budget: number;
+  /** First day the pool was funded (budget mode on, this cadence). */
+  startedOn: string;
+  /**
+   * Set when the user switched to ANOTHER cadence inside this period: whatever was left was carried to the new
+   * cadence, so coming back to this cadence in the same period leaves nothing.
+   */
+  closedOn: string | null;
+  /** The period ended while the user was in Pure Mode: what is left becomes income (Pure Mode has no Gullak). */
+  endsInPure: boolean;
+}
+
+export const poolKeyFor = (cadence: 'weekly' | 'monthly', dateStr: string): string =>
+  `${cadence}_${getPeriodBounds(cadence, dateStr).start}`;
+
+/** All pools from the first weekly / monthly plan up to `upToDate` (inclusive). */
+export function buildBudgetPools(changes: BudgetPlanChange[], upToDate: string): Record<string, BudgetPool> {
+  const pools: Record<string, BudgetPool> = {};
+  const relevant = (changes || []).filter((c) => c.isEnabled && (c.cadence === 'weekly' || c.cadence === 'monthly'));
+  if (relevant.length === 0) return pools;
+  const first = relevant.reduce((m, c) => (c.effectiveFrom < m ? c.effectiveFrom : m), relevant[0].effectiveFrom);
+  if (first > upToDate) return pools;
+
+  for (const day of eachDayOfInterval({ start: parseISO(first), end: parseISO(upToDate) })) {
+    const d = format(day, 'yyyy-MM-dd');
+    const plan = resolvePlanForDate(changes, d);
+    if (!plan || !plan.isEnabled) continue; // Pure Mode never starts or closes a pool
+    if (plan.cadence === 'weekly' || plan.cadence === 'monthly') {
+      const b = getPeriodBounds(plan.cadence, d);
+      const key = `${plan.cadence}_${b.start}`;
+      if (!pools[key]) {
+        pools[key] = {
+          key,
+          cadence: plan.cadence,
+          periodStart: b.start,
+          periodEnd: b.end,
+          budget: round2((Number(plan.amount) || 0) + carryForPeriod(plan, b.start)),
+          startedOn: d,
+          closedOn: null,
+          endsInPure: false,
+        };
+      }
+    }
+    // Another cadence is in charge today: every still-open pool covering today was handed over (carry-over).
+    if (d >= BUDGET_RULES_V2_FROM) {
+      for (const pool of Object.values(pools)) {
+        if (pool.cadence !== plan.cadence && !pool.closedOn && d > pool.startedOn && d >= pool.periodStart && d <= pool.periodEnd) {
+          pool.closedOn = d;
+        }
+      }
+    }
+  }
+  for (const pool of Object.values(pools)) {
+    if (pool.periodEnd <= upToDate && pool.periodEnd >= BUDGET_RULES_V2_FROM && !pool.closedOn) {
+      const atEnd = resolvePlanForDate(changes, pool.periodEnd);
+      pool.endsInPure = !!atEnd && !atEnd.isEnabled;
+    }
+  }
+  return pools;
+}
+
+/**
+ * Which pool does this date spend from? (null = none)
+ *  - Budget Mode on with a weekly / monthly plan: that period's pool.
+ *  - Pure Mode (paused) inside a period whose pool is still alive: the SAME pool.
+ */
+export function poolForDate(pools: Record<string, BudgetPool>, changes: BudgetPlanChange[], dateStr: string): BudgetPool | null {
+  const plan = resolvePlanForDate(changes, dateStr);
+  if (!plan || plan.cadence === 'daily') return null;
+  const pool = pools[poolKeyFor(plan.cadence, dateStr)];
+  if (!pool || dateStr < pool.startedOn) return null;
+  if (!plan.isEnabled && pool.closedOn && dateStr >= pool.closedOn) return null;
+  return pool;
+}
+
+/** Everything spent from `pool` on days in [pool.startedOn, beforeDate). */
+export function poolSpentBefore(
+  pools: Record<string, BudgetPool>,
+  changes: BudgetPlanChange[],
+  pool: BudgetPool,
+  beforeDate: string,
+  spentByDate: Record<string, number>
+): number {
+  let sum = 0;
+  const end = beforeDate <= pool.periodEnd ? addDays(parseISO(beforeDate), -1) : parseISO(pool.periodEnd);
+  if (parseISO(pool.startedOn) > end) return 0;
+  for (const day of eachDayOfInterval({ start: parseISO(pool.startedOn), end })) {
+    const d = format(day, 'yyyy-MM-dd');
+    if (poolForDate(pools, changes, d)?.key === pool.key) sum += Number(spentByDate[d]) || 0;
+  }
+  return round2(sum);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily carry-over: weekly / monthly -> daily (ADR 0012)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * What happens to the money left in a weekly / monthly budget when the user switches to DAILY.
+ * (The same two stored values are used, no database change:  'additive' = ADD TO TOMORROW,
+ *  'allocation' = SPREAD OVER DAYS.)
+ *  - next_day : the first daily day's budget grows by the carried amount. What is not used goes to Gullak
+ *               at the end of that day, like any daily leftover.
+ *  - spread   : each daily day is paid from the carried money first (one daily budget per day) until it is
+ *               used up; the user only has to put the rest into the bank.
+ * The carried money is ALREADY in the user's bank (it was part of the old budget), so the notification tells the
+ * user how much they still need to add today.
+ */
+export interface DailyCarryDay {
+  mode: 'next_day' | 'spread';
+  /** Extra budget added to this day (next_day only). */
+  extraBudget: number;
+  /** Part of today's budget paid from carried-over money. */
+  funded: number;
+  /** What the user still has to put into the bank today. */
+  toAdd: number;
+  /** Carried money left after this day. */
+  remainingAfter: number;
+  /** Today's normal daily budget (without the extra). */
+  base: number;
+}
+
+export function dailyCarryForDate(
+  changes: BudgetPlanChange[],
+  recordBudgetFor: (dateStr: string) => number | undefined,
+  fallbackDaily: number,
+  dateStr: string
+): DailyCarryDay | null {
+  const plan = resolvePlanForDate(changes, dateStr);
+  if (!plan || !plan.isEnabled || plan.cadence !== 'daily') return null;
+  const carry = Number(plan.carriedOverAmount) || 0;
+  if (!(carry > 0) || !plan.carryMode || plan.effectiveFrom < BUDGET_RULES_V2_FROM) return null;
+  if (dateStr < plan.effectiveFrom) return null;
+
+  if (plan.carryMode === 'additive') {
+    if (dateStr !== plan.effectiveFrom) return null;
+    const base = (Number(plan.amount) || 0) > 0 ? Number(plan.amount) : fallbackDaily;
+    return { mode: 'next_day', extraBudget: carry, funded: carry, toAdd: round2(base), remainingAfter: 0, base: round2(base) };
+  }
+
+  let remaining = carry;
+  let last: DailyCarryDay | null = null;
+  for (const day of eachDayOfInterval({ start: parseISO(plan.effectiveFrom), end: parseISO(dateStr) })) {
+    const d = format(day, 'yyyy-MM-dd');
+    if (resolvePlanForDate(changes, d) !== plan) break; // another plan took over
+    const a = Math.max(0, recordBudgetFor(d) ?? fallbackDaily);
+    const funded = round2(Math.min(a, remaining));
+    remaining = round2(remaining - funded);
+    last = { mode: 'spread', extraBudget: 0, funded, toAdd: round2(a - funded), remainingAfter: remaining, base: round2(a) };
+  }
+  return last;
+}
+
+/** Carried money still unused at the END of `dateStr` (what a further cadence switch can still carry). */
+export function dailyCarryRemaining(
+  changes: BudgetPlanChange[],
+  recordBudgetFor: (dateStr: string) => number | undefined,
+  fallbackDaily: number,
+  dateStr: string
+): number {
+  return dailyCarryForDate(changes, recordBudgetFor, fallbackDaily, dateStr)?.remainingAfter ?? 0;
+}

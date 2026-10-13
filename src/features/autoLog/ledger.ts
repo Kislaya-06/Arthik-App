@@ -4,7 +4,7 @@ import { supabase } from '../../config/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useExpenseStore, isValidUUID, Expense } from '../../store/expenseStore';
 import { useSharesStore } from '../../store/sharesStore';
-import { findExactSplitCandidates, reimbursedByShare, ReimbursementCandidate, ExpenseShare } from '../../lib/shares';
+import { findExactSplitCandidates, reimbursedByShare, ReimbursementCandidate, ExpenseShare, ShareDraft } from '../../lib/shares';
 
 /**
  * Bridge between Automatic Logging and Arthik's normal transaction store.
@@ -175,4 +175,13 @@ export const findSplitRepaymentCandidates = async (amount: number, occurredAt: n
   } catch {
     return [];
   }
+};
+
+/**
+ * "Split this expense" chosen while reviewing an auto-logged expense: attach the friends' shares to the
+ * transaction that was just created. The expense amount itself is never changed.
+ */
+export const saveSharesForTransaction = async (expenseId: string, total: number, drafts: ShareDraft[]): Promise<void> => {
+  if (drafts.length === 0) return;
+  await useSharesStore.getState().addShares(expenseId, total, drafts);
 };

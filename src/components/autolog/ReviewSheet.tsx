@@ -9,9 +9,11 @@ import { getCategoryIcon } from '../../lib/iconUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
-import { classifyEvent, ignoreEvent, learnFromDiscovery, resolveDuplicate, resolveSplitRepayment, resolveTransfer, setEventCategory } from '../../features/autoLog/reviews';
+import { classifyEventAndSplit, setCategoryAndSplit, ignoreEvent, learnFromDiscovery, resolveDuplicate, resolveSplitRepayment, resolveTransfer } from '../../features/autoLog/reviews';
 import { findSplitRepaymentCandidates } from '../../features/autoLog/ledger';
-import type { ReimbursementCandidate } from '../../lib/shares';
+import type { ReimbursementCandidate, ShareDraft } from '../../lib/shares';
+import { SplitExpenseModal } from '../shares/SplitExpenseModal';
+import { Users } from 'lucide-react-native';
 import { formatCurrency } from '../../lib/formatters';
 
 /**
@@ -43,6 +45,8 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
   const [error, setError] = useState<string | null>(null);
   const [splitCandidates, setSplitCandidates] = useState<ReimbursementCandidate[]>([]);
   const [splitDeclined, setSplitDeclined] = useState(false);
+  const [splitDrafts, setSplitDrafts] = useState<ShareDraft[]>([]);
+  const [showSplit, setShowSplit] = useState(false);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
 
@@ -56,6 +60,8 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
       setBusy(false);
       setSplitDeclined(false);
       setSplitCandidates([]);
+      setSplitDrafts([]);
+      setShowSplit(false);
     }
   }, [visible, event?.id, categoryOnly, event?.direction]);
 
@@ -104,18 +110,18 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
 
   const finish = (remember: boolean) => {
     if (categoryOnly) {
-      return run(() => setEventCategory(event, categoryId as string, remember), 'Category saved');
+      return run(() => setCategoryAndSplit(event, categoryId as string, remember, splitDrafts), 'Category saved');
     }
     return run(async () => {
-      await classifyEvent(event, type, categoryId, remember, needsAmount ? amount ?? undefined : undefined);
+      await classifyEventAndSplit(event, type, categoryId, remember, needsAmount ? amount ?? undefined : undefined, splitDrafts);
     }, `${money(amount)} logged as ${type === 'income' ? 'income' : 'an expense'}`);
   };
 
   const afterCategory = (id: string | null) => {
     setCategoryId(id);
     if (id && event.merchant) setStep('remember');
-    else if (categoryOnly && id) run(() => setEventCategory(event, id, false), 'Category saved');
-    else run(() => classifyEvent(event, type, id, false, needsAmount ? amount ?? undefined : undefined).then(() => undefined), `${money(amount)} logged`);
+    else if (categoryOnly && id) run(() => setCategoryAndSplit(event, id, false, splitDrafts), 'Category saved');
+    else run(() => classifyEventAndSplit(event, type, id, false, needsAmount ? amount ?? undefined : undefined, splitDrafts).then(() => undefined), `${money(amount)} logged`);
   };
 
   // ── Summary block shown at the top of every step ──
@@ -289,9 +295,33 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
     );
   } else if (step === 'category') {
     title = 'Choose a category';
+    const canSplit = (categoryOnly ? event.direction === 'debit' : type === 'expense') && (amount ?? 0) > 0;
+    const splitTotal = splitDrafts.reduce((sum, d) => sum + d.amount, 0);
     content = (
       <>
         {summary}
+        {canSplit ? (
+          <Pressable
+            onPress={() => setShowSplit(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Split this expense"
+            style={[styles.splitRow, { borderColor: splitDrafts.length ? colors.mintGreenDark : colors.borderSubtle }]}
+          >
+            <Users size={16} color={splitDrafts.length ? colors.mintGreenDark : colors.textSecondary} />
+            <Text style={[styles.splitText, { color: splitDrafts.length ? colors.textPrimary : colors.textSecondary }]}>
+              {splitDrafts.length
+                ? `Split with ${splitDrafts.length} ${splitDrafts.length === 1 ? 'friend' : 'friends'} · ${formatCurrency(splitTotal)}`
+                : 'Split this expense'}
+            </Text>
+          </Pressable>
+        ) : null}
+        <SplitExpenseModal
+          visible={showSplit}
+          total={amount ?? 0}
+          initial={splitDrafts}
+          onClose={() => setShowSplit(false)}
+          onSave={(d) => { setSplitDrafts(d); setShowSplit(false); }}
+        />
         <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
           {usableCategories.map((c) => {
             const Icon = getCategoryIcon(c.icon);
@@ -368,6 +398,8 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
 };
 
 const styles = StyleSheet.create({
+  splitRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8 },
+  splitText: { fontSize: FontSize.body, fontFamily: FontFamily.bold },
   summary: { borderRadius: BorderRadius.input, padding: Spacing.block, marginBottom: Spacing.block },
   amount: { fontSize: FontSize.titleLarge, lineHeight: LineHeight.titleLarge, fontFamily: FontFamily.bold },
   meta: { fontSize: FontSize.body, fontFamily: FontFamily.bold, marginTop: Spacing.nano },

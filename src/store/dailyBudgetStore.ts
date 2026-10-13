@@ -29,6 +29,20 @@ let sharesGetter: (() => Array<{ id: string; expense_id: string }>) | null = nul
 export const registerSharesGetter = (getter: () => Array<{ id: string; expense_id: string }>) => {
   sharesGetter = getter;
 };
+/**
+ * Does the DAILY engine own this date? (Fix: a weekly / monthly plan, or Pure Mode, owns the day instead.)
+ * Users with no plan history at all are old daily users: the daily engine owns every day for them.
+ * Without this, a weekly user also got a daily budget record every day (a second budget on the same day).
+ */
+const isDailyOwnedDate = (changes: BudgetPlanChange[] | undefined, dateStr: string): boolean =>
+  !changes || changes.length === 0 ? true : getDateOwner(changes, dateStr) === 'daily';
+
+/** Extra budget the first daily day gets from money carried over from a weekly / monthly plan ("add to tomorrow"). */
+const dailyCarryExtraFor = (dateStr: string): number => {
+  const st = useDailyBudgetStore.getState();
+  return dailyCarryForDate(st.planChanges, (d) => st.dailyRecords[d]?.budget, st.dailyBudgetAmount, dateStr)?.extraBudget ?? 0;
+};
+
 const getCurrentShares = (): Array<{ id: string; expense_id: string }> => (sharesGetter ? sharesGetter() : []);
 
 export const registerExpensesLoadedGetter = (getter: () => boolean) => {
@@ -44,7 +58,7 @@ export const areExpensesLoaded = (): boolean => {
   return false;
 };
 import { useCategoryStore } from './categoryStore';
-import { notifyLimit, notifyRollover, notifyBudgetUpdated } from '../lib/budgetAlerts';
+import { notifyLimit, notifyRollover, notifyBudgetUpdated, notifyBudgetResumed, notifyPurePeriodEnded } from '../lib/budgetAlerts';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
@@ -54,6 +68,7 @@ import { isCountedIncome } from '../lib/transactionUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 import { round2 } from '../lib/formatters';
 import { computeWaterfallFromState, WaterfallResult } from '../lib/moneyWaterfall';
+import { buildBudgetPools, poolSpentBefore, poolKeyFor, dailyCarryForDate, dailyCarryRemaining, BUDGET_RULES_V2_FROM } from '../lib/budgetPeriods';
 
 const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
   return makeIncomeClassifier(useCategoryStore.getState().categories);
@@ -274,6 +289,37 @@ const runWaterfall = (
   });
 };
 
+/**
+ * All budget money that ever existed, each rupee ONCE:
+ *  - daily plan days: that day's budget
+ *  - weekly / monthly: ONE pool per calendar period (a pool the user handed over to another cadence only counts
+ *    what it really used: the rest was carried to the new cadence's budget)
+ */
+const computeAllTimeBudget = (
+  records: Record<string, DailyRecord>,
+  planChanges: BudgetPlanChange[],
+  spentByDate: Record<string, number>,
+  budgetPeriods?: Record<string, BudgetPeriodRecord>
+): number => {
+  let total = 0;
+  for (const r of Object.values(records)) {
+    if (r.status === 'unknown' || !(r.budget > 0)) continue;
+    if (!isDailyOwnedDate(planChanges, r.date)) continue; // a weekly / monthly / Pure day owns no daily budget
+    total += Number(r.budget) || 0;
+  }
+  if (!planChanges || planChanges.length === 0) {
+    // Old user without plan history: only period records exist (if any).
+    if (budgetPeriods) for (const bp of Object.values(budgetPeriods)) total += Number(bp.budgetAmount) || 0;
+    return round2(total);
+  }
+  const pools = buildBudgetPools(planChanges, getTodayDateStr());
+  for (const pool of Object.values(pools)) {
+    if (pool.closedOn) total += Math.min(pool.budget, poolSpentBefore(pools, planChanges, pool, pool.closedOn, spentByDate));
+    else total += pool.budget;
+  }
+  return round2(total);
+};
+
 const computeMetrics = (
   records: Record<string, DailyRecord>,
   deposits?: GullakDeposit[],
@@ -326,17 +372,12 @@ const computeMetrics = (
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
     const isReimbFn = buildReimbursementClassifier();
 
-    let allTimeBudget = 0;
-    for (const r of Object.values(records)) {
-      if (r.status !== 'unknown' && r.budget > 0) {
-        allTimeBudget += Number(r.budget) || 0;
-      }
-    }
-    if (budgetPeriods) {
-      for (const bp of Object.values(budgetPeriods)) {
-        allTimeBudget += Number(bp.budgetAmount) || 0;
-      }
-    }
+    const allTimeBudget = computeAllTimeBudget(
+      records,
+      useDailyBudgetStore.getState().planChanges,
+      computeSpentByDate(expensesList, isIncomeFn),
+      budgetPeriods
+    );
 
     let allTimeIncome = 0;
     let allTimeReimb = 0;
@@ -485,6 +526,8 @@ interface DailyBudgetState {
   getGrossIncomeBalance: () => number;
   /** Everything left across the whole account (budgets + income + reimbursements + external deposits - spent). Can be <= 0. */
   getTotalAccountRemaining: () => number;
+  /** Money that is left in the running budget and could be carried into a new cadence right now. */
+  getCarryableAmount: () => number;
   getPriorAvailableIncomeBalance: () => number;
   syncWithExpenses: (expenses: Expense[]) => void;
   checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
@@ -563,7 +606,11 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           return records[todayStr];
         }
 
-        const def = buildDefaultTodayRecord(todayStr, get().isAutoRenew && get().isBudgetModeEnabled, get().dailyBudgetAmount);
+        const def = buildDefaultTodayRecord(
+          todayStr,
+          get().isAutoRenew && get().isBudgetModeEnabled && isDailyOwnedDate(get().planChanges, todayStr),
+          get().dailyBudgetAmount + dailyCarryExtraFor(todayStr)
+        );
         if (!get().isAutoRenew || !get().isBudgetModeEnabled) {
           return {
             ...def,
@@ -691,7 +738,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const records = { ...get().dailyRecords };
         const currentToday = records[todayStr];
 
-        if (enabled && get().dailyBudgetAmount > 0 && (!currentToday || currentToday.budget === 0)) {
+        if (enabled && get().dailyBudgetAmount > 0 && isDailyOwnedDate(get().planChanges, todayStr) && (!currentToday || currentToday.budget === 0)) {
           const budget = get().dailyBudgetAmount;
           const spent = currentToday?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
@@ -812,7 +859,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             saved: 0,
             status: 'unknown',
           };
-        } else if (enabled && get().dailyBudgetAmount > 0 && (!records[todayStr] || records[todayStr].budget === 0)) {
+        } else if (enabled && get().dailyBudgetAmount > 0 && isDailyOwnedDate(updatedChanges, todayStr) && (!records[todayStr] || records[todayStr].budget === 0)) {
           const budget = get().dailyBudgetAmount;
           const spent = records[todayStr]?.spent || 0;
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
@@ -846,6 +893,21 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           dailyRecords: records,
           ...metrics,
         });
+
+        // ADR 0012: switching Budget Mode back on inside the same week / month continues the SAME budget.
+        // Say so ("Welcome back: ₹4,600 left of this month's ₹9,000").
+        if (enabled && (cadence === 'weekly' || cadence === 'monthly') && todayStr >= BUDGET_RULES_V2_FROM) {
+          try {
+            const pools = buildBudgetPools(updatedChanges, todayStr);
+            const pool = pools[poolKeyFor(cadence, todayStr)];
+            if (pool && pool.startedOn < todayStr && !pool.closedOn) {
+              const spentByDate = computeSpentByDate(getCurrentExpenses(), buildCategoryClassifier());
+              const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
+              const left = Math.max(0, round2(pool.budget - poolSpentBefore(pools, updatedChanges, pool, tomorrowStr, spentByDate)));
+              notifyBudgetResumed(`resumed_${pool.key}_${todayStr}`, cadence, left, pool.budget, todayStr);
+            }
+          } catch {}
+        }
 
         if (currentUser) {
           savePendingSettingsOffline(currentUser.id, {
@@ -911,6 +973,13 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             ? get().monthlyBudgetAmount
             : get().dailyBudgetAmount;
 
+        // Only money that REALLY exists in the running budget can be carried. A daily day (or Pure Mode) has none:
+        // today's unused daily money goes to Gullak tonight, so carrying it as well would count it twice.
+        const carryable = get().getCarryableAmount();
+        const wantedCarry = Number(options?.carriedOverAmount) || 0;
+        const carriedOverAmount = carryable > 0 && wantedCarry > 0 ? round2(Math.min(wantedCarry, carryable)) : 0;
+        const carryMode = carriedOverAmount > 0 ? options?.carryMode : undefined;
+
         const newChange: BudgetPlanChange = {
           id: Crypto.randomUUID(),
           userId: currentUser?.id || '',
@@ -918,8 +987,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           isEnabled: get().isBudgetModeEnabled,
           cadence,
           amount,
-          carryMode: options?.carryMode,
-          carriedOverAmount: options?.carriedOverAmount,
+          carryMode,
+          carriedOverAmount: carriedOverAmount > 0 ? carriedOverAmount : undefined,
           createdAt: new Date().toISOString(),
         };
 
@@ -1324,6 +1393,29 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
       getAvailableIncomeBalance: () => runWaterfall().incomeRemaining,
 
+      getCarryableAmount: () => {
+        const st = get();
+        if (!st.isBudgetModeEnabled) return 0; // Pure Mode: what is left of a pool becomes income, never "carry"
+        const todayStr = getTodayDateStr();
+        const plans = st.planChanges || [];
+        if (plans.length === 0) return 0;
+        const owner = getDateOwner(plans, todayStr);
+        if (owner === 'daily') {
+          // Today's unused daily money goes to Gullak tonight: nothing to carry. Only carried money that is still
+          // unused (from an earlier switch) can move on.
+          return dailyCarryRemaining(plans, (d) => st.dailyRecords[d]?.budget, st.dailyBudgetAmount, todayStr);
+        }
+        if (owner === 'weekly' || owner === 'monthly') {
+          const pools = buildBudgetPools(plans, todayStr);
+          const pool = pools[poolKeyFor(owner, todayStr)];
+          if (!pool || pool.closedOn) return 0;
+          const spentByDate = computeSpentByDate(getCurrentExpenses(), buildCategoryClassifier());
+          const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
+          return round2(Math.max(0, pool.budget - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate)));
+        }
+        return 0;
+      },
+
       getTotalAccountRemaining: () => {
         const st = get();
         const records = st.dailyRecords || {};
@@ -1332,17 +1424,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const isEligibleIncomeFn = buildEligibleIncomeClassifier();
         const isReimbFn = buildReimbursementClassifier();
 
-        let budget = 0;
-        for (const r of Object.values(records)) {
-          if (r.status !== 'unknown' && r.budget > 0) budget += Number(r.budget) || 0;
-        }
-        for (const bp of Object.values(st.budgetPeriods || {})) budget += Number(bp.budgetAmount) || 0;
-        // The week / month that is still running is not finalized yet, but its budget is real money already.
-        if (st.isBudgetModeEnabled && st.budgetCadence !== 'daily') {
-          const spentByDate = computeSpentByDate(expenses, isIncomeFn);
-          const summary = getCurrentPeriodSummary(st.planChanges, spentByDate, getTodayDateStr());
-          if (summary) budget += Number(summary.budget) || 0;
-        }
+        const budget = computeAllTimeBudget(
+          records,
+          st.planChanges,
+          computeSpentByDate(expenses, isIncomeFn),
+          st.budgetPeriods
+        );
 
         let income = 0;
         let reimb = 0;
@@ -1390,7 +1477,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const isBudgetOn = get().isBudgetModeEnabled;
 
         if (!todayRecord) {
-          const budget = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0;
+          const budget = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 && isDailyOwnedDate(get().planChanges, todayStr) ? get().dailyBudgetAmount + dailyCarryExtraFor(todayStr) : 0;
           const { saved } = evaluateDayStatus(budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
           const effectiveSpendable = budget + todayReimb; // income is a separate pool, not allowance
           todayRecord = {
@@ -1413,6 +1500,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             };
             hasTodayChanged = true;
           }
+        } else if (todayRecord.budget > 0 && !todayRecord.isFinalized && !isDailyOwnedDate(get().planChanges, todayStr)) {
+          // A weekly / monthly plan (or Pure Mode) owns today: no daily budget on this day.
+          todayRecord = { ...todayRecord, budget: 0, spent: todaySpent, saved: 0, status: 'unknown' };
+          hasTodayChanged = true;
         } else {
           const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
           const effectiveSpendable = todayRecord.budget + todayReimb; // income is a separate pool, not allowance
@@ -1606,7 +1697,19 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           let saved = 0;
           let status: 'saved' | 'exceeded' | 'even' | 'unknown' = 'unknown';
 
-          if (existing && existing.status === 'unknown') {
+          // HEAL: a day owned by a weekly / monthly plan (or Pure Mode) must not carry a daily budget.
+          // Old versions made one anyway, which put a second budget (and its leftover) into Gullak.
+          const wrongDailyRecord =
+            !!existing &&
+            existing.status !== 'unknown' &&
+            (existing.budget > 0 || (existing.saved || 0) > 0) &&
+            !isDailyOwnedDate(get().planChanges, d);
+
+          if (wrongDailyRecord) {
+            status = 'unknown';
+            budget = 0;
+            saved = 0;
+          } else if (existing && existing.status === 'unknown') {
             // Preserved untracked historical day
             status = 'unknown';
             budget = 0;
@@ -1621,7 +1724,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             // Past date being finalized for the very first time with no prior record:
             // P1.3 (Option A): If auto-renew is active and budget > 0, use daily budget so streak & savings are preserved
             if (get().isAutoRenew && get().dailyBudgetAmount > 0) {
-              budget = get().dailyBudgetAmount;
+              budget = get().dailyBudgetAmount + dailyCarryExtraFor(d);
             } else if (spent > 0) {
               budget = 0;
             } else {
@@ -1634,7 +1737,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           } else {
             // Existing record with 0 budget (e.g. manual mode)
             if (get().isAutoRenew && get().dailyBudgetAmount > 0 && existing.budget === 0) {
-              budget = get().dailyBudgetAmount;
+              budget = get().dailyBudgetAmount + dailyCarryExtraFor(d);
             } else {
               budget = 0;
             }
@@ -1660,6 +1763,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               isFinalized: true,
               status,
               needsUpload: true,
+              ...(wrongDailyRecord ? { forceOverwrite: true } : {}),
             };
             updated = true;
 
@@ -1674,7 +1778,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   ? 'even'
                   : 'missed';
 
-              const isInsertOnly = shouldIgnoreDuplicates(status);
+              const isInsertOnly = shouldIgnoreDuplicates(status) && !wrongDailyRecord;
 
               supabase
                 .from('daily_savings_log')
@@ -1697,7 +1801,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                         set({
                           dailyRecords: {
                             ...cur,
-                            [d]: { ...cur[d], needsUpload: false },
+                            [d]: { ...cur[d], needsUpload: false, forceOverwrite: undefined },
                           },
                         });
                       }
@@ -1734,6 +1838,16 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         // brand new ones). Older app versions added INCOME into the period budget and into Gullak savings,
         // so already-finalized periods may hold wrong numbers. Recomputing from budget + spending fixes
         // them for existing users. Never done before expenses are loaded (spent would look like 0).
+        // ADR 0012: a period that ended while the user was in Pure Mode: its unused budget became income.
+        try {
+          const endPools = buildBudgetPools(get().planChanges, todayStr);
+          for (const pool of Object.values(endPools)) {
+            if (!pool.endsInPure || pool.periodEnd >= todayStr) continue;
+            const left = Math.max(0, round2(pool.budget - poolSpentBefore(endPools, get().planChanges, pool, format(new Date(new Date(`${pool.periodEnd}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd'), spentByDate)));
+            if (left > 0) notifyPurePeriodEnded(`pure_end_${pool.key}`, pool.cadence, left, pool.budget, pool.periodEnd);
+          }
+        } catch {}
+
         const existingPeriods = get().budgetPeriods;
         const canHealPeriods = areExpensesLoaded();
         const recomputedPeriods = buildPeriodsToFinalize(
@@ -1872,7 +1986,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 ? 'even'
                 : 'missed';
 
-            const isInsertOnly = shouldIgnoreDuplicates(rec.status);
+            const isInsertOnly = shouldIgnoreDuplicates(rec.status) && !rec.forceOverwrite;
             try {
               const { error } = await supabase
                 .from('daily_savings_log')
@@ -1889,7 +2003,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 );
 
               if (!error) {
-                records[d] = { ...rec, needsUpload: false };
+                records[d] = { ...rec, needsUpload: false, forceOverwrite: undefined };
                 hasUpdates = true;
               }
             } catch {
@@ -2334,11 +2448,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   : 0;
 
               // --- 1. DETERMINE TRUE DAY BUDGET ---
-              const dayBudget = resolveHydratedDayBudget({
-                rawLogBudget,
-                localRecordBudget: records[d]?.budget,
-                resolvedBudget,
-              });
+              // A day owned by a weekly / monthly plan (or Pure Mode) has NO daily budget (old rows may say otherwise).
+              const dayIsDailyOwned = isDailyOwnedDate(resolvedPlanChanges, d);
+              const dayBudget = dayIsDailyOwned
+                ? resolveHydratedDayBudget({
+                    rawLogBudget,
+                    localRecordBudget: records[d]?.budget,
+                    resolvedBudget,
+                  })
+                : 0;
 
               // --- 2. RECALCULATE SAVED & STATUS ---
               const dayIncome = incomeByDate[d] || 0;
@@ -2363,7 +2481,16 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 (rawLogBudget !== null && rawLogBudget !== dayBudget) ||
                 log.status !== (evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : evaluatedStatus === 'unknown' ? 'unknown' : 'missed');
 
-              if (wasCorrupted && dayBudget > 0) {
+              if (!dayIsDailyOwned && (rawLogBudget || 0) > 0) {
+                // Wrong daily row for a weekly / monthly / Pure day: overwrite the server row too.
+                supabase
+                  .from('daily_savings_log')
+                  .upsert(
+                    { user_id: userId, date: d, amount_saved: 0, spent_amount: daySpent, budget_amount: 0, status: 'unknown' },
+                    { onConflict: 'user_id,date' }
+                  )
+                  .then(() => {});
+              } else if (wasCorrupted && dayBudget > 0) {
                 // Self-healing deliberately omits ignoreDuplicates to unconditionally overwrite confirmed corrupted server rows.
                 supabase
                   .from('daily_savings_log')
@@ -2385,17 +2512,18 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
           // Ensure today's record exists if not present
           if (!records[todayStr]) {
-            const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
+            const todayDaily = isDailyOwnedDate(resolvedPlanChanges, todayStr);
+            const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 && todayDaily ? resolvedBudget + dailyCarryExtraFor(todayStr) : 0;
             records[todayStr] = {
               date: todayStr,
               budget: todayBudget,
               spent: 0,
               saved: todayBudget,
               isFinalized: false,
-              status: resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? 'active' : 'unknown',
+              status: resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 && todayDaily ? 'active' : 'unknown',
             };
           } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
-            if (resolvedAutoRenew && resolvedBudget > 0) {
+            if (resolvedAutoRenew && resolvedBudget > 0 && isDailyOwnedDate(resolvedPlanChanges, todayStr)) {
               if (records[todayStr].budget === 0) {
                 records[todayStr].budget = resolvedBudget;
                 records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);

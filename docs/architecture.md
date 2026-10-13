@@ -360,4 +360,5 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0008](adr/0008-unified-income-classification.md) | Unified income classification | Active |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest unit test coverage policy | Active |
 | [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011) |
-| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active |
+| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
+| [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |

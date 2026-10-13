@@ -48,6 +48,13 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
         iconName: 'calendar',
       },
       {
+        tag: 'One Budget',
+        title: 'One budget per week or month',
+        description:
+          'A week or month gets its budget once. Pausing, resuming or switching back inside the same period never gives a second one. Whatever is left is what continues.',
+        iconName: 'calendar',
+      },
+      {
         tag: 'Fresh Start',
         title: 'Full cycle begins on schedule',
         description:
@@ -72,9 +79,9 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
     items: [
       {
         tag: '100% Safe',
-        title: 'Gullak savings stay intact',
+        title: 'Gullak is used last',
         description:
-          'Your saved Gullak balance is completely safe and untouched. It will never be deleted or reset.',
+          'Your saved Gullak balance is never deleted or reset. In Pure Mode a spend is paid from your budget first, then income, and only then from Gullak, exactly as in Budget Mode.',
         iconName: 'coins',
       },
       {
@@ -86,9 +93,9 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
       },
       {
         tag: 'Limits Paused',
-        title: 'Future daily limits are paused',
+        title: 'Limits and warnings are paused',
         description:
-          'Starting today, spending limits, warnings, and automatic midnight rollovers are paused for distraction-free tracking.',
+          'Starting today, spending limits, warnings, and automatic rollovers are paused. Your weekly or monthly budget stays with its period: spends use it, and if you switch back in the same period you continue with what is left.',
         iconName: 'shield',
       },
       {

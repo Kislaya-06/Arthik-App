@@ -25,7 +25,9 @@ import { RefreshScrollShell } from '../components/RefreshScrollShell';
 import { getNavTopOffset } from '../lib/pullToHistoryPhysics';
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
-import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals } from '../lib/homeCalculations';
+import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate } from '../lib/homeCalculations';
+import { dailyCarryForDate } from '../lib/budgetPeriods';
+import { carryCoverCopy } from '../lib/notificationPolicy';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
 import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
 import { isDateInPeriod, FilterPeriod } from '../lib/dateFilters';
@@ -434,6 +436,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [getAvailableIncomeBalance, expenses, dailyRecords, gullakDeposits]
   );
 
+  // Carried-over money inside the daily budgets (from a weekly / monthly budget): already in the old budget,
+  // so "All" must not count it twice. Also the one-line note under the hero ("Add only ₹50 today").
+  const carryCoveredByDate = useMemo(
+    () => getCarryCoveredByDate(planChanges, dailyRecords, dailyBudgetAmount, todayKey),
+    [planChanges, dailyRecords, dailyBudgetAmount, todayKey]
+  );
+  const carryNote = useMemo(() => {
+    if (!isBudgetModeEnabled) return null;
+    const c = dailyCarryForDate(planChanges, (x) => dailyRecords[x]?.budget, dailyBudgetAmount, todayKey);
+    if (!c || c.funded <= 0) return null;
+    return carryCoverCopy({ date: todayKey, mode: c.mode, budget: c.base + c.extraBudget, funded: c.funded, toAdd: c.toAdd, remainingAfter: c.remainingAfter }).title;
+  }, [isBudgetModeEnabled, planChanges, dailyRecords, dailyBudgetAmount, todayKey]);
+
   // Money waterfall: budget first -> then income -> then Gullak (time ordered, shared with the
   // expense detail screen and the Gullak total). Gives each pill its own real income / Gullak numbers.
   const scopeFunding = useMemo(() => {
@@ -492,8 +507,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         spentByDate,
         availableIncomeBalance,
         funding: { incomeRemaining: scopeFunding.incomeRemaining, gullakDrawn: scopeFunding.gullakDrawn },
+        carryCoveredByDate,
       }),
-    [scopeFunding, activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
+    [carryCoveredByDate, scopeFunding, activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
   );
 
   // Date range label shown below filter pills for quick orientation
@@ -626,6 +642,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           remainingDeposits={remainingDeposits}
           isSpendingFromGullak={isSpendingFromGullak}
           gullakDrawnAmount={gullakDrawnAmount}
+          carryNote={carryNote}
         />
 
         {/* Automatic Logging: only visible when something needs review/attention */}

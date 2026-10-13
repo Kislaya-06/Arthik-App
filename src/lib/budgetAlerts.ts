@@ -4,6 +4,8 @@ import {
   Cadence,
   LimitCopyInput,
   budgetUpdatedCopy,
+  budgetResumedCopy,
+  pureEndedCopy,
   limitCopy,
   rolloverCopy,
 } from './notificationPolicy';
@@ -71,5 +73,29 @@ export function notifyBudgetUpdated(id: string, amount: number, date: string): v
     message: body,
     type: 'general',
     data: { date, amount, screen: 'Savings' },
+  });
+}
+
+/** Budget Mode switched back on inside the same week / month: "Welcome back: ₹4,600 left of this month's ₹9,000." */
+export function notifyBudgetResumed(id: string, cadence: 'weekly' | 'monthly', remaining: number, budget: number, date: string): void {
+  const { title, body } = budgetResumedCopy(cadence, remaining, budget);
+  useNotificationStore.getState().addNotification({
+    id,
+    title,
+    message: body,
+    type: 'general',
+    data: { date, amount: remaining, screen: 'Savings' },
+  });
+}
+
+/** A week / month ended while the user was in Pure Mode: what was left became income, nothing went to Gullak. */
+export function notifyPurePeriodEnded(id: string, cadence: 'weekly' | 'monthly', left: number, budget: number, date: string): void {
+  const { title, body } = pureEndedCopy(cadence, left, budget);
+  useNotificationStore.getState().addNotification({
+    id,
+    title,
+    message: body,
+    type: 'general',
+    data: { date, amount: left, screen: 'Savings' },
   });
 }

@@ -6,12 +6,22 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
   const REF_DATE = new Date(2026, 8, 18, 12, 0, 0); // Friday, 18 Sep 2026
   const USER_CREATED = '2026-09-01';
 
+  // "All" counts only days the app really tracked (they have a daily record) and today.
+  const trackedDays = (from: string, to: string): Record<string, any> => {
+    const out: Record<string, any> = {};
+    for (let d = new Date(`${from}T00:00:00`); d <= new Date(`${to}T00:00:00`); d.setDate(d.getDate() + 1)) {
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      out[ds] = { date: ds, budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' };
+    }
+    return out;
+  };
+
   const baseParams: PeriodCalculationParams = {
     activeFilter: 'All',
     dailyBudgetAmount: 500,
     isAutoRenew: true,
     todayBudget: 500,
-    dailyRecords: {},
+    dailyRecords: trackedDays('2026-09-01', '2026-09-17'),
     totalIncome: 2823.8,
     totalSpent: 2227,
     filtered: [],
@@ -90,6 +100,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
         totalSpent: 2227,
         todaySpent: 500,
         dailyRecords: {
+          ...trackedDays('2026-09-01', '2026-09-17'),
           '2026-09-10': {
             date: '2026-09-10',
             budget: 500,

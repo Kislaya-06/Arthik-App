@@ -74,6 +74,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const savingsStreak = useDailyBudgetStore((s) => s.savingsStreak);
   const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
+  const getCarryableAmount = useDailyBudgetStore((s) => s.getCarryableAmount);
 
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [budgetTitleWraps, setBudgetTitleWraps] = useState(true);
@@ -347,6 +348,16 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
             <Text style={[styles.pauseModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
               Your Gullak balance ({formatCurrency(totalAccumulatedSavings)}) and streaks are safe. You can resume anytime.
+            </Text>
+            <Text style={[styles.pauseModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.element }]}>
+              {(() => {
+                const left = pauseModalVisible && typeof getCarryableAmount === 'function' ? getCarryableAmount() : 0;
+                if ((budgetCadence === 'weekly' || budgetCadence === 'monthly') && left > 0) {
+                  const w = budgetCadence === 'weekly' ? 'week' : 'month';
+                  return `Your ${formatCurrency(left)} budget stays with this ${w}. Spending in Pure Mode still uses it. Switch back this ${w} and you continue with what's left.`;
+                }
+                return 'Pure Mode keeps the same books: your budget is used first, then income, then Gullak.';
+              })()}
             </Text>
 
             <TouchableOpacity

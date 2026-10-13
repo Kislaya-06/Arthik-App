@@ -1,6 +1,7 @@
 import * as db from './db';
 import { logEvent } from './engine';
-import { deleteTransaction, setTransactionCategory, setTransactionType } from './ledger';
+import { deleteTransaction, setTransactionCategory, setTransactionType, saveSharesForTransaction } from './ledger';
+import type { ShareDraft } from '../../lib/shares';
 import { identityScore, ownTransferStrength, TRANSFER_WINDOW_MS } from './matching';
 import type { AutoLogEvent } from './types';
 
@@ -177,4 +178,28 @@ export const resolveSplitRepayment = async (event: AutoLogEvent, shareId: string
   });
   await reconcileAwaitingNotifications(e);
   return e;
+};
+
+/** Review: "Expense" + category, optionally split with friends. Income is never split. */
+export const classifyEventAndSplit = async (
+  event: AutoLogEvent,
+  type: 'expense' | 'income',
+  categoryId: string | null,
+  rememberMerchant: boolean,
+  amountOverride: number | undefined,
+  drafts?: ShareDraft[]
+) => {
+  const e = await classifyEvent(event, type, categoryId, rememberMerchant, amountOverride);
+  if (type === 'expense' && drafts && drafts.length > 0 && e.expenseId && e.amount != null) {
+    await saveSharesForTransaction(e.expenseId, e.amount, drafts);
+  }
+  return e;
+};
+
+/** Review of an already-logged expense that only needs its category: same optional split. */
+export const setCategoryAndSplit = async (event: AutoLogEvent, categoryId: string, rememberMerchant: boolean, drafts?: ShareDraft[]) => {
+  await setEventCategory(event, categoryId, rememberMerchant);
+  if (drafts && drafts.length > 0 && event.direction === 'debit' && event.expenseId && event.amount != null) {
+    await saveSharesForTransaction(event.expenseId, event.amount, drafts);
+  }
 };
