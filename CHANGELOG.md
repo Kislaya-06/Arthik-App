@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — Internal refactor (no user-visible change)
+
+- **InsightsScreen Split (Step 3a)**: Extracted `Period` type, constants, and date calculation utilities to `src/screens/insights/periodUtils.ts` and `PeriodNavigator` component to `src/screens/insights/PeriodNavigator.tsx`.
+
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 
 > **OTA safe (JS only).** Apply after OTA 1, 2 and 3. Only two source files change.

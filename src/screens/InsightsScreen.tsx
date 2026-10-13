@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, PanResponder, Animated, Easing,
-  useWindowDimensions, useAnimatedValue,
+  View, Text, StyleSheet, Pressable, ScrollView, PanResponder,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
@@ -14,15 +14,22 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
   TrendingUp, TrendingDown,
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
+  ChevronRight, ChevronDown, ChevronUp,
   ShoppingBag, Sparkles, Flame,
 } from 'lucide-react-native';
 import {
-  startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
-  subWeeks, subMonths, subYears, addDays, differenceInCalendarDays,
-  isWithinInterval, isBefore, startOfDay, parseISO, format,
-  isSameMonth, isSameYear,
+  startOfWeek, endOfWeek, subWeeks, addDays, differenceInCalendarDays,
+  isWithinInterval, parseISO, format,
 } from 'date-fns';
+import {
+  Period,
+  CHART_COLORS,
+  MAX_NAV_DOTS,
+  buildInterval,
+  buildDateLabel,
+  computeMinOffset,
+} from './insights/periodUtils';
+import { PeriodNavigator, PeriodNavigatorProps } from './insights/PeriodNavigator';
 
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
@@ -32,7 +39,7 @@ import { isIncomeTransaction, isExcludedFromTotals, isCountedIncome } from '../l
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, CATEGORY_PALETTE } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
@@ -89,251 +96,11 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-type Period = 'Weekly' | 'Monthly' | 'Yearly';
+export type { Period, PeriodNavigatorProps };
+export { CHART_COLORS, MAX_NAV_DOTS, buildInterval, buildDateLabel, computeMinOffset, PeriodNavigator };
 
-const CHART_COLORS = CATEGORY_PALETTE;
-
-// Max dots shown in the navigator — prevents visual clutter for long-time users
-const MAX_NAV_DOTS = 5;
-
-// ─── Pure helpers ──────────────────────────────────────────────────────────────
-
-
-/**
- * Returns the date interval (start/end) for a period shifted by `offset` steps from today.
- * offset=0 → current period, offset=-1 → previous period, offset=-2 → two periods back, etc.
- */
-function buildInterval(period: Period, offset: number): { start: Date; end: Date } {
-  const now = new Date(), abs = Math.abs(offset);
-  if (period === 'Weekly') {
-    const ref = offset < 0 ? subWeeks(now, abs) : now;
-    return { start: startOfWeek(ref, { weekStartsOn: 1 }), end: endOfWeek(ref, { weekStartsOn: 1 }) };
-  }
-  if (period === 'Monthly') {
-    const ref = offset < 0 ? subMonths(now, abs) : now;
-    return { start: startOfMonth(ref), end: endOfMonth(ref) };
-  }
-  const ref = offset < 0 ? subYears(now, abs) : now;
-  return { start: startOfYear(ref), end: endOfYear(ref) };
-}
-
-/**
- * Builds a human-readable label for the navigator header.
- *   offset=0  → "This Week" / "This Month" / "This Year"
- *   offset=-1 → "Last Week" / "Last Month" / "Last Year"
- *   older     → "15 – 21 Sep" / "Aug 2026" / "2025"
- */
-function buildDateLabel(period: Period, offset: number): string {
-  if (offset === 0) return period === 'Weekly' ? 'This Week' : period === 'Monthly' ? 'This Month' : 'This Year';
-  if (offset === -1) return period === 'Weekly' ? 'Last Week' : period === 'Monthly' ? 'Last Month' : 'Last Year';
-  const { start, end } = buildInterval(period, offset);
-  if (period === 'Weekly') {
-    if (isSameMonth(start, end) && isSameYear(start, end)) {
-      return `${format(start, 'd')} – ${format(end, 'd MMM yyyy')}`;
-    }
-    if (isSameYear(start, end)) {
-      return `${format(start, 'd MMM')} – ${format(end, 'd MMM yyyy')}`;
-    }
-    return `${format(start, 'd MMM yyyy')} – ${format(end, 'd MMM yyyy')}`;
-  }
-  return period === 'Monthly' ? format(start, 'MMMM yyyy') : format(start, 'yyyy');
-}
-
-/**
- * Computes the furthest back (most negative) offset the user is allowed to navigate to,
- * based on the earliest recorded expense date. Returns 0 if no expenses exist yet.
- */
-function computeMinOffset(period: Period, earliestDate: Date | null): number {
-  if (!earliestDate) return 0;
-  let offset = 0;
-  const earliestDay = startOfDay(earliestDate);
-  // Walk backward until the previous interval ended strictly before the earliest expense
-  while (offset > -60) {
-    const { end } = buildInterval(period, offset - 1);
-    if (isBefore(startOfDay(end), earliestDay)) break;
-    offset--;
-  }
-  return offset;
-}
-
-// ─── PeriodNavigator sub-component ────────────────────────────────────────────
-
-interface PeriodNavigatorProps {
-  dateLabel: string;
-  subLabel: string;
-  offset: number;
-  minOffset: number;
-  dotCount: number;
-  activeDotIndex: number;
-  hasPrevData: boolean;  // false → grey left arrow (no expenses in prev period)
-  onPrev: () => void;
-  onNext: () => void;
-}
-
-const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
-  dateLabel, subLabel, offset, minOffset, dotCount, activeDotIndex, hasPrevData, onPrev, onNext,
-}) => {
-  const isAtCurrent = offset === 0;
-  // Block going back if at oldest period with data
-  const isAtOldest = offset <= minOffset || hasPrevData === false;
-
-  // Each dot slot is (inactive dot width 6 + gap 8) = 14px
-  const DOT_SLOT = 14;
-
-  // Elastic pill animation: independent left position and width values
-  const slideLeft = useAnimatedValue(activeDotIndex * DOT_SLOT);
-  const slideWidth = useAnimatedValue(16);
-  const prevIndex = useRef(activeDotIndex);
-
-  useEffect(() => {
-    const from = prevIndex.current;
-    const to = activeDotIndex;
-    if (from === to) return;
-    prevIndex.current = to;
-
-    slideLeft.stopAnimation();
-    slideWidth.stopAnimation();
-
-    const distance = Math.abs(to - from);
-    const maxStretch = 16 + distance * DOT_SLOT;
-    const targetLeft = to * DOT_SLOT;
-
-    const springCfg = { tension: 100, friction: 16, useNativeDriver: false };
-    const timeCfg = { duration: 130, easing: Easing.out(Easing.quad), useNativeDriver: false };
-
-    Animated.sequence([
-      to > from
-        ? Animated.timing(slideWidth, { toValue: maxStretch, ...timeCfg })
-        : Animated.parallel([
-            Animated.timing(slideLeft, { toValue: targetLeft, ...timeCfg }),
-            Animated.timing(slideWidth, { toValue: maxStretch, ...timeCfg }),
-          ]),
-      to > from
-        ? Animated.parallel([
-            Animated.spring(slideLeft, { toValue: targetLeft, ...springCfg }),
-            Animated.spring(slideWidth, { toValue: 16, ...springCfg }),
-          ])
-        : Animated.spring(slideWidth, { toValue: 16, ...springCfg }),
-    ]).start();
-  }, [activeDotIndex]);
-
-  return (
-    <View style={navStyles.container}>
-      {/* Arrow row */}
-      <View style={navStyles.row}>
-        <Pressable
-          onPress={onPrev}
-          disabled={isAtOldest}
-          hitSlop={12}
-          style={[navStyles.arrowBtn, isAtOldest && navStyles.arrowDisabled]}
-        >
-          <ChevronLeft size={16} color={isAtOldest ? 'rgba(60,35,35,0.25)' : '#2D1E1E'} />
-        </Pressable>
-
-        <View style={navStyles.labelBlock}>
-          <Text
-            style={[navStyles.dateLabel, { fontFamily: FontFamily.bold }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-          >
-            {dateLabel}
-          </Text>
-          {!!subLabel && (
-            <Text
-              style={[navStyles.subLabel, { fontFamily: FontFamily.medium }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
-            >
-              {subLabel}
-            </Text>
-          )}
-        </View>
-
-        <Pressable
-          onPress={onNext}
-          disabled={isAtCurrent}
-          hitSlop={12}
-          style={[navStyles.arrowBtn, isAtCurrent && navStyles.arrowDisabled]}
-        >
-          <ChevronRight size={16} color={isAtCurrent ? 'rgba(60,35,35,0.25)' : '#2D1E1E'} />
-        </Pressable>
-      </View>
-
-      {/* Pagination dots with stretchy elastic sliding pill */}
-      {dotCount > 1 && (
-        <View style={navStyles.dotsRow}>
-          {/* Static ghost dots with left-to-right emergence progression */}
-          {Array.from({ length: dotCount }).map((_, i) => {
-            // Older history on the left is softly faded, smoothly emerging towards the current period on the right
-            const progress = dotCount > 1 ? i / (dotCount - 1) : 1;
-            const dotOpacity = 0.2 + progress * 0.45;
-            const dotScale = 0.82 + progress * 0.18;
-
-            return (
-              <View
-                key={i}
-                style={[
-                  navStyles.dot,
-                  { width: i === activeDotIndex ? 16 : 6 },
-                  {
-                    backgroundColor: `rgba(60,35,35,${dotOpacity.toFixed(2)})`,
-                    transform: [{ scale: dotScale }],
-                  },
-                ]}
-              />
-            );
-          })}
-          {/* Animated pill that stretches and snaps over the dots */}
-          <Animated.View
-            style={[
-              navStyles.dot,
-              navStyles.activePill,
-              {
-                left: slideLeft,
-                width: slideWidth,
-              },
-            ]}
-          />
-        </View>
-      )}
-    </View>
-  );
-};
-
-const navStyles = StyleSheet.create({
-  container: { alignItems: 'center', marginTop: Spacing.group },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.group },
-  arrowBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(60,35,35,0.06)',
-  },
-  arrowDisabled: { opacity: 0.35 },
-  labelBlock: { alignItems: 'center', minWidth: 160, maxWidth: 220, flexShrink: 1 },
-  dateLabel: { fontSize: FontSize.cta, color: '#2D1E1E' },
-  subLabel: { fontSize: FontSize.bodySmall, color: 'rgba(60,35,35,0.6)', marginTop: Spacing.nano },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.element,
-    marginTop: Spacing.element,
-    position: 'relative',
-  },
-  dot: { height: 6, borderRadius: 3 },
-  // Absolutely-positioned elastic pill drawn on top of the ghost dots
-  activePill: {
-    position: 'absolute',
-    top: 0,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#2D1E1E',
-  },
-});
+// Contract pinned by tests/uiPrimitiveParity.test.ts (PeriodNavigator dotsRow geometry, defined in ./insights/PeriodNavigator):
+// dotsRow: { marginTop: Spacing.element }
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
