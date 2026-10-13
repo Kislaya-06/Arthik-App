@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Alert,
-  Modal, TextInput, ActivityIndicator, TouchableOpacity,
+  View, Text, ScrollView, Pressable, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,11 +9,11 @@ import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Camera, Tag, ChevronRight, Bell, Moon, Sun, Sparkles, Palette,
-  CircleAlert, LogOut, Check, X, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves, Zap
+  CircleAlert, LogOut, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves, Zap
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily, ControlHeight } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 import { useAmbientStore } from '../store/ambientStore';
@@ -26,7 +26,6 @@ import { setNotificationsEnabled as applyNotificationsEnabled } from '../lib/not
 import { useAppLockStore } from '../store/appLockStore';
 import { useOtaStore } from '../store/otaStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
-import { formatCurrency } from '../lib/formatters';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { MoneyHelpBadge, MoneyExplainerModal } from '../components/MoneyExplainerModal';
@@ -37,6 +36,10 @@ import { useAutoLogStore } from '../features/autoLog/store';
 import { onBeforeSignOut } from '../features/autoLog/service';
 import { modeCopy } from '../features/autoLog/copy';
 import { BetaPill } from '../components/autolog/AutoLogUi';
+import { PauseBudgetModal } from '../components/profile/PauseBudgetModal';
+import { EditProfileModal } from '../components/profile/EditProfileModal';
+import { DeleteAccountModal } from '../components/profile/DeleteAccountModal';
+import { styles } from './ProfileScreen.styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -324,221 +327,56 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       />
 
       {/* Pause Smart Budget & Gullak Confirmation Modal */}
-      <Modal
+      <PauseBudgetModal
         visible={pauseModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPauseModalVisible(false)}
-      >
-        <Pressable
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]}
-          onPress={() => setPauseModalVisible(false)}
-        >
-          <Pressable
-            style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => {}}
-          >
-            <View style={[styles.pauseIconCircle, { backgroundColor: isDark ? 'rgba(244, 184, 174, 0.16)' : '#FDE8E4' }]}>
-              <PiggyBankCoinIcon size={24} color={colors.coral} />
-            </View>
-
-            <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginBottom: Spacing.element }]}>
-              Pause Smart Budget & Gullak?
-            </Text>
-
-            <Text style={[styles.pauseModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              Your Gullak balance ({formatCurrency(totalAccumulatedSavings)}) and streaks are safe. You can resume anytime.
-            </Text>
-            <Text style={[styles.pauseModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.element }]}>
-              {(() => {
-                const left = pauseModalVisible && typeof getCarryableAmount === 'function' ? getCarryableAmount() : 0;
-                if ((budgetCadence === 'weekly' || budgetCadence === 'monthly') && left > 0) {
-                  const w = budgetCadence === 'weekly' ? 'week' : 'month';
-                  return `Your ${formatCurrency(left)} budget stays with this ${w}. Spending in Pure Mode still uses it. Switch back this ${w} and you continue with what's left.`;
-                }
-                return 'Pure Mode keeps the same books: your budget is used first, then income, then Gullak.';
-              })()}
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => setShowMoneyExplainer(true)}
-              style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.element, marginBottom: Spacing.group }}
-              activeOpacity={0.7}
-            >
-              <MoneyHelpBadge size={16} onPress={() => setShowMoneyExplainer(true)} />
-              <Text style={{ marginLeft: 6, fontSize: FontSize.bodySmall, color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.bold }}>
-                See what happens to your funds
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalBtn, { backgroundColor: colors.cardSubtle, borderColor: colors.border, borderWidth: 1 }]}
-                onPress={() => setPauseModalVisible(false)}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.modalBtn, { backgroundColor: colors.coral }]}
-                onPress={() => {
-                  setPauseModalVisible(false);
-                  setBudgetModeEnabled(false);
-                }}
-              >
-                <Text style={[styles.modalSaveText, { color: colors.white, fontFamily: FontFamily.bold }]}>
-                  Turn Off
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onClose={() => setPauseModalVisible(false)}
+        totalAccumulatedSavings={totalAccumulatedSavings}
+        budgetCadence={budgetCadence}
+        getCarryableAmount={getCarryableAmount}
+        onTurnOff={() => {
+          setPauseModalVisible(false);
+          setBudgetModeEnabled(false);
+        }}
+        onOpenMoneyExplainer={() => setShowMoneyExplainer(true)}
+        colors={colors}
+        isDark={isDark}
+        styles={styles}
+      />
 
       {/* Edit Profile Modal */}
-      <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
-        <Pressable style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]} onPress={() => setEditVisible(false)}>
-          <Pressable style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => {}}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>Edit Profile</Text>
-            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>First Name</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: FontFamily.medium }]}
-              value={editFirstName}
-              onChangeText={setEditFirstName}
-              placeholder="First name"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="words"
-            />
-            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>Last Name</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, fontFamily: FontFamily.medium }]}
-              value={editLastName}
-              onChangeText={setEditLastName}
-              placeholder="Last name (optional)"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="words"
-            />
-            <View style={styles.modalActions}>
-              <Pressable style={[styles.modalBtn, { backgroundColor: colors.cardSubtle }]} onPress={() => setEditVisible(false)}>
-                <X size={16} color={colors.textSecondary} />
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: colors.mintGreen }]} onPress={handleSaveProfile} disabled={editSaving}>
-                {editSaving ? <ActivityIndicator size="small" color={colors.forestGreen} /> : <Check size={16} color={colors.forestGreen} />}
-                <Text style={[styles.modalSaveText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>Save</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <EditProfileModal
+        visible={editVisible}
+        onClose={() => setEditVisible(false)}
+        editFirstName={editFirstName}
+        setEditFirstName={setEditFirstName}
+        editLastName={editLastName}
+        setEditLastName={setEditLastName}
+        editSaving={editSaving}
+        onSave={handleSaveProfile}
+        colors={colors}
+        isDark={isDark}
+        styles={styles}
+      />
 
       {/* Delete Account Email Confirmation Modal */}
-      <Modal
+      <DeleteAccountModal
         visible={deleteModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!isDeleting) setDeleteModalVisible(false);
+        onClose={() => setDeleteModalVisible(false)}
+        userEmail={user?.email}
+        deleteEmailInput={deleteEmailInput}
+        onChangeEmail={(text) => {
+          setDeleteEmailInput(text);
+          if (deleteEmailError) setDeleteEmailError(null);
         }}
-      >
-        <Pressable
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.5)' }]}
-          onPress={() => {
-            if (!isDeleting) setDeleteModalVisible(false);
-          }}
-        >
-          <Pressable
-            style={[styles.modalCard, { backgroundColor: colors.card, borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FEE2E2' }]}
-            onPress={() => {}}
-          >
-            {/* Warning Icon Badge */}
-            <View style={[styles.deleteWarningIconWrap, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2' }]}>
-              <Trash2 size={22} color="#DC2626" />
-            </View>
-
-            <Text style={[styles.deleteModalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              Delete Account
-            </Text>
-            <Text style={[styles.deleteModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              This action is permanent and cannot be undone. All your recorded expenses, budgets, savings, and custom categories will be completely erased.
-            </Text>
-
-            <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              Confirm by typing your registered email:
-            </Text>
-
-            {user?.email ? (
-              <View style={[styles.deleteEmailBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : colors.cardSubtle, borderColor: colors.border }]}>
-                <Text style={[styles.deleteEmailBadgeText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                  {user.email}
-                </Text>
-              </View>
-            ) : null}
-
-            <TextInput
-              style={[
-                styles.modalInput,
-                {
-                  backgroundColor: colors.inputBg,
-                  color: colors.textPrimary,
-                  borderColor: deleteEmailError ? '#DC2626' : colors.border,
-                  fontFamily: FontFamily.medium,
-                  marginTop: Spacing.nano,
-                },
-              ]}
-              value={deleteEmailInput}
-              onChangeText={(text) => {
-                setDeleteEmailInput(text);
-                if (deleteEmailError) setDeleteEmailError(null);
-              }}
-              placeholder="Enter your email"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-              editable={!isDeleting}
-            />
-
-            {deleteEmailError ? (
-              <Text style={[styles.deleteErrorText, { color: '#DC2626', fontFamily: FontFamily.medium }]}>
-                {deleteEmailError}
-              </Text>
-            ) : null}
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalBtn, { backgroundColor: colors.cardSubtle }]}
-                onPress={() => setDeleteModalVisible(false)}
-                disabled={isDeleting}
-              >
-                <X size={16} color={colors.textSecondary} />
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.modalBtn, { backgroundColor: deleteBtnBg }]}
-                onPress={handleConfirmEmailForDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator size="small" color={deleteBtnColor} />
-                ) : (
-                  <>
-                    <Trash2 size={16} color={deleteBtnColor} />
-                    <Text style={[styles.modalSaveText, { color: deleteBtnColor, fontFamily: FontFamily.bold }]}>
-                      Continue
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        deleteEmailError={deleteEmailError}
+        isDeleting={isDeleting}
+        deleteBtnBg={deleteBtnBg}
+        deleteBtnColor={deleteBtnColor}
+        onConfirm={handleConfirmEmailForDelete}
+        colors={colors}
+        isDark={isDark}
+        styles={styles}
+      />
       
       <ScrollView 
         contentContainerStyle={[
@@ -885,314 +723,3 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.gutter,
-    paddingTop: Spacing.block,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.block,
-  },
-  backBtn: {
-    marginRight: Spacing.block,
-    marginTop: Spacing.micro,
-  },
-  headerTitle: {
-    fontSize: FontSize.titleLarge,
-    lineHeight: LineHeight.titleLarge,
-  },
-
-  // Profile Card
-  profileCard: {
-    borderRadius: BorderRadius.card,
-    marginTop: 0,
-    padding: Spacing.gutter,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  avatarWrapper: {
-    position: 'relative',
-  },
-  avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40, // Circle geometry: width / 2
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: FontSize.titleLarge,
-    color: '#1A2B4C',
-  },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16, // Circle geometry: width / 2
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  fullName: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    marginTop: Spacing.block,
-  },
-  email: {
-    fontSize: FontSize.bodySmall,
-    marginTop: Spacing.micro,
-  },
-  editProfileBtn: {
-    borderWidth: 1,
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.gutter,
-    paddingVertical: 10,
-    marginTop: Spacing.block,
-  },
-  editProfileText: {
-    fontSize: FontSize.bodySmall,
-  },
-
-  // Settings Card
-  settingsCard: {
-    borderRadius: BorderRadius.card,
-    marginTop: Spacing.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  sectionLabel: {
-    fontSize: FontSize.caption,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    paddingHorizontal: Spacing.surface,
-    paddingTop: Spacing.surface,
-    paddingBottom: Spacing.element,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.block,
-    borderBottomWidth: 1,
-  },
-  lastSettingRow: {
-    borderBottomWidth: 0,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.group,
-  },
-  settingLabel: {
-    flex: 1,
-    fontSize: FontSize.body,
-  },
-  versionText: {
-    fontSize: FontSize.bodySmall,
-  },
-
-  // Theme Selector Tokens
-  themeSettingContainer: {
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.block,
-    borderBottomWidth: 1,
-  },
-  themeSettingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.group,
-  },
-  themeSelectorRow: {
-    flexDirection: 'row',
-    gap: Spacing.element,
-    marginTop: 2,
-  },
-  themeOptionBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    position: 'relative',
-  },
-  themeOptionBtnAmoled: {
-    position: 'relative',
-  },
-  amoledBadgeContainer: {
-    position: 'absolute',
-    top: -8,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  amoledBadgeText: {
-    color: '#000000',
-    fontSize: FontSize.micro,
-    fontFamily: FontFamily.bold,
-  },
-  themeOptionLabel: {
-    fontSize: FontSize.bodySmall,
-  },
-
-  // Logout
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.pill,
-    paddingVertical: Spacing.surface,
-    marginTop: Spacing.gutter,
-    gap: Spacing.element,
-  },
-  logoutText: {
-    fontSize: FontSize.body,
-  },
-  // Edit Profile Modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.gutter,
-  },
-  modalCard: {
-    borderRadius: BorderRadius.card,
-    padding: Spacing.gutter,
-    borderWidth: 1,
-  },
-  modalTitle: {
-    fontSize: FontSize.titleMedium,
-    marginBottom: Spacing.surface,
-  },
-  modalLabel: {
-    fontSize: FontSize.caption,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: Spacing.element,
-    marginTop: Spacing.group,
-  },
-  modalInput: {
-    borderRadius: 14,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.row,
-    fontSize: FontSize.body,
-    borderWidth: 1,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: Spacing.group,
-    marginTop: Spacing.gutter,
-  },
-  modalBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: BorderRadius.pill,
-    paddingVertical: Spacing.row,
-  },
-  modalCancelText: {
-    fontSize: FontSize.body,
-  },
-  modalSaveText: {
-    color: '#1A2B4C',
-    fontSize: FontSize.body,
-  },
-  deleteAccountBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.row,
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-    marginTop: 14,
-    marginBottom: 40,
-    gap: Spacing.element,
-  },
-  deleteAccountText: {
-    fontSize: FontSize.body,
-  },
-  deleteWarningIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24, // Circle geometry: width / 2
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.element,
-  },
-  deleteModalTitle: {
-    fontSize: FontSize.titleMedium,
-    marginBottom: Spacing.nano,
-  },
-  deleteModalDesc: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: 18,
-    marginBottom: Spacing.element,
-  },
-  deleteEmailBadge: {
-    paddingHorizontal: Spacing.element,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-    marginBottom: Spacing.element,
-  },
-  deleteEmailBadgeText: {
-    fontSize: FontSize.bodySmall,
-  },
-  deleteErrorText: {
-    fontSize: FontSize.bodySmall,
-    marginTop: Spacing.micro,
-  },
-  budgetModeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.block,
-  },
-  budgetModeTextWrap: {
-    flex: 1,
-    marginRight: Spacing.element,
-  },
-  budgetModeTitleText: {
-    fontSize: FontSize.body,
-  },
-  budgetModeSubtitle: {
-    fontSize: FontSize.bodySmall,
-    marginTop: Spacing.nano,
-  },
-  pauseIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24, // Circle geometry: width / 2
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.element,
-  },
-  pauseModalDesc: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: 20,
-    marginBottom: Spacing.element,
-  },
-});
