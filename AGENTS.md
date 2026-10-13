@@ -552,3 +552,16 @@ See `docs/AUTO_LOGGING.md` §9 and the product spec `docs/specs/EMAIL_AUTO_LOGGI
 
 **Local-only (gitignored, project root, may be absent in a clone):** `CODEBASE_EXPLAINER.md` (owner's Hinglish codebase guide), `CODEBASE_EXPLAINER_OLD.md`, `AGENT_BRIEF.md`, `DEV_SETUP_PHONE_AND_EMULATOR.md`, `DISTRIBUTE_*.md`, `dev-both.ps1`, `install-dev-apk.ps1`, hand-off notes (`PASTE_GUIDE.md`, `PLACEMENT_GUIDE.md`, …). Never commit them; `.gitignore` anchors them with a leading `/` so same-named files inside `docs/` stay tracked. If you change something they describe, tell the owner which local file is now stale.
 
+---
+
+# REFACTOR MODE (active during the refactor branches refactor/*)
+When the user's prompt says "Refactor Mode", these rules OVERRIDE section 5 "Minimal diff" and "File inspection rule":
+1. Behaviour must stay byte-for-byte identical: same outputs, same side effects, same order of side effects, same error handling, same AsyncStorage keys, same Supabase queries, same notifications.
+2. Allowed: move code to new files, split a long function into named helpers, rename LOCAL variables only, add types where tsc proves it is safe, add NEW test files.
+3. Forbidden: changing logic, fixing bugs, "improving" conditions, reordering awaits, changing dependency arrays of useEffect/useMemo/useCallback, changing default values, changing exported names or import paths, adding dependencies, touching modules/arthik-autolog, schema.sql, supabase/, versionCheck.ts, UpdateRequiredScreen.tsx.
+4. Public API stays: every export that existed before must still be importable from the SAME path (re-export from the old file).
+5. Existing tests must NOT be edited. Only new test files may be added. If an existing test fails, STOP and report; do not "fix" the test.
+6. If you notice a bug, do NOT fix it. Report it in the DONE REPORT.
+7. For moves, copy code VERBATIM, including comments (P0.x tags, ponytail notes etc.).
+8. Never create circular imports. Helpers extracted from a store must receive `get`/`set`/data as parameters instead of importing the store.
+

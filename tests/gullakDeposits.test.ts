@@ -180,20 +180,20 @@ describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
         { id: 'exp1', amount: 500, type: 'expense', expense_date: todayStr, category_id: null, payment_mode: 'upi', created_at: todayStr } as any,
       ]);
 
-      // Before any deposit: available income = 5000
-      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(5000);
+      // Before any deposit: available income = 5000 - 500 (expense paid from income) = 4500
+      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(4500);
 
       // Deposit ₹2,000 from income
       useDailyBudgetStore.getState().addGullakDeposit(2000, 'Saving part of bonus', 'income');
 
-      // Now available income = 5000 - 2000 = 3000
-      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(3000);
+      // Now available income = 4500 - 2000 = 2500
+      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(2500);
 
       // Deposit ₹1,000 as external (Add New Money)
       useDailyBudgetStore.getState().addGullakDeposit(1000, 'Cash found in drawer', 'external');
 
       // External deposit must NOT reduce available income balance
-      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(3000);
+      expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(2500);
 
       // Total savings in Gullak = 2000 + 1000 = 3000
       expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(3000);
