@@ -350,10 +350,11 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
         ],
       });
 
-      // Total income = 4000. Income deposits = 800. External deposit 1500 does NOT reduce available income.
-      // Available income = 4000 - 800 = 3200.
+      // Total income = 4000. Income deposits = 800. Regular expense 500 is paid from income (no budget).
+      // External deposit 1500 does NOT reduce available income.
+      // Available income = 4000 - 800 - 500 = 2700.
       const available = useDailyBudgetStore.getState().getAvailableIncomeBalance();
-      expect(available).toBe(3200);
+      expect(available).toBe(2700);
     });
 
     it('removes gullak deposit by id', () => {
