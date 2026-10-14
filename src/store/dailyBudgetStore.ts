@@ -183,6 +183,432 @@ export {
   finalizePeriods,
 };
 
+// ---------------------------------------------------------------------------
+// Hydration Helpers (Step 7e)
+// ---------------------------------------------------------------------------
+
+async function waitForPersistHydration(store: any): Promise<void> {
+  if (!store.persist.hasHydrated()) {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        const unsub = store.persist.onFinishHydration(() => {
+          unsub();
+          resolve();
+        });
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, 500)),
+    ]);
+  }
+}
+
+async function readPendingSettings(userId: string): Promise<ProfileSettingsPatch> {
+  let pendingSettings: ProfileSettingsPatch = {};
+  try {
+    const stored = await AsyncStorage.getItem(getPendingSettingsKey(userId));
+    if (stored) pendingSettings = JSON.parse(stored);
+  } catch {}
+  return pendingSettings;
+}
+
+function buildOfflineHydrationPatch(
+  get: () => DailyBudgetState,
+  pendingSettings: ProfileSettingsPatch,
+  todayStr: string,
+  userId: string
+): Partial<DailyBudgetState> {
+  const records = { ...get().dailyRecords };
+  let resolvedBudget = get().dailyBudgetAmount;
+  let resolvedAutoRenew = get().isAutoRenew;
+  let resolvedBudgetModeEnabled = get().isBudgetModeEnabled;
+  let resolvedCadence: BudgetCadence = get().budgetCadence;
+  let resolvedWeeklyBudget = get().weeklyBudgetAmount;
+  let resolvedMonthlyBudget = get().monthlyBudgetAmount;
+
+  if (pendingSettings.daily_budget !== undefined) {
+    resolvedBudget = pendingSettings.daily_budget;
+  }
+  if (pendingSettings.is_auto_renew !== undefined) {
+    resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
+  }
+  if (pendingSettings.is_budget_mode_enabled !== undefined) {
+    resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
+  }
+  if (pendingSettings.budget_cadence !== undefined) {
+    resolvedCadence = pendingSettings.budget_cadence as BudgetCadence;
+  }
+  if (pendingSettings.weekly_budget !== undefined) {
+    resolvedWeeklyBudget = pendingSettings.weekly_budget;
+  }
+  if (pendingSettings.monthly_budget !== undefined) {
+    resolvedMonthlyBudget = pendingSettings.monthly_budget;
+  }
+
+  if (!records[todayStr]) {
+    const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
+    records[todayStr] = {
+      date: todayStr,
+      budget: todayBudget,
+      spent: 0,
+      saved: todayBudget,
+      isFinalized: false,
+      status: resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? 'active' : 'unknown',
+    };
+  } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
+    if (resolvedAutoRenew && resolvedBudget > 0) {
+      if (records[todayStr].budget === 0) {
+        records[todayStr].budget = resolvedBudget;
+        records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
+        records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'exceeded' : 'active';
+      }
+    } else {
+      records[todayStr] = {
+        ...records[todayStr],
+        budget: 0,
+        saved: 0,
+        status: 'unknown',
+      };
+    }
+  } else if (!resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
+    records[todayStr] = {
+      ...records[todayStr],
+      budget: 0,
+      saved: 0,
+      status: 'unknown',
+    };
+  }
+  const metrics = computeMetrics(
+    records,
+    get().gullakDeposits,
+    undefined,
+    get().budgetPeriods,
+    resolvedCadence,
+    get().bestStreakByCadence
+  );
+  return {
+    dailyRecords: records,
+    dailyBudgetAmount: resolvedBudget,
+    isAutoRenew: resolvedAutoRenew,
+    isBudgetModeEnabled: resolvedBudgetModeEnabled,
+    budgetCadence: resolvedCadence,
+    weeklyBudgetAmount: resolvedWeeklyBudget,
+    monthlyBudgetAmount: resolvedMonthlyBudget,
+    ...metrics,
+    hydratedForUserId: userId,
+  };
+}
+
+async function fetchRemoteBudgetData(userId: string) {
+  const [profileRes, logsRes, plansRes, periodsRes] = await Promise.race([
+    Promise.all([
+      supabase
+        .from('profiles')
+        .select('daily_budget, is_auto_renew, is_budget_mode_enabled, budget_cadence, weekly_budget, monthly_budget')
+        .eq('id', userId)
+        .maybeSingle(),
+      supabase
+        .from('daily_savings_log')
+        .select('date, amount_saved, spent_amount, status, budget_amount')
+        .eq('user_id', userId)
+        .order('date', { ascending: true }),
+      supabase
+        .from('budget_plan_changes')
+        .select('id, effective_from, is_enabled, cadence, amount, carry_mode, carried_over_amount, created_at')
+        .eq('user_id', userId)
+        .order('effective_from', { ascending: true }),
+      supabase
+        .from('budget_periods')
+        .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, carry_mode, carried_over_amount, created_at')
+        .eq('user_id', userId)
+        .order('active_start', { ascending: true }),
+    ]),
+    new Promise<[any, any, any, any]>((r) =>
+      setTimeout(() => r([{ data: null }, { data: null }, { data: null }, { data: null }]), 3500)
+    ),
+  ]);
+
+  return {
+    profileData: profileRes?.data,
+    logsData: logsRes?.data,
+    plansData: plansRes?.data,
+    periodsData: periodsRes?.data,
+  };
+}
+
+async function mergePendingPlanChanges(
+  userId: string,
+  initialChanges: BudgetPlanChange[]
+): Promise<BudgetPlanChange[]> {
+  let resolvedPlanChanges = [...initialChanges];
+  const pendingChangesKey = getPendingPlanChangesKey(userId);
+  const pendingChanges = await getStoredList<BudgetPlanChange>(pendingChangesKey);
+  if (pendingChanges.length > 0) {
+    for (const pc of pendingChanges) {
+      resolvedPlanChanges = upsertPendingChange(resolvedPlanChanges, pc);
+    }
+  }
+  return resolvedPlanChanges;
+}
+
+async function mergePendingPeriods(
+  userId: string,
+  initialPeriods: Record<string, BudgetPeriodRecord>
+): Promise<Record<string, BudgetPeriodRecord>> {
+  const resolvedPeriods = { ...initialPeriods };
+  const pendingPeriodsKey = getPendingBudgetPeriodsKey(userId);
+  const pendingPeriods = await getStoredList<BudgetPeriodRecord>(pendingPeriodsKey);
+  if (pendingPeriods.length > 0) {
+    for (const bp of pendingPeriods) {
+      resolvedPeriods[bp.id] = bp;
+    }
+  }
+  return resolvedPeriods;
+}
+
+function selfHealDefaultBudget(params: {
+  resolvedBudget: number;
+  remoteBudgetWasMigrationDefault: boolean;
+  logsData: any[] | null | undefined;
+  userCreatedAtStr: string | null | undefined;
+  spentByDate: Record<string, number>;
+  records: Record<string, DailyRecord>;
+  userId: string;
+}): number {
+  let { resolvedBudget } = params;
+  const { remoteBudgetWasMigrationDefault, logsData, userCreatedAtStr, spentByDate, records, userId } = params;
+  const budgetLooksWrong = remoteBudgetWasMigrationDefault || resolvedBudget === 500;
+  if (budgetLooksWrong && logsData && logsData.length > 0) {
+    const budgetCandidates: Record<number, number> = {};
+    for (let i = 0; i < logsData.length; i++) {
+      const logEntry = logsData[i] as {
+        date: string;
+        amount_saved?: number | string | null;
+        budget_amount?: number | string | null;
+        spent_amount?: number | string | null;
+        status?: string | null;
+      };
+      const d = logEntry.date;
+      if (userCreatedAtStr && d < userCreatedAtStr) continue;
+      const amountSaved = Number(logEntry.amount_saved) || 0;
+      const spent = spentByDate[d] || 0;
+
+      // Check if past log had an explicit non-500 budget_amount saved
+      if (logEntry.budget_amount !== null && logEntry.budget_amount !== undefined) {
+        const b = round2(Number(logEntry.budget_amount));
+        if (b > 0 && b !== 500) {
+          budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
+        }
+      }
+
+      // Check if local record for that day has a non-500 budget
+      if (records[d]?.budget && records[d].budget > 0 && records[d].budget !== 500) {
+        const b = round2(records[d].budget);
+        budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
+      }
+
+      // On confirmed saved days, amount_saved + spent reveals the original day budget
+      if (logEntry.status === 'saved' && amountSaved > 0) {
+        const inferred = round2(amountSaved + spent);
+        if (inferred > 0 && inferred !== 500) {
+          budgetCandidates[inferred] = (budgetCandidates[inferred] || 0) + 1;
+        }
+      }
+    }
+
+    let bestCandidate = 0;
+    let maxCount = 0;
+    for (const [candidateStr, count] of Object.entries(budgetCandidates)) {
+      const candidate = Number(candidateStr);
+      if (count > maxCount) {
+        maxCount = count;
+        bestCandidate = candidate;
+      }
+    }
+
+    // If we detected a consistent original non-500 budget, restore it!
+    if (bestCandidate > 0 && bestCandidate !== 500) {
+      resolvedBudget = bestCandidate;
+      supabase.from('profiles').update({ daily_budget: resolvedBudget }).eq('id', userId).then(() => {});
+    }
+  }
+
+  // If remote was 500 and no non-500 candidate was found, restore 500
+  if (remoteBudgetWasMigrationDefault && resolvedBudget === 0) {
+    resolvedBudget = 500;
+  }
+
+  return resolvedBudget;
+}
+
+function selfHealCorruptedRows(params: {
+  logsData: any[] | null | undefined;
+  userCreatedAtStr: string | null | undefined;
+  spentByDate: Record<string, number>;
+  resolvedPlanChanges: BudgetPlanChange[];
+  resolvedBudget: number;
+  records: Record<string, DailyRecord>;
+  incomeByDate: Record<string, number>;
+  hydrateReimbByDate: Record<string, number>;
+  userId: string;
+}) {
+  const {
+    logsData,
+    userCreatedAtStr,
+    spentByDate,
+    resolvedPlanChanges,
+    resolvedBudget,
+    records,
+    incomeByDate,
+    hydrateReimbByDate,
+    userId,
+  } = params;
+
+  if (logsData && logsData.length > 0) {
+    for (let i = 0; i < logsData.length; i++) {
+      const log = logsData[i] as {
+        date: string;
+        amount_saved?: number | string | null;
+        budget_amount?: number | string | null;
+        spent_amount?: number | string | null;
+        status?: string | null;
+      };
+      const d = log.date;
+      if (userCreatedAtStr && d < userCreatedAtStr) {
+        continue; // Ignore any erroneous pre-registration logs
+      }
+
+      const rawLogBudget = log.budget_amount !== null && log.budget_amount !== undefined ? Number(log.budget_amount) : null;
+      const rawLogSaved = Number(log.amount_saved) || 0;
+      const daySpent =
+        log.spent_amount !== null && log.spent_amount !== undefined
+          ? Number(log.spent_amount)
+          : spentByDate[d] !== undefined
+          ? spentByDate[d]
+          : 0;
+
+      // --- 1. DETERMINE TRUE DAY BUDGET ---
+      const dayIsDailyOwned = isDailyOwnedDate(resolvedPlanChanges, d);
+      const dayBudget = dayIsDailyOwned
+        ? resolveHydratedDayBudget({
+            rawLogBudget,
+            localRecordBudget: records[d]?.budget,
+            resolvedBudget,
+          })
+        : 0;
+
+      // --- 2. RECALCULATE SAVED & STATUS ---
+      const dayIncome = incomeByDate[d] || 0;
+      const dayReimb = hydrateReimbByDate[d] || 0;
+      const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, dayIncome, undefined, dayReimb);
+
+      records[d] = {
+        date: d,
+        budget: dayBudget,
+        spent: daySpent,
+        saved: daySaved,
+        isFinalized: true,
+        status: evaluatedStatus,
+        needsUpload: false,
+      };
+
+      // --- 3. SELF-HEAL SUPABASE CORRUPTED ROW ---
+      const wasCorrupted =
+        (rawLogBudget === 500 && dayBudget !== 500) ||
+        rawLogSaved !== daySaved ||
+        (rawLogBudget !== null && rawLogBudget !== dayBudget) ||
+        log.status !== (evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : evaluatedStatus === 'unknown' ? 'unknown' : 'missed');
+
+      if (!dayIsDailyOwned && (rawLogBudget || 0) > 0) {
+        // Wrong daily row for a weekly / monthly / Pure day: overwrite the server row too.
+        supabase
+          .from('daily_savings_log')
+          .upsert(
+            { user_id: userId, date: d, amount_saved: 0, spent_amount: daySpent, budget_amount: 0, status: 'unknown' },
+            { onConflict: 'user_id,date' }
+          )
+          .then(() => {});
+      } else if (wasCorrupted && dayBudget > 0) {
+        supabase
+          .from('daily_savings_log')
+          .upsert(
+            {
+              user_id: userId,
+              date: d,
+              amount_saved: daySaved,
+              spent_amount: daySpent,
+              budget_amount: dayBudget,
+              status: evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : evaluatedStatus === 'unknown' ? 'unknown' : 'missed',
+            },
+            { onConflict: 'user_id,date' }
+          )
+          .then(() => {});
+      }
+    }
+  }
+}
+
+async function hydrateGullakDeposits(
+  userId: string,
+  localDeposits: GullakDeposit[]
+): Promise<GullakDeposit[]> {
+  let resolvedDeposits = localDeposits || [];
+  try {
+    const { data: depData, error: depError } = await withTimeout(
+      supabase
+        .from('gullak_deposits')
+        .select('id, amount, date, note, source, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+      3500,
+      { data: null, error: new Error('timeout') }
+    );
+
+    if (!depError && depData) {
+      const serverDeposits: GullakDeposit[] = (depData as Array<{
+        id: string;
+        amount: number | string;
+        date: string;
+        note?: string | null;
+        source?: string | null;
+        created_at?: string;
+      }>).map((d) => ({
+        id: d.id,
+        amount: Number(d.amount) || 0,
+        date: d.date,
+        note: d.note || undefined,
+        source: (d.source === 'income' || d.source === 'external') ? d.source : 'external',
+        created_at: d.created_at || new Date().toISOString(),
+      }));
+
+      const serverIdSet = new Set(serverDeposits.map((d) => d.id));
+      const missingOnServer = localDeposits.filter((d) => !serverIdSet.has(d.id));
+
+      if (missingOnServer.length > 0) {
+        missingOnServer.forEach((m) => {
+          supabase
+            .from('gullak_deposits')
+            .insert({
+              id: m.id,
+              user_id: userId,
+              amount: m.amount,
+              date: m.date,
+              note: m.note || null,
+              source: m.source || 'external',
+              created_at: m.created_at,
+            })
+            .then(() => {});
+        });
+      }
+
+      resolvedDeposits = [...serverDeposits, ...missingOnServer].sort((a, b) =>
+        b.date.localeCompare(a.date)
+      );
+    }
+  } catch (depErr) {
+    if (__DEV__) console.log('Error hydrating gullak_deposits from Supabase:', depErr);
+  }
+  return resolvedDeposits;
+}
+
 export const useDailyBudgetStore = create<DailyBudgetState>()(
   persist(
     (set, get) => ({
@@ -1421,17 +1847,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (!userId) return;
         try {
           // P0.1: Wait for zustand persist rehydration if not already done
-          if (!useDailyBudgetStore.persist.hasHydrated()) {
-            await Promise.race([
-              new Promise<void>((resolve) => {
-                const unsub = useDailyBudgetStore.persist.onFinishHydration(() => {
-                  unsub();
-                  resolve();
-                });
-              }),
-              new Promise<void>((resolve) => setTimeout(resolve, 500)),
-            ]);
-          }
+          await waitForPersistHydration(useDailyBudgetStore);
 
           // P0.2: Reset state if owner changed
           if (get().ownerUserId && get().ownerUserId !== userId) {
@@ -1445,129 +1861,17 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const todayStr = getTodayDateStr();
 
           // Check pending settings key (P0.13)
-          let pendingSettings: ProfileSettingsPatch = {};
-          try {
-            const stored = await AsyncStorage.getItem(getPendingSettingsKey(userId));
-            if (stored) pendingSettings = JSON.parse(stored);
-          } catch {}
+          const pendingSettings = await readPendingSettings(userId);
 
           // Offline fast-path: return immediately with persisted state from Zustand persist
           if (useNetworkStore.getState().isOffline) {
-            const records = { ...get().dailyRecords };
-            let resolvedBudget = get().dailyBudgetAmount;
-            let resolvedAutoRenew = get().isAutoRenew;
-            let resolvedBudgetModeEnabled = get().isBudgetModeEnabled;
-            let resolvedCadence: BudgetCadence = get().budgetCadence;
-            let resolvedWeeklyBudget = get().weeklyBudgetAmount;
-            let resolvedMonthlyBudget = get().monthlyBudgetAmount;
-
-            if (pendingSettings.daily_budget !== undefined) {
-              resolvedBudget = pendingSettings.daily_budget;
-            }
-            if (pendingSettings.is_auto_renew !== undefined) {
-              resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
-            }
-            if (pendingSettings.is_budget_mode_enabled !== undefined) {
-              resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
-            }
-            if (pendingSettings.budget_cadence !== undefined) {
-              resolvedCadence = pendingSettings.budget_cadence as BudgetCadence;
-            }
-            if (pendingSettings.weekly_budget !== undefined) {
-              resolvedWeeklyBudget = pendingSettings.weekly_budget;
-            }
-            if (pendingSettings.monthly_budget !== undefined) {
-              resolvedMonthlyBudget = pendingSettings.monthly_budget;
-            }
-
-            if (!records[todayStr]) {
-              const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
-              records[todayStr] = {
-                date: todayStr,
-                budget: todayBudget,
-                spent: 0,
-                saved: todayBudget,
-                isFinalized: false,
-                status: resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? 'active' : 'unknown',
-              };
-            } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
-              if (resolvedAutoRenew && resolvedBudget > 0) {
-                if (records[todayStr].budget === 0) {
-                  records[todayStr].budget = resolvedBudget;
-                  records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
-                  records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'exceeded' : 'active';
-                }
-              } else {
-                records[todayStr] = {
-                  ...records[todayStr],
-                  budget: 0,
-                  saved: 0,
-                  status: 'unknown',
-                };
-              }
-            } else if (!resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
-              records[todayStr] = {
-                ...records[todayStr],
-                budget: 0,
-                saved: 0,
-                status: 'unknown',
-              };
-            }
-            const metrics = computeMetrics(
-              records,
-              get().gullakDeposits,
-              undefined,
-              get().budgetPeriods,
-              resolvedCadence,
-              get().bestStreakByCadence
-            );
-            set({
-              dailyRecords: records,
-              dailyBudgetAmount: resolvedBudget,
-              isAutoRenew: resolvedAutoRenew,
-              isBudgetModeEnabled: resolvedBudgetModeEnabled,
-              budgetCadence: resolvedCadence,
-              weeklyBudgetAmount: resolvedWeeklyBudget,
-              monthlyBudgetAmount: resolvedMonthlyBudget,
-              ...metrics,
-              hydratedForUserId: userId,
-            });
+            const patch = buildOfflineHydrationPatch(get, pendingSettings, todayStr, userId);
+            set(patch);
             return;
           }
 
           // 1. Fetch user profile, logs, plan changes, and budget periods in parallel with timeout
-          const [profileRes, logsRes, plansRes, periodsRes] = await Promise.race([
-            Promise.all([
-              supabase
-                .from('profiles')
-                .select('daily_budget, is_auto_renew, is_budget_mode_enabled, budget_cadence, weekly_budget, monthly_budget')
-                .eq('id', userId)
-                .maybeSingle(),
-              supabase
-                .from('daily_savings_log')
-                .select('date, amount_saved, spent_amount, status, budget_amount')
-                .eq('user_id', userId)
-                .order('date', { ascending: true }),
-              supabase
-                .from('budget_plan_changes')
-                .select('id, effective_from, is_enabled, cadence, amount, carry_mode, carried_over_amount, created_at')
-                .eq('user_id', userId)
-                .order('effective_from', { ascending: true }),
-              supabase
-                .from('budget_periods')
-                .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, carry_mode, carried_over_amount, created_at')
-                .eq('user_id', userId)
-                .order('active_start', { ascending: true }),
-            ]),
-            new Promise<[any, any, any, any]>((r) =>
-              setTimeout(() => r([{ data: null }, { data: null }, { data: null }, { data: null }]), 3500)
-            ),
-          ]);
-
-          const profileData = profileRes?.data;
-          const logsData = logsRes?.data;
-          const plansData = plansRes?.data;
-          const periodsData = periodsRes?.data;
+          const { profileData, logsData, plansData, periodsData } = await fetchRemoteBudgetData(userId);
 
           let resolvedBudget = get().dailyBudgetAmount;
           let resolvedAutoRenew = get().isAutoRenew;
@@ -1655,13 +1959,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           } else {
             resolvedPlanChanges = get().planChanges || [];
           }
-          const pendingChangesKey = getPendingPlanChangesKey(userId);
-          const pendingChanges = await getStoredList<BudgetPlanChange>(pendingChangesKey);
-          if (pendingChanges.length > 0) {
-            for (const pc of pendingChanges) {
-              resolvedPlanChanges = upsertPendingChange(resolvedPlanChanges, pc);
-            }
-          }
+          resolvedPlanChanges = await mergePendingPlanChanges(userId, resolvedPlanChanges);
 
           // Process budget periods
           let resolvedPeriods: Record<string, BudgetPeriodRecord> = { ...get().budgetPeriods };
@@ -1686,13 +1984,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               };
             }
           }
-          const pendingPeriodsKey = getPendingBudgetPeriodsKey(userId);
-          const pendingPeriods = await getStoredList<BudgetPeriodRecord>(pendingPeriodsKey);
-          if (pendingPeriods.length > 0) {
-            for (const bp of pendingPeriods) {
-              resolvedPeriods[bp.id] = bp;
-            }
-          }
+          resolvedPeriods = await mergePendingPeriods(userId, resolvedPeriods);
 
           const records = { ...get().dailyRecords };
 
@@ -1702,8 +1994,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           // ------------------------------------------------------------------------------------
           // SELF-HEALING RECOVERY (Fix for OTA Update Bug where user budget was reset to 500)
           // ------------------------------------------------------------------------------------
-          // If the user's resolved budget is 500 (the default migration/reset value), inspect their
-          // historical savings logs & real expenses to detect if their original budget was different.
           const currentExpenses = getCurrentExpenses();
           const isIncomeFn = buildCategoryClassifier();
           const isEligibleIncomeFn = buildEligibleIncomeClassifier();
@@ -1711,156 +2001,27 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const incomeByDate = computeIncomeByDate(currentExpenses, isEligibleIncomeFn);
           const hydrateReimbByDate = runWaterfall({ expenses: currentExpenses }).reimbBudgetByDate;
 
-          // Trigger recovery only when Supabase returned the migration-default 500.
-          // This covers both the live case (resolvedBudget===500 via pendingSettings) and the
-          // fresh-install case (remote=500 deferred to local=0 above). Intentional 0 set by
-          // the user is never treated as "wrong" — remoteBudgetWasMigrationDefault stays false.
-          const budgetLooksWrong = remoteBudgetWasMigrationDefault || resolvedBudget === 500;
-          if (budgetLooksWrong && logsData && logsData.length > 0) {
-            const budgetCandidates: Record<number, number> = {};
-            for (let i = 0; i < logsData.length; i++) {
-              const logEntry = logsData[i] as {
-                date: string;
-                amount_saved?: number | string | null;
-                budget_amount?: number | string | null;
-                spent_amount?: number | string | null;
-                status?: string | null;
-              };
-              const d = logEntry.date;
-              if (userCreatedAtStr && d < userCreatedAtStr) continue;
-              const amountSaved = Number(logEntry.amount_saved) || 0;
-              const spent = spentByDate[d] || 0;
+          resolvedBudget = selfHealDefaultBudget({
+            resolvedBudget,
+            remoteBudgetWasMigrationDefault,
+            logsData,
+            userCreatedAtStr,
+            spentByDate,
+            records,
+            userId,
+          });
 
-              // Check if past log had an explicit non-500 budget_amount saved
-              if (logEntry.budget_amount !== null && logEntry.budget_amount !== undefined) {
-                const b = round2(Number(logEntry.budget_amount));
-                if (b > 0 && b !== 500) {
-                  budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
-                }
-              }
-
-              // Check if local record for that day has a non-500 budget
-              if (records[d]?.budget && records[d].budget > 0 && records[d].budget !== 500) {
-                const b = round2(records[d].budget);
-                budgetCandidates[b] = (budgetCandidates[b] || 0) + 2;
-              }
-
-              // On confirmed saved days, amount_saved + spent reveals the original day budget
-              if (logEntry.status === 'saved' && amountSaved > 0) {
-                const inferred = round2(amountSaved + spent);
-                if (inferred > 0 && inferred !== 500) {
-                  budgetCandidates[inferred] = (budgetCandidates[inferred] || 0) + 1;
-                }
-              }
-            }
-
-            let bestCandidate = 0;
-            let maxCount = 0;
-            for (const [candidateStr, count] of Object.entries(budgetCandidates)) {
-              const candidate = Number(candidateStr);
-              if (count > maxCount) {
-                maxCount = count;
-                bestCandidate = candidate;
-              }
-            }
-
-            // If we detected a consistent original non-500 budget, restore it!
-            if (bestCandidate > 0 && bestCandidate !== 500) {
-              resolvedBudget = bestCandidate;
-              supabase.from('profiles').update({ daily_budget: resolvedBudget }).eq('id', userId).then(() => {});
-            }
-          }
-
-          // If remote was 500 and no non-500 candidate was found, restore 500
-          if (remoteBudgetWasMigrationDefault && resolvedBudget === 0) {
-            resolvedBudget = 500;
-          }
-
-          if (logsData && logsData.length > 0) {
-            for (let i = 0; i < logsData.length; i++) {
-              const log = logsData[i] as {
-                date: string;
-                amount_saved?: number | string | null;
-                budget_amount?: number | string | null;
-                spent_amount?: number | string | null;
-                status?: string | null;
-              };
-              const d = log.date;
-              if (userCreatedAtStr && d < userCreatedAtStr) {
-                continue; // Ignore any erroneous pre-registration logs
-              }
-
-              const rawLogBudget = log.budget_amount !== null && log.budget_amount !== undefined ? Number(log.budget_amount) : null;
-              const rawLogSaved = Number(log.amount_saved) || 0;
-              const daySpent =
-                log.spent_amount !== null && log.spent_amount !== undefined
-                  ? Number(log.spent_amount)
-                  : spentByDate[d] !== undefined
-                  ? spentByDate[d]
-                  : 0;
-
-              // --- 1. DETERMINE TRUE DAY BUDGET ---
-              // A day owned by a weekly / monthly plan (or Pure Mode) has NO daily budget (old rows may say otherwise).
-              const dayIsDailyOwned = isDailyOwnedDate(resolvedPlanChanges, d);
-              const dayBudget = dayIsDailyOwned
-                ? resolveHydratedDayBudget({
-                    rawLogBudget,
-                    localRecordBudget: records[d]?.budget,
-                    resolvedBudget,
-                  })
-                : 0;
-
-              // --- 2. RECALCULATE SAVED & STATUS ---
-              const dayIncome = incomeByDate[d] || 0;
-              const dayReimb = hydrateReimbByDate[d] || 0;
-              const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, dayIncome, undefined, dayReimb);
-
-              records[d] = {
-                date: d,
-                budget: dayBudget,
-                spent: daySpent,
-                saved: daySaved,
-                isFinalized: true,
-                status: evaluatedStatus,
-                needsUpload: false,
-              };
-
-              // --- 3. SELF-HEAL SUPABASE CORRUPTED ROW ---
-              // If the row in Supabase had the fake 500 budget or wrong saved amount/status, fix it!
-              const wasCorrupted =
-                (rawLogBudget === 500 && dayBudget !== 500) ||
-                rawLogSaved !== daySaved ||
-                (rawLogBudget !== null && rawLogBudget !== dayBudget) ||
-                log.status !== (evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : evaluatedStatus === 'unknown' ? 'unknown' : 'missed');
-
-              if (!dayIsDailyOwned && (rawLogBudget || 0) > 0) {
-                // Wrong daily row for a weekly / monthly / Pure day: overwrite the server row too.
-                supabase
-                  .from('daily_savings_log')
-                  .upsert(
-                    { user_id: userId, date: d, amount_saved: 0, spent_amount: daySpent, budget_amount: 0, status: 'unknown' },
-                    { onConflict: 'user_id,date' }
-                  )
-                  .then(() => {});
-              } else if (wasCorrupted && dayBudget > 0) {
-                // Self-healing deliberately omits ignoreDuplicates to unconditionally overwrite confirmed corrupted server rows.
-                supabase
-                  .from('daily_savings_log')
-                  .upsert(
-                    {
-                      user_id: userId,
-                      date: d,
-                      amount_saved: daySaved,
-                      spent_amount: daySpent,
-                      budget_amount: dayBudget,
-                      status: evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : evaluatedStatus === 'unknown' ? 'unknown' : 'missed',
-                    },
-                    { onConflict: 'user_id,date' }
-                  )
-                  .then(() => {});
-              }
-            }
-          }
+          selfHealCorruptedRows({
+            logsData,
+            userCreatedAtStr,
+            spentByDate,
+            resolvedPlanChanges,
+            resolvedBudget,
+            records,
+            incomeByDate,
+            hydrateReimbByDate,
+            userId,
+          });
 
           // Ensure today's record exists if not present
           if (!records[todayStr]) {
@@ -1900,63 +2061,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           }
 
           // 2b. Fetch manual gullak deposits from Supabase with timeout
-          let resolvedDeposits = get().gullakDeposits || [];
-          try {
-            const { data: depData, error: depError } = await withTimeout(
-              supabase
-                .from('gullak_deposits')
-                .select('id, amount, date, note, source, created_at')
-                .eq('user_id', userId)
-                .order('created_at', { ascending: false }),
-              3500,
-              { data: null, error: new Error('timeout') }
-            );
-
-            if (!depError && depData) {
-              const serverDeposits: GullakDeposit[] = (depData as Array<{
-                id: string;
-                amount: number | string;
-                date: string;
-                note?: string | null;
-                source?: string | null;
-                created_at?: string;
-              }>).map((d) => ({
-                id: d.id,
-                amount: Number(d.amount) || 0,
-                date: d.date,
-                note: d.note || undefined,
-                source: (d.source === 'income' || d.source === 'external') ? d.source : 'external',
-                created_at: d.created_at || new Date().toISOString(),
-              }));
-
-              const localDeposits = get().gullakDeposits || [];
-              const serverIdSet = new Set(serverDeposits.map((d) => d.id));
-              const missingOnServer = localDeposits.filter((d) => !serverIdSet.has(d.id));
-
-              if (missingOnServer.length > 0) {
-                missingOnServer.forEach((m) => {
-                  supabase
-                    .from('gullak_deposits')
-                    .insert({
-                      id: m.id,
-                      user_id: userId,
-                      amount: m.amount,
-                      date: m.date,
-                      note: m.note || null,
-                      source: m.source || 'external',
-                      created_at: m.created_at,
-                    })
-                    .then(() => {});
-                });
-              }
-
-              resolvedDeposits = [...serverDeposits, ...missingOnServer].sort((a, b) =>
-                b.date.localeCompare(a.date)
-              );
-            }
-          } catch (depErr) {
-            if (__DEV__) console.log('Error hydrating gullak_deposits from Supabase:', depErr);
-          }
+          const resolvedDeposits = await hydrateGullakDeposits(userId, get().gullakDeposits || []);
 
           // 3. Recalculate metrics from combined records
           const metrics = computeMetrics(
