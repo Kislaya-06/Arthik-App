@@ -8,7 +8,7 @@ Arthik is a personal finance, expense, and daily-savings tracking mobile applica
 
 **Transaction**:
 A single record of monetary movement (inflow or outflow) stored in the database with a first-class `type` field (`'expense' | 'income'`).
-- *Code location*: `src/store/expenseStore.ts` (`Expense` interface, lines 10–23), `schema.sql` (`expenses` table)
+- *Code location*: `src/store/expense/types.ts` (`Expense` interface; re-exported by `src/store/expenseStore.ts`), `schema.sql` (`expenses` table)
 - *_Avoid_*: Entry, Item, Ledger Record
 
 **Expense**:
@@ -23,13 +23,13 @@ An inflow transaction (`type: 'income'`) that increases total incoming funds wit
 
 **Transaction Direction Inference**:
 The single, unified evaluation rule used across screens, helpers, and the budget engine to determine if a transaction is income. Implemented in `isIncomeTransaction`: checks explicit `type === 'income'` (returns `true`) or `type === 'expense'` (returns `false`) first, then falls back to matching the resolved category name against `DEFAULT_INCOME_KEYWORDS` only when `type` is absent or indeterminate.
-Category lookup is resolved via a category map (`categoryMap.get(item.category_id)` in screens; in `dailyBudgetStore.ts` via `buildCategoryClassifier()` at lines 38–48, constructed from `useCategoryStore.getState().categories`). Startup sequencing in `App.tsx` (line 124) awaits `fetchCategories` before `hydrateFromSupabase`, guaranteeing categories are in memory before budget engine classification runs.
-- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`, lines 49–58), `src/store/dailyBudgetStore.ts` (`buildCategoryClassifier`, lines 38–48), `App.tsx` (lines 124–127), screens (`HomeScreen.tsx`, `HistoryScreen.tsx`, `ExpenseDetailScreen.tsx`)
+Category lookup is resolved via a category map (`categoryMap.get(item.category_id)` in screens; in `dailyBudgetStore.ts` via `buildCategoryClassifier()` in `src/store/dailyBudget/classifiers.ts`, constructed from `useCategoryStore.getState().categories`). Startup sequencing in `App.tsx` awaits `fetchCategories` before `hydrateFromSupabase`, guaranteeing categories are in memory before budget engine classification runs.
+- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`), `App.tsx`, screens (`HomeScreen.tsx`, `HistoryScreen.tsx`, `ExpenseDetailScreen.tsx`)
 - *_Avoid_*: Dual-Engine Inference, Keyword Guessing, Category Type Checking
 
 **Unified Income Classification**:
 The architectural standard where `src/lib/paymentUtils.ts` and `src/store/dailyBudgetStore.ts` share the exact same classification logic, eliminating the historical dual-engine divergence (formerly documented in `docs/adr/0007-income-classification-divergence.md`, superseded by `docs/adr/0008-unified-income-classification.md`).
-- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudgetStore.ts` (`buildCategoryClassifier`, lines 38–48)
+- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`)
 - *_Avoid_*: Dual-Engine Income Inference, Divergent Direction Check
 
 ---
@@ -66,7 +66,7 @@ A manual top-up the user makes directly into their Gullak reserve, separate from
 - **From Income (`'income'`)**: Funds moved from tracked income into Gullak. Increases Gullak reserve while leaving total available budget unchanged. Capped by lifetime available income (`getAvailableIncomeBalance`).
 - **External (`'external'`)**: Fresh money from outside the app (cash gift, windfall, bonus). Increases both Gullak reserve and the period's available balance across Daily, Weekly, Monthly, and All views.
 Both sources appear alongside expenses in recent transactions (`HomeScreen`) and `HistoryScreen` (via `GullakDepositRow`), and open `GullakDepositDetailScreen`. Stored in `gullak_deposits` in Supabase and `gullakDeposits` in local state.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`GullakDeposit` interface, `addGullakDeposit`, `getAvailableIncomeBalance`), `src/components/DepositGullakModal.tsx`, `src/screens/GullakDepositDetailScreen.tsx`, `src/components/GullakDepositRow.tsx`, `schema.sql` (`gullak_deposits` table)
+- *Code location*: `src/store/dailyBudget/types.ts` (`GullakDeposit` interface; re-exported by `src/store/dailyBudgetStore.ts`), `src/store/dailyBudgetStore.ts` (`addGullakDeposit`, `getAvailableIncomeBalance`), `src/components/DepositGullakModal.tsx`, `src/screens/GullakDepositDetailScreen.tsx`, `src/components/GullakDepositRow.tsx`, `schema.sql` (`gullak_deposits` table)
 - *_Avoid_*: Manual Deposit, Savings Top-up, Windfall
 
 **Daily Record**:
@@ -76,7 +76,7 @@ An accounting snapshot tracking budget, spent, saved, finalization flag, and eva
 
 **Finalized Day**:
 A past calendar day (`date < today`) whose budget and savings are permanently locked and synced to the database. Initial rollover finalization uses `shouldIgnoreDuplicates(status)` (returns `true` only for `'unknown'` status), ensuring that real finalized metrics for tracked days overwrite remote records in `daily_savings_log`.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.isFinalized`, `checkAndRollover` line 537), `src/lib/budgetCalculations.ts` (`shouldIgnoreDuplicates`, lines 301–303)
+- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.isFinalized`), `src/store/dailyBudget/rollover.ts` (`finalizeDailyRecords`, `checkAndRollover` helpers), `src/lib/budgetCalculations.ts` (`shouldIgnoreDuplicates`)
 - *_Avoid_*: Closed Day, Settled Day, Archival Record
 
 **Day Status — Active**:
@@ -128,27 +128,27 @@ A transaction created, updated, or deleted locally in client state immediately (
 
 **Pending Create Queue**:
 The per-user AsyncStorage queue storing optimistic new transactions waiting to be uploaded to Supabase.
-- *Code location*: `src/store/expenseStore.ts` (`@arthik_pending_expenses_${userId}`, `getPendingStorageKey`, line 69)
+- *Code location*: `src/store/expense/pendingQueues.ts` (`@arthik_pending_expenses_${userId}`, `getPendingStorageKey`; re-exported by `src/store/expenseStore.ts`)
 - *_Avoid_*: Outbox, Add Buffer, Local Creation Queue
 
 **Pending Update Queue**:
 The per-user AsyncStorage queue storing modified transaction payloads waiting to be synced to Supabase.
-- *Code location*: `src/store/expenseStore.ts` (`@arthik_pending_updates_${userId}`, `getPendingUpdatesKey`, line 70)
+- *Code location*: `src/store/expense/pendingQueues.ts` (`@arthik_pending_updates_${userId}`, `getPendingUpdatesKey`; re-exported by `src/store/expenseStore.ts`)
 - *_Avoid_*: Edit Queue, Patch Buffer
 
 **Pending Delete Queue**:
 The per-user AsyncStorage queue storing transaction IDs marked for server-side deletion.
-- *Code location*: `src/store/expenseStore.ts` (`@arthik_pending_deletes_${userId}`, `getPendingDeletesKey`, line 71)
+- *Code location*: `src/store/expense/pendingQueues.ts` (`@arthik_pending_deletes_${userId}`, `getPendingDeletesKey`; re-exported by `src/store/expenseStore.ts`)
 - *_Avoid_*: Trash Queue, Removal Queue
 
 **Failed Sync Queue**:
 The per-user AsyncStorage list holding items that failed server synchronization after `MAX_SYNC_RETRIES` (5) attempts with exponential backoff, or encountered permanent database validation errors (HTTP 4xx).
-- *Code location*: `src/store/expenseStore.ts` (`@arthik_failed_sync_${userId}`, `getFailedSyncStorageKey` line 73, `FailedSyncItem` interface lines 25–31, `MAX_SYNC_RETRIES` line 75)
+- *Code location*: `src/store/expense/pendingQueues.ts` (`@arthik_failed_sync_${userId}`, `getFailedSyncStorageKey`, `MAX_SYNC_RETRIES`), `src/store/expense/types.ts` (`FailedSyncItem` interface; re-exported by `src/store/expenseStore.ts`)
 - *_Avoid_*: Dead Letter Queue, Error Log, Sync Trash
 
 **Cached Expenses**:
 The per-user AsyncStorage snapshot of server-confirmed expenses used to populate the app on cold start or offline launch.
-- *Code location*: `src/store/expenseStore.ts` (`@arthik_cached_expenses_${userId}`, `getCachedStorageKey`, line 72)
+- *Code location*: `src/store/expense/pendingQueues.ts` (`@arthik_cached_expenses_${userId}`, `getCachedStorageKey`; re-exported by `src/store/expenseStore.ts`)
 - *_Avoid_*: Local Database, Offline Replica, Expense Store Backup
 
 **Cached Categories**:
@@ -286,6 +286,8 @@ The streak evaluation unit matching the active cadence: Daily evaluates consecut
 
 **Paused**:
 The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red. Pause changes the screen, not the money: spending on a paused day still comes from the period's budget pool (if alive), then income, then Gullak (ADR 0012).
+- *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`getWeeklyStreakCards`, `getMonthlyStreakGrid`)
+- *_Avoid_*: Stopped, Inactive, Broken, Skipped
 
 **Budget Pool**:
 The ONE budget of a calendar period for a cadence (a week for `weekly`, a month for `monthly`). Created the first day Budget Mode is on with that cadence in that period, with the plan amount plus the first-period carry-over. Pausing, resuming or switching away and back inside the period never creates a second one. A pool the user switched away from is *closed*: what was left was carried to the new cadence. A pool whose period ends in Pure Mode turns its unused part into income.
@@ -296,8 +298,6 @@ The ONE budget of a calendar period for a cadence (a week for `weekly`, a month 
 Money left in the running weekly / monthly budget that moves into the new cadence at a switch. Only real, unused money can be carried; a daily day carries nothing (its unused money goes to Gullak that night). Additive carry applies to the first period of the new plan only. Into a daily plan it is either added to tomorrow's budget or spent daily budget by daily budget until used up (the user is told each morning how much to add).
 - *Code location*: `src/lib/budgetPeriods.ts` (`carryForPeriod`, `dailyCarryForDate`), `src/store/dailyBudgetStore.ts` (`getCarryableAmount`, `setBudgetCadence`), `src/lib/notificationPolicy.ts` (`carryCoverCopy`)
 - *_Avoid_*: Rollover (that is the daily / period end deposit into Gullak), Transfer
-- *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`getWeeklyStreakCards`, `getMonthlyStreakGrid`)
-- *_Avoid_*: Stopped, Inactive, Broken, Skipped
 
 ---
 

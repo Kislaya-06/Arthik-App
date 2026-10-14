@@ -1,10 +1,18 @@
 # Technical Architecture Map: `src/store/dailyBudgetStore.ts`
 
 > [!NOTE]
-> **Historical Snapshot (Pre-Refactor, September 2026)**
-> This document reflects `src/store/dailyBudgetStore.ts` prior to the architectural decomposition and bug fixes in mid-September 2026. Exact line numbers, function catalogs, and specific helper implementations have evolved. For the current system-level picture, read [`docs/architecture.md §6`](../architecture.md) first. For live behavior, refer to [`src/store/dailyBudgetStore.ts`](file:///d:/Arthik-App/src/store/dailyBudgetStore.ts), [`src/lib/budgetCalculations.ts`](file:///d:/Arthik-App/src/lib/budgetCalculations.ts), and [`src/lib/budgetUtils.ts`](file:///d:/Arthik-App/src/lib/budgetUtils.ts).
+> **Architecture & Modular Decomposition (October 2026)**
+> `src/store/dailyBudgetStore.ts` has been refactored into cohesive helper modules under `src/store/dailyBudget/` while preserving the root export interface:
+> - Types & Interfaces: `src/store/dailyBudget/types.ts`
+> - Offline Pending Storage: `src/store/dailyBudget/pendingStorage.ts`
+> - Cross-Store Expense Bridge: `src/store/dailyBudget/expenseBridge.ts`
+> - Category Map Classifiers: `src/store/dailyBudget/classifiers.ts`
+> - Metrics & Waterfall: `src/store/dailyBudget/metrics.ts`
+> - Rollover Engine: `src/store/dailyBudget/rollover.ts`
+> - Supabase Hydration & Self-Healing: `src/store/dailyBudget/hydrate.ts`
+> For system architecture, see [`docs/architecture.md §6`](../architecture.md) and [`docs/adr/0013-store-module-split.md`](../adr/0013-store-module-split.md). For live calculation helpers, see [`src/lib/budgetCalculations.ts`](file:///d:/Arthik-App/src/lib/budgetCalculations.ts) and [`src/lib/budgetUtils.ts`](file:///d:/Arthik-App/src/lib/budgetUtils.ts).
 
-This document provides a comprehensive, read-only deep-dive function catalog of `src/store/dailyBudgetStore.ts` (reduced from 1,142 lines to 958 after extracting calculation helpers to `src/lib/budgetCalculations.ts`). It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md) and cites exact lines and verified code.
+This document catalogs the functions of `dailyBudgetStore` and its sub-modules under `src/store/dailyBudget/`. It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md).
 
 ---
 
