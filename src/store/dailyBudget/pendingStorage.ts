@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStoredList, setStoredList } from '../../lib/asyncStorageList';
 import type { BudgetPlanChange, BudgetPeriodRecord } from '../../types';
 import type { ProfileSettingsPatch, GullakDeposit } from './types';
 
@@ -68,16 +69,7 @@ export const savePendingBudgetPeriodOffline = async (
   await setStoredList(key, [...filtered, period]);
 };
 
-export const getStoredList = async <T>(key: string): Promise<T[]> => {
-  try {
-    const s = await AsyncStorage.getItem(key);
-    return s ? JSON.parse(s) : [];
-  } catch { return []; }
-};
-
-export const setStoredList = async <T>(key: string, list: T[]) => {
-  try { await AsyncStorage.setItem(key, JSON.stringify(list)); } catch {}
-};
+export { getStoredList, setStoredList };
 
 export const savePendingGullakAdd = async (userId: string, deposit: GullakDeposit): Promise<void> => {
   const key = getPendingGullakAddsKey(userId);

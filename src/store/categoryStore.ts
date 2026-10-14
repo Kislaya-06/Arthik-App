@@ -6,6 +6,7 @@ import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 import { getNextCategoryColor } from '../config/theme';
+import { getStoredList, setStoredList } from '../lib/asyncStorageList';
 
 export interface Category {
   id: string;
@@ -43,16 +44,6 @@ const getPendingCatDeletesKey = (uid: string) => `@arthik_pending_cat_deletes_${
 
 type PendingCatAdd = { id: string; user_id: string; name: string; icon: string; color: string };
 type PendingCatUpdate = { id: string; name: string; icon: string; color: string };
-
-const getStoredList = async <T>(key: string): Promise<T[]> => {
-  try {
-    const s = await AsyncStorage.getItem(key);
-    return s ? JSON.parse(s) : [];
-  } catch { return []; }
-};
-const setStoredList = async <T>(key: string, list: T[]) => {
-  try { await AsyncStorage.setItem(key, JSON.stringify(list)); } catch {}
-};
 
 const savePendingCatAdd = async (uid: string, cat: PendingCatAdd) => {
   const key = getPendingCatAddsKey(uid);

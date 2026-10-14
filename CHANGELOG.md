@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DailyBudgetStore Rollover Module (Step 7d-2)**: Moved `applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, and `finalizePeriods` to `src/store/dailyBudget/rollover.ts`.
 - **DailyBudgetStore Hydrate Helpers Split (Step 7e-1)**: Decomposed `hydrateFromSupabase` in-place into modular helper functions (`waitForPersistHydration`, `readPendingSettings`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData`, `mergePendingPlanChanges`, `mergePendingPeriods`, `selfHealDefaultBudget`, `selfHealCorruptedRows`, `hydrateGullakDeposits`).
 - **DailyBudgetStore Hydrate Module (Step 7e-2)**: Moved `waitForPersistHydration`, `readPendingSettings`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData`, `mergePendingPlanChanges`, `mergePendingPeriods`, `selfHealDefaultBudget`, `selfHealCorruptedRows`, and `hydrateGullakDeposits` to `src/store/dailyBudget/hydrate.ts`.
+- **Type Safety Improvements (Step 8a)**: Replaced `any` with precise types in `src/screens/SplashScreen.tsx`, `src/lib/chartUtils.ts`, and `src/store/dailyBudget/hydrate.ts` (`PersistStoreLike`, `RemoteProfileData`, `RemoteSavingsLogEntry`, `RemotePlanChangeEntry`, `RemoteBudgetPeriodEntry`, `RemoteBudgetData`).
+- **Storage List Deduplication (Step 8b)**: Extracted canonical `getStoredList` and `setStoredList` into `src/lib/asyncStorageList.ts` and eliminated duplicate implementations across `src/store/categoryStore.ts` and `src/store/dailyBudget/pendingStorage.ts`.
 
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 

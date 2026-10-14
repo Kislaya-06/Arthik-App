@@ -20,7 +20,14 @@ import {
 // Hydration Helpers (Step 7e)
 // ---------------------------------------------------------------------------
 
-export async function waitForPersistHydration(store: any): Promise<void> {
+export interface PersistStoreLike {
+  persist: {
+    hasHydrated: () => boolean;
+    onFinishHydration: (fn: () => void) => () => void;
+  };
+}
+
+export async function waitForPersistHydration(store: PersistStoreLike): Promise<void> {
   if (!store.persist.hasHydrated()) {
     await Promise.race([
       new Promise<void>((resolve) => {
@@ -130,8 +137,69 @@ export function buildOfflineHydrationPatch(
   };
 }
 
-export async function fetchRemoteBudgetData(userId: string) {
-  const [profileRes, logsRes, plansRes, periodsRes] = await Promise.race([
+export interface RemoteProfileData {
+  daily_budget: number | null;
+  is_auto_renew: boolean | null;
+  is_budget_mode_enabled: boolean | null;
+  budget_cadence: string | null;
+  weekly_budget: number | null;
+  monthly_budget: number | null;
+}
+
+export interface RemoteSavingsLogEntry {
+  date: string;
+  amount_saved?: number | string | null;
+  spent_amount?: number | string | null;
+  status?: string | null;
+  budget_amount?: number | string | null;
+}
+
+export interface RemotePlanChangeEntry {
+  id: string;
+  effective_from: string;
+  is_enabled: boolean;
+  cadence: string;
+  amount: number | string;
+  carry_mode?: 'additive' | 'allocation';
+  carried_over_amount?: number | string | null;
+  created_at?: string;
+}
+
+export interface RemoteBudgetPeriodEntry {
+  id: string;
+  cadence: string;
+  period_start: string;
+  period_end: string;
+  active_start: string;
+  active_end: string;
+  budget_amount: number | string;
+  spent_amount: number | string;
+  amount_saved: number | string;
+  status: string;
+  is_prorated: boolean;
+  carry_mode?: 'additive' | 'allocation';
+  carried_over_amount?: number | string | null;
+  created_at?: string;
+}
+
+type SupabaseMaybeResult<T> = { data: T | null };
+
+type RemoteBudgetDataResults = [
+  SupabaseMaybeResult<RemoteProfileData>,
+  SupabaseMaybeResult<RemoteSavingsLogEntry[]>,
+  SupabaseMaybeResult<RemotePlanChangeEntry[]>,
+  SupabaseMaybeResult<RemoteBudgetPeriodEntry[]>
+];
+
+export interface RemoteBudgetData {
+  profileData: RemoteProfileData | null | undefined;
+  logsData: RemoteSavingsLogEntry[] | null | undefined;
+  plansData: RemotePlanChangeEntry[] | null | undefined;
+  periodsData: RemoteBudgetPeriodEntry[] | null | undefined;
+}
+
+export async function fetchRemoteBudgetData(userId: string): Promise<RemoteBudgetData> {
+  const [profileRes, logsRes, plansRes, periodsRes] = await Promise.race<RemoteBudgetDataResults>([
     Promise.all([
       supabase
         .from('profiles')
@@ -153,8 +221,8 @@ export async function fetchRemoteBudgetData(userId: string) {
         .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, carry_mode, carried_over_amount, created_at')
         .eq('user_id', userId)
         .order('active_start', { ascending: true }),
-    ]),
-    new Promise<[any, any, any, any]>((r) =>
+    ]) as Promise<RemoteBudgetDataResults>,
+    new Promise<RemoteBudgetDataResults>((r) =>
       setTimeout(() => r([{ data: null }, { data: null }, { data: null }, { data: null }]), 3500)
     ),
   ]);
@@ -200,7 +268,7 @@ export async function mergePendingPeriods(
 export function selfHealDefaultBudget(params: {
   resolvedBudget: number;
   remoteBudgetWasMigrationDefault: boolean;
-  logsData: any[] | null | undefined;
+  logsData: RemoteSavingsLogEntry[] | null | undefined;
   userCreatedAtStr: string | null | undefined;
   spentByDate: Record<string, number>;
   records: Record<string, DailyRecord>;
@@ -212,13 +280,7 @@ export function selfHealDefaultBudget(params: {
   if (budgetLooksWrong && logsData && logsData.length > 0) {
     const budgetCandidates: Record<number, number> = {};
     for (let i = 0; i < logsData.length; i++) {
-      const logEntry = logsData[i] as {
-        date: string;
-        amount_saved?: number | string | null;
-        budget_amount?: number | string | null;
-        spent_amount?: number | string | null;
-        status?: string | null;
-      };
+      const logEntry: RemoteSavingsLogEntry = logsData[i];
       const d = logEntry.date;
       if (userCreatedAtStr && d < userCreatedAtStr) continue;
       const amountSaved = Number(logEntry.amount_saved) || 0;
@@ -273,7 +335,7 @@ export function selfHealDefaultBudget(params: {
 }
 
 export function selfHealCorruptedRows(params: {
-  logsData: any[] | null | undefined;
+  logsData: RemoteSavingsLogEntry[] | null | undefined;
   userCreatedAtStr: string | null | undefined;
   spentByDate: Record<string, number>;
   resolvedPlanChanges: BudgetPlanChange[];
@@ -297,13 +359,7 @@ export function selfHealCorruptedRows(params: {
 
   if (logsData && logsData.length > 0) {
     for (let i = 0; i < logsData.length; i++) {
-      const log = logsData[i] as {
-        date: string;
-        amount_saved?: number | string | null;
-        budget_amount?: number | string | null;
-        spent_amount?: number | string | null;
-        status?: string | null;
-      };
+      const log = logsData[i];
       const d = log.date;
       if (userCreatedAtStr && d < userCreatedAtStr) {
         continue; // Ignore any erroneous pre-registration logs
