@@ -145,122 +145,50 @@ import {
 } from '../lib/budgetPeriods';
 import { formatEffectiveFrom } from '../lib/budgetModeUtils';
 
-export const getPendingSettingsKey = (userId: string) => `@arthik_pending_settings_${userId}`;
-export const getPendingGullakAddsKey = (userId: string) => `@arthik_pending_gullak_adds_${userId}`;
-export const getPendingGullakDeletesKey = (userId: string) => `@arthik_pending_gullak_deletes_${userId}`;
-export const getPendingPlanChangesKey = (userId: string) => `@arthik_pending_plan_changes_${userId}`;
-export const getPendingBudgetPeriodsKey = (userId: string) => `@arthik_pending_budget_periods_${userId}`;
-export const getLastRenewedPeriodKey = (userId: string) => `@arthik_last_renewed_period_${userId}`;
-
-export interface ProfileSettingsPatch {
-  daily_budget?: number;
-  is_auto_renew?: boolean;
-  is_budget_mode_enabled?: boolean;
-  budget_cadence?: string;
-  weekly_budget?: number;
-  monthly_budget?: number;
-}
-
-export const savePendingSettingsOffline = async (
-  userId: string,
-  patch: ProfileSettingsPatch
-) => {
-  try {
-    const key = getPendingSettingsKey(userId);
-    const existing = await AsyncStorage.getItem(key);
-    const data = existing ? JSON.parse(existing) : {};
-    const updated = { ...data, ...patch };
-    await AsyncStorage.setItem(key, JSON.stringify(updated));
-  } catch (e) {
-    if (__DEV__) console.log('Error saving pending settings offline:', e);
-  }
+import type {
+  ProfileSettingsPatch,
+  GullakDepositSource,
+  GullakDeposit,
+} from './dailyBudget/types';
+export type {
+  ProfileSettingsPatch,
+  GullakDepositSource,
+  GullakDeposit,
 };
 
-export const clearPendingSettingsOffline = async (
-  userId: string,
-  keysToClear?: (keyof ProfileSettingsPatch)[]
-) => {
-  try {
-    const key = getPendingSettingsKey(userId);
-    if (!keysToClear) {
-      await AsyncStorage.removeItem(key);
-      return;
-    }
-    const existing = await AsyncStorage.getItem(key);
-    if (!existing) return;
-    const data = JSON.parse(existing);
-    keysToClear.forEach((k) => delete data[k]);
-    if (Object.keys(data).length === 0) {
-      await AsyncStorage.removeItem(key);
-    } else {
-      await AsyncStorage.setItem(key, JSON.stringify(data));
-    }
-  } catch (e) {
-    if (__DEV__) console.log('Error clearing pending settings offline:', e);
-  }
-};
-
-export const savePendingPlanChangeOffline = async (
-  userId: string,
-  change: BudgetPlanChange
-): Promise<void> => {
-  const key = getPendingPlanChangesKey(userId);
-  const list = await getStoredList<BudgetPlanChange>(key);
-  const filtered = list.filter((c) => c.effectiveFrom !== change.effectiveFrom);
-  await setStoredList(key, [...filtered, change]);
-};
-
-export const savePendingBudgetPeriodOffline = async (
-  userId: string,
-  period: BudgetPeriodRecord
-): Promise<void> => {
-  const key = getPendingBudgetPeriodsKey(userId);
-  const list = await getStoredList<BudgetPeriodRecord>(key);
-  const filtered = list.filter((p) => p.id !== period.id);
-  await setStoredList(key, [...filtered, period]);
-};
-
-export type GullakDepositSource = 'income' | 'external';
-
-export interface GullakDeposit {
-  id: string;
-  amount: number;
-  date: string; // 'yyyy-MM-dd'
-  note?: string;
-  source: GullakDepositSource;
-  created_at: string;
-}
-
-const getStoredList = async <T>(key: string): Promise<T[]> => {
-  try {
-    const s = await AsyncStorage.getItem(key);
-    return s ? JSON.parse(s) : [];
-  } catch { return []; }
-};
-const setStoredList = async <T>(key: string, list: T[]) => {
-  try { await AsyncStorage.setItem(key, JSON.stringify(list)); } catch {}
-};
-
-const savePendingGullakAdd = async (userId: string, deposit: GullakDeposit): Promise<void> => {
-  const key = getPendingGullakAddsKey(userId);
-  const list = await getStoredList<GullakDeposit>(key);
-  if (!list.some((d) => d.id === deposit.id)) await setStoredList(key, [...list, deposit]);
-};
-
-// Returns true if the deposit was in the pending-add queue (never reached Supabase).
-const tryRemovePendingGullakAdd = async (userId: string, depositId: string): Promise<boolean> => {
-  const key = getPendingGullakAddsKey(userId);
-  const list = await getStoredList<GullakDeposit>(key);
-  const filtered = list.filter((d) => d.id !== depositId);
-  if (filtered.length === list.length) return false;
-  await setStoredList(key, filtered);
-  return true;
-};
-
-const savePendingGullakDelete = async (userId: string, depositId: string): Promise<void> => {
-  const key = getPendingGullakDeletesKey(userId);
-  const list = await getStoredList<string>(key);
-  if (!list.includes(depositId)) await setStoredList(key, [...list, depositId]);
+import {
+  getPendingSettingsKey,
+  getPendingGullakAddsKey,
+  getPendingGullakDeletesKey,
+  getPendingPlanChangesKey,
+  getPendingBudgetPeriodsKey,
+  getLastRenewedPeriodKey,
+  savePendingSettingsOffline,
+  clearPendingSettingsOffline,
+  savePendingPlanChangeOffline,
+  savePendingBudgetPeriodOffline,
+  getStoredList,
+  setStoredList,
+  savePendingGullakAdd,
+  tryRemovePendingGullakAdd,
+  savePendingGullakDelete,
+} from './dailyBudget/pendingStorage';
+export {
+  getPendingSettingsKey,
+  getPendingGullakAddsKey,
+  getPendingGullakDeletesKey,
+  getPendingPlanChangesKey,
+  getPendingBudgetPeriodsKey,
+  getLastRenewedPeriodKey,
+  savePendingSettingsOffline,
+  clearPendingSettingsOffline,
+  savePendingPlanChangeOffline,
+  savePendingBudgetPeriodOffline,
+  getStoredList,
+  setStoredList,
+  savePendingGullakAdd,
+  tryRemovePendingGullakAdd,
+  savePendingGullakDelete,
 };
 
 /**
@@ -482,81 +410,8 @@ const computeMetrics = (
   };
 };
 
-interface DailyBudgetState {
-  ownerUserId: string | null;
-  hydratedForUserId: string | null;
-  dailyBudgetAmount: number; // default daily recurring amount
-  isAutoRenew: boolean; // toggle ON: auto-add daily budget; OFF: manual add
-  dailyRecords: Record<string, DailyRecord>;
-  gullakDeposits: GullakDeposit[];
-  totalAccumulatedSavings: number;
-  savingsStreak: number;
-  bestStreak: number;
-
-  // Notification deduplication tracking
-  lastWarningNotifiedDate: string | null;
-  lastExceededNotifiedDate: string | null;
-  lastRolloverNotifiedDate: string | null;
-
-  // Next-day scheduled budget
-  scheduledNextDailyBudget: number | null;
-  scheduledBudgetSetDate: string | null;
-
-  // --- Budget Modes & Multi-Cadence (Oct 2026) ---
-  isBudgetModeEnabled: boolean;
-  budgetCadence: BudgetCadence;
-  weeklyBudgetAmount: number;
-  monthlyBudgetAmount: number;
-  planChanges: BudgetPlanChange[];
-  budgetPeriods: Record<string, BudgetPeriodRecord>; // keyed by `${cadence}_${activeStart}`
-  bestStreakByCadence: Record<BudgetCadence, number>;
-  lastPeriodWarningKey: string | null;
-  lastPeriodExceededKey: string | null;
-  lastPeriodRolloverKey: string | null;
-  lastRenewedPeriodKey: string | null;
-
-  // Actions
-  setDailyBudget: (amount: number) => void;
-  scheduleNextDailyBudget: (amount: number) => void;
-  cancelScheduledNextDailyBudget: () => void;
-  toggleAutoRenew: (enabled: boolean) => void;
-  addGullakDeposit: (amount: number, note?: string, source?: GullakDepositSource) => void;
-  removeGullakDeposit: (id: string) => void;
-  getAvailableIncomeBalance: () => number;
-  getGrossIncomeBalance: () => number;
-  /** Everything left across the whole account (budgets + income + reimbursements + external deposits - spent). Can be <= 0. */
-  getTotalAccountRemaining: () => number;
-  /** Money that is left in the running budget and could be carried into a new cadence right now. */
-  getCarryableAmount: () => number;
-  getPriorAvailableIncomeBalance: () => number;
-  syncWithExpenses: (expenses: Expense[]) => void;
-  checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
-  uploadPendingDailyRecords: () => Promise<void>;
-  syncPendingGullakDeposits: () => Promise<void>;
-  hydrateFromSupabase: (userId: string) => Promise<void>;
-  resetDailyBudget: () => void;
-  getTodayRecord: () => DailyRecord;
-  getPastRecordsList: () => DailyRecord[];
-
-  // --- Multi-Cadence Actions & Selectors ---
-  setBudgetModeEnabled: (enabled: boolean) => void;
-  setBudgetCadence: (
-    cadence: BudgetCadence,
-    options?: {
-      amount?: number;
-      carryMode?: 'additive' | 'allocation';
-      carriedOverAmount?: number;
-    }
-  ) => void;
-  setWeeklyBudget: (amount: number) => void;
-  setMonthlyBudget: (amount: number) => void;
-  getPendingPlanChange: () => BudgetPlanChange | null;
-  getEffectiveFromLabel: (change?: BudgetPlanChange | null) => string;
-  cancelPendingPlanChange: () => void;
-  uploadPendingBudgetPeriods: () => Promise<void>;
-  syncPendingPlanChanges: () => Promise<void>;
-  setLastRenewedPeriodKey: (key: string) => Promise<void>;
-}
+import type { DailyBudgetState } from './dailyBudget/types';
+export type { DailyBudgetState };
 
 const getTodayDateStr = () => format(new Date(), 'yyyy-MM-dd');
 

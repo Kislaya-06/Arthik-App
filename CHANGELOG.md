@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ExpenseStore Pending Queues (Step 6a)**: Extracted pending queue storage keys, exponential backoff schedule, UUID validation, and offline queue mutators to `src/store/expense/pendingQueues.ts`.
 - **ExpenseStore Sync Phases (Step 6b)**: Split `syncPendingExpenses` into four discrete phase functions (`syncPendingDeletes`, `syncPendingAdds`, `syncPendingUpdates`, `flushSideQueues`).
 - **ExpenseStore Sync Module (Step 6c)**: Moved `syncPendingDeletes`, `syncPendingAdds`, `syncPendingUpdates`, and `flushSideQueues` to `src/store/expense/syncPending.ts` and core types to `src/store/expense/types.ts`.
+- **DailyBudgetStore Pending Storage & Types (Step 7a)**: Extracted offline pending storage key getters and queue mutators to `src/store/dailyBudget/pendingStorage.ts`, and core types/interfaces to `src/store/dailyBudget/types.ts`.
 
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 
