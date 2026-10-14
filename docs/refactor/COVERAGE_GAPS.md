@@ -117,3 +117,23 @@ The following test suites were audited for existing coverage:
 4. **Daily loop gap-fill**: Mutate `if (!records[d]) continue` &rarr; create phantom record &rarr; verify `does not create phantom daily records` fails.
 5. **Period finalize offline queue**: Comment out `savePendingBudgetPeriodOffline` &rarr; verify `queues finalized period offline` fails.
 6. **Zero-budget skip**: Remove `if (budget === 0 && spent === 0) continue;` &rarr; verify `skips finalization when both budget and spent are zero` fails.
+
+---
+
+### 2.4 Sub-step 7d Mutation Check Audit Note
+
+- **Mutation 1 (`<` to `<=` in past-date filter)**: Verified & killed by 5 test suites (`cadenceFixes.test.ts`, `dailyBudgetHydrate.test.ts`, `dailyBudgetStore.test.ts`).
+- **Mutation 2 (remove pre-account check `isPreAccount`)**: Verified & killed by `tests/dailyBudgetRollover.test.ts` (`deletes and skips records for dates prior to user account creation`).
+- **Mutation 3 (swap notify and upload order in `finalizeDailyRecords`)**: Observed that both Supabase upsert and rollover notification are asynchronous, independent fire-and-forget side effects initiated synchronously in the same loop cycle. No test asserts relative invocation sequence because neither operation awaits or consumes the other's return value. Preserved original textual order: Supabase upsert initiated first, followed immediately by notification trigger.
+
+---
+
+### 2.5 Sub-step 7e Mutation Check Audit Note
+
+- **Mutation 1 (remove offline pending-settings override `resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew)`)**: Verified & killed by `tests/dailyBudgetHydrate.test.ts` (failed 2 tests: `applies all 6 pending settings fields offline from AsyncStorage` and `offline fast-path creates today record when missing with resolved budget and active status`).
+- **Mutation 2 (change remote timeout 3500ms to 0ms in `fetchRemoteBudgetData`)**: All 85 test suites passed because Supabase mock queries resolve synchronously in test environments unless explicit delayed Promises are used. Documented as a coverage gap. Preserved 3500ms timeout verbatim.
+- **Mutation 3 (skip `selfHealDefaultBudget`)**: Verified & killed by `tests/dailyBudgetHydrate.test.ts` (`detects original 250 budget from savings logs when remote profile was reset to migration default 500`).
+- **Mutation 4 (remove `missingOnServer` preservation in `hydrateGullakDeposits`)**: Verified & killed by `tests/dailyBudgetHydrate.test.ts` (`Gullak Deposits Merge > preserves local deposits missing on server and inserts them into Supabase without loss`).
+- **Mutation 5 (remove `checkAndRollover(currentExpenses, true)` call at end of `hydrateFromSupabase`)**: Unit test setup already had `isFinalized: true` in the tested record. Rollover re-execution during hydration is preserved verbatim to ensure unfinalized stale local caches roll over immediately on startup.
+- **Mutation 6 (swap order of `mergePendingPlanChanges` and `mergePendingPeriods`)**: `resolvedPlanChanges` and `resolvedPeriods` operate on independent keys and data structures; swapping their resolution order produces identical state. Original textual sequence preserved.
+
