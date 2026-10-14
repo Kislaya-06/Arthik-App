@@ -15,20 +15,23 @@ const getUserCreatedAtLocalDate = (createdAt?: string | null): string | undefine
   }
 };
 
-let expenseGetter: (() => Expense[]) | null = null;
-export const registerExpenseGetter = (getter: () => Expense[]) => {
-  expenseGetter = getter;
-};
-export const getCurrentExpenses = (): Expense[] => {
-  return expenseGetter ? expenseGetter() : [];
+import {
+  registerExpenseGetter,
+  getCurrentExpenses,
+  registerSharesGetter,
+  getCurrentShares,
+  registerExpensesLoadedGetter,
+  areExpensesLoaded,
+} from './dailyBudget/expenseBridge';
+export {
+  registerExpenseGetter,
+  getCurrentExpenses,
+  registerSharesGetter,
+  getCurrentShares,
+  registerExpensesLoadedGetter,
+  areExpensesLoaded,
 };
 
-let expensesLoadedGetter: (() => boolean) | null = null;
-let sharesGetter: (() => Array<{ id: string; expense_id: string }>) | null = null;
-/** Friends' shares (id -> expense), registered by sharesStore. Lets split repayments go back to their source. */
-export const registerSharesGetter = (getter: () => Array<{ id: string; expense_id: string }>) => {
-  sharesGetter = getter;
-};
 /**
  * Does the DAILY engine own this date? (Fix: a weekly / monthly plan, or Pure Mode, owns the day instead.)
  * Users with no plan history at all are old daily users: the daily engine owns every day for them.
@@ -42,43 +45,23 @@ const dailyCarryExtraFor = (dateStr: string): number => {
   const st = useDailyBudgetStore.getState();
   return dailyCarryForDate(st.planChanges, (d) => st.dailyRecords[d]?.budget, st.dailyBudgetAmount, dateStr)?.extraBudget ?? 0;
 };
-
-const getCurrentShares = (): Array<{ id: string; expense_id: string }> => (sharesGetter ? sharesGetter() : []);
-
-export const registerExpensesLoadedGetter = (getter: () => boolean) => {
-  expensesLoadedGetter = getter;
-};
-export const areExpensesLoaded = (): boolean => {
-  if (expensesLoadedGetter) {
-    return expensesLoadedGetter();
-  }
-  if (__DEV__) {
-    console.warn('[dailyBudgetStore] areExpensesLoaded called before registerExpensesLoadedGetter was registered. Defaulting to false.');
-  }
-  return false;
-};
 import { useCategoryStore } from './categoryStore';
 import { notifyLimit, notifyRollover, notifyBudgetUpdated, notifyBudgetResumed, notifyPurePeriodEnded } from '../lib/budgetAlerts';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
-import { makeIncomeClassifier, makeEligibleIncomeClassifier, makeReimbursementClassifier } from '../lib/incomeClassifier';
 import { isCountedIncome } from '../lib/transactionUtils';
 import { resolveHydratedDayBudget, resolveRolloverBudget } from '../lib/budgetUtils';
 import { round2 } from '../lib/formatters';
 import { computeWaterfallFromState, WaterfallResult } from '../lib/moneyWaterfall';
 import { buildBudgetPools, poolSpentBefore, poolKeyFor, dailyCarryForDate, dailyCarryRemaining, BUDGET_RULES_V2_FROM } from '../lib/budgetPeriods';
 
-const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
-  return makeIncomeClassifier(useCategoryStore.getState().categories);
-};
-
-const buildReimbursementClassifier = (): ((e: Expense) => boolean) => makeReimbursementClassifier();
-
-const buildEligibleIncomeClassifier = (): ((e: Expense) => boolean) => {
-  return makeEligibleIncomeClassifier(useCategoryStore.getState().categories);
-};
+import {
+  buildCategoryClassifier,
+  buildReimbursementClassifier,
+  buildEligibleIncomeClassifier,
+} from './dailyBudget/classifiers';
 
 
 import {
