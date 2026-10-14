@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DailyBudgetStore Rollover Helpers Split (Step 7d-1)**: Decomposed `checkAndRollover` in-place into five modular helpers (`applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, `finalizePeriods`).
 - **DailyBudgetStore Rollover Module (Step 7d-2)**: Moved `applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, and `finalizePeriods` to `src/store/dailyBudget/rollover.ts`.
 - **DailyBudgetStore Hydrate Helpers Split (Step 7e-1)**: Decomposed `hydrateFromSupabase` in-place into modular helper functions (`waitForPersistHydration`, `readPendingSettings`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData`, `mergePendingPlanChanges`, `mergePendingPeriods`, `selfHealDefaultBudget`, `selfHealCorruptedRows`, `hydrateGullakDeposits`).
+- **DailyBudgetStore Hydrate Module (Step 7e-2)**: Moved `waitForPersistHydration`, `readPendingSettings`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData`, `mergePendingPlanChanges`, `mergePendingPeriods`, `selfHealDefaultBudget`, `selfHealCorruptedRows`, and `hydrateGullakDeposits` to `src/store/dailyBudget/hydrate.ts`.
 
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 
