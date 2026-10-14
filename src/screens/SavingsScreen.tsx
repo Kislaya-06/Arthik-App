@@ -1,10 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
-  Text,
-  StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Animated,
   Alert,
   Easing,
@@ -14,23 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
-import {
-  Trophy,
-  Calendar,
-  Sparkles,
-  Plus,
-  Clock,
-  X,
-  ChevronDown,
-  ChevronRight,
-} from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
-import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
-import { GradientIconBadge } from '../components/GradientIconBadge';
-import { StreakFlame } from '../components/StreakFlame';
-import { AnimatedToggle } from '../components/AnimatedToggle';
-import { SegmentedControl } from '../components/ui/SegmentedControl';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency, round2 } from '../lib/formatters';
@@ -45,23 +26,22 @@ import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall
 import { isIncomeTransaction, isExcludedFromTotals } from '../lib/transactionUtils';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
-import { SavingsRecordRow } from '../components/SavingsRecordRow';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { DepositGullakModal } from '../components/DepositGullakModal';
-import { MoneyHelpBadge, MoneyExplainerModal } from '../components/MoneyExplainerModal';
+import { MoneyExplainerModal } from '../components/MoneyExplainerModal';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TabParamList, RootStackParamList } from '../types';
-import { AmountText } from '../components/ui/AmountText';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
+import { SavingsHeader } from '../components/savings/SavingsHeader';
+import { SavingsHeroCard } from '../components/savings/SavingsHeroCard';
+import { BudgetHubSection } from '../components/savings/BudgetHubSection';
+import { SavingsHistorySection } from '../components/savings/SavingsHistorySection';
+import { styles } from './SavingsScreen.styles';
 
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 const INITIAL_RECORDS_COUNT = 8;
 const RECORDS_PAGE_SIZE = 8;
-
-const OVER_BUDGET_CORAL = '#FF7A6E';
-const OVER_BUDGET_CORAL_DOT = '#FF6B5E';
 
 type SavingsScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Savings'>,
@@ -74,6 +54,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
   const handleScroll = useScrollDirection();
 
+  const dashboard = useSavingsDashboard();
   const {
     totalAccumulatedSavings,
     dailyBudgetAmount,
@@ -87,13 +68,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     setActiveFilter,
     refreshing,
     onRefresh,
-    handleToggleAutoRenew,
-    scheduledNextDailyBudget,
-    cancelScheduledNextDailyBudget,
     budgetModal,
-    openBudgetModal,
     closeBudgetModal,
-  } = useSavingsDashboard();
+    cancelScheduledNextDailyBudget,
+  } = dashboard;
 
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
   const [depositModalVisible, setDepositModalVisible] = useState(false);
@@ -390,636 +368,68 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
         scrollEventThrottle={32}
       >
         {/* ── Header ── */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerTitleContainer}>
-            <Text style={[styles.screenSubtitle, { color: colors.textSecondary }]}>
-              Savings & Gullak
-            </Text>
-            <Text
-              style={[styles.screenTitle, { color: colors.textPrimary }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-            >
-              {budgetCadence === 'weekly' ? 'Weekly Savings' : budgetCadence === 'monthly' ? 'Monthly Savings' : 'Daily Savings'}
-            </Text>
-          </View>
-
-          {/* Streak Badge (Bonus Feature #2 - Tappable for Calendar) */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setStreakCalendarVisible(true)}
-            style={[
-              styles.streakBadge,
-              {
-                backgroundColor: isDark ? 'rgba(244, 184, 174, 0.18)' : '#FDEEEC',
-                borderColor: colors.peachCoral,
-              },
-            ]}
-          >
-            <StreakFlame streak={effectiveStreak} size={18} />
-            <Text style={[styles.streakBadgeText, { color: '#E05638' }]}>
-              {effectiveStreak} {budgetCadence === 'weekly' ? (effectiveStreak === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (effectiveStreak === 1 ? 'Month' : 'Months') : (effectiveStreak === 1 ? 'Day' : 'Days')} Streak
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SavingsHeader
+          budgetCadence={budgetCadence}
+          effectiveStreak={effectiveStreak}
+          onOpenStreakCalendar={() => setStreakCalendarVisible(true)}
+          colors={colors}
+          isDark={isDark}
+        />
 
         {/* ── Hero Card: Total Accumulated Savings ── */}
-        <View
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: '#581C87',
-              borderColor: 'rgba(255, 255, 255, 0.12)',
-              borderWidth: 1,
-              overflow: 'hidden',
-              elevation: isDark ? 0 : 2,
-            },
-          ]}
-          onLayout={(e) => {
-            const { width, height } = e.nativeEvent.layout;
-            if (width > 0 && height > 0 && (width !== heroCardSize.width || height !== heroCardSize.height)) {
-              setHeroCardSize({ width, height });
-            }
-          }}
-        >
-          {/* Violet Premium Background Gradient */}
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Svg
-              width={heroCardSize.width || '100%'}
-              height={heroCardSize.height || '100%'}
-              style={StyleSheet.absoluteFill}
-            >
-              <Defs>
-                <SvgLinearGradient id="gullakCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor="#8B5CF6" />
-                  <Stop offset="100%" stopColor="#581C87" />
-                </SvgLinearGradient>
-              </Defs>
-              <Rect
-                x="0"
-                y="0"
-                width={heroCardSize.width || '100%'}
-                height={heroCardSize.height || '100%'}
-                fill="url(#gullakCardGrad)"
-              />
-            </Svg>
-          </View>
-
-          {/* Header Row: Title on Left, Piggy Icon Badge on Right */}
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroTitleWrap}>
-              <Text style={[styles.heroSub, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-                Total Lifetime Savings
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                <Text
-                  style={[styles.heroTitle, { color: '#FFFFFF' }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.8}
-                >
-                  Your {budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily'} Gullak
-                </Text>
-                <MoneyHelpBadge
-                  size={18}
-                  style={{ marginLeft: Spacing.element }}
-                  onPress={() => setExplainerVisible(true)}
-                />
-              </View>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={triggerPiggyBounce}
-              style={[styles.heroIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}
-            >
-              <Animated.View style={{ transform: [{ scale: heroPiggyScale }] }}>
-                <PiggyBankCoinIcon size={28} color="#FFFFFF" />
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Large currency amount using canonical AmountText */}
-          <View style={styles.heroAmountBlock}>
-            <AmountText
-              role="hero"
-              value={totalAccumulatedSavings}
-              color="#FFFFFF"
-              rolling
-              rollOnFocus
-            />
-            <Text style={[styles.heroHelperText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-              {`Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
-            </Text>
-          </View>
-
-          {/* Unboxed Minimal Stat Row */}
-          <View style={[styles.heroStatsRow, { marginTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 10 }]}>
-            {/* Best Streak */}
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <GradientIconBadge size={28} color="#FFFFFF" isDark={isDark}>
-                {({ iconColor }) => <Trophy size={14} color={iconColor} />}
-              </GradientIconBadge>
-              <View style={styles.heroStatTextWrap}>
-                <Text style={[styles.heroStatLabel, { color: 'rgba(255, 255, 255, 0.7)' }]}>
-                  Best Streak
-                </Text>
-                <Text style={[styles.heroStatValue, { color: '#FFFFFF' }]}>
-                  {effectiveBestStreak} {budgetCadence === 'weekly' ? (effectiveBestStreak === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (effectiveBestStreak === 1 ? 'Month' : 'Months') : (effectiveBestStreak === 1 ? 'Day' : 'Days')}
-                </Text>
-              </View>
-            </View>
-
-            {/* Vertical Divider */}
-            <View style={{ width: 1, height: '80%', backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center' }} />
-
-            {/* Saved Days */}
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <GradientIconBadge size={28} color="#FFFFFF" isDark={isDark}>
-                {({ iconColor }) => <Sparkles size={14} color={iconColor} />}
-              </GradientIconBadge>
-              <View style={styles.heroStatTextWrap}>
-                <Text style={[styles.heroStatLabel, { color: 'rgba(255, 255, 255, 0.7)' }]}>
-                  {budgetCadence === 'weekly' ? 'Saved Weeks' : budgetCadence === 'monthly' ? 'Saved Months' : 'Saved Days'}
-                </Text>
-                <Text style={[styles.heroStatValue, { color: '#FFFFFF' }]}>
-                  {savedDaysCount} {budgetCadence === 'weekly' ? (savedDaysCount === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (savedDaysCount === 1 ? 'Month' : 'Months') : (savedDaysCount === 1 ? 'Day' : 'Days')}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Action: Deposit into Gullak */}
-          <TouchableOpacity
-            style={[
-              styles.depositCtaBtn,
-              {
-                backgroundColor: '#FFFFFF',
-                borderColor: '#FFFFFF',
-                marginTop: 12,
-              },
-            ]}
-            onPress={() => setDepositModalVisible(true)}
-            activeOpacity={0.75}
-          >
-            <Plus size={17} color="#5B21B6" />
-            <Text style={[styles.depositCtaBtnText, { color: '#5B21B6' }]}>
-              Deposit to Gullak
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SavingsHeroCard
+          heroCardSize={heroCardSize}
+          setHeroCardSize={setHeroCardSize}
+          budgetCadence={budgetCadence}
+          onOpenExplainer={() => setExplainerVisible(true)}
+          triggerPiggyBounce={triggerPiggyBounce}
+          heroPiggyScale={heroPiggyScale}
+          totalAccumulatedSavings={totalAccumulatedSavings}
+          effectiveBestStreak={effectiveBestStreak}
+          savedDaysCount={savedDaysCount}
+          onOpenDepositModal={() => setDepositModalVisible(true)}
+          isDark={isDark}
+        />
 
         {/* ── Unified Daily Allowance & Budget Mode Hub ── */}
-        <View
-          style={[
-            styles.unifiedBudgetCard,
-            {
-              backgroundColor: '#581C87',
-              borderColor: 'rgba(255, 255, 255, 0.12)',
-              borderWidth: 1,
-              overflow: 'hidden',
-              elevation: isDark ? 0 : 2,
-            },
-          ]}
-          onLayout={(e) => {
-            const { width, height } = e.nativeEvent.layout;
-            if (width > 0 && height > 0 && (width !== allowanceCardSize.width || height !== allowanceCardSize.height)) {
-              setAllowanceCardSize({ width, height });
-            }
-          }}
-        >
-          {/* Violet Gradient Backdrop matching Gullak Hero Card */}
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Svg
-              key={`allowance_${allowanceCardSize.width}_${allowanceCardSize.height}`}
-              width={allowanceCardSize.width || '100%'}
-              height={allowanceCardSize.height ? allowanceCardSize.height + 4 : '100%'}
-              style={StyleSheet.absoluteFill}
-            >
-              <Defs>
-                <SvgLinearGradient id="allowanceCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor="#8B5CF6" />
-                  <Stop offset="100%" stopColor="#581C87" />
-                </SvgLinearGradient>
-              </Defs>
-              <Rect
-                x="0"
-                y="0"
-                width={allowanceCardSize.width || '100%'}
-                height={allowanceCardSize.height ? allowanceCardSize.height + 4 : '100%'}
-                fill="url(#allowanceCardGrad)"
-              />
-            </Svg>
-          </View>
-
-          {/* Row 1: Title + Date Pill inline left, Status indicator right */}
-          <View style={styles.ucTopRow}>
-            <View style={styles.ucTitleRow}>
-              <Text style={[styles.ucTitle, { color: '#FFFFFF' }]}>
-                {cardTitle}
-              </Text>
-              <View
-                style={[
-                  styles.ucDateBadge,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                ]}
-              >
-                <Text style={[styles.ucDateBadgeText, { color: '#FFFFFF' }]}>
-                  {cardDateBadge}
-                </Text>
-              </View>
-            </View>
-
-            {/* Unboxed High-Visibility Status Indicator */}
-            {isAutoRenew && cardBudget > 0 ? (
-              <View style={styles.ucStatusRow}>
-                <View
-                  style={[
-                    styles.ucStatusDot,
-                    {
-                      backgroundColor: cardIsOver
-                        ? OVER_BUDGET_CORAL_DOT
-                        : cardProgressRatio >= 0.8
-                        ? '#FBBF24'
-                        : '#FFFFFF',
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.ucStatusText,
-                    {
-                      color: cardIsOver
-                        ? OVER_BUDGET_CORAL
-                        : cardProgressRatio >= 0.8
-                        ? '#FDE68A'
-                        : '#FFFFFF',
-                    },
-                  ]}
-                >
-                  {cardIsOver ? 'Over budget' : cardProgressRatio >= 0.8 ? 'Near limit' : 'On track'}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.ucStatusRow}>
-                <View
-                  style={[
-                    styles.ucStatusDot,
-                    { backgroundColor: 'rgba(255, 255, 255, 0.5)' },
-                  ]}
-                />
-                <Text style={[styles.ucStatusText, { color: 'rgba(255, 255, 255, 0.85)' }]}>
-                  Paused
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Body: Active or Paused */}
-          {isAutoRenew ? (
-            <View style={styles.ucBody}>
-              {/* Row 2: Hero Amount & Budget Change */}
-              <View style={styles.ucHeroRow}>
-                <View style={styles.ucHeroLeft}>
-                  <Text
-                    style={[
-                      styles.ucHeroLabel,
-                      { color: cardIsOver ? OVER_BUDGET_CORAL : 'rgba(255, 255, 255, 0.75)' },
-                    ]}
-                  >
-                    {cardIsOver ? 'EXCEEDED BY' : 'LEFT TO SPEND'}
-                  </Text>
-                  <View style={styles.ucAmountRow}>
-                    <AmountText
-                      role="primary"
-                      value={cardTarget}
-                      color={cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF'}
-                      rolling
-                      rollOnFocus
-                    />
-                  </View>
-                </View>
-
-                {/* Right Column: Highlighted Change Action Button */}
-                <View style={styles.ucHeroRight}>
-                  <TouchableOpacity
-                    onPress={() => openBudgetModal('recurring')}
-                    activeOpacity={0.75}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.ucChangeBtn}
-                  >
-                    <Text style={styles.ucChangeBtnText}>
-                      Change
-                    </Text>
-                    <ChevronRight size={13} color="#FFFFFF" strokeWidth={2.5} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Row 3: Progress Bar */}
-              <View
-                style={[
-                  styles.ucProgressTrack,
-                  { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-                ]}
-                accessibilityLabel={`Spent ${formatCurrency(cardSpent)} of ${formatCurrency(cardBudget)} budget`}
-                accessibilityRole="progressbar"
-              >
-                <Animated.View
-                  style={[
-                    styles.ucProgressFill,
-                    {
-                      width: animatedProgressWidth,
-                      backgroundColor: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF',
-                    },
-                  ]}
-                />
-              </View>
-
-              {/* Under-bar spending split */}
-              <View style={styles.ucProgressLabels}>
-                <Text style={[styles.ucProgressLabelText, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                  Spent <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(cardSpent)}</Text>
-                </Text>
-                <Text style={[styles.ucProgressLabelText, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                  <Text style={[styles.ucProgressLabelValue, { color: '#FFFFFF' }]}>{formatCurrency(cardBudget)}</Text>{' '}
-                  {cadencePeriodSummary?.carriedOverAmount &&
-                  cadencePeriodSummary.carriedOverAmount > 0 &&
-                  cadencePeriodSummary.carryMode === 'additive'
-                    ? `pool (${formatCurrency(cadencePeriodSummary.baseBudget || cardBudget - cadencePeriodSummary.carriedOverAmount)} + ${formatCurrency(cadencePeriodSummary.carriedOverAmount)} carried)`
-                    : 'budget'}
-                </Text>
-              </View>
-
-              {/* Scheduled Tomorrow Budget Banner (if active) */}
-              {scheduledNextDailyBudget !== null && scheduledNextDailyBudget > 0 && (
-                <View style={[styles.scheduledBanner, { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderColor: 'rgba(255, 255, 255, 0.25)' }]}>
-                  <Clock size={15} color="#FFFFFF" style={{ marginRight: Spacing.element }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.scheduledBannerTitle, { color: '#FFFFFF', fontFamily: FontFamily.bold }]}>
-                      Tomorrow's Budget: {formatCurrency(scheduledNextDailyBudget)}
-                    </Text>
-                    <Text style={[styles.scheduledBannerSubtitle, { color: 'rgba(255, 255, 255, 0.8)', fontFamily: FontFamily.medium }]}>
-                      Takes effect at 12:00 AM
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={handleCancelScheduled} hitSlop={8}>
-                    <X size={16} color="rgba(255, 255, 255, 0.8)" />
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Scheduled Next Cadence Switch Banner (if active) */}
-              {pendingPlanChange && (
-                <View
-                  style={[
-                    styles.scheduledBanner,
-                    {
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      borderColor: 'rgba(255, 255, 255, 0.25)',
-                    },
-                  ]}
-                >
-                  <Clock size={15} color="#FFFFFF" style={{ marginRight: Spacing.element }} />
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.scheduledBannerTitle,
-                        { color: '#FFFFFF', fontFamily: FontFamily.bold },
-                      ]}
-                    >
-                      Tomorrow: Switch to {pendingPlanChange.cadence.toUpperCase()} ({formatCurrency(pendingPlanChange.amount)})
-                    </Text>
-                    <Text
-                      style={[
-                        styles.scheduledBannerSubtitle,
-                        { color: 'rgba(255, 255, 255, 0.85)', fontFamily: FontFamily.medium },
-                      ]}
-                    >
-                      {pendingPlanChange.carriedOverAmount && pendingPlanChange.carriedOverAmount > 0
-                        ? `${formatCurrency(pendingPlanChange.carriedOverAmount)} carried forward (${pendingPlanChange.carryMode === 'additive' ? 'Additive' : 'Allocation'})`
-                        : 'Takes effect tomorrow at 12:00 AM'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={cancelPendingPlanChange} hitSlop={8}>
-                    <X size={16} color="rgba(255, 255, 255, 0.8)" />
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Row 4: Dedicated Auto-save Feature Row (Unboxed) */}
-              <View style={styles.ucAutoSaveCapsule}>
-                <View style={styles.ucAutoSaveLeft}>
-                  <GradientIconBadge size={40} color="#FFFFFF" isDark={isDark}>
-                    {({ iconColor }) => <PiggyBankCoinIcon size={20} color={iconColor} />}
-                  </GradientIconBadge>
-                  <View style={styles.ucAutoSaveTextWrap}>
-                    <Text style={[styles.ucAutoSaveLabel, { color: '#FFFFFF' }]}>
-                      Auto-save unspent to Gullak
-                    </Text>
-                    <Text
-                      style={[
-                        styles.ucFooterHint,
-                        {
-                          color: isOverBudget ? OVER_BUDGET_CORAL : 'rgba(255, 255, 255, 0.85)',
-                          fontFamily: isOverBudget ? FontFamily.semibold : FontFamily.medium,
-                        },
-                      ]}
-                    >
-                      {overspendHint}
-                    </Text>
-                  </View>
-                </View>
-                <AnimatedToggle
-                  value={isAutoRenew}
-                  onValueChange={handleToggleAutoRenew}
-                  width={52}
-                  height={26}
-                  onColor="#FFFFFF"
-                  offColor="#FFFFFF"
-                  trackColor="rgba(255, 255, 255, 0.2)"
-                />
-              </View>
-            </View>
-          ) : (
-            /* Paused State */
-            <View style={styles.ucBody}>
-              <View style={styles.pausedStateBox}>
-                <View style={styles.pausedStateTop}>
-                  <View style={[styles.pausedIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.18)' }]}>
-                    <Sparkles size={16} color="#FFFFFF" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.pausedTitle, { color: '#FFFFFF' }]}>
-                      {budgetCadence === 'weekly'
-                        ? 'Weekly Budget Paused'
-                        : budgetCadence === 'monthly'
-                        ? 'Monthly Budget Paused'
-                        : 'Daily Allowance Paused'}
-                    </Text>
-                    <Text style={[styles.pausedDesc, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-                      Auto-rollover to Gullak is paused. All your past savings stay 100% safe.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={[styles.pausedDivider, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]} />
-
-                <View style={styles.pausedBottomRow}>
-                  <View>
-                    <Text style={[styles.pausedSubLabel, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                      Configured {budgetCadence === 'weekly' ? 'Weekly Budget' : budgetCadence === 'monthly' ? 'Monthly Budget' : 'Daily Allowance'}
-                    </Text>
-                    {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0 ? (
-                      <AmountText
-                        role="primary"
-                        value={budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount}
-                        color="#FFFFFF"
-                      />
-                    ) : (
-                      <Text style={[styles.pausedAmountText, { color: '#FFFFFF' }]}>
-                        Not Set
-                      </Text>
-                    )}
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.ucChangeBtn,
-                      {
-                        backgroundColor: 'rgba(255, 255, 255, 0.10)',
-                        borderColor: 'rgba(255, 255, 255, 0.16)',
-                      },
-                    ]}
-                    disabled={true}
-                    activeOpacity={1}
-                    accessibilityState={{ disabled: true }}
-                  >
-                    <Text style={[styles.ucChangeBtnText, { color: 'rgba(255, 255, 255, 0.4)' }]}>
-                      {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0 ? 'Change' : 'Set Limit'}
-                    </Text>
-                    <ChevronRight size={13} color="rgba(255, 255, 255, 0.4)" strokeWidth={2.5} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Auto-save toggle capsule to re-enable (Unboxed, clean) */}
-              <View
-                style={[
-                  styles.ucAutoSaveCapsule,
-                  {
-                    marginTop: Spacing.group,
-                  },
-                ]}
-              >
-                <View style={styles.ucAutoSaveLeft}>
-                  <GradientIconBadge size={40} color="#FFFFFF" isDark={isDark}>
-                    {({ iconColor }) => <PiggyBankCoinIcon size={20} color={iconColor} />}
-                  </GradientIconBadge>
-                  <View style={styles.ucAutoSaveTextWrap}>
-                    <Text style={[styles.ucAutoSaveLabel, { color: '#FFFFFF' }]}>
-                      Auto-save unspent to Gullak
-                    </Text>
-                    <Text style={[styles.ucFooterHint, { color: 'rgba(255, 255, 255, 0.85)' }]}>
-                      {budgetCadence === 'weekly'
-                        ? 'Turn on to resume weekly rollover into Gullak'
-                        : budgetCadence === 'monthly'
-                        ? 'Turn on to resume monthly rollover into Gullak'
-                        : 'Turn on to resume daily rollover into Gullak'}
-                    </Text>
-                  </View>
-                </View>
-                <AnimatedToggle
-                  value={isAutoRenew}
-                  onValueChange={handleToggleAutoRenew}
-                  width={52}
-                  height={26}
-                  onColor="#FFFFFF"
-                  offColor="#FFFFFF"
-                  trackColor="rgba(255, 255, 255, 0.2)"
-                />
-              </View>
-            </View>
-          )}
-        </View>
-
+        <BudgetHubSection
+          dashboard={dashboard}
+          allowanceCardSize={allowanceCardSize}
+          setAllowanceCardSize={setAllowanceCardSize}
+          cardTitle={cardTitle}
+          cardDateBadge={cardDateBadge}
+          cardBudget={cardBudget}
+          cardSpent={cardSpent}
+          cardTarget={cardTarget}
+          cardIsOver={cardIsOver}
+          cardProgressRatio={cardProgressRatio}
+          animatedProgressWidth={animatedProgressWidth}
+          cadencePeriodSummary={cadencePeriodSummary}
+          handleCancelScheduled={handleCancelScheduled}
+          pendingPlanChange={pendingPlanChange}
+          cancelPendingPlanChange={cancelPendingPlanChange}
+          isOverBudget={isOverBudget}
+          overspendHint={overspendHint}
+          budgetCadence={budgetCadence}
+          weeklyBudgetAmount={weeklyBudgetAmount}
+          monthlyBudgetAmount={monthlyBudgetAmount}
+        />
 
         {/* ── Day-by-Day Savings History ── */}
-        <View style={styles.historySectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            {budgetCadence === 'weekly' ? 'Week-by-Week Savings History' : budgetCadence === 'monthly' ? 'Month-by-Month Savings History' : 'Day-by-Day Savings History'}
-          </Text>
-        </View>
-
-        {/* Segmented Filter Toggle */}
-        <View style={styles.filterToggleWrapper}>
-          <SegmentedControl
-            options={FILTERS as unknown as string[]}
-            selectedKey={activeFilter}
-            onChange={(key) => setActiveFilter(key as any)}
-            height={ControlHeight.standard}
-          />
-        </View>
-
-        {/* Past Records List */}
-        {unifiedList.length === 0 ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Calendar size={36} color={colors.textSecondary} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              {activeFilter === 'Deposits' ? 'No Manual Deposits Yet' : 'No Past Savings History Yet'}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              {activeFilter === 'Deposits'
-                ? 'Tap "Deposit to Gullak" above to add extra savings or cash directly into your jar.'
-                : `At the end of each ${budgetCadence === 'weekly' ? 'week' : budgetCadence === 'monthly' ? 'month' : 'day'}, any unspent balance from your budget will automatically roll into your Savings Gullak and appear right here!`}
-            </Text>
-          </View>
-        ) : (
-          <>
-            {visibleUnifiedList.map((item) => (
-              <SavingsRecordRow
-                key={item.id}
-                rec={item.dailyRecord}
-                deposit={item.deposit}
-                period={item.period}
-                onPress={
-                  item.deposit
-                    ? () => navigation.navigate('GullakDepositDetail', { depositId: item.deposit!.id })
-                    : undefined
-                }
-                onDeleteDeposit={
-                  item.deposit
-                    ? () => handleDeleteDeposit(item.deposit!.id, item.deposit!.amount)
-                    : undefined
-                }
-                colors={colors}
-                isDark={isDark}
-              />
-            ))}
-
-            {hasMoreRecords && (
-              <TouchableOpacity
-                style={[
-                  styles.seeMoreBtn,
-                  {
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.card,
-                    borderColor: colors.border,
-                  },
-                ]}
-                onPress={() => setVisibleRecordsCount((prev) => prev + RECORDS_PAGE_SIZE)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.seeMoreText, { color: colors.textPrimary }]}>
-                  See More
-                </Text>
-                <ChevronDown size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </>
-        )}
+        <SavingsHistorySection
+          budgetCadence={budgetCadence}
+          filters={FILTERS}
+          activeFilter={activeFilter}
+          setActiveFilter={(key) => setActiveFilter(key as any)}
+          unifiedList={unifiedList}
+          visibleUnifiedList={visibleUnifiedList}
+          hasMoreRecords={hasMoreRecords}
+          onSeeMore={() => setVisibleRecordsCount((prev) => prev + RECORDS_PAGE_SIZE)}
+          onNavigateDeposit={(depositId) => navigation.navigate('GullakDepositDetail', { depositId })}
+          handleDeleteDeposit={handleDeleteDeposit}
+          colors={colors}
+          isDark={isDark}
+        />
       </ScrollView>
 
       {/* ── Edit Budget Modal ── */}
@@ -1052,440 +462,3 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.gutter,
-  },
-
-  // Header
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.block,
-  },
-  headerTitleContainer: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: Spacing.element,
-  },
-  screenSubtitle: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    fontFamily: FontFamily.medium,
-  },
-  screenTitle: {
-    fontSize: FontSize.titleLarge,
-    lineHeight: LineHeight.titleLarge,
-    fontFamily: FontFamily.bold,
-    marginTop: -2,
-  },
-  streakBadge: {
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-    gap: Spacing.micro,
-    overflow: 'visible',
-  },
-  streakBadgeText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-  },
-
-  // Hero Card
-  heroCard: {
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 18,
-    marginBottom: Spacing.block,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  heroTitleWrap: {
-    flex: 1,
-    marginRight: Spacing.element,
-    justifyContent: 'center',
-  },
-  heroSub: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  heroTitle: {
-    fontSize: FontSize.titleSmall,
-    fontFamily: FontFamily.bold,
-  },
-  heroIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroAmountBlock: {
-    marginTop: 0,
-    marginBottom: 8,
-  },
-  heroHelperText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.medium,
-    lineHeight: LineHeight.bodySmall,
-    marginTop: 3,
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  heroStatTile: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.group,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  heroStatIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroStatTextWrap: {
-    flex: 1,
-  },
-  heroStatLabel: {
-    fontSize: FontSize.micro,
-    fontFamily: FontFamily.medium,
-    marginBottom: 1,
-  },
-  heroStatValue: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-  },
-
-  // Unified Budget & Allowance Card
-  unifiedBudgetCard: {
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 16,
-    marginBottom: Spacing.surface,
-  },
-  // Top Row: Title + Date Pill left, Status Pill right
-  ucTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  ucTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexShrink: 1,
-  },
-  ucTitle: {
-    fontSize: FontSize.body,
-    fontFamily: FontFamily.bold,
-    letterSpacing: -0.2,
-  },
-  ucDateBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  ucDateBadgeText: {
-    fontSize: FontSize.micro,
-    fontFamily: FontFamily.semibold,
-  },
-  // Status Indicator (Unboxed, high visibility)
-  ucStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  ucStatusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  ucStatusText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.1,
-  },
-  // Body wrapper
-  ucBody: {
-    gap: 0,
-  },
-  // Hero Amount Row
-  ucHeroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  ucHeroLeft: {
-    flex: 1,
-  },
-  ucHeroLabel: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.6,
-    marginBottom: 1,
-  },
-  ucAmountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ucHeroCurrencySymbol: {
-    fontSize: FontSize.titleMedium,
-    fontFamily: FontFamily.bold,
-    marginRight: 2,
-  },
-  ucHeroAmount: {
-    fontSize: FontSize.titleLarge,
-    fontFamily: FontFamily.bold,
-    letterSpacing: -0.5,
-    fontVariant: ['tabular-nums'],
-    includeFontPadding: false,
-  },
-  ucHeroRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
-    paddingBottom: 2,
-  },
-  ucChangeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  ucChangeBtnText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-    color: '#FFFFFF',
-  },
-  // Progress Bar
-  ucProgressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  ucProgressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  ucProgressLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  ucProgressLabelText: {
-    fontSize: FontSize.micro,
-    fontFamily: FontFamily.medium,
-    fontVariant: ['tabular-nums'],
-  },
-  ucProgressLabelValue: {
-    fontFamily: FontFamily.bold,
-  },
-  // Auto-save Feature Row (Unboxed)
-  ucAutoSaveCapsule: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 0,
-    paddingVertical: 6,
-    marginTop: 4,
-  },
-  ucAutoSaveLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    paddingRight: 6,
-  },
-  ucAutoSaveTextWrap: {
-    flex: 1,
-  },
-  ucAutoSaveLabel: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-    marginBottom: 2,
-  },
-  ucFooterHint: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    lineHeight: LineHeight.caption,
-  },
-
-  // Scheduled Banner
-  scheduledBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.element,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: Spacing.group,
-  },
-  scheduledBannerTitle: {
-    fontSize: FontSize.bodySmall,
-  },
-  scheduledBannerSubtitle: {
-    fontSize: FontSize.micro,
-    marginTop: 1,
-  },
-
-  // Unified Paused State
-  unifiedPausedContent: {
-    marginTop: Spacing.nano,
-  },
-  pausedStateBox: {
-    paddingVertical: 2,
-  },
-  pausedStateTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.group,
-  },
-  pausedIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pausedTitle: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-    marginBottom: 2,
-  },
-  pausedDesc: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    lineHeight: 16,
-  },
-  pausedDivider: {
-    height: 1,
-    marginVertical: Spacing.group,
-  },
-  pausedBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pausedSubLabel: {
-    fontSize: FontSize.micro,
-    fontFamily: FontFamily.medium,
-    marginBottom: 2,
-  },
-  pausedAmountText: {
-    fontSize: FontSize.body,
-    fontFamily: FontFamily.bold,
-  },
-
-  // History Section
-  historySectionHeader: {
-    marginTop: 0,
-    marginBottom: Spacing.group,
-  },
-  sectionTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    fontFamily: FontFamily.bold,
-    letterSpacing: -0.2,
-  },
-  filterToggleWrapper: {
-    marginBottom: Spacing.block,
-  },
-
-  // Empty state
-  emptyCard: {
-    paddingVertical: Spacing.gutter,
-    paddingHorizontal: Spacing.surface,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    marginTop: Spacing.micro,
-  },
-  emptyTitle: {
-    fontSize: FontSize.body,
-    lineHeight: LineHeight.body,
-    fontFamily: FontFamily.bold,
-    marginTop: Spacing.group,
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    fontFamily: FontFamily.medium,
-    textAlign: 'center',
-  },
-
-  depositCtaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 46,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-  },
-  depositCtaBtnText: {
-    fontSize: FontSize.body,
-    fontFamily: FontFamily.bold,
-  },
-  seeMoreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    gap: Spacing.element,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.surface,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    marginTop: 24,
-    marginBottom: Spacing.element,
-  },
-  seeMoreText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-  },
-});

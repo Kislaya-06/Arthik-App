@@ -44,12 +44,13 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 |---|---|---|
 | **Entry** | App boot, theme, OTA listener | `App.tsx`, `index.ts` |
 | **Navigation** | Screen routing, typed params | `src/navigation/index.tsx`, `src/navigation/navigationRef.ts`, `src/types/index.ts` |
-| **Screens** | UI render + dispatch store actions | `src/screens/**` |
-| **Stores** | Business logic, Supabase I/O, offline queues, derived state | `src/store/**` |
-| **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` |
-| **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**` |
+| **Screens** | UI render + dispatch store actions | `src/screens/**`, `src/screens/insights/**` |
+| **Stores** | Business logic, Supabase I/O, offline queues, derived state | `src/store/**`, `src/store/expense/**`, `src/store/dailyBudget/**` |
+| **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` (including `streakCalendarData.ts`, `asyncStorageList.ts`) |
+| **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/profile/**`, `src/components/savings/**` |
+| **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (66 files, 1103 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (85 files, 1429 tests) | `tests/**` |
 | **Automatic Logging** | On-device SMS / notification / email → transactions | `modules/arthik-autolog/**`, `src/features/autoLog/**` — see [AUTO_LOGGING.md](AUTO_LOGGING.md) |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
@@ -60,13 +61,13 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 
 ## 3. Stores
 
-Ten Zustand stores. Each owns a well-defined domain.
+Ten Zustand stores. Each owns a well-defined domain. To avoid monolithic file explosion, high-complexity stores (`dailyBudgetStore`, `expenseStore`) are decomposed into cohesive sub-modules in dedicated subdirectories while maintaining their canonical root export interface (see [ADR 0013](adr/0013-store-module-split.md)).
 
 | Store | Domain | Persisted? | Reset on sign-out? |
 |---|---|---|---|
 | `authStore` | Session, user profile, sign-in/out | No | — (orchestrates resets) |
-| `expenseStore` | Transaction CRUD, offline queues, sync | No (manual AsyncStorage) | ✅ `resetExpenses` |
-| `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
+| `expenseStore` | Transaction CRUD, offline queues, sync (split: `pendingQueues`, `syncPending`, `types`) | No (manual AsyncStorage) | ✅ `resetExpenses` |
+| `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks (split: `classifiers`, `expenseBridge`, `hydrate`, `metrics`, `pendingStorage`, `rollover`, `types`) | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
 | `categoryStore` | User categories, placeholders, cache | No (manual AsyncStorage) | ✅ `resetCategories` |
 | `notificationStore` | In-app notification list, unread count | No (manual AsyncStorage) | ✅ `clearNotifications` |
 | `networkStore` | Online/offline flag, banner state | No | — |
@@ -291,7 +292,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v2.1.0**: 66 test files, 1103 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate` (+ `helpers/autoLogTestEnv.ts`).
+**Coverage as of v2.1.0**: 85 test files, 1429 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), and refactor regression suites.
 
 | Test file | What it covers |
 |---|---|
@@ -362,3 +363,4 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011) |
 | [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
 | [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |
+| [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |

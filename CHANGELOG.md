@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — Internal refactor (no user-visible change)
+
+- **InsightsScreen Split (Step 3a)**: Extracted `Period` type, constants, and date calculation utilities to `src/screens/insights/periodUtils.ts` and `PeriodNavigator` component to `src/screens/insights/PeriodNavigator.tsx`.
+- **InsightsScreen Styles (Step 3b)**: Moved StyleSheet styles out of `InsightsScreen.tsx` into `src/screens/insights/InsightsScreen.styles.ts`.
+- **InsightsScreen Data Hook (Step 3c)**: Extracted pure financial and analytics derivations into useInsightsData hook and added comprehensive snapshot tests.
+- **ProfileScreen Split (Step 4)**: Extracted PauseBudgetModal, EditProfileModal, DeleteAccountModal, and StyleSheet styles.
+- **SavingsScreen Split (Step 5a)**: Extracted SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, and StyleSheet styles.
+- **Modal Styles Split (Step 5b)**: Moved StreakCalendarModal and DepositGullakModal styles to dedicated style files.
+- **Streak Calendar Row Mapping (Step 5c)**: Extracted `mapRemoteRowsToDayLog` pure function to `src/lib/streakCalendarData.ts` with unit and mutation tests.
+- **ExpenseStore Pending Queues (Step 6a)**: Extracted pending queue storage keys, exponential backoff schedule, UUID validation, and offline queue mutators to `src/store/expense/pendingQueues.ts`.
+- **ExpenseStore Sync Phases (Step 6b)**: Split `syncPendingExpenses` into four discrete phase functions (`syncPendingDeletes`, `syncPendingAdds`, `syncPendingUpdates`, `flushSideQueues`).
+- **ExpenseStore Sync Module (Step 6c)**: Moved `syncPendingDeletes`, `syncPendingAdds`, `syncPendingUpdates`, and `flushSideQueues` to `src/store/expense/syncPending.ts` and core types to `src/store/expense/types.ts`.
+- **DailyBudgetStore Pending Storage & Types (Step 7a)**: Extracted offline pending storage key getters and queue mutators to `src/store/dailyBudget/pendingStorage.ts`, and core types/interfaces to `src/store/dailyBudget/types.ts`.
+- **DailyBudgetStore Expense Bridge & Classifiers (Step 7b)**: Extracted module-level expense singletons and registration callbacks to `src/store/dailyBudget/expenseBridge.ts`, and classifiers to `src/store/dailyBudget/classifiers.ts`.
+- **DailyBudgetStore Metrics & Calculations (Step 7c)**: Extracted `computeMetrics`, `computeAllTimeBudget`, `runWaterfall`, and cadence calculation helpers to `src/store/dailyBudget/metrics.ts`.
+- **DailyBudgetStore Rollover Helpers Split (Step 7d-1)**: Decomposed `checkAndRollover` in-place into five modular helpers (`applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, `finalizePeriods`).
+- **DailyBudgetStore Rollover Module (Step 7d-2)**: Moved `applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, and `finalizePeriods` to `src/store/dailyBudget/rollover.ts`.
+- **DailyBudgetStore Hydrate Helpers Split (Step 7e-1)**: Decomposed `hydrateFromSupabase` in-place into modular helper functions (`waitForPersistHydration`, `readPendingSettings`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData`, `mergePendingPlanChanges`, `mergePendingPeriods`, `selfHealDefaultBudget`, `selfHealCorruptedRows`, `hydrateGullakDeposits`).
+- **DailyBudgetStore Hydrate Module (Step 7e-2)**: Moved `waitForPersistHydration`, `readPendingSettings`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData`, `mergePendingPlanChanges`, `mergePendingPeriods`, `selfHealDefaultBudget`, `selfHealCorruptedRows`, and `hydrateGullakDeposits` to `src/store/dailyBudget/hydrate.ts`.
+- **Type Safety Improvements (Step 8a)**: Replaced `any` with precise types in `src/screens/SplashScreen.tsx`, `src/lib/chartUtils.ts`, and `src/store/dailyBudget/hydrate.ts` (`PersistStoreLike`, `RemoteProfileData`, `RemoteSavingsLogEntry`, `RemotePlanChangeEntry`, `RemoteBudgetPeriodEntry`, `RemoteBudgetData`).
+- **Storage List Deduplication (Step 8b)**: Extracted canonical `getStoredList` and `setStoredList` into `src/lib/asyncStorageList.ts` and eliminated duplicate implementations across `src/store/categoryStore.ts` and `src/store/dailyBudget/pendingStorage.ts`.
+
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 
 > **OTA safe (JS only).** Apply after OTA 1, 2 and 3. Only two source files change.

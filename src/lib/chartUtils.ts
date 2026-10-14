@@ -83,7 +83,7 @@ export interface PreparedSegment {
  * Prepares geometry, rotation angles, and sweep offsets for all donut segments.
  */
 export function prepareCategorySegments(
-  categories: Array<{ id: string; name: string; amount: number; percentage: number }>,
+  categories: Array<{ id: string; name: string; amount: number; percentage: number; color?: string }>,
   totalAmount: number,
   palette: readonly string[],
   size: number,
@@ -108,7 +108,7 @@ export function prepareCategorySegments(
 
     return {
       ...cat,
-      color: (cat as any).color || palette[index % palette.length],
+      color: cat.color || palette[index % palette.length],
       fraction,
       arcLength,
       startAngle,
@@ -368,7 +368,7 @@ export interface PreparedBlockSweepSegment {
  * sweep animation ("round sweep") with rounded capsule ends and uniform gaps between blocks.
  */
 export function prepareBlockSweepSegments(
-  categories: Array<{ id: string; name: string; amount: number; percentage: number }>,
+  categories: Array<{ id: string; name: string; amount: number; percentage: number; color?: string }>,
   totalAmount: number,
   palette: readonly string[],
   size: number = 220,
@@ -388,7 +388,7 @@ export function prepareBlockSweepSegments(
     const strokeArcLength = Math.max(0.1, circumference - strokeWidth);
     return [{
       ...categories[0],
-      color: (categories[0] as any).color || palette[0] || '#FF857A',
+      color: categories[0].color || palette[0] || '#FF857A',
       fraction: 1,
       strokeStartAngle: -90 + capAngleDeg,
       strokeArcLength,
@@ -472,7 +472,7 @@ export function prepareBlockSweepSegments(
 
     return {
       ...cat,
-      color: (cat as any).color || palette[i % palette.length],
+      color: cat.color || palette[i % palette.length],
       fraction: totalAmount > 0 ? cat.amount / totalAmount : 0,
       strokeStartAngle,
       strokeArcLength,
@@ -563,7 +563,7 @@ export function computeMonthlyWeeksData(
   monthStart: Date,
   monthEnd: Date,
   expenses: Array<{ amount: number; expense_date: string; category_id?: string | null; transaction_class?: string | null }>,
-  isIncomeCheck?: (expense: any) => boolean,
+  isIncomeCheck?: (expense: { category_id?: string | null; transaction_class?: string | null }) => boolean,
   userCreatedAtStr?: string
 ): { weeks: MonthlyWeekSpending[]; maxWeek: MonthlyWeekSpending | null } {
   const weeks: MonthlyWeekSpending[] = [];
@@ -679,7 +679,7 @@ export function computeMonthlyCashFlowData(
   monthEnd: Date,
   expenses: Array<{ amount: number; expense_date: string; type?: string; category_id?: string | null; transaction_class?: string | null }>,
   gullakDeposits: Array<{ date: string; amount: number; source?: string }>,
-  isIncomeCheck?: (expense: any) => boolean,
+  isIncomeCheck?: (expense: { category_id?: string | null; transaction_class?: string | null; type?: string }) => boolean,
   userCreatedAtStr?: string,
   budgetConfig?: MonthlyCashFlowBudgetConfig,
   referenceDate: Date = new Date()

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing, Image, useAnimatedValue } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Image, useAnimatedValue, ImageSourcePropType } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { User, AuthError } from '@supabase/supabase-js';
 import { RootStackParamList } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
@@ -17,7 +18,7 @@ import { supabase } from '../config/supabase';
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
 interface LogoPieceConfig {
-  source: any;
+  source: ImageSourcePropType;
   containerOffset: { left: number; top: number };
   imageOffset: { left: number; top: number };
   rotate: string;
@@ -312,10 +313,10 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         } catch (_) {}
 
         // 2. Try to get Supabase session with a strict 2s timeout
-        let activeUser: any = null;
+        let activeUser: User | null = null;
         try {
           const sessionPromise = supabase.auth.getSession();
-          const sessionTimeout = new Promise<{ data: { session: null }; error: any }>((resolve) =>
+          const sessionTimeout = new Promise<{ data: { session: null }; error: AuthError | Error | null }>((resolve) =>
             setTimeout(() => resolve({ data: { session: null }, error: new Error('Session timeout') }), 2000)
           );
           const { data, error } = await Promise.race([sessionPromise, sessionTimeout]);

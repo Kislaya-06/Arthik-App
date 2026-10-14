@@ -49,29 +49,34 @@ modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, Pa
                         # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
 src/
 ├── components/   ui/ (AppButton, AppInput, AmountText, SegmentedControl, BottomSheetModal, …),
+│                 profile/ (PauseBudgetModal, EditProfileModal, DeleteAccountModal, styles),
+│                 savings/ (SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, styles),
 │                 BottomNavBar, BrandedHeroCard, CadenceSwitchModal, VaultSpendingGuardModal,
 │                 PeriodRenewalModal, CustomDatePickerModal, ErrorBoundary, OfflineBanner, SyncFailedBanner,
-│                 StreakCalendarModal, GradientIconBadge, PiggyBankCoinIcon,
+│                 StreakCalendarModal, DepositGullakModal, GradientIconBadge, PiggyBankCoinIcon,
 │                 autolog/ (AutoLogUi + BetaPill, ReviewSheet, WhyLoggedCard, AutoLogHomeBanner, AutoLogGate, EmailSourceInfo)
 ├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, rollout, background,
 │                 notify, permissions, remote, store, copy, types)
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
-├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts
+├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts, useInsightsData.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationService.ts, authLinkHandler.ts,
-│                 budgetCalculations.ts, amountKeypad.ts, budgetModeUtils.ts,
+│                 budgetCalculations.ts, amountKeypad.ts, budgetModeUtils.ts, streakCalendarData.ts, asyncStorageList.ts,
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install)
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
-├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History, Insights,
+├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History,
+│                 Insights (with insights/ periodUtils, PeriodNavigator, styles),
 │                 Savings, ExpenseForm, ExpenseDetail, CategoryDetail, ManageCategories,
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
 │                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
-├── store/        authStore, expenseStore, categoryStore, dailyBudgetStore,
+├── store/        authStore, categoryStore,
+│                 expenseStore (with expense/ pendingQueues, syncPending, types),
+│                 dailyBudgetStore (with dailyBudget/ classifiers, expenseBridge, hydrate, metrics, pendingStorage, rollover, types),
 │                 notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
-**High blast-radius files**: `dailyBudgetStore.ts`, `expenseStore.ts`, `budgetPeriods.ts`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `budgetCalculations.ts`, `features/autoLog/engine.ts`, `features/autoLog/matching.ts`, `features/autoLog/service.ts`, `modules/arthik-autolog/**` (native → APK), `UpdateRequiredScreen.tsx` + `lib/versionCheck.ts` (force update for every user).
+**High blast-radius files**: `dailyBudgetStore.ts (+ src/store/dailyBudget/*)`, `expenseStore.ts (+ src/store/expense/*)`, `budgetPeriods.ts`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `budgetCalculations.ts`, `features/autoLog/engine.ts`, `features/autoLog/matching.ts`, `features/autoLog/service.ts`, `modules/arthik-autolog/**` (native → APK), `UpdateRequiredScreen.tsx` + `lib/versionCheck.ts` (force update for every user).
 > **File inspection rule**: Inspect ONLY the relevant sections/functions needed for the current task. Do NOT scan entire files or read whole files end-to-end unless the task strictly requires it.
 
 ---
@@ -551,4 +556,17 @@ See `docs/AUTO_LOGGING.md` §9 and the product spec `docs/specs/EMAIL_AUTO_LOGGI
 | Design | `docs/design-system.md`, `docs/ARTHIK_DESIGN_SYSTEM.md`, `src/config/theme.ts` |
 
 **Local-only (gitignored, project root, may be absent in a clone):** `CODEBASE_EXPLAINER.md` (owner's Hinglish codebase guide), `CODEBASE_EXPLAINER_OLD.md`, `AGENT_BRIEF.md`, `DEV_SETUP_PHONE_AND_EMULATOR.md`, `DISTRIBUTE_*.md`, `dev-both.ps1`, `install-dev-apk.ps1`, hand-off notes (`PASTE_GUIDE.md`, `PLACEMENT_GUIDE.md`, …). Never commit them; `.gitignore` anchors them with a leading `/` so same-named files inside `docs/` stay tracked. If you change something they describe, tell the owner which local file is now stale.
+
+---
+
+# REFACTOR MODE (active during the refactor branches refactor/*)
+When the user's prompt says "Refactor Mode", these rules OVERRIDE section 5 "Minimal diff" and "File inspection rule":
+1. Behaviour must stay byte-for-byte identical: same outputs, same side effects, same order of side effects, same error handling, same AsyncStorage keys, same Supabase queries, same notifications.
+2. Allowed: move code to new files, split a long function into named helpers, rename LOCAL variables only, add types where tsc proves it is safe, add NEW test files.
+3. Forbidden: changing logic, fixing bugs, "improving" conditions, reordering awaits, changing dependency arrays of useEffect/useMemo/useCallback, changing default values, changing exported names or import paths, adding dependencies, touching modules/arthik-autolog, schema.sql, supabase/, versionCheck.ts, UpdateRequiredScreen.tsx.
+4. Public API stays: every export that existed before must still be importable from the SAME path (re-export from the old file).
+5. Existing tests must NOT be edited. Only new test files may be added. If an existing test fails, STOP and report; do not "fix" the test.
+6. If you notice a bug, do NOT fix it. Report it in the DONE REPORT.
+7. For moves, copy code VERBATIM, including comments (P0.x tags, ponytail notes etc.).
+8. Never create circular imports. Helpers extracted from a store must receive `get`/`set`/data as parameters instead of importing the store.
 
