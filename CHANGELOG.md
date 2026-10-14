@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DailyBudgetStore Expense Bridge & Classifiers (Step 7b)**: Extracted module-level expense singletons and registration callbacks to `src/store/dailyBudget/expenseBridge.ts`, and classifiers to `src/store/dailyBudget/classifiers.ts`.
 - **DailyBudgetStore Metrics & Calculations (Step 7c)**: Extracted `computeMetrics`, `computeAllTimeBudget`, `runWaterfall`, and cadence calculation helpers to `src/store/dailyBudget/metrics.ts`.
 - **DailyBudgetStore Rollover Helpers Split (Step 7d-1)**: Decomposed `checkAndRollover` in-place into five modular helpers (`applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, `finalizePeriods`).
+- **DailyBudgetStore Rollover Module (Step 7d-2)**: Moved `applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, and `finalizePeriods` to `src/store/dailyBudget/rollover.ts`.
 
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 
