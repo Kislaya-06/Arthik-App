@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DailyBudgetStore Pending Storage & Types (Step 7a)**: Extracted offline pending storage key getters and queue mutators to `src/store/dailyBudget/pendingStorage.ts`, and core types/interfaces to `src/store/dailyBudget/types.ts`.
 - **DailyBudgetStore Expense Bridge & Classifiers (Step 7b)**: Extracted module-level expense singletons and registration callbacks to `src/store/dailyBudget/expenseBridge.ts`, and classifiers to `src/store/dailyBudget/classifiers.ts`.
 - **DailyBudgetStore Metrics & Calculations (Step 7c)**: Extracted `computeMetrics`, `computeAllTimeBudget`, `runWaterfall`, and cadence calculation helpers to `src/store/dailyBudget/metrics.ts`.
+- **DailyBudgetStore Rollover Helpers Split (Step 7d-1)**: Decomposed `checkAndRollover` in-place into five modular helpers (`applyScheduledNextDayBudget`, `groupSpentByDate`, `collectPastDates`, `finalizeDailyRecords`, `finalizePeriods`).
 
 ### Fixed — Monthly / Weekly / All card: one consistent story (deficit, income chip, "Drawn from Gullak")
 

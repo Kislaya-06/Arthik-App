@@ -117,3 +117,11 @@ The following test suites were audited for existing coverage:
 4. **Daily loop gap-fill**: Mutate `if (!records[d]) continue` &rarr; create phantom record &rarr; verify `does not create phantom daily records` fails.
 5. **Period finalize offline queue**: Comment out `savePendingBudgetPeriodOffline` &rarr; verify `queues finalized period offline` fails.
 6. **Zero-budget skip**: Remove `if (budget === 0 && spent === 0) continue;` &rarr; verify `skips finalization when both budget and spent are zero` fails.
+
+---
+
+### 2.4 Sub-step 7d Mutation Check Audit Note
+
+- **Mutation 1 (`<` to `<=` in past-date filter)**: Verified & killed by 5 test suites (`cadenceFixes.test.ts`, `dailyBudgetHydrate.test.ts`, `dailyBudgetStore.test.ts`).
+- **Mutation 2 (remove pre-account check `isPreAccount`)**: Verified & killed by `tests/dailyBudgetRollover.test.ts` (`deletes and skips records for dates prior to user account creation`).
+- **Mutation 3 (swap notify and upload order in `finalizeDailyRecords`)**: Observed that both Supabase upsert and rollover notification are asynchronous, independent fire-and-forget side effects initiated synchronously in the same loop cycle. No test asserts relative invocation sequence because neither operation awaits or consumes the other's return value. Preserved original textual order: Supabase upsert initiated first, followed immediately by notification trigger.
