@@ -21,61 +21,61 @@ The following test suites were audited for existing coverage:
 
 ## 2. Comprehensive Branch Coverage Matrix
 
-### 2.1 `hydrateFromSupabase` (Lines 2068–2652)
+### 2.1 `hydrateFromSupabase` (`src/store/dailyBudget/hydrate.ts` & `src/store/dailyBudget/selfHealing.ts`)
 
-| Branch / Behavior | Lines in `dailyBudgetStore.ts` | Existing Coverage | Status | Implemented & Executed Test |
+| Branch / Behavior | Implementation Module | Existing Coverage | Status | Implemented & Executed Test |
 |---|---|---|---|---|
-| **Persist-wait timeout** | 2071–2082 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `times out safely after 500ms when zustand persist has not finished hydrating` |
-| **Owner change reset** | 2084–2089 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `resets daily budget state when ownerUserId changes` |
-| **Offline fast-path: `daily_budget`** | 2112–2114 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending daily_budget` |
-| **Offline fast-path: `is_auto_renew`** | 2115–2117 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending is_auto_renew` |
-| **Offline fast-path: `is_budget_mode_enabled`** | 2118–2120 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending is_budget_mode_enabled` |
-| **Offline fast-path: `budget_cadence`** | 2121–2123 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending budget_cadence` |
-| **Offline fast-path: `weekly_budget`** | 2124–2126 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending weekly_budget` |
-| **Offline fast-path: `monthly_budget`** | 2127–2129 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending monthly_budget` |
-| **Offline fast-path creates today's record** | 2131–2140 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path creates today's record when missing` |
-| **Offline fast-path Pure-mode branch** | 2156–2163 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path sets budget: 0 and status: unknown in Pure mode` |
-| **Remote 3500ms timeout fallback** | 2210–2213 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `falls back safely when remote queries exceed 3500ms timeout` |
-| **Pending plan changes merge** | 2306–2312 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `merges offline pending plan changes into remote changes` |
-| **Pending periods merge** | 2337–2343 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `merges offline pending budget periods into remote periods` |
-| **Self-heal: resolved budget is 500** | 2362–2420 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `recovers true historical budget when remote profile has migration default 500` |
-| **Self-heal: corrupted row budget** | 2451–2460 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `self-heals corrupted daily_savings_log row true day budget` |
-| **Self-heal: corrupted row saved/status** | 2461–2475 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `self-heals corrupted daily_savings_log row recalculating saved and status` |
-| **Self-heal: update corrupted row in Supabase** | 2476–2509 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `self-heals corrupted server row by upserting true values to Supabase` |
-| **Today's record ensure (online)** | 2513–2548 | `tests/dailyBudgetHydrate.test.ts`, `tests/dailyBudgetStore.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `creates today's active record during online hydration when missing` |
-| **Gullak deposits merge: local pending adds preserved** | 2580–2603 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `preserves local deposits missing on server and pushes them to Supabase` |
-| **Final calls: checkAndRollover & uploadPending** | 2642–2648 | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `triggers checkAndRollover with skipRolloverNotification and uploadPendingDailyRecords` |
+| **Persist-wait timeout** | `hydrate.ts` (`waitForPersistHydration`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `times out safely after 500ms when zustand persist has not finished hydrating` |
+| **Owner change reset** | `hydrate.ts` (`runHydrateFromSupabase`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `resets daily budget state when ownerUserId changes` |
+| **Offline fast-path: `daily_budget`** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending daily_budget` |
+| **Offline fast-path: `is_auto_renew`** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending is_auto_renew` |
+| **Offline fast-path: `is_budget_mode_enabled`** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending is_budget_mode_enabled` |
+| **Offline fast-path: `budget_cadence`** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending budget_cadence` |
+| **Offline fast-path: `weekly_budget`** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending weekly_budget` |
+| **Offline fast-path: `monthly_budget`** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path applies pending monthly_budget` |
+| **Offline fast-path creates today's record** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path creates today's record when missing` |
+| **Offline fast-path Pure-mode branch** | `hydrate.ts` (`buildOfflineHydrationPatch`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `offline fast-path sets budget: 0 and status: unknown in Pure mode` |
+| **Remote 3500ms timeout fallback** | `hydrate.ts` (`fetchRemoteBudgetData`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `falls back safely when remote queries exceed 3500ms timeout` |
+| **Pending plan changes merge** | `hydrate.ts` (`mergePendingPlanChanges`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `merges offline pending plan changes into remote changes` |
+| **Pending periods merge** | `hydrate.ts` (`mergePendingPeriods`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `merges offline pending budget periods into remote periods` |
+| **Self-heal: resolved budget is 500** | `selfHealing.ts` (`selfHealDefaultBudget`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `recovers true historical budget when remote profile has migration default 500` |
+| **Self-heal: corrupted row budget** | `selfHealing.ts` (`selfHealCorruptedRows`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `self-heals corrupted daily_savings_log row true day budget` |
+| **Self-heal: corrupted row saved/status** | `selfHealing.ts` (`selfHealCorruptedRows`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `self-heals corrupted daily_savings_log row recalculating saved and status` |
+| **Self-heal: update corrupted row in Supabase** | `selfHealing.ts` (`selfHealCorruptedRows`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `self-heals corrupted server row by upserting true values to Supabase` |
+| **Today's record ensure (online)** | `hydrate.ts` (`runHydrateFromSupabase`) | `tests/dailyBudgetHydrate.test.ts`, `tests/dailyBudgetStore.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `creates today's active record during online hydration when missing` |
+| **Gullak deposits merge: local pending adds preserved** | `hydrate.ts` (`hydrateGullakDeposits`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `preserves local deposits missing on server and pushes them to Supabase` |
+| **Final calls: checkAndRollover & uploadPending** | `hydrate.ts` (`runHydrateFromSupabase`) | `tests/dailyBudgetHydrate.test.ts` | **COVERED** | `tests/dailyBudgetHydrate.test.ts` &rarr; `triggers checkAndRollover with skipRolloverNotification and uploadPendingDailyRecords` |
 
 ---
 
-### 2.2 `checkAndRollover` (Lines 1618–1966)
+### 2.2 `checkAndRollover` (`src/store/dailyBudget/rollover.ts`)
 
-| Branch / Behavior | Lines in `dailyBudgetStore.ts` | Existing Coverage | Status | Implemented & Executed Test |
+| Branch / Behavior | Implementation Module | Existing Coverage | Status | Implemented & Executed Test |
 |---|---|---|---|---|
-| **Hydration guard** | 1620–1623 | `dailyBudgetStore.test.ts` &rarr; `Slice 1: P0.1 User Isolation Guard` | **COVERED** | `dailyBudgetStore.test.ts` |
-| **Scheduled next-day budget applied** | 1629–1639 | `dailyBudgetStore.test.ts` &rarr; `Slice 3: Next-Day Budget Scheduling` | **COVERED** | `dailyBudgetStore.test.ts` |
-| **Gap-fill only for real records/expenses (no phantoms)** | 1667–1670 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `does not create phantom daily records across inactive calendar gaps` |
-| **Days owned by weekly/monthly/paused skipped by daily loop** | 1673–1679 | `budgetModesStore.test.ts` &rarr; `3. Weekly User Period Finalization` | **COVERED** | `budgetModesStore.test.ts` |
-| **Date before account creation skipped** | 1681–1689 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `deletes and ignores past dates before user account creation` |
-| **Untracked day preserved as unknown** | 1712–1716 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `preserves historical untracked day with status unknown and 0 budget/saved` |
-| **Budget locked from existing record** | 1717–1722 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `locks past day budget from existing record regardless of current dailyBudgetAmount` |
-| **First-time finalize with auto-renew & budget > 0** | 1724–1727 | `dailyBudgetStore.test.ts` &rarr; `Slice 2: Rollover & Finalization` | **COVERED** | `dailyBudgetStore.test.ts` |
-| **Zero budget + zero spent skipped** | 1728–1733 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `skips finalization when both budget and spent are zero on unrecorded past day` |
-| **Supabase upload failure leaves `needsUpload: true`** | 1770–1816 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `leaves needsUpload true on record when Supabase upsert fails` |
-| **Yesterday savings notification** | 1818–1833 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `triggers rollover notification for yesterday savings and dedupes on repeat runs` |
-| **Weekly period finalize** | 1851–1882 | `budgetModesStore.test.ts` &rarr; `3. Weekly User Period Finalization` | **COVERED** | `budgetModesStore.test.ts` |
-| **Monthly period finalize** | 1851–1882 | `financialCorrectnessMatrix.test.ts` &rarr; `Scenario 8` | **COVERED** | `financialCorrectnessMatrix.test.ts` |
-| **Period upload offline queue** | 1890–1893 | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `queues finalized period offline in AsyncStorage during checkAndRollover` |
+| **Hydration guard** | `dailyBudgetStore.ts` (`checkAndRollover`) | `dailyBudgetStore.test.ts` &rarr; `Slice 1: P0.1 User Isolation Guard` | **COVERED** | `dailyBudgetStore.test.ts` |
+| **Scheduled next-day budget applied** | `rollover.ts` (`applyScheduledNextDayBudget`) | `dailyBudgetStore.test.ts` &rarr; `Slice 3: Next-Day Budget Scheduling` | **COVERED** | `dailyBudgetStore.test.ts` |
+| **Gap-fill only for real records/expenses (no phantoms)** | `rollover.ts` (`collectPastDates`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `does not create phantom daily records across inactive calendar gaps` |
+| **Days owned by weekly/monthly/paused skipped by daily loop** | `rollover.ts` (`finalizeDailyRecords`) | `budgetModesStore.test.ts` &rarr; `3. Weekly User Period Finalization` | **COVERED** | `budgetModesStore.test.ts` |
+| **Date before account creation skipped** | `rollover.ts` (`finalizeDailyRecords`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `deletes and ignores past dates before user account creation` |
+| **Untracked day preserved as unknown** | `rollover.ts` (`finalizeDailyRecords`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `preserves historical untracked day with status unknown and 0 budget/saved` |
+| **Budget locked from existing record** | `rollover.ts` (`finalizeDailyRecords`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `locks past day budget from existing record regardless of current dailyBudgetAmount` |
+| **First-time finalize with auto-renew & budget > 0** | `rollover.ts` (`finalizeDailyRecords`) | `dailyBudgetStore.test.ts` &rarr; `Slice 2: Rollover & Finalization` | **COVERED** | `dailyBudgetStore.test.ts` |
+| **Zero budget + zero spent skipped** | `rollover.ts` (`finalizeDailyRecords`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `skips finalization when both budget and spent are zero on unrecorded past day` |
+| **Supabase upload failure leaves `needsUpload: true`** | `rollover.ts` (`finalizeDailyRecords`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `leaves needsUpload true on record when Supabase upsert fails` |
+| **Yesterday savings notification** | `rollover.ts` (`finalizeDailyRecords`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `triggers rollover notification for yesterday savings and dedupes on repeat runs` |
+| **Weekly period finalize** | `rollover.ts` (`finalizePeriods`) | `budgetModesStore.test.ts` &rarr; `3. Weekly User Period Finalization` | **COVERED** | `budgetModesStore.test.ts` |
+| **Monthly period finalize** | `rollover.ts` (`finalizePeriods`) | `financialCorrectnessMatrix.test.ts` &rarr; `Scenario 8` | **COVERED** | `financialCorrectnessMatrix.test.ts` |
+| **Period upload offline queue** | `rollover.ts` (`finalizePeriods`) | `tests/dailyBudgetRollover.test.ts` | **COVERED** | `tests/dailyBudgetRollover.test.ts` &rarr; `queues finalized period offline in AsyncStorage during checkAndRollover` |
 
 ---
 
-### 2.3 `syncWithExpenses` (Lines 1461–1616)
+### 2.3 `syncWithExpenses` (`src/store/dailyBudgetStore.ts`)
 
-| Branch / Behavior | Lines in `dailyBudgetStore.ts` | Existing Coverage | Status | Implemented & Executed Test |
+| Branch / Behavior | Implementation Module | Existing Coverage | Status | Implemented & Executed Test |
 |---|---|---|---|---|
-| **Today's spent/income/reimbursement recompute** | 1467–1473 | `gullakReconciliationHardCap.test.ts`, `realTimeIncomeGullakDeduction.test.ts`, `sharesReimbursementsTransfers.test.ts` | **COVERED** | Existing suites |
-| **Record creation when missing** | 1479–1491 | `dailyBudgetStore.test.ts`, `budgetModesStore.test.ts` | **COVERED** | Existing suites |
-| **Edit/delete of past expense updates finalized day** | 1615 &rarr; 1749–1768 | `tests/dailyBudgetSyncWithExpenses.test.ts` | **COVERED** | `tests/dailyBudgetSyncWithExpenses.test.ts` &rarr; `recomputes past finalized day status from saved to exceeded when past expense is increased` |
+| **Today's spent/income/reimbursement recompute** | `dailyBudgetStore.ts` (`syncWithExpenses`) | `gullakReconciliationHardCap.test.ts`, `realTimeIncomeGullakDeduction.test.ts`, `sharesReimbursementsTransfers.test.ts` | **COVERED** | Existing suites |
+| **Record creation when missing** | `dailyBudgetStore.ts` (`syncWithExpenses`) | `dailyBudgetStore.test.ts`, `budgetModesStore.test.ts` | **COVERED** | Existing suites |
+| **Edit/delete of past expense updates finalized day** | `dailyBudgetStore.ts` (`syncWithExpenses`) | `tests/dailyBudgetSyncWithExpenses.test.ts` | **COVERED** | `tests/dailyBudgetSyncWithExpenses.test.ts` &rarr; `recomputes past finalized day status from saved to exceeded when past expense is increased` |
 
 ---
 

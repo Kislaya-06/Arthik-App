@@ -26,7 +26,7 @@
 ### Final Verification Post-Refactor Status (2026-10-15)
 - `npm test` (Vitest): **86 test files passed (100%)**, **1438 tests passed (100%)**, 0 failed
 - `npx tsc --noEmit`: **0 errors**
-- `dailyBudgetStore.ts`: Reduced from 2,734 lines (initial) / 1,789 lines (audited snapshot) to **863 lines** (within the 900–1,100 line goal without artificial fragmentation).
+- `dailyBudgetStore.ts`: Reduced from 2,734 lines (initial) / 1,789 lines (audited snapshot) to **779 lines** (facade delegating to 9 sub-modules in `src/store/dailyBudget/` including extracted `selfHealing.ts`).
 - New test suites added: `tests/dailyBudgetHydrate.test.ts`, `tests/dailyBudgetRollover.test.ts`, `tests/expenseSyncPending.test.ts`, `tests/dailyBudgetPlanActions.test.ts`, and others, increasing passing tests from 1,379 to 1,438.
 
 ### Circular Dependencies Detected

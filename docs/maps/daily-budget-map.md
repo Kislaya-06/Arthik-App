@@ -2,14 +2,15 @@
 
 > [!NOTE]
 > **Architecture & Modular Decomposition (October 2026)**
-> `src/store/dailyBudgetStore.ts` has been refactored into cohesive helper modules under `src/store/dailyBudget/` while preserving the root export interface:
+> `src/store/dailyBudgetStore.ts` serves as the public facade (779 lines) delegating to focused submodules under `src/store/dailyBudget/`:
 > - Types & Interfaces: `src/store/dailyBudget/types.ts`
 > - Offline Pending Storage: `src/store/dailyBudget/pendingStorage.ts`
 > - Cross-Store Expense Bridge: `src/store/dailyBudget/expenseBridge.ts`
 > - Category Map Classifiers: `src/store/dailyBudget/classifiers.ts`
 > - Metrics & Waterfall: `src/store/dailyBudget/metrics.ts`
 > - Rollover Engine: `src/store/dailyBudget/rollover.ts`
-> - Supabase Hydration & Self-Healing: `src/store/dailyBudget/hydrate.ts`
+> - Supabase Hydration Coordinator: `src/store/dailyBudget/hydrate.ts`
+> - Database Anomaly Self-Healing: `src/store/dailyBudget/selfHealing.ts`
 > - Plan Actions & Cadence Settings: `src/store/dailyBudget/planActions.ts`
 > For system architecture, see [`docs/architecture.md §6`](../architecture.md) and [`docs/adr/0013-store-module-split.md`](../adr/0013-store-module-split.md). For live calculation helpers, see [`src/lib/budgetCalculations.ts`](file:///d:/Arthik-App/src/lib/budgetCalculations.ts) and [`src/lib/budgetUtils.ts`](file:///d:/Arthik-App/src/lib/budgetUtils.ts).
 
@@ -17,39 +18,31 @@ This document catalogs the functions of `dailyBudgetStore` and its sub-modules u
 
 ---
 
-## 1. Inventory of Functions
+## 1. Inventory of Functions & Module Map
 
-Every internal and exported function in `src/store/dailyBudgetStore.ts` is catalogued below.
+Every function and helper associated with `src/store/dailyBudgetStore.ts` is catalogued below by its canonical implementation module:
 
-| # | Name | Line(s) | Category | Description |
-|---|------|---------|----------|-------------|
-| 1 | `registerExpenseGetter` | 9–11 | **STATE-MUTATING** | Registers an external getter callback from `expenseStore` to populate the module-scoped `expenseGetter` variable. |
-| 2 | `getCurrentExpenses` | 12–14 | **CROSS-STORE** | Invokes the registered `expenseGetter` callback to retrieve current expenses from `useExpenseStore`. |
-| 3 | `buildCategoryClassifier` | 22–32 | **CROSS-STORE** | Constructs an in-memory `Map<string, Category>` from `useCategoryStore.getState().categories` and returns an `(e: Expense) => boolean` predicate delegating directly to `isIncomeTransaction(e, cat)`. Replaces deleted `getIncomeCategoryIds`. |
-| 4 | `getPendingSettingsKey` | 61–62 | **PURE** | Formats and returns the per-user AsyncStorage key string (`@arthik_pending_settings_${userId}`). |
-| 5 | `savePendingSettingsOffline` | 63–76 | **STORAGE** | Reads, merges, and writes pending profile budget updates (`daily_budget`, `is_auto_renew`) to AsyncStorage. |
-| 6 | `clearPendingSettingsOffline` | 78–100 | **STORAGE** | Removes or clears specific keys from the offline pending settings entry in AsyncStorage. |
-| 7 | `getTodayDateStr` | 133 | **SYSTEM-TIME** | Reads device clock via `new Date()` and formats as `'yyyy-MM-dd'`. |
-| 8 | `getTodayRecord` | 150–158 | **STORE-READ** | Retrieves today's `DailyRecord` from store state or synthesizes an unfinalized active record via `buildDefaultTodayRecord`. |
-| 9 | `getPastRecordsList` | 160–164 | **STORE-READ** | Filters all stored `dailyRecords` for dates `< todayStr` and sorts them in descending order via `filterPastRecords`. |
-| 10 | `setDailyBudget` | 166–220 | **MIXED** | Updates profile recurring allowance and today's record in store, recalculates metrics, queues offline patch in AsyncStorage, and syncs update to Supabase `profiles`. |
-| 11 | `toggleAutoRenew` | 222–271 | **MIXED** | Updates `isAutoRenew` in store, ensures today's budget is populated if turning ON, recalculates metrics, queues offline patch, and syncs update to Supabase `profiles`. |
-| 12 | `setTodayBudget` | 273–293 | **CROSS-STORE** | Overrides today's record budget without changing profile baseline, and recalculates metrics. |
-| 13 | `addToTodayBudget` | 295–318 | **CROSS-STORE** | Increments today's record budget by an additional top-up amount, and recalculates metrics. |
-| 14 | `syncWithExpenses` | 320–417 | **MIXED** | Calculates live spent for today via `computeSpentForDate`, updates store state, checks 80%/100% threshold notifications (`notificationStore` + native module), and triggers `checkAndRollover`. |
-| 15 | `checkAndRollover` | 419–626 | **MIXED** | Evaluates and finalizes past days, calculates spent via `computeSpentByDate` and status via `evaluateDayStatus`, upserts to Supabase `daily_savings_log` using `shouldIgnoreDuplicates(status)`, fires rollover notification, and recalculates metrics. |
-| 16 | `uploadPendingDailyRecords` | 628–674 | **MIXED** | Scans `dailyRecords` for `needsUpload === true`, upserts them to Supabase `daily_savings_log` using `shouldIgnoreDuplicates(status)`, and clears `needsUpload`. |
-| 17 | `hydrateFromSupabase` | 676–941 | **MIXED** | Startup hydration: waits for persist rehydration, resets state if user switched, sets notification owner, reads pending offline settings, fetches Supabase `profiles` and `daily_savings_log`, executes self-healing logic for corrupted records, recalculates metrics, triggers `checkAndRollover`, and flushes pending uploads. |
-| 18 | `resetDailyBudget` | 943–958 | **STORAGE** | Resets all Zustand store attributes to defaults and wipes `'arthik-daily-budget-storage-v2'` from AsyncStorage. |
-| 19 | Store Reset Callback Subscription | 956–958 | **CROSS-STORE** | Subscribes `resetDailyBudget` to `authStore` via `registerStoreResetCallback`. |
+| # | Function / Export | Canonical Implementation Module | Category | Description |
+|---|---|---|---|---|
+| 1 | `registerExpenseGetter`, `getCurrentExpenses` | `src/store/dailyBudget/expenseBridge.ts` | **CROSS-STORE** | Bridge callbacks linking `expenseStore` data to budget calculations without circular imports. |
+| 2 | `buildCategoryClassifier`, `buildEligibleIncomeClassifier` | `src/store/dailyBudget/classifiers.ts` | **CROSS-STORE** | In-memory Category map classifiers delegating directly to `isIncomeTransaction(e, cat)`. |
+| 3 | `getPendingSettingsKey`, `savePendingSettingsOffline`, `clearPendingSettingsOffline` | `src/store/dailyBudget/pendingStorage.ts` | **STORAGE** | AsyncStorage offline queues for pending budget, Gullak, and plan change mutations. |
+| 4 | `getTodayDateStr`, `computeMetrics`, `runWaterfall`, balance selectors | `src/store/dailyBudget/metrics.ts` | **METRICS** | Local time date strings, waterfall calculations, carryable funds, and available income selectors. |
+| 5 | `applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods` | `src/store/dailyBudget/rollover.ts` | **ROLLOVER** | Midnight day evaluation, daily savings finalization, and weekly/monthly cycle rollovers. |
+| 6 | `runHydrateFromSupabase`, `buildOfflineHydrationPatch` | `src/store/dailyBudget/hydrate.ts` | **HYDRATION** | Startup hydration coordinator, persist-hydration gate, offline fast-path, and remote fetching. |
+| 7 | `selfHealDefaultBudget`, `selfHealCorruptedRows` | `src/store/dailyBudget/selfHealing.ts` | **SELF-HEALING** | Repairs OTA migration defaults (e.g. 500 budget) and corrupted savings log rows. |
+| 8 | `handleSetDailyBudget`, `handleToggleAutoRenew`, cadence switch handlers | `src/store/dailyBudget/planActions.ts` | **PLAN-ACTIONS** | Allowance updates, cadence switching, next-day scheduling, and pending plan queues. |
+| 9 | `getTodayRecord`, `getPastRecordsList` | `src/store/dailyBudgetStore.ts` | **STORE-READ** | Zustand selectors for today's record and filtered past daily records. |
+| 10 | `addGullakDeposit`, `removeGullakDeposit`, `syncPendingGullakDeposits` | `src/store/dailyBudgetStore.ts` | **STORAGE** | Gullak manual deposits management and offline queue synchronization. |
+| 11 | `syncWithExpenses` | `src/store/dailyBudgetStore.ts` | **MIXED** | Recomputes today's live spent, checks 80%/100% notification thresholds, and invokes rollover. |
+| 12 | `checkAndRollover` | `src/store/dailyBudgetStore.ts` | **FACADE** | Coordinates with `rollover.ts` (`runCheckAndRollover`) and updates store metrics. |
+| 13 | `uploadPendingDailyRecords` | `src/store/dailyBudgetStore.ts` | **STORAGE** | Scans `dailyRecords` for `needsUpload === true` and upserts them to Supabase `daily_savings_log`. |
+| 14 | `hydrateFromSupabase` | `src/store/dailyBudgetStore.ts` | **FACADE** | Coordinates with `hydrate.ts` (`runHydrateFromSupabase`) for complete store hydration. |
+| 15 | `resetDailyBudget` | `src/store/dailyBudgetStore.ts` | **STORAGE** | Wipes local store state and AsyncStorage keys on user sign-out. |
 
 > [!NOTE]
 > **Extracted Pure Modules (`src/lib/budgetCalculations.ts`)**:
-> `calculateSavingsMetrics` (lines 27–146), `evaluateDayStatus` (lines 156–178), `computeSpentByDate` (lines 204–226), `computeSpentForDate` (lines 228–242), `buildDefaultTodayRecord` (lines 247–261), `filterPastRecords` (lines 266–274), and `shouldIgnoreDuplicates` (lines 283–285) now reside in `src/lib/budgetCalculations.ts` as pure, testable functions and are re-exported by `dailyBudgetStore.ts`.
-
-> [!WARNING]
-> **The MIXED Functions**:
-> Functions **#10, #11, #14, #15, #16, #17** combine local state mutation, cross-store reads/notifications, and asynchronous storage/Supabase I/O. These 6 functions comprise ~80% of the file's line count and represent the highest blast radius.
+> `calculateSavingsMetrics`, `evaluateDayStatus`, `computeSpentByDate`, `computeSpentForDate`, `buildDefaultTodayRecord`, `filterPastRecords`, and `shouldIgnoreDuplicates` reside in `src/lib/budgetCalculations.ts` as pure, testable functions and are re-exported by `dailyBudgetStore.ts`.
 
 ---
 
@@ -366,64 +359,48 @@ graph TD
 ### 5.1 Consumers & Selectors
 
 1. **`src/screens/SavingsScreen.tsx`**:
-   - `dailyBudgetAmount` (line 161)
-   - `isAutoRenew` (line 162)
-   - `totalAccumulatedSavings` (line 163)
-   - `savingsStreak` (line 164)
-   - `bestStreak` (line 165)
-   - `setDailyBudget` (line 166)
-   - `toggleAutoRenew` (line 167)
-   - `setTodayBudget` (line 168)
-   - `addToTodayBudget` (line 169)
-   - `syncWithExpenses` (line 170)
-   - `dailyRecords` (line 171)
-   - `getTodayRecord` (line 172)
-   - `getPastRecordsList` (line 173)
+   - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `savingsStreak`, `bestStreak`
+   - `setDailyBudget`, `toggleAutoRenew`, `setTodayBudget`, `addToTodayBudget`
+   - `syncWithExpenses`, `dailyRecords`, `getTodayRecord`, `getPastRecordsList`
 2. **`src/screens/HomeScreen.tsx`**:
-   - `dailyBudgetAmount` (line 249)
-   - `isAutoRenew` (line 250)
-   - `totalAccumulatedSavings` (line 251)
-   - `getTodayRecord` (line 252)
-   - `dailyRecords` (line 253)
-   - `syncWithExpenses` (line 254)
-   - `hydratedForUserId` via `getState().hydratedForUserId` (line 265)
-   - `hydrateFromSupabase` via `getState().hydrateFromSupabase` (lines 266, 289)
+   - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `getTodayRecord`, `dailyRecords`
+   - `syncWithExpenses`, `hydratedForUserId`, `hydrateFromSupabase`
 3. **`src/components/StreakCalendarModal.tsx`**:
-   - `savingsStreak` (line 44)
-   - `bestStreak` (line 45)
-   - `dailyRecords` (line 46)
+   - `savingsStreak`, `bestStreak`, `dailyRecords`
 4. **`src/store/expenseStore.ts`**:
-   - `registerExpenseGetter` (lines 6, 1082)
-   - `useDailyBudgetStore.getState().syncWithExpenses(...)` (lines 306, 677, 776, 790, 830, 870, 879, 916, 936, 1016, 1021)
-   - `useDailyBudgetStore.getState().uploadPendingDailyRecords()` (line 672)
+   - `registerExpenseGetter`
+   - `useDailyBudgetStore.getState().syncWithExpenses(...)`
+   - `useDailyBudgetStore.getState().uploadPendingDailyRecords()`
 5. **`src/screens/ExpenseFormScreen.tsx`**:
-   - `useDailyBudgetStore.getState().syncWithExpenses(...)` (line 623)
+   - `useDailyBudgetStore.getState().syncWithExpenses(...)`
 6. **`src/screens/ExpenseDetailScreen.tsx`**:
-   - `useDailyBudgetStore.getState().syncWithExpenses(...)` (line 63)
+   - `useDailyBudgetStore.getState().syncWithExpenses(...)`
 7. **`App.tsx`**:
-   - `useDailyBudgetStore.getState().hydrateFromSupabase(...)` (line 119)
-   - `useDailyBudgetStore.getState().uploadPendingDailyRecords()` (line 144)
+   - `useDailyBudgetStore.getState().hydrateFromSupabase(...)`
+   - `useDailyBudgetStore.getState().uploadPendingDailyRecords()`
 8. **`src/store/authStore.ts`**:
-   - Registered reset callback: `registerStoreResetCallback` (line 1139 of `dailyBudgetStore.ts`).
+   - Registered reset callback: `registerStoreResetCallback` (in `dailyBudgetStore.ts`).
 
 ---
 
-## 6. Extraction Status & Remaining Candidates
+## 6. Extraction Status & Modular Inventory
 
-The table below reflects the current extraction status and remaining candidates:
+The table below reflects the completed modular decomposition across all submodules:
 
-| Rank | Candidate / Functionality | Current Location | Status | Rationale & Safety |
-|---|---|---|---|---|
-| **Extracted** | `evaluateDayStatus` | `src/lib/budgetCalculations.ts:156–178` | **EXTRACTED** | Pure decision function. Guarantees identical status across rollover and hydration. |
-| **Extracted** | `calculateSavingsMetrics` | `src/lib/budgetCalculations.ts:27–146` | **EXTRACTED** | Pure mathematical aggregation accepting explicit `todayStr`, `userCreatedAtStr`, and `referenceDate`. |
-| **Extracted** | `computeSpentByDate` & `computeSpentForDate` | `src/lib/budgetCalculations.ts:204–242` | **EXTRACTED** | Single-pass date grouping and single-date spending calculation using injected `isIncomeFn`. |
-| **Extracted** | `buildDefaultTodayRecord` | `src/lib/budgetCalculations.ts:247–261` | **EXTRACTED** | Pure fallback today record synthesis. |
-| **Extracted** | `filterPastRecords` | `src/lib/budgetCalculations.ts:266–274` | **EXTRACTED** | Pure projection filtering out today's record and sorting past records descending. |
-| **Extracted** | `shouldIgnoreDuplicates` | `src/lib/budgetCalculations.ts:283–285` | **EXTRACTED** | Pure domain decision returning `status === 'unknown'` for Supabase upsert deduplication. |
-| **Deleted** | `getIncomeCategoryIds` | `src/store/dailyBudgetStore.ts:22–32` | **RESOLVED / DELETED** | Eliminated in favor of `buildCategoryClassifier()` delegating directly to `isIncomeTransaction`. |
-| **1 (Safe)** | `getPendingSettingsKey` | `src/store/dailyBudgetStore.ts:61–62` | Candidate | Pure key generator. Zero side effects. |
-| **Cannot Extract** | `savePendingSettingsOffline` / `clearPendingSettingsOffline` | `src/store/dailyBudgetStore.ts:63–100` | N/A | Direct I/O with `AsyncStorage`. Belongs in a storage/repository layer. |
-| **Cannot Extract** | `syncWithExpenses`, `checkAndRollover`, `hydrateFromSupabase` | `src/store/dailyBudgetStore.ts:320–941` | N/A | Complex state orchestrators combining network I/O, Supabase RPCs, native notification bridges, and cross-store side effects. |
+| Functionality / Domain Concept | Canonical Implementation Location | Status | Rationale & Safety |
+|---|---|---|---|
+| `evaluateDayStatus`, `calculateSavingsMetrics` | `src/lib/budgetCalculations.ts` | **EXTRACTED** | Pure mathematical aggregation and status determination. |
+| `computeSpentByDate`, `computeSpentForDate` | `src/lib/budgetCalculations.ts` | **EXTRACTED** | Single-pass date grouping and single-date spending calculation using injected `isIncomeFn`. |
+| `buildDefaultTodayRecord`, `filterPastRecords`, `shouldIgnoreDuplicates` | `src/lib/budgetCalculations.ts` | **EXTRACTED** | Pure fallback today record synthesis and projection filtering. |
+| `getPendingSettingsKey`, `savePendingSettingsOffline`, `clearPendingSettingsOffline` | `src/store/dailyBudget/pendingStorage.ts` | **EXTRACTED** | Dedicated AsyncStorage offline mutations and queue keys. |
+| `registerExpenseGetter`, `getCurrentExpenses`, `areExpensesLoaded` | `src/store/dailyBudget/expenseBridge.ts` | **EXTRACTED** | Cross-store expense singletons and callbacks avoiding circular store imports. |
+| `buildCategoryClassifier`, `buildEligibleIncomeClassifier` | `src/store/dailyBudget/classifiers.ts` | **EXTRACTED** | In-memory Category map classifiers delegating directly to `isIncomeTransaction(e, cat)`. |
+| `computeCarryableAmount`, `computeTotalAccountRemaining`, `computeAvailableIncomeBalance`, `runWaterfall` | `src/store/dailyBudget/metrics.ts` | **EXTRACTED** | Balance and income selectors, unspent waterfall orchestration, and cadence metrics. |
+| `applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods` | `src/store/dailyBudget/rollover.ts` | **EXTRACTED** | Modular rollover helpers evaluating midnight day status, streak calculation, and period rollouts. |
+| `runHydrateFromSupabase`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData` | `src/store/dailyBudget/hydrate.ts` | **EXTRACTED** | Startup hydration coordinator, persist-wait timeout, offline fast-path, and remote fetching. |
+| `selfHealDefaultBudget`, `selfHealCorruptedRows` | `src/store/dailyBudget/selfHealing.ts` | **EXTRACTED** | Database anomaly self-healing repairing 500 migration defaults and corrupted savings rows. |
+| `handleSetDailyBudget`, `handleToggleAutoRenew`, `handleSetBudgetCadence`, plan sync | `src/store/dailyBudget/planActions.ts` | **EXTRACTED** | Plan adjustments, cadence transitions, next-day scheduling, and pending plan queues. |
+| `useDailyBudgetStore` | `src/store/dailyBudgetStore.ts` | **FACADE (779 lines)** | Preserves 100% of public exports, store types, hooks, and external contracts. |
 
 ---
 

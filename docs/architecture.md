@@ -50,7 +50,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/profile/**`, `src/components/savings/**` |
 | **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (85 files, 1429 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (86 files, 1438 tests) | `tests/**` |
 | **Automatic Logging** | On-device SMS / notification / email → transactions | `modules/arthik-autolog/**`, `src/features/autoLog/**` — see [AUTO_LOGGING.md](AUTO_LOGGING.md) |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
@@ -67,7 +67,7 @@ Ten Zustand stores. Each owns a well-defined domain. To avoid monolithic file ex
 |---|---|---|---|
 | `authStore` | Session, user profile, sign-in/out | No | — (orchestrates resets) |
 | `expenseStore` | Transaction CRUD, offline queues, sync (split: `pendingQueues`, `syncPending`, `types`) | No (manual AsyncStorage) | ✅ `resetExpenses` |
-| `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks (split: `classifiers`, `expenseBridge`, `hydrate`, `metrics`, `pendingStorage`, `rollover`, `types`) | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
+| `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks (split: `classifiers`, `expenseBridge`, `hydrate`, `metrics`, `pendingStorage`, `planActions`, `rollover`, `selfHealing`, `types`) | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
 | `categoryStore` | User categories, placeholders, cache | No (manual AsyncStorage) | ✅ `resetCategories` |
 | `notificationStore` | In-app notification list, unread count | No (manual AsyncStorage) | ✅ `clearNotifications` |
 | `networkStore` | Online/offline flag, banner state | No | — |

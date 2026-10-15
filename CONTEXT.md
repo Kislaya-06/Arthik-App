@@ -158,7 +158,7 @@ The per-user AsyncStorage snapshot of categories used to instantly render real u
 
 **Startup Hydration Sequence**:
 The ordered async boot sequence in `App.tsx` that guarantees stores are populated in dependency order: `loadPendingExpenses` → `fetchCategories` → (`fetchExpenses` + `hydrateFromSupabase`) in parallel. Categories must be loaded before `hydrateFromSupabase` so `buildCategoryClassifier` has a populated category map when `checkAndRollover` fires.
-- *Code location*: `App.tsx` (lines 122–128)
+- *Code location*: `App.tsx` (Startup Hydration Sequence), `src/store/expenseStore.ts`, `src/store/categoryStore.ts`, `src/store/dailyBudgetStore.ts`
 - *_Avoid_*: Boot Sequence, App Init, Store Preload
 
 ---
@@ -167,12 +167,12 @@ The ordered async boot sequence in `App.tsx` that guarantees stores are populate
 
 **App Lock**:
 A device-level biometric gate (fingerprint, face, or device PIN) that locks Arthik on launch or after returning from background. Enabled or disabled via `setAppLockEnabled`, which always requires a successful biometric authentication before toggling. The lock state (`isLocked`) gates all navigation until `authenticate` succeeds.
-- *Code location*: `src/store/appLockStore.ts` (`useAppLockStore`, lines 28–212), `src/screens/AuthScreen.tsx`
+- *Code location*: `src/store/appLockStore.ts` (`useAppLockStore`), `src/screens/AuthScreen.tsx`
 - *_Avoid_*: PIN Lock, Password Lock, Passcode
 
 **App Lock Persistence**:
 The lock preference is stored in two AsyncStorage keys: a global device key (`@arthik_app_lock_enabled`) for fast cold-start reads, and a per-user key (`@arthik_app_lock_enabled_${userId}`) for multi-account correctness. The `init` function reads global first, then user-specific, then scans all lock keys as a final fallback.
-- *Code location*: `src/store/appLockStore.ts` (`GLOBAL_STORAGE_KEY` line 24, `getUserStorageKey` line 25–26, `init` lines 36–90)
+- *Code location*: `src/store/appLockStore.ts` (`GLOBAL_STORAGE_KEY`, `getUserStorageKey`, `init`)
 - *_Avoid_*: Biometric Setting, Lock Config
 
 ---
@@ -191,7 +191,7 @@ A user-created category added via the category management interface (`is_default
 
 **Category Placeholder**:
 A transient visual category array (`id: '1'` to `'7'`, `isPlaceholder: true`) rendered purely in memory as `DEFAULT_CATEGORIES` while real categories load from the database. These IDs are never selectable and never sent to Supabase.
-- *Code location*: `src/store/categoryStore.ts` (`DEFAULT_CATEGORIES` lines 34–42, `isPlaceholder: true`)
+- *Code location*: `src/store/categoryStore.ts` (`DEFAULT_CATEGORIES`, `isPlaceholder: true`)
 - *_Avoid_*: Temporary Category, Mock Category
 
 **Category Disassociation (Orphan Prevention)**:
@@ -201,7 +201,7 @@ The database behavior where deleting a category sets `category_id = null` on ass
 
 **Category Delete Callback**:
 A cross-store registration pattern (`registerCategoryDeleteCallback`) that lets `expenseStore` be notified when a category is deleted, so it can null out `category_id` on affected in-memory expenses without a direct store-to-store import.
-- *Code location*: `src/store/categoryStore.ts` (`registerCategoryDeleteCallback`, lines 28–30), `src/store/expenseStore.ts`
+- *Code location*: `src/store/categoryStore.ts` (`registerCategoryDeleteCallback`), `src/store/expenseStore.ts`
 - *_Avoid_*: Category Event Bus, Category Listener
 
 ---
@@ -210,12 +210,12 @@ A cross-store registration pattern (`registerCategoryDeleteCallback`) that lets 
 
 **Payment Mode**:
 The financial channel through which a transaction occurred, strictly constrained to three lowercase identifiers: `'cash'`, `'upi'`, and `'card'`.
-- *Code location*: `src/lib/paymentUtils.ts` (`PaymentMode` type, line 4), `schema.sql` (`CHECK (payment_mode IN ('cash', 'upi', 'card'))`), `src/store/expenseStore.ts` (`Expense.payment_mode`, line 17)
+- *Code location*: `src/lib/paymentUtils.ts` (`PaymentMode` type), `schema.sql` (`CHECK (payment_mode IN ('cash', 'upi', 'card'))`), `src/store/expenseStore.ts` (`Expense.payment_mode`)
 - *_Avoid_*: Payment Method, Payment Type, Account Type, Tender Mode
 
 **Cash**:
 Physical currency transaction (`'cash'`). Icon: `Wallet` (lucide-react-native).
-- *Code location*: `src/lib/paymentUtils.ts` (`getPaymentIcon`, `getPaymentLabel`, lines 12–16, 22–26)
+- *Code location*: `src/lib/paymentUtils.ts` (`getPaymentIcon`, `getPaymentLabel`)
 - *_Avoid_*: Physical, Paper
 
 **UPI**:
@@ -308,40 +308,40 @@ The source of truth for all database tables, columns, constraints, and Row Level
 **`profiles`**:
 User profile metadata and active budget configuration.
 - Columns: `id` (PK, matches `auth.users`), `first_name`, `last_name`, `email`, `daily_budget`, `is_auto_renew`, `is_budget_mode_enabled`, `budget_cadence` (`'daily' | 'weekly' | 'monthly'`), `weekly_budget`, `monthly_budget`, `created_at`.
-- *Code location*: `src/store/authStore.ts`, `src/store/dailyBudgetStore.ts`, `schema.sql` (lines 11–49, 504–518)
+- *Code location*: `src/store/authStore.ts`, `src/store/dailyBudgetStore.ts`, `schema.sql` (`profiles` table)
 
 **`categories`**:
 Global default categories (seeded on user signup) and custom user-created categories.
 - Columns: `id`, `user_id`, `name`, `icon`, `color`, `is_default`, `created_at`.
 - Constraints: Orphan prevention via `ON DELETE SET NULL`.
-- *Code location*: `src/store/categoryStore.ts`, `schema.sql` (lines 53–102)
+- *Code location*: `src/store/categoryStore.ts`, `schema.sql` (`categories` table)
 
 **`expenses`**:
 Individual monetary transactions (both expenses and income).
 - Columns: `id`, `user_id`, `amount`, `category_id`, `payment_mode` (`'cash' | 'upi' | 'card'`), `expense_date`, `type` (`'expense' | 'income'`), `note`, `created_at`.
-- *Code location*: `src/store/expenseStore.ts`, `schema.sql` (lines 105–158)
+- *Code location*: `src/store/expenseStore.ts`, `schema.sql` (`expenses` table)
 
 **`daily_savings_log`**:
 Finalized records for past daily calendar dates.
 - Columns: `id`, `user_id`, `date` (`DATE`), `budget`, `spent`, `saved`, `status` (`'saved' | 'missed' | 'even' | 'unknown'`), `created_at`.
-- *Code location*: `src/store/dailyBudgetStore.ts`, `schema.sql` (lines 161–212)
+- *Code location*: `src/store/dailyBudgetStore.ts`, `schema.sql` (`daily_savings_log` table)
 
 **`budget_plan_changes`**:
 Audit log and timeline of budget plan changes, cadence switches, amounts, and carry-forward allocations.
 - Columns: `id`, `user_id`, `effective_from` (`DATE`), `is_enabled`, `cadence`, `amount`, `carry_mode` (`'additive' | 'allocation'`), `carried_over_amount`, `created_at`.
 - Constraint: `UNIQUE (user_id, effective_from)`.
-- *Code location*: `src/lib/budgetPeriods.ts`, `src/lib/cadenceSwitch.ts`, `schema.sql` (lines 520–566, 606–607)
+- *Code location*: `src/lib/budgetPeriods.ts`, `src/lib/cadenceSwitch.ts`, `schema.sql` (`budget_plan_changes` table)
 
 **`budget_periods`** *(Code entity: `BudgetPeriodRecord`)*:
 Finalized weekly and monthly governed accounting periods.
 - Columns: `id`, `user_id`, `cadence` (`'weekly' | 'monthly'`), `period_start`, `period_end`, `active_start`, `active_end`, `budget_amount`, `spent_amount`, `amount_saved`, `status` (`'saved' | 'missed' | 'even' | 'unknown'`), `is_prorated` (`BOOLEAN`, strictly `false` for unprorated engine), `carried_over_amount`, `carry_mode`, `created_at`.
 - Constraint: `UNIQUE (user_id, cadence, active_start)`.
-- *Code location*: `src/lib/budgetPeriods.ts`, `src/store/dailyBudgetStore.ts`, `schema.sql` (lines 568–638)
+- *Code location*: `src/lib/budgetPeriods.ts`, `src/store/dailyBudgetStore.ts`, `schema.sql` (`budget_periods` table)
 
 **`gullak_deposits`**:
 Direct deposits credited to the Gullak savings reserve.
 - Columns: `id`, `user_id`, `amount`, `source` (`'income' | 'external'`), `note`, `deposit_date`, `created_at`.
-- *Code location*: `src/store/dailyBudgetStore.ts`, `src/components/DepositGullakModal.tsx`, `schema.sql` (lines 450–499)
+- *Code location*: `src/store/dailyBudgetStore.ts`, `src/components/DepositGullakModal.tsx`, `schema.sql` (`gullak_deposits` table)
 
 ---
 
