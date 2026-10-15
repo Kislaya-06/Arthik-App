@@ -10,6 +10,7 @@
 > - Metrics & Waterfall: `src/store/dailyBudget/metrics.ts`
 > - Rollover Engine: `src/store/dailyBudget/rollover.ts`
 > - Supabase Hydration & Self-Healing: `src/store/dailyBudget/hydrate.ts`
+> - Plan Actions & Cadence Settings: `src/store/dailyBudget/planActions.ts`
 > For system architecture, see [`docs/architecture.md §6`](../architecture.md) and [`docs/adr/0013-store-module-split.md`](../adr/0013-store-module-split.md). For live calculation helpers, see [`src/lib/budgetCalculations.ts`](file:///d:/Arthik-App/src/lib/budgetCalculations.ts) and [`src/lib/budgetUtils.ts`](file:///d:/Arthik-App/src/lib/budgetUtils.ts).
 
 This document catalogs the functions of `dailyBudgetStore` and its sub-modules under `src/store/dailyBudget/`. It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md).

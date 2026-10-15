@@ -7,7 +7,9 @@ import { computeWaterfallFromState, WaterfallResult } from '../../lib/moneyWater
 import {
   buildBudgetPools,
   poolSpentBefore,
+  poolKeyFor,
   dailyCarryForDate,
+  dailyCarryRemaining,
   getDateOwner,
   computeCadenceStreak,
   StreakUnit,
@@ -307,3 +309,86 @@ export const computeMetrics = (
     bestStreakByCadence: mergedBestByCadence,
   };
 };
+
+export const computeAvailableIncomeBalance = (): number => runWaterfall().incomeRemaining;
+
+export const computePriorAvailableIncomeBalance = (todayStr: string = getTodayDateStr()): number =>
+  runWaterfall({ excludeExpensesFrom: todayStr }).incomeRemaining;
+
+export const computeCarryableAmount = (st: DailyBudgetState, expenses?: Expense[]): number => {
+  if (!st.isBudgetModeEnabled) return 0; // Pure Mode: what is left of a pool becomes income, never "carry"
+  const todayStr = getTodayDateStr();
+  const plans = st.planChanges || [];
+  if (plans.length === 0) return 0;
+  const owner = getDateOwner(plans, todayStr);
+  if (owner === 'daily') {
+    // Today's unused daily money goes to Gullak tonight: nothing to carry. Only carried money that is still
+    // unused (from an earlier switch) can move on.
+    return dailyCarryRemaining(plans, (d) => st.dailyRecords[d]?.budget, st.dailyBudgetAmount, todayStr);
+  }
+  if (owner === 'weekly' || owner === 'monthly') {
+    const pools = buildBudgetPools(plans, todayStr);
+    const pool = pools[poolKeyFor(owner, todayStr)];
+    if (!pool || pool.closedOn) return 0;
+    const spentByDate = computeSpentByDate(expenses ?? getCurrentExpenses(), buildCategoryClassifier());
+    const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
+    return round2(Math.max(0, pool.budget - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate)));
+  }
+  return 0;
+};
+
+export const computeTotalAccountRemaining = (st: DailyBudgetState, expenses?: Expense[]): number => {
+  const records = st.dailyRecords || {};
+  const expensesList = expenses ?? getCurrentExpenses();
+  const isIncomeFn = buildCategoryClassifier();
+  const isEligibleIncomeFn = buildEligibleIncomeClassifier();
+  const isReimbFn = buildReimbursementClassifier();
+
+  const budget = computeAllTimeBudget(
+    records,
+    st.planChanges,
+    computeSpentByDate(expensesList, isIncomeFn),
+    st.budgetPeriods
+  );
+
+  let income = 0;
+  let reimb = 0;
+  let spent = 0;
+  for (const e of expensesList) {
+    const amt = Number(e.amount) || 0;
+    if (amt <= 0) continue;
+    if (isIncomeFn(e)) {
+      if (isEligibleIncomeFn(e)) income += amt;
+    } else if (isReimbFn(e)) {
+      reimb += amt;
+    } else {
+      spent += amt;
+    }
+  }
+  const external = (st.gullakDeposits || []).reduce(
+    (sum, d) => sum + (d.source !== 'income' ? Number(d.amount) || 0 : 0),
+    0
+  );
+  return round2(budget + income + reimb + external - spent);
+};
+
+export const computeGrossIncomeBalance = (
+  deposits: GullakDeposit[] = [],
+  expenses?: Expense[]
+): number => {
+  const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
+  const totalIncome = (expenses ?? getCurrentExpenses()).reduce(
+    (sum, e) =>
+      sum +
+      (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined)
+        ? Number(e.amount) || 0
+        : 0),
+    0
+  );
+  const incomeDeposits = deposits.reduce(
+    (sum, d) => sum + (d.source === 'income' ? Number(d.amount) || 0 : 0),
+    0
+  );
+  return round2(Math.max(0, totalIncome - incomeDeposits));
+};
+

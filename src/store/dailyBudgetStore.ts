@@ -2,9 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { format } from 'date-fns';
 import type { Expense } from './expense/types';
-import { useNotificationStore } from './notificationStore';
 
 import {
   registerExpenseGetter,
@@ -33,6 +31,11 @@ import {
   computeAllTimeBudget,
   computeMetrics,
   registerMetricsStoreGetter,
+  computeAvailableIncomeBalance,
+  computePriorAvailableIncomeBalance,
+  computeCarryableAmount,
+  computeTotalAccountRemaining,
+  computeGrossIncomeBalance,
 } from './dailyBudget/metrics';
 export {
   getTodayDateStr,
@@ -43,20 +46,21 @@ export {
   runWaterfall,
   computeAllTimeBudget,
   computeMetrics,
+  computeAvailableIncomeBalance,
+  computePriorAvailableIncomeBalance,
+  computeCarryableAmount,
+  computeTotalAccountRemaining,
+  computeGrossIncomeBalance,
 };
-import { useCategoryStore } from './categoryStore';
-import { notifyLimit, notifyBudgetResumed } from '../lib/budgetAlerts';
+import { notifyLimit } from '../lib/budgetAlerts';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure } from '../lib/networkUtils';
-import { isCountedIncome } from '../lib/transactionUtils';
 import { round2 } from '../lib/formatters';
-import { buildBudgetPools, poolSpentBefore, poolKeyFor, dailyCarryRemaining, BUDGET_RULES_V2_FROM } from '../lib/budgetPeriods';
 
 import {
   buildCategoryClassifier,
-  buildReimbursementClassifier,
   buildEligibleIncomeClassifier,
 } from './dailyBudget/classifiers';
 
@@ -111,12 +115,8 @@ export type {
   BudgetPeriodStatus,
 };
 import {
-  computeEffectiveFrom,
-  upsertPendingChange,
-  getDateOwner,
   getCurrentPeriodSummary,
 } from '../lib/budgetPeriods';
-import { formatEffectiveFrom } from '../lib/budgetModeUtils';
 
 import type {
   ProfileSettingsPatch,
@@ -192,6 +192,7 @@ import {
   selfHealDefaultBudget,
   selfHealCorruptedRows,
   hydrateGullakDeposits,
+  runHydrateFromSupabase,
 } from './dailyBudget/hydrate';
 export {
   waitForPersistHydration,
@@ -203,6 +204,40 @@ export {
   selfHealDefaultBudget,
   selfHealCorruptedRows,
   hydrateGullakDeposits,
+  runHydrateFromSupabase,
+};
+
+import {
+  handleSetDailyBudget,
+  handleToggleAutoRenew,
+  handleScheduleNextDailyBudget,
+  handleCancelScheduledNextDailyBudget,
+  handleSetBudgetModeEnabled,
+  handleSetBudgetCadence,
+  handleSetWeeklyBudget,
+  handleSetMonthlyBudget,
+  resolvePendingPlanChange,
+  resolveEffectiveFromLabel,
+  handleCancelPendingPlanChange,
+  uploadPendingBudgetPeriods,
+  syncPendingPlanChanges,
+  handleSetLastRenewedPeriodKey,
+} from './dailyBudget/planActions';
+export {
+  handleSetDailyBudget,
+  handleToggleAutoRenew,
+  handleScheduleNextDailyBudget,
+  handleCancelScheduledNextDailyBudget,
+  handleSetBudgetModeEnabled,
+  handleSetBudgetCadence,
+  handleSetWeeklyBudget,
+  handleSetMonthlyBudget,
+  resolvePendingPlanChange,
+  resolveEffectiveFromLabel,
+  handleCancelPendingPlanChange,
+  uploadPendingBudgetPeriods,
+  syncPendingPlanChanges,
+  handleSetLastRenewedPeriodKey,
 };
 
 export const useDailyBudgetStore = create<DailyBudgetState>()(
@@ -271,330 +306,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         return filterPastRecords(records, todayStr);
       },
 
-      setDailyBudget: (amount: number) => {
-        const cleanAmount = Math.max(0, round2(amount));
-        const todayStr = getTodayDateStr();
-        const records = { ...get().dailyRecords };
-        const currentAutoRenew = get().isAutoRenew;
-        const willAutoRenew = cleanAmount > 0 ? currentAutoRenew : false;
+      setDailyBudget: (amount: number) => handleSetDailyBudget(get, set, amount),
 
-        if (willAutoRenew) {
-          const existing = records[todayStr];
-          const spent = existing?.spent || 0;
-          const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-          const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
-          const { saved } = evaluateDayStatus(cleanAmount, spent, todayIncome, undefined, todayReimb);
-          const spendable = cleanAmount + todayIncome + todayReimb;
-          records[todayStr] = {
-            date: todayStr,
-            budget: cleanAmount,
-            spent,
-            saved,
-            isFinalized: false,
-            status: spent > spendable && spendable > 0 ? 'exceeded' : 'active',
-          };
-        }
+      toggleAutoRenew: (enabled: boolean) => handleToggleAutoRenew(get, set, enabled),
 
-        let updatedChanges = get().planChanges;
-        let newPlanChange: BudgetPlanChange | null = null;
-        const currentUser = useAuthStore.getState().user;
-        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily') {
-          newPlanChange = {
-            id: Crypto.randomUUID(),
-            userId: currentUser?.id || '',
-            effectiveFrom: todayStr,
-            isEnabled: true,
-            cadence: 'daily',
-            amount: cleanAmount,
-            createdAt: new Date().toISOString(),
-          };
-          updatedChanges = upsertPendingChange(updatedChanges, newPlanChange);
-        }
+      scheduleNextDailyBudget: (amount: number) => handleScheduleNextDailyBudget(set, amount),
 
-        const metrics = computeMetrics(
-          records,
-          get().gullakDeposits,
-          undefined,
-          get().budgetPeriods,
-          get().budgetCadence,
-          get().bestStreakByCadence
-        );
+      cancelScheduledNextDailyBudget: () => handleCancelScheduledNextDailyBudget(set),
 
-        set({
-          dailyBudgetAmount: cleanAmount,
-          isAutoRenew: willAutoRenew,
-          dailyRecords: records,
-          planChanges: updatedChanges,
-          ...metrics,
-        });
-
-        // Sync to Supabase profiles with offline queue (P0.13)
-        try {
-          if (currentUser) {
-            savePendingSettingsOffline(currentUser.id, { daily_budget: cleanAmount, is_auto_renew: willAutoRenew });
-            if (newPlanChange) {
-              savePendingPlanChangeOffline(currentUser.id, newPlanChange);
-            }
-            supabase
-              .from('profiles')
-              .update({ daily_budget: cleanAmount, is_auto_renew: willAutoRenew })
-              .eq('id', currentUser.id)
-              .then(
-                ({ error }) => {
-                  if (!error) {
-                    clearPendingSettingsOffline(currentUser.id, ['daily_budget', 'is_auto_renew']);
-                  } else if (__DEV__) {
-                    console.error('Error syncing daily_budget to Supabase:', error);
-                  }
-                },
-                () => {}
-              );
-
-            if (newPlanChange) {
-              supabase
-                .from('budget_plan_changes')
-                .upsert(
-                  {
-                    id: newPlanChange.id,
-                    user_id: currentUser.id,
-                    effective_from: newPlanChange.effectiveFrom,
-                    is_enabled: newPlanChange.isEnabled,
-                    cadence: newPlanChange.cadence,
-                    amount: newPlanChange.amount,
-                    created_at: newPlanChange.createdAt,
-                  },
-                  { onConflict: 'user_id,effective_from' }
-                )
-                .then(({ error }) => {
-                  if (!error) {
-                    get().syncPendingPlanChanges();
-                  }
-                });
-            }
-          }
-        } catch (e) {
-          // Ignore offline / auth errors
-        }
-      },
-
-      toggleAutoRenew: (enabled: boolean) => {
-        const todayStr = getTodayDateStr();
-        const records = { ...get().dailyRecords };
-        const currentToday = records[todayStr];
-
-        if (enabled && get().dailyBudgetAmount > 0 && isDailyOwnedDate(get().planChanges, todayStr) && (!currentToday || currentToday.budget === 0)) {
-          const budget = get().dailyBudgetAmount;
-          const spent = currentToday?.spent || 0;
-          const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-          const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
-          const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
-          const spendable = budget + todayIncome + todayReimb;
-          records[todayStr] = {
-            date: todayStr,
-            budget,
-            spent,
-            saved,
-            isFinalized: false,
-            status: spent > spendable && spendable > 0 ? 'exceeded' : 'active',
-          };
-        } else if (!enabled && currentToday && !currentToday.isFinalized) {
-          records[todayStr] = {
-            ...currentToday,
-            budget: 0,
-            saved: 0,
-            status: 'unknown',
-          };
-        }
-
-        const metrics = computeMetrics(
-          records,
-          get().gullakDeposits,
-          undefined,
-          get().budgetPeriods,
-          get().budgetCadence,
-          get().bestStreakByCadence
-        );
-
-        set({
-          isAutoRenew: enabled,
-          isBudgetModeEnabled: enabled ? true : get().isBudgetModeEnabled,
-          dailyRecords: records,
-          ...metrics,
-        });
-
-        // Sync to Supabase profiles with offline queue (P0.13)
-        try {
-          const currentUser = useAuthStore.getState().user;
-          if (currentUser) {
-            savePendingSettingsOffline(currentUser.id, {
-              is_auto_renew: enabled,
-              ...(enabled ? { is_budget_mode_enabled: true } : {}),
-            });
-            supabase
-              .from('profiles')
-              .update({
-                is_auto_renew: enabled,
-                ...(enabled ? { is_budget_mode_enabled: true } : {}),
-              })
-              .eq('id', currentUser.id)
-              .then(
-                ({ error }) => {
-                  if (!error) {
-                    clearPendingSettingsOffline(currentUser.id, ['is_auto_renew', ...(enabled ? ['is_budget_mode_enabled' as const] : [])]);
-                  } else if (__DEV__) {
-                    console.error('Error syncing is_auto_renew to Supabase:', error);
-                  }
-                },
-                () => {}
-              );
-          }
-        } catch (e) {
-          // Ignore offline / auth errors
-        }
-      },
-
-      scheduleNextDailyBudget: (amount: number) => {
-        const cleanAmount = Math.max(0, round2(amount));
-        const todayStr = getTodayDateStr();
-        set({
-          scheduledNextDailyBudget: cleanAmount > 0 ? cleanAmount : null,
-          scheduledBudgetSetDate: cleanAmount > 0 ? todayStr : null,
-        });
-      },
-
-      cancelScheduledNextDailyBudget: () => {
-        set({
-          scheduledNextDailyBudget: null,
-          scheduledBudgetSetDate: null,
-        });
-      },
-
-      setBudgetModeEnabled: (enabled: boolean) => {
-        const todayStr = getTodayDateStr();
-        const currentUser = useAuthStore.getState().user;
-        const effectiveFrom = computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr);
-
-        const cadence = get().budgetCadence;
-        const amount =
-          cadence === 'weekly'
-            ? get().weeklyBudgetAmount
-            : cadence === 'monthly'
-            ? get().monthlyBudgetAmount
-            : get().dailyBudgetAmount;
-
-        const newChange: BudgetPlanChange = {
-          id: Crypto.randomUUID(),
-          userId: currentUser?.id || '',
-          effectiveFrom,
-          isEnabled: enabled,
-          cadence,
-          amount,
-          createdAt: new Date().toISOString(),
-        };
-
-        const updatedChanges = upsertPendingChange(get().planChanges, newChange);
-        const records = { ...get().dailyRecords };
-
-        if (!enabled && records[todayStr] && !records[todayStr].isFinalized) {
-          records[todayStr] = {
-            ...records[todayStr],
-            budget: 0,
-            saved: 0,
-            status: 'unknown',
-          };
-        } else if (enabled && get().dailyBudgetAmount > 0 && isDailyOwnedDate(updatedChanges, todayStr) && (!records[todayStr] || records[todayStr].budget === 0)) {
-          const budget = get().dailyBudgetAmount;
-          const spent = records[todayStr]?.spent || 0;
-          const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-          const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-          const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
-          const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
-          const spendable = budget + todayIncome + todayReimb;
-          records[todayStr] = {
-            date: todayStr,
-            budget,
-            spent,
-            saved,
-            isFinalized: false,
-            status: spent > spendable && spendable > 0 ? 'exceeded' : 'active',
-          };
-        }
-
-        const metrics = computeMetrics(
-          records,
-          get().gullakDeposits,
-          undefined,
-          get().budgetPeriods,
-          cadence,
-          get().bestStreakByCadence
-        );
-
-        set({
-          isBudgetModeEnabled: enabled,
-          isAutoRenew: enabled,
-          planChanges: updatedChanges,
-          dailyRecords: records,
-          ...metrics,
-        });
-
-        // ADR 0012: switching Budget Mode back on inside the same week / month continues the SAME budget.
-        // Say so ("Welcome back: ₹4,600 left of this month's ₹9,000").
-        if (enabled && (cadence === 'weekly' || cadence === 'monthly') && todayStr >= BUDGET_RULES_V2_FROM) {
-          try {
-            const pools = buildBudgetPools(updatedChanges, todayStr);
-            const pool = pools[poolKeyFor(cadence, todayStr)];
-            if (pool && pool.startedOn < todayStr && !pool.closedOn) {
-              const spentByDate = computeSpentByDate(getCurrentExpenses(), buildCategoryClassifier());
-              const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
-              const left = Math.max(0, round2(pool.budget - poolSpentBefore(pools, updatedChanges, pool, tomorrowStr, spentByDate)));
-              notifyBudgetResumed(`resumed_${pool.key}_${todayStr}`, cadence, left, pool.budget, todayStr);
-            }
-          } catch {}
-        }
-
-        if (currentUser) {
-          savePendingSettingsOffline(currentUser.id, {
-            is_budget_mode_enabled: enabled,
-            is_auto_renew: enabled,
-          });
-          savePendingPlanChangeOffline(currentUser.id, newChange);
-
-          supabase
-            .from('profiles')
-            .update({
-              is_budget_mode_enabled: enabled,
-              is_auto_renew: enabled,
-            })
-            .eq('id', currentUser.id)
-            .then(({ error }) => {
-              if (!error) {
-                clearPendingSettingsOffline(currentUser.id, ['is_budget_mode_enabled', 'is_auto_renew']);
-              }
-            });
-
-          supabase
-            .from('budget_plan_changes')
-            .upsert(
-              {
-                id: newChange.id,
-                user_id: currentUser.id,
-                effective_from: newChange.effectiveFrom,
-                is_enabled: newChange.isEnabled,
-                cadence: newChange.cadence,
-                amount: newChange.amount,
-                created_at: newChange.createdAt,
-              },
-              { onConflict: 'user_id,effective_from' }
-            )
-            .then(({ error }) => {
-              if (!error) {
-                get().syncPendingPlanChanges();
-              }
-            });
-        }
-      },
+      setBudgetModeEnabled: (enabled: boolean) => handleSetBudgetModeEnabled(get, set, enabled),
 
       setBudgetCadence: (
         cadence: BudgetCadence,
@@ -603,357 +323,24 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           carryMode?: 'additive' | 'allocation';
           carriedOverAmount?: number;
         }
-      ) => {
-        const todayStr = getTodayDateStr();
-        const currentUser = useAuthStore.getState().user;
-        const currentOwner = getDateOwner(get().planChanges, todayStr);
-        const effectiveFrom = computeEffectiveFrom('cadence_switch', todayStr, { currentOwner });
+      ) => handleSetBudgetCadence(get, set, cadence, options),
 
-        const amount =
-          options?.amount !== undefined
-            ? Math.max(0, round2(options.amount))
-            : cadence === 'weekly'
-            ? get().weeklyBudgetAmount
-            : cadence === 'monthly'
-            ? get().monthlyBudgetAmount
-            : get().dailyBudgetAmount;
+      setWeeklyBudget: (amount: number) => handleSetWeeklyBudget(get, set, amount),
 
-        // Only money that REALLY exists in the running budget can be carried. A daily day (or Pure Mode) has none:
-        // today's unused daily money goes to Gullak tonight, so carrying it as well would count it twice.
-        const carryable = get().getCarryableAmount();
-        const wantedCarry = Number(options?.carriedOverAmount) || 0;
-        const carriedOverAmount = carryable > 0 && wantedCarry > 0 ? round2(Math.min(wantedCarry, carryable)) : 0;
-        const carryMode = carriedOverAmount > 0 ? options?.carryMode : undefined;
+      setMonthlyBudget: (amount: number) => handleSetMonthlyBudget(get, set, amount),
 
-        const newChange: BudgetPlanChange = {
-          id: Crypto.randomUUID(),
-          userId: currentUser?.id || '',
-          effectiveFrom,
-          isEnabled: get().isBudgetModeEnabled,
-          cadence,
-          amount,
-          carryMode,
-          carriedOverAmount: carriedOverAmount > 0 ? carriedOverAmount : undefined,
-          createdAt: new Date().toISOString(),
-        };
+      getPendingPlanChange: () => resolvePendingPlanChange(get().planChanges, getTodayDateStr()),
 
-        const updatedChanges = upsertPendingChange(get().planChanges, newChange);
-        const metrics = computeMetrics(
-          get().dailyRecords,
-          get().gullakDeposits,
-          undefined,
-          get().budgetPeriods,
-          cadence,
-          get().bestStreakByCadence
-        );
+      getEffectiveFromLabel: (change?: BudgetPlanChange | null) =>
+        resolveEffectiveFromLabel(change || get().getPendingPlanChange(), getTodayDateStr()),
 
-        set({
-          budgetCadence: cadence,
-          ...(cadence === 'weekly' && options?.amount !== undefined ? { weeklyBudgetAmount: options.amount } : {}),
-          ...(cadence === 'monthly' && options?.amount !== undefined ? { monthlyBudgetAmount: options.amount } : {}),
-          ...(cadence === 'daily' && options?.amount !== undefined ? { dailyBudgetAmount: options.amount } : {}),
-          planChanges: updatedChanges,
-          ...metrics,
-        });
+      cancelPendingPlanChange: () => handleCancelPendingPlanChange(get, set),
 
-        if (currentUser) {
-          savePendingSettingsOffline(currentUser.id, { budget_cadence: cadence });
-          savePendingPlanChangeOffline(currentUser.id, newChange);
+      uploadPendingBudgetPeriods: () => uploadPendingBudgetPeriods(get),
 
-          supabase
-            .from('profiles')
-            .update({ budget_cadence: cadence })
-            .eq('id', currentUser.id)
-            .then(({ error }) => {
-              if (!error) {
-                clearPendingSettingsOffline(currentUser.id, ['budget_cadence']);
-              }
-            });
+      syncPendingPlanChanges: () => syncPendingPlanChanges(get),
 
-          supabase
-            .from('budget_plan_changes')
-            .upsert(
-              {
-                id: newChange.id,
-                user_id: currentUser.id,
-                effective_from: newChange.effectiveFrom,
-                is_enabled: newChange.isEnabled,
-                cadence: newChange.cadence,
-                amount: newChange.amount,
-                carry_mode: newChange.carryMode || null,
-                carried_over_amount: newChange.carriedOverAmount || 0,
-                created_at: newChange.createdAt,
-              },
-              { onConflict: 'user_id,effective_from' }
-            )
-            .then(({ error }) => {
-              if (!error) {
-                get().syncPendingPlanChanges();
-              }
-            });
-        }
-      },
-
-      setWeeklyBudget: (amount: number) => {
-        const cleanAmount = Math.max(0, round2(amount));
-        const todayStr = getTodayDateStr();
-        const currentUser = useAuthStore.getState().user;
-        const effectiveFrom = computeEffectiveFrom('weekly_amount', todayStr);
-
-        let updatedChanges = get().planChanges;
-        let newChange: BudgetPlanChange | null = null;
-
-        if (get().budgetCadence === 'weekly' && get().isBudgetModeEnabled) {
-          newChange = {
-            id: Crypto.randomUUID(),
-            userId: currentUser?.id || '',
-            effectiveFrom,
-            isEnabled: true,
-            cadence: 'weekly',
-            amount: cleanAmount,
-            createdAt: new Date().toISOString(),
-          };
-          updatedChanges = upsertPendingChange(updatedChanges, newChange);
-        }
-
-        set({
-          weeklyBudgetAmount: cleanAmount,
-          planChanges: updatedChanges,
-        });
-
-        if (currentUser) {
-          savePendingSettingsOffline(currentUser.id, { weekly_budget: cleanAmount });
-          if (newChange) {
-            savePendingPlanChangeOffline(currentUser.id, newChange);
-          }
-
-          supabase
-            .from('profiles')
-            .update({ weekly_budget: cleanAmount })
-            .eq('id', currentUser.id)
-            .then(({ error }) => {
-              if (!error) {
-                clearPendingSettingsOffline(currentUser.id, ['weekly_budget']);
-              }
-            });
-
-          if (newChange) {
-            supabase
-              .from('budget_plan_changes')
-              .upsert(
-                {
-                  id: newChange.id,
-                  user_id: currentUser.id,
-                  effective_from: newChange.effectiveFrom,
-                  is_enabled: newChange.isEnabled,
-                  cadence: newChange.cadence,
-                  amount: newChange.amount,
-                  created_at: newChange.createdAt,
-                },
-                { onConflict: 'user_id,effective_from' }
-              )
-              .then(({ error }) => {
-                if (!error) {
-                  get().syncPendingPlanChanges();
-                }
-              });
-          }
-        }
-      },
-
-      setMonthlyBudget: (amount: number) => {
-        const cleanAmount = Math.max(0, round2(amount));
-        const todayStr = getTodayDateStr();
-        const currentUser = useAuthStore.getState().user;
-        const effectiveFrom = computeEffectiveFrom('monthly_amount', todayStr);
-
-        let updatedChanges = get().planChanges;
-        let newChange: BudgetPlanChange | null = null;
-
-        if (get().budgetCadence === 'monthly' && get().isBudgetModeEnabled) {
-          newChange = {
-            id: Crypto.randomUUID(),
-            userId: currentUser?.id || '',
-            effectiveFrom,
-            isEnabled: true,
-            cadence: 'monthly',
-            amount: cleanAmount,
-            createdAt: new Date().toISOString(),
-          };
-          updatedChanges = upsertPendingChange(updatedChanges, newChange);
-        }
-
-        set({
-          monthlyBudgetAmount: cleanAmount,
-          planChanges: updatedChanges,
-        });
-
-        if (currentUser) {
-          savePendingSettingsOffline(currentUser.id, { monthly_budget: cleanAmount });
-          if (newChange) {
-            savePendingPlanChangeOffline(currentUser.id, newChange);
-          }
-
-          supabase
-            .from('profiles')
-            .update({ monthly_budget: cleanAmount })
-            .eq('id', currentUser.id)
-            .then(({ error }) => {
-              if (!error) {
-                clearPendingSettingsOffline(currentUser.id, ['monthly_budget']);
-              }
-            });
-
-          if (newChange) {
-            supabase
-              .from('budget_plan_changes')
-              .upsert(
-                {
-                  id: newChange.id,
-                  user_id: currentUser.id,
-                  effective_from: newChange.effectiveFrom,
-                  is_enabled: newChange.isEnabled,
-                  cadence: newChange.cadence,
-                  amount: newChange.amount,
-                  created_at: newChange.createdAt,
-                },
-                { onConflict: 'user_id,effective_from' }
-              )
-              .then(({ error }) => {
-                if (!error) {
-                  get().syncPendingPlanChanges();
-                }
-              });
-          }
-        }
-      },
-
-      getPendingPlanChange: () => {
-        const todayStr = getTodayDateStr();
-        const future = (get().planChanges || []).filter((c) => c.effectiveFrom > todayStr);
-        if (future.length === 0) return null;
-        future.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
-        return future[0];
-      },
-
-      getEffectiveFromLabel: (change?: BudgetPlanChange | null) => {
-        const target = change || get().getPendingPlanChange();
-        if (!target) return '';
-        const todayStr = getTodayDateStr();
-        return formatEffectiveFrom(target.effectiveFrom, todayStr, target.cadence);
-      },
-
-      cancelPendingPlanChange: () => {
-        const todayStr = getTodayDateStr();
-        const pending = get().getPendingPlanChange();
-        if (!pending) return;
-
-        const remainingChanges = (get().planChanges || []).filter(
-          (c) => c.effectiveFrom <= todayStr
-        );
-        set({
-          planChanges: remainingChanges,
-          scheduledNextDailyBudget: null,
-          scheduledBudgetSetDate: null,
-        });
-
-        const currentUser = useAuthStore.getState().user;
-        if (currentUser) {
-          const key = getPendingPlanChangesKey(currentUser.id);
-          getStoredList<BudgetPlanChange>(key).then((list) => {
-            const updated = list.filter((c) => c.effectiveFrom <= todayStr);
-            setStoredList(key, updated);
-          });
-
-          supabase
-            .from('budget_plan_changes')
-            .delete()
-            .eq('user_id', currentUser.id)
-            .eq('effective_from', pending.effectiveFrom)
-            .then(() => {});
-        }
-      },
-
-      uploadPendingBudgetPeriods: async () => {
-        const currentUser = useAuthStore.getState().user;
-        if (!currentUser) return;
-        const key = getPendingBudgetPeriodsKey(currentUser.id);
-        const list = await getStoredList<BudgetPeriodRecord>(key);
-        if (list.length === 0) return;
-
-        const syncedIds: string[] = [];
-        for (const p of list) {
-          try {
-            const { error } = await supabase.from('budget_periods').upsert(
-              {
-                id: p.id,
-                user_id: currentUser.id,
-                cadence: p.cadence,
-                period_start: p.periodStart,
-                period_end: p.periodEnd,
-                active_start: p.activeStart,
-                active_end: p.activeEnd,
-                budget_amount: p.budgetAmount,
-                spent_amount: p.spentAmount,
-                amount_saved: p.amountSaved,
-                status: p.status,
-                is_prorated: p.isProrated,
-                carry_mode: p.carryMode || null,
-                carried_over_amount: p.carriedOverAmount || 0,
-                created_at: p.createdAt || new Date().toISOString(),
-              },
-              { onConflict: 'user_id,cadence,active_start' }
-            );
-            if (!error) syncedIds.push(p.id);
-          } catch {}
-        }
-        if (syncedIds.length > 0) {
-          await setStoredList(key, list.filter((p) => !syncedIds.includes(p.id)));
-        }
-      },
-
-      syncPendingPlanChanges: async () => {
-        const currentUser = useAuthStore.getState().user;
-        if (!currentUser) return;
-        const key = getPendingPlanChangesKey(currentUser.id);
-        const list = await getStoredList<BudgetPlanChange>(key);
-        if (list.length === 0) return;
-
-        const syncedIds: string[] = [];
-        for (const c of list) {
-          try {
-            const { error } = await supabase.from('budget_plan_changes').upsert(
-              {
-                id: c.id,
-                user_id: currentUser.id,
-                effective_from: c.effectiveFrom,
-                is_enabled: c.isEnabled,
-                cadence: c.cadence,
-                amount: c.amount,
-                carry_mode: c.carryMode || null,
-                carried_over_amount: c.carriedOverAmount || 0,
-                created_at: c.createdAt || new Date().toISOString(),
-              },
-              { onConflict: 'user_id,effective_from' }
-            );
-            if (!error) syncedIds.push(c.id);
-          } catch {}
-        }
-        if (syncedIds.length > 0) {
-          await setStoredList(key, list.filter((c) => !syncedIds.includes(c.id)));
-        }
-      },
-
-      setLastRenewedPeriodKey: async (key: string) => {
-        set({ lastRenewedPeriodKey: key });
-        const currentUser = useAuthStore.getState().user;
-        const uid = currentUser?.id || get().ownerUserId;
-        if (uid) {
-          try {
-            await AsyncStorage.setItem(getLastRenewedPeriodKey(uid), key);
-          } catch {}
-        }
-      },
+      setLastRenewedPeriodKey: (key: string) => handleSetLastRenewedPeriodKey(get, set, key),
 
       addGullakDeposit: (amount: number, note?: string, source: GullakDepositSource = 'external') => {
         if (!amount || amount <= 0) return;
@@ -1036,72 +423,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         });
       },
 
-      getAvailableIncomeBalance: () => runWaterfall().incomeRemaining,
+      getAvailableIncomeBalance: () => computeAvailableIncomeBalance(),
 
-      getCarryableAmount: () => {
-        const st = get();
-        if (!st.isBudgetModeEnabled) return 0; // Pure Mode: what is left of a pool becomes income, never "carry"
-        const todayStr = getTodayDateStr();
-        const plans = st.planChanges || [];
-        if (plans.length === 0) return 0;
-        const owner = getDateOwner(plans, todayStr);
-        if (owner === 'daily') {
-          // Today's unused daily money goes to Gullak tonight: nothing to carry. Only carried money that is still
-          // unused (from an earlier switch) can move on.
-          return dailyCarryRemaining(plans, (d) => st.dailyRecords[d]?.budget, st.dailyBudgetAmount, todayStr);
-        }
-        if (owner === 'weekly' || owner === 'monthly') {
-          const pools = buildBudgetPools(plans, todayStr);
-          const pool = pools[poolKeyFor(owner, todayStr)];
-          if (!pool || pool.closedOn) return 0;
-          const spentByDate = computeSpentByDate(getCurrentExpenses(), buildCategoryClassifier());
-          const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
-          return round2(Math.max(0, pool.budget - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate)));
-        }
-        return 0;
-      },
+      getCarryableAmount: () => computeCarryableAmount(get()),
 
-      getTotalAccountRemaining: () => {
-        const st = get();
-        const records = st.dailyRecords || {};
-        const expenses = getCurrentExpenses();
-        const isIncomeFn = buildCategoryClassifier();
-        const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-        const isReimbFn = buildReimbursementClassifier();
+      getTotalAccountRemaining: () => computeTotalAccountRemaining(get()),
 
-        const budget = computeAllTimeBudget(
-          records,
-          st.planChanges,
-          computeSpentByDate(expenses, isIncomeFn),
-          st.budgetPeriods
-        );
+      getGrossIncomeBalance: () => computeGrossIncomeBalance(get().gullakDeposits),
 
-        let income = 0;
-        let reimb = 0;
-        let spent = 0;
-        for (const e of expenses) {
-          const amt = Number(e.amount) || 0;
-          if (amt <= 0) continue;
-          if (isIncomeFn(e)) {
-            if (isEligibleIncomeFn(e)) income += amt;
-          } else if (isReimbFn(e)) {
-            reimb += amt;
-          } else {
-            spent += amt;
-          }
-        }
-        const external = (st.gullakDeposits || []).reduce((sum, d) => sum + (d.source !== 'income' ? (Number(d.amount) || 0) : 0), 0);
-        return round2(budget + income + reimb + external - spent);
-      },
-
-      getGrossIncomeBalance: () => {
-        const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
-        const totalIncome = getCurrentExpenses().reduce((sum, e) => sum + (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined) ? (Number(e.amount) || 0) : 0), 0);
-        const incomeDeposits = (get().gullakDeposits || []).reduce((sum, d) => sum + (d.source === 'income' ? (Number(d.amount) || 0) : 0), 0);
-        return round2(Math.max(0, totalIncome - incomeDeposits));
-      },
-
-      getPriorAvailableIncomeBalance: () => runWaterfall({ excludeExpensesFrom: getTodayDateStr() }).incomeRemaining,
+      getPriorAvailableIncomeBalance: () => computePriorAvailableIncomeBalance(getTodayDateStr()),
 
       syncWithExpenses: (expenses: Expense[]) => {
         const todayStr = getTodayDateStr();
@@ -1440,268 +770,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       hydrateFromSupabase: async (userId: string) => {
-        if (!userId) return;
-        try {
-          // P0.1: Wait for zustand persist rehydration if not already done
-          await waitForPersistHydration(useDailyBudgetStore);
-
-          // P0.2: Reset state if owner changed
-          if (get().ownerUserId && get().ownerUserId !== userId) {
-            get().resetDailyBudget();
-          }
-          set({ ownerUserId: userId });
-
-          // Also set owner on notificationStore
-          useNotificationStore.getState().setOwnerUserId(userId);
-
-          const todayStr = getTodayDateStr();
-
-          // Check pending settings key (P0.13)
-          const pendingSettings = await readPendingSettings(userId);
-
-          // Offline fast-path: return immediately with persisted state from Zustand persist
-          if (useNetworkStore.getState().isOffline) {
-            const patch = buildOfflineHydrationPatch(get, pendingSettings, todayStr, userId);
-            set(patch);
-            return;
-          }
-
-          // 1. Fetch user profile, logs, plan changes, and budget periods in parallel with timeout
-          const { profileData, logsData, plansData, periodsData } = await fetchRemoteBudgetData(userId);
-
-          let resolvedBudget = get().dailyBudgetAmount;
-          let resolvedAutoRenew = get().isAutoRenew;
-          // Track whether Supabase returned the migration-default 500 so self-healing can fire
-          // even on fresh installs where local state is already default (and resolvedBudget gets set).
-          let remoteBudgetWasMigrationDefault = false;
-
-          if (pendingSettings.daily_budget !== undefined) {
-            resolvedBudget = pendingSettings.daily_budget;
-          } else if (profileData && profileData.daily_budget !== null && profileData.daily_budget !== undefined) {
-            const remoteBudget = Math.max(0, round2(Number(profileData.daily_budget)));
-            // Guard: Remote is the migration default 500 AND local has a different value (including fresh install).
-            // In both cases the self-healing recovery block below will infer the real budget from savings logs,
-            // so we defer — leave resolvedBudget as whatever local already has and let recovery overwrite if needed.
-            if (remoteBudget === 500) {
-              remoteBudgetWasMigrationDefault = true;
-              resolvedBudget = get().dailyBudgetAmount;
-            } else {
-              resolvedBudget = remoteBudget;
-            }
-          } else {
-            resolvedBudget = get().dailyBudgetAmount;
-          }
-
-          if (pendingSettings.is_auto_renew !== undefined) {
-            resolvedAutoRenew = Boolean(pendingSettings.is_auto_renew);
-          } else if (profileData && profileData.is_auto_renew !== null && profileData.is_auto_renew !== undefined) {
-            resolvedAutoRenew = Boolean(profileData.is_auto_renew);
-          } else {
-            resolvedAutoRenew = get().isAutoRenew;
-          }
-
-          // Resolve 4 new profile columns
-          let resolvedBudgetModeEnabled = get().isBudgetModeEnabled;
-          if (pendingSettings.is_budget_mode_enabled !== undefined) {
-            resolvedBudgetModeEnabled = Boolean(pendingSettings.is_budget_mode_enabled);
-          } else if (profileData && profileData.is_budget_mode_enabled !== null && profileData.is_budget_mode_enabled !== undefined) {
-            resolvedBudgetModeEnabled = Boolean(profileData.is_budget_mode_enabled);
-          }
-
-          let resolvedCadence: BudgetCadence = get().budgetCadence || 'daily';
-          if (pendingSettings.budget_cadence !== undefined) {
-            resolvedCadence = pendingSettings.budget_cadence as BudgetCadence;
-          } else if (profileData && profileData.budget_cadence) {
-            resolvedCadence = profileData.budget_cadence as BudgetCadence;
-          }
-
-          let resolvedWeeklyBudget = get().weeklyBudgetAmount || 0;
-          if (pendingSettings.weekly_budget !== undefined) {
-            resolvedWeeklyBudget = pendingSettings.weekly_budget;
-          } else if (profileData && profileData.weekly_budget !== null && profileData.weekly_budget !== undefined) {
-            resolvedWeeklyBudget = Math.max(0, round2(Number(profileData.weekly_budget)));
-          }
-
-          let resolvedMonthlyBudget = get().monthlyBudgetAmount || 0;
-          if (pendingSettings.monthly_budget !== undefined) {
-            resolvedMonthlyBudget = pendingSettings.monthly_budget;
-          } else if (profileData && profileData.monthly_budget !== null && profileData.monthly_budget !== undefined) {
-            resolvedMonthlyBudget = Math.max(0, round2(Number(profileData.monthly_budget)));
-          }
-
-          // Process plan changes
-          let resolvedPlanChanges: BudgetPlanChange[] = [];
-          if (plansData && plansData.length > 0) {
-            resolvedPlanChanges = (plansData as Array<{
-              id: string;
-              effective_from: string;
-              is_enabled: boolean;
-              cadence: string;
-              amount: number | string;
-              carry_mode?: 'additive' | 'allocation';
-              carried_over_amount?: number | string;
-              created_at?: string;
-            }>).map((p) => ({
-              id: p.id,
-              userId,
-              effectiveFrom: p.effective_from,
-              isEnabled: Boolean(p.is_enabled),
-              cadence: p.cadence as BudgetCadence,
-              amount: Number(p.amount) || 0,
-              carryMode: p.carry_mode,
-              carriedOverAmount: Number(p.carried_over_amount) || 0,
-              createdAt: p.created_at,
-            }));
-          } else {
-            resolvedPlanChanges = get().planChanges || [];
-          }
-          resolvedPlanChanges = await mergePendingPlanChanges(userId, resolvedPlanChanges);
-
-          // Process budget periods
-          let resolvedPeriods: Record<string, BudgetPeriodRecord> = { ...get().budgetPeriods };
-          if (periodsData && periodsData.length > 0) {
-            for (const p of periodsData) {
-              resolvedPeriods[p.id] = {
-                id: p.id,
-                userId,
-                cadence: p.cadence as 'weekly' | 'monthly',
-                periodStart: p.period_start,
-                periodEnd: p.period_end,
-                activeStart: p.active_start,
-                activeEnd: p.active_end,
-                budgetAmount: Number(p.budget_amount) || 0,
-                spentAmount: Number(p.spent_amount) || 0,
-                amountSaved: Number(p.amount_saved) || 0,
-                status: p.status as BudgetPeriodStatus,
-                isProrated: Boolean(p.is_prorated),
-                carryMode: p.carry_mode,
-                carriedOverAmount: Number(p.carried_over_amount) || 0,
-                createdAt: p.created_at,
-              };
-            }
-          }
-          resolvedPeriods = await mergePendingPeriods(userId, resolvedPeriods);
-
-          const records = { ...get().dailyRecords };
-
-          const currentUser = useAuthStore.getState().user;
-          const userCreatedAtStr = getUserCreatedAtLocalDate(currentUser?.created_at);
-
-          // ------------------------------------------------------------------------------------
-          // SELF-HEALING RECOVERY (Fix for OTA Update Bug where user budget was reset to 500)
-          // ------------------------------------------------------------------------------------
-          const currentExpenses = getCurrentExpenses();
-          const isIncomeFn = buildCategoryClassifier();
-          const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-          const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
-          const incomeByDate = computeIncomeByDate(currentExpenses, isEligibleIncomeFn);
-          const hydrateReimbByDate = runWaterfall({ expenses: currentExpenses }).reimbBudgetByDate;
-
-          resolvedBudget = selfHealDefaultBudget({
-            resolvedBudget,
-            remoteBudgetWasMigrationDefault,
-            logsData,
-            userCreatedAtStr,
-            spentByDate,
-            records,
-            userId,
-          });
-
-          selfHealCorruptedRows({
-            logsData,
-            userCreatedAtStr,
-            spentByDate,
-            resolvedPlanChanges,
-            resolvedBudget,
-            records,
-            incomeByDate,
-            hydrateReimbByDate,
-            userId,
-          });
-
-          // Ensure today's record exists if not present
-          if (!records[todayStr]) {
-            const todayDaily = isDailyOwnedDate(resolvedPlanChanges, todayStr);
-            const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 && todayDaily ? resolvedBudget + dailyCarryExtraFor(todayStr) : 0;
-            records[todayStr] = {
-              date: todayStr,
-              budget: todayBudget,
-              spent: 0,
-              saved: todayBudget,
-              isFinalized: false,
-              status: resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 && todayDaily ? 'active' : 'unknown',
-            };
-          } else if (resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
-            if (resolvedAutoRenew && resolvedBudget > 0 && isDailyOwnedDate(resolvedPlanChanges, todayStr)) {
-              if (records[todayStr].budget === 0) {
-                records[todayStr].budget = resolvedBudget;
-                records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
-                records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'exceeded' : 'active';
-              }
-            } else {
-              // Auto-renew paused (OFF) -> today's unfinalized record has budget 0
-              records[todayStr] = {
-                ...records[todayStr],
-                budget: 0,
-                saved: 0,
-                status: 'unknown',
-              };
-            }
-          } else if (!resolvedBudgetModeEnabled && !records[todayStr].isFinalized) {
-            records[todayStr] = {
-              ...records[todayStr],
-              budget: 0,
-              saved: 0,
-              status: 'unknown',
-            };
-          }
-
-          // 2b. Fetch manual gullak deposits from Supabase with timeout
-          const resolvedDeposits = await hydrateGullakDeposits(userId, get().gullakDeposits || []);
-
-          // 3. Recalculate metrics from combined records
-          const metrics = computeMetrics(
-            records,
-            resolvedDeposits,
-            userCreatedAtStr,
-            resolvedPeriods,
-            resolvedCadence,
-            get().bestStreakByCadence
-          );
-
-          set({
-            dailyBudgetAmount: resolvedBudget,
-            isAutoRenew: resolvedAutoRenew,
-            isBudgetModeEnabled: resolvedBudgetModeEnabled,
-            budgetCadence: resolvedCadence,
-            weeklyBudgetAmount: resolvedWeeklyBudget,
-            monthlyBudgetAmount: resolvedMonthlyBudget,
-            planChanges: resolvedPlanChanges,
-            budgetPeriods: resolvedPeriods,
-            dailyRecords: records,
-            gullakDeposits: resolvedDeposits,
-            ownerUserId: userId,
-            hydratedForUserId: userId,
-            lastRenewedPeriodKey: await (async () => {
-              try {
-                return await AsyncStorage.getItem(getLastRenewedPeriodKey(userId));
-              } catch {
-                return null;
-              }
-            })(),
-            ...metrics,
-          });
-
-          // P0.1: Trigger checkAndRollover once after successful hydration.
-          // Skip rollover notification here — expenses may be stale local cache.
-          // Notification will fire correctly from syncWithExpenses after fresh fetch.
-          get().checkAndRollover(currentExpenses, true);
-
-          // P0.14: Also upload any records that need upload
-          get().uploadPendingDailyRecords();
-        } catch (e) {
-          if (__DEV__) console.error('Error hydrating daily budget from Supabase:', e);
-        }
+        await runHydrateFromSupabase({
+          get,
+          set,
+          userId,
+          store: useDailyBudgetStore,
+        });
       },
 
       resetDailyBudget: () => {

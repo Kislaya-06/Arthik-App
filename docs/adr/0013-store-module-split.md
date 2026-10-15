@@ -35,7 +35,8 @@ We decomposed `dailyBudgetStore` and `expenseStore` into focused, cohesive helpe
 | | `src/store/dailyBudget/classifiers.ts` | Category map construction and income transaction classification |
 | | `src/store/dailyBudget/metrics.ts` | `computeMetrics`, `computeAllTimeBudget`, `runWaterfall`, cadence calculations |
 | | `src/store/dailyBudget/rollover.ts` | Modular rollover helpers (`applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods`, etc.) |
-| | `src/store/dailyBudget/hydrate.ts` | Hydration phases (`waitForPersistHydration`, remote fetch, self-heal logic, Gullak sync) |
+| | `src/store/dailyBudget/hydrate.ts` | Hydration orchestration and phases (`waitForPersistHydration`, remote fetch, self-heal logic, Gullak sync) |
+| | `src/store/dailyBudget/planActions.ts` | Plan adjustments, cadence switching, settings mutators, and background queue sync |
 
 ## Consequences
 - **Positive**:

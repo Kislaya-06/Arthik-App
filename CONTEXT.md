@@ -43,7 +43,7 @@ The user's persistent profile baseline allowance automatically applied to each n
 
 **Day's Allowance (Date Budget)**:
 The specific spending limit allocated for a single calendar date (`yyyy-MM-dd`), which defaults to the Recurring Allowance. To maintain financial discipline, edits to the daily budget take effect starting the next day at 12:00 AM without altering today's active allowance.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.budget`, `scheduleNextDailyBudget`, `scheduledNextDailyBudget`)
+- *Code location*: `src/store/dailyBudgetStore.ts` (`DailyRecord.budget`, `scheduleNextDailyBudget`, `scheduledNextDailyBudget`), `src/store/dailyBudget/planActions.ts`
 - *_Avoid_*: Daily Quota, Profile Budget, Top-up
 
 **Today's Spent**:
@@ -58,7 +58,7 @@ The unspent portion of a day's allowance (`Math.max(0, budget - spent)`).
 
 **Gullak (Total Accumulated Savings)**:
 The lifetime net piggy-bank reserve: all finalized past savings plus any Gullak Deposits, minus past overspending penalties.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`totalAccumulatedSavings`, line 152), `src/screens/SavingsScreen.tsx`
+- *Code location*: `src/store/dailyBudgetStore.ts` (`totalAccumulatedSavings`), `src/screens/SavingsScreen.tsx`
 - *_Avoid_*: Piggy Bank (use Gullak), Total Savings, Net Balance
 
 **Gullak Deposit**:
@@ -296,7 +296,7 @@ The ONE budget of a calendar period for a cadence (a week for `weekly`, a month 
 
 **Carry-over**:
 Money left in the running weekly / monthly budget that moves into the new cadence at a switch. Only real, unused money can be carried; a daily day carries nothing (its unused money goes to Gullak that night). Additive carry applies to the first period of the new plan only. Into a daily plan it is either added to tomorrow's budget or spent daily budget by daily budget until used up (the user is told each morning how much to add).
-- *Code location*: `src/lib/budgetPeriods.ts` (`carryForPeriod`, `dailyCarryForDate`), `src/store/dailyBudgetStore.ts` (`getCarryableAmount`, `setBudgetCadence`), `src/lib/notificationPolicy.ts` (`carryCoverCopy`)
+- *Code location*: `src/lib/budgetPeriods.ts` (`carryForPeriod`, `dailyCarryForDate`), `src/store/dailyBudgetStore.ts` (`getCarryableAmount`, `setBudgetCadence`), `src/store/dailyBudget/metrics.ts` (`computeCarryableAmount`), `src/store/dailyBudget/planActions.ts` (`setBudgetCadence`), `src/lib/notificationPolicy.ts` (`carryCoverCopy`)
 - *_Avoid_*: Rollover (that is the daily / period end deposit into Gullak), Transfer
 
 ---
