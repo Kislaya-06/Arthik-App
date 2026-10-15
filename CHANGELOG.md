@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **InsightsScreen Split (Step 3a)**: Extracted `Period` type, constants, and date calculation utilities to `src/screens/insights/periodUtils.ts` and `PeriodNavigator` component to `src/screens/insights/PeriodNavigator.tsx`.
 - **InsightsScreen Styles (Step 3b)**: Moved StyleSheet styles out of `InsightsScreen.tsx` into `src/screens/insights/InsightsScreen.styles.ts`.
-- **InsightsScreen Data Hook (Step 3c)**: Extracted pure financial and analytics derivations into useInsightsData hook and added comprehensive snapshot tests.
+- **InsightsScreen Data Hook (Step 3c)**: Extracted pure financial and analytics derivations into useInsightsData hook with comprehensive unit tests and explicit assertions.
+- **Rulebook & Repository Cleanliness**: Streamlined `AGENTS.md` into 20 strictly sequential sections, enforced mock reuse in test rules, cleaned `.gitignore`, and converted snapshot tests to clean explicit assertions.
 - **ProfileScreen Split (Step 4)**: Extracted PauseBudgetModal, EditProfileModal, DeleteAccountModal, and StyleSheet styles.
 - **SavingsScreen Split (Step 5a)**: Extracted SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, and StyleSheet styles.
 - **Modal Styles Split (Step 5b)**: Moved StreakCalendarModal and DepositGullakModal styles to dedicated style files.

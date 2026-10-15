@@ -1,5 +1,3 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
@@ -22,13 +20,15 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
-# debug
+# debug & logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
 
-# macOS
+# OS
 .DS_Store
+Thumbs.db
 *.pem
 
 # local env files
@@ -49,9 +49,6 @@ yarn-error.*
 # Supabase CLI temp files
 supabase/.temp/
 
-# Logs
-*.log
-
 # IDE & Agent tooling
 .vscode/
 .idea/
@@ -59,28 +56,14 @@ supabase/.temp/
 .agents/
 .scratch/
 
-# Media & Brag Video Assets
-Arthik/
-brag-output/
-
-# ─── Local-only guides & scripts (kept on your laptop, never pushed) ───
-# Leading "/" = only the file in the project ROOT. Without it Git ignores the name in
-# every folder (that used to hide docs/RELEASE_PROCESS.md, which IS part of the repo).
+# Local-only documentation & scripts
 /CODEBASE_EXPLAINER.md
 /CODEBASE_EXPLAINER_OLD.md
 /AGENT_BRIEF.md
+/docs/AGENT_BRIEF.md
 /DEV_SETUP_PHONE_AND_EMULATOR.md
 /DISTRIBUTE_*.md
 /dev-both.ps1
 /install-dev-apk.ps1
-# Hand-off notes that come with update zips
-/PASTE_GUIDE.md
-/PLACEMENT_GUIDE.md
-/AUTO_LOGGING_EXPLAINED.md
-/PROJECT_EXPLAINED.md
-# Old local copies (safe to delete; kept ignored in case they still exist)
-/MANUAL_STEPS.md
-/RELEASE_PROCESS.md
-/docs/AGENT_BRIEF.md
-/Arthik_Budget_Gullak_Email_Login_Fixes_Spec.md
-/*_Spec.md
+/ARTHIK_DAILY_BUDGET_AND_FINAL_VERIFICATION.md
+/ARTHIK_REFACTOR_PLAN_UPDATED.md

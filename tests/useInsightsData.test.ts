@@ -13,19 +13,6 @@ import { Category } from '../src/store/categoryStore';
 import { DailyRecord, GullakDeposit } from '../src/store/dailyBudgetStore';
 import { BudgetPeriodRecord } from '../src/types';
 
-function normalizeForSnapshot(obj: any): any {
-  if (obj === null || obj === undefined) return obj;
-  if (obj instanceof Date) return obj.toISOString();
-  if (Array.isArray(obj)) return obj.map(normalizeForSnapshot);
-  if (typeof obj === 'object') {
-    const res: Record<string, any> = {};
-    for (const k of Object.keys(obj).sort()) {
-      res[k] = normalizeForSnapshot(obj[k]);
-    }
-    return res;
-  }
-  return obj;
-}
 
 describe('useInsightsData (pure analytics and derived calculations)', () => {
   beforeEach(() => {
@@ -133,42 +120,78 @@ describe('useInsightsData (pure analytics and derived calculations)', () => {
     user: { created_at: '2026-08-01T00:00:00Z' },
   };
 
-  it('computes Weekly period offset 0 snapshot', () => {
+  it('computes Weekly period offset 0 (This Week)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, period: 'Weekly', offset: 0 }));
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.dateLabel).toBe('This Week');
+    expect(result.current.currentTotal).toBe(750);
+    expect(result.current.categoryTotals).toEqual({ c1: 530, c2: 220 });
+    expect(result.current.budgetHealth.isOverBudget).toBe(false);
+    expect(result.current.budgetHealth.remaining).toBe(2750);
+    expect(result.current.activeBudgetPool?.remaining).toBe(2750);
+    expect(result.current.activeBudgetPool?.totalPool).toBe(3500);
+    expect(result.current.effectiveBudgetResult.effectiveBudget).toBe(3500);
   });
 
-  it('computes Weekly period offset -1 snapshot', () => {
+  it('computes Weekly period offset -1 (Last Week)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, period: 'Weekly', offset: -1 }));
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.dateLabel).toBe('Last Week');
+    expect(result.current.currentTotal).toBe(3250);
+    expect(result.current.categoryTotals).toEqual({ c1: 1050, c2: 200, c3: 2000 });
+    expect(result.current.budgetHealth.isOverBudget).toBe(false);
+    expect(result.current.budgetHealth.remaining).toBe(250);
+    expect(result.current.activeBudgetPool?.remaining).toBe(250);
+    expect(result.current.effectiveBudgetResult.effectiveBudget).toBe(3500);
   });
 
-  it('computes Monthly period offset 0 snapshot', () => {
+  it('computes Monthly period offset 0 (This Month)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, period: 'Monthly', offset: 0 }));
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.dateLabel).toBe('This Month');
+    expect(result.current.currentTotal).toBe(4400);
+    expect(result.current.currentPeriodIncome).toBe(50000);
+    expect(result.current.categoryTotals).toEqual({ c1: 1880, c2: 520, c3: 2000 });
+    expect(result.current.activeBudgetPool?.remaining).toBe(61100);
+    expect(result.current.activeBudgetPool?.totalPool).toBe(65500);
+    expect(result.current.budgetHealth.isOverBudget).toBe(true);
+    expect(result.current.budgetHealth.overAmount).toBe(900);
   });
 
-  it('computes Monthly period offset -1 snapshot', () => {
+  it('computes Monthly period offset -1 (Last Month)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, period: 'Monthly', offset: -1 }));
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.dateLabel).toBe('Last Month');
+    expect(result.current.currentTotal).toBe(5470);
+    expect(result.current.currentPeriodIncome).toBe(50000);
+    expect(result.current.categoryTotals).toEqual({ c1: 1800, c2: 370, c3: 3300 });
+    expect(result.current.activeBudgetPool?.remaining).toBe(59530);
+    expect(result.current.activeBudgetPool?.totalPool).toBe(65000);
   });
 
-  it('computes Yearly period offset 0 snapshot', () => {
+  it('computes Yearly period offset 0 (This Year)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, period: 'Yearly', offset: 0 }));
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.dateLabel).toBe('This Year');
+    expect(result.current.currentTotal).toBe(15070);
+    expect(result.current.categoryTotals).toEqual({ c1: 5980, c2: 1440, c3: 7650 });
+    expect(result.current.annualBudgetDiscipline.canDisplay).toBe(true);
+    expect(result.current.annualBudgetDiscipline.consistencyRatio).toBe(100);
+    expect(result.current.annualBudgetDiscipline.keptMonths).toBe(2);
   });
 
-  it('computes Yearly period offset -1 snapshot', () => {
+  it('computes Yearly period offset -1 (Last Year)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, period: 'Yearly', offset: -1 }));
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.dateLabel).toBe('Last Year');
+    expect(result.current.currentTotal).toBe(0);
+    expect(result.current.categoryTotals).toEqual({});
+    expect(result.current.annualBudgetDiscipline.canDisplay).toBe(false);
   });
 
-  it('computes snapshot with budget mode OFF (Pure Mode)', () => {
+  it('computes with budget mode OFF (Pure Mode)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, isBudgetModeEnabled: false, period: 'Monthly', offset: 0 }));
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.activeBudgetPool).toBeNull();
+    expect(result.current.dateLabel).toBe('This Month');
+    expect(result.current.currentTotal).toBe(4400);
+    expect(result.current.categoryTotals).toEqual({ c1: 1880, c2: 520, c3: 2000 });
   });
 
-  it('computes snapshot with weekly cadence + budgetPeriods', () => {
+  it('computes with weekly cadence + budgetPeriods', () => {
     const budgetPeriods: Record<string, BudgetPeriodRecord> = {
       'w-2026-41': {
         id: 'bp1',
@@ -194,6 +217,12 @@ describe('useInsightsData (pure analytics and derived calculations)', () => {
         offset: 0,
       })
     );
-    expect(normalizeForSnapshot(result.current)).toMatchSnapshot();
+    expect(result.current.dateLabel).toBe('This Week');
+    expect(result.current.currentTotal).toBe(750);
+    expect(result.current.categoryTotals).toEqual({ c1: 530, c2: 220 });
+    expect(result.current.budgetHealth.isOverBudget).toBe(false);
+    expect(result.current.budgetHealth.remaining).toBe(2750);
+    expect(result.current.activeBudgetPool?.remaining).toBe(2750);
+    expect(result.current.activeBudgetPool?.totalPool).toBe(3500);
   });
 });
