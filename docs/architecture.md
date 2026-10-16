@@ -1,6 +1,6 @@
 # Arthik — Architecture
 
-> **Version:** v1.2.4 (September 2026)
+> **Version:** v2.1.0 (October 2026)
 > **Platform:** Android (Expo SDK 57, React Native 0.86)
 > **Backend:** Supabase (Postgres + Auth + RLS)
 
@@ -85,11 +85,14 @@ expenseStore ─ registerExpenseGetter ──────────► dailyBu
 expenseStore ─ registerExpensesLoadedGetter ───► dailyBudgetStore
 expenseStore ─ registerSyncCallback ───────────► networkStore
 expenseStore ─ registerStoreResetCallback ─────► authStore
+sharesStore ── registerSharesGetter ───────────► dailyBudgetStore
+sharesStore ── registerStoreResetCallback ─────► authStore
 categoryStore ─ registerStoreResetCallback ────► authStore
 categoryStore ─ registerCategoryDeleteCallback ► expenseStore
 dailyBudgetStore ─ registerStoreResetCallback ─► authStore
 notificationStore ─ registerStoreResetCallback ► authStore
 appLockStore ─ registerStoreResetCallback ─────► authStore
+autoLogStore ─ registerStoreResetCallback ─────► authStore
 ```
 
 ---
@@ -292,7 +295,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v2.1.0**: 85 test files, 1429 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), and refactor regression suites.
+**Coverage as of v2.1.0**: 86 test files, 1438 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), and refactor regression suites.
 
 | Test file | What it covers |
 |---|---|
@@ -360,7 +363,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0007](adr/0007-income-classification-divergence.md) | Dual-engine income divergence | **Superseded by 0008** |
 | [0008](adr/0008-unified-income-classification.md) | Unified income classification | Active |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest unit test coverage policy | Active |
-| [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011) |
+| [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011, amended by 0012) |
 | [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
 | [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |
 | [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |

@@ -96,7 +96,7 @@ Log expenses and income without typing them.
 | Updates | EAS Build (APK), EAS Update (OTA), in-app APK updater (`expo-file-system`, `expo-intent-launcher`) |
 | UI | `lucide-react-native`, Quicksand, `react-native-svg`, Reanimated, Gesture Handler |
 | Dates | `date-fns`, Indian number formatting (₹) |
-| Tests | Vitest (66 files, 1103 tests) |
+| Tests | Vitest (86 files, 1442 tests) |
 
 ---
 
@@ -131,7 +131,6 @@ docs/                    # Architecture, ADRs, Automatic Logging, release proces
 - [`docs/architecture.md`](./docs/architecture.md) — layers, stores, offline write path, startup, Gullak engine.
 - [`docs/AUTO_LOGGING.md`](./docs/AUTO_LOGGING.md) — Automatic Logging architecture and rules.
 - [`docs/RELEASE_PROCESS.md`](./docs/RELEASE_PROCESS.md) — how to ship an APK, force-update users, and control the Beta rollout.
-- [`docs/PLAY_STORE_AUTOLOG.md`](./docs/PLAY_STORE_AUTOLOG.md) — what changes for a future Play Store release.
 - [`docs/prd.md`](./docs/prd.md) · [`docs/adr/`](./docs/adr/) — product requirements and architecture decisions.
 
 ---
@@ -165,11 +164,21 @@ Development build (once, and whenever native code changes):
 ```bash
 eas build -p android --profile development
 ```
-Install it, then start Metro:
+Install it on your device, then start Metro:
 ```bash
 npm run dev          # one device: adb reverse + expo start
 ```
-Phone **and** emulator together: see `DEV_SETUP_PHONE_AND_EMULATOR.md` (runs `adb reverse tcp:8081` per device).
+
+#### Dual Hot-Reload (Phone + Emulator Together)
+To run hot-reload simultaneously across both a physical phone (via USB debugging) and Android emulator:
+```powershell
+# 1. Install dev build on all connected devices:
+.\install-dev-apk.ps1
+
+# 2. Reverse ports for all devices and launch Metro:
+.\dev-both.ps1
+```
+*(Or manually run `adb -s <device-id> reverse tcp:8081 tcp:8081` for each device, then `npx expo start`).*
 
 Checks:
 ```bash

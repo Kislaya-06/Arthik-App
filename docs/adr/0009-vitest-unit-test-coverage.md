@@ -33,11 +33,11 @@ _setCategories: (categories: Category[]) => set({ categories }),
 ```
 These are test-only escape hatches and are not part of the public store interface used by screens.
 
-### Coverage policy (see AGENTS.md §21.1 for full table)
+### Coverage policy (see AGENTS.md §3 for Mandatory 4-Stage Quality Gate)
 Every new store action with offline branching, sync queue behavior, user isolation, or financial calculation must ship with a corresponding test file in `tests/`.
 
 ## Consequences
-- **Positive**: Regressions in offline queueing, multi-user isolation, rollover guards, and income classification are caught automatically on every `npm test` run (645 ms median). Confidence to merge changes to hot store files is significantly higher.
+- **Positive**: Regressions in offline queueing, multi-user isolation, rollover guards, and income classification are caught automatically on every `npm test` run across 86 test suites and 1,440+ unit tests (~3.7s total execution). Confidence to merge changes to hot store files is significantly higher.
 - **Negative**: Store tests require more mock boilerplate than pure function tests. Mock setup must be kept in sync with store interfaces as action signatures evolve. The test suite covers logic paths, not native biometric hardware, live Supabase writes, or real-device AsyncStorage performance.
 
 ## What Would Have to Be True to Revisit

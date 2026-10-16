@@ -54,7 +54,7 @@ export const getUserCreatedAtLocalDate = (createdAt?: string | null): string | u
 };
 
 export const getUserCreatedAtStr = (): string | undefined =>
-  useAuthStore.getState().user?.created_at?.split('T')[0]?.trim();
+  getUserCreatedAtLocalDate(useAuthStore.getState().user?.created_at);
 
 /**
  * Does the DAILY engine own this date? (Fix: a weekly / monthly plan, or Pure Mode, owns the day instead.)

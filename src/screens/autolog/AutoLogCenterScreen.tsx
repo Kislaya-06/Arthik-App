@@ -14,7 +14,7 @@ import { BetaPill, Body, Card, CheckLine, NavRow, ScreenHeader, SectionLabel, St
 import { useAutoLogStore } from '../../features/autoLog/store';
 import * as service from '../../features/autoLog/service';
 import { fetchRemoteProfile } from '../../features/autoLog/remote';
-import { openBatterySettings, openNotificationAccess } from '../../features/autoLog/permissions';
+import { openBatterySettings } from '../../features/autoLog/permissions';
 import { accountLabel, eventTitle, modeCopy, money, relative, statusLine, dateTime } from '../../features/autoLog/copy';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogCenter'>;
@@ -186,7 +186,6 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
               <SectionLabel>Status</SectionLabel>
             )}
             <CheckLine ok={s.health.sms} label="SMS access" onFix={() => Linking.openSettings()} />
-            <CheckLine ok={s.health.notifications} label="Notification access" optional onFix={openNotificationAccess} />
             {service.emailSupported() ? (
               <CheckLine ok={s.health.email} label="Email notifications" optional onFix={() => navigation.navigate('AutoLogEmail')} />
             ) : null}
@@ -246,15 +245,13 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
           <Card>
             <SectionLabel>Developer test tools (dev build only)</SectionLabel>
             <Body muted style={{ marginBottom: Spacing.group }}>
-              Sends fake events through the real pipeline. Try 1 → 2 → 3 to see a notification, an SMS and an email become one transaction.
+              Sends fake events through the real pipeline. Try Bank SMS and Bank Email to see them match into one transaction.
             </Body>
             {([
-              ['notification_debit', '1. PhonePe notification · ₹349 Zomato'],
-              ['sms_debit', '2. Bank SMS · ₹349 Zomato'],
-              ['email_debit', '3. Bank email · ₹349 Zomato'],
+              ['sms_debit', '1. Bank SMS · ₹349 Zomato'],
+              ['email_debit', '2. Bank email · ₹349 Zomato'],
               ['sms_credit_person', 'Bank SMS · ₹2,000 from Rahul (review)'],
               ['sms_unreadable', 'Unreadable bank message (review)'],
-              ['expire_previews', 'Skip 20 min (expire waiting previews)'],
             ] as const).map(([k, label]) => (
               <AppButton
                 key={k}

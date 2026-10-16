@@ -44,6 +44,7 @@ export const REVIEW_LABEL: Record<ReviewReason, string> = {
   unknown_sender: 'New email sender',
   possible_transfer: 'Own account transfer?',
   split_repayment: 'Friend paid back?',
+  exceeds_liquidity: 'Exceeds spending limit',
 };
 
 export const reviewLabelFor = (e: AutoLogEvent) =>

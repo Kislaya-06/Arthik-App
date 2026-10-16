@@ -11,11 +11,11 @@ Previously, Arthik evaluated transaction direction using two separate implementa
 ## Decision
 We eliminated `getIncomeCategoryIds` and unified the entire application on the single, shared classification helper `isIncomeTransaction(item, category)` from `src/lib/paymentUtils.ts`:
 
-1. **Category Lookup in Budget Engine (`src/store/dailyBudgetStore.ts:38–48`)**:
-   Extracted `buildCategoryClassifier()` inside `dailyBudgetStore.ts`. It builds an in-memory `Map<string, Category>` from `useCategoryStore.getState().categories` and constructs a pure predicate `(e: Expense) => boolean` delegating directly to `isIncomeTransaction(e, cat)`.
-2. **Startup Sequence Enforcement (`App.tsx:122–127`)**:
-   In `App.tsx`, we sequenced boot initialization so `await fetchCategories(true)` completes before launching `Promise.all([fetchExpenses(), hydrateFromSupabase()])`. This guarantees categories are in memory before the budget engine evaluates expenses.
-3. **Purity in Budget Calculations (`src/lib/budgetCalculations.ts:204–242`)**:
+1. **Category Lookup in Budget Engine (`src/store/dailyBudget/classifiers.ts:9–19`)**:
+   Extracted `buildCategoryClassifier()` and `buildEligibleIncomeClassifier()` into `classifiers.ts` (re-exported by `dailyBudgetStore.ts`). They build an in-memory `Map<string, Category>` from `useCategoryStore.getState().categories` and construct pure predicates delegating directly to `isIncomeTransaction(e, cat)`.
+2. **Startup Sequence Enforcement (`SplashScreen.tsx:343–355`)**:
+   In `SplashScreen.tsx`, startup boot initialization is explicitly chained so `loadPendingExpenses()` and `fetchCategories()` complete before launching `Promise.all([fetchExpenses(), hydrateFromSupabase(), appLock.init()])`. This guarantees categories are in memory before the budget engine evaluates expenses.
+3. **Purity in Budget Calculations (`src/lib/budgetCalculations.ts:253–284`)**:
    Pure calculation functions `computeSpentByDate` and `computeSpentForDate` accept `isIncomeFn: (e: Expense) => boolean` as an injected argument rather than reading store state directly.
 
 ## Consequences

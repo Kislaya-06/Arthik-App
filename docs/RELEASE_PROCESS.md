@@ -1,8 +1,32 @@
 # Release Process — Arthik (har APK release ke liye)
 
 > Upar se neeche **order me** karo. Har phase ke end me ✅ check hai — fail ho to aage mat badho.
-> Is doc me `X.Y.Z` = naya version (jaise `2.1.0`), tag `vX.Y.Z` (jaise `v2.1.0`).
+> Is doc me `X.Y.Z` = naya version (jaise `2.1.1` ya `2.2.0`), tag `vX.Y.Z` (jaise `v2.1.1`).
 > Sabse risky step (force update) sabse last hai; rollback ek SQL line.
+
+---
+
+## 💡 Vibe Coder Cheat Sheet (1-Minute Mental Model)
+
+Agar tumhe heavy DevOps ya terminal jargons samajh nahi aate, toh bas ye 2 rules yaad rakho:
+
+### Rule 1: Kya tumhe sach me naya APK build karne ki zaroorat hai?
+* **Scenario A: Sirf screens, styling, calculations, ya UI logic badla hai (`src/**`):**  
+  👉 **Naya APK mat banao!** Bas ye single command chalao:  
+  ```bash
+  eas update --branch preview --message "feature: short description"
+  ```  
+  Users jab app kholenge, unka app internet se wirelessly silently update ho jayega (OTA update). User ko download dialog nahi aayega!
+* **Scenario B: Native Kotlin code (`modules/**`) ya `app.json` me permissions/plugins badle hain:**  
+  👉 Tabhi naya APK banana mandatory hai.
+
+### Rule 2: Jab naya APK banana ho, toh sirf 3 simple steps hote hain:
+1. **Build karo:** Terminal me `eas build -p android --profile preview` chalao aur dashboard se APK file download karo.
+2. **GitHub pe upload karo:** GitHub Releases me `vX.Y.Z` tag banao aur 2 files upload karo (`Arthik-vX.Y.Z.apk` aur copy `Arthik.apk`).
+3. **Supabase me bata do:** Supabase SQL editor me Phase 7 wala SQL run karke version number update kar do.  
+   *(Result: Purane users jab bhi app kholenge, unke phone pe automatically "Update Required" screen aayegi aur 1 click me download + update ho jayega).*
+
+> **⚠️ Keystore Rule (Golden Rule):** Agar terminal puche *"Generate a new keystore?"* — **hamesha NO dabao**! Keystore app ka digital thumbprint hai. Agar naya ban gaya toh purana app update reject kar dega.
 
 ---
 
@@ -108,6 +132,31 @@ Fresh install test (doosra phone / emulator, naya account) bhi ek baar.
 |---|---|---|
 | "App not installed as package conflicts…" | Keystore alag | Release rok do → Phase 2 |
 | "App not installed" | Dev build installed / versionCode chhota | Release wale phone pe test |
+
+### 3.1 Pre-Release Device Smoke Test Matrix (Functional Verification)
+
+Har production release se pehle device pe ye critical functional flows verify karein:
+
+| # | Check / Flow | Test Scenario | Pass Criteria |
+|---|---|---|---|
+| 1 | **Cold Launch & Hydration** | Fresh login ya app cold start | Home data instant load hota hai; no white flash, no layout tear |
+| 2 | **Online Expense Lifecycle** | Add, edit, aur delete expense | Home, History, aur Insights me live update; Gullak aur budget sync |
+| 3 | **Offline Sync & Airplane Mode** | Airplane mode ON → 2 adds, 1 edit, 1 delete → Airplane mode OFF | Net aate hi saari offline mutations Supabase me flush; zero loss, no duplicates |
+| 4 | **Offline Crash Resilience** | Airplane mode ON → add expense → force kill app → reopen | Pending badges aur queued mutations AsyncStorage me intact rehte hain |
+| 5 | **Budget Mode & Cadence Switch** | Toggle Budget Mode (ON/OFF), Cadence change (Daily → Weekly → Monthly) | Active pool respect hota hai; smooth tab entrance/exit; allowance update |
+| 6 | **Gullak Deposit & Deletion** | "Add from Income" aur "External Money" deposit add aur delete | Real-time balance restoration; zero phantom Gullak inflation |
+| 7 | **Midnight Rollover & Finalization** | Date boundary transition / past unfinalized day | Yesterday unspent budget Gullak me add hota hai; morning notification triggered |
+| 8 | **Insights Period Fidelity** | Weekly, Monthly, Yearly charts navigation | Exact historical numbers match; swipe aur date navigation fluid |
+| 9 | **Profile & Settings Modals** | Name edit, budget pause, logout, delete account modal | Modals smoothly open aur cancel hote hain bina side-effects ke |
+| 10 | **Streak Calendar Modal** | Month navigation, date cell tap, flame indicator | Paused days grey rehte hain, successful days orange, streak count accurate |
+| 11 | **Theme & Contrast Integrity** | Light, Dark, aur AMOLED modes switch karein | Readable contrast, crisp borders, no clipped text, valid token colors |
+| 12 | **Auto Logging Center & Setup** | AutoLog setup screen aur permission cards | Clean UI renders; permission status correctly detected |
+| 13 | **AutoLog Activation Boundary** | First-time setup complete karein | Pehle ke purane historical SMS/emails kabhi retroactively log nahi hote |
+| 14 | **AutoLog Dual-Source Match** | Bank SMS + Bank Email alert aane par | Exact reference/timestamp match karke deduplicate; no duplicate transactions |
+| 15 | **AutoLog Vault Spending Guard** | Zero funds hone par auto-log expense aana | Exceeds liquidity review flag raise hota hai; negative balance block |
+| 16 | **Split / Reimbursement Accounting**| Shared expense log aur reimbursement receive | Reimbursement never treated as income; original share balance restores |
+| 17 | **Pull-to-History Physics** | Home feed pe pull down gesture | Threshold label, circular progress, single haptic, smooth history navigation |
+| 18 | **Notification Deduplication** | Evening recap, morning reward, limit alert | Duplicate reviews ya repeated limit alerts drop ho jaate hain |
 
 ---
 

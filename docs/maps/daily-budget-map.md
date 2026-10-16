@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **Architecture & Modular Decomposition (October 2026)**
-> `src/store/dailyBudgetStore.ts` serves as the public facade (779 lines) delegating to focused submodules under `src/store/dailyBudget/`:
+> `src/store/dailyBudgetStore.ts` serves as the public facade (875 lines) delegating to focused submodules under `src/store/dailyBudget/`:
 > - Types & Interfaces: `src/store/dailyBudget/types.ts`
 > - Offline Pending Storage: `src/store/dailyBudget/pendingStorage.ts`
 > - Cross-Store Expense Bridge: `src/store/dailyBudget/expenseBridge.ts`
@@ -55,20 +55,15 @@ All rules below were extracted directly from the source code.
 A day's budget is derived according to three distinct tiers:
 
 1. **Recurring Allowance (Base Daily Budget)**:
-   - Configured via `setDailyBudget(amount)` (lines 272–326).
-   - Sanitized via `cleanAmount = Math.max(0, Math.round(amount))` (line 273).
-   - If `cleanAmount > 0`, `isAutoRenew` is forced to `true` (`willAutoRenew = cleanAmount > 0 ? true : get().isAutoRenew`, line 276).
+   - Configured via `setDailyBudget(amount)` in `src/store/dailyBudget/planActions.ts`.
+   - Sanitized via `cleanAmount = Math.max(0, round2(amount))`.
+   - User Preference Sovereignty: `willAutoRenew = cleanAmount > 0 ? currentAutoRenew : false`. Changing amount respects user's paused state and never autonomously forces `isAutoRenew = true`.
    - Applies automatically to any new day when `isAutoRenew` is `true`.
-2. **Per-Day Override (Day's Allowance)**:
-   - Configured via `setTodayBudget(amount)` (lines 379–399).
-   - Sanitized via `cleanAmount = Math.max(0, Math.round(amount))` (line 380).
-   - Modifies `records[todayStr].budget` directly (line 392); leaves profile `dailyBudgetAmount` and `isAutoRenew` untouched.
-3. **Top-Up (`addToTodayBudget`)**:
-   - Configured via `addToTodayBudget(extraAmount)` (lines 401–424).
-   - Sanitized via `cleanExtra = Math.max(0, Math.round(extraAmount))` (line 402). If `cleanExtra <= 0`, it is a no-op (line 403).
-   - If no record exists for today, initializes base budget to `isAutoRenew ? dailyBudgetAmount : 0` (line 409).
-   - Sets `newBudget = currentToday.budget + cleanExtra` (line 416).
-4. **Day Where the User Set Nothing (Unset / Fresh Day)**:
+2. **Next-Day Scheduling (Day's Allowance Discipline)**:
+   - Configured via `scheduleNextDailyBudget(amount)` / `handleScheduleNextDailyBudget`.
+   - Sanitized via `cleanAmount = Math.max(0, round2(amount))`.
+   - To preserve strict financial discipline and the Real-Money Invariant, budget allowance adjustments take effect starting tomorrow at 12:00 AM (`effectiveFrom = tomorrowStr`) via `budget_plan_changes` rather than abruptly mutating today's active spending allowance mid-day.
+3. **Day Where the User Set Nothing (Unset / Fresh Day)**:
    - In `getTodayRecord()` (lines 253–254): If no record exists in `dailyRecords`, budget is `get().isAutoRenew ? get().dailyBudgetAmount : 0`. If `isAutoRenew` is `false`, budget is strictly `0`.
    - In `syncWithExpenses()` (line 446): If `!todayRecord`, budget is `get().isAutoRenew && get().dailyBudgetAmount > 0 ? get().dailyBudgetAmount : 0`.
    - In `hydrateFromSupabase()` (lines 1077, 1086–1089): If `!records[todayStr]`, budget is `resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0`. If a record exists but has `budget === 0` while `isFinalized === false` and `resolvedAutoRenew === true`, it is updated to `resolvedBudget`.
@@ -207,71 +202,75 @@ The savings streak is computed by `calculateSavingsMetrics` (lines 80–102):
   - Reaching registration boundary (`dStr < userCreatedAt`) terminates evaluation cleanly.
 - **What is Neutral**: `rec.status === 'unknown'` (lines 90–93). It advances `dayCheck` by 1 without incrementing `streak` and without breaking the loop.
 - **Streak Guards & Best Streak**:
-  - Lines 144–149: If `confirmedSavedDays === 0`, `streak = 0` and `maxStreak = 0`. If `streak > confirmedSavedDays`, `streak = confirmedSavedDays`. **Note (Ticket 06)**: While `streak` is clamped to `confirmedSavedDays`, `maxStreak` (and therefore `bestStreak`) is **not** clamped by `confirmedSavedDays` whenever `confirmedSavedDays > 0`. Moreover, `finalizedSavedRecords` does not filter out pre-registration days (`< userCreatedAt`), meaning a pre-registration streak can become the user's `bestStreak` once a single post-registration day is saved.
-  - Best streak gap bridging (lines 111–121): Identifies the longest contiguous sequence of saved records in historical order, treating intermediate days as neutral bridges only if explicitly recorded with `status === 'unknown'`. **Note (Ticket 07)**: Missing records (`records[d] === undefined`) evaluate `records[d]?.status !== 'unknown'` to `true` and actively **break** the bridge rather than bridging it.
+  - Lines 167–175: If `confirmedSavedDays === 0`, `streak = 0` and `maxStreak = 0`. If `streak > confirmedSavedDays`, `streak = confirmedSavedDays`. `finalizedSavedRecords` filters out pre-registration days (`(!userCreatedAt || r.date >= userCreatedAt)`), preventing pre-registration streaks from bleeding into `bestStreak`.
+  - Best streak gap bridging: Identifies the longest contiguous sequence of saved records in historical order, treating intermediate days as neutral bridges only if explicitly recorded with `status === 'unknown'`.
 
 ### 2.7 How `totalAccumulatedSavings` is Computed
 
-Total accumulated savings (Gullak) is computed in `calculateSavingsMetrics` (lines 44–74):
+Total accumulated savings (Gullak) is computed in `calculateSavingsMetrics` in `src/lib/budgetCalculations.ts` using the Money Waterfall (ADR 0012):
 
 ```ts
-44:  let totalSaved = 0;
-45:  let totalOverspent = 0;
-46:  const userCreatedAt = userCreatedAtStr || useAuthStore.getState().user?.created_at?.split('T')[0]?.trim();
-47:
-48:  Object.values(records).forEach((r) => {
-49:    // Check confirmed finalized past days that are on or after the user registered
-50:    if (r.isFinalized && r.date < todayStr) {
-51:      if (userCreatedAt && r.date < userCreatedAt) {
-52:        // Pre-registration backdated days do not affect Gullak savings or penalty
-53:        return;
-54:      }
-55:      // 'unknown' days do not affect Gullak savings or penalties
-56:      if (r.status === 'unknown') {
-57:        return;
-58:      }
-59:      if (r.budget > 0 && r.spent > r.budget) {
-60:        totalOverspent += (r.spent - r.budget);
-61:      } else if ((r.saved || 0) > 0) {
-62:        totalSaved += (r.saved || 0);
-63:      }
-64:    }
-65:  });
-66:
-67:  // Include today's live overspend if user spent more than today's budget
-68:  const todayRec = records[todayStr];
-69:  if (todayRec && todayRec.budget > 0 && todayRec.spent > todayRec.budget) {
-70:    totalOverspent += (todayRec.spent - todayRec.budget);
-71:  }
-72:
-73:  // Net accumulated savings cannot drop below 0
-74:  const netSavings = Math.max(0, totalSaved - totalOverspent);
+// 1. Sum up finalized past savings (post-registration)
+if (r.status === 'saved' || (r.saved || 0) > 0) {
+  totalSaved += (r.saved || 0);
+} else if (r.budget > 0 && r.spent > r.budget) {
+  pastOverspent += (r.spent - r.budget);
+}
+
+// 2. Overspend is shielded by available income first!
+const todayGullakDeduction = Math.max(0, round2(todayLiveOverspent - Math.max(0, availableIncome)));
+
+// 3. Waterfall override replaces naive pastOverspent + live deduction
+const gullakDrawn = gullakDrawnOverride !== undefined
+  ? Math.max(0, gullakDrawnOverride)
+  : pastOverspent + todayGullakDeduction;
+
+// 4. Manual Gullak deposits added; net savings floored at 0 and capped at totalAccountRemaining
+let netSavings = Math.max(0, round2(totalSaved - gullakDrawn + manualDeposits));
+if (totalAccountRemaining !== undefined) {
+  netSavings = Math.min(netSavings, Math.max(0, round2(totalAccountRemaining)));
+}
 ```
 
-- **Inclusion of Past Savings**: Sum of all `r.saved` from finalized past days (`r.isFinalized && r.date < todayStr && r.date >= userCreatedAt`).
-- **Overspending Penalties**:
-  - **Past Overspending**: Every past finalized day where `r.budget > 0 && r.spent > r.budget` adds `r.spent - r.budget` directly to `totalOverspent` (lines 59–60).
-  - **Live Today Overspending**: If today's live spending exceeds today's budget (`todayRec.budget > 0 && todayRec.spent > todayRec.budget`), the live deficit `todayRec.spent - todayRec.budget` is added immediately to `totalOverspent` (lines 68–71).
-  - Today's unfinalized *savings* are **never** added to `totalSaved` until the day rolls over and finalizes. However, today's *overspending* immediately penalizes the accumulated balance.
-- **Floor**: Net accumulated savings can never drop below zero: `Math.max(0, totalSaved - totalOverspent)` (line 74).
+- **Inclusion of Past Savings (Multi-Cadence)**: 
+  - **Daily Users**: Sum of all `r.saved` from finalized past days (`r.isFinalized && r.date < todayStr && r.date >= userCreatedAt`).
+  - **Weekly Users**: Unspent balance from completed calendar weeks (Monday 00:00 to Sunday 23:59:59) is evaluated by `buildPeriodsToFinalize` and rolled over into Gullak on Sunday midnight.
+  - **Monthly Users**: Unspent balance from completed calendar months (1st to month-end 23:59:59) rolls over into Gullak on the month's final midnight.
+- **Money Waterfall Shielding Across All Cadences (ADR 0012)**: Overspending against the active cadence pool (Daily, Weekly, or Monthly) draws from available income first before penalizing Gullak savings. If income covers the overspend, Gullak remains 100% intact.
+- **Manual Gullak Deposits & All-Time Inflow**: User deposits into Gullak (`manualDeposits` from `gullak_deposits`) are credited directly to the reserve balance. For `'external'` deposits (fresh cash, gifts, bonus), funds are treated as real incoming money and simultaneously added to period and All-time Inflow ('All' view).
+- **Floor and Account Cap**: Net accumulated savings cannot drop below zero, nor exceed `totalAccountRemaining`.
 
 ---
 
 ## 3. Date Boundaries & Timezone Sensitivities
 
-The following table documents every location in `dailyBudgetStore.ts` where dates are resolved, compared, or manipulated.
+The following table documents every location in the modular daily budget submodules (`src/store/dailyBudget/`) and calculations library (`src/lib/budgetCalculations.ts`) where dates are resolved, compared, or manipulated.
 
-| Line(s) | Code Snippet | Reference Time | Boundary & Timezone Consequence |
-|---------|--------------|----------------|---------------------------------|
-| 46 | `user?.created_at?.split('T')[0]?.trim()` | **UTC** | Supabase stores `created_at` in UTC. Splitting at `'T'` takes the UTC date. For an Indian user (UTC+5:30) registering at 2:00 AM IST on Sept 19, the UTC date is `'2026-09-18'`. Backdated transactions logged on Sept 18 will be treated as post-registration rather than pre-registration. |
-| 50 | `if (r.isFinalized && r.date < todayStr)` | **String Comparison** | Lexicographical date comparison. Safe assuming `'yyyy-MM-dd'`. |
-| 81 | `subDays(new Date(), 1)` | **Local Time** | Subtracts 1 day from current device clock. Crossing midnight will shift `dayCheck` by 1 day immediately upon the next function invocation. |
-| 115–116 | `new Date(rec.date)` | **UTC / Engine-dependent** | ECMAScript specifies that date-only strings like `'2026-09-18'` parse as **UTC midnight**. In timezones west of UTC (e.g. UTC-5 New York), `new Date('2026-09-18')` is 7:00 PM Sept 17 local time. |
-| 124–126 | `intermediateDate.setDate(prevDate.getDate() + step)` | **Local Time on UTC Date** | `prevDate.getDate()` invokes local day-of-month on a Date object parsed at UTC midnight. For users west of UTC, this shifts the date backwards by 1 day, causing `intermediateStr = format(intermediateDate, 'yyyy-MM-dd')` to evaluate wrong intermediate dates and potentially corrupt `bestStreak`. |
-| 229 | `format(new Date(), 'yyyy-MM-dd')` | **Local Time** | Baseline `getTodayDateStr()` generator. Anchors "today" to device local clock. |
-| 436, 551, 894 | `e.expense_date?.split('T')[0]?.trim()` | **Stored Date String** | Extracts date string from transaction. If `expense_date` is stored as an ISO timestamp rather than date-only, splitting at `'T'` extracts the UTC day, which may differ from the user's local entry day. |
-| 573, 956, 1059 | `format(subDays(new Date(), 1), 'yyyy-MM-dd')` | **Local Time** | Generates `yesterdayStr` based on device clock. |
-| 712 | `if (d === yesterdayStr && saved > 0 ...)` | **Local Time** | Rollover notification only triggers for `yesterdayStr`. If a user does not open the app for 2 days, day before yesterday rolls over silently with no notification. |
+| Location | Code Snippet | Reference Time | Boundary & Timezone Consequence & Resolution |
+|---|---|---|---|
+| `src/store/dailyBudget/metrics.ts:47–57` | `getUserCreatedAtLocalDate(user?.created_at)` & `getUserCreatedAtStr()` | **Local Time via `parseISO`** | **Resolved (Ticket S3.1)**: Supabase stores `created_at` in UTC timestamp. Rather than naive `.split('T')[0]`, `getUserCreatedAtLocalDate` parses with `parseISO(createdAt)` and formats in the user's local timezone (`yyyy-MM-dd`). An Indian user (UTC+5:30) registering at 2:00 AM IST on Sept 19 correctly resolves to `'2026-09-19'` (not UTC `'2026-09-18'`), preventing pre-registration backdated transactions from corrupting active budget streaks and Gullak. |
+| `src/lib/budgetCalculations.ts:58, 125`<br>`src/store/dailyBudget/rollover.ts:103` | `if (r.isFinalized && r.date < todayStr)` | **String Comparison** | Lexicographical date comparison. Safe assuming `'yyyy-MM-dd'`. Anchors finalization strictly to completed past days. |
+| `src/lib/budgetCalculations.ts:81`<br>`src/store/dailyBudget/rollover.ts:131` | `subDays(today, 1)` | **Local Time** | Subtracts 1 day from current device clock. Crossing midnight shifts `dayCheck` by 1 day immediately upon next function invocation. |
+| `src/lib/budgetCalculations.ts:138–154` | `parseISO(rec.date)`<br>`differenceInCalendarDays(cur, prev)`<br>`addDays(prevDate, step)` | **Calendar Date via `date-fns`** | **Resolved (Ticket S3.2)**: Replaced legacy `new Date(rec.date)` and `intermediateDate.setDate(prevDate.getDate() + step)` which parsed date strings at UTC midnight (causing backwards 1-day shifts and streak breaks in timezones west of UTC like EDT/PDT, as well as month-boundary bridging failures). Pure `date-fns` calendar day math is 100% immune to UTC offset drift, DST shifts, and calendar boundaries. |
+| `src/store/dailyBudget/metrics.ts:45` | `format(new Date(), 'yyyy-MM-dd')` | **Local Time** | Baseline `getTodayDateStr()` generator. Anchors "today" to device local clock. |
+| `src/lib/budgetCalculations.ts:196, 251` | `e.expense_date?.split('T')[0]?.trim()` | **Stored Date String** | Database column `expenses.expense_date` is Postgres `DATE NOT NULL` (stored and retrieved as `'yyyy-MM-dd'`). Splitting at `'T'` acts as defense-in-depth against ISO timestamp strings from legacy imports or mocks. |
+| `src/store/dailyBudget/rollover.ts:131` | `format(subDays(new Date(), 1), 'yyyy-MM-dd')` | **Local Time** | Generates `yesterdayStr` based on device clock. |
+| `src/lib/budgetCalculations.ts:498–505`<br>`src/store/dailyBudget/rollover.ts:284–297` | `shouldSendRolloverNotification(...)` | **Local Time** | Rollover notification only triggers for `yesterdayStr` (`params.date === params.yesterdayStr && params.saved > 0`). If a user does not open the app for 2–3 days, intermediate past days finalize silently into records without flooding the user with stale backdated notifications. |
+
+### 3.1 Multi-Cadence Inactive Days & Rollover Guarantees
+1. **Daily Cadence**:
+   - Zero phantom history: Inactive days without transactions or pre-existing records are never artificially fabricated.
+   - When a user opens the app after an absence, past days with recorded activity or existing records are finalized and locked into Gullak.
+2. **Weekly Cadence**:
+   - Weekly spending pools run Monday 00:00:00 to Sunday 23:59:59.
+   - Even if the user does not open the app for several days mid-week, the pool remains active; unspent balance rolls over into Gullak on Sunday midnight upon the next sync.
+3. **Monthly Cadence**:
+   - Monthly spending pools run from the 1st to the final day of the calendar month.
+   - Unspent balances roll over to Gullak on month-end midnight upon the next sync.
+4. **Transaction Date Normalization**:
+   - In `ExpenseFormScreen` and `useExpenseForm.ts:405`, manual expenses format user-selected dates via `format(selectedDate, 'yyyy-MM-dd')` in local device time.
+   - In `autoLog/ledger.ts:70`, AutoLog transactions format `occurredAt` via `format(new Date(tx.occurredAt), 'yyyy-MM-dd')` in local device time.
+   - Postgres `DATE` column guarantees date values are never modified by remote server UTC conversions.
 
 ---
 
@@ -280,40 +279,55 @@ The following table documents every location in `dailyBudgetStore.ts` where date
 ### 4.1 Resolution of Dual-Engine Inconsistency
 The dual-engine divergence between `paymentUtils.ts` and `dailyBudgetStore.ts` (documented in ADR 0007, superseded by ADR 0008) has been completely resolved.
 
-`getIncomeCategoryIds` was deleted from `dailyBudgetStore.ts`. Both UI screens and the budget engine now standardize strictly on the shared helper `isIncomeTransaction(item, category)` from `src/lib/paymentUtils.ts`:
+`getIncomeCategoryIds` was deleted from `dailyBudgetStore.ts`. Both UI screens and the budget engine now standardize strictly on the shared helpers from `src/lib/incomeClassifier.ts` (`makeIncomeClassifier` and `makeEligibleIncomeClassifier`):
 
-1. **Category Map Classifier (`src/store/dailyBudgetStore.ts:22–32`)**:
+1. **Category Map Classifier Submodule (`src/store/dailyBudget/classifiers.ts:9–19`)**:
    ```ts
-   const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
-     const categories = useCategoryStore.getState().categories;
-     const categoryMap = new Map<string, Category>();
-     for (let i = 0; i < categories.length; i++) {
-       categoryMap.set(categories[i].id, categories[i]);
-     }
-     return (e: Expense): boolean => {
-       const cat = e.category_id ? categoryMap.get(e.category_id) : undefined;
-       return isIncomeTransaction(e, cat);
-     };
+   export const buildCategoryClassifier = (): ((e: Expense) => boolean) => {
+     return makeIncomeClassifier(useCategoryStore.getState().categories);
+   };
+
+   export const buildEligibleIncomeClassifier = (): ((e: Expense) => boolean) => {
+     return makeEligibleIncomeClassifier(useCategoryStore.getState().categories);
    };
    ```
-2. **Standardized Invocation**: Invoked in `syncWithExpenses` (line 323), `checkAndRollover` (line 430), and `hydrateFromSupabase` (line 766), passing `isIncomeFn` into pure calculation functions `computeSpentForDate` and `computeSpentByDate`.
+2. **Standardized Invocation Across Submodules**:
+   - `planActions.ts:339`: in `refreshActiveDayBudget`
+   - `metrics.ts:159, 195, 333, 343`: in `computeDailyMetrics`, `computeAllTimeBudget`, and `syncWithExpenses`
+   - `rollover.ts:80`: in `computeFinancialsByDate`
+   - `hydrate.ts:503`: in `hydrateFromSupabase`
+   Passing `isIncomeFn` and `isEligibleIncomeFn` into pure calculation functions `computeSpentForDate`, `computeSpentByDate`, and `computeIncomeByDate`.
 
 ### 4.2 Startup Window Sequencing & Residual Risk
 
-To close the failure window where categories were empty on cold start, startup initialization in `App.tsx` (lines 116–120) was resequenced:
+To close the failure window where categories were empty on cold start, startup initialization was resequenced into an authoritative hydration chain inside `src/screens/SplashScreen.tsx` (lines 343–355):
 
 ```ts
-116: await fetchCategories(true);
-117: await Promise.all([
-118:   fetchExpenses(),
-119:   useDailyBudgetStore.getState().hydrateFromSupabase(session.user.id),
-120: ]);
+// Fixed startup hydration sequence for authenticated user:
+// loadPendingExpenses -> fetchCategories -> (fetchExpenses + hydrateFromSupabase + appLock.init)
+if (activeUser) {
+  const hydrationChain = async () => {
+    await useExpenseStore.getState().loadPendingExpenses();
+    await fetchCategories();
+    await Promise.all([
+      fetchExpenses(),
+      useDailyBudgetStore.getState().hydrateFromSupabase(activeUser.id),
+      useAppLockStore.getState().init(activeUser.id),
+    ]);
+  };
+  await Promise.race([
+    hydrationChain(),
+    new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+  ]);
+  nextScreen = 'AppTabs';
+}
 ```
 
 **Residual Risk Analysis**:
-1. **Online vs Offline Cold Start**: When online, `fetchCategories(true)` fetches fresh categories from Supabase. When offline, `categoryStore.fetchCategories` rehydrates cached categories from AsyncStorage (`@arthik_cached_categories_${userId}`), ensuring the category map is populated before expenses and budget logs are evaluated.
+1. **Online vs Offline Cold Start**: When online, `fetchCategories()` fetches fresh categories from Supabase. When offline, `categoryStore.fetchCategories` rehydrates cached categories from AsyncStorage (`@arthik_cached_categories_${userId}`), ensuring the category map is populated before expenses and budget logs are evaluated.
 2. **Fresh Offline Install (Edge Case)**: The only scenario where categories remain empty is a brand-new, unauthenticated offline install where no cache exists. Because `session?.user?.id` is null on unauthenticated launch, neither `fetchExpenses` nor `hydrateFromSupabase` executes. As soon as a user authenticates, categories are fetched and cached first.
 3. **Explicit Transaction Types**: All transactions created or modified in modern app versions write an explicit `type` column (`'expense' | 'income'`). Because `isIncomeTransaction` checks `item?.type === 'income'` and `item?.type === 'expense'` before category keywords, category lookup latency only affects legacy untyped rows (`type: undefined`).
+4. **Multi-Cadence Equality (Daily, Weekly, Monthly)**: Across all cadences, eligible income is evaluated via `buildEligibleIncomeClassifier()` to filter out self-transfers, ensuring that external income properly shields the user's spending pool under ADR 0012 Money Waterfall before any overspend penalty touches Gullak.
 
 ### 4.3 Historical Worked Numerical Example (Pre-Fix vs Post-Fix)
 
@@ -342,50 +356,78 @@ To close the failure window where categories were empty on cold start, startup i
 
 ## 5. What Depends on This File (Blast Radius)
 
-The following components, screens, and stores import and depend on `dailyBudgetStore.ts`:
+The following components, screens, hooks, and stores import and depend on `dailyBudgetStore.ts`:
 
 ```mermaid
 graph TD
-    DBS["dailyBudgetStore.ts"] --> SS["SavingsScreen.tsx"]
+    DBS["dailyBudgetStore.ts (Facade)"] --> SS["SavingsScreen.tsx"]
     DBS --> HS["HomeScreen.tsx"]
-    DBS --> SCM["StreakCalendarModal.tsx"]
-    DBS --> ES["expenseStore.ts"]
-    DBS --> EFS["ExpenseFormScreen.tsx"]
+    DBS --> HIST["HistoryScreen.tsx"]
+    DBS --> INS["InsightsScreen.tsx"]
+    DBS --> PS["ProfileScreen.tsx"]
+    DBS --> NS["NotificationsScreen.tsx"]
+    DBS --> GDS["GullakDepositDetailScreen.tsx"]
+    DBS --> SPLASH["SplashScreen.tsx"]
     DBS --> EDS["ExpenseDetailScreen.tsx"]
-    DBS --> APP["App.tsx"]
-    DBS --> AS["authStore.ts"]
+    DBS --> EFS["ExpenseFormScreen.tsx / useExpenseForm.ts"]
+    DBS --> NAV["navigation/index.tsx & BottomNavBar.tsx"]
+    DBS --> SCM["StreakCalendarModal.tsx"]
+    DBS --> BEM["BudgetEditModal.tsx"]
+    DBS --> DGM["DepositGullakModal.tsx"]
+    DBS --> BHC["BrandedHeroCard.tsx"]
+    DBS --> ES["expenseStore.ts & syncPending.ts"]
+    DBS --> AL["features/autoLog/ledger.ts"]
+    DBS --> AS["store/authStore.ts"]
+    DBS --> HOOKS["useSavingsDashboard.ts & useMoneyWaterfall.ts"]
 ```
 
 ### 5.1 Consumers & Selectors
 
-1. **`src/screens/SavingsScreen.tsx`**:
-   - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `savingsStreak`, `bestStreak`
-   - `setDailyBudget`, `toggleAutoRenew`, `setTodayBudget`, `addToTodayBudget`
-   - `syncWithExpenses`, `dailyRecords`, `getTodayRecord`, `getPastRecordsList`
+1. **`src/screens/SplashScreen.tsx` (lines 348–355)**:
+   - Calls `useDailyBudgetStore.getState().hydrateFromSupabase(activeUser.id)` during startup hydration chain after categories are cached.
 2. **`src/screens/HomeScreen.tsx`**:
-   - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `getTodayRecord`, `dailyRecords`
+   - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `getTodayRecord`, `dailyRecords`, `isBudgetModeEnabled`, `budgetCadence`
    - `syncWithExpenses`, `hydratedForUserId`, `hydrateFromSupabase`
-3. **`src/components/StreakCalendarModal.tsx`**:
-   - `savingsStreak`, `bestStreak`, `dailyRecords`
-4. **`src/store/expenseStore.ts`**:
-   - `registerExpenseGetter`
-   - `useDailyBudgetStore.getState().syncWithExpenses(...)`
-   - `useDailyBudgetStore.getState().uploadPendingDailyRecords()`
-5. **`src/screens/ExpenseFormScreen.tsx`**:
-   - `useDailyBudgetStore.getState().syncWithExpenses(...)`
-6. **`src/screens/ExpenseDetailScreen.tsx`**:
-   - `useDailyBudgetStore.getState().syncWithExpenses(...)`
-7. **`App.tsx`**:
-   - `useDailyBudgetStore.getState().hydrateFromSupabase(...)`
-   - `useDailyBudgetStore.getState().uploadPendingDailyRecords()`
-8. **`src/store/authStore.ts`**:
-   - Registered reset callback: `registerStoreResetCallback` (in `dailyBudgetStore.ts`).
+3. **`src/screens/SavingsScreen.tsx`**:
+   - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `savingsStreak`, `bestStreak`, `budgetCadence`, `budgetPlanChanges`
+   - `setDailyBudget`, `toggleAutoRenew`, `setTodayBudget`, `addToTodayBudget`, `setBudgetCadence`, `cancelPendingPlanChange`
+   - `syncWithExpenses`, `dailyRecords`, `getTodayRecord`, `getPastRecordsList`
+4. **`src/screens/HistoryScreen.tsx`**:
+   - Status badge styling, daily evaluation records, and timeline day badges.
+5. **`src/screens/InsightsScreen.tsx`**:
+   - Consumes period budget targets, cadence limits, and multi-period savings metrics.
+6. **`src/screens/ProfileScreen.tsx`**:
+   - Budget Mode toggle (`isBudgetModeEnabled`), cadence switching (`budgetCadence`), and allowance pausing (`PauseBudgetModal`).
+7. **`src/screens/NotificationsScreen.tsx`**:
+   - Budget threshold alert preferences, evening rollover nudges, and notification status sync.
+8. **`src/screens/GullakDepositDetailScreen.tsx`**:
+   - Manual Gullak deposits history, external inflow attribution, and deposit removal.
+9. **`src/screens/ExpenseDetailScreen.tsx`**:
+   - Invokes `useDailyBudgetStore.getState().syncWithExpenses(...)` on edit/delete.
+10. **`src/screens/ExpenseFormScreen.tsx` & `src/hooks/useExpenseForm.ts`**:
+    - Digital Vault Spending Guard balance checks and `useDailyBudgetStore.getState().syncWithExpenses(...)`.
+11. **`src/navigation/index.tsx` & `src/components/BottomNavBar.tsx`**:
+    - Selects `isBudgetModeEnabled` to dynamically switch between 4-tab (Pure Mode) and 5-tab (Budget Mode) layouts.
+12. **`src/components/BrandedHeroCard.tsx`**:
+    - Renders live allowance, Gullak balance, and unspent waterfall metrics.
+13. **`src/components/StreakCalendarModal.tsx`**:
+    - `savingsStreak`, `bestStreak`, `dailyRecords`, `bestStreakByCadence`.
+14. **`src/components/BudgetEditModal.tsx` & `src/components/DepositGullakModal.tsx`**:
+    - Mutates allowance amounts and registers manual Gullak deposits.
+15. **`src/hooks/useSavingsDashboard.ts` & `src/hooks/useMoneyWaterfall.ts`**:
+    - Encapsulates reactive dashboard selectors, cadence metrics, and Money Waterfall drawdowns.
+16. **`src/store/expenseStore.ts` & `src/store/expense/syncPending.ts`**:
+    - `registerExpenseGetter`, `syncWithExpenses(...)`, `uploadPendingDailyRecords()`.
+17. **`src/features/autoLog/ledger.ts`**:
+    - Synchronizes daily budget metrics and recalculates spent when background transactions are auto-logged.
+18. **`src/store/authStore.ts`**:
+    - Registered reset callback: `registerStoreResetCallback` (clears local budget state and storage keys on sign-out).
 
 ---
 
 ## 6. Extraction Status & Modular Inventory
 
-The table below reflects the completed modular decomposition across all submodules:
+The table below reflects the completed modular decomposition across all submodules adhering strictly to the **Facade Pattern Invariant** (`AGENTS.md` §6.1):
 
 | Functionality / Domain Concept | Canonical Implementation Location | Status | Rationale & Safety |
 |---|---|---|---|
@@ -400,13 +442,13 @@ The table below reflects the completed modular decomposition across all submodul
 | `runHydrateFromSupabase`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData` | `src/store/dailyBudget/hydrate.ts` | **EXTRACTED** | Startup hydration coordinator, persist-wait timeout, offline fast-path, and remote fetching. |
 | `selfHealDefaultBudget`, `selfHealCorruptedRows` | `src/store/dailyBudget/selfHealing.ts` | **EXTRACTED** | Database anomaly self-healing repairing 500 migration defaults and corrupted savings rows. |
 | `handleSetDailyBudget`, `handleToggleAutoRenew`, `handleSetBudgetCadence`, plan sync | `src/store/dailyBudget/planActions.ts` | **EXTRACTED** | Plan adjustments, cadence transitions, next-day scheduling, and pending plan queues. |
-| `useDailyBudgetStore` | `src/store/dailyBudgetStore.ts` | **FACADE (779 lines)** | Preserves 100% of public exports, store types, hooks, and external contracts. |
+| `useDailyBudgetStore` | `src/store/dailyBudgetStore.ts` | **FACADE (875 lines)** | Preserves 100% of public exports, store types, hooks, and external contracts. |
 
 ---
 
-## 7. What You Are Unsure About
+## 7. What You Are Unsure About (Resolution Status)
 
-During the audit, several non-obvious design decisions, heuristics, and potential edge-case bugs were identified. Their current resolution status is recorded below:
+During the audit, several non-obvious design decisions, heuristics, and potential edge-case bugs were identified. All have now been successfully diagnosed, tested, and resolved:
 
 1. **The 500 "OTA Update Bug" Heuristic Deletion Logic (Resolved — Ticket 01)**:
    - *Previous state*: Lines 974–990 previously deleted historical rows from Supabase and local store if `daySpent === 0 && (rawLogBudget === 500 || rawLogSaved === 500)`. This risked permanently deleting legitimate ₹500 zero-spend days.
@@ -414,17 +456,15 @@ During the audit, several non-obvious design decisions, heuristics, and potentia
 2. **Use of `ignoreDuplicates: isInsertOnly` in `checkAndRollover` (Resolved — Ticket 02)**:
    - *Previous state*: Line 672 defined `const isInsertOnly = status === 'unknown' || wasUnfinalized;`. Because `wasUnfinalized` was `true` on every day's first rollover, Supabase executed `ON CONFLICT DO NOTHING`, silently discarding finalized metrics if a row already existed remotely.
    - *Resolution*: Line 546 now uses `const isInsertOnly = shouldIgnoreDuplicates(status);` (`status === 'unknown'`). Real finalized days (`'saved'`, `'exceeded'`, `'even'`) genuinely overwrite remote records.
-3. **Date Shifting in `bestStreak` Calculation (`src/lib/budgetCalculations.ts:115–134`)**:
-   - Line 116 creates `new Date(rec.date)` from a `'yyyy-MM-dd'` string. Line 125 modifies it via `intermediateDate.setDate(prevDate.getDate() + step)`.
-   - *Uncertainty*: Because `new Date('yyyy-MM-dd')` standardizes on UTC midnight while `.getDate()` and `.setDate()` operate on client local time, users operating in timezones west of UTC (e.g. UTC-4 to UTC-10) may experience corrupted `bestStreak` counts due to date shifting across day boundaries.
+3. **Date Shifting in `bestStreak` Calculation (Resolved — Ticket S3.2)**:
+   - *Previous state*: `new Date(rec.date)` from `'yyyy-MM-dd'` string parsed as UTC midnight. Then `intermediateDate.setDate(prevDate.getDate() + step)` shifted backwards by 1 day in timezones west of UTC (e.g. UTC-4 New York), breaking streaks across month/year boundaries.
+   - *Resolution*: Fully resolved in `src/lib/budgetCalculations.ts:138–154` using `parseISO`, `differenceInCalendarDays`, and `addDays` from `date-fns`. 100% immune to UTC offset drift, DST shifts, and calendar boundary errors.
 4. **Zero-Spend Zero-Budget Day Assigned Status `'even'` (Resolved — Ticket 03)**:
    - *Previous state*: In `hydrateFromSupabase`, line 1015 set `evaluatedStatus = daySpent > 0 ? 'unknown' : 'even'`. A zero-budget zero-spend day loaded from Supabase was assigned `'even'`, which broke the user's savings streak.
    - *Resolution*: `hydrateFromSupabase` (line 849) now uses `evaluateDayStatus(dayBudget, daySpent, 'unknown')`, which returns `'unknown'` for zero-budget zero-spend days, preserving streaks uniformly across both rollover and hydration.
-5. **Notification Race Condition on Startup**:
-   - `syncWithExpenses` triggers `checkAndRollover(expenses)` with `skipRolloverNotification = false`.
-   - `hydrateFromSupabase` triggers `checkAndRollover(currentExpenses, true)` with `skipRolloverNotification = true`.
-   - In `App.tsx` (lines 116–120), `fetchExpenses()` and `hydrateFromSupabase()` run in `Promise.all`.
-   - *Uncertainty*: If `fetchExpenses()` finishes first, `useExpenseStore` calls `syncWithExpenses()` before `hydrateFromSupabase()` sets `hydratedForUserId`. Line 422 blocks execution (`if (get().hydratedForUserId !== currentUser.id) return;`). Then `hydrateFromSupabase()` finishes and calls `checkAndRollover(currentExpenses, true)` which skips notifications. If `syncWithExpenses` is not subsequently re-invoked, does the user miss yesterday's rollover celebration notification entirely?
+5. **Notification Race Condition on Startup (Resolved — Ticket S3.3)**:
+   - *Previous state*: If `fetchExpenses()` finished before `hydrateFromSupabase()`, `syncWithExpenses()` was blocked because `hydratedForUserId` was not yet set. Then `hydrateFromSupabase()` ran `checkAndRollover(currentExpenses, true)` with notifications unconditionally suppressed, dropping yesterday's rollover celebration entirely.
+   - *Resolution*: Resolved in `src/store/dailyBudget/hydrate.ts:605–607`. `hydrateFromSupabase` dynamically evaluates `const skipNotification = !areExpensesLoaded()`. If fresh expenses are already loaded in memory when hydration completes, rollover notifications are permitted, guaranteeing celebration alerts are never dropped regardless of async completion order.
 
 ---
 
@@ -446,8 +486,7 @@ With the introduction of Budget Modes, the store orchestrates two high-level tra
 ### 8.2 Plan Changes Timeline (`src/lib/budgetPeriods.ts`)
 - Instead of mutating today's budget abruptly, budget and cadence adjustments create a `BudgetPlanChange` row with `effectiveFrom = tomorrowStr` (or next standard boundary).
 - `buildPlanSlices(planChanges, todayStr, userCreatedAtStr)` divides the user's timeline into non-overlapping active slices `[activeStart, activeEnd]`, preventing double-counting across cadence transitions.
-- Mid-period switches are prorated via `calculateProratedBudget(fullBudget, cadence, activeStart, activeEnd)`:
-  $$\text{Prorated Budget} = \text{round}\left(\frac{\text{Budget}}{\text{Days in Cycle}} \times \text{Remaining Active Days}\right)$$
+- **Non-Prorated Budget Allocation (ADR 0011 Zero-Proration Policy)**: Mid-period cadence switches and new plan activations NEVER scale down or prorate the user's entered budget. The user-entered amount represents 100% real cash allocated into their active spending pool. Pacing previews are purely informational.
 
 ### 8.3 Multi-Cadence Period Finalization (`checkAndRollover`)
 - **Daily Cadence**: Finalizes yesterday's record in `dailyRecords` (`daily_savings_log` in Supabase) at midnight.

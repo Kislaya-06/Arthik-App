@@ -41,24 +41,7 @@ object FinancialFilter {
     return txnWords.containsMatchIn(text)
   }
 
-  /** Notifications from allow-listed payment apps that mention money. */
-  fun isPaymentNotification(text: String?): Boolean {
-    if (text.isNullOrBlank()) return false
-    if (otp.containsMatchIn(text)) return false
-    return money.containsMatchIn(text)
-  }
 
-  val PAYMENT_APPS = mapOf(
-    "com.google.android.apps.nbu.paisa.user" to "Google Pay",
-    "com.phonepe.app" to "PhonePe",
-    "net.one97.paytm" to "Paytm",
-    "com.naviapp" to "Navi",
-    "in.org.npci.upiapp" to "BHIM",
-    "com.dreamplug.androidapp" to "CRED",
-    "in.amazon.mShop.android.shopping" to "Amazon Pay",
-    "com.mobikwik_new" to "MobiKwik",
-    "money.super.payments" to "super.money",
-  )
 
   /** Email apps whose notifications may carry bank / payment alerts (only used when email detection is ON). */
   val EMAIL_APPS = mapOf(

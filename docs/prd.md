@@ -1,8 +1,8 @@
 # Arthik — Product Requirements Document (PRD)
 
-> **Version:** v1.2.4
+> **Version:** v2.1.0
 > **Platform:** Android (primary). iOS config exists but is untested and unsupported.
-> **Status:** Living document — update on every significant feature addition.
+> **Status:** Living document — updated atomically with every feature and architecture addition.
 
 ---
 
@@ -142,8 +142,8 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| Smart Push Policy | Strict **max-1-per-day** rule (`notificationPolicy.ts`). Priority: Monthly recap > Weekly recap > Gullak reward > Evening nudge. |
-| Evening Nudge | Scheduled for 20:30 only on days with nothing logged. Automatically silences after 3 unopened evenings; logging an expense cancels tonight's nudge immediately. |
+| Smart Push Policy | Scheduled notifications are delivered when their domain trigger is met (morning Gullak reward / carry cover, evening recaps, or evening nudge) without being artificially dropped or capped to 1 per day (`notificationPolicy.ts`). |
+| Evening Nudge | Scheduled for 20:30 only on days with nothing logged. Automatically silences after 3 unopened evenings; logging an expense (manually or via AutoLog) cancels tonight's nudge immediately. |
 | Gullak Morning Reward | Scheduled for 08:30 next morning for daily cadence users when yesterday was logged and ended with savings. |
 | Periodic Recaps | Sunday 19:00 weekly recap (≥ 3 expenses) and month-end 21:00 monthly recap (≥ 6 expenses). |
 | In-App Bell & Alerts | In-app notification center capped at 50 items with read/unread tracking. User-triggered events (80% used, daily rollover applied, budget plan updated) stay in-app; over-budget shows a silent banner. |
@@ -151,23 +151,46 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Contextual Explainer Guides | In-app modal guides explaining pacing preview, rollover mechanics, and carry-forward rules (`MoneyExplainerModal`). |
 | Help Centre (FAQ) | Complete Help Centre screen (`FaqScreen`) answering common budget and savings questions in clear English. |
 
-### 4.11 Themes, OTA & Versioning ✅ Shipped
+### 4.11 Themes, In-App APK Updates & Versioning ✅ Shipped
 
 | Feature | Detail |
 |---|---|
 | 3-Theme System | Light, Dark, and battery-saving AMOLED Pure Black (`DarkColors.amoled`) with 3-theme picker on Profile. |
+| In-App Mandatory Updates | In-app APK downloading with progress bar and automatic package installer trigger (`REQUEST_INSTALL_PACKAGES` via `apkInstaller.ts` + `UpdateRequiredScreen`). |
 | OTA updates | Branded in-app update modal with What's New highlights (`OtaUpdateModal`). |
-| Update Required screen | Non-dismissible screen for legacy app versions (controlled via `app_config` table). |
+| Force-Update Gate | Non-dismissible screen for legacy app versions (controlled via Supabase `app_config` and `version_control` tables). |
 | EAS Build | APK via `preview` profile, AAB via `production`. |
+
+### 4.12 Automatic Logging Engine (v2.0 & v2.1) ✅ Shipped
+
+| Feature | Detail |
+|---|---|
+| Native Android Integration | Local Kotlin module (`modules/arthik-autolog`): `SmsReceiver` (broadcast receiver), `PaymentNotificationListener` (allow-listed email apps), `EventQueue`, and `AutoLogHeadlessService`. |
+| Exclusive Authoritative Sources (Option A) | **Bank SMS** and **Bank Transaction Emails** (Gmail, Outlook, Samsung Email, Yahoo Mail, Proton Mail) are the exclusive inputs. Third-party payment app notifications (GPay, PhonePe, Paytm) are excluded to prevent duplicate review noise. |
+| 100% On-Device Privacy | Raw SMS and email alert bodies are parsed strictly on-device using regex tokenizers and template hashing; zero raw communication text ever touches the network or cloud. |
+| On-Device Encrypted Storage | High-security local SQLite database using **SQLCipher** via `expo-sqlite`, secured with a 256-bit encryption key in `expo-secure-store`. |
+| Cross-Source Reconciliation | Unifies bank SMS and email alerts into a single transaction when both describe the same payment within a 15-minute window (`src/features/autoLog/matching.ts`). |
+| Human-in-the-Loop Review | Confirmed bank transactions on tracked accounts auto-log immediately; new accounts, untracked accounts, transfers, or ambiguous merchants route to `Pending Review` (`AutoLogReviewSheet`). Arthik never guesses. |
+| Historical Discovery Scanner | Scans past SMS on-device up to 90 days to discover bank accounts and formats before turning live tracking ON. |
+| AutoLog UI Suite | Comprehensive screens: `AutoLogCenterScreen`, `AutoLogSetupScreen`, `AutoLogReviewScreen`, `AutoLogIntroScreen`, `AutoLogInfoScreen`, `AutoLogAccountsScreen`, `AutoLogEmailScreen`. |
+
+### 4.13 Bill Splitting & Shares (Split Expenses) ✅ Shipped
+
+| Feature | Detail |
+|---|---|
+| Split on Creation & Edit | Split any expense with friends during entry or later from transaction details (`SplitExpenseModal`). |
+| Flexible Share Allocation | Equal split among friends or custom rupee share amounts. |
+| Friend Directory & Balances | Track friend balances and outstanding shared amounts (`src/store/sharesStore.ts`). |
+| Automatic Repayment Matching | When money is credited from a friend, Arthik automatically detects open split debts and marks it as a debt reimbursement instead of income (`src/lib/shares.ts`). |
 
 ---
 
 ## 5. Non-Goals (Current Version)
 
-The following are **explicitly out of scope** for v1.x:
+The following are **explicitly out of scope** for v2.x:
 
-- **Multi-user / shared households**: Arthik is single-user only. No family budgets, shared expenses, or split bills.
-- **Bank account sync**: No API integration with banks, UPI providers, or credit card statements.
+- **Shared household ledgers**: Arthik is single-user authenticated (individual expenses can be split with friends via Shares, but shared multi-user household ledger sync is out of scope).
+- **Bank aggregator credentials sync**: No cloud bank aggregator APIs, NetBanking credentials, or screen-scraping (all automated detection is strictly 100% on-device via Bank SMS and Bank Email alerts).
 - **Investment tracking**: No mutual funds, SIPs, or stock portfolio.
 - **Recurring expense automation**: No auto-detected or rule-based recurring entries.
 - **iOS support**: iOS config exists in `app.json` but is untested and unsupported.
@@ -181,8 +204,8 @@ The following are **explicitly out of scope** for v1.x:
 | Constraint | Detail |
 |---|---|
 | Offline-first | App must be fully functional without internet (ADR 0001) |
-| Single database | Supabase Postgres. No local SQLite. No WatermelonDB. |
-| No backend server | Supabase handles auth, storage, and edge functions. No custom Express/FastAPI server. |
+| Dual-storage architecture | **Supabase Postgres** for authenticated user transactions, categories, and Gullak logs; on-device **SQLCipher encrypted SQLite** (`expo-sqlite`) for AutoLog events and review queues; **AsyncStorage** for local preferences and pending offline sync queues. |
+| No backend application server | Supabase handles auth, storage, and edge functions. No custom Express/FastAPI server. |
 | Indian number format | All amounts displayed in Indian grouping (`₹1,00,000`) via `formatCurrency` |
 | Date = local day | "Today" always means the device's local date. UTC is never used for date boundaries. |
 | 60 FPS on mid-range Android | Target devices: 4 GB RAM, Android 11–14, mid-range Snapdragon/MediaTek |
@@ -224,7 +247,6 @@ These are **not committed**. They are tracked here to inform architectural decis
 | P2 | **Export to CSV / PDF** | Monthly statement for tax or personal records |
 | P2 | **iOS TestFlight release** | Requires testing all native modules on iOS |
 | P2 | **Widget (Android home screen)** | Today's remaining allowance + Gullak balance |
-| P3 | **Split bill** | Between Arthik users only — no external integrations |
 | P3 | **Goal-based savings** | Park Gullak funds toward named goals (e.g. "Laptop ₹60,000") |
 
 ---

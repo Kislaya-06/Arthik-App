@@ -1,9 +1,8 @@
 import * as Crypto from 'expo-crypto';
-import { hash, maskSensitive, parseEmail, parseNotification, parseSms } from './parser';
+import { hash, maskSensitive, parseEmail, parseSms } from './parser';
 import {
   CROSS_SOURCE_WINDOW_MS,
   NOTIFICATION_WAIT_MS,
-  NOTIFICATION_REPOST_WINDOW_MS,
   EMAIL_REPOST_WINDOW_MS,
   TRANSFER_WINDOW_MS,
   IDENTITY_WINDOW_MS,
@@ -15,8 +14,8 @@ import {
   isSameSourceDuplicate,
 } from './matching';
 import * as db from './db';
-import { createTransaction, deleteTransaction, findManualLookalike, findSplitRepaymentCandidates, paymentModeFor } from './ledger';
-import { notifyLogged, notifyNeedsReview, notifyPreview } from './notify';
+import { createTransaction, deleteTransaction, findManualLookalike, findSplitRepaymentCandidates, paymentModeFor, isExceedingVaultLiquidity } from './ledger';
+import { notifyLogged, notifyNeedsReview } from './notify';
 import type { AutoLogEvent, EventOrigin, EventStatus, ParsedMessage, ReviewReason } from './types';
 
 /**
@@ -177,6 +176,7 @@ const reviewQuestion: Record<ReviewReason, string> = {
   unknown_sender: 'Financial email from a new sender.',
   possible_transfer: 'Is this a transfer between your own accounts?',
   split_repayment: 'Is this your friend’s share of a split?',
+  exceeds_liquidity: 'Exceeds spending limit. Zero funds in Income & Gullak.',
 };
 
 const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: ProcessOptions) => {
@@ -393,6 +393,11 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
   const lookalike = findManualLookalike(e.amount, type, e.occurredAt, await autoExpenseIds());
   if (lookalike) return { ...(await finalizePending(e, 'possible_duplicate', opts)), isNewAccount };
 
+  // Vault Spending Guard: Zero funds in Income & Gullak with amount exceeding allowance → flag for review
+  if (type === 'expense' && e.amount != null && isExceedingVaultLiquidity(e.amount)) {
+    return { ...(await finalizePending(e, 'exceeds_liquidity', opts)), isNewAccount };
+  }
+
   await logEvent(e, type, pref?.category_id ?? null, account.kind, opts);
   await db.insertEvent(e);
   if (takeOverRoot) await db.updateEvent(takeOverRoot.id, { status: 'merged', matchedId: e.id, reviewReason: null });
@@ -401,60 +406,9 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
 
 // ─── Notifications (live only — fast preview, never logged alone) ──────────
 
-export const processNotification = async (raw: RawNotification, opts: ProcessOptions): Promise<ProcessResult> => {
-  if (opts.origin !== 'live') return { status: 'skipped' };
-  const parsed = parseNotification(raw.app, raw.title, raw.body);
-  if (parsed.kind !== 'txn' || parsed.amount == null) return { status: 'skipped' };
-
-  const text = `${raw.title} ${raw.body}`.trim();
-  const fingerprint = hash(`${raw.app}|${normalizeBody(text)}`);
-  const e = baseEvent(parsed, raw.app, text, raw.date, fingerprint, 'live');
-  if (await db.getEvent(e.id)) return { status: 'duplicate' };
-  // Payment apps re-post (update) the same notification within seconds. A later identical notification
-  // is a NEW payment (₹100 received three times in a row must count three times).
-  const same = await db.findEvents(
-    "source = 'notification' AND fingerprint = ? AND occurred_at BETWEEN ? AND ?",
-    fingerprint, raw.date - NOTIFICATION_REPOST_WINDOW_MS, raw.date + NOTIFICATION_REPOST_WINDOW_MS
-  );
-  if (same.length) return { status: 'duplicate' };
-
-  if ((await ruleVerdict(e)) === 'ignore') {
-    e.status = 'ignored';
-    await db.insertEvent(e);
-    return { status: 'ignored' };
-  }
-
-  // Bank SMS may have arrived first.
-  const smsEvents = await db.findEvents(
-    "source = 'sms' AND status IN ('logged','pending','queued') AND ((occurred_at BETWEEN ? AND ?) OR (ref IS NOT NULL AND ref = ?))",
-    e.occurredAt - CROSS_SOURCE_WINDOW_MS, e.occurredAt + CROSS_SOURCE_WINDOW_MS, e.ref ?? '\u0000'
-  );
-  for (const s of smsEvents) {
-    const sc = identityScore(s as any, e as any);
-    if (sc === null || sc < STRONG_SCORE) continue;
-    const already = await db.findEvents("matched_id = ? AND source = 'notification'", s.id);
-    if (already.length) continue;
-    e.status = 'merged';
-    e.matchedId = s.id;
-    await db.insertEvent(e);
-    if (!s.merchant && e.merchant) await db.updateEvent(s.id, { merchant: e.merchant });
-    return { status: 'merged', eventId: e.id };
-  }
-
-  // v2.1: an email may already describe this payment.
-  const viaEmail = await findIdentity(e, ['email']);
-  if (viaEmail.kind === 'match' && viaEmail.root) {
-    e.status = 'merged';
-    e.matchedId = viaEmail.root.id;
-    await db.insertEvent(e);
-    if (!viaEmail.root.merchant && e.merchant) await db.updateEvent(viaEmail.root.id, { merchant: e.merchant });
-    return { status: 'merged', eventId: e.id };
-  }
-
-  e.status = 'awaiting_sms';
-  await db.insertEvent(e);
-  if (opts.notify) await notifyPreview(e.id, e.amount, e.merchant);
-  return { status: 'awaiting_sms', eventId: e.id };
+export const processNotification = async (_raw: RawNotification, _opts: ProcessOptions): Promise<ProcessResult> => {
+  // Option A: Payment-app notifications are excluded in favor of authoritative Bank SMS and Bank Email.
+  return { status: 'skipped' };
 };
 
 // ─── Email notifications (v2.1, live only) ──────────────────────────────────
@@ -605,14 +559,21 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
     return { ...r, isNewAccount };
   }
 
+  // Vault Spending Guard: Zero funds in Income & Gullak with amount exceeding allowance → flag for review
+  if (type === 'expense' && e.amount != null && isExceedingVaultLiquidity(e.amount)) {
+    const r = await finalizePending(e, 'exceeds_liquidity', opts);
+    await finishTakeOver();
+    return { ...r, isNewAccount };
+  }
+
   await logEvent(e, type, pref?.category_id ?? null, account.kind, opts);
   await db.insertEvent(e);
   await finishTakeOver();
   return { status: e.status, eventId: e.id, accountKey: e.accountKey, isNewAccount };
 };
 
-/** Previews whose bank SMS never came → Pending Review (never auto-logged), unless an email/SMS already confirmed it. */
-export const sweepAwaiting = async (now: number, notify: boolean) => {
+/** Legacy awaiting_sms cleanup (Option A): quietly merge or ignore without generating phantom reviews. */
+export const sweepAwaiting = async (now: number, _notify: boolean) => {
   const stale = await db.findEvents("status = 'awaiting_sms' AND occurred_at < ?", now - NOTIFICATION_WAIT_MS);
   for (const e of stale) {
     const id = await findIdentity(e, ['email', 'sms']);
@@ -621,8 +582,7 @@ export const sweepAwaiting = async (now: number, notify: boolean) => {
       if (!id.root.merchant && e.merchant) await db.updateEvent(id.root.id, { merchant: e.merchant });
       continue;
     }
-    await db.updateEvent(e.id, { status: 'pending', reviewReason: 'notification_only' });
-    if (notify) await notifyNeedsReview(e.id, e.amount, e.merchant, reviewQuestion.notification_only);
+    await db.updateEvent(e.id, { status: 'ignored', reviewReason: null });
   }
   return stale.length;
 };

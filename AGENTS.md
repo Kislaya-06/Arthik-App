@@ -5,7 +5,8 @@ Read this fully before touching code. If a rule here conflicts with a user instr
 1. **Explain Rule Breach**: State out loud which rule is being broken and why.
 2. **Thorough Impact Explanation**: If breaking the rule affects critical logic, touches financial metrics, or creates cascading changes across the app, provide a comprehensive explanation of the implications before writing code. Because every rupee in Arthik is REAL MONEY, any calculation flaw or balance mismatch directly harms the user.
 3. **MANDATORY LOGIC APPROVAL GATE**: The agent must NEVER unilaterally alter or modify any calculation, financial metric, or core app logic. Any change in logic must be explicitly presented to the user and approved by them first before execution.
-4. **Synchronize AGENTS.md**: Once an exception or rule change is approved and executed, the agent must update `AGENTS.md` (and relevant docs) so the rules remain accurate and up-to-date.
+4. **MANDATORY DOCUMENTATION ATOMICITY & PERPETUAL RECONCILIATION (CRITICAL - ZERO DOCUMENTATION LAG)**: Whenever ANY change, feature, bugfix, policy update, refactor, UI modification, or direct documentation edit is made in the app (whether in code OR in any documentation file), ALL related, dependent, and interconnected documentation files across the repository (`docs/maps/*`, `docs/adr/*`, `docs/specs/*`, `docs/*.md`, `AGENTS.md`, `CHANGELOG.md`, `README.md`) MUST be updated immediately in the SAME change. From now on and for all future tasks, every single document in the project MUST remain 100% fresh, accurate, and up-to-date forever — NO document is ever allowed to lag behind, drift, or contradict true code reality.
+5. **MANDATORY PROACTIVE SKILL UTILIZATION (CRITICAL)**: Whenever ANY work or task is initiated (whether UI animation, gestures, TDD logic, bug diagnosis, code review, design polish, Android CLI, or architectural design), the agent MUST proactively identify, read, and strictly leverage the appropriate installed specialized skills (e.g. `animate-expo`, `tdd`, `code-review`, `diagnosing-bugs`, `ui-ux-pro-max`, `android-cli`, `apple-design`, etc.) relevant to the task without waiting for the user to explicitly ask for them. Specialized tasks must never be performed without consulting and executing the installed skill's best practices.
 
 > **STRICT GIT & RELEASE INVARIANT (CRITICAL)**: Under NO circumstances should any code be committed (`git commit`), pushed to remote (`git push`), merged (`git merge`), or released as an OTA update (`eas update`) unless the user explicitly and directly instructs you to do so in their prompt. The agent must never autonomously commit, push, merge, or release updates without direct, explicit, and unambiguous user command.
 
@@ -51,7 +52,7 @@ index.ts                # entry; imports src/features/autoLog/background (headle
 schema.sql              # Supabase DDL + RLS policies (source of truth for DB)
 CHANGELOG.md            # user-facing change log — keep updated
 tests/                  # Vitest unit tests (run with npm test); helpers/autoLogTestEnv.ts = Auto Logging test doubles
-docs/                   # architecture, AUTO_LOGGING, RELEASE_PROCESS, PLAY_STORE_AUTOLOG, design system, adr/, specs/
+docs/                   # architecture, AUTO_LOGGING, RELEASE_PROCESS, design-system, adr/, specs/
 supabase/               # migrations/ (budget modes, autolog_profiles, release flags), functions/delete-user-account
 modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
                         # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
@@ -107,13 +108,14 @@ Before reporting done, the agent must strictly satisfy all 4 gates:
 1. **Compilation & Types Gate**: `npx tsc --noEmit` must produce 0 type errors.
 2. **Logic & Test Gate**: `npm test` must pass with 0 failures. If any logic, calculation, or helper was modified or created, update existing tests or add new tests to permanently prevent regressions.
 3. **UI & Theme Integrity Gate**: Verify that neither existing nor new UI is broken across **Light, Dark, and AMOLED** themes. Ensure readable contrast, proper SafeArea insets (no notch/navigation clipping), and correct layout responsiveness.
-4. **Release & Sync Gate**: Synchronize `CHANGELOG.md` (under `[Unreleased]`) and update `app.json` OTA highlights (`expo.extra.otaUpdate.highlights`) for user-facing changes so the in-app release modal remains accurate.
+4. **Release & Documentation Sync Gate**: Synchronize all affected and interconnected documentation files across the repository (`docs/*.md`, `docs/maps/*`, `docs/adr/*`, `docs/specs/*`, `docs/README.md`), update `CHANGELOG.md` (under `[Unreleased]`), and update `app.json` OTA highlights (`expo.extra.otaUpdate.highlights`) for user-facing changes so docs, maps, specs, ADRs, and the in-app release modal remain 100% accurate with true app code at all times.
 
 **Done Reporting Protocol**:
 When presenting the final outcome to the user:
 - State clearly what was verified and any items that could not be tested locally (e.g. native biometric, live Supabase network).
 - Confirm unrelated features were not touched or modified.
 - Explicitly flag if the change requires a new APK build rather than an OTA update.
+- Clearly provide manual owner actions: If a task requires steps only the owner can execute (running SQL in Supabase dashboard, `eas build`, keystore / credentials, GitHub Releases, or testing on physical phones), provide the exact SQL or steps for the user.
 
 **Metro server rule:** Only run one Metro server on port 8081 (`--port 8081`).
 There is **no ESLint and no Prettier** in this repo. Do not add or run them.
@@ -154,10 +156,20 @@ Work with surgical precision and zero-breakage guarantee:
 
 # 6. Architecture Rules
 
-## 6.1 Existing Code First
+## 6.1 Existing Code First & Facade Pattern (MANDATORY ARCHITECTURE INVARIANT)
 - Screens render UI and call store actions. Stores manage Supabase, AsyncStorage, and state. `src/lib/` holds pure helpers.
-- Cross-store wiring uses explicit registration callbacks (`registerSyncCallback`, `registerExpenseGetter`, `registerExpensesLoadedGetter`, `registerStoreResetCallback`, `registerCategoryDeleteCallback`). Do not import stores circular-wise.
-- Store submodule architecture: Submodules under `src/store/dailyBudget/*` and `src/store/expense/*` must receive required state or setters via parameters/callbacks; never import the parent store directly to prevent circular dependency deadlocks.
+- **Zero Monolithic God Files (Facade Pattern Rule)**: Under NO circumstances should any store or feature grow into an unmaintainable 2,000–2,500 line monolithic file. Any complex store or domain feature exceeding ~350–400 lines MUST strictly follow the **Facade Pattern** (as standardized in `dailyBudgetStore.ts` and `expenseStore.ts`).
+  - **Public Facade**: The root file (e.g., `src/store/dailyBudgetStore.ts`) serves purely as a public facade exposing external contracts, Zustand hooks, and selectors.
+  - **Categorized Submodules**: Internal logic must be cleanly decomposed into dedicated, single-responsibility modules under a feature subfolder (e.g., `src/store/dailyBudget/`):
+    - `types.ts` — Interfaces, domain contracts, and action signatures.
+    - `metrics.ts` — Pure mathematical calculations and balance selectors.
+    - `pendingStorage.ts` — AsyncStorage offline queues and key schemas.
+    - `planActions.ts` — User mutations, cadence transitions, and plan queues.
+    - `hydrate.ts` — Supabase boot hydration and offline fast-paths.
+    - `rollover.ts` — Midnight finalization and cadence rollover cycles.
+    - `classifiers.ts` — Financial direction predicates and category classification.
+    - `expenseBridge.ts` — Cross-store callbacks preventing circular imports.
+- **Zero Circular Dependencies**: Submodules must receive required state or setters via parameters/callbacks; never import the parent store or peer stores directly. Cross-store wiring must strictly use explicit registration callbacks (`registerSyncCallback`, `registerExpenseGetter`, `registerExpensesLoadedGetter`, `registerStoreResetCallback`, `registerCategoryDeleteCallback`).
 
 ## 6.2 Dependencies
 - No new dependencies if avoidable. Use already installed packages (`date-fns`, `lucide-react-native`, `react-native-svg`, `react-native-reanimated`, AsyncStorage).
@@ -200,19 +212,16 @@ Work with surgical precision and zero-breakage guarantee:
 
 **MANDATORY DESIGN LANGUAGE INVARIANT**: Any new UI screen, modal, card, or component added or modified in Arthik MUST strictly consume the canonical design tokens from [`src/config/theme.ts`](src/config/theme.ts) and the approved UI primitives from `src/components/ui/` as defined in [`docs/design-system.md`](docs/design-system.md). Never introduce ad-hoc font sizes, arbitrary button/input heights, raw hex codes, or screen-specific padding. Same semantic role = same visual treatment everywhere.
 
-## 9.0 Design Contract — Read Before Any UI Work
+## 9.0 Design Contract & Specification — Read Before Any UI Work
 
-**[`docs/ARTHIK_DESIGN_SYSTEM.md`](docs/ARTHIK_DESIGN_SYSTEM.md) is the design contract for this repository.** Read it in full before implementing or modifying any screen, modal, card, component, chart, or icon. It is not optional documentation.
+**[`docs/design-system.md`](docs/design-system.md) is the canonical design contract and usage guide for this repository.** Read it in full before implementing or modifying any screen, modal, card, component, chart, or icon. It is not optional documentation.
 
-The three layers of design authority, in order:
+The two layers of design authority:
 
 | Layer | File | Role |
 | --- | --- | --- |
-| **Design Contract** | [`docs/ARTHIK_DESIGN_SYSTEM.md`](docs/ARTHIK_DESIGN_SYSTEM.md) | Human-readable rules: principles, semantic roles, hierarchy, governance. Read first. |
 | **Runtime Tokens** | [`src/config/theme.ts`](src/config/theme.ts) | Numeric values: spacing, radius, font sizes, control heights, colors. Never hardcode these. |
-| **Usage Guide** | [`docs/design-system.md`](docs/design-system.md) | Token tables, component specs, allowed exceptions, correct/incorrect usage examples. |
-
-When the three layers appear to conflict, fix the conflict — do not pick the one that lets you skip reading the others.
+| **Design Contract & Usage Guide** | [`docs/design-system.md`](docs/design-system.md) | Single canonical specification: principles, token tables, component anatomy, motion physics, financial tiers, audit checklist. |
 
 ### Design Gap Protocol
 If a new UI requirement cannot be satisfied by the current design system:
@@ -344,10 +353,11 @@ Follow `docs/RELEASE_PROCESS.md` (generic `X.Y.Z` playbook). Key points: same ke
 
 ---
 
-# 14. Documentation & Changelog Synchronization (MANDATORY INVARIANT)
+# 14. Documentation & Skill Synchronization (MANDATORY INVARIANTS)
 
-- **Comprehensive Documentation Freshness**: Whenever changes are made anywhere in the repository (new features, bugfixes, test updates, architectural shifts, or configuration updates), **ALL documentation files related to or affected by that change** (including `CHANGELOG.md`, `README.md`, `docs/architecture.md`, `docs/prd.md`, `docs/AUTO_LOGGING.md`, `docs/RELEASE_PROCESS.md`, `docs/design-system.md`, `AGENTS.md`, and any relevant specs/ADRs) MUST be updated in the same change/commit.
-- **No Scope Blindspots**: The agent must never artificially restrict itself to a handful of named files; every document that describes, specifies, or tracks the modified logic, test counts, metrics, or workflows must remain 100% fresh, accurate, and synchronized.
+- **Comprehensive Documentation Freshness (Forever Invariant)**: Whenever ANY change, feature, bugfix, UI update, refactor, or architectural modification occurs anywhere in the repository, **ALL documentation files related to or affected by that change** (including `CHANGELOG.md`, `README.md`, `docs/architecture.md`, `docs/prd.md`, `docs/AUTO_LOGGING.md`, `docs/RELEASE_PROCESS.md`, `docs/design-system.md`, `docs/maps/*`, `docs/specs/*`, `docs/adr/*`, and `AGENTS.md`) MUST be updated immediately in the exact same change. From now on and for all future work, documentation must NEVER lag behind code reality — no document is ever allowed to remain stale or drifted.
+- **Zero Scope Blindspots**: The agent must never artificially restrict itself to a handful of named files; every document that describes, specifies, or tracks the modified logic, test counts, metrics, or workflows must perpetually mirror 100% true app reality.
+- **Mandatory Proactive Skill Execution**: Before and during execution of specialized work (e.g. animation, gesture physics, test-driven development, deep bug diagnosis, code review, design polish, Android native setup), the agent MUST proactively invoke and adhere to the appropriate installed skill (`animate-expo`, `tdd`, `code-review`, `diagnosing-bugs`, `ui-ux-pro-max`, `android-cli`, etc.).
 - **AGENTS.md Rule Synchronization**: If an approved change or feature alters any behavioral constraint, architectural pattern, or financial invariant, the agent MUST immediately update `AGENTS.md` (following the §20 protocol) so the living rulebook accurately mirrors current app behavior.
 - **Changelog Format**: User-visible changes strictly get a clear, concise bullet point in `CHANGELOG.md` under `[Unreleased]` in the same commit, specifying whether the change is an Addition, Fix, or Refactor, and noting whether it is OTA-safe.
 - **Small, Focused Commits**: Use imperative commit messages (e.g. `feat(home): ...`, `fix(savings): ...`, `docs(agents): ...`).
@@ -463,7 +473,7 @@ If a discovered issue is outside the current task and is not a serious blocker, 
 Mention it separately and wait for explicit approval.
 
 ## 16.9 Preserve the Approved Design System
-[`docs/ARTHIK_DESIGN_SYSTEM.md`](docs/ARTHIK_DESIGN_SYSTEM.md) and the existing implementation are the source of truth.
+[`docs/design-system.md`](docs/design-system.md) and the existing implementation are the source of truth.
 Do not introduce new design rules simply because a generic design system, AI audit, or external recommendation suggests them.
 
 ## 16.10 Prioritize Product Progress Over Perpetual Polish

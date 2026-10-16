@@ -6,7 +6,8 @@
  *
  * Principles
  *  1. Say something the user cannot already see on the screen in front of them.
- *  2. Be quiet by default: at most ONE scheduled notification per day, ever.
+ *  2. Deliver every necessary notification: scheduled messages fire at their intended hours
+ *     (morning Gullak reward / carry cover, evening recaps, or evening nudge) without dropping valid messages.
  *  3. Never nag: nudges only fire if nothing was logged, and stop after 3 unopened days.
  *  4. Be accurate: numbers come from what the user has actually logged; never promise more than the
  *     accounting does (an over-limit day saves 0 and ends the streak, but whether the overspend is taken
@@ -299,6 +300,10 @@ export interface LimitCopyInput {
   remaining: number;
   /** Days left in the current weekly / monthly period. */
   remainingDays?: number;
+  /** Amount of overspend covered from available income. */
+  incomeCovered?: number;
+  /** Amount of overspend drawn from Gullak reserve. */
+  gullakCovered?: number;
 }
 
 const PERIOD_WORD: Record<Cadence, string> = { daily: "today's", weekly: "this week's", monthly: "this month's" };
@@ -307,12 +312,22 @@ export function limitCopy(i: LimitCopyInput): Copy {
   const word = PERIOD_WORD[i.cadence];
   if (i.kind === 'exceeded') {
     const over = Math.max(0, i.spent - i.budget);
-    return {
-      title: `Over ${word} ${i.cadence === 'daily' ? 'limit' : 'budget'}`,
-      body:
+    let body = '';
+    if (i.incomeCovered && i.incomeCovered > 0 && i.gullakCovered && i.gullakCovered > 0) {
+      body = `${money(over)} over limit: ${money(i.incomeCovered)} covered from Income, ${money(i.gullakCovered)} drawn from Gullak.`;
+    } else if (i.incomeCovered && i.incomeCovered > 0) {
+      body = `${money(over)} over limit: covered from your Income.`;
+    } else if (i.gullakCovered && i.gullakCovered > 0) {
+      body = `${money(over)} over limit: drawn from your Gullak.`;
+    } else {
+      body =
         i.cadence === 'daily'
           ? `${money(i.spent)} spent of ${money(i.budget)} — ${money(over)} over. Today won't add to your Gullak.`
-          : `${money(i.spent)} of ${money(i.budget)} — ${money(over)} over.`,
+          : `${money(i.spent)} of ${money(i.budget)} — ${money(over)} over.`;
+    }
+    return {
+      title: `Over ${word} ${i.cadence === 'daily' ? 'limit' : 'budget'}`,
+      body,
     };
   }
   const pct = i.budget > 0 ? Math.min(99, Math.round((i.spent / i.budget) * 100)) : 80;
@@ -469,7 +484,7 @@ export function buildNotificationPlan(ctx: PlanContext): PlannedNotification[] {
     });
   }
 
-  return capOnePerDay(items).sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
+  return items.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
 }
 
 /** Keeps the single most important item for each calendar day. */

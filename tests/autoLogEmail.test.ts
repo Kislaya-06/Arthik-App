@@ -18,7 +18,7 @@ vi.mock('../src/features/autoLog/notify', () => ({
 vi.mock('../src/features/autoLog/permissions', () => ({ hasSmsPermission: async () => true }));
 vi.mock('../src/features/autoLog/background', () => ({ registerBackground: async () => {}, unregisterBackground: async () => {} }));
 
-import { resetEnv, native, ledger, receiveSms, receiveNotification, receiveEmail } from './helpers/autoLogTestEnv';
+import { resetEnv, native, ledger, receiveSms, receiveEmail } from './helpers/autoLogTestEnv';
 import * as service from '../src/features/autoLog/service';
 import * as db from '../src/features/autoLog/db';
 import { parseEmail, extractTxnTime, resolveEmailSender } from '../src/features/autoLog/parser';
@@ -227,28 +227,24 @@ describe('Multiple sources, one transaction (spec §8–10, §15, §41, §45)', 
     expect(await sourcesOf(txs()[0].id)).toEqual(['email', 'sms']);
   });
 
-  it('notification + email, no SMS → the email confirms it (SMS is not mandatory)', async () => {
+  it('email alone confirms and logs transaction (Option A: Bank SMS & Email are authoritative)', async () => {
     await goLive();
     const t = Date.now();
-    receiveNotification('PhonePe', 'Paid ₹500 to Zomato', 'Payment successful', t);
-    await run();
-    expect(txs()).toHaveLength(0); // still waiting
-    receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t), t + 10 * MIN);
+    receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t), t);
     await run();
     expect(txs()).toHaveLength(1);
-    expect(await sourcesOf(txs()[0].id)).toEqual(['email', 'notification']);
+    expect(await sourcesOf(txs()[0].id)).toEqual(['email']);
   });
 
-  it('notification → SMS → email: all three sources, one transaction', async () => {
+  it('SMS → email: both authoritative sources combine into one transaction', async () => {
     await goLive();
     const t = Date.now();
-    receiveNotification('Google Pay', '₹500 paid to Zomato', '', t);
-    receiveSms(HDFC, smsDebit(500, 'ZOMATO', '839201928340'), t + 4 * MIN);
+    receiveSms(HDFC, smsDebit(500, 'ZOMATO', '839201928340'), t);
     await run();
     receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t, { ref: '839201928340' }), t + 50 * MIN);
     await run();
     expect(txs()).toHaveLength(1);
-    expect(await sourcesOf(txs()[0].id)).toEqual(['email', 'notification', 'sms']);
+    expect(await sourcesOf(txs()[0].id)).toEqual(['email', 'sms']);
   });
 
   it('two ₹500 Zomato transactions + an email that could be either → Pending Review (spec §21, §44)', async () => {
@@ -308,22 +304,18 @@ describe('Independent sources (spec §38–39)', () => {
   it('notification → email confirms immediately (takeOverRoot) → late SMS merges into existing transaction', async () => {
     await goLive();
     const t = Date.now();
-    receiveNotification('Google Pay', '₹450 paid to Swiggy', '', t);
-    await run();
-    expect(txs()).toHaveLength(0); // awaiting bank confirmation
-
-    // Bank email arrives 2 minutes later and immediately confirms
-    receiveEmail(HDFC_EMAIL, emailDebit(450, 'SWIGGY', t, { ref: '987654321000' }), t + 2 * MIN);
+    // Bank email arrives and immediately logs
+    receiveEmail(HDFC_EMAIL, emailDebit(450, 'SWIGGY', t, { ref: '987654321000' }), t);
     await run();
     expect(txs()).toHaveLength(1);
     const expenseId = txs()[0].id;
-    expect(await sourcesOf(expenseId)).toEqual(['email', 'notification']);
+    expect(await sourcesOf(expenseId)).toEqual(['email']);
 
     // Bank SMS arrives 15 minutes later and joins the existing transaction
     receiveSms(HDFC, smsDebit(450, 'SWIGGY', '987654321000'), t + 15 * MIN);
     await run();
     expect(txs()).toHaveLength(1);
-    expect(await sourcesOf(expenseId)).toEqual(['email', 'notification', 'sms']);
+    expect(await sourcesOf(expenseId)).toEqual(['email', 'sms']);
   });
 });
 
@@ -368,18 +360,39 @@ describe('Email-First Transaction Confirmation & Source Reconciliation', () => {
     expect((await db.findEvents("status = 'pending'")).length).toBe(0);
   });
 
-  it('3. Notification first → email confirmed → sweepAwaiting runs → notification merged cleanly without review', async () => {
+  it('3. Email confirmed → legacy awaiting_sms cleaned up cleanly without review', async () => {
     await goLive();
     const t = Date.now();
-    receiveNotification('PhonePe', 'Paid ₹500 to Zomato', 'Payment successful', t);
-    await run();
-    expect(txs()).toHaveLength(0); // sitting in awaiting_sms
 
     // Email arrives and confirms the transaction
-    receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t), t + 3 * MIN);
+    receiveEmail(HDFC_EMAIL, emailDebit(500, 'ZOMATO', t), t);
     await run();
     expect(txs()).toHaveLength(1);
     const expenseId = txs()[0].id;
+
+    // Simulate legacy notification in awaiting_sms
+    await db.insertEvent({
+      id: 'legacy-awaiting',
+      source: 'notification',
+      status: 'awaiting_sms',
+      amount: 500,
+      direction: 'debit',
+      occurredAt: t - MIN,
+      fingerprint: 'legacy-notif',
+      origin: 'live',
+      sender: 'PhonePe',
+      body: 'PhonePe Paid 500',
+      createdAt: Date.now(),
+      merchant: 'ZOMATO',
+      template: 't',
+      kind: 'txn',
+      accountKey: null,
+      ref: null,
+      expenseId: null,
+      needsCategory: false,
+      reviewReason: null,
+      matchedId: null,
+    });
 
     // 25 minutes later, sweepAwaiting runs
     await sweepAwaiting(t + 25 * MIN, true);

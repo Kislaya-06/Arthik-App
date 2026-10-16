@@ -232,6 +232,19 @@ export function cancelAllPlanned(): Promise<void> {
   });
 }
 
+/** Cancel the scheduled evening nudge for today (called when an expense is auto-logged in headless mode). */
+export function cancelTonightNudge(dateStr?: string): Promise<void> {
+  return enqueue(async () => {
+    if (!isDeviceNotificationSupported() || !Notifications) return;
+    try {
+      const d = dateStr || new Date().toISOString().slice(0, 10);
+      await Notifications.cancelScheduledNotificationAsync(`plan_nudge_${d}`).catch(() => {});
+    } catch (error) {
+      if (__DEV__) console.log('Error cancelling tonight nudge:', error);
+    }
+  });
+}
+
 /**
  * One-time upgrade cleanup: the old version scheduled a repeating 20:00 "Daily Expense Reminder" at the OS level
  * (it keeps firing forever) on a single MAX-importance channel. Remove both, once.

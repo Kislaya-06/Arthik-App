@@ -13,8 +13,7 @@ export const TRANSFER_WINDOW_MS = 15 * 60 * 1000;
  * 2-3 times in quick succession ("Rs 100 credited" x3) every one of them must be counted.
  */
 export const SAME_MESSAGE_WINDOW_MS = 2_000;
-/** A payment app re-posting (updating) the very same notification shows up within seconds. */
-export const NOTIFICATION_REPOST_WINDOW_MS = 15_000;
+
 /** Same email notification shown again by the mail app. Real repeats carry their own time / reference. */
 export const EMAIL_REPOST_WINDOW_MS = 60_000;
 export const MAX_RECOVERY_DAYS = 30;

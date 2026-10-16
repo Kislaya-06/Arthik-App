@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Timezone Sensitivities & Registration Date Integrity (Daily Budget Section 3 Audit)
+
+- **Local Device Registration Date Resolution**: Updated `getUserCreatedAtStr()` in `metrics.ts` to delegate directly to `getUserCreatedAtLocalDate()`. Converts UTC timestamp (`created_at`) to local device date (`yyyy-MM-dd`) via `parseISO`, preventing 1-day UTC drift for Indian and non-UTC users from misclassifying pre-registration transactions as active budget days.
+- **Timezone-Safe Best Streak Gap Bridging**: Replaced legacy `new Date(rec.date)` and `setDate()` arithmetic in `src/lib/budgetCalculations.ts` with `date-fns` calendar date math (`parseISO`, `differenceInCalendarDays`, `addDays`). Eliminates UTC midnight parsing shifts, preventing broken streak bridges across month and year boundaries in timezones west of UTC.
+- **Section 3 Modernization**: Updated `docs/maps/daily-budget-map.md` Section 3 with accurate submodule file mappings, line numbers, and multi-cadence rollover specifications.
+- **Section 4 Modernization (Income Inconsistency & Cold-Start Sequencing)**: Updated `docs/maps/daily-budget-map.md` Section 4 to reflect the dedicated `classifiers.ts` submodule, `incomeClassifier.ts` helpers, and authoritative `SplashScreen.tsx` cold-start hydration sequence.
+- **Startup Rollover Notification Race-Condition Fix (Ticket S3.3)**: Updated `hydrateFromSupabase` in `hydrate.ts` to check `!areExpensesLoaded()`. If fresh expenses finished loading before budget hydration completes, yesterday's savings rollover notifications are permitted rather than unconditionally dropped.
+- **Section 5–7 Resolution Modernization**: Updated `docs/maps/daily-budget-map.md` marking all historical uncertainties (Tickets 01–03, S3.2, S3.3) 100% diagnosed, tested, and resolved; updated facade line count to 875 lines and comprehensively catalogued all 18 active consumers across screens, modals, hooks, and services.
+- **Email Auto-Logging Specification Modernization (`docs/specs/EMAIL_AUTO_LOGGING_SPEC.md`)**: Fully updated all 54 sections of the specification to align with the Authoritative Dual-Core Architecture (Option A: Bank SMS & Bank Email alerts), eliminating obsolete third-source phrasing and intermediate payment-app notification references.
+- **Mandatory Documentation Atomicity & Perpetual Reconciliation (`AGENTS.md`)**: Hardened Rule 4 and Gate 4 in `AGENTS.md` to mandate bidirectional, atomic documentation synchronization whenever any code or documentation edit occurs across `docs/maps/*`, `docs/specs/*`, `docs/adr/*`, `docs/*.md`, `AGENTS.md`, `README.md`, and `CHANGELOG.md`.
+- **ADR Alignment & Perpetual Reconciliation (Category 4 Audit)**: Standardized explicit `## Status` headers across all 13 ADRs (0001–0013), expanded ADR 0005 cross-store callback matrix with split shares (`registerSharesGetter`) and metrics getters (`registerMetricsStoreGetter`), updated ADR 0008 pure calculation line mappings, synchronized exact store line counts in ADR 0013, and cross-referenced multi-cadence period evolution in ADR 0010/0011/0012.
+- **Documentation Consolidation & Refactor Directory Retirement (Category 5 Audit)**: Cleaned up redundant historical refactor artifacts (`BASELINE.md`, `COVERAGE_GAPS.md`, `FOUND_BUGS.md`, `PLAN_DAILY_BUDGET_STORE.md`, `PLAN_EXPENSE_STORE.md`) whose implementations are 100% complete and codified in ADR 0013 and `docs/maps/daily-budget-map.md`. Merged the comprehensive 18-point device verification checklist into `docs/RELEASE_PROCESS.md §3.1`, permanently retiring the obsolete `docs/refactor/` directory.
+- **Scratch Directory Complete Purge (Category 6 Audit)**: Permanently removed `.scratch/` and all legacy task ticket notes (`daily-budget/`, `design-tokens/`, `expense-form/`, `formatters/`, `home/`, `savings/`, `unified-budgeting/`), reducing repository markdown files to exactly 28 canonical, authoritative, and perpetually maintained documents.
+- **Documentation Streamlining & Canonical Consolidation**: Merged physical phone/emulator dual hot-reload instructions directly into `README.md` and consolidated manual owner action protocols into `AGENTS.md`, permanently retiring `DEV_SETUP_PHONE_AND_EMULATOR.md` and `docs/AGENT_BRIEF.md`. Kept historical `docs/adr/0007-income-classification-divergence.md` intact, bringing active repository documentation to an ultra-lean 26 canonical files.
+- **Proactive Skill Utilization Protocol**: Added Protocol 5 to `AGENTS.md` mandating that agents proactively identify and invoke relevant skills for code tasks.
+
+### Changed — Automatic Logging Streamlining (Option A: Bank SMS & Bank Email Only)
+
+- **Removed Payment App Notification Reading**: GPay, PhonePe, Paytm, Navi, and CRED notifications are no longer captured or processed. Intermediary payment app notifications lack bank account last-4 digits and often mismatch bank merchant VPAs, which previously caused false-positive duplicate review prompts ("Bank SMS never arrived, please review!").
+- **Authoritative Dual-Core Sources**: Automatic Logging now relies exclusively on **Bank SMS** and **Bank Email alerts** (Gmail, Outlook, etc.). Both sources provide exact bank account digits, real money debit/credit confirmation, and exact reference numbers.
+- **Streamlined Setup & Center UI**: Removed redundant payment-notification setup step and health-check lines in `AutoLogSetupScreen`, `AutoLogCenterScreen`, and `AutoLogIntroScreen`. Notification Access is now cleanly dedicated to Bank Email alerts.
+- **Quiet Legacy Sweep**: Updated `sweepAwaiting` to quietly resolve or ignore any legacy pending notification previews without generating phantom review notifications.
+
+### Added — Money Waterfall Limit Alerts & AutoLog Vault Spending Guard
+
+- **Real-Time Money Waterfall in Limit Exceeded Alerts**: When a user crosses their spending limit (Daily, Weekly, or Monthly), `notifyLimit` now calculates and explicitly states where the overspend is drawn from: e.g. "₹300 over limit: ₹100 covered from Income, ₹200 drawn from Gullak", or "covered from your Income" / "drawn from your Gullak" (`notificationPolicy.ts`, `dailyBudgetStore.ts`).
+- **Vault Spending Guard on Automatic Logging**: If an auto-logged expense exceeds total available liquidity (Income = 0, Gullak = 0, and amount > budget allowance), AutoLog blocks silent negative deficit creation and flags the event for review with `reviewReason: 'exceeds_liquidity'` and immediate user alert (`engine.ts`, `ledger.ts`, `copy.ts`, `types.ts`).
+- **Facade Pattern & Submodule Architecture Invariant (`AGENTS.md` §6.1)**: Formally mandated the Facade Pattern for all complex stores and domain features to permanently prevent 2,000+ line god files in future development.
+
+### Changed — Notification Schedule & Policy
+
+- **Removed Artificial 1-Per-Day Scheduled Notification Cap**: All legitimate and necessary notifications (morning Gullak reward/carry cover, evening recaps, evening log nudge) now fire at their intended hours rather than arbitrarily dropping valid messages (`notificationPolicy.ts`, `docs/notifications.md`).
+- **Immediate Nudge Cancellation on Auto-Log**: When an expense is auto-logged via Bank SMS or Email in the background, tonight's scheduled 20:30 evening nudge is immediately cancelled from the Android alarm queue, preventing false reminders (`cancelTonightNudge`).
+
+### Documentation — Complete PRD & AGENTS.md Synchronization (v2.1.0)
+
+- **PRD v2.1.0 Full Alignment (`docs/prd.md`)**: Updated version from v1.2.4 to v2.1.0, added feature inventories for Automatic Logging (native module, SQLCipher SQLite, Bank SMS & Email) and Bill Splitting & Shares, updated dual-storage architecture constraints, and removed shipped features from the roadmap.
+- **Strict Documentation Atomicity Invariant (`AGENTS.md`)**: Formally mandated that any change in the app must atomically update all related documentation in `docs/` in the same change — no documentation updates may be deferred.
+
 ### Changed — Internal refactor (no user-visible change)
 
 - **InsightsScreen Split (Step 3a)**: Extracted `Period` type, constants, and date calculation utilities to `src/screens/insights/periodUtils.ts` and `PeriodNavigator` component to `src/screens/insights/PeriodNavigator.tsx`.
@@ -226,7 +265,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tests/expenseStore.test.ts` — +2 tests for the new optional `{ id }` in `addExpense`.
   - `tests/helpers/autoLogTestEnv.ts` — test doubles (SQLite, native module, ledger, server).
 - **Developer test tools** card in Automatic Logging Center (only when `__DEV__`, i.e. dev-client builds; invisible in preview/release APKs): simulate PhonePe notification, bank SMS, credit from a person, unreadable message, and "skip 20 min".
-- Docs: `docs/AUTO_LOGGING.md`, `docs/PLAY_STORE_AUTOLOG.md`.
+- Docs: `docs/AUTO_LOGGING.md`.
 
 ### Added — release & rollout
 - **In-app mandatory updates**: `UpdateRequiredScreen` downloads the APK inside the app (progress bar) and opens Android's installer automatically; no skip. "Install update" retry, "Install unknown apps" shortcut, browser fallback. New `src/lib/apkInstaller.ts`; `versionCheck` now reads optional `apk_url`, `update_title`, `update_highlights`; version is re-checked whenever the app returns to the foreground. Permission `REQUEST_INSTALL_PACKAGES`. New deps: `expo-file-system`, `expo-intent-launcher`, `expo-application`.

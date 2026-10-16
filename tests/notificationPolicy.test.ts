@@ -216,31 +216,28 @@ describe('weekly and monthly recaps', () => {
   });
 });
 
-describe('never more than one scheduled notification per day', () => {
-  it('Sunday: the weekly recap wins over the evening nudge', () => {
+describe('all necessary scheduled notifications are delivered (no artificial 1-per-day cap)', () => {
+  it('Sunday: both weekly recap (19:00) and evening nudge (20:30) are scheduled when needed', () => {
     const sunday = new Date(2026, 9, 11, 10, 0, 0);
     const plan = buildNotificationPlan(ctx({ now: sunday, week: stats({ txnCount: 6, spent: 900 }) }));
     const onSunday = plan.filter((p) => day(p) === '2026-10-11');
-    expect(onSunday).toHaveLength(1);
-    expect(onSunday[0].type).toBe('weekly_recap');
+    expect(onSunday.map((x) => x.type)).toEqual(['weekly_recap', 'log_nudge']);
   });
 
-  it('last day of the month: the monthly recap wins over weekly and nudge', () => {
+  it('last day of the month: monthly recap (21:00) and evening nudge (20:30) are scheduled when needed', () => {
     const lastDay = new Date(2026, 9, 31, 10, 0, 0); // Saturday
     const plan = buildNotificationPlan(ctx({ now: lastDay, month: stats({ txnCount: 30, spent: 100 }), week: stats({ txnCount: 5 }) }));
     const that = plan.filter((p) => day(p) === '2026-10-31');
-    expect(that).toHaveLength(1);
-    expect(that[0].type).toBe('monthly_recap');
+    expect(that.map((x) => x.type)).toEqual(['log_nudge', 'monthly_recap']);
   });
 
-  it("morning reward beats that evening's nudge", () => {
+  it("morning reward (08:30) and evening nudge (20:30) can both be scheduled on the same day", () => {
     const plan = buildNotificationPlan(gullakDaily({ loggedToday: true, todaySpent: 100 }));
     const tomorrow = plan.filter((p) => day(p) === '2026-10-08');
-    expect(tomorrow).toHaveLength(1);
-    expect(tomorrow[0].type).toBe('gullak_reward');
+    expect(tomorrow.map((x) => x.type)).toEqual(['gullak_reward', 'log_nudge']);
   });
 
-  it('holds for every profile and cadence on every weekday', () => {
+  it('holds for every profile and cadence on every weekday (sorted chronologically)', () => {
     for (let d = 0; d < 35; d++) {
       const now = new Date(2026, 9, 1 + d, 9, 0, 0);
       for (const c of [
@@ -249,14 +246,15 @@ describe('never more than one scheduled notification per day', () => {
         ctx({ now, profile: 'gullak', cadence: 'monthly', week: stats({ txnCount: 9 }), month: stats({ txnCount: 30 }) }),
       ]) {
         const plan = buildNotificationPlan(c);
-        const days = plan.map(day);
-        expect(new Set(days).size).toBe(days.length);
-        expect(plan.length).toBeLessThanOrEqual(5);
+        // Verify chronological order
+        for (let i = 0; i < plan.length - 1; i++) {
+          expect(plan[i].fireAt.getTime()).toBeLessThanOrEqual(plan[i + 1].fireAt.getTime());
+        }
       }
     }
   });
 
-  it('capOnePerDay keeps the highest priority', () => {
+  it('capOnePerDay keeps the highest priority when explicitly called', () => {
     const mk = (type: any, h: number): PlannedNotification => ({
       id: type, type, channel: 'recaps', fireAt: new Date(2026, 9, 7, h), title: '', body: '', screen: 'Home', inbox: false,
     });
@@ -307,6 +305,16 @@ describe('in-app event copy', () => {
     expect(c.title).toBe("Over today's limit");
     expect(c.body).toBe("₹620 spent of ₹500 — ₹120 over. Today won't add to your Gullak.");
     expect(c.body).not.toMatch(/deduct|taken from|lose/i);
+  });
+  it('over limit with income and gullak breakdown when covered by waterfall', () => {
+    const withBoth = limitCopy({ kind: 'exceeded', cadence: 'daily', spent: 800, budget: 500, remaining: 0, incomeCovered: 100, gullakCovered: 200 });
+    expect(withBoth.body).toBe("₹300 over limit: ₹100 covered from Income, ₹200 drawn from Gullak.");
+
+    const withIncomeOnly = limitCopy({ kind: 'exceeded', cadence: 'daily', spent: 800, budget: 500, remaining: 0, incomeCovered: 300, gullakCovered: 0 });
+    expect(withIncomeOnly.body).toBe("₹300 over limit: covered from your Income.");
+
+    const withGullakOnly = limitCopy({ kind: 'exceeded', cadence: 'daily', spent: 800, budget: 500, remaining: 0, incomeCovered: 0, gullakCovered: 300 });
+    expect(withGullakOnly.body).toBe("₹300 over limit: drawn from your Gullak.");
   });
   it('over a weekly / monthly budget', () => {
     expect(limitCopy({ kind: 'exceeded', cadence: 'weekly', spent: 7400, budget: 7000, remaining: 0 }).title).toBe("Over this week's budget");

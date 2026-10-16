@@ -1,7 +1,7 @@
 # 0010. Multi-Cadence Budget Modes and Period Engine
 
 ## Status
-Accepted (September 2026).
+Accepted (September 2026) — D4 superseded by [0011. Zero-Proration Policy and Digital Vault Spending Guard](0011-zero-proration-and-digital-vault-spending-guard.md); amended by [0012. One Budget per Calendar Period, and Pure Mode Keeps the Same Books](0012-one-budget-per-calendar-period.md).
 
 ## Context
 Originally, Arthik was designed around a single financial model: a fixed daily spending allowance that rolled over unused funds into a digital Gullak at midnight. While effective for day-to-day discipline, users requested greater flexibility:

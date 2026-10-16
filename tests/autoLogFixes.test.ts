@@ -271,15 +271,13 @@ describe('Money arriving 2-3 times in quick succession: every one is counted', (
     expect(txs()).toHaveLength(4);
   });
 
-  it('three identical payment-app notifications 20s apart are three previews; a re-post within seconds is not', async () => {
+  it('payment-app notifications are safely skipped (Option A: Bank SMS & Email only)', async () => {
     await goLive();
     const t = Date.now();
     receiveNotification('Google Pay', 'Rahul paid you ₹100', '', t);
-    receiveNotification('Google Pay', 'Rahul paid you ₹100', '', t + 3 * SEC);   // same notification re-posted
     receiveNotification('Google Pay', 'Rahul paid you ₹100', '', t + 20 * SEC);
-    receiveNotification('Google Pay', 'Rahul paid you ₹100', '', t + 40 * SEC);
     await run();
-    expect((await events("source = 'notification'")).length).toBe(3);
+    expect((await events("source = 'notification'")).length).toBe(0);
   });
 
   it('three identical bank emails (no reference) minutes apart → three transactions', async () => {

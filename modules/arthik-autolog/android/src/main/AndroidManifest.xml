@@ -1,7 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
   <!-- Automatic Logging: read + receive bank transaction SMS (processed on-device only). -->
-  <!-- Play Store build: see docs/PLAY_STORE_AUTOLOG.md for how to strip these two lines. -->
   <uses-permission android:name="android.permission.READ_SMS" />
   <uses-permission android:name="android.permission.RECEIVE_SMS" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />

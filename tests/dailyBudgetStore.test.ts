@@ -108,6 +108,8 @@ import {
   useDailyBudgetStore,
   registerExpensesLoadedGetter,
   registerExpenseGetter,
+  getUserCreatedAtLocalDate,
+  getUserCreatedAtStr,
 } from '../src/store/dailyBudgetStore';
 import { format, subDays } from 'date-fns';
 
@@ -562,6 +564,26 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(state.dailyBudgetAmount).toBe(250);
       expect(state.getTodayRecord().budget).toBe(250);
       expect(state.getTodayRecord().status).toBe('active');
+    });
+  });
+
+  describe('Slice 9: User Registration Date & Timezone Integrity', () => {
+    it('resolves user created_at using local device date rather than raw UTC split', () => {
+      // Set mock user with UTC timestamp at 20:30 (which in IST +5:30 is next day 02:00 AM)
+      mockUser = { id: 'user_budget_test_1', created_at: '2026-09-18T20:30:00Z' };
+
+      const localDate = getUserCreatedAtLocalDate(mockUser.created_at);
+      const strDate = getUserCreatedAtStr();
+
+      expect(strDate).toBeDefined();
+      expect(strDate).toBe(localDate);
+
+      // Verify handling of null / undefined
+      expect(getUserCreatedAtLocalDate(null)).toBeUndefined();
+      expect(getUserCreatedAtLocalDate(undefined)).toBeUndefined();
+
+      // Verify graceful fallback on invalid string
+      expect(getUserCreatedAtLocalDate('invalid-date')).toBe('invalid-date');
     });
   });
 });

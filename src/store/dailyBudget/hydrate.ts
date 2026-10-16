@@ -23,7 +23,7 @@ import {
 import { useNotificationStore } from '../notificationStore';
 import { useNetworkStore } from '../networkStore';
 import { useAuthStore } from '../authStore';
-import { getCurrentExpenses } from './expenseBridge';
+import { getCurrentExpenses, areExpensesLoaded } from './expenseBridge';
 import { buildCategoryClassifier, buildEligibleIncomeClassifier } from './classifiers';
 import { computeSpentByDate, computeIncomeByDate } from '../../lib/budgetCalculations';
 import {
@@ -602,9 +602,11 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
     });
 
     // P0.1: Trigger checkAndRollover once after successful hydration.
-    // Skip rollover notification here — expenses may be stale local cache.
-    // Notification will fire correctly from syncWithExpenses after fresh fetch.
-    get().checkAndRollover(currentExpenses, true);
+    // If fresh expenses are already loaded (e.g. fetchExpenses finished first),
+    // allow rollover notification so yesterday's celebration is never dropped due to race condition.
+    // If expenses are not loaded yet, skip notification to avoid notifying on stale cache.
+    const skipNotification = !areExpensesLoaded();
+    get().checkAndRollover(currentExpenses, skipNotification);
 
     // P0.14: Also upload any records that need upload
     get().uploadPendingDailyRecords();

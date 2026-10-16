@@ -1,1277 +1,705 @@
-# Arthik --- Email Notification Auto-Logging Product Specification
+# Arthik — Email Notification Auto-Logging Product Specification
 
-**Feature:** Email Notification Parsing for Automatic Transaction
-Logging\
-**Platform:** Android\
-**Scope:** Product behavior only --- WHAT the product should do, not HOW
-it should be implemented.
+**Feature:** Email Notification Parsing for Automatic Transaction Logging  
+**Platform:** Android  
+**Architecture:** Authoritative Dual-Core Bank Sources (Option A: Bank SMS & Bank Email Alerts)  
+**Scope:** Product behavior only — WHAT the product does, not HOW it is implemented.
 
-------------------------------------------------------------------------
+---
 
 ## 1. Feature Overview
 
-Arthik already supports automatic transaction detection from Bank SMS
-and UPI/payment-app notifications.
+Arthik provides automatic transaction detection to eliminate manual UPI and cash tracking overhead. 
 
-This feature adds **Email Notifications** as a third transaction source.
+Under the **Authoritative Dual-Core Architecture (Option A)**, Automatic Logging relies strictly on two trusted, first-class bank sources:
+1. **Bank SMS** (via Android SMS Receiver)
+2. **Bank Transaction Emails** (via Android Notification Listener for supported email apps: Gmail, Outlook, etc.)
 
-Email must not become a separate transaction system. It must blend into
-the existing Auto-Logging pipeline as another source of transaction
-evidence.
+Intermediary payment-app notifications (GPay, PhonePe, Paytm, etc.) are **explicitly excluded** because they lack bank account last-4 digits, frequently mask merchant VPAs, and create false-positive duplicate review prompts.
 
-> **A transaction may have multiple sources, but it must exist only once
-> in Arthik.**
+Email is **not** an auxiliary or subordinate "third source." It is an **Authoritative Tier-1 Bank Source** alongside Bank SMS. Both sources carry confirmed bank debit/credit data, exact account digits, and authentic bank reference IDs.
 
-------------------------------------------------------------------------
+> **A transaction may have multiple sources, but it must exist only once in Arthik.**
 
-## 2. Why Email Parsing Is Needed
+---
 
-Some banks and financial services do not reliably send transaction SMS
-messages.
+## 2. Why Email Parsing Is Essential
 
-For example, a provider may send a transaction email or app notification
-but no SMS.
+Many Indian banks, credit card issuers, and fintechs no longer reliably send SMS for every financial transaction:
+- Several banks (e.g. HDFC, ICICI, Amex, Axis) do not send SMS for small-ticket UPI transactions or international subscriptions, but send immediate email alerts.
+- Users frequently experience delayed or lost SMS due to cellular network outages or DND filters.
+- Some credit cards and digital banks communicate account activity primarily or exclusively over email alerts.
 
-``` text
-SMS:              Not received
-Notification:     Not received
-Email:            ₹500 spent at Zomato
+```text
+SMS:              Not received (delayed / unsent by bank)
+Bank Email:       ₹500 debited from HDFC Bank A/c XX1234 for Zomato
                     ↓
-              Arthik detects it
+              Arthik detects email notification
                     ↓
-               Auto-logs ₹500
+               Auto-logs ₹500 immediately
 ```
 
-SMS must therefore **not** be mandatory for automatic logging.
+Bank SMS is therefore **not mandatory** for automatic logging. Email operates as a completely independent, authoritative transaction source.
 
-------------------------------------------------------------------------
+---
 
-## 3. Unified Auto-Logging Architecture
+## 3. Unified Dual-Core Architecture
 
-``` text
-                 ┌── Bank SMS
-                 │
-                 ├── UPI/App Notification
-                 │
-                 └── Email Notification
-                         ↓
-                   Source Parsers
-                         ↓
-                Common Transaction
-                         ↓
-                 Identity + Dedupe
-                         ↓
-              ┌──────────┴──────────┐
-              ↓                     ↓
-       High Confidence        Low Confidence
-              ↓                     ↓
-          Auto-log             Pending Review
+```text
+       Bank SMS (SmsReceiver)        Bank Email Notification (Listener)
+                 │                                  │
+                 └────────────────┬─────────────────┘
+                                  ▼
+                         Source Parsers
+                                  ▼
+                      Common Transaction Object
+                                  ▼
+                    Identity & Cross-Source Dedupe
+                                  ▼
+                     ┌────────────┴────────────┐
+                     ▼                         ▼
+              High Confidence            Low Confidence / Vault Guard
+                     ▼                         ▼
+            Directly Auto-Logged         Pending Review Queue
 ```
 
-All sources must eventually enter the same common transaction and dedupe
-system.
+All transaction events flow through the same common transaction normalization, deduplication engine, and on-device encrypted ledger.
 
-------------------------------------------------------------------------
+---
 
 ## 4. Email Notification Scope
 
-The initial feature focuses on financial emails surfaced through
-supported email applications such as Gmail or Outlook.
+Detection focuses strictly on financial transaction alerts surfaced as notifications by supported Android email applications:
+- **Gmail** (`com.google.android.gm`)
+- **Microsoft Outlook** (`com.microsoft.office.outlook`)
+- **Samsung Email** (`com.samsung.android.email.provider`)
+- **Yahoo Mail** (`com.yahoo.mobile.client.android.mail`)
+- **Proton Mail** (`ch.protonmail.android`)
+- **Spark** (`com.readdle.spark`)
+- **Zoho Mail** (`com.zoho.mail`)
 
-Relevant email types include:
+Relevant email notification types:
+- Account debit alerts
+- Account credit alerts
+- UPI transaction confirmations
+- Credit card swipe / e-commerce alerts
+- NetBanking / IMPS / NEFT / RTGS transfers
 
--   debit alerts
--   credit alerts
--   payment confirmations
--   UPI transaction confirmations
--   card transaction alerts
--   bank transaction alerts
--   account debit/credit notifications
+Arthik inspects only the notification payload (sender title + notification text/bigText) on-device. It never connects to or scans the user's private email inbox.
 
-Arthik should not treat every email as financial data.
-
-------------------------------------------------------------------------
+---
 
 ## 5. Relevant Financial Emails
 
-Examples:
+Examples of valid financial email notifications:
+- *"HDFC Bank: ₹500.00 debited from a/c **1234 on 16-OCT-26 info VPA Zomato"*
+- *"ICICI Bank: Payment of ₹1,250.00 was successful on Card ending 4091 at Swiggy"*
+- *"SBI: ₹3,000.00 credited to your a/c **9876 via IMPS Ref 8392019283"*
+- *"Axis Bank: Alert! Your A/c **4321 is debited for ₹799.00 on 16-10-26"*
+- *"CRED / Card: Transaction of ₹450 completed at Starbucks on Card XX5678"*
 
--   "₹500 has been debited"
--   "Payment of ₹1,250 was successful"
--   "₹3,000 has been credited"
--   "Your account was debited for ₹799"
--   "UPI transaction of ₹450 completed"
+Key extracted attributes:
+- **Amount**
+- **Direction** (Expense / Income / Self-Transfer)
+- **Account / Card Last 4 Digits**
+- **Merchant / Counterparty Description**
+- **Transaction Reference ID / UPI RRN / UTR**
+- **Transaction Date / Timestamp**
+- **Bank / Provider Name**
 
-Useful transaction details may include:
+---
 
--   amount
--   Expense / Income direction
--   merchant
--   account/card last four digits
--   transaction reference
--   UPI reference/RRN
--   transaction date/time
--   bank/provider
--   payment method
+## 6. Emails That Must Never Become Transactions
 
-------------------------------------------------------------------------
+Native pre-filters (`FinancialFilter.kt`) and parser regex drop non-transactional emails before they can enter the ledger:
+- OTP and 2-step verification codes
+- Login / security alerts / password reset confirmations
+- Promotional offers, cashback marketing, discount codes
+- Credit card bill payment reminders and statements
+- Future debit reminders, upcoming mandate notifications
+- UPI collect requests (payment requests sent by third parties)
+- Failed, cancelled, or declined transaction alerts
+- Account balance summaries and statement downloads
+- Generic account status updates without an actual debit or credit event
 
-## 6. Emails That Must Not Become Transactions
+If an email notification appears financial but cannot be confidently interpreted, it routes to **Pending Review** rather than silently creating an expense.
 
-Do not automatically create transactions from:
-
--   OTP emails
--   login/security alerts
--   password-reset emails
--   promotional emails
--   offers/cashback advertisements
--   credit-card payment reminders
--   future debit reminders
--   mandate reminders
--   collect requests
--   failed/declined transactions
--   balance-only emails
--   generic account notifications
--   informational emails without an actual completed financial event
-
-If an email looks financial but cannot be confidently interpreted, it
-should go to review rather than silently become a transaction.
-
-------------------------------------------------------------------------
+---
 
 ## 7. Email-Only Transactions
 
-An email can create a transaction even when no SMS or app notification
-exists.
+An email notification creates a transaction independently when no Bank SMS arrives:
 
-``` text
-SMS:              ❌
-Notification:     ❌
-Email:            ✓
+```text
+Bank SMS:         ❌ (Not received)
+Bank Email:       ✓ (Received)
                   ↓
-              Parse + Validate
+           Parse & Validate
                   ↓
-           Confidence Evaluation
+          Confidence Evaluation
                   ↓
-          Auto-log / Review
+      Auto-Logged to Ledger (High Confidence)
 ```
 
-If the email contains enough reliable evidence, it can be automatically
-logged.
+If the email contains high-confidence evidence (confirmed debit on tracked account with valid amount and bank sender), it auto-logs without requiring manual approval.
 
-------------------------------------------------------------------------
+---
 
-## 8. Email + Notification
+## 8. Dual-Source Cross-Reconciliation (SMS ↔ Email)
 
-If both describe the same transaction, create only one transaction.
+When a transaction triggers both a Bank SMS and a Bank Email alert, Arthik creates **only one transaction**:
 
-``` text
-Notification:
-₹500 paid to Zomato
+```text
+Bank SMS (10:30:10):
+₹500 debited from HDFC Bank A/c XX1234
+Ref: 8392019283
 
-Email:
-₹500 payment to Zomato confirmed
+Bank Email (10:30:45):
+Payment of ₹500 from A/c XX1234 to Zomato confirmed
+Ref: 8392019283
 ```
 
 Result:
 
-``` text
-ONE transaction
-
+```text
+ONE Transaction:
 ₹500 — Zomato
+Account: HDFC Bank **1234
 
 Sources:
-✓ App notification
-✓ Email
-```
-
-The second source strengthens or enriches the existing transaction.
-
-------------------------------------------------------------------------
-
-## 9. Email + SMS
-
-``` text
-SMS:
-₹500 debited from XX1234
-UPI Ref: 8392019283
-
-Email:
-₹500 debited from XX1234
-UPI Ref: 8392019283
-```
-
-Result:
-
-``` text
-ONE transaction
-
-Sources:
-✓ SMS
-✓ Email
-```
-
-------------------------------------------------------------------------
-
-## 10. SMS + Notification + Email
-
-All three may represent one event.
-
-``` text
-10:30 — UPI notification
-10:34 — Bank SMS
-11:20 — Bank email
-```
-
-Result:
-
-``` text
-ONE transaction
-
-₹500 — Zomato
-
-Sources:
-✓ UPI notification
 ✓ Bank SMS
-✓ Bank email
+✓ Bank Email
 ```
 
-------------------------------------------------------------------------
+The second source reinforces and enriches the existing record (adding clean merchant names or matching reference IDs) without creating a duplicate expense.
 
-## 11. Common Transaction
+---
 
-Every detected financial event should ultimately become one common
-transaction.
+## 9. SMS First vs Email First (Arrival Agnostic)
 
-Conceptually:
+Deduplication works bidirectionally regardless of which source arrives first:
 
-``` text
-Transaction
-├── Amount
-├── Expense / Income
-├── Account
-├── Transaction date/time
-├── Merchant / Description
-├── Reference ID if available
-├── Confidence
-└── Sources
-      ├── SMS
-      ├── Notification
-      └── Email
+### Scenario A: SMS arrives first, Email follows
+1. Bank SMS arrives at 10:30 $\to$ Transaction logged immediately as `₹500 (Ref: 8392019283)`.
+2. Bank Email arrives at 10:32 $\to$ Match found via Reference ID $\to$ Email merged into existing transaction (`status = 'merged'`).
+
+### Scenario B: Email arrives first, SMS follows
+1. Bank Email arrives at 14:15 $\to$ Transaction logged immediately with clean merchant name.
+2. Bank SMS arrives at 14:25 (delayed by cell carrier) $\to$ Match found via Reference ID/Amount/Account $\to$ SMS merged into existing transaction.
+
+---
+
+## 10. Multi-Account Dual-Core Protection
+
+In multi-card or multi-account setups, transactions are cleanly isolated by account last 4 digits:
+
+```text
+10:00 AM — Bank SMS:   ₹1,000 debited from HDFC A/c **1234
+10:00 AM — Bank Email: ₹1,000 debited from ICICI Card **5678
 ```
 
-A transaction can have one source or multiple sources.
+Result:
+```text
+TWO Distinct Transactions:
+1. ₹1,000 (HDFC Bank **1234)
+2. ₹1,000 (ICICI Card **5678)
+```
 
-------------------------------------------------------------------------
+Cross-source merging strictly enforces account matching. A debit on Card A will never merge with an email for Account B, even if amounts and timestamps match.
+
+---
+
+## 11. Common Transaction Schema
+
+Every detected financial event normalizes into an authoritative `CommonTransaction`:
+
+```text
+CommonTransaction
+├── id (UUID)
+├── amount (number)
+├── type ('expense' | 'income')
+├── account_last4 (string)
+├── bank_name (string)
+├── occurred_at (timestamp)
+├── merchant (string | null)
+├── reference_id (string | null)
+├── confidence ('high' | 'medium' | 'low')
+└── sources
+      ├── sms (present if verified by SMS)
+      └── email (present if verified by Email)
+```
+
+---
 
 ## 12. Source Transparency
 
-Users should be able to see where an automatically logged transaction
-came from.
+Users can inspect the exact origin of every automatically logged transaction in the UI:
 
-Example:
+### Single-Source Badge:
+```text
+₹500.00 — Zomato
+Today, 10:30 AM • HDFC Bank **1234
 
-``` text
-₹500
-Zomato
-Expense
-
-Detected from:
-• Bank email
+Source:
+• Bank Email (Gmail)
 ```
 
-Multiple sources:
+### Multi-Source Reconciliation Badge:
+```text
+₹500.00 — Zomato
+Today, 10:30 AM • HDFC Bank **1234
 
-``` text
-Detected from:
-• GPay notification
-• Bank SMS
-• Bank email
+Sources:
+✓ Bank SMS
+✓ Bank Email (Gmail)
 ```
 
-------------------------------------------------------------------------
+---
 
-## 13. "Why Was This Logged?"
+## 13. "Why Was This Logged?" Transparency Card
 
-Automatically logged email transactions should support an explanation.
+The transaction detail screen provides a plain-language explanation of why and how the transaction was logged:
 
-Example:
-
-``` text
+```text
 Why was this logged?
 
-✓ Financial email detected
-✓ Amount: ₹500
-✓ Expense confirmed
-✓ Account: XX1234
-✓ Merchant: Zomato
-✓ Transaction reference matched
+✓ Authoritative Bank Email detected from alerts@hdfcbank.net
+✓ Amount: ₹500.00 confirmed
+✓ Expense direction verified (debited)
+✓ Account: HDFC Bank ending in 1234 (Tracked)
+✓ Merchant identified: Zomato
+✓ Reconciled with Bank SMS (Ref: 8392019283)
 ```
 
-Multi-source example:
-
-``` text
-Why was this logged?
-
-✓ GPay notification matched
-✓ Bank SMS matched
-✓ Bank email matched
-✓ Same transaction reference
-```
-
-------------------------------------------------------------------------
+---
 
 ## 14. Dedupe Is Source-Agnostic
 
-The system must ask:
+The deduplication engine asks:
+> *"Does this new financial alert represent an existing transaction already recorded in the ledger?"*
 
-> "Does this new financial event represent an existing transaction?"
+It evaluates:
+- An incoming Email against existing SMS transactions
+- An incoming SMS against existing Email transactions
+- An incoming Email against existing manual user entries (lookalike detection)
 
-It must not only ask:
+---
 
-> "Have I already seen this exact message?"
+## 15. Strongest Identity — Transaction Reference ID
 
-A new email may represent an existing SMS transaction.
+Reliable financial identifiers serve as the gold standard for matching:
+- **UPI Reference Number / RRN** (12 digits)
+- **Bank Transaction ID / UTR**
+- **Credit Card Authorization Code**
 
-A new SMS may represent an existing notification transaction.
+When two sources share an authentic reference ID, they are merged with 100% certainty, even across multi-hour arrival delays.
 
-A new notification may represent an existing email transaction.
+---
 
-------------------------------------------------------------------------
+## 16. Delayed Delivery Handling
 
-## 15. Strongest Identity --- Transaction Reference
+Cellular SMS delivery and email push alerts can be delayed by minutes or hours:
 
-Reliable transaction identifiers are the strongest matching evidence.
-
-Examples:
-
--   UPI Reference Number
--   RRN
--   bank transaction ID
--   provider transaction reference
-
-If two sources contain the same reliable identifier, they should be
-treated as the same transaction even when they arrive far apart.
-
-``` text
-Notification:
-₹500
-Ref: 8392019283
-10:30 AM
-
-SMS:
-₹500
-Ref: 8392019283
-11:45 AM
-
-Email:
-₹500
-Ref: 8392019283
-1:20 PM
+```text
+Actual payment: 10:30 AM
+Bank SMS:       10:30 AM (immediate)
+Bank Email:     01:15 PM (delivered 2h 45m late due to battery-saver sync)
 ```
 
-Result:
+Both represent the same real-money transaction. Because the reference ID and account match, the delayed email is safely reconciled without creating a second expense.
 
-``` text
-ONE transaction
-```
-
-------------------------------------------------------------------------
-
-## 16. Delayed SMS / Email Problem
-
-Network issues can cause messages to arrive much later than the actual
-transaction.
-
-Example:
-
-``` text
-Actual transaction: 10:30 AM
-Notification:       10:31 AM
-SMS:                11:45 AM
-Email:              1:20 PM
-```
-
-All can still represent the same transaction.
-
-Therefore:
-
-> **Arrival time must not be treated as transaction identity.**
-
-------------------------------------------------------------------------
+---
 
 ## 17. Transaction Time vs Arrival Time
 
-The product should distinguish conceptually between:
+The system strictly distinguishes between:
+- **Transaction Time**: When the payment actually took place (parsed from the message text, e.g. "on 16-Oct-2026 at 10:30 AM").
+- **Arrival Time**: When the device received the notification.
 
-**Transaction time** --- when the financial transaction happened.
+The transaction record always preserves the true transaction time.
 
-**Arrival time** --- when Arthik received/observed the source.
-
-Example:
-
-``` text
-Transaction time: 10:30 AM
-SMS received:     11:45 AM
-Email received:   1:20 PM
-```
-
-The transaction remains at **10:30 AM**.
-
-------------------------------------------------------------------------
+---
 
 ## 18. Matching Without a Reference ID
 
-If a reference ID is unavailable, compare multiple transaction details:
+When a bank email or SMS omits the reference ID, matching relies on a 4-factor multi-attribute score:
+1. **Exact Amount Match** (`Math.abs(e1.amount - e2.amount) < 0.01`)
+2. **Exact Account Match** (Same bank + same last 4 digits)
+3. **Same Financial Direction** (Both debits or both credits)
+4. **Time Window** (Occurred within a 15-minute sliding window)
+5. **Merchant Token Similarity** (Clean merchant names agree or one is a substring of the other)
 
--   amount
--   Expense / Income direction
--   account
--   merchant
--   transaction date
--   transaction context
--   payment method
--   provider
--   other transaction details
+---
 
-The more independent fields match, the stronger the candidate match.
+## 19. Time Is Supporting Evidence, Not Identity
 
-------------------------------------------------------------------------
+Time proximity alone does not prove identity. Conversely, a modest time discrepancy does not disprove identity if account and reference match.
 
-## 19. Time Is Supporting Evidence
-
-Time should help matching but should not be the only identity.
-
-Example:
-
-``` text
-Notification:
-₹500 — Zomato — 10:30 AM
-
-Email:
-₹500 — Zomato — 12:15 PM
-```
-
-If other details strongly match, the delayed email may still represent
-the same transaction.
-
-A rigid short time window must not create duplicates solely because a
-message arrived late.
-
-------------------------------------------------------------------------
+---
 
 ## 20. Same Amount Is Never Enough
 
-Do not merge transactions merely because their amounts are identical.
+Arthik never merges two events based solely on identical amounts:
 
-``` text
-10:00 AM → ₹500 → Zomato
-6:00 PM  → ₹500 → Zomato
+```text
+10:00 AM — ₹150 Chai at Tea Stall (HDFC **1234)
+04:30 PM — ₹150 Snacks at Bakery (HDFC **1234)
 ```
 
-These may be two genuine transactions.
+These are two genuine, separate real-money expenses. Because timestamps and counterparty details differ, both are logged distinctly.
 
-A later ₹500 Zomato email must not be arbitrarily attached to either one
-if reliable identity is unavailable.
+---
 
-------------------------------------------------------------------------
+## 21. Ambiguous Matches Route to Review
 
-## 21. Multiple Possible Matches
+If an incoming bank email could match more than one existing transaction:
 
-If a new email could match more than one existing transaction:
+```text
+Existing Transactions:
+1. ₹500 — Zomato — 10:00 AM
+2. ₹500 — Zomato — 06:00 PM
 
-``` text
-Existing:
-₹500 Zomato — 10:00 AM
-₹500 Zomato — 6:00 PM
-
-New email:
-₹500 Zomato
+Incoming Email:
+"₹500 debited for Zomato" (Missing timestamp / reference)
 ```
 
 Result:
+- The engine does **not** guess or arbitrarily attach the email to one of the transactions.
+- The event routes to **Pending Review** for 1-tap user confirmation.
 
-``` text
-Do NOT auto-merge.
+---
 
-→ Pending Review
+## 22. Cross-Source Matching Windows
+
+- **Reference Match**: Up to 7 days (accommodates batch email statements or delayed weekend alerts).
+- **Attribute Match (No Ref ID)**: 15-minute sliding window (`TRANSFER_WINDOW_MS = 15 * 60 * 1000`).
+
+---
+
+## 23. Same-Source Repeat Protection
+
+If a bank sends two separate email alerts for two identical rapid transactions (e.g. two ₹20 payments to a vendor within 2 minutes):
+- Repeat payments carry distinct notification IDs or timestamps.
+- Only exact identical texts posted within 2 seconds (`SAME_MESSAGE_WINDOW_MS = 2_000`) are treated as Android notification re-posts. Genuine successive transactions are both preserved in the ledger.
+
+---
+
+## 24. Confidence Scoring Tiers
+
+Every parsed email event is evaluated into one of three confidence tiers:
+- **Tier 1 (High Confidence)**: Known bank sender + clear debit/credit word + exact amount + tracked account $\to$ **Auto-Logs Immediately**.
+- **Tier 2 (Medium / Needs Category)**: Known bank transaction on tracked account, but merchant category is unknown $\to$ **Logs immediately** and flags with `needs_category = 1` for 1-tap category assignment.
+- **Tier 3 (Low Confidence / Ambiguous)**: Ambiguous direction, untracked bank account, possible transfer, or conflicting match $\to$ **Enters Pending Review**.
+
+---
+
+## 25. High-Confidence Auto-Logging Flow
+
+```text
+Bank Email Notification
+         ↓
+Parse (Amount, Date, Merchant, Last4, Ref)
+         ↓
+Verify Tracked Account = Active
+         ↓
+Check Vault Spending Guard Liquidity
+         ↓
+Check Duplicates / Cross-Source Matches
+         ↓
+Auto-Log into Ledger (Zustand store / Supabase sync)
+         ↓
+Cancel Tonight's 20:30 Scheduled Nudge
 ```
 
-User confirmation is safer than corrupting transaction history.
+---
 
-------------------------------------------------------------------------
+## 26. Low-Confidence & Pending Review Scenarios
 
-## 22. Cross-Source Matching
+An event routes to Pending Review when:
+- **Untracked Account**: The email identifies a bank account not yet toggled ON by the user.
+- **Ambiguous Direction**: Text says "transfer of ₹2,000" without clarifying credit or debit.
+- **Possible Self-Transfer**: Debited ₹5,000 from Account A and credited ₹5,000 to Account B.
+- **Split Repayment Match**: An incoming credit matches an open debt owed by a friend in Split Expenses / Shares.
+- **Vault Liquidity Breach**: Spending exceeds total available vault funds.
 
-Different source types can provide independent evidence.
+---
 
-Example:
+## 27. Vault Spending Guard (ADR 0011 Liquidity Check)
 
-``` text
-Notification:
-₹500 Zomato
+In accordance with the foundational **Real-Money Invariant**:
+- If an auto-logged expense would exceed total available account liquidity (`availableIncome === 0`, `totalGullakSavings === 0`, and amount exceeds active daily/weekly/monthly allowance):
+- Automatic logging **blocks silent deficit creation**.
+- The event is flagged for review with `reviewReason: 'exceeds_liquidity'` and alerts the user to confirm funding.
 
-Email:
-₹500 Zomato
+---
+
+## 28. Standalone Email Authority
+
+When Bank SMS is absent (international roaming, card e-commerce, DND active), Email acts as the primary authoritative source. It does not wait for an SMS confirmation.
+
+---
+
+## 29. Historical Account Discovery
+
+During initial onboarding / setup:
+- Arthik scans past messages on-device up to 30–90 days to discover bank accounts (last 4 digits), banks, and formats.
+- **Strict Invariant**: Historical discovery is strictly for learning account profiles. Historical emails or SMS are **never silently imported as historical past expenses**.
+
+---
+
+## 30. User Feedback & Machine Learning on Device
+
+When a user edits an auto-logged transaction or confirms an item in Pending Review:
+- User-assigned categories for a merchant are saved to on-device rules (`rules` table).
+- Future transactions from the same merchant automatically inherit the preferred category.
+- Rules are strictly merchant/template-specific; never amount-specific.
+
+---
+
+## 31. Narrow Ignore Rules
+
+Users can tap "Ignore transactions like this":
+- Creates an exact template / sender fingerprint rule.
+- Broad, destructive rules like "Ignore all ₹500 transactions" are strictly disallowed.
+
+---
+
+## 32. Recognized Bank Senders & Allow-List
+
+Native modules and regex recognize canonical Indian bank alert sender domains and addresses:
+- HDFC Bank (`alerts@hdfcbank.net`, `alerts@hdfcbank.com`)
+- ICICI Bank (`ibk.alert@icicibank.com`, `credit_cards@icicibank.com`)
+- State Bank of India (`alerts@sbi.co.in`, `sbicard.com`)
+- Axis Bank (`alerts@axisbank.com`)
+- Kotak Mahindra Bank (`alerts@kotak.com`)
+- American Express (`alerts@americanexpress.com`)
+- Standard Chartered, Yes Bank, IndusInd, PNB, Bank of Baroda, IDFC FIRST, Federal Bank, slice, Jupiter, Fi Money.
+
+Emails from unrecognized personal senders or non-whitelisted domains are ignored or routed to review with `reviewReason: 'unknown_sender'`.
+
+---
+
+## 33. Account Filtering Sovereignty
+
+- Users have complete control over which accounts are tracked via `AutoLogAccountsScreen`.
+- If an account is toggled OFF (e.g. a corporate card or parent's account), all emails matching that account are dropped silently.
+
+---
+
+## 34. Multi-Tracked Account Management
+
+Arthik seamlessly tracks multiple savings accounts, salary accounts, credit cards, and digital wallets simultaneously. Each transaction is attributed to its exact source account.
+
+---
+
+## 35. 100% On-Device Privacy Architecture
+
+- **Zero Cloud Communication Reading**: Raw email notification text and SMS bodies are parsed strictly in local memory on the Android device.
+- **Zero Remote Storage**: Communication content is never sent to Supabase, Anthropic, Google, or any remote server.
+- **Hardware-Encrypted Database**: The local AutoLog database is encrypted with **SQLCipher** via `expo-sqlite`, with a 256-bit encryption key stored in Android hardware Keystore via `expo-secure-store`.
+- **Minimal Metadata Sync**: Only lightweight account metadata (`autolog_profiles`: enabled status, tracked account numbers, last-4 digits) syncs to Supabase for multi-device profile restoration; never email text.
+
+---
+
+## 36. Privacy Center & Transparency UI
+
+The Privacy Center (`AutoLogInfoScreen`) provides users full visibility:
+- **SMS Access**: Granted / Denied
+- **Email Notification Access**: Granted / Denied (Listener active for Gmail / Outlook)
+- **Tracked Accounts Count**: e.g., 2 accounts tracked
+- **On-Device Cryptography Status**: SQLCipher Active
+- **Clear Database & Reset Button**: Allows immediate on-device database wiping.
+
+---
+
+## 37. User Permission Onboarding Protocol
+
+When requesting Android Notification Listener access for email detection, the app uses clear, transparent copy:
+> *"Arthik listens only for financial transaction notifications from your email apps (Gmail, Outlook) to detect payments when bank SMS fails. Personal emails, newsletters, and OTPs are ignored natively and never leave your phone."*
+
+---
+
+## 38. Graceful Degradation on Permission Revocation
+
+If a user revokes Notification Access for email apps:
+- Bank SMS processing continues without interruption.
+- The app never crashes or blocks navigation.
+- `AutoLogCenterScreen` displays a non-intrusive warning card with a 1-tap shortcut to re-enable permissions.
+
+---
+
+## 39. Fault-Isolated Dual Processors
+
+The failure, crash, or permission revocation of the Email pipeline has zero blast radius on the SMS pipeline, and vice versa. Each source operates inside independent try-catch transaction wrappers.
+
+---
+
+## 40. Deduplication State Machine
+
+```text
+Incoming Event (SMS or Email)
+               │
+               ▼
+   Extract Fingerprint & Ref ID
+               │
+               ▼
+   Does matching transaction exist in Ledger?
+         ├── YES (Same Ref ID OR Amount+Account+Time Match)
+         │     └── Status = 'merged' (Attach second source, enrich merchant)
+         └── NO
+               └── Evaluate Confidence Tier
+                     ├── High Confidence → Status = 'logged'
+                     └── Low / Ambiguous → Status = 'pending' (Review Queue)
 ```
 
-They may be merged when supporting transaction details agree.
+---
 
-Source diversity should improve confidence, but it must not override
-contradictory details.
+## 41. Real-World Scenario: Delayed Email Reconciled with SMS
 
-------------------------------------------------------------------------
+1. **10:30:00 AM**: User buys lunch for ₹350 at Subway using HDFC Debit Card.
+2. **10:30:15 AM**: Bank SMS arrives: *"HDFC Bank: ₹350.00 debited from a/c **1234 on 16-OCT-26 at Subway. Ref 839210"*.
+   - Auto-logged immediately as an expense.
+3. **11:15:00 AM** (45 mins later): Phone reconnects to Wi-Fi; Gmail posts notification: *"HDFC Bank Alert: Transaction of INR 350.00 on A/c **1234 at Subway. Ref 839210"*.
+   - Engine matches Ref `839210` $\to$ Merges with existing expense $\to$ Sources updated to `[Bank SMS, Bank Email]`.
+   - **Zero double-counting; zero user notification spam.**
 
-## 23. Same-Source Protection
+---
 
-Do not fuzzy-merge two messages from the same source merely because
-amount, merchant, and date are similar.
+## 42. Real-World Scenario: International Card Payment (Email-Only)
 
-``` text
-Notification 1:
-₹20 paid to Rahul
+1. User pays $10 (₹840) on GitHub using an ICICI Credit Card.
+2. No SMS is delivered by the cellular carrier.
+3. Outlook posts alert: *"ICICI Bank Credit Card ending 4091 spent USD 10.00 (INR 840.00) at GITHUB"*.
+4. Arthik parses INR 840.00, Card **4091, Merchant "GITHUB" $\to$ Auto-logs ₹840.00 under "Subscription" category.
 
-Notification 2:
-₹20 paid to Rahul
-```
+---
 
-These may be two genuine payments.
+## 43. Real-World Scenario: Same-Day Identical Amount Protection
 
-Unless a reliable identifier proves they are the same, keep them
-separate.
+1. **09:00 AM**: User pays ₹50 for metro ticket (Bank SMS arrives).
+2. **05:30 PM**: User pays ₹50 for return metro ticket (Bank Email arrives).
+3. Both have identical ₹50 amounts, same bank, same merchant.
+4. **Resolution**: Timestamps differ by 8.5 hours and references are distinct $\to$ Engine logs two separate ₹50 expenses accurately.
 
-------------------------------------------------------------------------
+---
 
-## 24. Confidence Evaluation
+## 44. Real-World Scenario: Manual Lookalike Detection
 
-Conceptually:
+1. User manually logs an expense: *"₹1,200 at D-Mart"* at 04:00 PM.
+2. At 04:05 PM, an email alert arrives: *"HDFC Bank: ₹1,200 debited for D-MART"*.
+3. Instead of logging a duplicate ₹1,200 expense, the engine detects the manual entry, flags it as a `possible_duplicate`, and prompts the user in Pending Review: *"Did you already log this manually?"*.
 
-``` text
-Strong reference match
-        ↓
-Very High Confidence
+---
 
-Multiple matching transaction fields
-        ↓
-High Confidence
+## 45. Real-World Scenario: Self-Transfer Between Own Accounts
 
-Some matching evidence
-        ↓
-Medium Confidence
+1. User transfers ₹10,000 from HDFC Bank to ICICI Bank.
+2. Email 1: *"₹10,000 debited from HDFC A/c **1234"*.
+3. Email 2 (1 minute later): *"₹10,000 credited to ICICI A/c **5678"*.
+4. Both accounts are user-tracked accounts.
+5. Engine identifies matching pair within `TRANSFER_WINDOW_MS` $\to$ Marks as internal transfer $\to$ Excluded from Outflow expenses and Gullak deduction.
 
-Ambiguous/conflicting evidence
-        ↓
-Low Confidence
-```
+---
 
-The exact confidence calculation should remain internal.
+## 46. User Experience & Non-Intrusive Design
 
-------------------------------------------------------------------------
+- **Silent Operation**: High-confidence transactions auto-log silently in the background without noisy popups or ringtones.
+- **Evening Nudge Synchronization**: When an expense is auto-logged, tonight's scheduled 20:30 reminder nudge is immediately cancelled from the Android alarm scheduler (`cancelTonightNudge`), sparing the user unnecessary reminders.
+- **Review Pill & Badge**: If an item needs review, a subtle badge appears on the Auto-Log header and Home banner.
 
-## 25. High-Confidence Email Transaction
+---
 
-``` text
-Email
- ↓
-Parse
- ↓
-Validate
- ↓
-No duplicate
- ↓
-High confidence
- ↓
-Auto-log
-```
+## 47. Pending Review Sheet (`AutoLogReviewSheet`)
 
-The user should not have to manually approve normal, high-confidence
-transactions.
+The review interface offers rapid, 1-tap resolution:
+- **Accept as Expense** (with optional category chip selection)
+- **Classify as Income**
+- **Mark as Transfer**
+- **Ignore / Delete**
+- **"Always remember this category for [Merchant]"** checkbox
 
-------------------------------------------------------------------------
+---
 
-## 26. Low-Confidence Email Transaction
+## 48. Correction & Undo Architecture
 
-Financial-looking but ambiguous email:
+- Users can tap any auto-logged transaction in `HistoryScreen` or `ExpenseDetailScreen` to edit or delete it.
+- Deleting an auto-logged transaction offers:
+  1. *"Delete expense only"*
+  2. *"Delete and ignore future alerts from this sender/format"*
 
-``` text
-Email
- ↓
-Financial-looking
- ↓
-Ambiguous
- ↓
-Pending Review
-```
-
-Example:
-
-> ₹2,000 received from Rahul
-
-User can choose:
-
-``` text
-Expense
-Income
-```
-
-The existing confirmation step should prevent accidental classification.
-
-------------------------------------------------------------------------
-
-## 27. Email as Confirmation / Enrichment
-
-Email may add information to an already detected transaction.
-
-``` text
-Notification:
-₹799 paid
-
-Later email:
-₹799 paid to Amazon
-Order ID: XXXXX
-Account: XX1234
-```
-
-Result:
-
-``` text
-₹799
-Amazon
-Expense
-
-Sources:
-✓ Notification
-✓ Email
-
-Account:
-XX1234
-```
-
-No duplicate is created.
-
-------------------------------------------------------------------------
-
-## 28. Email as the Only Source
-
-``` text
-SMS:              ❌
-Notification:     ❌
-Email:            ✓
-```
-
-If reliable:
-
-``` text
-₹500 — Zomato
-Expense
-Account XX1234
-
-Source:
-✓ Email
-
-Status:
-Automatically logged
-```
-
-------------------------------------------------------------------------
-
-## 29. Historical Discovery
-
-Historical discovery may learn:
-
--   sender/domain
--   financial email formats
--   transaction wording
--   amount patterns
--   account/card identifiers
--   reference formats
--   user accept/reject/correction behavior
-
-Historical discovery remains discovery only.
-
-> **Old emails must never silently become old transactions.**
-
-------------------------------------------------------------------------
-
-## 30. Learning From User Feedback
-
-User corrections can improve future email detection.
-
-Examples:
-
-``` text
-“This email is a transaction.”
-→ Similar future emails become easier to recognize.
-
-“This is not a transaction.”
-→ Similar email formats can be ignored.
-
-User chooses Expense.
-→ Similar transaction emails can receive stronger Expense classification.
-```
-
-Learning should remain specific to sender/template/context.
-
-------------------------------------------------------------------------
-
-## 31. Ignore Rules Must Be Specific
-
-Never learn rules such as:
-
-``` text
-Ignore all ₹500 transactions
-```
-
-Prefer:
-
-``` text
-Ignore this promotional email format
-from this sender/context.
-```
-
-Rules must not be based only on amount.
-
-------------------------------------------------------------------------
-
-## 32. Sender Recognition
-
-Email sources may be:
-
--   recognized bank/payment sender
--   promotional sender
--   unrelated sender
--   unknown sender
-
-Unknown financial-looking emails should receive lower confidence until
-enough evidence exists.
-
-------------------------------------------------------------------------
-
-## 33. Account Filtering
-
-If an email clearly identifies an account/card that is not selected for
-Auto-Logging, it should not automatically be logged into the user's
-tracked accounts.
-
-Example:
-
-``` text
-Email:
-Account ending 5678
-
-Tracked:
-XX1234
-XX9012
-```
-
-If XX5678 is not tracked:
-
-``` text
-Do not automatically create a transaction for it.
-```
-
-------------------------------------------------------------------------
-
-## 34. Multiple Tracked Accounts
-
-Email parsing must support multiple tracked accounts.
-
-The system should associate the email with the correct tracked account
-whenever reliable account information exists.
-
-It must not silently assign a transaction to the wrong account.
-
-------------------------------------------------------------------------
-
-## 35. Privacy
-
-Email processing should follow the same privacy philosophy as SMS
-processing.
-
-Users should understand:
-
--   supported email notifications are used for financial transaction
-    detection
--   non-financial emails are not transaction inputs
--   OTP/security emails are not transaction inputs
--   processing is designed to remain on-device where supported
--   email content is not uploaded for normal transaction detection
--   only necessary transaction information becomes part of the
-    transaction record
-
-------------------------------------------------------------------------
-
-## 36. Privacy Center
-
-The Auto-Logging Privacy Center should show email as an active source.
-
-Example:
-
-``` text
-Auto-Logging
-
-SMS access                 ✓
-Notification access       ✓
-Email notification access ✓
-Tracked accounts          2
-Last checked              Today
-
-Processing:
-✓ On this device
-✓ Financial transaction detection
-✓ Non-financial emails excluded
-```
-
-------------------------------------------------------------------------
-
-## 37. Email Access Explanation
-
-Before enabling email detection, clearly explain:
-
-> Arthik uses supported email notifications to detect financial
-> transactions automatically. Only relevant financial notifications are
-> considered for transaction detection. Personal and unrelated emails
-> are not transaction inputs.
-
-Avoid vague wording such as:
-
-> "We need access to your emails."
-
-------------------------------------------------------------------------
-
-## 38. Email Access Unavailable
-
-If email access is unavailable:
-
-``` text
-SMS                     ✓
-UPI Notifications       ✓
-Email Notifications     ⚠
-```
-
-Arthik should continue using the available sources.
-
-Email failure must not break SMS or notification-based Auto-Logging.
-
-------------------------------------------------------------------------
-
-## 39. Independent Source Failures
-
-Examples:
-
-``` text
-Email unavailable
-→ SMS continues
-→ Notifications continue
-```
-
-or:
-
-``` text
-SMS unavailable
-→ Email continues
-→ Notifications continue
-```
-
-Each source should be independently useful.
-
-------------------------------------------------------------------------
-
-## 40. Complete Deduplication Flow
-
-``` text
-                    SMS
-                     │
-                     ↓
-              ┌─────────────┐
-Notification →│ Common Event│← Email
-              └──────┬──────┘
-                     ↓
-              Identity Check
-                     ↓
-             Existing match?
-               ↙          ↘
-             YES           NO
-              ↓             ↓
-            MERGE        New Event
-              ↓             ↓
-        Add source       Confidence
-                            ↓
-                     Auto-log / Review
-```
-
-------------------------------------------------------------------------
-
-## 41. Delayed Sources --- Example
-
-Actual transaction:
-
-``` text
-10:30 AM
-₹500 Zomato
-```
-
-Notification:
-
-``` text
-10:31 AM
-```
-
-SMS after network recovery:
-
-``` text
-11:47 AM
-```
-
-Email:
-
-``` text
-1:20 PM
-```
-
-Final Arthik state:
-
-``` text
-₹500
-Zomato
-Expense
-10:30 AM
-
-Sources:
-✓ Notification
-✓ SMS
-✓ Email
-```
-
-There must be **one transaction only**.
-
-------------------------------------------------------------------------
-
-## 42. Email-Only Example
-
-``` text
-Slice transaction
-
-SMS:          ❌
-Notification: ❌
-Email:        ✓
-
-Email:
-₹500 spent at Zomato
-Account XX1234
-Reference 8392019283
-```
-
-Result:
-
-``` text
-₹500 — Zomato
-Expense
-Account XX1234
-
-Source:
-✓ Email
-
-Status:
-Automatically logged
-```
-
-------------------------------------------------------------------------
-
-## 43. Email + Notification Example
-
-``` text
-Notification:
-₹500 paid to Zomato
-
-Email:
-₹500 payment successful
-```
-
-Result:
-
-``` text
-ONE transaction
-
-Sources:
-✓ Notification
-✓ Email
-```
-
-------------------------------------------------------------------------
-
-## 44. Identical Amounts Example
-
-Existing:
-
-``` text
-10:00 AM — ₹500 — Zomato
-6:00 PM  — ₹500 — Zomato
-```
-
-New email:
-
-``` text
-₹500 — Zomato
-```
-
-No reliable reference.
-
-Result:
-
-``` text
-Do NOT auto-merge.
-→ Pending Review
-```
-
-------------------------------------------------------------------------
-
-## 45. Same Reference After Long Delay
-
-``` text
-Notification:
-₹500
-Ref 8392019283
-10:30 AM
-
-Email:
-₹500
-Ref 8392019283
-4:15 PM
-```
-
-Result:
-
-``` text
-ONE transaction
-```
-
-The arrival gap must not create a duplicate.
-
-------------------------------------------------------------------------
-
-## 46. User Experience
-
-Normal automatically logged email transaction:
-
-``` text
-₹500
-Zomato
-
-Expense
-Today • 10:30 AM
-
-Automatically logged
-```
-
-Optional explanation:
-
-``` text
-Why was this logged?
-
-Detected from:
-✓ Bank email
-```
-
-Multi-source:
-
-``` text
-Detected from:
-✓ GPay notification
-✓ Bank SMS
-✓ Bank email
-```
-
-------------------------------------------------------------------------
-
-## 47. Pending Review
-
-Example:
-
-``` text
-Unrecognized financial activity
-
-₹2,000 received from Rahul
-
-What is this?
-
-[ Expense ]
-[ Income ]
-
-[ Ignore ]
-```
-
-Classification should follow the existing confirmation flow before
-finalizing.
-
-------------------------------------------------------------------------
-
-## 48. Incorrect Email Detection
-
-Users should be able to report:
-
--   Wrong amount
--   Wrong transaction type
--   Duplicate
--   Wrong account
--   Should not have been detected
--   Other
-
-Feedback should improve future email detection where appropriate.
-
-------------------------------------------------------------------------
+---
 
 ## 49. No Silent Data Loss
 
-A financial-looking email that cannot be confidently parsed should not
-simply disappear.
+Every parsed communication event is stored in the local encrypted `events` table with its exact processing state:
+- `'logged'` — Auto-logged into user expenses
+- `'merged'` — Reconciled into an existing transaction
+- `'pending'` — Awaiting user review
+- `'ignored'` — Filtered out by rule / user
+- `'transfer'` — Internal account transfer
 
-Possible states:
+Nothing is dropped or lost invisibly.
 
-``` text
-High confidence
-→ Auto-log
+---
 
-Medium/low confidence
-→ Pending Review
+## 50. Email Notification Listener vs Full Inbox Integration
 
-Clearly irrelevant
-→ Ignore
+| Metric | Android Notification Listener (Shipped) | Full Inbox IMAP / OAuth Integration (Rejected) |
+|---|---|---|
+| **Privacy** | 100% On-Device. Only alert text is parsed. | Requires cloud servers or reading full private inbox emails. |
+| **Battery Life** | Zero drain; passive event-driven wakeup. | Continuous background polling drains battery. |
+| **Security Risk** | Zero credential storage. | Requires OAuth tokens or email passwords. |
+| **Permissions** | Standard Android Notification Access. | Intrusive full email read permissions. |
+| **Speed** | Instant (processed within 1 second of alert). | Delayed by polling intervals. |
 
-Unrecognized financial-looking email
-→ Review / Ignore this type
+The event-driven notification listener architecture is strictly superior for user privacy and battery performance.
+
+---
+
+## 51. Future Extensibility
+
+The `CommonTransaction` pipeline is engineered to accept future automated sources (such as Open Banking / Account Aggregator feeds or statement imports) through the identical deduplication and confidence engine without breaking changes.
+
+---
+
+## 52. Core Product Laws of Automatic Logging
+
+1. **Dual-Core Authority**: Bank SMS and Bank Email alerts are the two authoritative transaction inputs; payment app intermediaries are excluded.
+2. **Never Double-Count**: Multiple alerts for the same financial event must collapse into exactly one transaction.
+3. **Never Guess**: Ambiguity, missing directions, or untracked accounts always route to Pending Review.
+4. **Real-Money Invariant**: Every rupee logged impacts real spending balances, budget allowances, and Gullak savings.
+5. **Zero Cloud Leakage**: All parsing and event storage remain 100% on the local Android device under hardware SQLCipher encryption.
+6. **No Phantom History**: Historical discovery scans past messages for account profiles only; it never backdates past expenses.
+7. **Human Sovereignty**: The user can override, edit, or ignore any auto-logged transaction at any time.
+
+---
+
+## 53. Complete Lifecycle State Machine
+
+```text
+User Enables AutoLog
+        ↓
+Discover Accounts & Senders (Historical Scan)
+        ↓
+User Selects Tracked Accounts (e.g. HDFC **1234)
+        ↓
+Live Boundary Established (`meta.live_since`)
+        ↓
+[LIVE EVENT: Bank SMS or Bank Email]
+        ↓
+Native Financial Filter (Drop non-financial, OTP, personal)
+        ↓
+Encrypted EventQueue (JSONL) → AutoLogHeadlessService
+        ↓
+Parser → Account Check → Deduplication Matching
+        ├── Found Existing Match? → Merge (`status = 'merged'`)
+        └── New Event?
+              ├── Tracked Account & High Confidence? → Log (`status = 'logged'`)
+              └── Untracked / Ambiguous / Vault Exceeded? → Queue (`status = 'pending'`)
 ```
 
-------------------------------------------------------------------------
+---
 
-## 50. Email Notification vs Direct Inbox Integration
+## 54. North-Star Vision
 
-This specification covers **email notification parsing**.
-
-It does not require direct access to the complete Gmail/Outlook inbox.
-
-Direct email-provider integrations can be considered separately in the
-future.
-
-The product should keep the source model flexible enough for future
-direct email-provider sources to use the same common transaction and
-dedupe pipeline.
-
-------------------------------------------------------------------------
-
-## 51. Future Compatibility
-
-Future sources may include:
-
-``` text
-SMS
-Notification
-Email Notification
-Direct Email Provider
-Bank Statement Import
-Manual Import
-```
-
-All should converge into:
-
-``` text
-Common Transaction
-        ↓
-Identity
-        ↓
-Dedupe
-        ↓
-Confidence
-        ↓
-Final Transaction
-```
-
-Adding a new source must not create a separate duplicate-detection
-system.
-
-------------------------------------------------------------------------
-
-## 52. Core Product Rules
-
-1.  Email is a transaction source, not a separate transaction system.
-2.  SMS is not mandatory for transaction detection.
-3.  Email-only transactions are valid.
-4.  Multiple sources can represent one transaction.
-5.  One transaction must exist only once.
-6.  Transaction reference IDs are the strongest identity.
-7.  Arrival time must not define transaction identity.
-8.  Delayed SMS/email must still be able to merge with the original
-    transaction.
-9.  Same amount alone must never cause a merge.
-10. Same-source fuzzy merging should be avoided.
-11. Multiple possible matches should go to review.
-12. Email can enrich an existing transaction.
-13. Email can independently create a transaction.
-14. Uncertain financial emails should go to Pending Review.
-15. Non-financial emails should not become transactions.
-16. User corrections should improve future email detection.
-17. Account filtering must be respected.
-18. Email access failure must not break other Auto-Logging sources.
-19. Privacy and source transparency must be visible.
-20. Historical email discovery must never silently import old
-    transactions.
-
-------------------------------------------------------------------------
-
-## 53. Complete Email Auto-Logging Journey
-
-``` text
-User enables Email Auto-Logging
-            ↓
-Permission / access explanation
-            ↓
-Email notification access ready
-            ↓
-Financial email detected
-            ↓
-Email parser identifies transaction
-            ↓
-Validate account + transaction type
-            ↓
-Search existing transactions
-            ↓
- ┌──────────────────────────────┐
- │ Existing transaction match?  │
- └──────────────┬───────────────┘
-            YES ↓        ↓ NO
-                ↓        ↓
-             MERGE     New candidate
-                ↓        ↓
-        Add Email source  ↓
-                ↓       Confidence
-                ↓        ↓
-                └──────→ Decision
-                          ↓
-                 ┌────────┴────────┐
-                 ↓                 ↓
-          High Confidence      Low Confidence
-                 ↓                 ↓
-             Auto-log        Pending Review
-```
-
-------------------------------------------------------------------------
-
-## 54. North-Star Experience
-
-The user should never have to think:
-
-> "Did Arthik get the SMS?"
-
-Instead:
-
-> **"Arthik will recognize my transaction regardless of which supported
-> financial source reports it."**
-
-Whether a transaction arrives through SMS, UPI notification,
-bank/payment email, multiple sources, or delayed sources, Arthik should
-turn the available evidence into **one trustworthy transaction**.
-
-### Final Product Principle
-
-> **Multiple sources. One transaction. No unnecessary duplicates. Clear
-> evidence. Minimal user effort.**
+> **"Arthik effortlessly captures every rupee you spend from your bank alerts, guarantees zero duplicate entries, guards your real money with complete on-device privacy, and never pesters you with unnecessary manual chores."**

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
-import { Mail, MessageSquareText, BellRing, BatteryCharging, ShieldCheck, Zap, Search, CheckCircle2, CloudOff } from 'lucide-react-native';
+import { Mail, MessageSquareText, BatteryCharging, ShieldCheck, Zap, Search, CheckCircle2, CloudOff } from 'lucide-react-native';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
@@ -27,7 +27,7 @@ import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types'
 import type { RemoteAccount } from '../../features/autoLog/remote';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogSetup'>;
-type Step = 'dataLoss' | 'intro' | 'sms' | 'notifications' | 'email' | 'battery' | 'discovery' | 'accounts' | 'review' | 'complete';
+type Step = 'dataLoss' | 'intro' | 'sms' | 'email' | 'battery' | 'discovery' | 'accounts' | 'review' | 'complete';
 
 const keyOf = (a: RemoteAccount) => `${a.bankCode}:${a.last4}`;
 
@@ -42,7 +42,17 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
     () =>
       mode === 'learn'
         ? ['discovery', 'accounts', 'review', 'complete']
-        : [...(mode === 'resetup' ? (['dataLoss'] as Step[]) : []), 'intro', 'sms', 'notifications', ...(service.emailSupported() ? (['email'] as Step[]) : []), 'battery', 'discovery', 'accounts', 'review', 'complete'],
+        : [
+            ...(mode === 'resetup' ? (['dataLoss'] as Step[]) : []),
+            'intro',
+            'sms',
+            ...(service.emailSupported() ? (['email'] as Step[]) : []),
+            'battery',
+            'discovery',
+            'accounts',
+            'review',
+            'complete',
+          ],
     [mode]
   );
   const [step, setStep] = useState<Step>(steps[0]);
@@ -256,7 +266,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           {hero(<Zap size={30} color={colors.textPrimary} />, 'Automatic Logging', 'Log expenses and income without typing them.')}
           <Card>
             <SectionLabel>How it works</SectionLabel>
-            <Bullet tone="ok">Expenses and income are detected automatically from bank SMS and supported payment notifications.</Bullet>
+            <Bullet tone="ok">Expenses and income are detected automatically from bank SMS and bank email alerts.</Bullet>
             <Bullet tone="ok">Everything is processed on this phone.</Bullet>
             <Bullet tone="ok">You choose which bank accounts to track.</Bullet>
             <Bullet tone="ok">Anything uncertain waits for your review — Arthik never guesses.</Bullet>
@@ -318,35 +328,6 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         );
       break;
-    case 'notifications':
-      body = (
-        <>
-          {hero(<BellRing size={30} color={colors.textPrimary} />, 'Payment notifications', 'A fast preview, often before the bank SMS.')}
-          <Card>
-            <Bullet tone="ok">Google Pay, PhonePe, Paytm, Navi and other supported payment apps usually notify you first.</Bullet>
-            <Bullet tone="ok">Arthik shows it as a preview: "Payment detected · Waiting for bank confirmation".</Bullet>
-            <Bullet tone="ok">The bank SMS stays the source of truth. Both are combined into one transaction.</Bullet>
-            <Bullet tone="no">Notifications from other apps (chats, social) are ignored. Email apps only if you turn on email detection next.</Bullet>
-          </Card>
-          <Card>
-            <Body muted>
-              On the next screen, turn on "Arthik Automatic Logging". If the switch is greyed out: open App info → ⋮ → "Allow restricted settings", then try again.
-            </Body>
-          </Card>
-        </>
-      );
-      footer = notifOk ? (
-        <AppButton label="Notification access on ✓ — Continue" size="cta" onPress={next} />
-      ) : (
-        <>
-          <AppButton label="Open notification access" size="cta" onPress={openNotificationAccess} />
-          <View style={styles.row2}>
-            <AppButton label="App info" variant="outline" style={{ flex: 1 }} onPress={openAppDetails} />
-            <AppButton label="Skip for now" variant="ghost" style={{ flex: 1 }} onPress={next} />
-          </View>
-        </>
-      );
-      break;
     case 'email': {
       const chooseEmail = async (on: boolean) => {
         if (!userId) return;
@@ -361,22 +342,38 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           <EmailSourceInfo />
           {!notifOk ? (
             <Card tone="peach">
-              <Body>Email detection uses Notification access. You skipped it — you can turn this on later from Automatic Logging → Email notifications.</Body>
+              <Body>Bank email detection uses Notification access to detect alerts from supported email apps. You can enable it now or later.</Body>
             </Card>
-          ) : null}
+          ) : (
+            <Card tone="mint">
+              <Body>✓ Notification access is granted. Arthik will read supported bank email alerts.</Body>
+            </Card>
+          )}
         </>
       );
-      footer = (
+      footer = notifOk ? (
         <>
           <AppButton
             label="Turn on email detection"
             size="cta"
             loading={emailBusy}
-            disabled={!notifOk}
             icon={<Mail size={18} color={colors.textPrimary} />}
             onPress={() => chooseEmail(true)}
           />
           <AppButton label="Not now" variant="ghost" style={{ marginTop: Spacing.element }} disabled={emailBusy} onPress={() => chooseEmail(false)} />
+        </>
+      ) : (
+        <>
+          <AppButton
+            label="Open notification access"
+            size="cta"
+            icon={<Mail size={18} color={colors.textPrimary} />}
+            onPress={openNotificationAccess}
+          />
+          <View style={styles.row2}>
+            <AppButton label="App info" variant="outline" style={{ flex: 1 }} onPress={openAppDetails} />
+            <AppButton label="Skip for now" variant="ghost" style={{ flex: 1 }} onPress={() => chooseEmail(false)} />
+          </View>
         </>
       );
       break;

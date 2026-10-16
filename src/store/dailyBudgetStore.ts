@@ -508,6 +508,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           const remaining = Math.max(0, spendable - todaySpent);
           if (ratio >= 1) {
             if (get().lastExceededNotifiedDate !== todayStr) {
+              const over = Math.max(0, todaySpent - spendable);
+              const availIncome = get().getAvailableIncomeBalance();
+              const incomeCovered = Math.min(over, Math.max(0, availIncome));
+              const gullakCovered = Math.max(0, over - incomeCovered);
               notifyLimit({
                 id: `alert_exceeded_${todayStr}`,
                 kind: 'exceeded',
@@ -515,6 +519,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                 spent: todaySpent,
                 budget: spendable,
                 remaining: 0,
+                incomeCovered,
+                gullakCovered,
                 date: todayStr,
               });
               set({ lastExceededNotifiedDate: todayStr });
@@ -543,6 +549,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
             if (ratio >= 1) {
               if (get().lastPeriodExceededKey !== periodKey) {
+                const over = Math.max(0, summary.spent - summary.budget);
+                const availIncome = get().getAvailableIncomeBalance();
+                const incomeCovered = Math.min(over, Math.max(0, availIncome));
+                const gullakCovered = Math.max(0, over - incomeCovered);
                 notifyLimit({
                   id: `alert_exceeded_${periodKey}`,
                   kind: 'exceeded',
@@ -550,6 +560,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
                   spent: summary.spent,
                   budget: summary.budget,
                   remaining: 0,
+                  incomeCovered,
+                  gullakCovered,
                   date: todayStr,
                   periodKey,
                 });

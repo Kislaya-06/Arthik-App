@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { ArthikAutoLog, isAutoLogNativeAvailable } from '../../../modules/arthik-autolog';
 import * as db from './db';
-import { flushQueued, processEmail, processNotification, processSms, RawSms, smsFingerprint, sweepAwaiting } from './engine';
+import { flushQueued, processEmail, processSms, RawSms, smsFingerprint, sweepAwaiting } from './engine';
 import { DISCOVERY_DAYS, DISCOVERY_MAX_MESSAGES } from './matching';
 import { hasSmsPermission } from './permissions';
 import { fetchRemoteProfile, RemoteAccount, upsertRemoteProfile } from './remote';
@@ -186,8 +186,9 @@ export const processQueue = (userId: string, opts: { notify: boolean } = { notif
       try {
         if (ev.type === 'sms' && ev.address && ev.body) {
           await processSms({ address: ev.address, body: ev.body, date: ev.date }, { origin: 'live', notify: opts.notify });
-        } else if (ev.type === 'notification' && ev.app) {
-          await processNotification({ app: ev.app, title: ev.title ?? '', body: ev.body ?? '', date: ev.date }, { origin: 'live', notify: opts.notify });
+        } else if (ev.type === 'notification') {
+          // Option A: Payment-app notifications are excluded in favor of authoritative Bank SMS & Email.
+          continue;
         } else if (ev.type === 'email' && ev.app) {
           // Email failure must never break SMS / notification processing (spec email §38–39).
           if ((await db.getMeta('email_enabled')) === '1') {
@@ -426,7 +427,7 @@ const unregisterBackground = async () => {
 
 // ─── Developer test tools (used only from __DEV__ UI; never shown in release builds) ──
 
-export type DevSimulation = 'notification_debit' | 'sms_debit' | 'email_debit' | 'sms_credit_person' | 'sms_unreadable' | 'expire_previews';
+export type DevSimulation = 'sms_debit' | 'email_debit' | 'sms_credit_person' | 'sms_unreadable';
 
 /**
  * Pushes realistic fake events through the REAL live pipeline (parser → engine → ledger),
@@ -438,14 +439,6 @@ export const devSimulate = (userId: string, kind: DevSimulation): Promise<string
     const state = await readLocalState(userId);
     if (!isLiveState(state)) return 'Automatic Logging must be active (finish setup / resume first).';
     const now = Date.now();
-    if (kind === 'expire_previews') {
-      const n = await sweepAwaiting(now + 21 * 60_000, true);
-      return `${n} waiting preview(s) moved to Pending Review.`;
-    }
-    if (kind === 'notification_debit') {
-      const r = await processNotification({ app: 'PhonePe', title: 'Paid ₹349 to Zomato', body: 'Payment successful', date: now }, { origin: 'live', notify: true });
-      return `PhonePe notification → ${r.status}`;
-    }
     const acc = (await db.listAccounts()).find((a) => a.tracked);
     if (!acc) return 'Track at least one account first.';
     if (kind === 'email_debit') {

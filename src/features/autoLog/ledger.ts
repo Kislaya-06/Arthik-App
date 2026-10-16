@@ -3,8 +3,10 @@ import * as Crypto from 'expo-crypto';
 import { supabase } from '../../config/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useExpenseStore, isValidUUID, Expense } from '../../store/expenseStore';
+import { useDailyBudgetStore } from '../../store/dailyBudgetStore';
 import { useSharesStore } from '../../store/sharesStore';
 import { findExactSplitCandidates, reimbursedByShare, ReimbursementCandidate, ExpenseShare, ShareDraft } from '../../lib/shares';
+import { cancelTonightNudge } from '../../lib/notificationService';
 
 /**
  * Bridge between Automatic Logging and Arthik's normal transaction store.
@@ -29,6 +31,39 @@ const storeReady = () => !!useAuthStore.getState().user && useExpenseStore.getSt
 
 export const paymentModeFor = (accountKind: string | null | undefined, type: 'expense' | 'income'): 'upi' | 'card' =>
   accountKind === 'card' && type === 'expense' ? 'card' : 'upi';
+
+export const isExceedingVaultLiquidity = (amount: number): boolean => {
+  if (!storeReady()) return false;
+  try {
+    const budgetState = useDailyBudgetStore.getState();
+    if (!budgetState.hydratedForUserId) return false;
+
+    if (!budgetState.isBudgetModeEnabled) {
+      const net = budgetState.getTotalAccountRemaining();
+      return amount > net;
+    }
+
+    const availIncome = budgetState.getAvailableIncomeBalance();
+    const gullak = budgetState.totalAccumulatedSavings;
+    let activeAllowance = 0;
+    if (budgetState.budgetCadence === 'weekly') {
+      activeAllowance = budgetState.weeklyBudgetAmount;
+    } else if (budgetState.budgetCadence === 'monthly') {
+      activeAllowance = budgetState.monthlyBudgetAmount;
+    } else {
+      const todayRec = budgetState.getTodayRecord();
+      activeAllowance = todayRec.budget || budgetState.dailyBudgetAmount;
+    }
+
+    // Strict rule: If Income is 0, Gullak is 0, and amount > allowance
+    if (availIncome <= 0 && gullak <= 0 && amount > activeAllowance) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
 
 export const createTransaction = async (tx: NewTransaction, presetId?: string): Promise<string | null> => {
   const id = presetId && isValidUUID(presetId) ? presetId : Crypto.randomUUID();
@@ -61,6 +96,9 @@ export const createTransaction = async (tx: NewTransaction, presetId?: string): 
       },
       { onConflict: 'id', ignoreDuplicates: true }
     );
+    if (!error && tx.type === 'expense') {
+      cancelTonightNudge(date).catch(() => {});
+    }
     return error ? null : id;
   } catch {
     return null;

@@ -51,12 +51,12 @@ export const AutoLogIntroScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Automatic Logging</Text>
           <Body muted style={{ textAlign: 'center' }}>
-            Stop typing every UPI payment. Arthik can log them for you from bank SMS and payment notifications.
+            Stop typing every UPI payment. Arthik can log them for you from bank SMS and bank emails.
           </Body>
         </View>
 
         <Card>
-          <Bullet tone="ok">Bank SMS and Google Pay / PhonePe / Paytm payments become transactions automatically.</Bullet>
+          <Bullet tone="ok">Bank SMS and bank transaction emails become transactions automatically.</Bullet>
           <Bullet tone="ok">You choose which bank accounts to track.</Bullet>
           <Bullet tone="ok">Not sure? It asks you instead of guessing.</Bullet>
           <Bullet tone="ok">Your old messages are never added as transactions.</Bullet>

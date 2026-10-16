@@ -1,5 +1,8 @@
 # 0013. Store Helper Decomposition and Module Encapsulation
 
+## Status
+Accepted (October 2026).
+
 ## Context
 As Arthik expanded to support multi-cadence budgets (Daily, Weekly, Monthly), unprorated pacing, carry-over transitions, and offline-first queue resilience, two core stores grew into multi-thousand-line monolithic files:
 - `dailyBudgetStore.ts` exceeded 2,500 lines, mixing local state setters, metrics calculations, rollover checks, complex hydration/self-healing logic, offline storage, and cross-store bridges in a single file.
@@ -41,7 +44,7 @@ We decomposed `dailyBudgetStore` and `expenseStore` into focused, cohesive helpe
 
 ## Consequences
 - **Positive**:
-  - Dramatically lowered cognitive load and blast radius: `dailyBudgetStore.ts` line count dropped from ~2,500 to ~900 lines; `expenseStore.ts` dropped to ~700 lines.
+  - Dramatically lowered cognitive load and blast radius: `dailyBudgetStore.ts` line count dropped from ~2,500 to ~875 lines; `expenseStore.ts` dropped to ~655 lines.
   - Testability: Sub-operations and phases can be tested in isolation with zero mock overhead.
   - Zero circular dependency introduction: helper modules operate strictly downstream of data sources.
   - Zero breaking changes for screens, components, or existing test suites.

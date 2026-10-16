@@ -122,13 +122,13 @@ describe('Live boundary & tracked accounts', () => {
 });
 
 describe('Matching & duplicates (spec §16, §38)', () => {
-  it('notification first, then bank SMS → one transaction with both sources', async () => {
+  it('payment-app notifications are skipped (Option A: Bank SMS & Email only)', async () => {
     await goLive();
     const t = Date.now();
     receiveNotification('PhonePe', 'Paid ₹349 to Zomato', 'Payment successful', t);
     await service.processQueue(U, { notify: false });
-    expect(ledger.txs.size).toBe(0); // preview only
-    expect((await events("status = 'awaiting_sms'")).length).toBe(1);
+    expect(ledger.txs.size).toBe(0); // skipped
+    expect((await events("source = 'notification'")).length).toBe(0);
 
     receiveSms(HDFC, hdfcDebit(349, 'ZOMATO', '628700000001'), t + 30_000);
     await service.processQueue(U, { notify: false });
@@ -136,18 +136,19 @@ describe('Matching & duplicates (spec §16, §38)', () => {
     const [tx] = [...ledger.txs.values()];
     expect(tx.note).toBe('Zomato');
     const linked = await db.getEventsForExpense(tx.id);
-    expect(linked.map((e) => e.source).sort()).toEqual(['notification', 'sms']);
+    expect(linked.map((e) => e.source).sort()).toEqual(['sms']);
   });
 
-  it('bank SMS first, then notification → still one transaction', async () => {
+  it('bank SMS logs directly; subsequent payment notification is safely skipped', async () => {
     await goLive();
     const t = Date.now();
     receiveSms(HDFC, hdfcDebit(120, 'SWIGGY', '628700000005'), t);
     await service.processQueue(U, { notify: false });
+    expect(ledger.txs.size).toBe(1);
     receiveNotification('Google Pay', '₹120 paid to Swiggy', '', t + 20_000);
     await service.processQueue(U, { notify: false });
     expect(ledger.txs.size).toBe(1);
-    expect((await events("status = 'merged'")).length).toBe(1);
+    expect((await events("source = 'notification'")).length).toBe(0);
   });
 
   it('two genuine ₹20 payments 4 minutes apart stay two transactions', async () => {
@@ -167,19 +168,34 @@ describe('Matching & duplicates (spec §16, §38)', () => {
     expect(ledger.txs.size).toBe(1);
   });
 
-  it('a notification without a bank SMS goes to Pending Review after 20 min — never logged', async () => {
+  it('legacy awaiting_sms events are quietly cleaned up without generating review noise', async () => {
     await goLive();
-    receiveNotification('Paytm', 'Paid Rs.499 to Myntra', '', Date.now());
+    await db.insertEvent({
+      id: 'legacy-1',
+      source: 'notification',
+      status: 'awaiting_sms',
+      amount: 499,
+      direction: 'debit',
+      occurredAt: Date.now() - 25 * MIN,
+      fingerprint: 'legacy-fp',
+      origin: 'live',
+      sender: 'Paytm',
+      body: 'Paytm Paid 499',
+      createdAt: Date.now(),
+      merchant: 'Myntra',
+      template: 't',
+      kind: 'txn',
+      accountKey: null,
+      ref: null,
+      expenseId: null,
+      needsCategory: false,
+      reviewReason: null,
+      matchedId: null,
+    });
     await service.processQueue(U, { notify: false });
-    expect((await events("status = 'awaiting_sms'")).length).toBe(1);
-    const realNow = Date.now();
-    const spy = vi.spyOn(Date, 'now').mockReturnValue(realNow + 25 * MIN); // 25 minutes pass, no SMS
-    await service.processQueue(U, { notify: false });
-    spy.mockRestore();
     expect(ledger.txs.size).toBe(0);
     const pending = await db.listPending();
-    expect(pending).toHaveLength(1);
-    expect(pending[0].reviewReason).toBe('notification_only');
+    expect(pending).toHaveLength(0); // Quietly ignored, zero review noise
   });
 
   it('a manual entry with the same amount on the same day → asks instead of double counting', async () => {
@@ -404,9 +420,8 @@ describe('Data loss, clear cache, turn off (spec §30–36)', () => {
 });
 
 describe('Developer test tools (dev builds only)', () => {
-  it('notification then SMS simulation merges into one transaction', async () => {
+  it('Bank SMS simulation logs transactions directly', async () => {
     await goLive(['HDFC:1234']);
-    expect(await service.devSimulate(U, 'notification_debit')).toContain('awaiting_sms');
     expect(await service.devSimulate(U, 'sms_debit')).toContain('logged');
     expect(ledger.txs.size).toBe(1);
     expect(await service.devSimulate(U, 'sms_credit_person')).toContain('type');

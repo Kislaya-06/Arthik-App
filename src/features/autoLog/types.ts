@@ -66,7 +66,8 @@ export type ReviewReason =
   | 'ambiguous_match'    // could be the same as more than one existing transaction (or only weakly matches one)
   | 'unknown_sender'     // financial email from a sender Arthik does not recognise yet
   | 'possible_transfer'  // same amount out of one tracked account and into another, nothing proves it is one transfer
-  | 'split_repayment';   // money in that equals what a friend still owes on a split
+  | 'split_repayment'    // money in that equals what a friend still owes on a split
+  | 'exceeds_liquidity'; // spending exceeds total available vault funds (Income = 0 and Gullak = 0)
 
 export interface AutoLogEvent {
   id: string;

@@ -1,5 +1,8 @@
 # 0002. Income Inferred from Category Keywords
 
+## Status
+Accepted (legacy baseline) — Amended and Unified by [0008. Unified Income Classification via isIncomeTransaction](0008-unified-income-classification.md).
+
 ## Context
 The early schema and storage model of Arthik was built strictly around expense tracking, storing all entries in a single `expenses` table. As the feature set expanded to track incoming funds ("Add Money"), adding income transactions without breaking existing user data or requiring complex database migrations posed a challenge. Furthermore, legacy database rows lacked a populated or reliable transaction type column.
 

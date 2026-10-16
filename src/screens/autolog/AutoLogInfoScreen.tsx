@@ -65,13 +65,12 @@ export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
               <SectionLabel>What Arthik reads</SectionLabel>
               <Text style={[styles.sub, { color: colors.textPrimary }]}>Used</Text>
               <Bullet tone="ok">Supported bank transaction SMS</Bullet>
-              <Bullet tone="ok">Payment notifications from Google Pay, PhonePe, Paytm, Navi, BHIM, CRED, Amazon Pay, MobiKwik, super.money</Bullet>
-              <Bullet tone="ok">If you turn it on: bank / payment email notifications from Gmail, Outlook and other supported email apps (sender, subject, preview only — not your inbox)</Bullet>
+              <Bullet tone="ok">If you turn it on: bank transaction email notifications from Gmail, Outlook and other supported email apps (sender, subject, preview only — not your inbox)</Bullet>
               <Text style={[styles.sub, { color: colors.textPrimary, marginTop: Spacing.group }]}>Not used as transaction inputs</Text>
               <Bullet tone="no">OTP messages</Bullet>
               <Bullet tone="no">Personal SMS</Bullet>
               <Bullet tone="no">Promotional / unrelated messages</Bullet>
-              <Bullet tone="no">Notifications from any other app</Bullet>
+              <Bullet tone="no">Notifications from non-banking or unsupported apps</Bullet>
               <Bullet tone="no">Personal or unrelated emails, and old emails from before you turned email on</Bullet>
             </Card>
             <Card>
@@ -102,11 +101,10 @@ export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
             </Card>
             <Card>
               <SectionLabel>When a payment happens</SectionLabel>
-              <Bullet>A payment app notification arrives → "Payment detected · Waiting for bank confirmation".</Bullet>
-              <Bullet>The bank SMS arrives → Arthik checks amount, direction, time, account and reference.</Bullet>
-              <Bullet>If both describe the same payment, they become one transaction ("Matched automatically").</Bullet>
-              <Bullet>Sure about it → logged automatically. Not sure → Pending Review. Arthik never guesses.</Bullet>
-              <Bullet>If no bank SMS comes within 20 minutes, the payment waits in Pending Review instead of being logged.</Bullet>
+              <Bullet>A bank SMS or email alert arrives → Arthik checks amount, direction, time, account and reference.</Bullet>
+              <Bullet>If both an SMS and an email describe the same payment, they are unified into one transaction ("Matched automatically").</Bullet>
+              <Bullet>Confirmed bank transaction on a tracked account → logged automatically. Arthik never guesses.</Bullet>
+              <Bullet>Unsure about category or format → waits in Pending Review for your confirmation.</Bullet>
             </Card>
             <Card>
               <SectionLabel>Bank emails (optional)</SectionLabel>

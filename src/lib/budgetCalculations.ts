@@ -1,4 +1,4 @@
-import { format, subDays } from 'date-fns';
+import { format, subDays, parseISO, differenceInCalendarDays, addDays } from 'date-fns';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { round2 } from './formatters';
 
@@ -135,18 +135,16 @@ export const calculateSavingsMetrics = (
     if (i === 0) {
       currentRun = 1;
     } else {
-      const prevDate = new Date(finalizedSavedRecords[i - 1].date);
-      const curDate = new Date(rec.date);
-      const diffDays = Math.round((curDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      const prevDate = parseISO(finalizedSavedRecords[i - 1].date);
+      const curDate = parseISO(rec.date);
+      const diffDays = differenceInCalendarDays(curDate, prevDate);
       if (diffDays === 1) {
         currentRun++;
       } else {
         // Check if all days in between are 'unknown' — an unknown day should neither extend nor break a streak
         let allIntermediateUnknown = true;
         for (let step = 1; step < diffDays; step++) {
-          const intermediateDate = new Date(prevDate);
-          intermediateDate.setDate(prevDate.getDate() + step);
-          const intermediateStr = format(intermediateDate, 'yyyy-MM-dd');
+          const intermediateStr = format(addDays(prevDate, step), 'yyyy-MM-dd');
           if (records[intermediateStr]?.status !== 'unknown') {
             allIntermediateUnknown = false;
             break;

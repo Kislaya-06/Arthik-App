@@ -375,6 +375,28 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
       // Because Sept 11 is 'even' (not 'unknown'), the gap does not bridge; both runs are of length 1
       expect(metrics.bestStreak).toBe(1);
     });
+
+    it('bridges across month boundary when intermediate day is unknown', () => {
+      const records: Record<string, DailyRecord> = {
+        '2026-09-30': { date: '2026-09-30', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-10-01': { date: '2026-10-01', budget: 0, spent: 0, saved: 0, isFinalized: true, status: 'unknown' },
+        '2026-10-02': { date: '2026-10-02', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+      };
+
+      const metrics = calculateSavingsMetrics(records, '2026-10-03', '2026-09-01', new Date(2026, 9, 3, 12, 0, 0));
+      expect(metrics.bestStreak).toBe(2);
+    });
+
+    it('bridges across year boundary when intermediate day is unknown', () => {
+      const records: Record<string, DailyRecord> = {
+        '2025-12-31': { date: '2025-12-31', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+        '2026-01-01': { date: '2026-01-01', budget: 0, spent: 0, saved: 0, isFinalized: true, status: 'unknown' },
+        '2026-01-02': { date: '2026-01-02', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
+      };
+
+      const metrics = calculateSavingsMetrics(records, '2026-01-03', '2025-12-01', new Date(2026, 0, 3, 12, 0, 0));
+      expect(metrics.bestStreak).toBe(2);
+    });
   });
 
   describe('Ticket 06 - bestStreak vs confirmedSavedDays characterization', () => {

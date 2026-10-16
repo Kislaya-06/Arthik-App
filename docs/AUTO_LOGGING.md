@@ -3,41 +3,42 @@
 Product spec: `Arthik_Auto_Logging_Final_Product_Spec`. This file explains **how the code implements it**.
 
 ## 1. The problem, in one line
-Typing every UPI payment is tedious. Bank SMS and payment-app notifications already describe every payment. So: read them on the phone, turn the safe ones into transactions, and ask the user about the rest.
+Typing every UPI payment is tedious. Bank SMS and bank transaction emails already describe every confirmed payment with exact account numbers and amounts. By focusing strictly on these **two authoritative bank sources** (Bank SMS + Bank Email alerts), Arthik turns real bank transactions into expenses automatically while eliminating phantom duplicate reviews from payment-app intermediaries (Option A).
 
 ## 2. Three modes (never mix them)
 | Mode | What it does | Creates transactions? |
 |---|---|---|
 | **Discovery** | Learns banks, accounts (last 4), message formats from old SMS | **Never** |
 | **Recovery** | Re-checks the signed-out / paused gap through the normal rules | Yes (normal rules + review) |
-| **Live** | New SMS / notifications after the *live boundary* | Yes |
+| **Live** | New SMS / bank emails after the *live boundary* | Yes |
 
 The **live boundary** is `meta.live_since`, written when setup completes. Queue events older than it are dropped.
 
 ## 3. Data flow
 ```
-Bank SMS ──► SmsReceiver.kt ─┐  (native privacy gate: FinancialFilter.kt
-Payment notif ► Listener.kt ─┤   drops phone-number senders, OTPs, non-money text)
-                             ▼
-                 EventQueue (app-private jsonl file)
-                             │  AutoLogHeadlessService wakes JS
-                             ▼  (+ periodic expo-background-task, + app open)
-             service.processQueue()  ── serialised, one job at a time
-                             ▼
-   engine.processSms / processNotification
-     parse → noise filter → user rules → tracked-account filter → same-source dedupe
-     → card bill / own transfer → cross-source match → confidence
-                             ▼
-          logged  |  pending (Pending Review)  |  ignored / transfer / merged
-                             ▼
-          ledger.createTransaction() → expenseStore (app open) or Supabase (headless)
+Bank SMS ────► SmsReceiver.kt ─┐  (native privacy gate: FinancialFilter.kt
+Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs, non-money text;
+(via notif)                    │   payment-app notifications are skipped)
+                               ▼
+                   EventQueue (app-private jsonl file)
+                               │  AutoLogHeadlessService wakes JS
+                               ▼  (+ periodic expo-background-task, + app open)
+               service.processQueue()  ── serialised, one job at a time
+                               ▼
+                     engine.processSms / processEmail
+       parse → noise filter → user rules → tracked-account filter → dedupe
+       → card bill / own transfer → cross-source match (SMS ↔ Email) → confidence
+                               ▼
+            logged  |  pending (Pending Review)  |  ignored / transfer / merged
+                               ▼
+            ledger.createTransaction() → expenseStore (app open) or Supabase (headless)
 ```
 
 ## 4. Files
 | Path | Role |
 |---|---|
-| `modules/arthik-autolog/` | Local Expo module (Kotlin): SMS read/receive, notification listener, queue, headless service, settings intents. Autolinked from `./modules`. |
-| `src/features/autoLog/parser.ts` | Pure SMS + notification parsers, templates, masking. Unit-tested. |
+| `modules/arthik-autolog/` | Local Expo module (Kotlin): SMS read/receive, email notification listener, queue, headless service, settings intents. Autolinked from `./modules`. |
+| `src/features/autoLog/parser.ts` | Pure SMS + email parsers, templates, masking. Unit-tested. |
 | `src/features/autoLog/matching.ts` | Pure matching rules + time windows. Unit-tested. |
 | `src/features/autoLog/db.ts` | Encrypted SQLite (SQLCipher) per user. Key in SecureStore. |
 | `src/features/autoLog/engine.ts` | The decision pipeline. |
@@ -48,22 +49,26 @@ Payment notif ► Listener.kt ─┤   drops phone-number senders, OTPs, non-mon
 | `src/features/autoLog/store.ts` | Zustand UI snapshot (not persisted). |
 | `src/features/autoLog/remote.ts` | `autolog_profiles` table (no message content). |
 | `src/features/autoLog/rollout.ts` | Beta rollout: `app_config.feature_flags.autolog` audience, existing-user detection, one-time intro. |
-| `src/screens/autolog/*` | Center, Setup, Welcome Back, Pending Review, Accounts, Info/Privacy. |
-| `src/components/autolog/*` | Shared UI, ReviewSheet, WhyLoggedCard, HomeBanner, Gate. |
+| `src/screens/autolog/*` | Center, Setup, Welcome Back, Pending Review, Accounts, Info/Privacy, Email. |
+| `src/components/autolog/*` | Shared UI, ReviewSheet, WhyLoggedCard, HomeBanner, Gate, EmailSourceInfo. |
 
 ## 5. Key rules → where they live
 | Rule (spec §) | Code |
 |---|---|
 | Balance never an amount (§39) | `parser.extractAmount` + `RE_BALANCE_BEFORE` |
-| Future / mandate / collect / failed ≠ txn (§39) | `parser.RE_FUTURE`, `RE_FAILED`, notif `RE_N_IGNORE` |
-| Never fuzzy-merge same source (§38.2) | `matching.isSameSourceDuplicate` (ref or identical text ≤5 min only) |
-| Notification + SMS = one txn (§16, §38.1) | `matching.isCrossSourceMatch` (amount, direction, ±15 min, refs must not differ) |
-| Notification alone never logs | `engine.processNotification` → `awaiting_sms` → after 20 min `pending/notification_only` |
-| Own transfer / card bill not expense (§38.4) | `engine.processSms` transfer block, `isOwnTransferPair` |
+| Future / mandate / collect / failed ≠ txn (§39) | `parser.RE_FUTURE`, `RE_FAILED` |
+| Never fuzzy-merge same source (§38.2) | `matching.isSameSourceDuplicate` (ref or identical text ≤2s only) |
+| SMS & Email Dual-Core Priority (§16, §40) | Bank SMS and Bank Email are Tier-1 authoritative sources. Confirmed transactions on tracked accounts auto-log immediately; unknown category logs with `needs_category = 1` for 1-tap review. |
+| Cross-Source Reconciliation (SMS ↔ Email) | When a payment generates both an SMS and an Email (or vice versa), they link together under "Why Logged" as a single transaction (`status = 'merged'`). |
+| Repeat Transactions Protected (§38.2) | Real separate payments (e.g. ₹25 spent again 20 min later) have distinct timestamps/references and are ALWAYS logged as separate expenses; never falsely deduplicated. |
+| Payment Apps Excluded (Option A) | Payment app push notifications (GPay/PhonePe) are skipped natively and in `service.processQueue` to prevent false duplicate reviews caused by missing bank account digits. |
+| Legacy Previews Quietly Resolved | `engine.sweepAwaiting` gracefully reconciles any lingering `awaiting_sms` events with confirmed SMS/Email, or sets them to `ignored` without generating phantom review alerts. |
+| Own transfer / card bill not expense (§38.4) | `engine.processSms` / `processEmail` transfer block, `isOwnTransferPair` |
 | Only tracked accounts (§7, trust rule 4) | new accounts inserted with `tracked = 0`, shown as "New account found" |
 | Narrow ignore rules (§11) | `rules` table: exact fingerprint or exact template; never amount-based |
 | Unknown merchant → ask category (§17) | logged with `needs_category = 1` → appears in Pending Review |
 | Manual entry look-alike | `ledger.findManualLookalike` → `possible_duplicate` |
+| Vault Spending Guard (ADR 0011) | `ledger.isExceedingVaultLiquidity` → `exceeds_liquidity` review (zero funds in Income & Gullak with amount > budget blocks silent deficit creation) |
 | Data loss ≠ silent restore (§30–36) | `service.evaluateEntry`: no local DB + `autolog_profiles.enabled` → re-setup |
 | Clear cache keeps state (§36) | DB lives in app data, not cache |
 
