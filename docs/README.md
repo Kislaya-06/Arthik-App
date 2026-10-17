@@ -64,13 +64,14 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |
 | [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |
 | [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 Implementation Status | Active |
+| [0015](adr/0015-ui-thread-reanimated-worklet-migration-and-render-optimizations.md) | UI-Thread Reanimated Worklet Migration and Render Optimizations | Active |
 
 ---
 
 ## 3. How to Add a New ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0013` (i.e. `0014`).
+2. Next available number after `0015` (i.e. `0016`).
 3. Standard sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the new ADR supersedes an older one, mark `## Status: Superseded by NNNN` in the old ADR.
 5. Register the new ADR in the table above and in `docs/architecture.md §13`.

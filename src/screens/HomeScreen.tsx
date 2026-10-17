@@ -25,7 +25,7 @@ import { RefreshScrollShell } from '../components/RefreshScrollShell';
 import { getNavTopOffset } from '../lib/pullToHistoryPhysics';
 import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
-import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate } from '../lib/homeCalculations';
+import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate, selectRecentTransactions } from '../lib/homeCalculations';
 import { dailyCarryForDate } from '../lib/budgetPeriods';
 import { carryCoverCopy } from '../lib/notificationPolicy';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
@@ -296,19 +296,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [filtered, catMap]
   );
 
-  type UnifiedTxItem =
-    | { kind: 'expense'; data: Expense; date: string; created_at: string }
-    | { kind: 'gullak'; data: GullakDeposit; date: string; created_at: string };
-
-  const recentTx = useMemo<UnifiedTxItem[]>(() => {
-    const items: UnifiedTxItem[] = [
-      ...expenses.map((e) => ({ kind: 'expense' as const, data: e, date: e.expense_date, created_at: e.created_at || '' })),
-      ...gullakDeposits.map((d) => ({ kind: 'gullak' as const, data: d, date: d.date, created_at: d.created_at || '' })),
-    ];
-    return items
-      .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at))
-      .slice(0, 5);
-  }, [expenses, gullakDeposits]);
+  const recentTx = useMemo(
+    () => selectRecentTransactions(expenses, gullakDeposits, 5),
+    [expenses, gullakDeposits]
+  );
 
   const { colors, isDark } = useTheme();
   const displayName = useMemo(

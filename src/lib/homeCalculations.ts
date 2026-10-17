@@ -24,6 +24,8 @@ import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { resolvePlanForDate, getPeriodBounds, carryForPeriod, dailyCarryForDate, periodCarryForPeriod } from './budgetPeriods';
 import { isCountedIncome, isCountedExpense, PURE_DEFICIT_NOTE } from './transactionUtils';
 import { BudgetPlanChange } from '../types';
+import type { Expense } from '../store/expenseStore';
+import type { GullakDeposit } from '../store/dailyBudgetStore';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
 
@@ -573,4 +575,75 @@ export function buildHeroSubtextChips(input: {
 
   items.sort((a, b) => a.approxSize - b.approxSize);
   return items;
+}
+
+export type UnifiedTxItem =
+  | { kind: 'expense'; data: Expense; date: string; created_at: string }
+  | { kind: 'gullak'; data: GullakDeposit; date: string; created_at: string };
+
+/**
+ * Selects the top `limit` most recent transactions across expenses and Gullak deposits
+ * in a single-pass O(N) bounded collection, eliminating full-array allocations and O(N log N) sorting.
+ *
+ * Sorting semantics strictly preserved:
+ * 1. Primary: date descending (latest first).
+ * 2. Tie-breaker: created_at descending (latest first).
+ * 3. Equal timestamps: stable encounter order (expenses before deposits, earlier array items first).
+ */
+export function selectRecentTransactions(
+  expenses: readonly Expense[],
+  gullakDeposits: readonly GullakDeposit[],
+  limit = 5
+): UnifiedTxItem[] {
+  if (limit <= 0) return [];
+  const top: UnifiedTxItem[] = [];
+
+  const consider = (
+    kind: 'expense' | 'gullak',
+    data: any,
+    date: string,
+    createdAt: string
+  ) => {
+    // If the top buffer is already full, check if candidate can strictly beat the current worst item.
+    // In our stable order, ties go to earlier-seen items, so candidate must strictly beat worst.
+    if (top.length === limit) {
+      const worst = top[limit - 1];
+      const cmpWorst = worst.date.localeCompare(date) || worst.created_at.localeCompare(createdAt);
+      if (cmpWorst >= 0) {
+        return;
+      }
+    }
+
+    const item: UnifiedTxItem =
+      kind === 'expense'
+        ? { kind: 'expense', data, date, created_at: createdAt }
+        : { kind: 'gullak', data, date, created_at: createdAt };
+
+    let insertIdx = top.length;
+    for (let i = 0; i < top.length; i++) {
+      const cur = top[i];
+      const cmp = cur.date.localeCompare(date) || cur.created_at.localeCompare(createdAt);
+      if (cmp < 0) {
+        insertIdx = i;
+        break;
+      }
+    }
+
+    top.splice(insertIdx, 0, item);
+    if (top.length > limit) {
+      top.pop();
+    }
+  };
+
+  for (let i = 0; i < expenses.length; i++) {
+    const e = expenses[i];
+    consider('expense', e, e.expense_date || '', e.created_at || '');
+  }
+
+  for (let i = 0; i < gullakDeposits.length; i++) {
+    const d = gullakDeposits[i];
+    consider('gullak', d, d.date || '', d.created_at || '');
+  }
+
+  return top;
 }

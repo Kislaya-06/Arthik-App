@@ -101,5 +101,22 @@ describe('BreathingStripShell: unified black capsule with green text styling par
   });
 });
 
+describe('HistoryScreen virtualization: initial batch and batch size parity', () => {
+  const historySrc = read('src/screens/HistoryScreen.tsx');
+
+  it('SectionList uses initialNumToRender 12 to prevent JS thread stalls on filter transitions', () => {
+    expect(historySrc).toMatch(/initialNumToRender=\{12\}/);
+  });
+
+  it('SectionList uses maxToRenderPerBatch 10 to batch subsequent offscreen rows smoothly', () => {
+    expect(historySrc).toMatch(/maxToRenderPerBatch=\{10\}/);
+  });
+
+  it('SectionList preserves windowSize 21 for smooth bidirectional scrolling', () => {
+    expect(historySrc).toMatch(/windowSize=\{21\}/);
+  });
+});
+
+
 
 

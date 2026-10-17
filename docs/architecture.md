@@ -50,7 +50,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/profile/**`, `src/components/savings/**` |
 | **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (89 files, 1442 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (92 files, 1481 tests) | `tests/**` |
 | **Automatic Logging** | On-device SMS / notification / email → transactions | `modules/arthik-autolog/**`, `src/features/autoLog/**` — see [AUTO_LOGGING.md](AUTO_LOGGING.md) |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
@@ -301,7 +301,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v2.1.0**: 89 test files, 1442 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), and refactor regression suites.
+**Coverage as of v2.1.0**: 92 test files, 1481 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` UI-thread worklets, `recentTransactions` bounded selection, and granular store selector test suites.
 
 | Test file | What it covers |
 |---|---|
@@ -318,6 +318,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `autoLogFlows.test.ts` | End-to-end AutoLog engine, review dismissal/discard, bulk clear, learned rules reset |
 | `autoLogParser.test.ts` | Regex tokenizers, transaction extraction, noise rejection, dedupe tokens |
 | `autoLogRollout.test.ts` | Feature flag rollout targeting, existing-user migration checks |
+| `bouncyCategoryFilter.test.ts` | UI-thread Reanimated worklet parity, Apple spring constants, zero-shift typography, immediate touch dispatch, lastActiveLayout isolation |
 | `brandedHeroCard.test.ts` | Branded hero card metrics, dynamic pace presentation, non-binding hints |
 | `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`missed`/`even`/`unknown`), duplicate prevention |
 | `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, persistence |
@@ -335,6 +336,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `expenseStore.test.ts` | Offline queues (create/update/delete), optimistic pending, reconnect sync |
 | `financialCorrectnessMatrix.test.ts` | 16-scenario financial matrix: zero proration, switches, mutations, boundary math |
 | `formatters.test.ts` | `formatCurrency`, `formatAmountWithCommas`, `round2`, Indian numbering |
+| `granularCategorySelectors.test.ts` | Granular Zustand store selector isolation in CategoryDetail and ManageCategories screens, rerender prevention |
 | `gullakDeposits.test.ts` | Income vs external Gullak deposits, balance limits, timeline logs |
 | `homeCalculations.test.ts` | Home screen derived metrics, live spent, remaining balance |
 | `homeSpendingNewUser.test.ts` | Cold-start user calculations, zero-data rendering guards |
@@ -352,6 +354,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `profileUtils.test.ts` | 15-character name limit guardrail, display name resolution, initial letter extraction |
 | `pullToHistoryPhysics.test.ts` | Instagram-calibrated rubber band pull physics, damping ratio, ring travel linearity |
 | `pureModeRules.test.ts` | Acceptance suite for Pure Mode rules: SEC-001 amend, PUR-001 deficit switch, PUR-002 leftover retention |
+| `recentTransactions.test.ts` | Single-pass bounded top-5 transaction selection (`selectRecentTransactions`), tie-breaker stability, allocation reduction |
 | `rollingText.test.ts` | Digit-by-digit vertical odometer roll, layout effect mount/reveal, decimal handling |
 | `segmentedControl.test.ts` | Critical damped spring slide, outer hitSlop, touch release selection, elevation |
 | `streakFlame.test.ts` | Streak counter tiers, milestone badge triggers, flame stages |
@@ -381,3 +384,4 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active (D2/D3 amended by canonical `PUR-002` & `SEC-001`) |
 | [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |
 | [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 / Pure Mode Status | Active |
+| [0015](adr/0015-ui-thread-reanimated-worklet-migration-and-render-optimizations.md) | UI-Thread Reanimated Worklet Migration and Render Optimizations | Active |

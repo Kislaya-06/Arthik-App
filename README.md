@@ -9,7 +9,7 @@
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/fe28fa0f8c19f036ebbeffcbee7f26162e130069cb50d16fe6e498d32d16b271)
-[![Tests](https://img.shields.io/badge/Tests-1442_passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/Tests-1481_passing-brightgreen.svg)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -98,7 +98,7 @@ Log expenses and income without typing them.
 | Updates | EAS Build (APK), EAS Update (OTA), in-app APK updater (`expo-file-system`, `expo-intent-launcher`) |
 | UI | `lucide-react-native`, Quicksand, `react-native-svg`, Reanimated, Gesture Handler |
 | Dates | `date-fns`, Indian number formatting (₹) |
-| Tests | Vitest (89 files, 1442 tests) |
+| Tests | Vitest (92 files, 1481 tests) |
 
 ---
 
