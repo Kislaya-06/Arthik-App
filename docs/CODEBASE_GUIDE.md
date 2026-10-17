@@ -158,7 +158,7 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 | `expense_shares` | **Retired** (Split feature hata diya). Table rakhi hai, app use nahi karti, data delete nahi hua |
 
 - `handle_new_user()` function naye user ke liye profile aur default categories banata hai.
-- **Migrations** (`supabase/migrations/`): budget modes (Oct), autolog profiles, release v2 flags, aur `20261017_retire_shares_reimbursements.sql` (purane reimbursement rows ko normal income banata hai).
+- **Migrations** (`supabase/migrations/`): budget modes (Oct), autolog profiles, release v2 flags, aur `20261017083146_retire_shares_reimbursements.sql` (purane reimbursement rows ko normal income banata hai).
 - Row-level security: har user sirf apna data dekhta hai (ADR 0004).
 
 ---

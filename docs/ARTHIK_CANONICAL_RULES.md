@@ -63,7 +63,7 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Friend Repayment as Income:** When a friend returns their share of a shared expense (or any refund arrives), it is recorded simply as **Income** (or Add Money).
   3. **Natural Lifetime Cashflow Settlement:** Lifetime net spending (`All-Time Spent − All-Time Income`) naturally settles without needing complex transaction-linking or proportional waterfall restoration.
   4. **Old Data:** Any row that still carries the retired `'reimbursement'` class is read as normal income.
-- **Code Enforcement:** `src/lib/transactionUtils.ts` (`getTransactionClass`), `supabase/migrations/20261017_retire_shares_reimbursements.sql`
+- **Code Enforcement:** `src/lib/transactionUtils.ts` (`getTransactionClass`), `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`
 - **Verified By:** `tests/selfTransfersAndIncome.test.ts`
 
 ---

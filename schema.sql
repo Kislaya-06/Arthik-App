@@ -695,7 +695,7 @@ VALUES (
 )
 ON CONFLICT (key) DO NOTHING;
 
--- ═══ Part 1: Self-Transfers (the Split / Reimbursement feature was retired — see supabase/migrations/20261017_retire_shares_reimbursements.sql) ═══
+-- ═══ Part 1: Self-Transfers (the Split / Reimbursement feature was retired — see supabase/migrations/20261017083146_retire_shares_reimbursements.sql) ═══
 -- Part 1: Self-Transfers (history: this block once also created expense_shares and the 'reimbursement' class)
 -- Run once in Supabase → SQL Editor (safe to re-run; uses IF NOT EXISTS / DROP POLICY IF EXISTS).
 

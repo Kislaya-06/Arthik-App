@@ -8,7 +8,7 @@ Money rules had spread over AGENTS.md, CONTEXT.md, the PRD, several ADRs and the
 
 ## Decision
 1. `docs/ARTHIK_CANONICAL_RULES.md` is the single authority for every money rule. Code, tests and every other document must agree with it. A rule changes only on the owner's explicit approval; a request that would contradict a rule makes the agent stop and say so first (AGENTS.md §0).
-2. **Split Expenses / Shares and the `reimbursement` class are removed** (`REF-001`, `TXN-004`). A friend paying back, or a refund, is plain Income. Self-transfers stay (`TXN-003`) and are marked only by `transaction_class = 'self_transfer'`. Old `reimbursement` rows are converted by `supabase/migrations/20261017_retire_shares_reimbursements.sql`; the `expense_shares` table is left in place, unused.
+2. **Split Expenses / Shares and the `reimbursement` class are removed** (`REF-001`, `TXN-004`). A friend paying back, or a refund, is plain Income. Self-transfers stay (`TXN-003`) and are marked only by `transaction_class = 'self_transfer'`. Old `reimbursement` rows are converted by `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`; the `expense_shares` table is left in place, unused.
 3. **One status vocabulary** (`BUD-008`): `'saved' | 'missed' | 'even' | 'unknown'`, plus the never-persisted in-progress marker `'active'`. `'exceeded'` is gone as a status (the notification alert kind `exceeded` is a different thing and is unchanged). Cached days from older versions are read as `'missed'`.
 4. The carry-forward rules of ADR 0010 D4, ADR 0011 D2 and ADR 0012 D5 are governed by canonical `CAR-001`. Where they differ, `CAR-001` wins.
 
