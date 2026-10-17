@@ -9,6 +9,9 @@
 import { BudgetCadence, VaultLiquidityInfo } from '../types';
 import { round2 } from './formatters';
 
+/** SEC-001: the one message shown whenever the account has no money left to spend. */
+export const VAULT_GUARD_MESSAGE = 'Account balance exhausted. Please add money first.';
+
 export interface VaultLiquidityParams {
   isBudgetModeEnabled: boolean;
   budgetCadence: BudgetCadence;
@@ -20,7 +23,7 @@ export interface VaultLiquidityParams {
   externalGullakDeposits?: number;
   isAutoRenew?: boolean;
   /**
-   * What is really left across the whole account: all budgets + income + reimbursements + EXTERNAL deposits
+   * What is really left across the whole account: all budgets + income + EXTERNAL deposits
    * minus everything spent. When given (Budget Mode), it is the liquidity. Without it the old estimate is used.
    */
   accountRemaining?: number;
@@ -51,16 +54,14 @@ export function calculateVaultLiquidity(params: VaultLiquidityParams): VaultLiqu
   if (!isBudgetModeEnabled) {
     // Pure Mode keeps the same books as Budget Mode (budget, then income, then Gullak): when the real remaining
     // is known it is the liquidity, so unspent budget money still counts. Without it: income - expenses (old).
+    // SEC-001 amend: In Pure Mode the user may spend into minus. No "Account balance exhausted" modal, no block.
     const net = accountRemaining !== undefined ? round2(accountRemaining) : round2(totalIncome - totalExpenses);
-    const canAdd = net > 0;
     return {
       totalVaultLiquidity: net,
-      canAddExpense: canAdd,
+      canAddExpense: true,
       activeCadenceAllowance: 0,
       availableIncome: totalIncome,
-      reason: !canAdd
-        ? 'No funds available in your account. Please log an Income first to start tracking expenses.'
-        : undefined,
+      reason: undefined,
     };
   }
 
@@ -90,7 +91,7 @@ export function calculateVaultLiquidity(params: VaultLiquidityParams): VaultLiqu
     activeCadenceAllowance: activeAllowance,
     availableIncome: totalIncome,
     reason: !canAdd
-      ? 'No funds available in your vault. Please set a budget or log an Income first.'
+      ? VAULT_GUARD_MESSAGE
       : undefined,
   };
 }

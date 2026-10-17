@@ -171,7 +171,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
               amount: rec.saved,
             };
           } else if (
-            rec.status === 'exceeded' ||
+            rec.status === 'missed' ||
             rec.status === 'even' ||
             (rec.budget > 0 && rec.saved === 0)
           ) {

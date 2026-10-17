@@ -36,7 +36,6 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
-import { useSharesStore } from '../store/sharesStore';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
@@ -179,7 +178,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
-  const shares = useSharesStore((s) => s.shares);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
@@ -222,8 +220,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
     lastFetchTime.current = now;
     await fetchExpenses();
-    // Friends' shares: needed so a split repayment goes back to where the expense was paid from.
-    await useSharesStore.getState().fetchAll();
     const cur = useExpenseStore.getState().expenses;
     syncWithExpenses(cur);
   }, [fetchExpenses, syncWithExpenses]);
@@ -294,7 +290,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [expenses, activeFilter, referenceDate]
   );
 
-  const { totalIncome, totalSpent, totalReimbursements } = useMemo(
+  const { totalIncome, totalSpent } = useMemo(
     () => calculateExpenseTotals(filtered, catMap),
     [filtered, catMap]
   );
@@ -454,7 +450,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const scopeFunding = useMemo(() => {
     const waterfall = computeWaterfallFromState({
       expenses,
-      shares,
       categories,
       deposits: gullakDeposits,
       isBudgetModeEnabled,
@@ -472,7 +467,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       (d) => (period ? isDateInPeriod(d, period, referenceDate) : true),
       activeFilter === 'All'
     );
-  }, [expenses, shares, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges, activeFilter, referenceDate]);
+  }, [expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges, activeFilter, referenceDate]);
 
   const {
     primaryAmount,
@@ -497,7 +492,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         dailyRecords,
         totalIncome,
         totalSpent,
-        totalReimbursements,
         filtered,
         userCreatedAtStr,
         referenceDate,
@@ -509,7 +503,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         funding: { incomeRemaining: scopeFunding.incomeRemaining, gullakDrawn: scopeFunding.gullakDrawn },
         carryCoveredByDate,
       }),
-    [carryCoveredByDate, scopeFunding, activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, totalReimbursements, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
+    [carryCoveredByDate, scopeFunding, activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
   );
 
   // Date range label shown below filter pills for quick orientation

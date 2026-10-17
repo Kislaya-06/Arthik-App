@@ -128,6 +128,33 @@ export interface PlanContext {
    * plan (the user already has that money in the bank). Optional: absent for everyone else.
    */
   carryDays?: CarryCoverDay[];
+  /**
+   * Periods on which part of the weekly / monthly budget is paid from money carried over (CAR-001 Mode B).
+   */
+  carryPeriods?: CarryCoverPeriod[];
+  /**
+   * The first day / period on which carried money no longer funds the budget (CAR-001): one message each,
+   * telling the user that from now on they must add the money themselves.
+   */
+  carryEnds?: CarryCoverEnd[];
+}
+
+export interface CarryCoverEnd {
+  /** yyyy-MM-dd: the first day of the first day / week / month that is NOT funded by carry. */
+  date: string;
+  cadence: 'daily' | 'weekly' | 'monthly';
+  /** The budget of that day / period that the user now has to fund. */
+  budget: number;
+}
+
+export interface CarryCoverPeriod {
+  /** yyyy-MM-dd (start of the period) */
+  periodStart: string;
+  cadence: 'weekly' | 'monthly';
+  budget: number;
+  funded: number;
+  toAdd: number;
+  remainingAfter: number;
 }
 
 export interface CarryCoverDay {
@@ -361,6 +388,31 @@ export function carryCoverCopy(d: CarryCoverDay): Copy {
   };
 }
 
+/** "How much to add this week/month" when part of the period budget is carried over (CAR-001 Mode B). */
+export function periodCarryCoverCopy(p: CarryCoverPeriod): Copy {
+  const thisWord = p.cadence === 'weekly' ? "This week's" : "This month's";
+  if (p.toAdd <= 0) {
+    return {
+      title: `${thisWord} budget covered`,
+      body: `${thisWord} ${money(p.budget)} is funded from your carried balance. ${money(p.remainingAfter)} left.`,
+    };
+  }
+  return {
+    title: `Add only ${money(p.toAdd)} this ${p.cadence === 'weekly' ? 'week' : 'month'}`,
+    body: `${money(p.funded)} funded from carry. Add ${money(p.toAdd)} to complete ${thisWord.toLowerCase()} budget.`,
+  };
+}
+
+/** One-time message on the first day / period carried money no longer funds the budget (CAR-001). */
+export function carryEndCopy(e: CarryCoverEnd): Copy {
+  const unit = e.cadence === 'daily' ? 'daily' : e.cadence === 'weekly' ? 'weekly' : 'monthly';
+  const when = e.cadence === 'daily' ? 'today' : e.cadence === 'weekly' ? 'this week' : 'this month';
+  return {
+    title: 'Carried money has run out',
+    body: `From ${e.cadence === 'daily' ? 'today' : when} your ${money(e.budget)} ${unit} budget is no longer covered by carried money. Add ${money(e.budget)} ${when} to fund it.`,
+  };
+}
+
 export function rolloverCopy(cadence: Cadence, amount: number): Copy {
   const from = cadence === 'daily' ? "yesterday's unspent allowance" : cadence === 'weekly' ? "last week's unspent budget" : "last month's unspent budget";
   return { title: `${money(amount)} added to your Gullak`, body: `From ${from}.` };
@@ -374,11 +426,10 @@ export function budgetResumedCopy(cadence: 'weekly' | 'monthly', remaining: numb
   };
 }
 
-export function pureEndedCopy(cadence: 'weekly' | 'monthly', left: number, budget: number): Copy {
-  const word = cadence === 'weekly' ? 'week' : 'month';
+export function pureDeficitBalancedCopy(deficit: number): Copy {
   return {
-    title: `Last ${word} ended in Pure Mode`,
-    body: `${money(left)} of ${money(budget)} was unused and is now part of your income. Nothing went to Gullak.`,
+    title: 'Pure Mode deficit balanced',
+    body: `You spent ₹${deficit} more than you had in Pure Mode. We added ₹${deficit} to Total Income so everything is balanced.`,
   };
 }
 
@@ -428,6 +479,38 @@ export function buildNotificationPlan(ctx: PlanContext): PlannedNotification[] {
       channel: 'gullak',
       fireAt,
       ...carryCoverCopy(cd),
+      screen: 'Home',
+      inbox: true,
+    });
+  }
+
+  // 1c) Period carry cover — first day of each funded weekly / monthly period (CAR-001 Mode B).
+  for (const cp of ctx.carryPeriods || []) {
+    const day = new Date(`${cp.periodStart}T00:00:00`);
+    const fireAt = atTime(day, CARRY_TIME);
+    if (fireAt.getTime() < earliest) continue;
+    items.push({
+      id: `carry_${cp.periodStart}`,
+      type: 'carry_cover',
+      channel: 'gullak',
+      fireAt,
+      ...periodCarryCoverCopy(cp),
+      screen: 'Home',
+      inbox: true,
+    });
+  }
+
+  // 1d) Carry ended — ONE message on the first day / period that carried money no longer pays for (CAR-001).
+  for (const ce of ctx.carryEnds || []) {
+    const day = new Date(`${ce.date}T00:00:00`);
+    const fireAt = atTime(day, CARRY_TIME);
+    if (fireAt.getTime() < earliest) continue;
+    items.push({
+      id: `carry_end_${ce.date}`,
+      type: 'carry_cover',
+      channel: 'gullak',
+      fireAt,
+      ...carryEndCopy(ce),
       screen: 'Home',
       inbox: true,
     });

@@ -572,7 +572,7 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
           { date: '2026-01-05', saved: 200, status: 'saved' },
           { date: '2026-01-06', saved: 300, status: 'saved' },
           { date: '2026-01-07', saved: 150, status: 'saved' }, // 3-day streak
-          { date: '2026-01-08', saved: 0, status: 'exceeded' },
+          { date: '2026-01-08', saved: 0, status: 'missed' },
           { date: '2026-09-10', saved: 500, status: 'saved' },
         ];
 

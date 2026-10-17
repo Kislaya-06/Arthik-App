@@ -29,14 +29,10 @@ import {
   BudgetPool,
   BUDGET_RULES_V2_FROM,
 } from './budgetPeriods';
-import {
-  isCountedExpense,
-  isCountedIncome,
-  isEligibleReimbursement,
-} from './transactionUtils';
+import { isCountedExpense, isCountedIncome } from './transactionUtils';
 import type { BudgetPlanChange } from '../types';
 
-export type WaterfallKind = 'expense' | 'income' | 'reimbursement';
+export type WaterfallKind = 'expense' | 'income';
 
 export interface WaterfallTx {
   id: string;
@@ -45,11 +41,6 @@ export interface WaterfallTx {
   createdAt?: string;
   amount: number;
   kind: WaterfallKind;
-  /**
-   * Reimbursements only: the expense this money pays back (a friend's share of a split).
-   * The money goes back to where the expense was paid from: budget / income / Gullak, in the same proportion.
-   */
-  reimbursesExpenseId?: string | null;
 }
 
 export interface WaterfallPool {
@@ -76,6 +67,7 @@ export interface IncomeDepositLike {
 
 export interface ExpenseFundingSplit {
   fromBudget: number;
+  fromLeftover: number;
   fromIncome: number;
   fromGullak: number;
   /** Amount beyond the budget pool (fromIncome + fromGullak). */
@@ -90,31 +82,21 @@ export interface DayFunding {
   overspend: number;
   incomeUsed: number;
   gullakDrawn: number;
-  /** Income given back to the income pool by a split repayment received this day. */
+  /** Income handed to the income pool because a budget pool ended while in Pure Mode (ADR 0012). */
   incomeRestored: number;
-  /** Gullak money given back by a split repayment received this day. */
-  gullakRestored: number;
-}
-
-/** Where one split repayment went (budget / income / Gullak), for the detail screen. */
-export interface ReimbursementReturn {
-  expenseId: string | null;
-  toBudget: number;
-  toIncome: number;
-  toGullak: number;
 }
 
 export interface WaterfallResult {
   byExpense: Record<string, ExpenseFundingSplit>;
-  byReimbursement: Record<string, ReimbursementReturn>;
-  /** Budget part of split repayments per day. Only this part adds to that day's / period's unspent budget. */
-  reimbBudgetByDate: Record<string, number>;
   byDate: Record<string, DayFunding>;
   incomeReceived: number;
   /** Income left right now (after overspends and income -> Gullak deposits). */
   incomeRemaining: number;
   incomeUsed: number;
   gullakDrawn: number;
+  pureLeftoverAdded: number;
+  pureLeftoverUsed: number;
+  pureLeftoverRemaining: number;
 }
 
 const emptyDay = (): DayFunding => ({
@@ -124,7 +106,6 @@ const emptyDay = (): DayFunding => ({
   incomeUsed: 0,
   gullakDrawn: 0,
   incomeRestored: 0,
-  gullakRestored: 0,
 });
 
 export interface ComputeWaterfallParams {
@@ -172,27 +153,26 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
   const dates = Array.from(new Set([...byDateTx.keys(), ...depositsByDate.keys()])).sort();
 
   const byExpense: Record<string, ExpenseFundingSplit> = {};
-  const byReimbursement: Record<string, ReimbursementReturn> = {};
-  const reimbBudgetByDate: Record<string, number> = {};
   const byDate: Record<string, DayFunding> = {};
   const poolSpent: Record<string, number> = {};
-  const poolReimb: Record<string, number> = {};
 
   let incomeAvail = 0;
   let incomeReceived = 0;
   let incomeUsed = 0;
   let gullakDrawn = 0;
+  let leftoverAvail = 0;
+  let pureLeftoverAdded = 0;
+  let pureLeftoverUsed = 0;
 
   const flushed = new Set<string>();
   const flushPureEnded = (before: string) => {
     for (const pool of pureEndPools) {
       if (flushed.has(pool.key) || pool.periodEnd >= before) continue;
       flushed.add(pool.key);
-      const left = Math.max(0, round2(pool.budget + (poolReimb[pool.key] || 0) - (poolSpent[pool.key] || 0)));
+      const left = Math.max(0, round2(pool.budget - (poolSpent[pool.key] || 0)));
       if (left <= 0) continue;
-      incomeAvail = round2(incomeAvail + left);
-      const endDay = (byDate[pool.periodEnd] = byDate[pool.periodEnd] || emptyDay());
-      endDay.incomeRestored = round2(endDay.incomeRestored + left);
+      leftoverAvail = round2(leftoverAvail + left);
+      pureLeftoverAdded = round2(pureLeftoverAdded + left);
     }
   };
 
@@ -201,18 +181,12 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
     const day = (byDate[date] = byDate[date] || emptyDay());
     const list = byDateTx.get(date) || [];
 
-    // 1. Income arrives first. A repayment that is not linked to any split simply restores spending power
-    //    of that day's budget (as before).
+    // 1. Income arrives first (WAT-002). Friend repayments and refunds are plain income (TXN-004).
     for (const tx of list) {
       if (tx.kind === 'income') {
         incomeAvail = round2(incomeAvail + tx.amount);
         incomeReceived = round2(incomeReceived + tx.amount);
         day.incomeReceived = round2(day.incomeReceived + tx.amount);
-      } else if (tx.kind === 'reimbursement' && !tx.reimbursesExpenseId) {
-        const pool = resolvePool(date);
-        if (pool) poolReimb[pool.key] = round2((poolReimb[pool.key] || 0) + tx.amount);
-        reimbBudgetByDate[date] = round2((reimbBudgetByDate[date] || 0) + tx.amount);
-        byReimbursement[tx.id] = { expenseId: null, toBudget: tx.amount, toIncome: 0, toGullak: 0 };
       }
     }
 
@@ -230,19 +204,32 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
       day.spent = round2(day.spent + tx.amount);
 
       if ((!pool || (!(pool.budget > 0) && !pool.pure)) && !ungovernedAsOverspend) {
-        byExpense[tx.id] = { fromBudget: tx.amount, fromIncome: 0, fromGullak: 0, overspend: 0, governed: false };
+        byExpense[tx.id] = { fromBudget: tx.amount, fromLeftover: 0, fromIncome: 0, fromGullak: 0, overspend: 0, governed: false };
         continue;
       }
 
       const poolKey = pool && pool.budget > 0 ? pool.key : `none_${date}`;
-      const poolBudget = pool && pool.budget > 0 ? round2(pool.budget + (poolReimb[pool.key] || 0)) : 0;
+      const poolBudget = pool && pool.budget > 0 ? round2(pool.budget) : 0;
       const already = poolSpent[poolKey] || 0;
       const handedOver = !!pool && !!pool.closedOn && date >= pool.closedOn;
       const budgetLeft = handedOver ? 0 : Math.max(0, round2(poolBudget - already));
       const fromBudget = round2(Math.min(tx.amount, budgetLeft));
       const overspend = round2(tx.amount - fromBudget);
-      const fromIncome = round2(Math.min(overspend, incomeAvail));
-      const fromGullak = round2(overspend - fromIncome);
+
+      // In the expense loop, if the day is Pure (pool null or pool.pure, same condition already used for ungoverned/pure spending)
+      // take fromLeftover = min(overspend, leftoverAvail) BEFORE income; reduce leftoverAvail; leftoverUsedInPure += fromLeftover
+      const isPureDay = !pool || !!pool.pure;
+      let fromLeftover = 0;
+      let remainderAfterLeftover = overspend;
+      if (isPureDay && leftoverAvail > 0 && overspend > 0) {
+        fromLeftover = round2(Math.min(overspend, leftoverAvail));
+        leftoverAvail = round2(leftoverAvail - fromLeftover);
+        pureLeftoverUsed = round2(pureLeftoverUsed + fromLeftover);
+        remainderAfterLeftover = round2(overspend - fromLeftover);
+      }
+
+      const fromIncome = round2(Math.min(remainderAfterLeftover, incomeAvail));
+      const fromGullak = round2(remainderAfterLeftover - fromIncome);
 
       poolSpent[poolKey] = round2(already + tx.amount);
       incomeAvail = round2(incomeAvail - fromIncome);
@@ -253,43 +240,7 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
       day.incomeUsed = round2(day.incomeUsed + fromIncome);
       day.gullakDrawn = round2(day.gullakDrawn + fromGullak);
 
-      byExpense[tx.id] = { fromBudget, fromIncome, fromGullak, overspend, governed: true };
-    }
-
-    // 4. Split repayments (a friend paid their share back). Processed AFTER the day's expenses so a repayment
-    //    on the same day as the expense is split by how that expense was really paid.
-    //    The money goes back where it came from, in the same proportion: Gullak part -> Gullak,
-    //    income part -> income, budget part -> unspent budget.
-    const reimbs = list
-      .filter((t) => t.kind === 'reimbursement' && !!t.reimbursesExpenseId)
-      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id));
-    for (const tx of reimbs) {
-      const orig = tx.reimbursesExpenseId ? byExpense[tx.reimbursesExpenseId] : undefined;
-      let toGullak = 0;
-      let toIncome = 0;
-      if (orig && orig.governed) {
-        const total = round2(orig.fromBudget + orig.fromIncome + orig.fromGullak);
-        if (total > 0) {
-          const back = Math.min(tx.amount, total);
-          toGullak = round2((back * orig.fromGullak) / total);
-          toIncome = round2((back * orig.fromIncome) / total);
-        }
-      }
-      const toBudget = round2(tx.amount - toGullak - toIncome);
-
-      if (toIncome > 0) {
-        incomeAvail = round2(incomeAvail + toIncome);
-        incomeUsed = round2(Math.max(0, incomeUsed - toIncome));
-        day.incomeRestored = round2(day.incomeRestored + toIncome);
-      }
-      if (toGullak > 0) {
-        gullakDrawn = round2(Math.max(0, gullakDrawn - toGullak));
-        day.gullakRestored = round2(day.gullakRestored + toGullak);
-      }
-      const pool = resolvePool(date);
-      if (pool && toBudget > 0) poolReimb[pool.key] = round2((poolReimb[pool.key] || 0) + toBudget);
-      reimbBudgetByDate[date] = round2((reimbBudgetByDate[date] || 0) + toBudget);
-      byReimbursement[tx.id] = { expenseId: tx.reimbursesExpenseId ?? null, toBudget, toIncome, toGullak };
+      byExpense[tx.id] = { fromBudget, fromLeftover, fromIncome, fromGullak, overspend, governed: true };
     }
   }
 
@@ -297,13 +248,14 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
 
   return {
     byExpense,
-    byReimbursement,
-    reimbBudgetByDate,
     byDate,
     incomeReceived,
     incomeRemaining: round2(Math.max(0, incomeAvail)),
     incomeUsed,
     gullakDrawn,
+    pureLeftoverAdded: round2(pureLeftoverAdded),
+    pureLeftoverUsed: round2(pureLeftoverUsed),
+    pureLeftoverRemaining: round2(Math.max(0, pureLeftoverAdded - pureLeftoverUsed)),
   };
 }
 
@@ -394,16 +346,13 @@ export interface RawExpenseLike {
   category_id?: string | null;
   type?: string;
   transaction_class?: string | null;
-  reimburses_share_id?: string | null;
 }
 
 export function classifyForWaterfall(
   expenses: RawExpenseLike[],
-  categories: Array<{ id: string; name?: string }> = [],
-  shares: Array<{ id: string; expense_id: string }> = []
+  categories: Array<{ id: string; name?: string }> = []
 ): WaterfallTx[] {
   const catMap = new Map(categories.map((c) => [c.id, c]));
-  const shareToExpense = new Map(shares.map((s) => [s.id, s.expense_id]));
   const out: WaterfallTx[] = [];
   for (const e of expenses) {
     const date = e.expense_date?.split('T')[0]?.trim();
@@ -411,8 +360,7 @@ export function classifyForWaterfall(
     if (!date || amount <= 0) continue;
     const cat = e.category_id ? catMap.get(e.category_id) : undefined;
     let kind: WaterfallKind | null = null;
-    if (isEligibleReimbursement(e)) kind = 'reimbursement';
-    else if (isCountedIncome(e, cat)) kind = 'income';
+    if (isCountedIncome(e, cat)) kind = 'income';
     else if (isCountedExpense(e, cat)) kind = 'expense';
     if (!kind) continue; // self-transfers: neither income nor expense
     out.push({
@@ -421,8 +369,6 @@ export function classifyForWaterfall(
       createdAt: e.created_at,
       amount,
       kind,
-      reimbursesExpenseId:
-        kind === 'reimbursement' && e.reimburses_share_id ? shareToExpense.get(e.reimburses_share_id) ?? null : null,
     });
   }
   return out;
@@ -434,14 +380,12 @@ export interface WaterfallFromStateParams extends PoolResolverParams {
   deposits?: IncomeDepositLike[];
   excludeExpensesFrom?: string;
   ungovernedAsOverspend?: boolean;
-  /** Friends' shares (id -> expense) so split repayments can go back to where the expense was paid from. */
-  shares?: Array<{ id: string; expense_id: string }>;
 }
 
 export function computeWaterfallFromState(p: WaterfallFromStateParams): WaterfallResult {
   const pools = buildBudgetPools(p.planChanges || [], p.todayStr);
   return computeMoneyWaterfall({
-    txs: classifyForWaterfall(p.expenses, p.categories, p.shares),
+    txs: classifyForWaterfall(p.expenses, p.categories),
     deposits: p.deposits,
     resolvePool: buildPoolResolver(p, pools),
     pureEndPools: Object.values(pools).filter((x) => x.endsInPure),
@@ -476,24 +420,21 @@ export function summarizeScope(
   let incomeReceived = 0;
   let incomeUsed = 0;
   let gullakDrawn = 0;
-  let incomeRestored = 0;
   for (const [date, d] of Object.entries(result.byDate)) {
     if (!inScope(date)) continue;
     incomeReceived += d.incomeReceived;
     incomeUsed += d.incomeUsed;
-    incomeRestored += d.incomeRestored;
-    gullakDrawn += d.gullakDrawn - d.gullakRestored;
+    gullakDrawn += d.gullakDrawn;
   }
   incomeReceived = round2(incomeReceived);
   incomeUsed = round2(incomeUsed);
-  incomeRestored = round2(incomeRestored);
   gullakDrawn = round2(Math.max(0, gullakDrawn));
   return {
     incomeReceived,
     incomeUsed,
     incomeRemaining: isAll
       ? result.incomeRemaining
-      : round2(Math.max(0, incomeReceived + incomeRestored - incomeUsed)),
+      : round2(Math.max(0, incomeReceived - incomeUsed)),
     gullakDrawn,
   };
 }

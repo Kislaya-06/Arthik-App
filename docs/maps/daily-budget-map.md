@@ -72,7 +72,7 @@ A day's budget is derived according to three distinct tiers:
      615: if (get().isAutoRenew && get().dailyBudgetAmount > 0) {
      616:   budget = get().dailyBudgetAmount;
      617:   saved = Math.max(0, budget - spent);
-     618:   status = spent > budget ? 'exceeded' : saved > 0 ? 'saved' : 'even';
+     618:   status = spent > budget ? 'missed' : saved > 0 ? 'saved' : 'even';
      619: } else if (spent > 0) {
      620:   status = 'unknown';
      621:   budget = 0;
@@ -145,7 +145,7 @@ const amount = Number(e.amount) || 0;
 1. **Active (`status: 'active'`)**:
    - Chosen exclusively for **today** when `todaySpent <= budget || budget === 0` (lines 179, 236, 283, 307, 338, 897).
    - If `budget === 0`, today remains `'active'` even if `todaySpent > 0`.
-2. **Exceeded (`status: 'exceeded'`)**:
+2. **Missed (`status: 'missed'`)**:
    - For today: when `todaySpent > budget && budget > 0` (lines 184, 236, 288, 313, 338, 345).
    - For past days: in `checkAndRollover` and `hydrateFromSupabase` via `evaluateDayStatus`, when `spent > budget && budget > 0`.
 3. **Saved (`status: 'saved'`)**:
@@ -158,7 +158,7 @@ const amount = Number(e.amount) || 0;
 
 > [!IMPORTANT]
 > **Resolution of Past Discrepancies**:
-> - **Code vs `schema.sql`**: `schema.sql` line 152 enforces check constraint `CHECK (status IN ('saved', 'missed', 'even', 'unknown'))`. In `dailyBudgetStore.ts`, the TypeScript interface uses `'exceeded'`. When sending to Supabase, lines 541–545 and 641–645 translate `'exceeded'` into `'missed'`.
+> - **Code and `schema.sql` agree (canonical `BUD-008`)**: both use `'saved' | 'missed' | 'even' | 'unknown'` (the TypeScript-only `'active'` marks today while it is in progress and is never saved). There is no `'exceeded'` status and no translation layer; old cached days stored as `'exceeded'` are read as `'missed'` (`src/store/dailyBudget/legacyStatus.ts`, store persist version 4).
 > - **Status 'unknown' Uniformity (Ticket 03)**: The former discrepancy where `hydrateFromSupabase` assigned `'even'` to zero-budget zero-spend days has been resolved. Both `checkAndRollover` and `hydrateFromSupabase` now evaluate zero-budget zero-spend days as `'unknown'`, preventing untracked days from breaking streaks.
 > - **Upsert Duplication Safeguard (Ticket 02)**: In `checkAndRollover` (line 546), `isInsertOnly` is now governed by `shouldIgnoreDuplicates(status)` (`status === 'unknown'`), ensuring that first-time finalization of tracked days (`'saved'`, `'exceeded'`, `'even'`) genuinely overwrites remote records in `daily_savings_log`.
 
@@ -187,14 +187,14 @@ The savings streak is computed by `calculateSavingsMetrics` (lines 80–102):
 97:        continue;
 98:      }
 99:    }
-100:   // Any other status (exceeded, even, active, or missing unfinalized day) breaks the streak
+100:   // Any other status (missed, even, active, or missing unfinalized day) breaks the streak
 101:   break;
 102: }
 ```
 
 - **What Extends the Streak**: Only a finalized past day with `rec.status === 'saved'` and `rec.saved > 0` (lines 94–98).
 - **What Breaks the Streak**:
-  - `status === 'exceeded'`
+  - `status === 'missed'`
   - `status === 'even'`
   - `status === 'active'` (an unfinalized past record)
   - Missing day in `records` (`!rec`)
@@ -239,6 +239,16 @@ if (totalAccountRemaining !== undefined) {
 - **Money Waterfall Shielding Across All Cadences (ADR 0012)**: Overspending against the active cadence pool (Daily, Weekly, or Monthly) draws from available income first before penalizing Gullak savings. If income covers the overspend, Gullak remains 100% intact.
 - **Manual Gullak Deposits & All-Time Inflow**: User deposits into Gullak (`manualDeposits` from `gullak_deposits`) are credited directly to the reserve balance. For `'external'` deposits (fresh cash, gifts, bonus), funds are treated as real incoming money and simultaneously added to period and All-time Inflow ('All' view).
 - **Floor and Account Cap**: Net accumulated savings cannot drop below zero, nor exceed `totalAccountRemaining`.
+
+### 2.4 Carry-Forward Engine (CAR-001) Functions & Architecture
+- `dailyCarryForDate(changes, getBudgetForDate, targetDailyBudget, dateStr)`: Pure daily allocation carry breakdown.
+- `dailyCarryRemaining(changes, getBudgetForDate, targetDailyBudget, dateStr)`: Pure daily allocation carry remaining after dateStr.
+- `periodCarryForPeriod(changes, periodStart)`: CAR-001 Mode B recursive multi-period drawdown for weekly and monthly plans. Returns `{ funded, toAdd, remainingAfter, base }` or `null`.
+- `periodCarryRemaining(changes, dateStr)`: CAR-001 Mode B allocation carry remaining at end of dateStr across future periods.
+- `carryForPeriod(plan, periodStart)`: Additive carry mode helper (adds once to the first period only).
+- `getCarryableAmount()` (`src/store/dailyBudget/metrics.ts`): Evaluates real unspent money that can be carried into a new plan, including `poolLeft + periodCarryRemaining(plans, todayStr)`.
+- `computeAllTimeBudget()` (`src/store/dailyBudget/metrics.ts`): Incorporates `dailyCarryRemaining` and `periodCarryRemaining` into the all-time budget pool, so carried money is not new money: the account total stays flat across a daily, weekly or monthly allocation switch.
+- `calculatePeriodSummary()` (`src/lib/homeCalculations.ts`): Under `activeFilter === 'All'`, the carry-funded part of a budget period adds 0 to the All pill budget pool (`carryCover = pc.funded`: only the carry-funded part is left out; the gap part counts like any budget), guaranteeing zero double counting until real new money (gap or income) is deposited.
 
 ---
 
@@ -455,7 +465,7 @@ During the audit, several non-obvious design decisions, heuristics, and potentia
    - *Resolution*: Unsafe deletion was eliminated and replaced by `resolveHydratedDayBudget` in `src/lib/budgetUtils.ts`, which safely infers true budgets without destructive row purging.
 2. **Use of `ignoreDuplicates: isInsertOnly` in `checkAndRollover` (Resolved — Ticket 02)**:
    - *Previous state*: Line 672 defined `const isInsertOnly = status === 'unknown' || wasUnfinalized;`. Because `wasUnfinalized` was `true` on every day's first rollover, Supabase executed `ON CONFLICT DO NOTHING`, silently discarding finalized metrics if a row already existed remotely.
-   - *Resolution*: Line 546 now uses `const isInsertOnly = shouldIgnoreDuplicates(status);` (`status === 'unknown'`). Real finalized days (`'saved'`, `'exceeded'`, `'even'`) genuinely overwrite remote records.
+   - *Resolution*: Line 546 now uses `const isInsertOnly = shouldIgnoreDuplicates(status);` (`status === 'unknown'`). Real finalized days (`'saved'`, `'missed'`, `'even'`) genuinely overwrite remote records.
 3. **Date Shifting in `bestStreak` Calculation (Resolved — Ticket S3.2)**:
    - *Previous state*: `new Date(rec.date)` from `'yyyy-MM-dd'` string parsed as UTC midnight. Then `intermediateDate.setDate(prevDate.getDate() + step)` shifted backwards by 1 day in timezones west of UTC (e.g. UTC-4 New York), breaking streaks across month/year boundaries.
    - *Resolution*: Fully resolved in `src/lib/budgetCalculations.ts:138–154` using `parseISO`, `differenceInCalendarDays`, and `addDays` from `date-fns`. 100% immune to UTC offset drift, DST shifts, and calendar boundary errors.
@@ -479,8 +489,12 @@ With the introduction of Budget Modes, the store orchestrates two high-level tra
   - Guards all direct navigation attempts to `'Savings'` via `resolveSavingsRoute(isBudgetModeEnabled, routeType)`, safely falling back to `'Home'`.
   - Suppresses all budget warning, limit exceeded, and rollover notifications.
   - Preserves past active budget allowances in all-time, monthly, and weekly Inflow metrics (Real-Money Invariant).
+  - Spending is never blocked: user may spend into negative without `VaultSpendingGuardModal` or AutoLog liquidity blockers (`SEC-001` amend).
+  - Unspent budget from pools that ended in Pure Mode is retained as `pureLeftover` without inflating income or sending notifications (`PUR-002`). Pure spending draws from `pureLeftover` first.
+  - Switching to Budget Mode with negative remaining ($R < 0$) automatically creates one real income transaction for deficit $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated to the earliest expense causing Gullak draw $\ge D$ (`PUR-001`), and posts a `pure_deficit_balanced` notification.
 - **Budget Mode (`isBudgetModeEnabled: true`)**:
   - Enables the 5th `'Savings'` tab with fluid spring entrance/exit.
+  - Solvency guard enforces that expenses are blocked if account liquidity $\le 0$ (`SEC-001`).
   - Supports user-selectable cadences: `'daily'`, `'weekly'`, `'monthly'`.
 
 ### 8.2 Plan Changes Timeline (`src/lib/budgetPeriods.ts`)

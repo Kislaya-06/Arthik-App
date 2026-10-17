@@ -53,7 +53,7 @@ import { useSavingsDashboard } from '../src/hooks/useSavingsDashboard';
 import { useDailyBudgetStore } from '../src/store/dailyBudgetStore';
 
 const saved = (date: string, amount: number) => ({ date, budget: 500, spent: 500 - amount, saved: amount, isFinalized: true, status: 'saved' });
-const missed = (date: string) => ({ date, budget: 500, spent: 600, saved: 0, isFinalized: true, status: 'exceeded' });
+const missed = (date: string) => ({ date, budget: 500, spent: 600, saved: 0, isFinalized: true, status: 'missed' });
 
 describe('useSavingsDashboard (everything the Savings screen shows)', () => {
   beforeEach(() => {

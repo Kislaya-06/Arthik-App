@@ -91,7 +91,6 @@ export function selfHealCorruptedRows(params: {
   resolvedBudget: number;
   records: Record<string, DailyRecord>;
   incomeByDate: Record<string, number>;
-  hydrateReimbByDate: Record<string, number>;
   userId: string;
 }): void {
   const {
@@ -102,7 +101,6 @@ export function selfHealCorruptedRows(params: {
     resolvedBudget,
     records,
     incomeByDate,
-    hydrateReimbByDate,
     userId,
   } = params;
 
@@ -135,8 +133,7 @@ export function selfHealCorruptedRows(params: {
 
       // --- 2. RECALCULATE SAVED & STATUS ---
       const dayIncome = incomeByDate[d] || 0;
-      const dayReimb = hydrateReimbByDate[d] || 0;
-      const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, dayIncome, undefined, dayReimb);
+      const { saved: daySaved, status: evaluatedStatus } = evaluateDayStatus(dayBudget, daySpent, dayIncome);
 
       records[d] = {
         date: d,

@@ -56,15 +56,15 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| Pure Mode vs Budget Mode | Pure Mode provides unconstrained expense tracking; Budget Mode activates multi-cadence spending limits, Gullak savings rollovers, and a 5th navigation tab (`Savings`). |
+| Pure Mode vs Budget Mode | Pure Mode provides unconstrained expense tracking without spending blocks; Budget Mode activates multi-cadence spending limits, solvency guard, Gullak savings rollovers, and a 5th navigation tab (`Savings`). Switching from Pure to Budget Mode with negative balance automatically balances the deficit into Total Income (`PUR-001`); pools ending in Pure retain unspent funds as `pureLeftover` without converting to income (`PUR-002`). |
 | Multi-Cadence Budgets | User can configure spending allowances across three native cadences: **Daily**, **Weekly** (Mon–Sun), or **Monthly** (1st to month-end). |
 | Zero-Proration Policy | Budgets configured mid-period are 100% active immediately without fractional day slicing (`isProrated: false`). |
 | Dynamic Pace Guidance | Non-binding guidance: suggested daily pace (`remaining / remainingDays`), suggested weekly pace, and projected monthly spend based on actual 28, 29, 30, or 31 month days. |
 | Next-Day Cadence Switch | Cadence switches schedule for tomorrow at 12:00 AM (00:00:00) so today's budget concludes cleanly under the active plan. |
-| Carry-Forward Engine | Unspent funds carry forward on mid-cycle switch via **Additive** (added to target budget) or **Allocation** (headstart towards target budget) modes. |
+| Carry-Forward Engine | Unspent funds carry forward on mid-cycle switch via **Additive** (added to first period's target budget) or **Allocation** (multi-period drawdown across Daily, Weekly, and Monthly targets: $\text{funded}_k = \min(B, \text{remaining}_{k-1})$, user adds only the gap, zero double counting in All-pill, and crisp lifecycle notifications). |
 | Gullak Rollover Protection | Unspent allowance rolls into Gullak **strictly upon natural cycle completion** (Daily at 23:59:59, Weekly on Sunday at 23:59:59, Monthly at month-end). Mid-cycle switches carry forward with zero Gullak dumps. |
 | Deficit Isolation | Overspending is settled from available income/Gullak reserves; carried forward deficit is clamped to 0 so new cadences start clean. |
-| Digital Vault Spending Guard | Expense creation blocked at input boundary if total available liquidity (allowance + income + reserves) equals zero. |
+| Digital Vault Spending Guard | Expense creation blocked in Budget Mode if total available liquidity (allowance + income + reserves) equals zero (`SEC-001`). Pure Mode allows spending into negative balance without blocking. |
 | Gullak (accumulated savings) | Lifetime sum of all natural cycle savings + manual deposits − uncovered overspending. |
 | Manual Gullak Deposit | Add savings directly into Gullak from tracked income or fresh external windfalls. |
 | Cadence-Native Streak | Tracks consecutive saved periods in units matching active cadence (days, weeks, months). Paused intervals act as neutral bridges. |
@@ -174,14 +174,15 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Historical Discovery Scanner | Scans past SMS on-device up to 90 days to discover bank accounts and formats before turning live tracking ON. |
 | AutoLog UI Suite | Comprehensive screens: `AutoLogCenterScreen`, `AutoLogSetupScreen`, `AutoLogReviewScreen`, `AutoLogIntroScreen`, `AutoLogInfoScreen`, `AutoLogAccountsScreen`, `AutoLogEmailScreen`. |
 
-### 4.13 Bill Splitting & Shares (Split Expenses) ✅ Shipped
+### 4.13 Splits, Repayments & Self-Transfers
 
-| Feature | Detail |
+**Split Expenses / Shares were removed** (canonical rules `REF-001`, `TXN-004`). Arthik is simple personal cashflow:
+
+| Topic | Behaviour |
 |---|---|
-| Split on Creation & Edit | Split any expense with friends during entry or later from transaction details (`SplitExpenseModal`). |
-| Flexible Share Allocation | Equal split among friends or custom rupee share amounts. |
-| Friend Directory & Balances | Track friend balances and outstanding shared amounts (`src/store/sharesStore.ts`). |
-| Automatic Repayment Matching | When money is credited from a friend, Arthik automatically detects open split debts and marks it as a debt reimbursement instead of income (`src/lib/shares.ts`). |
+| Expense you shared with friends | Recorded at its full amount. No friend directory, no shares, no debt tracking. |
+| A friend paying you back, or a refund | Recorded as **Income** on the day it arrives. |
+| Transfer between your own accounts | Marked as a self-transfer (`transaction_class = 'self_transfer'`): never income, never expense, never touches budget or Gullak (`TXN-003`). The user can ask Arthik to remember a transfer note (`src/store/transferRulesStore.ts`). |
 
 ---
 
@@ -189,7 +190,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 The following are **explicitly out of scope** for v2.x:
 
-- **Shared household ledgers**: Arthik is single-user authenticated (individual expenses can be split with friends via Shares, but shared multi-user household ledger sync is out of scope).
+- **Shared household ledgers**: Arthik is single-user authenticated (there is no split / shared-expense tracking; shared multi-user household ledger sync is out of scope).
 - **Bank aggregator credentials sync**: No cloud bank aggregator APIs, NetBanking credentials, or screen-scraping (all automated detection is strictly 100% on-device via Bank SMS and Bank Email alerts).
 - **Investment tracking**: No mutual funds, SIPs, or stock portfolio.
 - **Recurring expense automation**: No auto-detected or rule-based recurring entries.
@@ -257,7 +258,7 @@ These are **not committed**. They are tracked here to inform architectural decis
 |---|---|---|---|
 | Offline queue corruption on crash mid-write | Low | High | AsyncStorage writes are atomic per key; rollback on app restart reads queue state |
 | Rollover fires before hydration (budget miscalculation) | Low | High | `registerExpensesLoadedGetter` guard in `checkAndRollover`; tested in `dailyBudgetStore.test.ts` |
-| Income misclassification after category rename | Medium | Medium | `isIncomeTransaction` prioritizes explicit `type` field; keywords are fallback only |
+| Income misclassification after category rename | Medium | Medium | `isIncomeTransaction` prioritizes explicit `type` field; keywords are an inert legacy fallback only (`TXN-002`) |
 | OTA to wrong runtime version | Low | High | `runtimeVersion.policy: "appVersion"` prevents mismatched bundle delivery |
 | AsyncStorage key collision across users | Low | Critical | All keys are scoped per `userId`; `resetExpenses`/`resetCategories` clear on sign-out |
 | Category orphan after delete | Eliminated | N/A | DB `ON DELETE SET NULL` + UI block if expenses attached |

@@ -104,7 +104,7 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       const dailyRecords: Record<string, DailyRecord> = {
         '2026-09-21': { date: '2026-09-21', budget: 500, spent: 300, saved: 200, isFinalized: true, status: 'saved' },
         '2026-09-22': { date: '2026-09-22', budget: 500, spent: 250, saved: 250, isFinalized: true, status: 'saved' },
-        '2026-09-23': { date: '2026-09-23', budget: 500, spent: 600, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-09-23': { date: '2026-09-23', budget: 500, spent: 600, saved: 0, isFinalized: true, status: 'missed' },
         '2026-09-15': { date: '2026-09-15', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' }, // Outside week
       };
 

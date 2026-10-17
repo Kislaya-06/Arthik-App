@@ -218,12 +218,20 @@ interface EventRow {
   template: string; kind: string; status: string; review_reason: string | null; expense_id: string | null;
   matched_id: string | null; needs_category: number; created_at: number;
 }
+
+/**
+ * Older app versions could leave a 'split_repayment' question pending on the device. The split feature is gone
+ * (canonical REF domain), so such a leftover becomes the normal "What is this?" question.
+ */
+const normalizeReviewReason = (raw: string | null): ReviewReason | null =>
+  raw === 'split_repayment' ? 'type' : (raw as ReviewReason | null);
+
 const toEvent = (r: EventRow): AutoLogEvent => ({
   id: r.id, source: r.source as AutoLogEvent['source'], origin: r.origin as AutoLogEvent['origin'], sender: r.sender,
   body: r.body, fingerprint: r.fingerprint, occurredAt: r.occurred_at, amount: r.amount,
   direction: r.direction as AutoLogEvent['direction'], accountKey: r.account_key, merchant: r.merchant, ref: r.ref,
   template: r.template, kind: r.kind as AutoLogEvent['kind'], status: r.status as EventStatus,
-  reviewReason: r.review_reason as ReviewReason | null, expenseId: r.expense_id, matchedId: r.matched_id,
+  reviewReason: normalizeReviewReason(r.review_reason), expenseId: r.expense_id, matchedId: r.matched_id,
   needsCategory: r.needs_category === 1, createdAt: r.created_at,
 });
 

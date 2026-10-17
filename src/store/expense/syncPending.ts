@@ -167,8 +167,8 @@ export const syncPendingAdds = async (userId: string, _get: StoreGet, set: Store
           expense_date: item.expense_date,
           type: item.type,
           category_id: item.category_id || null,
-          transaction_class: item.transaction_class ?? 'normal',
-          reimburses_share_id: item.reimburses_share_id ?? null,
+          // A queued 'reimbursement' from an older app version is plain income now (TXN-004).
+          transaction_class: item.transaction_class === 'self_transfer' ? 'self_transfer' : 'normal',
           transfer_rule_id: item.transfer_rule_id ?? null,
         };
 

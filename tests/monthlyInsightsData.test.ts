@@ -95,7 +95,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       const dailyRecords: Record<string, DailyRecord> = {
         '2026-10-01': { date: '2026-10-01', budget: 500, spent: 300, saved: 200, status: 'saved', isFinalized: true },
         '2026-10-02': { date: '2026-10-02', budget: 500, spent: 250, saved: 250, status: 'saved', isFinalized: true },
-        '2026-10-03': { date: '2026-10-03', budget: 500, spent: 600, saved: 0, status: 'exceeded', isFinalized: true },
+        '2026-10-03': { date: '2026-10-03', budget: 500, spent: 600, saved: 0, status: 'missed', isFinalized: true },
       };
 
       const gullakDeposits: GullakDeposit[] = [

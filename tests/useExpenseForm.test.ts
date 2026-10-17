@@ -36,16 +36,14 @@ vi.mock('../src/store/categoryStore', async () => {
   return { useCategoryStore };
 });
 vi.mock('expo-crypto', () => ({ randomUUID: () => '11111111-1111-4111-8111-111111111111' }));
-vi.mock('../src/store/sharesStore', async () => {
+vi.mock('../src/store/transferRulesStore', async () => {
   const { createFakeStore } = await import('./helpers/fakeStore');
-  const useSharesStore = createFakeStore<any>({
-    shares: [],
+  const useTransferRulesStore = createFakeStore<any>({
     rules: [],
     fetchAll: vi.fn(),
-    addShares: vi.fn(async () => {}),
     addRule: vi.fn(async () => null),
   });
-  return { useSharesStore };
+  return { useTransferRulesStore };
 });
 vi.mock('../src/store/dailyBudgetStore', async () => {
   const { createFakeStore } = await import('./helpers/fakeStore');
@@ -270,7 +268,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       });
 
       expect(mocks.addExpense).toHaveBeenCalledTimes(1);
-      expect(mocks.addExpense).toHaveBeenCalledWith(250, 'c2', 'Metro', 'cash', '2026-10-04', 'expense', expect.objectContaining({ transactionClass: 'normal', reimbursesShareId: null, transferRuleId: null }));
+      expect(mocks.addExpense).toHaveBeenCalledWith(250, 'c2', 'Metro', 'cash', '2026-10-04', 'expense', expect.objectContaining({ transactionClass: 'normal', transferRuleId: null }));
       expect(mocks.syncWithExpenses).toHaveBeenCalledWith(useExpenseStore.getState().expenses);
       expect(nav.goBack).toHaveBeenCalledTimes(1);
       expect(mocks.alert).not.toHaveBeenCalled();
@@ -443,7 +441,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.addExpense).toHaveBeenCalledWith(3000, null, '', 'upi', '2026-10-04', 'income', expect.objectContaining({ transactionClass: 'normal', reimbursesShareId: null, transferRuleId: null }));
+      expect(mocks.addExpense).toHaveBeenCalledWith(3000, null, '', 'upi', '2026-10-04', 'income', expect.objectContaining({ transactionClass: 'normal', transferRuleId: null }));
       expect(mocks.alert).not.toHaveBeenCalled();
     });
 
@@ -461,28 +459,30 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
   });
 
   describe('Digital Vault Spending Guard (you can not spend money that does not exist)', () => {
-    it('Pure mode, no money at all: an expense is blocked and the guard sheet opens', async () => {
+    it('Pure mode, no money at all: an expense is allowed (SEC-001 amend)', async () => {
       useExpenseStore.setState({ expenses: [] });
       const s = setup();
       press(s, ['1', '0', '0']);
-      expect(s.r().vaultLiquidity.canAddExpense).toBe(false);
+      expect(s.r().vaultLiquidity.canAddExpense).toBe(true);
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(s.r().showVaultGuard).toBe(true);
-      expect(mocks.addExpense).not.toHaveBeenCalled();
+      expect(s.r().showVaultGuard).toBe(false);
+      expect(mocks.addExpense).toHaveBeenCalledTimes(1);
     });
 
-    it('Pure mode where everything is already spent: still blocked', async () => {
+    it('Pure mode where everything is already spent: still allowed (SEC-001 amend)', async () => {
       useExpenseStore.setState({
         expenses: [INCOME, { id: 'x', user_id: 'u', amount: 5000, type: 'expense', category_id: 'c1', payment_mode: 'upi', expense_date: '2026-10-02' }],
       });
       const s = setup();
       press(s, ['1']);
+      expect(s.r().vaultLiquidity.canAddExpense).toBe(true);
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(s.r().showVaultGuard).toBe(true);
+      expect(s.r().showVaultGuard).toBe(false);
+      expect(mocks.addExpense).toHaveBeenCalledTimes(1);
     });
 
     it('Pure mode with income logged: allowed', async () => {

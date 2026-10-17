@@ -107,7 +107,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
             spent: 750, // past exceeded day
             saved: 0,
             isFinalized: true,
-            status: 'exceeded',
+            status: 'missed',
           },
         },
       });
@@ -186,7 +186,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
           spent: 600, // overspent by 100
           saved: 0,
           isFinalized: false,
-          status: 'exceeded',
+          status: 'missed',
         },
       };
 
@@ -289,61 +289,6 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
     });
   });
 
-  describe('Reimbursement Chip Hiding in "All" Filter (Real Money Preserved)', () => {
-    it('hides reimbursement chip from subtext in "All" filter while preserving the money in totalAvailable and primaryAmount', () => {
-      const summary = calculatePeriodSummary({
-        ...baseParams,
-        activeFilter: 'All',
-        totalIncome: 1000,
-        totalReimbursements: 500,
-        totalSpent: 400,
-      });
-
-      // Reimbursement chip must be omitted in 'All' filter
-      expect(summary.primarySubtext).not.toContain('reimbursed');
-      expect(summary.primarySubtext).toContain('₹1,000 income');
-
-      // BUT the money is 100% included in spendable / available / remaining
-      // budget pool (9000) + income (1000) + reimbursement (500) + deposits (3630) = 14130
-      expect(summary.totalAvailable).toBe(9000 + 1000 + 500 + 3630);
-      expect(summary.primaryAmount).toBe(14130 - 400); // 13730
-    });
-
-    it('shows reimbursement chip in Daily, Weekly, and Monthly filters', () => {
-      const dailySummary = calculatePeriodSummary({
-        ...baseParams,
-        activeFilter: 'Daily',
-        todayBudget: 500,
-        totalIncome: 0,
-        totalReimbursements: 350,
-        totalSpent: 100,
-      });
-      expect(dailySummary.primarySubtext).toContain('₹350 reimbursed');
-
-      const weeklySummary = calculatePeriodSummary({
-        ...baseParams,
-        activeFilter: 'Weekly',
-        dailyBudgetAmount: 500,
-        todayBudget: 500,
-        totalIncome: 0,
-        totalReimbursements: 350,
-        totalSpent: 100,
-      });
-      expect(weeklySummary.primarySubtext).toContain('₹350 reimbursed');
-
-      const monthlySummary = calculatePeriodSummary({
-        ...baseParams,
-        activeFilter: 'Monthly',
-        dailyBudgetAmount: 500,
-        todayBudget: 500,
-        totalIncome: 0,
-        totalReimbursements: 350,
-        totalSpent: 100,
-      });
-      expect(monthlySummary.primarySubtext).toContain('₹350 reimbursed');
-    });
-  });
-
   describe('Partial Income & Partial Gullak Absorption (gullakDrawnAmount)', () => {
     it('accurately computes gullakDrawnAmount when half overspend comes from income and half from Gullak', () => {
       // Income = 1000. Daily overspend = 1500 (today spent 2000 on 500 budget).
@@ -385,7 +330,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
           spent: 1485,
           saved: 0,
           isFinalized: true,
-          status: 'exceeded',
+          status: 'missed',
         },
         // Today with ₹5,000 overspend
         '2026-10-12': {
@@ -394,7 +339,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
           spent: 5250, // overspent by 5000
           saved: 0,
           isFinalized: false,
-          status: 'exceeded',
+          status: 'missed',
         },
       };
 

@@ -154,9 +154,11 @@ Har production release se pehle device pe ye critical functional flows verify ka
 | 13 | **AutoLog Activation Boundary** | First-time setup complete karein | Pehle ke purane historical SMS/emails kabhi retroactively log nahi hote |
 | 14 | **AutoLog Dual-Source Match** | Bank SMS + Bank Email alert aane par | Exact reference/timestamp match karke deduplicate; no duplicate transactions |
 | 15 | **AutoLog Vault Spending Guard** | Zero funds hone par auto-log expense aana | Exceeds liquidity review flag raise hota hai; negative balance block |
-| 16 | **Split / Reimbursement Accounting**| Shared expense log aur reimbursement receive | Reimbursement never treated as income; original share balance restores |
+| 16 | **Friend Repayment = Income** | Kisi dost ka paisa wapas aana ya refund log karna | Income ki tarah count hota hai (canonical `TXN-004`); self-transfer kabhi income/expense nahi banta (`TXN-003`) |
 | 17 | **Pull-to-History Physics** | Home feed pe pull down gesture | Threshold label, circular progress, single haptic, smooth history navigation |
 | 18 | **Notification Deduplication** | Evening recap, morning reward, limit alert | Duplicate reviews ya repeated limit alerts drop ho jaate hain |
+| 19 | **Cadence Carry Allocation (CAR-001 Mode B)** | Monthly → Weekly switch with unspent carry (e.g. ₹15k unspent, ₹5k weekly target) | Period 1–3 fully funded (user gap ₹0); All-pill zero double counting; period start notification sent; Home All pill equals the spending-guard total on the gap week; on exhaustion exactly ONE "Carried money has run out" notice, then silence |
+| 20 | **Pure Mode Deficit Switch (PUR-001 & PUR-002)** | Pure Mode me spend karke deficit ($R < 0$) karna, fir Budget Mode ON toggle karna | Single auto-balance income ₹D add hota hai; date rule follow karta hai; R = 0, Gullak = 0; inbox notification aati hai; Home budget chip me exclude rehta hai |
 
 ---
 

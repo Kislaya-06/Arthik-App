@@ -77,6 +77,7 @@ vi.mock('../src/store/dailyBudgetStore', () => ({
   },
   registerExpenseGetter: vi.fn(),
   registerExpensesLoadedGetter: vi.fn(),
+  registerAddExpense: vi.fn(),
 }));
 
 // 6. Mock NetworkStore

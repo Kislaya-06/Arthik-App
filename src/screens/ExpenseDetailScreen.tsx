@@ -22,10 +22,9 @@ import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { AppButton } from '../components/ui/AppButton';
 import { WhyLoggedCard } from '../components/autolog/WhyLoggedCard';
-import { SharesDetailCard } from '../components/shares/SharesDetailCard';
+import { TransferDetailCard } from '../components/transfer/TransferDetailCard';
 import { ExpenseFundingCard } from '../components/ExpenseFundingCard';
 import { calculateExpenseFunding } from '../lib/transactionFunding';
-import { useSharesStore } from '../store/sharesStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
@@ -42,7 +41,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
-  const shares = useSharesStore((s) => s.shares);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -69,7 +67,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       isAutoRenew,
       deposits: gullakDeposits,
       todayStr,
-      shares,
     });
   }, [
     expense,
@@ -81,7 +78,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     isBudgetModeEnabled,
     isAutoRenew,
     gullakDeposits,
-    shares,
   ]);
 
   if (!expense) {
@@ -125,7 +121,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style: 'destructive',
             onPress: async () => {
               await deleteExpense(expense.id);
-              useSharesStore.getState().fetchAll();
               useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
               navigation.pop(1);
             },
@@ -146,7 +141,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style: 'destructive',
             onPress: async () => {
               await deleteExpense(expense.id);
-              useSharesStore.getState().fetchAll();
               useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
               navigation.pop(1);
             },
@@ -166,7 +160,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             await deleteExpense(expense.id);
-              useSharesStore.getState().fetchAll();
             useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
             navigation.pop(1);
           },
@@ -245,10 +238,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
             <StatusBadge
-              variant={expense.transaction_class === 'self_transfer' || expense.transaction_class === 'reimbursement' ? 'neutral' : isIncome ? 'success' : 'danger'}
+              variant={expense.transaction_class === 'self_transfer' ? 'neutral' : isIncome ? 'success' : 'danger'}
               label={
                 expense.transaction_class === 'self_transfer' ? 'TRANSFER'
-                : expense.transaction_class === 'reimbursement' ? 'REIMBURSEMENT'
                 : isIncome ? 'INCOME' : 'EXPENSE'
               }
             />
@@ -332,8 +324,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Funding Breakdown Card */}
           {fundingInfo && isBudgetModeEnabled && <ExpenseFundingCard funding={fundingInfo} />}
 
-          {/* Friend shares / reimbursement / self-transfer details */}
-          <SharesDetailCard expense={expense} />
+          {/* Self-transfer details (renders nothing for normal transactions) */}
+          <TransferDetailCard expense={expense} />
 
           {/* Automatic Logging: source + "Why was this logged?" (renders nothing for manual entries) */}
           <WhyLoggedCard

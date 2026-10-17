@@ -1,7 +1,7 @@
 # 0012. One Budget per Calendar Period, and Pure Mode Keeps the Same Books
 
 ## Status
-Accepted (October 2026). Amends [0011](0011-zero-proration-and-digital-vault-spending-guard.md) and
+Accepted (October 2026). Amends [0011](0011-zero-proration-and-digital-vault-spending-guard.md) and **Canonical note:** carry-forward (D5) governed by canonical `CAR-001`; implementation status in [0014](0014-canonical-rules-and-implementation-status.md).
 [0010](0010-budget-cadence-periods.md). Applies to budget periods that start on or after `2026-10-14`
 (`BUDGET_RULES_V2_FROM` in `src/lib/budgetPeriods.ts`). Earlier periods keep their numbers: nobody's past Gullak or
 income is rewritten by this decision.
@@ -36,18 +36,17 @@ Pure Mode only changes the screen (inflow / outflow, no limits or warnings). Mon
 Mode, in this order:
 
 1. the budget pool of that period, if it is still alive (spending in Pure Mode uses the same pool),
-2. then income (external Gullak deposits count as income),
-3. then Gullak.
+2. then pureLeftover (if an earlier pool ended in Pure Mode; see PUR-002),
+3. then income (external Gullak deposits count as income),
+4. then Gullak.
 
 Coming back to Budget Mode shows exactly what Budget Mode would have shown. Gullak or income are lower only if the
-spending went beyond the pool. The Digital Vault guard (ADR 0011) uses the real remaining of the whole account in
-both modes, so a user with unspent budget money may still spend in Pure Mode and a user with nothing left is stopped.
+spending went beyond the pool. *(Amended by canonical SEC-001: The Digital Vault guard does not block in Pure Mode; the user may spend into negative balance).*
 
 ### D3. When a period ends
 - Ended in Budget Mode: what is left goes to Gullak (unchanged).
-- Ended in Pure Mode: what is left becomes **income**. Pure Mode has no Gullak and the money must not vanish. Nothing
-  goes to Gullak. The user gets an inbox message.
-- Pure Mode on a day with no live pool (a new Pure user, or a new period): the spend is paid from income, then Gullak.
+- Ended in Pure Mode: *(Amended by canonical `PUR-002`)* what is left is **NOT income**. No inbox message is sent. The unspent pool money is tracked as `pureLeftover`, Remaining does not change, and spending on Pure days draws from `pureLeftover` first. When the user returns to Budget Mode, any unspent `pureLeftover` flows into Gullak (`totalAccumulatedSavings`).
+- Pure Mode on a day with no live pool (a new Pure user, or a new period): the spend is paid from `pureLeftover` first, then income, then Gullak.
 
 ### D4. Switching away and back in the same period
 When the user switches to another cadence, what was left of the pool is carried to the new cadence (D5). The pool is
@@ -63,9 +62,13 @@ Gullak) until the next period starts. The switch dialog says so.
     unused goes to Gullak at night.
   - *Pay my daily budget from it* (`allocation`): each daily day is paid from the carried money until it is used up
     (e.g. ₹100/day over ₹1,550 = 15 days, then ₹50 on day 16). The daily budget stays ₹100.
-- Carried money is already in the user's bank. A morning notification says how much to add today
-  ("Nothing to add today", "Add only ₹50 today").
-- The "All" total counts carried money once (it is already inside the old budget).
+- **Weekly / monthly to weekly or monthly targets** also support both choices:
+  - *Add to budget* (`additive`): carried money is added to the first period's budget pool only.
+  - *Pay my weekly/monthly budget from it* (`allocation`): multi-period drawdown ($k = 1, 2, 3\dots$). Carried money $U$ funds subsequent periods with $\text{funded}_k = \min(B, \text{remaining}_{k-1})$ and user gap $\text{toAdd}_k = B - \text{funded}_k$. The period budget stays $B$ (not $B + \text{carry}$). Once carry hits 0, later periods are normal.
+- Carried money is already in the user's bank. Notifications inform the user at period start:
+  - Daily: morning notification ("Nothing to add today", "Add only ₹50 today").
+  - Weekly / Monthly: start-of-period notification ("This week's ₹5,000 is funded from your carried balance. ₹10,000 left", or gap message "₹2,000 funded from carry. Add ₹3,000 to complete this week's budget"). Permanent cutoff once carry hits 0.
+- The "All" total counts carried money once (it is already inside the old budget). In Allocation mode, carry-covered periods add 0 to the All pill budget pool, only the carry-FUNDED part is left out; the gap part of a period budget counts like any budget (as a normal period does) and real money added grows it by exactly that amount. Home All pill and the account total (guard, Gullak cap, Pure deficit) are the same number. When carry runs out ONE "carried money has run out" notice is sent on the first unfunded day / week / month (`carry_end_<date>`).
 
 ### D6. Daily records belong to daily days only
 A day owned by a weekly / monthly plan or by Pure Mode has no daily budget record. Old wrong records are corrected

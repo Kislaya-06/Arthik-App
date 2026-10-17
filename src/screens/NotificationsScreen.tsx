@@ -67,6 +67,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       case 'monthly_recap':
         return <CalendarDays size={20} color={iconColor} strokeWidth={2.2} />;
       case 'daily_reminder':
+      case 'pure_deficit_balanced':
         return <Coins size={20} color={iconColor} strokeWidth={2.2} />;
       default:
         return <Bell size={20} color={iconColor} strokeWidth={2.2} />;
@@ -84,6 +85,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
         return '#ADEBB3';
       case 'weekly_recap':
       case 'monthly_recap':
+      case 'pure_deficit_balanced':
         return '#B8D4F4';
       case 'daily_reminder':
         return '#EBAEE6';

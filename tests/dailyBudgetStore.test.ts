@@ -203,7 +203,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       expect(records[yesterdayStr].status).toBe('saved');
     });
 
-    it('finalizes yesterday record when spending exceeds budget (status: exceeded)', () => {
+    it('finalizes yesterday record when spending exceeds budget (status: missed)', () => {
       useDailyBudgetStore.setState({
         hydratedForUserId: 'user_budget_test_1',
         dailyBudgetAmount: 500,
@@ -235,7 +235,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       const records = useDailyBudgetStore.getState().dailyRecords;
       expect(records[yesterdayStr].isFinalized).toBe(true);
       expect(records[yesterdayStr].saved).toBe(0);
-      expect(records[yesterdayStr].status).toBe('exceeded');
+      expect(records[yesterdayStr].status).toBe('missed');
     });
   });
 

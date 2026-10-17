@@ -141,10 +141,10 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
     useDailyBudgetStore.getState().resetDailyBudget();
   });
 
-  describe('1. Persist Migration (v-old -> v3)', () => {
+  describe('1. Persist Migration (v-old -> v4)', () => {
     it('safely migrates old persisted payload missing budget mode fields without crashing', () => {
       const persistOptions = (useDailyBudgetStore as any).persist?.getOptions();
-      expect(persistOptions.version).toBe(3);
+      expect(persistOptions.version).toBe(4);
 
       const oldPayloadV1 = {
         dailyBudgetAmount: 500,

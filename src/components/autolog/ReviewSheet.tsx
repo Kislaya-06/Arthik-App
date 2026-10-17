@@ -9,12 +9,7 @@ import { getCategoryIcon } from '../../lib/iconUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
-import { classifyEventAndSplit, setCategoryAndSplit, ignoreEvent, learnFromDiscovery, resolveDuplicate, resolveSplitRepayment, resolveTransfer } from '../../features/autoLog/reviews';
-import { findSplitRepaymentCandidates } from '../../features/autoLog/ledger';
-import type { ReimbursementCandidate, ShareDraft } from '../../lib/shares';
-import { SplitExpenseModal } from '../shares/SplitExpenseModal';
-import { Users } from 'lucide-react-native';
-import { formatCurrency } from '../../lib/formatters';
+import { classifyEvent, setEventCategory, ignoreEvent, learnFromDiscovery, resolveDuplicate, resolveTransfer } from '../../features/autoLog/reviews';
 
 /**
  * One sheet for every review decision. Flow (spec §9, §18–21):
@@ -43,10 +38,6 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
   const [amountText, setAmountText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [splitCandidates, setSplitCandidates] = useState<ReimbursementCandidate[]>([]);
-  const [splitDeclined, setSplitDeclined] = useState(false);
-  const [splitDrafts, setSplitDrafts] = useState<ShareDraft[]>([]);
-  const [showSplit, setShowSplit] = useState(false);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
 
@@ -58,21 +49,8 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
       setAmountText('');
       setError(null);
       setBusy(false);
-      setSplitDeclined(false);
-      setSplitCandidates([]);
-      setSplitDrafts([]);
-      setShowSplit(false);
     }
   }, [visible, event?.id, categoryOnly, event?.direction]);
-
-  // "Is this your friend's share of a split?" needs the friends still owing money for this exact amount.
-  useEffect(() => {
-    let alive = true;
-    if (visible && event?.reviewReason === 'split_repayment' && event.amount != null) {
-      findSplitRepaymentCandidates(event.amount, event.occurredAt).then((c) => { if (alive) setSplitCandidates(c); });
-    }
-    return () => { alive = false; };
-  }, [visible, event?.id, event?.reviewReason, event?.amount, event?.occurredAt]);
 
   const usableCategories = useMemo(() => categories.filter((c) => !c.isPlaceholder), [categories]);
   const chosenCategory = usableCategories.find((c) => c.id === categoryId);
@@ -110,18 +88,18 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
 
   const finish = (remember: boolean) => {
     if (categoryOnly) {
-      return run(() => setCategoryAndSplit(event, categoryId as string, remember, splitDrafts), 'Category saved');
+      return run(() => setEventCategory(event, categoryId as string, remember), 'Category saved');
     }
     return run(async () => {
-      await classifyEventAndSplit(event, type, categoryId, remember, needsAmount ? amount ?? undefined : undefined, splitDrafts);
+      await classifyEvent(event, type, categoryId, remember, needsAmount ? amount ?? undefined : undefined);
     }, `${money(amount)} logged as ${type === 'income' ? 'income' : 'an expense'}`);
   };
 
   const afterCategory = (id: string | null) => {
     setCategoryId(id);
     if (id && event.merchant) setStep('remember');
-    else if (categoryOnly && id) run(() => setCategoryAndSplit(event, id, false, splitDrafts), 'Category saved');
-    else run(() => classifyEventAndSplit(event, type, id, false, needsAmount ? amount ?? undefined : undefined, splitDrafts).then(() => undefined), `${money(amount)} logged`);
+    else if (categoryOnly && id) run(() => setEventCategory(event, id, false), 'Category saved');
+    else run(() => classifyEvent(event, type, id, false, needsAmount ? amount ?? undefined : undefined).then(() => undefined), `${money(amount)} logged`);
   };
 
   // ── Summary block shown at the top of every step ──
@@ -139,57 +117,7 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
   let footer: React.ReactNode = null;
   let title = 'Review';
 
-  if (step === 'start' && event.reviewReason === 'split_repayment' && !splitDeclined) {
-    title = 'Friend paid back?';
-    content = (
-      <>
-        {summary}
-        <Text style={[styles.question, { color: colors.textPrimary }]}>
-          {money(amount)} came in. A friend still owes exactly this on a split. Is this the split money?
-        </Text>
-        {splitCandidates.map((c) => (
-          <View key={c.share.id} style={[styles.summary, { backgroundColor: colors.mintGreenSoft }]}>
-            <Text style={[styles.meta, { color: colors.textPrimary }]}>{c.share.friend_label} · {formatCurrency(c.outstanding)} owed</Text>
-            <Text style={[styles.metaMuted, { color: colors.textSecondary }]}>
-              Split created on {c.expenseDate.split('-').reverse().slice(0, 2).join('/')} · expense of {formatCurrency(c.expenseAmount)}
-            </Text>
-          </View>
-        ))}
-        <Text style={[styles.text, { color: colors.textSecondary }]}>
-          If yes, that split is closed and the money goes back to where it was paid from: Gullak, income or budget.
-        </Text>
-      </>
-    );
-    footer = (
-      <View style={styles.footerCol}>
-        {splitCandidates.map((c) => (
-          <AppButton
-            key={c.share.id}
-            label={splitCandidates.length > 1 ? `Yes — from ${c.share.friend_label}` : `Yes, split money from ${c.share.friend_label}`}
-            variant="secondary"
-            loading={busy}
-            onPress={() => run(() => resolveSplitRepayment(event, c.share.id, c.share.friend_label).then(() => undefined), 'Split settled — money added back')}
-          />
-        ))}
-        <AppButton
-          label="No, it's something else"
-          variant="outline"
-          disabled={busy}
-          onPress={async () => {
-            setBusy(true);
-            try {
-              await resolveSplitRepayment(event, null);   // remembers: this one is NOT a split repayment
-              setSplitDeclined(true);                     // continue in the same sheet with "What is this?"
-            } catch (e: any) {
-              setError(e?.message || 'Something went wrong. Please try again.');
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      </View>
-    );
-  } else if (step === 'start' && event.reviewReason === 'possible_transfer') {
+  if (step === 'start' && event.reviewReason === 'possible_transfer') {
     title = 'Own transfer?';
     content = (
       <>
@@ -295,33 +223,9 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
     );
   } else if (step === 'category') {
     title = 'Choose a category';
-    const canSplit = (categoryOnly ? event.direction === 'debit' : type === 'expense') && (amount ?? 0) > 0;
-    const splitTotal = splitDrafts.reduce((sum, d) => sum + d.amount, 0);
     content = (
       <>
         {summary}
-        {canSplit ? (
-          <Pressable
-            onPress={() => setShowSplit(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Split this expense"
-            style={[styles.splitRow, { borderColor: splitDrafts.length ? colors.mintGreenDark : colors.borderSubtle }]}
-          >
-            <Users size={16} color={splitDrafts.length ? colors.mintGreenDark : colors.textSecondary} />
-            <Text style={[styles.splitText, { color: splitDrafts.length ? colors.textPrimary : colors.textSecondary }]}>
-              {splitDrafts.length
-                ? `Split with ${splitDrafts.length} ${splitDrafts.length === 1 ? 'friend' : 'friends'} · ${formatCurrency(splitTotal)}`
-                : 'Split this expense'}
-            </Text>
-          </Pressable>
-        ) : null}
-        <SplitExpenseModal
-          visible={showSplit}
-          total={amount ?? 0}
-          initial={splitDrafts}
-          onClose={() => setShowSplit(false)}
-          onSave={(d) => { setSplitDrafts(d); setShowSplit(false); }}
-        />
         <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
           {usableCategories.map((c) => {
             const Icon = getCategoryIcon(c.icon);
@@ -398,8 +302,6 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
 };
 
 const styles = StyleSheet.create({
-  splitRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8 },
-  splitText: { fontSize: FontSize.body, fontFamily: FontFamily.bold },
   summary: { borderRadius: BorderRadius.input, padding: Spacing.block, marginBottom: Spacing.block },
   amount: { fontSize: FontSize.titleLarge, lineHeight: LineHeight.titleLarge, fontFamily: FontFamily.bold },
   meta: { fontSize: FontSize.body, fontFamily: FontFamily.bold, marginTop: Spacing.nano },

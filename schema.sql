@@ -695,26 +695,24 @@ VALUES (
 )
 ON CONFLICT (key) DO NOTHING;
 
--- ═══ Part 1: Expense Shares, Reimbursements & Self-Transfers — see supabase/migrations/20261009_shares_reimbursements_transfers.sql ═══
--- Part 1: Expense Shares, Reimbursements & Self-Transfers
+-- ═══ Part 1: Self-Transfers (the Split / Reimbursement feature was retired — see supabase/migrations/20261017_retire_shares_reimbursements.sql) ═══
+-- Part 1: Self-Transfers (history: this block once also created expense_shares and the 'reimbursement' class)
 -- Run once in Supabase → SQL Editor (safe to re-run; uses IF NOT EXISTS / DROP POLICY IF EXISTS).
 
 -- ------------------------------------------------------------------------------
 -- 1. expenses: classification + links
 -- ------------------------------------------------------------------------------
--- 'normal'       -> a regular expense or regular income (existing behaviour, default)
--- 'reimbursement'-> incoming money that repays a previously recorded friend share.
---                   Real cash (increases balance) but NEVER counted as income.
+-- 'normal'       -> a regular expense or regular income (default). A friend paying back is plain income (TXN-004).
 -- 'self_transfer'-> movement between the user's own accounts.
---                   NEVER counted as income or expense.
+--                   NEVER counted as income or expense (TXN-003).
 ALTER TABLE public.expenses
     ADD COLUMN IF NOT EXISTS transaction_class TEXT NOT NULL DEFAULT 'normal';
 
 ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_transaction_class_valid;
 ALTER TABLE public.expenses ADD CONSTRAINT expenses_transaction_class_valid
-    CHECK (transaction_class IN ('normal', 'reimbursement', 'self_transfer'));
+    CHECK (transaction_class IN ('normal', 'self_transfer'));
 
--- Links a reimbursement transaction back to the friend-share it repays.
+-- RETIRED (unused by the app): used to link a reimbursement back to a friend share. Kept so no data is lost.
 ALTER TABLE public.expenses
     ADD COLUMN IF NOT EXISTS reimburses_share_id UUID;
 
@@ -726,7 +724,8 @@ CREATE INDEX IF NOT EXISTS idx_expenses_reimburses_share_id ON public.expenses(r
 CREATE INDEX IF NOT EXISTS idx_expenses_transaction_class ON public.expenses(user_id, transaction_class);
 
 -- ------------------------------------------------------------------------------
--- 2. expense_shares — friend/person shares recorded against an expense.
+-- 2. expense_shares — RETIRED (unused by the app since the Split feature was removed; table kept, no data lost).
+--    Original purpose: friend/person shares recorded against an expense.
 --    'Amount reimbursed so far' is intentionally NOT stored: it is derived from the linked
 --    reimbursement rows (expenses.reimburses_share_id), so it can never drift or be double-counted.
 -- ------------------------------------------------------------------------------

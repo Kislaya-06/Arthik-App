@@ -218,9 +218,10 @@ describe('Fix 2: vault guard (blocking an expense when no money is left)', () =>
     expect(calculateVaultLiquidity({ ...p, dailyBudgetAmount: 0 }).canAddExpense).toBe(false);
   });
 
-  it('Pure Mode is unchanged: income - expenses', () => {
+  it('Pure Mode: canAddExpense is always true (SEC-001 amend)', () => {
     expect(calculateVaultLiquidity({ ...p, isBudgetModeEnabled: false, totalIncome: 1000, totalExpenses: 400 }).totalVaultLiquidity).toBe(600);
-    expect(calculateVaultLiquidity({ ...p, isBudgetModeEnabled: false, totalIncome: 100, totalExpenses: 400 }).canAddExpense).toBe(false);
+    expect(calculateVaultLiquidity({ ...p, isBudgetModeEnabled: false, totalIncome: 100, totalExpenses: 400 }).canAddExpense).toBe(true);
+    expect(calculateVaultLiquidity({ ...p, isBudgetModeEnabled: false, totalIncome: 100, totalExpenses: 400 }).totalVaultLiquidity).toBe(-300);
   });
 });
 
@@ -242,7 +243,7 @@ describe('Fix 2 (store): getTotalAccountRemaining', () => {
   it('all budgets + income - spent', () => {
     setup([income('i', 1000, '2026-10-10'), spend('e', 1200, '2026-10-10')], {
       dailyRecords: {
-        '2026-10-10': { date: '2026-10-10', budget: 500, spent: 1200, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-10-10': { date: '2026-10-10', budget: 500, spent: 1200, saved: 0, isFinalized: true, status: 'missed' },
         '2026-10-11': { date: '2026-10-11', budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' },
       },
     });
@@ -265,6 +266,20 @@ describe('Fix 2 (store): getTotalAccountRemaining', () => {
       planChanges: [{ id: 'w', userId: USER, effectiveFrom: '2026-10-12', isEnabled: true, cadence: 'weekly', amount: 1000, createdAt: '' }],
     });
     expect(useDailyBudgetStore.getState().getTotalAccountRemaining()).toBe(700);
+  });
+
+  it('BAL-001 / TXN-003: a self-transfer (both legs) never changes the account balance', () => {
+    const base = [income('i', 1000, '2026-10-10'), spend('e', 300, '2026-10-10')];
+    const transferOut = { ...spend('t1', 5000, '2026-10-10'), transaction_class: 'self_transfer' } as Expense;
+    const transferIn = { ...income('t2', 5000, '2026-10-10'), transaction_class: 'self_transfer' } as Expense;
+    const records = { '2026-10-10': { date: '2026-10-10', budget: 500, spent: 300, saved: 200, isFinalized: true, status: 'saved' } } as any;
+    setup(base, { dailyRecords: records });
+    const without = useDailyBudgetStore.getState().getTotalAccountRemaining();
+    setup([...base, transferOut, transferIn], { dailyRecords: records });
+    expect(useDailyBudgetStore.getState().getTotalAccountRemaining()).toBe(without);
+    // even a lone debit leg (credit not yet logged) must not reduce what the user has
+    setup([...base, transferOut], { dailyRecords: records });
+    expect(useDailyBudgetStore.getState().getTotalAccountRemaining()).toBe(without);
   });
 });
 

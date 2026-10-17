@@ -4,12 +4,9 @@ import { supabase } from '../../config/supabase';
 import {
   notifyRollover,
   notifyBudgetUpdated,
-  notifyPurePeriodEnded,
 } from '../../lib/budgetAlerts';
 import { resolveRolloverBudget } from '../../lib/budgetUtils';
 import {
-  buildBudgetPools,
-  poolSpentBefore,
   buildPeriodsToFinalize,
   isDailyGovernedDate,
 } from '../../lib/budgetPeriods';
@@ -30,7 +27,6 @@ import {
   getUserCreatedAtLocalDate,
   isDailyOwnedDate,
   dailyCarryExtraFor,
-  runWaterfall,
 } from './metrics';
 
 export interface FinalizeDailyRecordsContext {
@@ -41,7 +37,6 @@ export interface FinalizeDailyRecordsContext {
   pastDates: Set<string>;
   spentByDate: Record<string, number>;
   incomeByDate: Record<string, number>;
-  reimbByDateAll: Record<string, number>;
   skipRolloverNotification: boolean;
 }
 
@@ -53,7 +48,6 @@ export interface FinalizePeriodsContext {
   userCreatedAtStr?: string;
   spentByDate: Record<string, number>;
   incomeByDate: Record<string, number>;
-  reimbByDateAll: Record<string, number>;
   skipRolloverNotification: boolean;
 }
 
@@ -82,13 +76,11 @@ export function groupSpentByDate(
 ): {
   spentByDate: Record<string, number>;
   incomeByDate: Record<string, number>;
-  reimbByDateAll: Record<string, number>;
 } {
   // 1. Group all non-income expenses by date in a single O(N) pass
   const spentByDate = computeSpentByDate(expenses, isIncomeFn);
   const incomeByDate = computeIncomeByDate(expenses, isEligibleIncomeFn);
-  const reimbByDateAll = runWaterfall({ expenses }).reimbBudgetByDate;
-  return { spentByDate, incomeByDate, reimbByDateAll };
+  return { spentByDate, incomeByDate };
 }
 
 export function collectPastDates(
@@ -122,7 +114,6 @@ export function finalizeDailyRecords(ctx: FinalizeDailyRecordsContext): { update
     pastDates,
     spentByDate,
     incomeByDate,
-    reimbByDateAll,
     skipRolloverNotification,
   } = ctx;
 
@@ -157,11 +148,10 @@ export function finalizeDailyRecords(ctx: FinalizeDailyRecordsContext): { update
     const existing = records[d];
     const spent = spentByDate[d] || 0;
     const dayIncome = incomeByDate[d] || 0;
-    const dayReimb = reimbByDateAll[d] || 0;
 
     let budget = 0;
     let saved = 0;
-    let status: 'saved' | 'exceeded' | 'even' | 'unknown' = 'unknown';
+    let status: 'saved' | 'missed' | 'even' | 'unknown' = 'unknown';
 
     // HEAL: a day owned by a weekly / monthly plan (or Pure Mode) must not carry a daily budget.
     // Old versions made one anyway, which put a second budget (and its leftover) into Gullak.
@@ -183,7 +173,7 @@ export function finalizeDailyRecords(ctx: FinalizeDailyRecordsContext): { update
     } else if (existing && (existing.budget > 0 || existing.isFinalized)) {
       // Lock to budget-at-the-time persisted in existing record (resolved via pure helper)
       budget = resolveRolloverBudget(existing.budget, get().dailyBudgetAmount);
-      const evaluated = evaluateDayStatus(budget, spent, dayIncome, undefined, dayReimb);
+      const evaluated = evaluateDayStatus(budget, spent, dayIncome);
       saved = evaluated.saved;
       status = evaluated.status;
     } else if (!existing) {
@@ -197,7 +187,7 @@ export function finalizeDailyRecords(ctx: FinalizeDailyRecordsContext): { update
         // No prior record, 0 budget, 0 spent: skip
         continue;
       }
-      const evaluated = evaluateDayStatus(budget, spent, dayIncome, undefined, dayReimb);
+      const evaluated = evaluateDayStatus(budget, spent, dayIncome);
       saved = evaluated.saved;
       status = evaluated.status;
     } else {
@@ -207,7 +197,7 @@ export function finalizeDailyRecords(ctx: FinalizeDailyRecordsContext): { update
       } else {
         budget = 0;
       }
-      const evaluated = evaluateDayStatus(budget, spent, dayIncome, undefined, dayReimb);
+      const evaluated = evaluateDayStatus(budget, spent, dayIncome);
       saved = evaluated.saved;
       status = evaluated.status;
     }
@@ -310,7 +300,6 @@ export function finalizePeriods(ctx: FinalizePeriodsContext): { updated: boolean
     userCreatedAtStr,
     spentByDate,
     incomeByDate,
-    reimbByDateAll,
     skipRolloverNotification,
   } = ctx;
 
@@ -321,15 +310,8 @@ export function finalizePeriods(ctx: FinalizePeriodsContext): { updated: boolean
   // brand new ones). Older app versions added INCOME into the period budget and into Gullak savings,
   // so already-finalized periods may hold wrong numbers. Recomputing from budget + spending fixes
   // them for existing users. Never done before expenses are loaded (spent would look like 0).
-  // ADR 0012: a period that ended while the user was in Pure Mode: its unused budget became income.
-  try {
-    const endPools = buildBudgetPools(get().planChanges, todayStr);
-    for (const pool of Object.values(endPools)) {
-      if (!pool.endsInPure || pool.periodEnd >= todayStr) continue;
-      const left = Math.max(0, round2(pool.budget - poolSpentBefore(endPools, get().planChanges, pool, format(new Date(new Date(`${pool.periodEnd}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd'), spentByDate)));
-      if (left > 0) notifyPurePeriodEnded(`pure_end_${pool.key}`, pool.cadence, left, pool.budget, pool.periodEnd);
-    }
-  } catch {}
+  // PUR-002: a period that ended while the user was in Pure Mode does not send a notification.
+
 
   const existingPeriods = get().budgetPeriods;
   const canHealPeriods = areExpensesLoaded();
@@ -339,8 +321,7 @@ export function finalizePeriods(ctx: FinalizePeriodsContext): { updated: boolean
     todayStr,
     canHealPeriods ? [] : Object.keys(existingPeriods),
     userCreatedAtStr,
-    incomeByDate,
-    reimbByDateAll
+    incomeByDate
   );
   // Match old rows by cadence + activeStart (same as the DB unique key), not only by id,
   // so a healed period can never become a duplicate (which would double the Gullak savings).

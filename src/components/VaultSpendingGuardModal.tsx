@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../store/themeStore';
 import { GradientIconBadge } from './GradientIconBadge';
+import { VAULT_GUARD_MESSAGE } from '../lib/vaultSpendingGuard';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 
 export interface VaultSpendingGuardModalProps {
@@ -28,7 +29,6 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
   visible,
   onClose,
   onAddIncomeFirst,
-  isBudgetMode,
 }) => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -134,9 +134,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
           </Text>
 
           <Text style={[styles.description, { color: colors.textSecondary }]}>
-            {isBudgetMode
-              ? 'Your budget allowance and available balance are ₹0. Please add an income or set a budget before adding expenses.'
-              : 'Your available balance is ₹0. Please log an income before adding expenses.'}
+            {VAULT_GUARD_MESSAGE}
           </Text>
 
           {/* Inline Balance Indicator (Clean, Uncluttered) */}

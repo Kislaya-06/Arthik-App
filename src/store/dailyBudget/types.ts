@@ -64,7 +64,7 @@ export interface DailyBudgetState {
   removeGullakDeposit: (id: string) => void;
   getAvailableIncomeBalance: () => number;
   getGrossIncomeBalance: () => number;
-  /** Everything left across the whole account (budgets + income + reimbursements + external deposits - spent). Can be <= 0. */
+  /** Everything left across the whole account (budgets + income + external deposits - spent). Can be <= 0. */
   getTotalAccountRemaining: () => number;
   /** Money that is left in the running budget and could be carried into a new cadence right now. */
   getCarryableAmount: () => number;

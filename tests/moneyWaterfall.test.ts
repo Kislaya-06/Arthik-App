@@ -189,13 +189,14 @@ describe('Gullak deposits and special rows', () => {
     expect(r.incomeRemaining).toBe(700);
   });
 
-  it('reimbursements add spending power to the pool and are not income', () => {
+  it('TXN-004: a friend paying back is plain income and arrives before the day\'s expenses', () => {
     const r = run([
-      { id: 'r', amount: 200, type: 'income', transaction_class: 'reimbursement', expense_date: TODAY, created_at: `${TODAY}T07:00:00Z` },
+      { id: 'r', amount: 200, type: 'income', expense_date: TODAY, created_at: `${TODAY}T07:00:00Z` },
       exp('e', 650, TODAY),
     ]);
-    expect(r.incomeReceived).toBe(0);
-    expect(r.byExpense.e).toMatchObject({ fromBudget: 650, fromGullak: 0 });
+    expect(r.incomeReceived).toBe(200);
+    // the expense is paid from the budget first; income is untouched while the budget still covers it
+    expect(r.byExpense.e).toMatchObject({ fromBudget: 500, fromIncome: 150, fromGullak: 0 });
   });
 
   it('self transfers are ignored completely', () => {
@@ -252,7 +253,7 @@ describe('Home pills: Daily / Weekly / Monthly / All income chip', () => {
     const scope = summarizeScope(base, () => true, true);
     const r = calculatePeriodSummary({
       activeFilter: 'All', dailyBudgetAmount: 500, isAutoRenew: true, todayBudget: 500,
-      dailyRecords: { '2026-10-10': { date: '2026-10-10', budget: 500, spent: 900, saved: 0, isFinalized: true, status: 'exceeded' } },
+      dailyRecords: { '2026-10-10': { date: '2026-10-10', budget: 500, spent: 900, saved: 0, isFinalized: true, status: 'missed' } },
       totalIncome: 300, totalSpent: 900, filtered: [{ expense_date: '2026-10-10' }, { expense_date: TODAY }],
       referenceDate: new Date(2026, 9, 12), externalDepositsInPeriod: 0, planChanges: [],
       todaySpent: 0, spentByDate: { '2026-10-10': 900 },
@@ -273,7 +274,7 @@ describe('Home pills: Daily / Weekly / Monthly / All income chip', () => {
     expect(r.remainingIncome).toBe(0);
     expect(r.isSpendingFromGullak).toBe(true);
     expect(r.gullakDrawnAmount).toBe(200);
-    // Everything (budget + income) is used up, so the hero says "exceeded"; the card adds the
+    // Everything (budget + income) is used up, so the hero says "missed"; the card adds the
     // "₹0 income / using ₹200 from Gullak" row from these two values.
     expect(r.isOverBudgetPeriod).toBe(true);
     expect(r.primarySubtext).toContain('Exceeded');
@@ -308,7 +309,7 @@ describe('Home pills: Daily / Weekly / Monthly / All income chip', () => {
 describe('Gullak: income never goes in, income-covered overspend never comes out', () => {
   const records: any = {
     '2026-10-10': { date: '2026-10-10', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
-    '2026-10-11': { date: '2026-10-11', budget: 500, spent: 900, saved: 0, isFinalized: true, status: 'exceeded' },
+    '2026-10-11': { date: '2026-10-11', budget: 500, spent: 900, saved: 0, isFinalized: true, status: 'missed' },
   };
 
   it('income covered the overspend -> Gullak keeps the 300 saved', () => {

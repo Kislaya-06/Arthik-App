@@ -76,7 +76,7 @@ describe('buildPlanContext (store data -> planner input)', () => {
       isBudgetModeEnabled: true, isAutoRenew: true, budgetCadence: 'daily', dailyBudgetAmount: 500, savingsStreak: 2,
       dailyRecords: {
         '2026-10-05': { date: '2026-10-05', budget: 500, spent: 300, saved: 200, isFinalized: true, status: 'saved' },
-        '2026-10-06': { date: '2026-10-06', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-10-06': { date: '2026-10-06', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'missed' },
         '2026-10-07': { date: '2026-10-07', budget: 500, spent: 180, saved: 320, isFinalized: false, status: 'active' },
       },
     } as any);

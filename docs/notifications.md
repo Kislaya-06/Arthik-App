@@ -19,6 +19,8 @@ In Budget Mode an empty day is a *full-allowance* day: the whole allowance rolls
 |---|---|---|---|---|
 | 20:30, nothing logged today (today + next 2 evenings, then silence) | "Nothing logged today — Add today's spends…" | "…If you spent nothing, ₹500 goes to your Gullak tonight." | "…Keep this week/month's balance accurate" | Reminders |
 | 08:30 next morning, only if today was logged and ended with a real saving | – | "₹320 saved yesterday — Added to your Gullak. (7-day streak.)" | – | Gullak updates |
+| 08:30 on start day of carry-funded period (CAR-001 Mode B) | – | "Today's ₹X budget is funded from your carried balance. ₹Y left." (gap: "₹X funded from carry. Add ₹Y…") | Weekly: "This week's ₹B is funded from your carried balance. ₹R left." (gap: "₹F funded from carry. Add ₹G to complete this week's budget.") · Monthly: "This month's …" | Gullak updates |
+| 08:30 on the first day / week / month carried money no longer funds the budget (CAR-001) | – | "Carried money has run out — From today your ₹500 daily budget is no longer covered… Add ₹500 today to fund it." | Same once, weekly/monthly wording | Gullak updates |
 | Sunday 19:00 (≥ 3 expenses that week) | "This week: ₹4,820 spent — Food led with ₹1,900 · 12% less than last week" | "…5 of 7 days under budget · ₹850 added to your Gullak" | weekly: "Week wrap: ₹5,200 of ₹7,000 — ₹1,800 left…" | Recaps |
 | Last evening of month 21:00 (≥ 6 expenses) | "October: ₹32,400 spent — Top: Food ₹9,800 · 61 transactions" | "+ ₹4,150 added to your Gullak" | monthly: "October wrap: ₹X of ₹Y" | Recaps |
 | Crossing the limit (in app) | – | "Over today's limit — ₹X over: ₹A covered from Income, ₹B drawn from Gullak." | "Over this week's / month's budget" | Budget alerts (silent banner) |
@@ -26,6 +28,22 @@ In Budget Mode an empty day is a *full-allowance* day: the whole allowance rolls
 | Next-day rollover, scheduled budget applied (in app) | – | in-app bell only | in-app bell only | – |
 
 Tapping: nudge → Add Expense; recaps → Insights; Gullak / limit alerts → Savings (Home if Budget Mode is off).
+
+### Carry-Forward Drawdown Notifications (`carry_cover` — CAR-001)
+When a user switches cadence using Allocation Mode (CAR-001 Mode B), notifications keep them informed on the first day of each funded period:
+- **Daily:** Sent at 08:30 on each funded morning (`carryCoverCopy`).
+- **Weekly / Monthly:** Sent at 08:30 on the first calendar day of each funded week (Monday) or month (1st of month) (`periodCarryCoverCopy`).
+- **Fully Funded Period:** e.g. *"This week's ₹5,000 is funded from your carried balance. ₹10,000 left."* (Monthly: *"This month's …"*).
+- **Partial Gap Period:** e.g. *"₹2,000 funded from carry. Add ₹3,000 to complete this week's budget."* (Monthly: *"This month's …"*).
+- **Funding-Ended Notice (once):** On the first day / week / month that carried money no longer funds the budget (the day after remaining carry reaches ₹0), ONE message is sent at 08:30: *"Carried money has run out — From today your ₹500 daily budget is no longer covered by carried money. Add ₹500 today to fund it."* (weekly: *"…From this week your ₹5,000 weekly budget … Add ₹5,000 this week to fund it."*, monthly: *"this month"*). Copy: `carryEndCopy`; built by `buildCarryEnds` from the last funded day/period; id `carry_end_${date}`.
+- **Then Silence:** After that notice no more carry notifications are sent, and none on non-start days. Additive / next-day switches have no end notice. Uses channel `gullak` and unique ID `carry_${periodStart}` for funded periods.
+
+### Pure Mode Deficit Balanced Notification (`pure_deficit_balanced` — PUR-001)
+When the user switches from Pure Mode to Budget Mode while in deficit ($R < 0$), an inbox notification is posted to the in-app bell:
+- **Title**: *"Pure Mode deficit balanced"*
+- **Message**: *"You spent ₹{D} more than you had in Pure Mode. We added ₹{D} to Total Income so everything is balanced."*
+- **Stable ID**: `pure_deficit_${dateStr}_${D}` (ensures idempotency across multiple sync passes).
+- **Note on PUR-002**: The historical `pure_end_*` notification (which claimed unspent pool funds became income when a period ended in Pure Mode) has been deleted. Unspent funds are retained as `pureLeftover` without dispatching notifications.
 
 ## How it stays true
 `notificationSync.ts` rebuilds the whole plan from the latest data (3 s after any expense / budget change, on app foreground, after login) and replaces the OS schedule; an identical plan is not rescheduled. Logging an expense therefore cancels tonight's nudge immediately.

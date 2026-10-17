@@ -239,8 +239,7 @@ export function buildPeriodsToFinalize(
   todayStr: string,
   alreadyFinalizedKeys?: Set<string> | string[],
   userCreatedAtStr?: string,
-  incomeByDate?: Record<string, number>,
-  reimbursementByDate?: Record<string, number>
+  incomeByDate?: Record<string, number>
 ): BudgetPeriodRecord[] {
   const today = parseISO(todayStr);
   const yesterday = subDays(today, 1);
@@ -385,7 +384,6 @@ export function buildPeriodsToFinalize(
     // Sum spend in active slice
     let spentAmount = 0;
     let sliceIncome = 0;
-    let sliceReimb = 0;
     const sliceDays = eachDayOfInterval({
       start: parseISO(slice.activeStart),
       end: parseISO(slice.activeEnd),
@@ -396,20 +394,15 @@ export function buildPeriodsToFinalize(
       if (incomeByDate) {
         sliceIncome += Number(incomeByDate[sdStr]) || 0;
       }
-      if (reimbursementByDate) {
-        sliceReimb += Number(reimbursementByDate[sdStr]) || 0;
-      }
     }
     spentAmount = round2(spentAmount);
     sliceIncome = round2(sliceIncome);
-    sliceReimb = round2(sliceReimb);
 
     const fin = calculateCycleFinancials({
       scheduledBudget: baseBudget,
       carriedOverAmount: usePoolRemaining ? 0 : carryForPeriod(slicePlan, slice.periodStart),
       // Income never rolls into Gullak: only unspent budget does.
       eligibleIncome: 0,
-      eligibleReimbursements: sliceReimb,
       spent: spentAmount,
     });
 
@@ -425,7 +418,7 @@ export function buildPeriodsToFinalize(
       ? 0
       : fin.gullakDeposit;
 
-    let status: BudgetPeriodStatus = fin.status === 'exceeded' ? 'missed' : fin.status;
+    let status: BudgetPeriodStatus = fin.status;
 
     recordsToFinalize.push({
       id: key,
@@ -457,8 +450,7 @@ export function getCurrentPeriodSummary(
   changes: BudgetPlanChange[],
   spentByDate: Record<string, number>,
   todayStr: string,
-  incomeByDate?: Record<string, number>,
-  reimbursementByDate?: Record<string, number>
+  incomeByDate?: Record<string, number>
 ): PeriodSummaryInfo | null {
   const owner = getDateOwner(changes, todayStr);
   if (owner === 'paused' || owner === 'daily') {
@@ -509,7 +501,6 @@ export function getCurrentPeriodSummary(
   // Sum spend and income from activeStart to todayStr
   let spent = 0;
   let income = 0;
-  let reimb = 0;
   const daysSoFar = eachDayOfInterval({
     start: parseISO(activeStart),
     end: parseISO(todayStr),
@@ -520,13 +511,9 @@ export function getCurrentPeriodSummary(
     if (incomeByDate) {
       income += Number(incomeByDate[dStr]) || 0;
     }
-    if (reimbursementByDate) {
-      reimb += Number(reimbursementByDate[dStr]) || 0;
-    }
   }
   spent = round2(spent);
   income = round2(income);
-  reimb = round2(reimb);
 
   // ADR 0012: ONE budget per calendar period. After Pure Mode (or a switch) and back inside the same period the
   // hero continues with what is left of the period's pool; Pure Mode days spent from the same pool count too.
@@ -549,7 +536,6 @@ export function getCurrentPeriodSummary(
     carriedOverAmount: poolMode ? 0 : carryForPeriod(plan, bounds.start),
     // Income is a separate pool (see moneyWaterfall.ts); it is not part of the period budget.
     eligibleIncome: 0,
-    eligibleReimbursements: reimb,
     spent,
   });
 
@@ -1002,4 +988,126 @@ export function dailyCarryRemaining(
   dateStr: string
 ): number {
   return dailyCarryForDate(changes, recordBudgetFor, fallbackDaily, dateStr)?.remainingAfter ?? 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Period carry-over: weekly / monthly allocation (CAR-001 Mode B)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PeriodCarry {
+  /** Part of this period's budget paid from carried-over money. */
+  funded: number;
+  /** What the user still has to add for this period. */
+  toAdd: number;
+  /** Carried money left after this period. */
+  remainingAfter: number;
+  /** The base period budget (plan amount). */
+  base: number;
+}
+
+export function getNextPeriodStart(cadence: 'weekly' | 'monthly', currentStartStr: string): string {
+  if (cadence === 'weekly') {
+    return format(addDays(parseISO(currentStartStr), 7), 'yyyy-MM-dd');
+  }
+  return format(startOfMonth(addMonths(parseISO(currentStartStr), 1)), 'yyyy-MM-dd');
+}
+
+/**
+ * CAR-001 Mode B: multi-period drawdown for weekly / monthly targets.
+ * Let U = carriedOverAmount, B = plan amount.
+ * For period k = 1, 2, 3...:
+ *  - funded_k = min(B, remaining_{k-1})
+ *  - toAdd_k = B - funded_k
+ *  - remaining_k = remaining_{k-1} - funded_k
+ * Loop stops if remaining reaches 0 or if another plan takes over.
+ */
+export function periodCarryForPeriod(
+  changes: BudgetPlanChange[],
+  periodStart: string
+): PeriodCarry | null {
+  if (!changes || changes.length === 0) return null;
+
+  const eligiblePlans = changes.filter(
+    (p) =>
+      p.isEnabled &&
+      (p.cadence === 'weekly' || p.cadence === 'monthly') &&
+      p.carryMode === 'allocation' &&
+      Number(p.carriedOverAmount) > 0 &&
+      Number(p.amount) > 0 &&
+      p.effectiveFrom >= BUDGET_RULES_V2_FROM
+  );
+  if (eligiblePlans.length === 0) return null;
+
+  const sorted = [...eligiblePlans].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+
+  for (const plan of sorted) {
+    const p1Bounds = getPeriodBounds(plan.cadence, plan.effectiveFrom);
+    const p1Start = p1Bounds.start;
+
+    if (periodStart < p1Start) continue;
+
+    let remaining = Number(plan.carriedOverAmount) || 0;
+    const B = Number(plan.amount) || 0;
+    if (!(B > 0)) continue;
+    let currentStart = p1Start;
+
+    while (remaining > 0) {
+      const bounds = getPeriodBounds(plan.cadence, currentStart);
+      if (currentStart > p1Start && resolvePlanForDate(changes, currentStart) !== plan) {
+        break;
+      }
+
+      const funded = round2(Math.min(B, remaining));
+      const toAdd = round2(B - funded);
+      const remainingAfter = round2(remaining - funded);
+
+      if (currentStart === periodStart || (periodStart >= bounds.start && periodStart <= bounds.end)) {
+        return { funded, toAdd, remainingAfter, base: B };
+      }
+
+      remaining = remainingAfter;
+      if (remaining <= 0) break;
+      currentStart = getNextPeriodStart(plan.cadence as 'weekly' | 'monthly', currentStart);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Carried money still unused at the END of `dateStr` for weekly / monthly allocation plans.
+ */
+export function periodCarryRemaining(changes: BudgetPlanChange[], dateStr: string): number {
+  const plan = resolvePlanForDate(changes, dateStr);
+  if (!plan || !plan.isEnabled || (plan.cadence !== 'weekly' && plan.cadence !== 'monthly')) return 0;
+  if (plan.carryMode !== 'allocation') return 0;
+  const carry = Number(plan.carriedOverAmount) || 0;
+  if (carry <= 0 || plan.effectiveFrom < BUDGET_RULES_V2_FROM) return 0;
+  if (dateStr < plan.effectiveFrom) return 0;
+  const B = Number(plan.amount) || 0;
+  if (!(B > 0)) return 0;
+
+  const p1Bounds = getPeriodBounds(plan.cadence, plan.effectiveFrom);
+  const p1Start = p1Bounds.start;
+  let remaining = carry;
+  let currentStart = p1Start;
+
+  while (remaining > 0) {
+    const bounds = getPeriodBounds(plan.cadence, currentStart);
+    if (currentStart > p1Start && resolvePlanForDate(changes, currentStart) !== plan) {
+      break;
+    }
+    const funded = round2(Math.min(B, remaining));
+    const remainingAfter = round2(remaining - funded);
+
+    if (dateStr >= bounds.start && dateStr <= bounds.end) {
+      return remainingAfter;
+    }
+
+    remaining = remainingAfter;
+    if (remaining <= 0) break;
+    currentStart = getNextPeriodStart(plan.cadence as 'weekly' | 'monthly', currentStart);
+  }
+
+  return 0;
 }

@@ -2,6 +2,8 @@
 
 Arthik is a personal finance, expense, and daily-savings tracking mobile application for Android built with React Native (Expo) and Supabase.
 
+> **Supreme rules:** every money rule (transactions, budgets, Gullak, cadence switching, rollover, insights, AutoLog privacy) is defined in [`docs/ARTHIK_CANONICAL_RULES.md`](docs/ARTHIK_CANONICAL_RULES.md). This glossary must agree with it; if they ever differ, the canonical file wins and this file must be fixed.
+
 ## Language
 
 ### 1. Financial Transactions & Direction
@@ -13,23 +15,23 @@ A single record of monetary movement (inflow or outflow) stored in the database 
 
 **Expense**:
 An outflow transaction (`type: 'expense'`) that deducts from the user's Day's Allowance and contributes to total expenditure.
-- *Code location*: `src/store/expenseStore.ts` (`type: 'expense'`), `src/lib/paymentUtils.ts` (`isIncomeTransaction(...) === false`)
+- *Code location*: `src/store/expenseStore.ts` (`type: 'expense'`), `src/lib/transactionUtils.ts` (`isIncomeTransaction(...) === false`)
 - *_Avoid_*: Debit, Charge, Payment, Outflow
 
 **Income**:
 An inflow transaction (`type: 'income'`) that increases total incoming funds without deducting from the Daily Allowance.
-- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction(...) === true`), `src/screens/ExpenseFormScreen.tsx` (`transactionType === 'income'`)
+- *Code location*: `src/lib/transactionUtils.ts` (`isIncomeTransaction(...) === true`), `src/screens/ExpenseFormScreen.tsx` (`transactionType === 'income'`)
 - *_Avoid_*: Credit, Deposit (conflicts with Gullak Deposit), Top-up
 
 **Transaction Direction Inference**:
-The single, unified evaluation rule used across screens, helpers, and the budget engine to determine if a transaction is income. Implemented in `isIncomeTransaction`: checks explicit `type === 'income'` (returns `true`) or `type === 'expense'` (returns `false`) first, then falls back to matching the resolved category name against `DEFAULT_INCOME_KEYWORDS` only when `type` is absent or indeterminate.
+The single, unified evaluation rule used across screens, helpers, and the budget engine to determine if a transaction is income. Implemented in `isIncomeTransaction`: checks explicit `type === 'income'` (returns `true`) or `type === 'expense'` (returns `false`) first, then (inert legacy fallback only, rule `TXN-002`) matches the resolved category name against `DEFAULT_INCOME_KEYWORDS` only when `type` is absent or indeterminate.
 Category lookup is resolved via a category map (`categoryMap.get(item.category_id)` in screens; in `dailyBudgetStore.ts` via `buildCategoryClassifier()` in `src/store/dailyBudget/classifiers.ts`, constructed from `useCategoryStore.getState().categories`). Startup sequencing in `App.tsx` awaits `fetchCategories` before `hydrateFromSupabase`, guaranteeing categories are in memory before budget engine classification runs.
-- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`), `App.tsx`, screens (`HomeScreen.tsx`, `HistoryScreen.tsx`, `ExpenseDetailScreen.tsx`)
+- *Code location*: `src/lib/transactionUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`), `App.tsx`, screens (`HomeScreen.tsx`, `HistoryScreen.tsx`, `ExpenseDetailScreen.tsx`)
 - *_Avoid_*: Dual-Engine Inference, Keyword Guessing, Category Type Checking
 
 **Unified Income Classification**:
-The architectural standard where `src/lib/paymentUtils.ts` and `src/store/dailyBudgetStore.ts` share the exact same classification logic, eliminating the historical dual-engine divergence (formerly documented in `docs/adr/0007-income-classification-divergence.md`, superseded by `docs/adr/0008-unified-income-classification.md`).
-- *Code location*: `src/lib/paymentUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`)
+The architectural standard where `src/lib/transactionUtils.ts` and `src/store/dailyBudgetStore.ts` share the exact same classification logic, eliminating the historical dual-engine divergence (formerly documented in `docs/adr/0007-income-classification-divergence.md`, superseded by `docs/adr/0008-unified-income-classification.md`).
+- *Code location*: `src/lib/transactionUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`)
 - *_Avoid_*: Dual-Engine Income Inference, Divergent Direction Check
 
 ---
@@ -80,7 +82,7 @@ A past calendar day (`date < today`) whose budget and savings are permanently lo
 - *_Avoid_*: Closed Day, Settled Day, Archival Record
 
 **Day Status — Active**:
-The in-progress status of today where spending has not exceeded the allocated budget (`spent <= budget`).
+The in-progress status of today where spending has not gone past the allocated budget (`spent <= budget`). Never saved to the database (`BUD-008`).
 - *Code location*: `src/store/dailyBudgetStore.ts` (`status: 'active'`)
 - *_Avoid_*: Pending, In Progress, Open
 
@@ -89,13 +91,10 @@ The status of a finalized past day where the user spent less than their allocate
 - *Code location*: `src/store/dailyBudgetStore.ts` (`status: 'saved'`)
 - *_Avoid_*: Successful Day, Under Budget, Green Day
 
-**Day Status — Exceeded**:
-The canonical domain status for a day where spending exceeded the allocated budget (`spent > budget`).
-- *Code location*:
-  - *Adopted as 'exceeded'*: `src/store/dailyBudgetStore.ts` (`status: 'exceeded'`), `src/screens/SavingsScreen.tsx` (`rec.status === 'exceeded'`).
-  - *Persisted as 'missed'*: `schema.sql` (`daily_savings_log` check constraint `('saved', 'missed', 'even', 'unknown')`), translated on upload in `dailyBudgetStore.ts`.
-  - *Unadopted in UI as 'missed'*: `src/components/StreakCalendarModal.tsx` (`DayLogData.status`, cell render status `'saved' | 'missed' | 'neutral'`).
-- *_Avoid_*: Missed (use Exceeded as canonical domain term; 'missed' is a DB constraint & unadopted component artifact), Failed Day, Overspent Day, Deficit Day
+**Day Status — Missed**:
+The single status for a day (or period) where spending exceeded the allocated budget (`spent > budget`). One vocabulary across every layer — canonical rule `BUD-008` in `docs/ARTHIK_CANONICAL_RULES.md`.
+- *Code location*: `src/lib/budgetCalculations.ts` (`calculateCycleFinancials`, `status: 'missed'`), `src/store/dailyBudgetStore.ts`, `src/screens/SavingsScreen.tsx`, `src/components/StreakCalendarModal.tsx`; persisted as `'missed'` in `schema.sql` (`daily_savings_log` check constraint `('saved', 'missed', 'even', 'unknown')`) with no translation layer. Older cached days stored as `'exceeded'` are read as `'missed'` (`src/store/dailyBudget/legacyStatus.ts`).
+- *_Avoid_*: Exceeded (as a status — the *alert kind* `exceeded` for the limit-exceeded notification is a separate thing), Failed Day, Overspent Day, Deficit Day
 
 **Day Status — Even**:
 The status of a finalized past day where spending exactly equaled the allocated budget (`budget > 0 && spent === budget`, `saved === 0`).
@@ -113,9 +112,24 @@ The number of consecutive finalized past days ending yesterday with status `'sav
 - *_Avoid_*: Daily Streak, Budget Streak, Habit Streak
 
 **Streak Reset**:
-The zeroing of the savings streak caused by any day with status `'exceeded'`, `'even'`, or an unfinalized missing tracked day. Days with status `'unknown'` are neutral and do not reset the streak.
+The zeroing of the savings streak caused by any day with status `'missed'`, `'even'`, or an unfinalized missing tracked day. Days with status `'unknown'` are neutral and do not reset the streak.
 - *Code location*: `src/store/dailyBudgetStore.ts` (`calculateSavingsMetrics`)
 - *_Avoid_*: Streak Break, Streak Cancellation
+
+**Period Carry Funding**:
+The recursive multi-period allocation drawdown (canonical rule `CAR-001` Mode B) where unspent money $U$ carried across a mid-cycle cadence switch funds future weekly or monthly budget periods ($k = 1, 2, 3\dots$) with $\text{funded}_k = \min(B, \text{remaining}_{k-1})$ and user gap $\text{toAdd}_k = B - \text{funded}_k$. The scheduled period budget remains exactly $B$; only the carry-FUNDED part is excluded from the All pill (the gap part counts like any budget, real money added grows it by exactly that amount), and the Home All pill always equals the account total used by the guard. When carry runs out, ONE "Carried money has run out" notice is sent on the first unfunded day/week/month.
+- *Code location*: `src/lib/budgetPeriods.ts` (`periodCarryForPeriod`, `periodCarryRemaining`), `src/lib/homeCalculations.ts`, `src/store/dailyBudget/metrics.ts`, `src/lib/notificationSync.ts`
+- *_Avoid_*: Budget Top-up, Virtual Rollover, Inflated Pool
+
+**Pure Mode Leftover (`pureLeftover`)**:
+Unspent budget from a weekly or monthly pool that ended while the user was in Pure Mode (canonical rule `PUR-002`). It does not become income and generates no inbox notification. On Pure days, spending draws from `pureLeftover` first before income or Gullak. When the user returns to Budget Mode, any remaining leftover flows into Gullak (`totalAccumulatedSavings`).
+- *Code location*: `src/lib/moneyWaterfall.ts` (`pureLeftoverAdded`, `pureLeftoverUsed`, `pureLeftoverRemaining`), `src/store/dailyBudget/metrics.ts`
+- *_Avoid_*: Pure Income, Restored Income, Expired Budget
+
+**Pure Deficit Auto-Balance**:
+The automatic real-income balancing transaction created when a user switches from Pure Mode to Budget Mode while in deficit (`R = computeTotalAccountRemaining(st, expenses) < 0`, canonical rule `PUR-001`). Creates exactly one income row for $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated to the earliest expense causing Gullak draw $\ge D$. Excluded from the Home budget chip `periodIncome` but fully counted in all-time inflows and the money waterfall.
+- *Code location*: `src/store/dailyBudget/planActions.ts` (`balancePureDeficitIfNeeded`), `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`), `src/lib/homeCalculations.ts` (`calculatePeriodSummary`)
+- *_Avoid_*: Fake Income, Deficit Penalty, Balance Reset
 
 ---
 
@@ -210,22 +224,22 @@ A cross-store registration pattern (`registerCategoryDeleteCallback`) that lets 
 
 **Payment Mode**:
 The financial channel through which a transaction occurred, strictly constrained to three lowercase identifiers: `'cash'`, `'upi'`, and `'card'`.
-- *Code location*: `src/lib/paymentUtils.ts` (`PaymentMode` type), `schema.sql` (`CHECK (payment_mode IN ('cash', 'upi', 'card'))`), `src/store/expenseStore.ts` (`Expense.payment_mode`)
+- *Code location*: `src/lib/transactionUtils.ts` (`PaymentMode` type), `schema.sql` (`CHECK (payment_mode IN ('cash', 'upi', 'card'))`), `src/store/expenseStore.ts` (`Expense.payment_mode`)
 - *_Avoid_*: Payment Method, Payment Type, Account Type, Tender Mode
 
 **Cash**:
 Physical currency transaction (`'cash'`). Icon: `Wallet` (lucide-react-native).
-- *Code location*: `src/lib/paymentUtils.ts` (`getPaymentIcon`, `getPaymentLabel`)
+- *Code location*: `src/lib/transactionUtils.ts` (`getPaymentIcon`, `getPaymentLabel`)
 - *_Avoid_*: Physical, Paper
 
 **UPI**:
 Unified Payments Interface instant digital transfer (`'upi'`). Icon: `CheckSquare` (lucide-react-native).
-- *Code location*: `src/lib/paymentUtils.ts` (`getPaymentIcon`, `getPaymentLabel`)
+- *Code location*: `src/lib/transactionUtils.ts` (`getPaymentIcon`, `getPaymentLabel`)
 - *_Avoid_*: NetBanking, Online, Instant Transfer
 
 **Card**:
 Credit or debit card transaction (`'card'`). Icon: `CreditCard` (lucide-react-native). Permitted for expenses; excluded in UI for income additions.
-- *Code location*: `src/lib/paymentUtils.ts` (`getPaymentIcon`, `getPaymentLabel`), `src/screens/ExpenseFormScreen.tsx`
+- *Code location*: `src/lib/transactionUtils.ts` (`getPaymentIcon`, `getPaymentLabel`), `src/screens/ExpenseFormScreen.tsx`
 - *_Avoid_*: Credit Card, Debit Card, Plastic
 
 ---

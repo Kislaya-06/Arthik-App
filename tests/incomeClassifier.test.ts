@@ -75,9 +75,12 @@ describe('incomeClassifier (makeIncomeClassifier)', () => {
 
     it('excludes internal transfers from eligible income', () => {
       const isEligible = makeEligibleIncomeClassifier(categoriesWithTransfer);
-      expect(isEligible({ category_id: 'cat-2', type: 'income', amount: 5000 })).toBe(false);
-      expect(isEligible({ category_id: 'cat-3', type: 'income', amount: 5000 })).toBe(false);
-      expect(isEligible({ category_id: 'cat-4', note: 'Self transfer to SBI', amount: 5000 })).toBe(false);
+      // TXN-003: only the structured class marks a transfer
+      expect(isEligible({ category_id: 'cat-2', type: 'income', transaction_class: 'self_transfer', amount: 5000 })).toBe(false);
+      expect(isEligible({ category_id: 'cat-4', type: 'income', transaction_class: 'self_transfer', amount: 5000 })).toBe(false);
+      // A category name or a note alone never turns income into a transfer
+      expect(isEligible({ category_id: 'cat-2', type: 'income', amount: 5000 })).toBe(true);
+      expect(isEligible({ category_id: 'cat-4', type: 'income', note: 'Self transfer to SBI', amount: 5000 })).toBe(true);
     });
   });
 });

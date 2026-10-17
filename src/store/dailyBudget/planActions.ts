@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { round2 } from '../../lib/formatters';
 import { supabase } from '../../config/supabase';
 import { useAuthStore } from '../authStore';
+import { useNotificationStore } from '../notificationStore';
+import { useCategoryStore } from '../categoryStore';
 import { notifyBudgetResumed } from '../../lib/budgetAlerts';
 import {
   evaluateDayStatus,
@@ -32,7 +34,7 @@ import {
   getStoredList,
   setStoredList,
 } from './pendingStorage';
-import { getCurrentExpenses } from './expenseBridge';
+import { getCurrentExpenses, addExpenseFromBridge } from './expenseBridge';
 import {
   buildCategoryClassifier,
   buildEligibleIncomeClassifier,
@@ -40,9 +42,11 @@ import {
 import {
   getTodayDateStr,
   isDailyOwnedDate,
-  runWaterfall,
   computeMetrics,
+  computeTotalAccountRemaining,
+  runWaterfall,
 } from './metrics';
+import { PURE_DEFICIT_NOTE, isCountedExpense } from '../../lib/transactionUtils';
 
 export function handleSetDailyBudget(
   get: () => DailyBudgetState,
@@ -60,16 +64,15 @@ export function handleSetDailyBudget(
     const spent = existing?.spent || 0;
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
     const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-    const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
-    const { saved } = evaluateDayStatus(cleanAmount, spent, todayIncome, undefined, todayReimb);
-    const spendable = cleanAmount + todayIncome + todayReimb;
+    const { saved } = evaluateDayStatus(cleanAmount, spent, todayIncome);
+    const spendable = cleanAmount + todayIncome;
     records[todayStr] = {
       date: todayStr,
       budget: cleanAmount,
       spent,
       saved,
       isFinalized: false,
-      status: spent > spendable && spendable > 0 ? 'exceeded' : 'active',
+      status: spent > spendable && spendable > 0 ? 'missed' : 'active',
     };
   }
 
@@ -161,6 +164,9 @@ export function handleToggleAutoRenew(
   enabled: boolean
 ): void {
   const todayStr = getTodayDateStr();
+  if (enabled && !get().isBudgetModeEnabled) {
+    balancePureDeficitIfNeeded(get, todayStr);
+  }
   const records = { ...get().dailyRecords };
   const currentToday = records[todayStr];
 
@@ -169,16 +175,15 @@ export function handleToggleAutoRenew(
     const spent = currentToday?.spent || 0;
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
     const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-    const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
-    const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
-    const spendable = budget + todayIncome + todayReimb;
+    const { saved } = evaluateDayStatus(budget, spent, todayIncome);
+    const spendable = budget + todayIncome;
     records[todayStr] = {
       date: todayStr,
       budget,
       spent,
       saved,
       isFinalized: false,
-      status: spent > spendable && spendable > 0 ? 'exceeded' : 'active',
+      status: spent > spendable && spendable > 0 ? 'missed' : 'active',
     };
   } else if (!enabled && currentToday && !currentToday.isFinalized) {
     records[todayStr] = {
@@ -257,12 +262,61 @@ export function handleCancelScheduledNextDailyBudget(
   });
 }
 
+function balancePureDeficitIfNeeded(get: () => DailyBudgetState, todayStr: string): void {
+  if (get().isBudgetModeEnabled) return;
+  const currentExpenses = getCurrentExpenses();
+  const R = computeTotalAccountRemaining(get(), currentExpenses);
+  if (R >= 0) return;
+  const D = round2(-R);
+  if (D <= 0) return;
+
+  const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
+  const countedExpenses = currentExpenses
+    .filter((e) => isCountedExpense(e, e.category_id ? catMap.get(e.category_id) : undefined))
+    .sort((a, b) => (b.expense_date || '').localeCompare(a.expense_date || '') || (b.created_at || '').localeCompare(a.created_at || ''));
+
+  const waterfall = runWaterfall();
+  let runningSum = 0;
+  let dateStr = todayStr;
+  for (const e of countedExpenses) {
+    const gDrawn = waterfall.byExpense[e.id]?.fromGullak || 0;
+    runningSum = round2(runningSum + gDrawn);
+    if (runningSum >= D) {
+      dateStr = e.expense_date?.split('T')[0]?.trim() || todayStr;
+      break;
+    }
+  }
+
+  addExpenseFromBridge(
+    D,
+    null,
+    PURE_DEFICIT_NOTE,
+    'upi',
+    dateStr,
+    'income',
+    { id: Crypto.randomUUID(), transactionClass: 'normal' }
+  );
+
+  get().syncWithExpenses(getCurrentExpenses());
+
+  useNotificationStore.getState().addNotification({
+    id: `pure_deficit_${dateStr}_${D}`,
+    title: 'Pure Mode deficit balanced',
+    message: `You spent ₹${D} more than you had in Pure Mode. We added ₹${D} to Total Income so everything is balanced.`,
+    type: 'pure_deficit_balanced',
+    data: { date: dateStr, amount: D, screen: 'Home' },
+  });
+}
+
 export function handleSetBudgetModeEnabled(
   get: () => DailyBudgetState,
   set: (partial: Partial<DailyBudgetState> | ((state: DailyBudgetState) => Partial<DailyBudgetState>)) => void,
   enabled: boolean
 ): void {
   const todayStr = getTodayDateStr();
+  if (enabled && !get().isBudgetModeEnabled) {
+    balancePureDeficitIfNeeded(get, todayStr);
+  }
   const currentUser = useAuthStore.getState().user;
   const effectiveFrom = computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr);
 
@@ -299,16 +353,15 @@ export function handleSetBudgetModeEnabled(
     const spent = records[todayStr]?.spent || 0;
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
     const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
-    const todayReimb = (runWaterfall().reimbBudgetByDate[todayStr] || 0);
-    const { saved } = evaluateDayStatus(budget, spent, todayIncome, undefined, todayReimb);
-    const spendable = budget + todayIncome + todayReimb;
+    const { saved } = evaluateDayStatus(budget, spent, todayIncome);
+    const spendable = budget + todayIncome;
     records[todayStr] = {
       date: todayStr,
       budget,
       spent,
       saved,
       isFinalized: false,
-      status: spent > spendable && spendable > 0 ? 'exceeded' : 'active',
+      status: spent > spendable && spendable > 0 ? 'missed' : 'active',
     };
   }
 

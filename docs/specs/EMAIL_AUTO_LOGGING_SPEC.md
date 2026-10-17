@@ -419,7 +419,6 @@ An event routes to Pending Review when:
 - **Untracked Account**: The email identifies a bank account not yet toggled ON by the user.
 - **Ambiguous Direction**: Text says "transfer of ₹2,000" without clarifying credit or debit.
 - **Possible Self-Transfer**: Debited ₹5,000 from Account A and credited ₹5,000 to Account B.
-- **Split Repayment Match**: An incoming credit matches an open debt owed by a friend in Split Expenses / Shares.
 - **Vault Liquidity Breach**: Spending exceeds total available vault funds.
 
 ---

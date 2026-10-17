@@ -116,7 +116,7 @@ vi.mock('../src/store/notificationStore', () => ({
 }));
 
 // Import store & helpers
-import { useDailyBudgetStore, registerExpensesLoadedGetter, registerExpenseGetter, registerSharesGetter } from '../src/store/dailyBudgetStore';
+import { useDailyBudgetStore, registerExpensesLoadedGetter, registerExpenseGetter } from '../src/store/dailyBudgetStore';
 import { Expense } from '../src/store/expenseStore';
 import { format, addDays, parseISO } from 'date-fns';
 import { getCurrentPeriodSummary } from '../src/lib/budgetPeriods';
@@ -158,7 +158,6 @@ export const fresh = (mode: Mode, o: { daily?: number; weekly?: number; monthly?
   storageMap.clear();
   st().resetDailyBudget();
   registerExpensesLoadedGetter(() => true);
-  registerSharesGetter(() => []);
   const cad = mode === 'pure' ? 'daily' : mode;
   const d = o.daily ?? 500, wk = o.weekly ?? 2100, mo = o.monthly ?? 9000;
   const amt = cad === 'weekly' ? wk : cad === 'monthly' ? mo : d;
@@ -415,17 +414,17 @@ describe('Bug 5: Pure Mode spends budget -> income -> Gullak (same books as Budg
 });
 
 describe('Bug 5: the period ends while the user is in Pure Mode', () => {
-  it('what is left of the pool becomes INCOME, nothing goes to Gullak', () => {
+  it('what is left of the pool stays as leftover (PUR-002), does NOT become income, nothing goes to Gullak in Pure Mode', () => {
     const w = newWorld(false);
     fresh('monthly', { monthly: 9000, from: '2026-11-01' });
     runDays(w, '2026-11-02', '2026-11-09', 200);        // 8 x 200 = 1600 used, 7400 left
     pureOn('2026-11-09');
     runDays(w, '2026-11-10', '2026-12-03', 0);          // November ends in Pure Mode
     expect(st().totalAccumulatedSavings).toBe(0);       // Pure Mode has no Gullak
-    expect(st().getAvailableIncomeBalance()).toBe(7400);
+    expect(st().getAvailableIncomeBalance()).toBe(0);   // PUR-002: leftover does NOT become unallocated income
   });
 
-  it('coming back in the NEXT period starts normally with a fresh budget', () => {
+  it('coming back in the NEXT period starts normally with a fresh budget and leftover flows into Gullak', () => {
     const w = newWorld(false);
     fresh('monthly', { monthly: 9000, from: '2026-11-01' });
     runDays(w, '2026-11-02', '2026-11-09', 200);
@@ -436,6 +435,7 @@ describe('Bug 5: the period ends while the user is in Pure Mode', () => {
     const sum = getCurrentPeriodSummary(st().planChanges, {}, '2026-12-03');
     expect(sum?.budget).toBe(9000);
     expect(sum?.remaining).toBe(9000);
+    expect(st().totalAccumulatedSavings).toBe(7400); // PUR-002: remaining pure leftover flows into Gullak
   });
 });
 
@@ -646,7 +646,7 @@ describe('Welcome back / Pure period ended messages', () => {
     expect(msg?.message).toContain('₹9,000');
   });
 
-  it('a month that ends in Pure Mode tells the user the unused part became income', () => {
+  it('a month that ends in Pure Mode does not send pure_end notification (PUR-002)', () => {
     const w = newWorld(false);
     mockAddNotification.mockClear();
     fresh('monthly', { monthly: 9000, from: '2026-11-01' });
@@ -654,7 +654,6 @@ describe('Welcome back / Pure period ended messages', () => {
     pureOn('2026-11-09');
     runDays(w, '2026-11-10', '2026-12-03', 0);
     const msg = mockAddNotification.mock.calls.map((c: any[]) => c[0]).find((n: any) => String(n.id).startsWith('pure_end_'));
-    expect(msg?.message).toContain('₹7,400');
-    expect(msg?.message).toContain('Nothing went to Gullak');
+    expect(msg).toBeUndefined();
   });
 });

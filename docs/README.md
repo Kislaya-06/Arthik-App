@@ -16,6 +16,7 @@ Every Markdown documentation file in this repository is cataloged below with its
 | [`../AGENTS.md`](../AGENTS.md) | **Supreme AI Governance** — architecture, Real-Money Invariant, git commit/push restrictions, 4-stage quality gate. | Supreme Rulebook |
 | [`../CONTEXT.md`](../CONTEXT.md) | **Domain Glossary & Terminology** — canonical definitions of Expense, Income, Allowance, Gullak, Waterfall. | Domain Vocabulary |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | **User-Facing Release History** — chronological log of features, fixes, and in-app OTA update highlights. | Release Log |
+| [`ARTHIK_CANONICAL_RULES.md`](ARTHIK_CANONICAL_RULES.md) | **Canonical Money Rules** — the single supreme source of truth for every business / financial / accounting rule. Code, tests and all other docs must agree with it; changed only on explicit owner approval. | **Supreme Source of Truth** |
 | [`../schema.sql`](../schema.sql) | **Postgres DDL & RLS Policies** — database schema and security source of truth. | Database Truth |
 
 ---
@@ -30,6 +31,7 @@ Every Markdown documentation file in this repository is cataloged below with its
 | [`notifications.md`](notifications.md) | **Notification Policy & Schedule Matrix** — max 1/day rule, evening nudge, Gullak reward, recaps, channels. | Notification Policy |
 | [`prd.md`](prd.md) | **Product Requirements Document (PRD)** — Indian cash+UPI problem statement, user personas, habit loops. | Product Baseline |
 | [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) | **Release Engineering SOP** — 4-phase APK build, OTA updates, asset naming, Supabase force-update flags. | Release SOP |
+| [`CODEBASE_GUIDE.md`](CODEBASE_GUIDE.md) | **Codebase Walkthrough & File Map** — 204 files, architectural layers, core money mechanics, where to change what. | Codebase Walkthrough |
 
 ---
 
@@ -49,7 +51,7 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | ADR | Title | Status |
 |---|---|---|
 | [0001](adr/0001-offline-first-asyncstorage-write-path.md) | Offline-First Architecture with AsyncStorage Queues | Active |
-| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income Inferred from Category Keywords | Active (amended by 0008) |
+| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income Inferred from Category Keywords | Legacy (amended by 0008; keyword path is inert, `TXN-002`) |
 | [0003](adr/0003-zustand-stores-as-sole-data-access-layer.md) | Zustand Stores as the Sole Data-Access Layer | Active |
 | [0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md) | Supabase Anon Key and User-Scoped Row-Level Security | Active |
 | [0005](adr/0005-cross-store-wiring-via-registration-callbacks.md) | Cross-Store Wiring via Explicit Registration Callbacks | Active |
@@ -61,6 +63,7 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
 | [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |
 | [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |
+| [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 Implementation Status | Active |
 
 ---
 

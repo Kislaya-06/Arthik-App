@@ -303,7 +303,7 @@ describe('Financial Correctness Scenario Matrix', () => {
   // =========================================================================
   describe('Scenario 9: Digital Vault Spending Guard', () => {
     it('blocks expense creation when net liquidity is 0 or negative', () => {
-      // Pure mode: 5000 income, 5000 spent -> net = 0 -> BLOCKED
+      // Pure mode (SEC-001 amend): 5000 income, 5000 spent -> net = 0 -> ALLOWED (can spend into minus)
       const guardPureEmpty = calculateVaultLiquidity({
         isBudgetModeEnabled: false,
         budgetCadence: 'daily',
@@ -313,7 +313,7 @@ describe('Financial Correctness Scenario Matrix', () => {
         totalIncome: 5000,
         totalExpenses: 5000,
       });
-      expect(guardPureEmpty.canAddExpense).toBe(false);
+      expect(guardPureEmpty.canAddExpense).toBe(true);
       expect(guardPureEmpty.totalVaultLiquidity).toBe(0);
 
       // Pure mode: 5000 income, 4000 spent -> net = 1000 -> ALLOWED
@@ -454,7 +454,7 @@ describe('Financial Correctness Scenario Matrix', () => {
 
       const dayInitial = evaluateDayStatus(1000, spentInitial['2026-10-05']);
       expect(dayInitial.saved).toBe(0);
-      expect(dayInitial.status).toBe('exceeded'); // 1500 > 1000 daily target
+      expect(dayInitial.status).toBe('missed'); // 1500 > 1000 daily target
 
       // 2. Edit Mutation (Amount Increase to 8,000 -> Overspending whole week)
       const expensesIncreased: TestExpense[] = [

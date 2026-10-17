@@ -8,6 +8,14 @@ Read this fully before touching code. If a rule here conflicts with a user instr
 4. **MANDATORY DOCUMENTATION ATOMICITY & PERPETUAL RECONCILIATION (CRITICAL - ZERO DOCUMENTATION LAG)**: Whenever ANY change, feature, bugfix, policy update, refactor, UI modification, or direct documentation edit is made in the app (whether in code OR in any documentation file), ALL related, dependent, and interconnected documentation files across the repository (`docs/maps/*`, `docs/adr/*`, `docs/specs/*`, `docs/*.md`, `AGENTS.md`, `CHANGELOG.md`, `README.md`) MUST be updated immediately in the SAME change. From now on and for all future tasks, every single document in the project MUST remain 100% fresh, accurate, and up-to-date forever — NO document is ever allowed to lag behind, drift, or contradict true code reality.
 5. **MANDATORY PROACTIVE SKILL UTILIZATION (CRITICAL)**: Whenever ANY work or task is initiated (whether UI animation, gestures, TDD logic, bug diagnosis, code review, design polish, Android CLI, or architectural design), the agent MUST proactively identify, read, and strictly leverage the appropriate installed specialized skills (e.g. `animate-expo`, `tdd`, `code-review`, `diagnosing-bugs`, `ui-ux-pro-max`, `android-cli`, `apple-design`, etc.) relevant to the task without waiting for the user to explicitly ask for them. Specialized tasks must never be performed without consulting and executing the installed skill's best practices.
 
+> **CANONICAL RULES SUPREMACY (CRITICAL — read before ANY change)**: [`docs/ARTHIK_CANONICAL_RULES.md`](docs/ARTHIK_CANONICAL_RULES.md) is the owner's supreme file for every business / financial / accounting rule (transactions, budgets, Gullak, cadence switching and carry-forward, rollover, insights, notifications, AutoLog privacy, categories, form guardrails). It exists so that no new feature, edit or refactor can silently break how money behaves.
+> 1. **Never break it silently.** Before writing code for any feature, change, bugfix or refactor, check it against the canonical rules. Changes that touch money logic must keep every rule true.
+> 2. **If a change would contradict a rule, STOP and tell the owner first**: name the rule ID (e.g. `BUD-003`), say what would break and what else it affects. Change nothing — not code, not the canonical file — until the owner explicitly says to change the rule.
+> 3. **Only after that explicit "yes"**: update the code, the tests, the canonical file itself, and EVERY document the change touches (list below), precisely, in the same change.
+> 4. **Rules not covered by the canonical file**: if you find money behaviour the file does not mention, tell the owner before building on it; the owner decides whether to add a rule.
+> 5. **Never edit the canonical file on your own initiative**, even to "fix a typo" in a rule's meaning.
+> 6. **Documentation-sync checklist after every change** (nothing may lag): `docs/ARTHIK_CANONICAL_RULES.md` (only if rules changed, with approval) · `AGENTS.md` · `CONTEXT.md` · `README.md` · `docs/prd.md` · `docs/architecture.md` · `docs/maps/*` · `docs/adr/*` (+ index tables in `docs/README.md` and `docs/architecture.md` §13) · `docs/specs/*` · `docs/AUTO_LOGGING.md` · `docs/notifications.md` · `docs/RELEASE_PROCESS.md` · `schema.sql` / `supabase/migrations/*` · `CHANGELOG.md` · `app.json` OTA highlights · tests. A rule ID in a doc must exist in the canonical file.
+
 > **STRICT GIT & RELEASE INVARIANT (CRITICAL)**: Under NO circumstances should any code be committed (`git commit`), pushed to remote (`git push`), merged (`git merge`), or released as an OTA update (`eas update`) unless the user explicitly and directly instructs you to do so in their prompt. The agent must never autonomously commit, push, merge, or release updates without direct, explicit, and unambiguous user command.
 
 ---
@@ -52,7 +60,7 @@ index.ts                # entry; imports src/features/autoLog/background (headle
 schema.sql              # Supabase DDL + RLS policies (source of truth for DB)
 CHANGELOG.md            # user-facing change log — keep updated
 tests/                  # Vitest unit tests (run with npm test); helpers/autoLogTestEnv.ts = Auto Logging test doubles
-docs/                   # architecture, AUTO_LOGGING, RELEASE_PROCESS, design-system, adr/, specs/
+docs/                   # architecture, AUTO_LOGGING, RELEASE_PROCESS, design-system, CODEBASE_GUIDE, adr/, specs/
 supabase/               # migrations/ (budget modes, autolog_profiles, release flags), functions/delete-user-account
 modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
                         # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
@@ -60,7 +68,7 @@ src/
 ├── components/   ui/ (AppButton, AppInput, AmountText, SegmentedControl, BottomSheetModal, …),
 │                 profile/ (PauseBudgetModal, EditProfileModal, DeleteAccountModal, styles),
 │                 savings/ (SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, styles),
-│                 shares/ (SplitExpenseModal, SharesDetailCard, TransactionExtras),
+│                 transfer/ (TransferExtras, TransferDetailCard),
 │                 BottomNavBar, BrandedHeroCard, CadenceSwitchModal, VaultSpendingGuardModal,
 │                 PeriodRenewalModal, CustomDatePickerModal, BudgetEditModal, MoneyExplainerModal,
 │                 StreakCalendarModal, DepositGullakModal, GradientIconBadge, PiggyBankCoinIcon,
@@ -71,7 +79,7 @@ src/
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
 ├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts, useMoneyWaterfall.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
-│                 budgetCalculations.ts, homeCalculations.ts, moneyWaterfall.ts, shares.ts,
+│                 budgetCalculations.ts, homeCalculations.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts,
 │                 streakCalendarData.ts, asyncStorageList.ts, chartUtils.ts,
@@ -85,7 +93,7 @@ src/
 ├── store/        authStore, categoryStore,
 │                 expenseStore (with expense/ pendingQueues, syncPending, types),
 │                 dailyBudgetStore (with dailyBudget/ classifiers, expenseBridge, hydrate, metrics, pendingStorage, rollover, types),
-│                 sharesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore
+│                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
@@ -359,6 +367,7 @@ Follow `docs/RELEASE_PROCESS.md` (generic `X.Y.Z` playbook). Key points: same ke
 - **Zero Scope Blindspots**: The agent must never artificially restrict itself to a handful of named files; every document that describes, specifies, or tracks the modified logic, test counts, metrics, or workflows must perpetually mirror 100% true app reality.
 - **Mandatory Proactive Skill Execution**: Before and during execution of specialized work (e.g. animation, gesture physics, test-driven development, deep bug diagnosis, code review, design polish, Android native setup), the agent MUST proactively invoke and adhere to the appropriate installed skill (`animate-expo`, `tdd`, `code-review`, `diagnosing-bugs`, `ui-ux-pro-max`, `android-cli`, etc.).
 - **AGENTS.md Rule Synchronization**: If an approved change or feature alters any behavioral constraint, architectural pattern, or financial invariant, the agent MUST immediately update `AGENTS.md` (following the §20 protocol) so the living rulebook accurately mirrors current app behavior.
+- **Canonical Alignment**: every change is checked against `docs/ARTHIK_CANONICAL_RULES.md` (see the Canonical Rules Supremacy block at the top). New or changed money logic gets a test that names the canonical rule ID it protects.
 - **Changelog Format**: User-visible changes strictly get a clear, concise bullet point in `CHANGELOG.md` under `[Unreleased]` in the same commit, specifying whether the change is an Addition, Fix, or Refactor, and noting whether it is OTA-safe.
 - **Small, Focused Commits**: Use imperative commit messages (e.g. `feat(home): ...`, `fix(savings): ...`, `docs(agents): ...`).
 

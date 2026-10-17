@@ -150,9 +150,9 @@ describe('dailyBudgetStore — syncWithExpenses Characterization & Safety Net', 
   });
 
   // -------------------------------------------------------------------------
-  // 1. Edit past expense updates finalized day from saved to exceeded
+  // 1. Edit past expense updates finalized day from saved to missed
   // -------------------------------------------------------------------------
-  it('recomputes past finalized day from saved to exceeded when an existing past expense is increased', () => {
+  it('recomputes past finalized day from saved to missed when an existing past expense is increased', () => {
     // Past day 2026-03-12 was finalized with budget: 500, spent: 200, saved: 300, status: 'saved'
     useDailyBudgetStore.setState({
       ownerUserId: USER_ID,
@@ -183,7 +183,7 @@ describe('dailyBudgetStore — syncWithExpenses Characterization & Safety Net', 
     const record = useDailyBudgetStore.getState().dailyRecords[PAST_DATE];
     expect(record.spent).toBe(700);
     expect(record.saved).toBe(0);
-    expect(record.status).toBe('exceeded');
+    expect(record.status).toBe('missed');
     expect(record.needsUpload).toBe(true);
 
     // Total accumulated savings is updated from 300 down to 0
@@ -208,7 +208,7 @@ describe('dailyBudgetStore — syncWithExpenses Characterization & Safety Net', 
           spent: 600,
           saved: 0,
           isFinalized: true,
-          status: 'exceeded',
+          status: 'missed',
         },
       },
       totalAccumulatedSavings: 0,

@@ -8,12 +8,6 @@ import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { GradientIconBadge } from './GradientIconBadge';
 import { ItemRowShell } from './ui/ItemRowShell';
-import { useSharesStore } from '../store/sharesStore';
-import { useExpenseStore } from '../store/expenseStore';
-import { splitRepaymentLabel } from '../lib/shares';
-
-const NO_SHARES: never[] = [];
-const NO_EXPENSES: never[] = [];
 
 export type TxRowProps = {
   expense: Expense;
@@ -36,15 +30,6 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
   phaseAOpacity,
   phaseATranslateY,
 }) => {
-  // A friend paying back a split: say so, and say which split (created on which day).
-  const isRepayment = expense.transaction_class === 'reimbursement';
-  const allShares = useSharesStore((s) => (isRepayment ? s.shares : NO_SHARES));
-  const allExpenses = useExpenseStore((s) => (isRepayment ? s.expenses : NO_EXPENSES));
-  const repayment = useMemo(
-    () => (isRepayment ? splitRepaymentLabel(expense, allShares, allExpenses) : null),
-    [isRepayment, expense, allShares, allExpenses]
-  );
-
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : (isIncome ? Wallet : DollarSign);
   const catColor = category?.color ?? (isIncome ? '#ADEBB3' : '#FFD3AC');
 
@@ -71,8 +56,8 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
 
   const categoryName = category?.name ?? (isIncome ? 'Money Added' : 'Other');
   const hasNote = Boolean(expense.note && expense.note.trim().length > 0);
-  const mainTitle = repayment ? repayment.title : hasNote ? expense.note!.trim() : categoryName;
-  const subtitle = repayment ? repayment.short : hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
+  const mainTitle = hasNote ? expense.note!.trim() : categoryName;
+  const subtitle = hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
 
   return (
     <ItemRowShell

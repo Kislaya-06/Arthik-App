@@ -5,17 +5,23 @@ import { useAuthStore } from '../store/authStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
-import { dailyCarryForDate } from './budgetPeriods';
 import { useNotificationStore, NotificationType } from '../store/notificationStore';
-import { makeIncomeClassifier } from './incomeClassifier';
-import { computeSpentByDate } from './budgetCalculations';
-import { getCurrentPeriodSummary } from './budgetPeriods';
+import {
+  dailyCarryForDate,
+  periodCarryForPeriod,
+  getPeriodBounds,
+  getNextPeriodStart,
+  resolvePlanForDate,
+  getCurrentPeriodSummary,
+} from './budgetPeriods';
 import {
   CadencePeriod,
   PeriodStats,
   PlanContext,
   buildNotificationPlan,
 } from './notificationPolicy';
+import { makeIncomeClassifier } from './incomeClassifier';
+import { computeSpentByDate } from './budgetCalculations';
 import {
   NOTIFICATIONS_ENABLED_KEY,
   applyNotificationPlan,
@@ -61,6 +67,72 @@ function buildCarryDays(
   return out;
 }
 
+/**
+ * The first day / period AFTER carried money has run out (CAR-001): the user is told once that from then on
+ * they must add the money themselves. Switches that only added carry to the first day (next_day) have no end.
+ */
+function buildCarryEnds(
+  days: NonNullable<PlanContext['carryDays']>,
+  periods: NonNullable<PlanContext['carryPeriods']>
+): NonNullable<PlanContext['carryEnds']> {
+  const out: NonNullable<PlanContext['carryEnds']> = [];
+  for (const d of days) {
+    if (d.mode === 'next_day' || d.remainingAfter > 0) continue;
+    const next = format(new Date(new Date(`${d.date}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
+    out.push({ date: next, cadence: 'daily', budget: d.budget });
+  }
+  for (const p of periods) {
+    if (p.remainingAfter > 0) continue;
+    out.push({ date: getNextPeriodStart(p.cadence, p.periodStart), cadence: p.cadence, budget: p.budget });
+  }
+  return out;
+}
+
+/** Periods on which part of the weekly / monthly budget is carried-over money (CAR-001 Mode B). */
+function buildCarryPeriods(
+  now: Date,
+  budget: ReturnType<typeof useDailyBudgetStore.getState>
+): NonNullable<PlanContext['carryPeriods']> {
+  const out: NonNullable<PlanContext['carryPeriods']> = [];
+  if (!budget.isBudgetModeEnabled || !budget.planChanges || budget.planChanges.length === 0) return out;
+  const todayStr = format(now, 'yyyy-MM-dd');
+  let plan = resolvePlanForDate(budget.planChanges, todayStr);
+  if (!plan || !plan.isEnabled || (plan.cadence !== 'weekly' && plan.cadence !== 'monthly') || plan.carryMode !== 'allocation') {
+    const upcoming = budget.planChanges
+      .filter(
+        (p) =>
+          p.isEnabled &&
+          (p.cadence === 'weekly' || p.cadence === 'monthly') &&
+          p.carryMode === 'allocation' &&
+          Number(p.carriedOverAmount) > 0 &&
+          p.effectiveFrom >= todayStr
+      )
+      .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+    plan = upcoming[0] || null;
+  }
+  if (!plan || (plan.cadence !== 'weekly' && plan.cadence !== 'monthly')) return out;
+
+  let currentStart = getPeriodBounds(plan.cadence, plan.effectiveFrom).start;
+  const seen = new Set<string>();
+  while (true) {
+    if (seen.has(currentStart)) break;
+    seen.add(currentStart);
+    const c = periodCarryForPeriod(budget.planChanges, currentStart);
+    if (!c || c.funded <= 0) break;
+    out.push({
+      periodStart: currentStart,
+      cadence: plan.cadence,
+      budget: c.base,
+      funded: c.funded,
+      toAdd: c.toAdd,
+      remainingAfter: c.remainingAfter,
+    });
+    if (c.remainingAfter <= 0) break;
+    currentStart = getNextPeriodStart(plan.cadence, currentStart);
+  }
+  return out;
+}
+
 export function buildPlanContext(now: Date): PlanContext {
   const expenses = useExpenseStore.getState().expenses;
   const categories = useCategoryStore.getState().categories;
@@ -98,7 +170,7 @@ export function buildPlanContext(now: Date): PlanContext {
     }
     if (d === todayStr || enteredToday) loggedToday = true;
 
-    if (isIncome(e) || e.transaction_class === 'self_transfer' || e.transaction_class === 'reimbursement') continue;
+    if (isIncome(e) || e.transaction_class === 'self_transfer') continue;
     const amount = Number(e.amount) || 0;
     const name = (e.category_id && catMap.get(e.category_id)?.name) || 'Other';
     const add = (b: Bucket) => {
@@ -133,7 +205,7 @@ export function buildPlanContext(now: Date): PlanContext {
   if (isGullak) {
     for (const rec of Object.values(budget.dailyRecords)) {
       if (!rec || !(rec.budget > 0) || rec.date > todayStr) continue;
-      const saved = rec.status === 'exceeded' ? 0 : rec.saved || 0;
+      const saved = rec.status === 'missed' ? 0 : rec.saved || 0;
       if (rec.date >= weekStart && rec.date <= weekEnd) {
         daysTracked += 1;
         if (rec.status === 'saved' || rec.status === 'even' || rec.status === 'active') daysUnderBudget += 1;
@@ -169,6 +241,9 @@ export function buildPlanContext(now: Date): PlanContext {
     savedToGullak: Math.round(saved * 100) / 100,
   });
 
+  const carryDays = isGullak ? buildCarryDays(now, budget) : undefined;
+  const carryPeriods = isGullak ? buildCarryPeriods(now, budget) : undefined;
+
   return {
     now,
     profile: isGullak ? 'gullak' : 'pure',
@@ -181,7 +256,9 @@ export function buildPlanContext(now: Date): PlanContext {
     month: { ...stats(month, prevMonth, monthSaved), daysTracked: 0, daysUnderBudget: 0 },
     period,
     monthName: format(now, 'MMMM'),
-    carryDays: isGullak ? buildCarryDays(now, budget) : undefined,
+    carryDays,
+    carryPeriods,
+    carryEnds: isGullak ? buildCarryEnds(carryDays || [], carryPeriods || []) : undefined,
   };
 }
 

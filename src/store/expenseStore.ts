@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
-import { useDailyBudgetStore, registerExpenseGetter, registerExpensesLoadedGetter } from './dailyBudgetStore';
+import { useDailyBudgetStore, registerExpenseGetter, registerExpensesLoadedGetter, registerAddExpense } from './dailyBudgetStore';
 import { useNetworkStore, registerSyncCallback } from './networkStore';
 import { registerCategoryDeleteCallback } from './categoryStore';
 export type {
@@ -384,7 +384,6 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       expense_date: date,
       type,
       transaction_class: options?.transactionClass ?? 'normal',
-      reimburses_share_id: options?.reimbursesShareId ?? null,
       transfer_rule_id: options?.transferRuleId ?? null,
       created_at: nowIso,
       pending: true,
@@ -414,7 +413,6 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         type,
         category_id: categoryId || null,
         transaction_class: options?.transactionClass ?? 'normal',
-        reimburses_share_id: options?.reimbursesShareId ?? null,
         transfer_rule_id: options?.transferRuleId ?? null,
       };
 
@@ -649,6 +647,7 @@ registerStoreResetCallback(() => {
 
 registerExpenseGetter(() => useExpenseStore.getState().expenses);
 registerExpensesLoadedGetter(() => useExpenseStore.getState().isExpensesLoaded);
+registerAddExpense((...args) => useExpenseStore.getState().addExpense(...args));
 
 registerCategoryDeleteCallback((deletedCategoryId: string) => {
   useExpenseStore.setState((s) => ({

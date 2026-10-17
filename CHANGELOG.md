@@ -5,9 +5,67 @@ All notable changes to the **Arthik** project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
----
-
 ## [Unreleased]
+
+### Fixed — Home All pill and the account total disagreed on a carry gap week (canonical `CAR-001`, `BAL-001`) — OTA-safe
+
+- In CAR-001 Mode B (weekly / monthly) the Home All pill left out the WHOLE budget of a carry-funded period (`carryCover = pc.base`) while the account total (spending guard, Gullak cap, Pure Mode deficit) left out only the funded part. On a gap week (e.g. ₹3,000 funded + ₹2,000 gap) they differed by the gap for good (Home ₹33,000 vs ₹35,000). Home now leaves out only the carry-FUNDED part (`pc.funded`): the gap counts like any budget, real money added grows it by exactly that amount, and both numbers are always the same. Owner decision recorded in `CAR-001` §3.
+- Test 5 of `tests/carryAllocationWeeklyMonthly.test.ts` expected the wrong number (it only checked Home); corrected and a new test compares Home against the account total on every day of a mid-month Monthly→Weekly switch.
+
+### Changed — Daily allocation keeps the account total flat (CAR-001, behaviour that was already changed by the last release, now covered by a test and documented) — OTA-safe
+
+- Switching Monthly/Weekly → Daily with allocation used to make the account total drop by the carried amount and then grow by the daily budget every day (the carried money looked lost and came back slowly). `computeAllTimeBudget` now includes the carry still to be used (`dailyCarryRemaining`, `periodCarryRemaining`), so carried money is never new money and never disappears: the total stays flat; each finished day with unspent daily budget still reaches Gullak. New regression test in `tests/carryAllocationWeeklyMonthly.test.ts`.
+
+### Added — "Carried money has run out" notice (CAR-001, NOT-001) — OTA-safe
+
+- While carried money funds the daily / weekly / monthly budget the user gets the short funding message each day / week / month (unchanged). On the FIRST day / week / month that carry no longer funds the budget, ONE extra message is sent: "Carried money has run out — From today your ₹500 daily budget is no longer covered by carried money. Add ₹500 today to fund it." (weekly: this week, monthly: this month). After it no more carry messages. Additive / next-day switches have no such message. New `carryEndCopy`, `buildCarryEnds`, `carryEnds` in the plan context, id `carry_end_<date>`; tests for daily, weekly and monthly.
+
+### Cleanup — OTA-safe
+
+- Removed the `typeof registerX === 'function'` guards that had been added to `expenseStore.ts` only to satisfy test mocks; production code is back to plain calls. Replaced a stale comment in `metrics.ts` that still said a Pure Mode leftover becomes income (`PUR-002`). Removed a duplicated "Period Carry Funding" entry from `CONTEXT.md`.
+- Added [`docs/CODEBASE_GUIDE.md`](docs/CODEBASE_GUIDE.md) to repository documentation indexes in [`docs/README.md`](docs/README.md) and [`README.md`](README.md).
+
+### Added — Pure Mode Rules (PUR-001, PUR-002, SEC-001 amend) — OTA-safe (JS only)
+
+- **Pure Mode Never Blocks Spending (SEC-001 amend)**: Pure Mode now permits unconstrained spending into negative balance without triggering the "Account balance exhausted" modal or AutoLog liquidity review flags (`canAddExpense: true`, no reason). Budget Mode Digital Vault spending guard remains strictly enforced when liquidity $\le 0$.
+- **Pure Mode Ended-Pool Leftover Retention (PUR-002)**: When a weekly or monthly budget pool ends while in Pure Mode, unused funds do NOT convert to income (`incomeAvail` and `incomeRestored` are untouched; historical `pure_end_*` inbox alert deleted). Unspent pool funds are tracked as `pureLeftover`, consumed first by subsequent Pure Mode spending before income or Gullak, and flow into Gullak (`totalAccumulatedSavings`) only when Budget Mode is re-enabled. Remaining balance is completely unchanged.
+- **Pure → Budget Deficit Auto-Balancing (PUR-001)**: When re-enabling Budget Mode while account remaining is negative ($R < 0$), exactly one real income transaction for $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)` is created. Backdated to the earliest expense causing cumulative Gullak draw $\ge D$ (`WAT-002`). Excluded from the Home budget chip `periodIncome` but fully counted in all-time inflows/waterfall. Inbox notification `pure_deficit_balanced` posted. Total Income never decreases; repeat cycles balance only the incremental deficit.
+- **Tests & Docs**: Added 6 acceptance tests in `tests/pureModeRules.test.ts`. Updated `tests/useExpenseForm.test.ts`, `tests/cadenceFixes.test.ts`, `tests/vaultSpendingGuard.test.ts`, `tests/financialCorrectnessMatrix.test.ts`, `tests/moneyFixesFour.test.ts`, `tests/canonicalStatusAndGuard.test.ts`. Synchronized `docs/ARTHIK_CANONICAL_RULES.md`, `docs/adr/0012-...`, `docs/adr/0014-...`, `CONTEXT.md`, `docs/prd.md`, `docs/architecture.md`, `docs/maps/daily-budget-map.md`, `docs/notifications.md`, `docs/RELEASE_PROCESS.md`, and `app.json`.
+
+### Added — CAR-001 Mode B (Allocation) for Weekly and Monthly Targets — OTA-safe (JS only)
+
+- **Multi-Period Allocation Drawdown for Weekly and Monthly**: Fully implemented CAR-001 Mode B when switching to Weekly or Monthly budget targets. Carried unspent money $U$ funds subsequent periods ($k = 1, 2, 3\dots$) with $\text{funded}_k = \min(B, \text{remaining}_{k-1})$, requiring the user to add only the remaining gap $\text{toAdd}_k = B - \text{funded}_k$. The period budget stays exactly $B$ (not $B + \text{carry}$).
+- **Real-Money Invariant & All-Pill Zero Double-Counting**: In `homeCalculations` and `metrics.ts`, only the carry-funded part of a budget period is left out of the All-pill budget pool (the gap part counts like any budget; see the Fixed entry above). Invariant asserted: Remaining (All) before switch == immediately after switch == after each funded period start (no growth).
+- **Multi-Period Switch Cascading**: Allocation carry still unused when a user switches cadences again is carried into the next plan via `periodCarryRemaining`, ensuring unused carry is never lost and never duplicated.
+- **Cadence Switch Modal**: Option 2 for Weekly/Monthly displays "Pay my {weekly|monthly} budget from it" with accurate period coverage and guidance copy computed from `computeAllocationSummary`.
+- **Period Carry Lifecycle Notifications**: Scheduled at 08:30 on the start of each funded week (Monday) or month (1st of month). Gap periods prompt the user to deposit the remaining gap. One "Carried money has run out" notice is sent on the first unfunded period, then silence.
+- **Tests & Docs**: Added 10 comprehensive acceptance tests in `tests/carryAllocationWeeklyMonthly.test.ts`. Synchronized `docs/ARTHIK_CANONICAL_RULES.md`, `docs/adr/0014-...`, `docs/adr/0012-...`, `docs/notifications.md`, `docs/prd.md`, `docs/architecture.md`, `docs/maps/daily-budget-map.md`, `CONTEXT.md`, and `docs/RELEASE_PROCESS.md`.
+
+### Removed — Split Expenses / Shares and the Reimbursement class (canonical `REF-001`, `TXN-004`) — OTA-safe (JS only)
+
+- Arthik is simple personal cashflow again: the **Split expense** button, the friend-shares screens, "Is this your friend's share?" questions (form and AutoLog review) and the friend-repayment matching are gone. An expense is recorded at its full amount; money that comes back (a friend paying you, a refund) is simply **Income**.
+- Removed `src/lib/shares.ts`, `src/store/sharesStore.ts`, `src/components/shares/*`, the `reimbursement` transaction class and every "reimbursement" channel in the money engine (`moneyWaterfall`, `budgetCalculations`, `budgetPeriods`, `homeCalculations`, store metrics, rollover, self-healing).
+- **Kept and moved**: remembered self-transfer notes now live in `src/store/transferRulesStore.ts` + `src/lib/transferRules.ts`; the transfer switch is `src/components/transfer/TransferExtras.tsx`; the detail card is `TransferDetailCard.tsx`.
+- **Owner action (run once in Supabase → SQL Editor):** `supabase/migrations/20261017_retire_shares_reimbursements.sql`. It turns old `reimbursement` rows into normal income and tightens the class check to `('normal','self_transfer')`. Lifetime income for anyone who used Split goes up by the repaid amounts. The `expense_shares` table is kept, unused (no data deleted).
+- Old data on devices is handled: a queued or cached `reimbursement` is read as normal income; an old pending "split_repayment" AutoLog question becomes the normal "What is this?" question.
+
+### Changed — One status word: `missed` (canonical `BUD-008`) — OTA-safe
+
+- The overspent-day status is `'missed'` everywhere (code, database, UI). `'exceeded'` no longer exists as a status and the code↔database translation layer is gone. Days cached by older versions as `'exceeded'` are read as `'missed'` (`src/store/dailyBudget/legacyStatus.ts`, store persist version 4). The limit-exceeded notification keeps its own alert kind.
+
+### Changed — Spending guard message (canonical `SEC-001`) — OTA-safe
+
+- When the account has no money, the guard (Pure and Budget Mode) says "Account balance exhausted. Please add money first." (`VAULT_GUARD_MESSAGE`).
+
+### Fixed — Self-transfers and transfer detection (canonical `TXN-003`, `BAL-001`) — OTA-safe
+
+- The all-time "account remaining" no longer counts the debit leg of a self-transfer as money spent (the credit leg was already ignored), so moving money between your own accounts never lowers your balance.
+- A note or category name containing words like "transfer" or "card bill" no longer silently removes an income from your available income. Only the structured self-transfer mark does (`isInternalTransfer` keyword guessing removed).
+
+### Docs & Tests — canonical rules as the supreme source of truth
+
+- New `docs/ARTHIK_CANONICAL_RULES.md` (final-state rules; pending "Phase 4" wording removed; AutoLog, category, payment-mode and matching rules aligned with the code). New ADR `0014`. `AGENTS.md` now has a Canonical Rules Supremacy block (stop-and-ask on contradiction, doc-sync checklist). `CONTEXT.md`, `README.md`, `docs/prd.md`, `docs/architecture.md`, `docs/README.md`, `docs/RELEASE_PROCESS.md`, `docs/maps/daily-budget-map.md`, `docs/specs/EMAIL_AUTO_LOGGING_SPEC.md`, ADR 0002/0005/0010/0011/0012 updated to match.
+- Tests: removed the split / reimbursement suites; added `tests/selfTransfersAndIncome.test.ts` and `tests/canonicalStatusAndGuard.test.ts`, plus a self-transfer balance test in `tests/moneyFixesFour.test.ts`.
 
 ### Fixed — Timezone Sensitivities & Registration Date Integrity (Daily Budget Section 3 Audit)
 

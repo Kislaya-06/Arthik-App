@@ -7,10 +7,8 @@ export interface Expense {
   note?: string;
   payment_mode: 'cash' | 'upi' | 'card';
   expense_date: string; // YYYY-MM-DD
-  /** 'normal' (default), 'reimbursement' (repays a friend share, not income) or 'self_transfer'. */
-  transaction_class?: 'normal' | 'reimbursement' | 'self_transfer';
-  /** Reimbursements only: the expense_shares row this payment repays. */
-  reimburses_share_id?: string | null;
+  /** 'normal' (default) or 'self_transfer' (money moved between the user's own accounts, TXN-003). */
+  transaction_class?: 'normal' | 'self_transfer';
   /** Self-transfers only: the remembered rule that classified it. */
   transfer_rule_id?: string | null;
   created_at?: string;
@@ -73,8 +71,7 @@ export interface ExpenseState {
     type?: 'expense' | 'income',
     options?: {
       id?: string;
-      transactionClass?: 'normal' | 'reimbursement' | 'self_transfer';
-      reimbursesShareId?: string | null;
+      transactionClass?: 'normal' | 'self_transfer';
       transferRuleId?: string | null;
     }
   ) => Promise<void>;

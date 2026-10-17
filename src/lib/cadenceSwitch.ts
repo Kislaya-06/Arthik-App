@@ -21,6 +21,56 @@ export interface CadenceCarryCalculation {
   mode: CadenceCarryMode;
 }
 
+export interface CadenceAllocationSummary {
+  fullPeriods: number;
+  partialFunded: number;
+  partialGap: number;
+  unit: 'day' | 'week' | 'month';
+  coverText: string;
+}
+
+export function computeAllocationSummary(
+  targetCadence: BudgetCadence,
+  targetAmount: number,
+  unspentAmount: number
+): CadenceAllocationSummary {
+  const unit: 'day' | 'week' | 'month' = targetCadence === 'daily' ? 'day' : targetCadence === 'weekly' ? 'week' : 'month';
+  const unitPlural = targetCadence === 'daily' ? 'days' : targetCadence === 'weekly' ? 'weeks' : 'months';
+
+  const B = Math.max(0, targetAmount);
+  const U = Math.max(0, unspentAmount);
+
+  if (!(B > 0) || !(U > 0)) {
+    return {
+      fullPeriods: 0,
+      partialFunded: 0,
+      partialGap: 0,
+      unit,
+      coverText: '',
+    };
+  }
+
+  const full = Math.floor(U / B);
+  const part = Math.round((U - full * B) * 100) / 100;
+  const gap = part > 0 ? Math.round((B - part) * 100) / 100 : 0;
+
+  let coverText = '';
+  if (full === 0) {
+    coverText = `₹${formatAmountWithCommas(String(part))} of your first ${unit}`;
+  } else {
+    const countStr = `${full} ${full === 1 ? unit : unitPlural}`;
+    coverText = part > 0 ? `${countStr}, then ₹${formatAmountWithCommas(String(part))} of ${unit} ${full + 1}` : countStr;
+  }
+
+  return {
+    fullPeriods: full,
+    partialFunded: part,
+    partialGap: gap,
+    unit,
+    coverText,
+  };
+}
+
 export interface CadenceSwitchPlan {
   currentCadence: BudgetCadence;
   targetCadence: BudgetCadence;
@@ -33,6 +83,7 @@ export interface CadenceSwitchPlan {
   effectiveBudgetPool: number;
   gullakDeposit: 0;
   validation: CadenceSwitchValidation;
+  allocationSummary?: CadenceAllocationSummary;
 }
 
 /**
@@ -218,6 +269,8 @@ export function buildCadenceSwitchPlan(params: {
     carryMode,
   });
 
+  const allocationSummary = computeAllocationSummary(targetCadence, targetAmount, unspentAmount);
+
   return {
     currentCadence,
     targetCadence,
@@ -230,5 +283,6 @@ export function buildCadenceSwitchPlan(params: {
     effectiveBudgetPool: carryCalc.effectiveBudgetPool,
     gullakDeposit: 0,
     validation,
+    allocationSummary,
   };
 }

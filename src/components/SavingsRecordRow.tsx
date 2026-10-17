@@ -35,9 +35,9 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   const isSaved = isPeriod
     ? (period.status === 'saved' || period.amountSaved > 0)
     : !isDeposit && !!rec && rec.saved > 0 && rec.status !== 'unknown';
-  const isExceeded = isPeriod
+  const isMissed = isPeriod
     ? period.status === 'missed'
-    : !isDeposit && !!rec && rec.status === 'exceeded';
+    : !isDeposit && !!rec && rec.status === 'missed';
   const isUnknown = isPeriod
     ? period.status === 'unknown'
     : !isDeposit && !!rec && rec.status === 'unknown';
@@ -101,7 +101,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
           statusColor: incomeGreen,
         };
       }
-      if (isExceeded) {
+      if (isMissed) {
         return {
           amountColor: warningRed,
           statusText: 'Over budget',
@@ -135,7 +135,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
         statusColor: incomeGreen,
       };
     }
-    if (isExceeded) {
+    if (isMissed) {
       return {
         amountColor: warningRed,
         statusText: 'Over budget',
@@ -154,17 +154,17 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       statusText: 'Exact budget',
       statusColor: colors.textMuted,
     };
-  }, [isPeriod, period, isDeposit, isSaved, isExceeded, isUnknown, incomeGreen, warningRed, colors.textMuted, colors.textSecondary]);
+  }, [isPeriod, period, isDeposit, isSaved, isMissed, isUnknown, incomeGreen, warningRed, colors.textMuted, colors.textSecondary]);
 
   const iconBg = useMemo(() => {
     if (isDeposit || isSaved) {
       return '#ADEBB3';
     }
-    if (isExceeded) {
+    if (isMissed) {
       return '#FF857A';
     }
     return '#FFD3AC';
-  }, [isDeposit, isSaved, isExceeded]);
+  }, [isDeposit, isSaved, isMissed]);
 
   const isInteractive = Boolean(onPress || onDeleteDeposit);
   const ContainerComponent = isInteractive ? TouchableOpacity : View;
@@ -187,7 +187,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
             <PiggyBankCoinIcon size={22} color={iconColor} />
           ) : isSaved ? (
             <Sparkles size={22} color={iconColor} strokeWidth={2.2} />
-          ) : isExceeded ? (
+          ) : isMissed ? (
             <AlertCircle size={22} color={iconColor} strokeWidth={2.2} />
           ) : (
             <Coins size={22} color={iconColor} strokeWidth={2.2} />
@@ -225,19 +225,19 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
                 isPeriod && period
                   ? isSaved
                     ? period.amountSaved
-                    : isExceeded
+                    : isMissed
                     ? Math.max(0, period.spentAmount - period.budgetAmount)
                     : 0
                   : isDeposit
                   ? deposit!.amount
                   : isSaved
                   ? rec!.saved
-                  : isExceeded
+                  : isMissed
                   ? rec!.spent - rec!.budget
                   : 0
               }
-              direction={isSaved || isDeposit ? 'income' : isExceeded ? 'expense' : 'neutral'}
-              signed={isSaved || isDeposit || isExceeded}
+              direction={isSaved || isDeposit ? 'income' : isMissed ? 'expense' : 'neutral'}
+              signed={isSaved || isDeposit || isMissed}
               color={amountColor}
             />
           )}

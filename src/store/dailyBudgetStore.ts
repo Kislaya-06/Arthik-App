@@ -7,18 +7,18 @@ import type { Expense } from './expense/types';
 import {
   registerExpenseGetter,
   getCurrentExpenses,
-  registerSharesGetter,
-  getCurrentShares,
   registerExpensesLoadedGetter,
   areExpensesLoaded,
+  registerAddExpense,
+  addExpenseFromBridge,
 } from './dailyBudget/expenseBridge';
 export {
   registerExpenseGetter,
   getCurrentExpenses,
-  registerSharesGetter,
-  getCurrentShares,
   registerExpensesLoadedGetter,
   areExpensesLoaded,
+  registerAddExpense,
+  addExpenseFromBridge,
 };
 
 import {
@@ -76,8 +76,6 @@ import {
   computeSpentForDate,
   computeIncomeByDate,
   computeIncomeForDate,
-  computeReimbursementsByDate,
-  computeReimbursementsForDate,
   calculateCycleFinancials,
   buildDefaultTodayRecord,
   filterPastRecords,
@@ -86,8 +84,6 @@ import {
 } from '../lib/budgetCalculations';
 export type { DailyRecord, SavingsMetrics, DayStatus, DayEvaluation };
 export {
-  computeReimbursementsByDate,
-  computeReimbursementsForDate,
   calculateSavingsMetrics,
   evaluateDayStatus,
   computeSpentByDate,
@@ -165,6 +161,7 @@ export {
 };
 
 import type { DailyBudgetState } from './dailyBudget/types';
+import { normalizeLegacyRecordStatuses } from './dailyBudget/legacyStatus';
 export type { DailyBudgetState };
 
 import {
@@ -441,10 +438,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
         const todayEligibleIncome = computeIncomeForDate(expenses, todayStr, isEligibleIncomeFn);
-        // Only the BUDGET part of a split repayment adds to unspent budget; the income / Gullak parts go back
-        // to the income pool / Gullak (see moneyWaterfall.ts), so nothing is counted twice.
-        const reimbByDate = runWaterfall({ expenses }).reimbBudgetByDate;
-        const todayReimb = reimbByDate[todayStr] || 0;
 
         let todayRecord = records[todayStr];
         let hasTodayChanged = false;
@@ -453,15 +446,15 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
         if (!todayRecord) {
           const budget = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 && isDailyOwnedDate(get().planChanges, todayStr) ? get().dailyBudgetAmount + dailyCarryExtraFor(todayStr) : 0;
-          const { saved } = evaluateDayStatus(budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
-          const effectiveSpendable = budget + todayReimb; // income is a separate pool, not allowance
+          const { saved } = evaluateDayStatus(budget, todaySpent, todayEligibleIncome);
+          const effectiveSpendable = budget; // income is a separate pool, not allowance
           todayRecord = {
             date: todayStr,
             budget,
             spent: todaySpent,
             saved: isBudgetOn ? saved : 0,
             isFinalized: false,
-            status: isBudgetOn ? (todaySpent > effectiveSpendable && effectiveSpendable > 0 ? 'exceeded' : 'active') : 'unknown',
+            status: isBudgetOn ? (todaySpent > effectiveSpendable && effectiveSpendable > 0 ? 'missed' : 'active') : 'unknown',
           };
           hasTodayChanged = true;
         } else if (!isBudgetOn) {
@@ -480,11 +473,11 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           todayRecord = { ...todayRecord, budget: 0, spent: todaySpent, saved: 0, status: 'unknown' };
           hasTodayChanged = true;
         } else {
-          const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, todayEligibleIncome, undefined, todayReimb);
-          const effectiveSpendable = todayRecord.budget + todayReimb; // income is a separate pool, not allowance
+          const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, todayEligibleIncome);
+          const effectiveSpendable = todayRecord.budget; // income is a separate pool, not allowance
           const newStatus =
             todaySpent > effectiveSpendable && effectiveSpendable > 0
-              ? 'exceeded'
+              ? 'missed'
               : 'active';
 
           if (todayRecord.spent !== todaySpent || todayRecord.status !== newStatus || todayRecord.saved !== newSaved) {
@@ -502,8 +495,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         // Check for smart alerts & trigger native phone notifications
         // Alerts follow the BUDGET (same as the Home card and the weekly / monthly alerts). Income is a separate
         // pool that only pays after the budget is used up, so it must not delay the "limit exceeded" alert.
-        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && (todayRecord.budget > 0 || todayReimb > 0)) {
-          const spendable = todayRecord.budget + todayReimb;
+        if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && todayRecord.budget > 0) {
+          const spendable = todayRecord.budget;
           const ratio = spendable > 0 ? todaySpent / spendable : (todaySpent > 0 ? 1 : 0);
           const remaining = Math.max(0, spendable - todaySpent);
           if (ratio >= 1) {
@@ -542,7 +535,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         } else if (get().isBudgetModeEnabled && (get().budgetCadence === 'weekly' || get().budgetCadence === 'monthly')) {
           const spentByDate = computeSpentByDate(expenses, isIncomeFn);
           const incomeByDate = computeIncomeByDate(expenses, isEligibleIncomeFn);
-          const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr, incomeByDate, reimbByDate);
+          const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr, incomeByDate);
           if (summary && summary.budget > 0) {
             const ratio = summary.spent / summary.budget;
             const periodKey = `${summary.cadence}_${summary.periodStart}`;
@@ -618,7 +611,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const isIncomeFn = buildCategoryClassifier();
         const isEligibleIncomeFn = buildEligibleIncomeClassifier();
 
-        const { spentByDate, incomeByDate, reimbByDateAll } = groupSpentByDate(
+        const { spentByDate, incomeByDate } = groupSpentByDate(
           expenses,
           isIncomeFn,
           isEligibleIncomeFn
@@ -634,7 +627,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           pastDates,
           spentByDate,
           incomeByDate,
-          reimbByDateAll,
           skipRolloverNotification,
         });
         if (dailyResult.updated) {
@@ -651,7 +643,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           userCreatedAtStr,
           spentByDate,
           incomeByDate,
-          reimbByDateAll,
           skipRolloverNotification,
         });
         if (periodsResult.updated) {
@@ -830,10 +821,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
     {
       name: 'arthik-daily-budget-storage-v2',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 3,
+      version: 4,
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') return persistedState as DailyBudgetState;
-        const state = persistedState as Record<string, unknown>;
+        let state = persistedState as Record<string, unknown>;
         if (version < 3) {
           const isAutoRenew = Boolean(state.isAutoRenew);
           const deposits = (state.gullakDeposits as GullakDeposit[]) || [];
@@ -843,7 +834,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           );
           const inferredModeEnabled = isAutoRenew || deposits.length > 0 || hasSavedRecord;
 
-          return {
+          state = {
             ...state,
             isBudgetModeEnabled: (state.isBudgetModeEnabled as boolean | undefined) ?? inferredModeEnabled,
             budgetCadence: (state.budgetCadence as BudgetCadence | undefined) ?? 'daily',
@@ -860,7 +851,14 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             lastPeriodExceededKey: (state.lastPeriodExceededKey as string | null | undefined) ?? null,
             lastPeriodRolloverKey: (state.lastPeriodRolloverKey as string | null | undefined) ?? null,
             lastRenewedPeriodKey: (state.lastRenewedPeriodKey as string | null | undefined) ?? null,
-          } as unknown as DailyBudgetState;
+          };
+        }
+        if (version < 4) {
+          // BUD-008: 'exceeded' no longer exists; cached days become 'missed'.
+          state = {
+            ...state,
+            dailyRecords: normalizeLegacyRecordStatuses(state.dailyRecords as Record<string, DailyRecord> | undefined),
+          };
         }
         return state as unknown as DailyBudgetState;
       },

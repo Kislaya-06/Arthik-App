@@ -63,11 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Monthly Card Deficit Rule & Gullak Breakdown 📊✨",
+        "title": "Pure Mode Freedom & Auto-Balance ⚡✨",
         "highlights": [
-          "Accurate Monthly Remaining: Deficit shows only when both budget and income are used up; unspent income now correctly shows as Remaining",
-          "Realistic Income Chips: No more artificial ₹0 chips; displays real unspent income alongside period spending",
-          "Drawn from Gullak: Live calculation accurately tracks funds drawn from savings to cover budget overspends"
+          "Pure Mode allows unconstrained spending without blocking when balance is exhausted",
+          "Ended budget pools in Pure Mode keep unspent funds intact without false income inflation",
+          "Re-enabling Budget Mode while in deficit automatically balances your Total Income",
+          "When carried-over money stops funding your budget, you now get one clear message telling you to add the money"
         ]
       }
     }

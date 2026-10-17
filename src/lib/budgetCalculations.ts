@@ -8,7 +8,7 @@ export interface DailyRecord {
   spent: number;
   saved: number;
   isFinalized: boolean;
-  status: 'saved' | 'exceeded' | 'even' | 'active' | 'unknown';
+  status: 'saved' | 'missed' | 'even' | 'active' | 'unknown';
   needsUpload?: boolean;
   /** Corrected row: must overwrite the (wrong) server row instead of being insert-only. */
   forceOverwrite?: boolean;
@@ -110,7 +110,7 @@ export const calculateSavingsMetrics = (
         continue;
       }
     }
-    // Any other status (exceeded, even, active, or missing unfinalized day) breaks the streak
+    // Any other status (missed, even, active, or missing unfinalized day) breaks the streak
     break;
   }
 
@@ -179,11 +179,11 @@ export const calculateSavingsMetrics = (
   };
 };
 
-export type DayStatus = 'saved' | 'exceeded' | 'even' | 'active' | 'unknown';
+export type DayStatus = 'saved' | 'missed' | 'even' | 'active' | 'unknown';
 
 export interface DayEvaluation {
   saved: number;
-  status: 'saved' | 'exceeded' | 'even' | 'unknown';
+  status: 'saved' | 'missed' | 'even' | 'unknown';
 }
 
 /**
@@ -198,16 +198,13 @@ export const evaluateDayStatus = (
   budget: number,
   spent: number,
   _eligibleIncome: number = 0,
-  _baseBudget?: number,
-  eligibleReimbursements: number = 0
+  _baseBudget?: number
 ): DayEvaluation => {
-  // INCOME NEVER ROLLS INTO GULLAK. Only unspent BUDGET (plus reimbursements, which restore
-  // spending power for money spent on others) is saved. Overspend beyond the budget is paid
-  // from income, then Gullak, by the money waterfall (src/lib/moneyWaterfall.ts).
+  // INCOME NEVER ROLLS INTO GULLAK (BUD-003). Only unspent BUDGET is saved. Overspend beyond the budget
+  // is paid from income, then Gullak, by the money waterfall (src/lib/moneyWaterfall.ts).
   const result = calculateCycleFinancials({
     scheduledBudget: budget,
     eligibleIncome: 0,
-    eligibleReimbursements: typeof eligibleReimbursements === 'number' && eligibleReimbursements > 0 ? eligibleReimbursements : 0,
     spent,
   });
   return { saved: result.gullakDeposit, status: result.status };
@@ -234,8 +231,8 @@ export const extractNonIncomeExpense = <T extends ExpenseItem>(
   expense: T,
   isIncomeFn: (expense: T) => boolean
 ): NonIncomeExpenseEntry | null => {
-  // Self-transfers (either leg) and reimbursements are never money spent.
-  if (expense.transaction_class === 'self_transfer' || expense.transaction_class === 'reimbursement') return null;
+  // Self-transfers (either leg) are never money spent (TXN-003).
+  if (expense.transaction_class === 'self_transfer') return null;
   const isIncome = isIncomeFn(expense);
   const cleanDate = expense.expense_date?.split('T')[0]?.trim();
   if (!isIncome && cleanDate) {
@@ -339,47 +336,6 @@ export const computeIncomeForDate = <T extends ExpenseItem>(
 };
 
 /**
- * Extracts date and amount for confirmed reimbursements (real incoming cash that repays a friend share).
- * These are NOT income; they feed the separate `eligibleReimbursements` channel.
- */
-export const extractEligibleReimbursement = <T extends ExpenseItem>(
-  expense: T,
-  isReimbursementFn: (expense: T) => boolean
-): NonIncomeExpenseEntry | null => {
-  const cleanDate = expense.expense_date?.split('T')[0]?.trim();
-  if (cleanDate && isReimbursementFn(expense)) {
-    const amt = Number(expense.amount);
-    return { date: cleanDate, amount: Number.isFinite(amt) && amt > 0 ? amt : 0 };
-  }
-  return null;
-};
-
-export const computeReimbursementsByDate = <T extends ExpenseItem>(
-  expenses: T[],
-  isReimbursementFn: (expense: T) => boolean
-): Record<string, number> => {
-  const byDate: Record<string, number> = {};
-  for (let i = 0; i < expenses.length; i++) {
-    const entry = extractEligibleReimbursement(expenses[i], isReimbursementFn);
-    if (entry) byDate[entry.date] = round2((byDate[entry.date] || 0) + entry.amount);
-  }
-  return byDate;
-};
-
-export const computeReimbursementsForDate = <T extends ExpenseItem>(
-  expenses: T[],
-  targetDate: string,
-  isReimbursementFn: (expense: T) => boolean
-): number => {
-  let total = 0;
-  for (let i = 0; i < expenses.length; i++) {
-    const entry = extractEligibleReimbursement(expenses[i], isReimbursementFn);
-    if (entry && entry.date === targetDate) total = round2(total + entry.amount);
-  }
-  return total;
-};
-
-/**
  * Constructs the default DailyRecord for today when not present in state.
  */
 export const buildDefaultTodayRecord = (
@@ -415,7 +371,7 @@ export const filterPastRecords = (
  * Determines whether a Supabase upsert to daily_savings_log should ignore duplicates
  * (ON CONFLICT DO NOTHING).
  *
- * Ticket 02: Real finalized days ('saved', 'exceeded', 'even') must always overwrite/update
+ * Ticket 02: Real finalized days ('saved', 'missed', 'even') must always overwrite/update
  * the remote record. Only untracked days ('unknown') are insert-only to prevent blank gap fills
  * from overwriting existing server records.
  */
@@ -507,8 +463,6 @@ export interface CycleFinancialInput {
   scheduledBudget: number;
   /** Direct eligible income received in this cycle (excluding self-transfers) */
   eligibleIncome?: number;
-  /** Recovered friend shares / refunds that offset spending */
-  eligibleReimbursements?: number;
   /** Carried-over unspent allocation from a previous period/cadence switch (if additive) */
   carriedOverAmount?: number;
   /** Total non-income expenses incurred in this cycle */
@@ -516,7 +470,7 @@ export interface CycleFinancialInput {
 }
 
 export interface CycleFinancialResult {
-  /** Total spendable money in the pool: scheduledBudget + carriedOver + eligibleIncome + reimbursements */
+  /** Total spendable money in the pool: scheduledBudget + carriedOver + eligibleIncome */
   spendable: number;
   /** Total spent in this cycle */
   spent: number;
@@ -529,7 +483,7 @@ export interface CycleFinancialResult {
   /** EXACT amount to deposit into Gullak at cycle close (guaranteed == remaining) */
   gullakDeposit: number;
   /** Canonical status for the period/day */
-  status: 'saved' | 'exceeded' | 'even' | 'unknown';
+  status: 'saved' | 'missed' | 'even' | 'unknown';
 }
 
 /**
@@ -540,10 +494,9 @@ export const calculateCycleFinancials = (input: CycleFinancialInput): CycleFinan
   const budget = Math.max(0, input.scheduledBudget || 0);
   const carried = Math.max(0, input.carriedOverAmount || 0);
   const income = Math.max(0, input.eligibleIncome || 0);
-  const reimbursements = Math.max(0, input.eligibleReimbursements || 0);
   const spent = Math.max(0, round2(input.spent || 0));
 
-  const spendable = round2(budget + carried + income + reimbursements);
+  const spendable = round2(budget + carried + income);
 
   if (spendable <= 0 && spent <= 0) {
     return {
@@ -562,11 +515,11 @@ export const calculateCycleFinancials = (input: CycleFinancialInput): CycleFinan
   const overAmount = isOverBudget ? round2(spent - spendable) : 0;
   const gullakDeposit = isOverBudget ? 0 : remaining;
 
-  let status: 'saved' | 'exceeded' | 'even' | 'unknown';
+  let status: 'saved' | 'missed' | 'even' | 'unknown';
   if (spendable <= 0) {
     status = 'unknown';
   } else if (isOverBudget) {
-    status = 'exceeded';
+    status = 'missed';
   } else if (remaining > 0) {
     status = 'saved';
   } else {

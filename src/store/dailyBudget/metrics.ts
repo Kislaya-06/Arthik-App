@@ -10,6 +10,7 @@ import {
   poolKeyFor,
   dailyCarryForDate,
   dailyCarryRemaining,
+  periodCarryRemaining,
   getDateOwner,
   computeCadenceStreak,
   StreakUnit,
@@ -22,9 +23,9 @@ import {
 import {
   buildCategoryClassifier,
   buildEligibleIncomeClassifier,
-  buildReimbursementClassifier,
 } from './classifiers';
-import { getCurrentExpenses, getCurrentShares } from './expenseBridge';
+import { getCurrentExpenses } from './expenseBridge';
+import { isExcludedFromTotals } from '../../lib/transactionUtils';
 import type {
   GullakDeposit,
   DailyBudgetState,
@@ -95,7 +96,6 @@ export const runWaterfall = (
   const todayStr = getTodayDateStr();
   return computeWaterfallFromState({
     expenses: overrides?.expenses ?? getCurrentExpenses(),
-    shares: getCurrentShares(),
     categories: useCategoryStore.getState().categories,
     deposits: overrides?.deposits ?? st.gullakDeposits ?? [],
     isBudgetModeEnabled: st.isBudgetModeEnabled,
@@ -137,6 +137,9 @@ export const computeAllTimeBudget = (
     if (pool.closedOn) total += Math.min(pool.budget, poolSpentBefore(pools, planChanges, pool, pool.closedOn, spentByDate));
     else total += pool.budget;
   }
+  const todayStr = getTodayDateStr();
+  total += dailyCarryRemaining(planChanges, (d) => records[d]?.budget, 0, todayStr);
+  total += periodCarryRemaining(planChanges, todayStr);
   return round2(total);
 };
 
@@ -168,6 +171,7 @@ export const computeMetrics = (
     incomeAvail = round2(Math.max(0, totalIncome - incomeDeposits));
   }
 
+  const waterfallResult = runWaterfall({ records, deposits });
   const dailyMetrics = calculateSavingsMetrics(
     records,
     getTodayDateStr(),
@@ -177,7 +181,7 @@ export const computeMetrics = (
     incomeAvail,
     undefined,
     // Overspend really paid from Gullak (budget -> income -> Gullak), not "all overspend".
-    runWaterfall({ records, deposits }).gullakDrawn
+    waterfallResult.gullakDrawn
   );
 
   let periodsSaved = 0;
@@ -185,7 +189,16 @@ export const computeMetrics = (
   for (const p of periodsList) {
     periodsSaved += Number(p.amountSaved) || 0;
   }
-  const rawAccumulatedSavings = round2(dailyMetrics.totalAccumulatedSavings + periodsSaved);
+  let rawAccumulatedSavings = round2(dailyMetrics.totalAccumulatedSavings + periodsSaved);
+
+  const st = storeGetter ? storeGetter() : null;
+  const isBudgetOn = st ? st.isBudgetModeEnabled : false;
+  if (isBudgetOn) {
+    const pureLeftoverNet = round2(waterfallResult.pureLeftoverAdded - waterfallResult.pureLeftoverUsed);
+    if (pureLeftoverNet > 0) {
+      rawAccumulatedSavings = round2(rawAccumulatedSavings + pureLeftoverNet);
+    }
+  }
 
   // Hard Real-Money Invariant: Gullak savings cannot exceed Total Account Remaining
   const expensesList = getCurrentExpenses();
@@ -194,7 +207,6 @@ export const computeMetrics = (
   if (expensesList && expensesList.length > 0) {
     const isIncomeFn = buildCategoryClassifier();
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-    const isReimbFn = buildReimbursementClassifier();
 
     const st = storeGetter ? storeGetter() : null;
     const currentPlanChanges = st ? st.planChanges : [];
@@ -207,16 +219,15 @@ export const computeMetrics = (
     );
 
     let allTimeIncome = 0;
-    let allTimeReimb = 0;
     let allTimeSpent = 0;
     for (let i = 0; i < expensesList.length; i++) {
       const e = expensesList[i];
       const amt = Number(e.amount) || 0;
       if (amt <= 0) continue;
+      // TXN-003: self-transfers (either leg) are never income and never spent.
+      if (isExcludedFromTotals(e)) continue;
       if (isIncomeFn(e)) {
         if (isEligibleIncomeFn(e)) allTimeIncome += amt;
-      } else if (isReimbFn(e)) {
-        allTimeReimb += amt;
       } else {
         allTimeSpent += amt;
       }
@@ -227,7 +238,7 @@ export const computeMetrics = (
         ? deposits.reduce((s, d) => s + (d.source !== 'income' ? Number(d.amount) || 0 : 0), 0)
         : 0;
 
-    const totalInflow = round2(allTimeBudget + allTimeIncome + allTimeReimb + externalDeposits);
+    const totalInflow = round2(allTimeBudget + allTimeIncome + externalDeposits);
     const totalAccountRemaining = Math.max(0, round2(totalInflow - allTimeSpent));
 
     const isBudgetOn = st ? st.isBudgetModeEnabled : false;
@@ -258,7 +269,7 @@ export const computeMetrics = (
     const status: BudgetPeriodStatus =
       r.status === 'saved'
         ? 'saved'
-        : r.status === 'exceeded'
+        : r.status === 'missed'
         ? 'missed'
         : r.status === 'even'
         ? 'even'
@@ -316,7 +327,7 @@ export const computePriorAvailableIncomeBalance = (todayStr: string = getTodayDa
   runWaterfall({ excludeExpensesFrom: todayStr }).incomeRemaining;
 
 export const computeCarryableAmount = (st: DailyBudgetState, expenses?: Expense[]): number => {
-  if (!st.isBudgetModeEnabled) return 0; // Pure Mode: what is left of a pool becomes income, never "carry"
+  if (!st.isBudgetModeEnabled) return 0; // Pure Mode: nothing is carried; a pool's leftover stays as pureLeftover (PUR-002)
   const todayStr = getTodayDateStr();
   const plans = st.planChanges || [];
   if (plans.length === 0) return 0;
@@ -332,7 +343,9 @@ export const computeCarryableAmount = (st: DailyBudgetState, expenses?: Expense[
     if (!pool || pool.closedOn) return 0;
     const spentByDate = computeSpentByDate(expenses ?? getCurrentExpenses(), buildCategoryClassifier());
     const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
-    return round2(Math.max(0, pool.budget - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate)));
+    const poolLeft = Math.max(0, pool.budget - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate));
+    const futureCarry = periodCarryRemaining(plans, todayStr);
+    return round2(poolLeft + futureCarry);
   }
   return 0;
 };
@@ -342,7 +355,6 @@ export const computeTotalAccountRemaining = (st: DailyBudgetState, expenses?: Ex
   const expensesList = expenses ?? getCurrentExpenses();
   const isIncomeFn = buildCategoryClassifier();
   const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-  const isReimbFn = buildReimbursementClassifier();
 
   const budget = computeAllTimeBudget(
     records,
@@ -352,15 +364,14 @@ export const computeTotalAccountRemaining = (st: DailyBudgetState, expenses?: Ex
   );
 
   let income = 0;
-  let reimb = 0;
   let spent = 0;
   for (const e of expensesList) {
     const amt = Number(e.amount) || 0;
     if (amt <= 0) continue;
+    // TXN-003: self-transfers (either leg) are never income and never spent.
+    if (isExcludedFromTotals(e)) continue;
     if (isIncomeFn(e)) {
       if (isEligibleIncomeFn(e)) income += amt;
-    } else if (isReimbFn(e)) {
-      reimb += amt;
     } else {
       spent += amt;
     }
@@ -369,7 +380,7 @@ export const computeTotalAccountRemaining = (st: DailyBudgetState, expenses?: Ex
     (sum, d) => sum + (d.source !== 'income' ? Number(d.amount) || 0 : 0),
     0
   );
-  return round2(budget + income + reimb + external - spent);
+  return round2(budget + income + external - spent);
 };
 
 export const computeGrossIncomeBalance = (

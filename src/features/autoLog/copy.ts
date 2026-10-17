@@ -43,7 +43,6 @@ export const REVIEW_LABEL: Record<ReviewReason, string> = {
   ambiguous_match: 'Might be a duplicate',
   unknown_sender: 'New email sender',
   possible_transfer: 'Own account transfer?',
-  split_repayment: 'Friend paid back?',
   exceeds_liquidity: 'Exceeds spending limit',
 };
 

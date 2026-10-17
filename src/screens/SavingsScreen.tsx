@@ -20,7 +20,6 @@ import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
-import { useSharesStore } from '../store/sharesStore';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
 import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
 import { isIncomeTransaction, isExcludedFromTotals } from '../lib/transactionUtils';
@@ -243,11 +242,9 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const cardProgressRatio = cardBudget > 0 ? cardSpent / cardBudget : 0;
 
   const allDailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
-  const shares = useSharesStore((s) => s.shares);
   const cardScopeFunding = useMemo(() => {
     const waterfall = computeWaterfallFromState({
       expenses,
-      shares,
       categories,
       deposits: gullakDeposits,
       isBudgetModeEnabled,
@@ -261,7 +258,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     const start = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodStart : todayKey;
     const end = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodEnd : todayKey;
     return summarizeScope(waterfall, (d) => d >= start && d <= end);
-  }, [expenses, shares, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, allDailyRecords, dailyBudgetAmount, planChanges, isCadenceMode, cadencePeriodSummary]);
+  }, [expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, allDailyRecords, dailyBudgetAmount, planChanges, isCadenceMode, cadencePeriodSummary]);
 
   const overspendHint = useMemo(() => {
     if (!cardIsOver) {

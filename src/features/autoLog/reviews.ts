@@ -1,7 +1,6 @@
 import * as db from './db';
 import { logEvent } from './engine';
-import { deleteTransaction, setTransactionCategory, setTransactionType, saveSharesForTransaction } from './ledger';
-import type { ShareDraft } from '../../lib/shares';
+import { deleteTransaction, setTransactionCategory, setTransactionType } from './ledger';
 import { identityScore, ownTransferStrength, TRANSFER_WINDOW_MS } from './matching';
 import type { AutoLogEvent } from './types';
 
@@ -153,53 +152,4 @@ export const resolveTransfer = async (event: AutoLogEvent, isTransfer: boolean) 
     await db.updateEvent(other.id, { status: 'transfer', reviewReason: null, matchedId: event.id, needsCategory: false });
   }
   await db.updateEvent(event.id, { status: 'transfer', reviewReason: null, matchedId: other?.id ?? null, needsCategory: false });
-};
-
-/**
- * "Is this your friend's share of a split?"
- *  - shareId given: the money is logged as a REIMBURSEMENT linked to that share. The split is settled and the
- *    money goes back to where the expense was paid from (budget / income / Gullak), see moneyWaterfall.ts.
- *  - shareId null: it is not a split repayment; the normal "Income or Expense?" question follows.
- */
-export const resolveSplitRepayment = async (event: AutoLogEvent, shareId: string | null, friendLabel?: string) => {
-  if (!shareId) {
-    await db.updateEvent(event.id, { reviewReason: 'type' });
-    return;
-  }
-  const e = { ...event };
-  if (e.amount == null) throw new Error('Amount is missing');
-  const acc = e.accountKey ? await db.getAccount(e.accountKey) : null;
-  await logEvent(e, 'income', null, acc?.kind ?? null, quiet, {
-    reimbursesShareId: shareId,
-    note: friendLabel ? `Split repayment · ${friendLabel}` : 'Split repayment',
-  });
-  await db.updateEvent(e.id, {
-    status: e.status, reviewReason: null, expenseId: e.expenseId, needsCategory: false, direction: 'credit', amount: e.amount,
-  });
-  await reconcileAwaitingNotifications(e);
-  return e;
-};
-
-/** Review: "Expense" + category, optionally split with friends. Income is never split. */
-export const classifyEventAndSplit = async (
-  event: AutoLogEvent,
-  type: 'expense' | 'income',
-  categoryId: string | null,
-  rememberMerchant: boolean,
-  amountOverride: number | undefined,
-  drafts?: ShareDraft[]
-) => {
-  const e = await classifyEvent(event, type, categoryId, rememberMerchant, amountOverride);
-  if (type === 'expense' && drafts && drafts.length > 0 && e.expenseId && e.amount != null) {
-    await saveSharesForTransaction(e.expenseId, e.amount, drafts);
-  }
-  return e;
-};
-
-/** Review of an already-logged expense that only needs its category: same optional split. */
-export const setCategoryAndSplit = async (event: AutoLogEvent, categoryId: string, rememberMerchant: boolean, drafts?: ShareDraft[]) => {
-  await setEventCategory(event, categoryId, rememberMerchant);
-  if (drafts && drafts.length > 0 && event.direction === 'debit' && event.expenseId && event.amount != null) {
-    await saveSharesForTransaction(event.expenseId, event.amount, drafts);
-  }
 };

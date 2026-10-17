@@ -11,7 +11,6 @@ import {
   getTodayDateStr,
   getUserCreatedAtLocalDate,
   dailyCarryExtraFor,
-  runWaterfall,
 } from './metrics';
 import {
   getPendingSettingsKey,
@@ -116,7 +115,7 @@ export function buildOfflineHydrationPatch(
       if (records[todayStr].budget === 0) {
         records[todayStr].budget = resolvedBudget;
         records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
-        records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'exceeded' : 'active';
+        records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'missed' : 'active';
       }
     } else {
       records[todayStr] = {
@@ -504,7 +503,6 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
     const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
     const incomeByDate = computeIncomeByDate(currentExpenses, isEligibleIncomeFn);
-    const hydrateReimbByDate = runWaterfall({ expenses: currentExpenses }).reimbBudgetByDate;
 
     resolvedBudget = selfHealDefaultBudget({
       resolvedBudget,
@@ -524,7 +522,6 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       resolvedBudget,
       records,
       incomeByDate,
-      hydrateReimbByDate,
       userId,
     });
 
@@ -545,7 +542,7 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
         if (records[todayStr].budget === 0) {
           records[todayStr].budget = resolvedBudget;
           records[todayStr].saved = Math.max(0, resolvedBudget - records[todayStr].spent);
-          records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'exceeded' : 'active';
+          records[todayStr].status = records[todayStr].spent > resolvedBudget ? 'missed' : 'active';
         }
       } else {
         // Auto-renew paused (OFF) -> today's unfinalized record has budget 0

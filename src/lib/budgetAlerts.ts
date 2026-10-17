@@ -5,7 +5,6 @@ import {
   LimitCopyInput,
   budgetUpdatedCopy,
   budgetResumedCopy,
-  pureEndedCopy,
   limitCopy,
   rolloverCopy,
 } from './notificationPolicy';
@@ -88,14 +87,3 @@ export function notifyBudgetResumed(id: string, cadence: 'weekly' | 'monthly', r
   });
 }
 
-/** A week / month ended while the user was in Pure Mode: what was left became income, nothing went to Gullak. */
-export function notifyPurePeriodEnded(id: string, cadence: 'weekly' | 'monthly', left: number, budget: number, date: string): void {
-  const { title, body } = pureEndedCopy(cadence, left, budget);
-  useNotificationStore.getState().addNotification({
-    id,
-    title,
-    message: body,
-    type: 'general',
-    data: { date, amount: left, screen: 'Savings' },
-  });
-}

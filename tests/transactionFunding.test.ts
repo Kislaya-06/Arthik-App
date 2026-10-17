@@ -322,7 +322,7 @@ describe('calculateExpenseFunding', () => {
       isBudgetModeEnabled: true,
       todayStr: '2026-10-12',
       records: {
-        '2026-10-11': { date: '2026-10-11', budget: 250, spent: 1485, saved: -1235, isFinalized: true, status: 'exceeded' as const },
+        '2026-10-11': { date: '2026-10-11', budget: 250, spent: 1485, saved: -1235, isFinalized: true, status: 'missed' as const },
       },
     };
 

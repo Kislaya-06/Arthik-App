@@ -107,15 +107,12 @@ export const receiveNotification = (app: string, title: string, body: string, da
 };
 
 // ─── ledger ───
-export interface Tx { id: string; amount: number; type: 'expense' | 'income'; categoryId: string | null; note: string; paymentMode: string; occurredAt: number; transactionClass?: string; reimbursesShareId?: string | null }
+export interface Tx { id: string; amount: number; type: 'expense' | 'income'; categoryId: string | null; note: string; paymentMode: string; occurredAt: number; transactionClass?: string }
 export const ledger = {
   txs: new Map<string, Tx>(),
   manual: [] as Array<{ id: string; amount: number; type: 'expense' | 'income'; occurredAt: number }>,
   offline: false,
   /** Open friend shares of the user (for "is this your friend's share of a split?"). */
-  savedShares: [] as Array<{ expenseId: string; total: number; drafts: Array<{ friendLabel: string; amount: number }> }>,
-  splitShares: [] as Array<{ share: { id: string; user_id: string; expense_id: string; friend_label: string; amount_owed: number }; expenseDate: string; expenseAmount: number }>,
-  reimbursed: {} as Record<string, number>,
 };
 const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 export const fakeLedger = {
@@ -137,15 +134,6 @@ export const fakeLedger = {
     return !!t;
   },
   deleteTransaction: async (id: string) => ledger.txs.delete(id),
-  saveSharesForTransaction: async (expenseId: string, total: number, drafts: Array<{ friendLabel: string; amount: number }>) => {
-    if (drafts.length) ledger.savedShares.push({ expenseId, total, drafts });
-  },
-  findSplitRepaymentCandidates: async (amount: number, occurredAt: number) => {
-    const { findExactSplitCandidates } = await import('../../src/lib/shares');
-    const d = new Date(occurredAt);
-    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    return findExactSplitCandidates(ledger.splitShares, ledger.reimbursed, { amount, date });
-  },
   findManualLookalike: (amount: number, type: 'expense' | 'income', occurredAt: number) =>
     ledger.manual.find((m) => m.amount === amount && m.type === type && sameDay(m.occurredAt, occurredAt)),
   isExceedingVaultLiquidity: (_amount: number) => false,
@@ -183,9 +171,6 @@ export const resetEnv = () => {
   ledger.txs.clear();
   ledger.manual = [];
   ledger.offline = false;
-  ledger.splitShares = [];
-  ledger.savedShares = [];
-  ledger.reimbursed = {};
   remote.rows.clear();
   remote.ok = true;
 };

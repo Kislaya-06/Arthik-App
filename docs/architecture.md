@@ -9,10 +9,10 @@
 ## 1. System Overview
 
 Arthik is a single-user personal finance mobile app for Android. It operates under two high-level operational modes:
-1. **Pure Mode (`is_budget_mode_enabled: false`)**: Pure, unconstrained expense and income tracking with a 4-tab interface, cashflow overview, and concentric Dual Ring chart.
-2. **Budget Mode (`is_budget_mode_enabled: true`)**: Structured financial discipline across three cadences (**Daily**, **Weekly**, **Monthly**), dynamic non-binding pace suggestions, automatic period rollovers into a digital **Gullak** (savings reserve), and next-day cadence switching.
+1. **Pure Mode (`is_budget_mode_enabled: false`)**: Pure, unconstrained expense and income tracking with a 4-tab interface, cashflow overview, and concentric Dual Ring chart. Spending is never blocked and may go negative (`SEC-001` amend). Pools ending in Pure retain unspent money as `pureLeftover` without converting to income (`PUR-002`). Switching from Pure to Budget Mode with a deficit automatically creates one balancing income transaction (`PUR-001`).
+2. **Budget Mode (`is_budget_mode_enabled: true`)**: Structured financial discipline across three cadences (**Daily**, **Weekly**, **Monthly**), dynamic non-binding pace suggestions, solvency guard (`SEC-001`), automatic period rollovers into a digital **Gullak** (savings reserve), and next-day cadence switching.
 
-Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real-Money Invariant**: every rupee tracked represents real money in the user's possession. Outflows cannot be created if available liquidity is zero, and mid-cycle switches preserve unspent capital without artificial proration or premature Gullak dumps. The app is built offline-first and syncs to Supabase when connectivity is available.
+Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real-Money Invariant**: every rupee tracked represents real money in the user's possession. Outflows cannot be created in Budget Mode if available liquidity is zero, and mid-cycle switches preserve unspent capital without artificial proration or premature Gullak dumps. The app is built offline-first and syncs to Supabase when connectivity is available.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -61,7 +61,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 
 ## 3. Stores
 
-Ten Zustand stores. Each owns a well-defined domain. To avoid monolithic file explosion, high-complexity stores (`dailyBudgetStore`, `expenseStore`) are decomposed into cohesive sub-modules in dedicated subdirectories while maintaining their canonical root export interface (see [ADR 0013](adr/0013-store-module-split.md)).
+Eleven Zustand stores. Each owns a well-defined domain. To avoid monolithic file explosion, high-complexity stores (`dailyBudgetStore`, `expenseStore`) are decomposed into cohesive sub-modules in dedicated subdirectories while maintaining their canonical root export interface (see [ADR 0013](adr/0013-store-module-split.md)).
 
 | Store | Domain | Persisted? | Reset on sign-out? |
 |---|---|---|---|
@@ -74,6 +74,7 @@ Ten Zustand stores. Each owns a well-defined domain. To avoid monolithic file ex
 | `navBarStore` | Bottom navigation bar visibility | No | — |
 | `themeStore` | Light / dark / amoled theme | No (reads `Appearance` / AsyncStorage) | — |
 | `appLockStore` | Biometric gate, lock/unlock state | No (manual AsyncStorage) | ✅ `reset` |
+| `transferRulesStore` | Remembered self-transfer notes (`self_transfer_rules` table) | No | ✅ `reset` |
 | `ambientStore` | Ambient background animation state, toggle | ✅ `persist` (AsyncStorage key `arthik-ambient-preference`) | — |
 
 ### Cross-store wiring (no circular imports)
@@ -85,8 +86,7 @@ expenseStore ─ registerExpenseGetter ──────────► dailyBu
 expenseStore ─ registerExpensesLoadedGetter ───► dailyBudgetStore
 expenseStore ─ registerSyncCallback ───────────► networkStore
 expenseStore ─ registerStoreResetCallback ─────► authStore
-sharesStore ── registerSharesGetter ───────────► dailyBudgetStore
-sharesStore ── registerStoreResetCallback ─────► authStore
+transferRulesStore ─ registerStoreResetCallback ► authStore
 categoryStore ─ registerStoreResetCallback ────► authStore
 categoryStore ─ registerCategoryDeleteCallback ► expenseStore
 dailyBudgetStore ─ registerStoreResetCallback ─► authStore
@@ -180,9 +180,13 @@ Entered budgets are **never scaled down or prorated** due to mid-cycle starts or
 ### 6.3 Next-Day Cadence Switching & Carry-Forward Engine
 - Switching cadences takes effect **tomorrow at 12:00 AM (00:00:00)** (`computeEffectiveFrom`), allowing today's budget and transactions to conclude cleanly under the active plan.
 - **Zero Mid-Cycle Gullak Dumps (Golden Invariant)**: Mid-cycle cadence switching carries unspent funds forward into the new cadence rather than prematurely dumping them into Gullak (`amountSaved = 0`).
-- **Carry-Forward Modes**:
-  - **Additive (`'additive'`)**: Remaining balance is added on top of the target budget ceiling (`targetBudget + carriedOverAmount`). Default.
-  - **Allocation (`'allocation'`)**: Carried funds provide a pre-funded headstart toward the target budget ceiling.
+- **Carry-Forward Modes (CAR-001)**:
+  - **Additive (`'additive'`)**: Remaining balance is added once on top of the first period's target budget ceiling (`targetBudget + carriedOverAmount`) via `carryForPeriod`.
+  - **Allocation (`'allocation'`)**: Carried funds $U$ provide multi-period drawdown across Daily, Weekly, and Monthly targets:
+    - Daily: `dailyCarryForDate`, `dailyCarryRemaining`.
+    - Weekly & Monthly: `periodCarryForPeriod`, `periodCarryRemaining`. In each period $k$, $\text{funded}_k = \min(B, \text{remaining}_{k-1})$ and user gap $\text{toAdd}_k = B - \text{funded}_k$.
+    - **All-Pill Zero Double-Counting**: In `homeCalculations` and `metrics.ts`, only the carry-FUNDED part of a period budget is excluded from the All pill (`pc.funded`); the gap part counts like any budget and real money added grows it by exactly that amount. Home and the account total are always the same number.
+    - **Lifecycle Notifications**: Scheduled at period start (08:30) for fully funded periods and partial gap periods, and exactly one "carried money has run out" notice on the first unfunded day / week / month (`buildCarryEnds`), then silence.
 - **Deficit Isolation**: Overspent periods are settled from available income/Gullak reserves; they clamp to 0 (`Math.max(0, ...)`) and never carry negative debt into a new cadence.
 
 ### 6.4 Natural Cycle Rollover vs. Mid-Cycle Switches
@@ -212,7 +216,9 @@ Overspending from allowances is absorbed by available income first before any de
 See [ADR 0008](adr/0008-unified-income-classification.md). Single function `isIncomeTransaction(item, category)` in `src/lib/transactionUtils.ts` is used everywhere:
 1. Check `item.type === 'income'` → true
 2. Check `item.type === 'expense'` → false
-3. Fallback: match `category.name` against `DEFAULT_INCOME_KEYWORDS`
+3. Inert legacy fallback (rule `TXN-002`, only for old rows with no `type`; the database makes `type` NOT NULL): match `category.name` against `DEFAULT_INCOME_KEYWORDS`
+
+Self-transfers are identified ONLY by `transaction_class === 'self_transfer'` (`TXN-003`); notes and category names are never used to guess one. There is no reimbursement class (`TXN-004`).
 
 ---
 
@@ -309,7 +315,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
 | `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
 | `brandedHeroCard.test.ts` | Branded hero card metrics, dynamic pace presentation, non-binding hints |
-| `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`exceeded`/`even`/`unknown`), duplicate prevention |
+| `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`missed`/`even`/`unknown`), duplicate prevention |
 | `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, persistence |
 | `budgetModeUtils.test.ts` | Unprorated pacing previews, calendar streak cards, monthly matrices |
 | `budgetPeriods.test.ts` | Period timeline engine, active slices, finalization, idempotency |
@@ -339,6 +345,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `offlineStartup.test.ts` | Offline cold-launch boot sequence without network access |
 | `paymentAndIconUtils.test.ts` | Payment labels/icons, unified income classification (`isIncomeTransaction`) |
 | `pullToHistoryPhysics.test.ts` | Instagram-calibrated rubber band pull physics, damping ratio, ring travel linearity |
+| `pureModeRules.test.ts` | Acceptance suite for Pure Mode rules: SEC-001 amend, PUR-001 deficit switch, PUR-002 leftover retention |
 | `rollingText.test.ts` | Digit-by-digit vertical odometer roll, layout effect mount/reveal, decimal handling |
 | `segmentedControl.test.ts` | Critical damped spring slide, outer hitSlop, touch release selection, elevation |
 | `streakFlame.test.ts` | Streak counter tiers, milestone badge triggers, flame stages |
@@ -355,7 +362,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | # | Decision | Status |
 |---|---|---|
 | [0001](adr/0001-offline-first-asyncstorage-write-path.md) | Offline-first with AsyncStorage queues | Active |
-| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income inferred from category keywords | Active |
+| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income inferred from category keywords | Legacy (inert fallback, `TXN-002`) |
 | [0003](adr/0003-zustand-stores-as-sole-data-access-layer.md) | Zustand as sole data-access layer | Active |
 | [0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md) | Supabase anon key + RLS | Active |
 | [0005](adr/0005-cross-store-wiring-via-registration-callbacks.md) | Cross-store via registration callbacks | Active |
@@ -364,6 +371,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0008](adr/0008-unified-income-classification.md) | Unified income classification | Active |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest unit test coverage policy | Active |
 | [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011, amended by 0012) |
-| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
-| [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |
+| [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012, amended by canonical `SEC-001`) |
+| [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active (D2/D3 amended by canonical `PUR-002` & `SEC-001`) |
 | [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |
+| [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 / Pure Mode Status | Active |

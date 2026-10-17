@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { calculateVaultLiquidity } from '../src/lib/vaultSpendingGuard';
 
 describe('calculateVaultLiquidity (Digital Vault Spending Guard)', () => {
-  describe('Pure Mode (Budget Mode Disabled)', () => {
-    it('blocks expense when income is 0 and expenses are 0', () => {
+  describe('Pure Mode (Budget Mode Disabled) - SEC-001 amend', () => {
+    it('allows expense when income is 0 and expenses are 0 (never blocks in Pure Mode)', () => {
       const res = calculateVaultLiquidity({
         isBudgetModeEnabled: false,
         budgetCadence: 'daily',
@@ -14,9 +14,9 @@ describe('calculateVaultLiquidity (Digital Vault Spending Guard)', () => {
         totalExpenses: 0,
       });
 
-      expect(res.canAddExpense).toBe(false);
+      expect(res.canAddExpense).toBe(true);
       expect(res.totalVaultLiquidity).toBe(0);
-      expect(res.reason).toBeDefined();
+      expect(res.reason).toBeUndefined();
     });
 
     it('allows expense when user has positive income', () => {
@@ -35,7 +35,7 @@ describe('calculateVaultLiquidity (Digital Vault Spending Guard)', () => {
       expect(res.reason).toBeUndefined();
     });
 
-    it('blocks expense when expenses have exhausted all income (net = 0)', () => {
+    it('allows expense when expenses have exhausted all income (net = 0) in Pure Mode', () => {
       const res = calculateVaultLiquidity({
         isBudgetModeEnabled: false,
         budgetCadence: 'daily',
@@ -46,11 +46,12 @@ describe('calculateVaultLiquidity (Digital Vault Spending Guard)', () => {
         totalExpenses: 5000,
       });
 
-      expect(res.canAddExpense).toBe(false);
+      expect(res.canAddExpense).toBe(true);
       expect(res.totalVaultLiquidity).toBe(0);
+      expect(res.reason).toBeUndefined();
     });
 
-    it('blocks expense when expenses exceed income (net < 0)', () => {
+    it('allows expense when expenses exceed income (net < 0) in Pure Mode', () => {
       const res = calculateVaultLiquidity({
         isBudgetModeEnabled: false,
         budgetCadence: 'daily',
@@ -61,8 +62,9 @@ describe('calculateVaultLiquidity (Digital Vault Spending Guard)', () => {
         totalExpenses: 5200,
       });
 
-      expect(res.canAddExpense).toBe(false);
+      expect(res.canAddExpense).toBe(true);
       expect(res.totalVaultLiquidity).toBe(-200);
+      expect(res.reason).toBeUndefined();
     });
   });
 

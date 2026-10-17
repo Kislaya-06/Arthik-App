@@ -164,16 +164,8 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
 
   const isToDaily = targetCadence === 'daily';
   const isFromDaily = currentCadence === 'daily';
-  // "Pay my daily budget from it": how many daily budgets the carried money covers.
-  const coverText = (() => {
-    const a = plan.targetBudgetAmount;
-    if (!(a > 0)) return '';
-    const full = Math.floor(plan.unspentAmount / a);
-    const part = Math.round((plan.unspentAmount - full * a) * 100) / 100;
-    const days = `${full} ${full === 1 ? 'day' : 'days'}`;
-    if (full === 0) return `${formatCurrency(part)} of your first day`;
-    return part > 0 ? `${days}, then ${formatCurrency(part)} of day ${full + 1}` : days;
-  })();
+  // "Pay my budget from it": how many budgets the carried money covers.
+  const coverText = plan.allocationSummary?.coverText || '';
 
   const handleApplySafeAmount = useCallback((amount: number) => {
     setTargetAmount(amount);
@@ -448,7 +440,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                         { color: carryMode === 'allocation' ? colors.textPrimary : colors.textSecondary },
                       ]}
                     >
-                      {isToDaily ? 'Pay my daily budget from it' : `Keep it at ${formatCurrency(plan.targetBudgetAmount)}`}
+                      {isToDaily ? 'Pay my daily budget from it' : `Pay my ${targetCadence} budget from it`}
                     </Text>
                     <View
                       style={[
@@ -469,11 +461,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                       </>
                     ) : (
                       <>
-                        {targetLabel} budget stays{' '}
-                        <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
-                          {formatCurrency(plan.targetBudgetAmount)}
-                        </Text>
-                        {' '}(for {targetPeriodInfo.remainingDays} days)
+                        Your {targetCadence} {formatCurrency(plan.targetBudgetAmount)} is paid from it for {coverText}. We will tell you at the start of each period how much to add.
                       </>
                     )}
                   </Text>

@@ -540,7 +540,7 @@ describe('dailyBudgetStore — checkAndRollover Characterization & Safety Net', 
           "needsUpload": true,
           "saved": 0,
           "spent": 600,
-          "status": "exceeded",
+          "status": "missed",
         },
         "2026-03-14": {
           "budget": 500,

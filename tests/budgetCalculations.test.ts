@@ -143,7 +143,7 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
           spent: 650,
           saved: 0,
           isFinalized: true,
-          status: 'exceeded',
+          status: 'missed',
         },
       };
 
@@ -168,7 +168,7 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
           spent: 700,
           saved: 0,
           isFinalized: false,
-          status: 'exceeded',
+          status: 'missed',
         },
       };
 
@@ -224,7 +224,7 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
           spent: 900,
           saved: 0,
           isFinalized: true,
-          status: 'exceeded',
+          status: 'missed',
         },
       };
 
@@ -246,10 +246,10 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
       expect(metrics.savingsStreak).toBe(3);
     });
 
-    it("an 'exceeded' day breaks it", () => {
+    it("an 'missed' day breaks it", () => {
       const records: Record<string, DailyRecord> = {
         '2026-09-15': { date: '2026-09-15', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
-        '2026-09-16': { date: '2026-09-16', budget: 500, spent: 600, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-09-16': { date: '2026-09-16', budget: 500, spent: 600, saved: 0, isFinalized: true, status: 'missed' },
         '2026-09-17': { date: '2026-09-17', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
       };
 
@@ -341,7 +341,7 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
         '2026-09-12': { date: '2026-09-12', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
         '2026-09-13': { date: '2026-09-13', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
         // Interruption on Sept 14
-        '2026-09-14': { date: '2026-09-14', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-09-14': { date: '2026-09-14', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'missed' },
         // Run 2: 2 days (Sept 16 and 17)
         '2026-09-16': { date: '2026-09-16', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
         '2026-09-17': { date: '2026-09-17', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
@@ -460,7 +460,7 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
         '2026-09-02': { date: '2026-09-02', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
         '2026-09-03': { date: '2026-09-03', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
         '2026-09-04': { date: '2026-09-04', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
-        '2026-09-05': { date: '2026-09-05', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-09-05': { date: '2026-09-05', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'missed' },
         '2026-09-06': { date: '2026-09-06', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
         '2026-09-07': { date: '2026-09-07', budget: 500, spent: 200, saved: 300, isFinalized: true, status: 'saved' },
       };
@@ -504,13 +504,13 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
         // Day 03: saved 200 (Gullak +200, run: 3)
         '2026-09-03': { date: '2026-09-03', budget: 500, spent: 300, saved: 200, isFinalized: true, status: 'saved' },
         // Day 04: exceeded by 300 (Gullak -300, breaks run 1)
-        '2026-09-04': { date: '2026-09-04', budget: 500, spent: 800, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-09-04': { date: '2026-09-04', budget: 500, spent: 800, saved: 0, isFinalized: true, status: 'missed' },
         // Day 05: unknown (Gullak 0, neutral)
         '2026-09-05': { date: '2026-09-05', budget: 0, spent: 0, saved: 0, isFinalized: true, status: 'unknown' },
         // Day 06: even (Gullak 0, streak breaker)
         '2026-09-06': { date: '2026-09-06', budget: 0, spent: 0, saved: 0, isFinalized: true, status: 'even' },
         // Day 07: exceeded by 200 (Gullak -200, streak breaker)
-        '2026-09-07': { date: '2026-09-07', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'exceeded' },
+        '2026-09-07': { date: '2026-09-07', budget: 500, spent: 700, saved: 0, isFinalized: true, status: 'missed' },
         // Day 08: saved 250 (Gullak +250, current streak run)
         '2026-09-08': { date: '2026-09-08', budget: 500, spent: 250, saved: 250, isFinalized: true, status: 'saved' },
         // Day 09: unknown (Gullak 0, bridges current streak!)
@@ -518,7 +518,7 @@ describe('calculateSavingsMetrics - Unit Tests', () => {
         // Day 10: saved 400 (Gullak +400, yesterday!)
         '2026-09-10': { date: '2026-09-10', budget: 500, spent: 100, saved: 400, isFinalized: true, status: 'saved' },
         // Day 11 (Today): live overspent by 100 (Gullak live penalty -100, unfinalized)
-        '2026-09-11': { date: '2026-09-11', budget: 500, spent: 600, saved: 0, isFinalized: false, status: 'exceeded' },
+        '2026-09-11': { date: '2026-09-11', budget: 500, spent: 600, saved: 0, isFinalized: false, status: 'missed' },
       };
 
       const metrics = calculateSavingsMetrics(
@@ -573,9 +573,9 @@ describe('evaluateDayStatus', () => {
     expect(res).toEqual({ saved: 0, status: 'even' });
   });
 
-  it('spent > budget returns status exceeded and saved = 0', () => {
+  it('spent > budget returns status missed and saved = 0', () => {
     const res = evaluateDayStatus(500, 650);
-    expect(res).toEqual({ saved: 0, status: 'exceeded' });
+    expect(res).toEqual({ saved: 0, status: 'missed' });
   });
 
   it('income NEVER rolls into Gullak: only unspent budget is saved', () => {
@@ -587,7 +587,7 @@ describe('evaluateDayStatus', () => {
   it('overspend beyond budget saves nothing, even when income exists (income pays it via the waterfall)', () => {
     // Budget = 100, Income = 25, Spent = 110 -> saved 0, exceeded. The waterfall pays the 10 from income.
     const res = evaluateDayStatus(100, 110, 25);
-    expect(res).toEqual({ saved: 0, status: 'exceeded' });
+    expect(res).toEqual({ saved: 0, status: 'missed' });
   });
 
   it('a day with income but nothing spent saves only the budget', () => {
@@ -630,9 +630,9 @@ describe('evaluateDayStatus', () => {
       expect(res).toEqual({ saved: 0, status: 'even' });
     });
 
-    it('spend exceeds total budget: status exceeded, 0 saved, streak broken', () => {
+    it('spend exceeds total budget: status missed, 0 saved, streak broken', () => {
       const res = evaluateDayStatus(300, 350);
-      expect(res).toEqual({ saved: 0, status: 'exceeded' });
+      expect(res).toEqual({ saved: 0, status: 'missed' });
     });
 
     it('budget equal or less than baseBudget: behaves standardly', () => {
@@ -902,7 +902,7 @@ describe('shouldIgnoreDuplicates - Unit Tests (Ticket 02)', () => {
   });
 
   it('returns false for exceeded status (must overwrite server row)', () => {
-    expect(shouldIgnoreDuplicates('exceeded')).toBe(false);
+    expect(shouldIgnoreDuplicates('missed')).toBe(false);
   });
 
   it('returns false for even status (must overwrite server row)', () => {
@@ -920,12 +920,12 @@ describe('shouldIgnoreDuplicates - Unit Tests (Ticket 02)', () => {
 
     // Old buggy behavior:
     expect(oldBuggyLogic('saved', true)).toBe(true); // BUG: ignored duplicates on first rollover!
-    expect(oldBuggyLogic('exceeded', true)).toBe(true); // BUG: ignored duplicates on first rollover!
+    expect(oldBuggyLogic('missed', true)).toBe(true); // BUG: ignored duplicates on first rollover!
     expect(oldBuggyLogic('even', true)).toBe(true); // BUG: ignored duplicates on first rollover!
 
     // Fixed behavior via shouldIgnoreDuplicates:
     expect(shouldIgnoreDuplicates('saved')).toBe(false);
-    expect(shouldIgnoreDuplicates('exceeded')).toBe(false);
+    expect(shouldIgnoreDuplicates('missed')).toBe(false);
     expect(shouldIgnoreDuplicates('even')).toBe(false);
     expect(shouldIgnoreDuplicates('unknown')).toBe(true);
   });
@@ -977,7 +977,7 @@ describe('calculateTodayMetrics - Unit Tests', () => {
       spent: 650,
       saved: 0,
       isFinalized: false,
-      status: 'exceeded',
+      status: 'missed',
     };
 
     const metrics = calculateTodayMetrics(record);
@@ -1276,20 +1276,6 @@ describe('shouldSendRolloverNotification - Pure Unit Tests', () => {
       expect(result.status).toBe('saved');
     });
 
-    it('adds eligible reimbursement to spendable pool (Spec §3)', () => {
-      const result = calculateCycleFinancials({
-        scheduledBudget: 100,
-        eligibleReimbursements: 25,
-        spent: 50,
-      });
-      expect(result.spendable).toBe(125);
-      expect(result.spent).toBe(50);
-      expect(result.remaining).toBe(75);
-      expect(result.gullakDeposit).toBe(75);
-      expect(result.isOverBudget).toBe(false);
-      expect(result.status).toBe('saved');
-    });
-
     it('absorbs overspend with incoming money before breaking budget limit', () => {
       const result = calculateCycleFinancials({
         scheduledBudget: 100,
@@ -1317,7 +1303,7 @@ describe('shouldSendRolloverNotification - Pure Unit Tests', () => {
       expect(result.gullakDeposit).toBe(0);
       expect(result.isOverBudget).toBe(true);
       expect(result.overAmount).toBe(15);
-      expect(result.status).toBe('exceeded');
+      expect(result.status).toBe('missed');
     });
 
     it('guarantees remaining and gullakDeposit never diverge', () => {

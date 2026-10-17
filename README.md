@@ -128,9 +128,11 @@ docs/                    # Architecture, ADRs, Automatic Logging, release proces
 
 - [`AGENTS.md`](./AGENTS.md) — coding standards, design tokens, safety invariants (for humans and AI agents).
 - [`CONTEXT.md`](./CONTEXT.md) — domain model and business rules.
+- [`docs/ARTHIK_CANONICAL_RULES.md`](./docs/ARTHIK_CANONICAL_RULES.md) — the supreme, owner-approved money rules every change must respect.
 - [`docs/architecture.md`](./docs/architecture.md) — layers, stores, offline write path, startup, Gullak engine.
 - [`docs/AUTO_LOGGING.md`](./docs/AUTO_LOGGING.md) — Automatic Logging architecture and rules.
 - [`docs/RELEASE_PROCESS.md`](./docs/RELEASE_PROCESS.md) — how to ship an APK, force-update users, and control the Beta rollout.
+- [`docs/CODEBASE_GUIDE.md`](./docs/CODEBASE_GUIDE.md) — complete file-by-file map, layers, and guide on where to change what.
 - [`docs/prd.md`](./docs/prd.md) · [`docs/adr/`](./docs/adr/) — product requirements and architecture decisions.
 
 ---

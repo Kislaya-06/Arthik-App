@@ -11,6 +11,7 @@ export type NotificationType =
   | 'weekly_recap'
   | 'monthly_recap'
   | 'gullak_reward'
+  | 'pure_deficit_balanced'
   | 'general';
 
 export interface AppNotification {

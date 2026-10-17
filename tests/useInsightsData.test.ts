@@ -47,12 +47,12 @@ describe('useInsightsData (pure analytics and derived calculations)', () => {
     { id: 'e11', amount: 150, category_id: 'c2', expense_date: '2026-08-29T10:00:00Z', note: 'Bus', user_id: 'u1', type: 'expense', payment_mode: 'card' },
     { id: 'e12', amount: 500, category_id: 'c1', expense_date: '2026-08-31T21:00:00Z', note: 'Dinner', user_id: 'u1', type: 'expense', payment_mode: 'upi' },
 
-    // September (14 items: includes reimbursement & self-transfer)
+    // September (14 items: includes self-transfer)
     { id: 'e13', amount: 50000, category_id: 'c4', expense_date: '2026-09-01T09:00:00Z', note: 'Sep Salary', user_id: 'u1', type: 'income', payment_mode: 'upi' },
     { id: 'e14', amount: 350, category_id: 'c1', expense_date: '2026-09-03T12:00:00Z', note: 'Lunch', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
     { id: 'e15', amount: 120, category_id: 'c2', expense_date: '2026-09-06T08:30:00Z', note: 'Metro', user_id: 'u1', type: 'expense', payment_mode: 'card' },
     { id: 'e16', amount: 1500, category_id: 'c3', expense_date: '2026-09-09T14:00:00Z', note: 'Wifi', user_id: 'u1', type: 'expense', payment_mode: 'upi' },
-    { id: 'e17', amount: 800, category_id: 'c1', expense_date: '2026-09-12T13:00:00Z', note: 'Team Lunch Refund', user_id: 'u1', type: 'expense', transaction_class: 'reimbursement', payment_mode: 'upi' },
+    { id: 'e17', amount: 800, category_id: 'c1', expense_date: '2026-09-12T13:00:00Z', note: 'Team Lunch Refund', user_id: 'u1', type: 'expense', transaction_class: 'self_transfer', payment_mode: 'upi' },
     { id: 'e18', amount: 400, category_id: 'c1', expense_date: '2026-09-14T20:00:00Z', note: 'Dinner', user_id: 'u1', type: 'expense', payment_mode: 'upi' },
     { id: 'e19', amount: 150, category_id: 'c2', expense_date: '2026-09-16T09:00:00Z', note: 'Auto', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
     { id: 'e20', amount: 600, category_id: 'c3', expense_date: '2026-09-19T11:00:00Z', note: 'Gas', user_id: 'u1', type: 'expense', payment_mode: 'upi' },

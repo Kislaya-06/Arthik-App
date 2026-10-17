@@ -14,7 +14,7 @@ import {
   isSameSourceDuplicate,
 } from './matching';
 import * as db from './db';
-import { createTransaction, deleteTransaction, findManualLookalike, findSplitRepaymentCandidates, paymentModeFor, isExceedingVaultLiquidity } from './ledger';
+import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor, isExceedingVaultLiquidity } from './ledger';
 import { notifyLogged, notifyNeedsReview } from './notify';
 import type { AutoLogEvent, EventOrigin, EventStatus, ParsedMessage, ReviewReason } from './types';
 
@@ -175,7 +175,6 @@ const reviewQuestion: Record<ReviewReason, string> = {
   ambiguous_match: 'This may already be logged. Please check.',
   unknown_sender: 'Financial email from a new sender.',
   possible_transfer: 'Is this a transfer between your own accounts?',
-  split_repayment: 'Is this your friend’s share of a split?',
   exceeds_liquidity: 'Exceeds spending limit. Zero funds in Income & Gullak.',
 };
 
@@ -187,18 +186,6 @@ const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: Proc
   return { status: e.status, eventId: e.id, reviewReason: reason, accountKey: e.accountKey };
 };
 
-/**
- * Money in that is exactly what a friend still owes on an unsettled split: ask ONCE instead of guessing.
- * Returns the pending result, or null when nothing matches (the credit continues the normal way).
- */
-const askIfSplitRepayment = async (e: AutoLogEvent, parsed: ParsedMessage, opts: ProcessOptions) => {
-  if (e.direction !== 'credit' || e.amount == null) return null;
-  if (parsed.creditKind === 'salary' || parsed.creditKind === 'interest') return null;
-  const candidates = await findSplitRepaymentCandidates(e.amount, e.occurredAt);
-  if (candidates.length === 0) return null;
-  return finalizePending(e, 'split_repayment', opts);
-};
-
 /** Creates the transaction for a decided event. Falls back to `queued` if it cannot be written now. */
 export const logEvent = async (
   e: AutoLogEvent,
@@ -206,15 +193,12 @@ export const logEvent = async (
   categoryId: string | null,
   accountKind: string | null,
   opts: ProcessOptions,
-  /** Split repayment: the money is a friend paying back their share (linked to that share). */
-  extra?: { reimbursesShareId: string; note?: string }
 ) => {
   const id = e.expenseId || Crypto.randomUUID();
-  const note = extra?.note || e.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
+  const note = e.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
   const created = await createTransaction(
     {
       amount: e.amount as number, type, categoryId, note, paymentMode: paymentModeFor(accountKind, type), occurredAt: e.occurredAt,
-      ...(extra ? { transactionClass: 'reimbursement' as const, reimbursesShareId: extra.reimbursesShareId } : {}),
     },
     id
   );
@@ -373,13 +357,6 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
     if (match.merchant) e.merchant = match.merchant; // payment apps usually name the merchant better
   }
 
-  // ── A friend paying back a split? Ask once (never guess, never double count). ──
-  const splitAsk = await askIfSplitRepayment(e, parsed, opts);
-  if (splitAsk) {
-    if (takeOverRoot) await db.updateEvent(takeOverRoot.id, { status: 'merged', matchedId: e.id, reviewReason: null });
-    return { ...splitAsk, isNewAccount };
-  }
-
   // ── Confidence & type ──
   const pref = await db.getMerchantPref(e.merchant);
   let type: 'expense' | 'income' | null = null;
@@ -535,12 +512,6 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
     await db.insertEvent(e);
     await finishTakeOver();
     return { status: 'transfer', eventId: e.id };
-  }
-
-  const splitAskEmail = await askIfSplitRepayment(e, parsed, opts);
-  if (splitAskEmail) {
-    await finishTakeOver();
-    return { ...splitAskEmail, isNewAccount };
   }
 
   const pref = await db.getMerchantPref(e.merchant);

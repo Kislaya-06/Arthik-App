@@ -33,8 +33,6 @@ export interface CalculateExpenseFundingParams {
   deposits?: Array<{ amount: number | string; source?: 'income' | 'external'; date?: string }>;
   todayStr?: string;
   userCreatedAtStr?: string;
-  /** Friends' shares (id -> expense), so split repayments are placed back where they came from. */
-  shares?: Array<{ id: string; expense_id: string }>;
 }
 
 /**
@@ -56,7 +54,6 @@ export function calculateExpenseFunding({
   isAutoRenew = true,
   deposits = [],
   todayStr = format(new Date(), 'yyyy-MM-dd'),
-  shares = [],
 }: CalculateExpenseFundingParams): ExpenseFundingBreakdown {
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const isIncome = isIncomeTransaction(expense, expense.category_id ? catMap.get(expense.category_id) : undefined);
@@ -98,7 +95,6 @@ export function calculateExpenseFunding({
   const expenses = allExpenses.some((e) => e.id === expense.id) ? allExpenses : [...allExpenses, expense];
   const waterfall = computeWaterfallFromState({
     expenses,
-    shares,
     categories,
     deposits,
     isBudgetModeEnabled,

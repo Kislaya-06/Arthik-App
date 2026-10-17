@@ -9,15 +9,6 @@ export const getCurrentExpenses = (): Expense[] => {
 };
 
 let expensesLoadedGetter: (() => boolean) | null = null;
-let sharesGetter: (() => Array<{ id: string; expense_id: string }>) | null = null;
-
-/** Friends' shares (id -> expense), registered by sharesStore. Lets split repayments go back to their source. */
-export const registerSharesGetter = (getter: () => Array<{ id: string; expense_id: string }>) => {
-  sharesGetter = getter;
-};
-
-export const getCurrentShares = (): Array<{ id: string; expense_id: string }> =>
-  sharesGetter ? sharesGetter() : [];
 
 export const registerExpensesLoadedGetter = (getter: () => boolean) => {
   expensesLoadedGetter = getter;
@@ -33,4 +24,37 @@ export const areExpensesLoaded = (): boolean => {
     );
   }
   return false;
+};
+
+export type AddExpenseBridgeFn = (
+  amount: number,
+  categoryId: string | null | undefined,
+  note: string,
+  paymentMode: 'cash' | 'upi' | 'card',
+  date: string,
+  type?: 'expense' | 'income',
+  options?: {
+    id?: string;
+    transactionClass?: 'normal' | 'self_transfer';
+    transferRuleId?: string | null;
+  }
+) => Promise<void>;
+
+let addExpenseFn: AddExpenseBridgeFn | null = null;
+export const registerAddExpense = (fn: AddExpenseBridgeFn) => {
+  addExpenseFn = fn;
+};
+
+export const addExpenseFromBridge: AddExpenseBridgeFn = async (
+  amount,
+  categoryId,
+  note,
+  paymentMode,
+  date,
+  type,
+  options
+) => {
+  if (addExpenseFn) {
+    return addExpenseFn(amount, categoryId, note, paymentMode, date, type, options);
+  }
 };

@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
-import { useSharesStore } from '../store/sharesStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { computeWaterfallFromState, WaterfallResult } from '../lib/moneyWaterfall';
 
@@ -13,7 +12,6 @@ import { computeWaterfallFromState, WaterfallResult } from '../lib/moneyWaterfal
 export const useMoneyWaterfall = (): WaterfallResult => {
   const expenses = useExpenseStore((s) => s.expenses);
   const categories = useCategoryStore((s) => s.categories);
-  const shares = useSharesStore((s) => s.shares);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
@@ -26,7 +24,6 @@ export const useMoneyWaterfall = (): WaterfallResult => {
     () =>
       computeWaterfallFromState({
         expenses,
-        shares,
         categories,
         deposits: gullakDeposits,
         isBudgetModeEnabled,
@@ -37,6 +34,6 @@ export const useMoneyWaterfall = (): WaterfallResult => {
         records: dailyRecords,
         planChanges,
       }),
-    [expenses, shares, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges]
+    [expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges]
   );
 };

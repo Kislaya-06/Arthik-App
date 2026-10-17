@@ -21,14 +21,18 @@ import { format, parseISO, startOfWeek, startOfMonth, eachDayOfInterval } from '
 import { formatCurrency, round2 } from './formatters';
 import { DailyRecord, calculateCycleFinancials } from './budgetCalculations';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
-import { isCountedExpense, isCountedIncome, isEligibleReimbursement } from './transactionUtils';
-import { resolvePlanForDate, getPeriodBounds, carryForPeriod, dailyCarryForDate } from './budgetPeriods';
+import { resolvePlanForDate, getPeriodBounds, carryForPeriod, dailyCarryForDate, periodCarryForPeriod } from './budgetPeriods';
+import { isCountedIncome, isCountedExpense, PURE_DEFICIT_NOTE } from './transactionUtils';
 import { BudgetPlanChange } from '../types';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
 
 export interface ExpenseDateItem {
   expense_date?: string;
+  note?: string | null;
+  amount?: number | string;
+  type?: string;
+  category_id?: string | null;
 }
 
 export interface DepositDateItem {
@@ -62,8 +66,6 @@ export interface PeriodCalculationParams {
   dailyRecords: Record<string, DailyRecord>;
   totalIncome: number;
   totalSpent: number;
-  /** Confirmed friend reimbursements in the period. Real cash, NOT income. */
-  totalReimbursements?: number;
   filtered: ExpenseDateItem[];
   userCreatedAtStr?: string;
   referenceDate: Date;
@@ -140,7 +142,6 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     dailyRecords,
     totalIncome,
     totalSpent,
-    totalReimbursements = 0,
     filtered,
     userCreatedAtStr,
     referenceDate,
@@ -216,7 +217,10 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
         if (!countedCadencePools.has(key)) {
           countedCadencePools.add(key);
           const b = getPeriodBounds(cadencePlan.cadence, d);
-          periodBudget += (Number(cadencePlan.amount) || 0) + carryForPeriod(cadencePlan, b.start);
+          const pc = periodCarryForPeriod(planChanges, b.start);
+          // Only the part paid from carried money is left out; the part the user still has to add (gap) counts like any budget.
+          const carryCover = pc ? pc.funded : 0;
+          periodBudget += Math.max(0, (Number(cadencePlan.amount) || 0) + carryForPeriod(cadencePlan, b.start) - carryCover);
         }
         return;
       }
@@ -253,13 +257,19 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
 
   const daysCount = periodDates.length;
   const income = round2(totalIncome);
+  const autoDeficitSum = (filtered || []).reduce((sum, e: any) => {
+    if (typeof e?.note === 'string' && e.note.startsWith(PURE_DEFICIT_NOTE)) {
+      return sum + (Number(e.amount) || 0);
+    }
+    return sum;
+  }, 0);
+  const periodIncome = Math.max(0, round2(income - autoDeficitSum));
   const spent = round2(totalSpent);
 
   const budgetPool = round2(activeFilter === 'Daily' ? activeDailyBudget : periodBudget);
   const cycle = calculateCycleFinancials({
     scheduledBudget: budgetPool,
     eligibleIncome: income,
-    eligibleReimbursements: round2(totalReimbursements),
     carriedOverAmount: externalDepositsInPeriod,
     spent,
   });
@@ -344,7 +354,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     label = `${prefix} Budget Exceeded`;
     subtext = `Exceeded ${prefix.toLowerCase()} limit by ${formatCurrency(overAmount)}`;
     // Show the real income left (0 when it is used up), so the card never hides it.
-    if (income > 0 && params.funding) subtext += ` + ${formatCurrency(remainingPeriodIncome)} income`;
+    if (periodIncome > 0 && params.funding) subtext += ` + ${formatCurrency(remainingPeriodIncome)} income`;
   } else {
     label = activeFilter === 'Daily' ? 'Remaining to Spend' : `${prefix} Remaining`;
 
@@ -352,10 +362,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       const daysSuffix = isPeriodFilter ? ` (${daysCount} ${daysCount === 1 ? 'day' : 'days'})` : '';
       const parts: string[] = [];
       parts.push(budgetUsedUpIncomeLeft ? 'Budget used up' : `${formatCurrency(budgetPool)} budget${daysSuffix}`);
-      if (income > 0) parts.push(`${formatCurrency(remainingPeriodIncome)} income`);
-      if (totalReimbursements > 0 && activeFilter !== 'All') {
-        parts.push(`${formatCurrency(round2(totalReimbursements))} reimbursed`);
-      }
+      if (periodIncome > 0) parts.push(`${formatCurrency(remainingPeriodIncome)} income`);
       if (externalDepositsInPeriod > 0) parts.push(`${formatCurrency(remainingPeriodDeposits)} deposits to Gullak`);
       if (parts.length > 1) {
         subtext = parts.join(' + ');
@@ -364,12 +371,12 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
         subtext = `of ${formatCurrency(budgetPool)} ${poolDesc}`;
       }
     } else if (externalDepositsInPeriod > 0) {
-      if (income > 0) {
+      if (periodIncome > 0) {
         subtext = `${formatCurrency(remainingPeriodIncome)} income + ${formatCurrency(remainingPeriodDeposits)} deposits to Gullak`;
       } else {
         subtext = `${formatCurrency(remainingPeriodDeposits)} deposits to Gullak`;
       }
-    } else if (income > 0 && params.funding) {
+    } else if (periodIncome > 0 && params.funding) {
       subtext = `${formatCurrency(remainingPeriodIncome)} income`;
     }
   }
@@ -383,7 +390,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     displaySpent: spent,
     totalAvailable: available,
     isOverBudgetPeriod: isOver,
-    periodIncome: income,
+    periodIncome,
     periodSpent: spent,
     periodBudgetPool: budgetPool,
     isBudgetConfigured,
@@ -487,8 +494,6 @@ export const calculatePureHeroMetrics = (
 export interface ExpenseTotals {
   totalIncome: number;
   totalSpent: number;
-  /** Confirmed friend reimbursements (not income). */
-  totalReimbursements: number;
 }
 
 /**
@@ -501,20 +506,17 @@ export const calculateExpenseTotals = (
 ): ExpenseTotals => {
   let income = 0;
   let spent = 0;
-  let reimbursements = 0;
   for (let i = 0; i < expenses.length; i++) {
     const e = expenses[i];
     const cat = e.category_id ? catMap[e.category_id] : undefined;
     const amt = Number(e.amount) || 0;
-    if (isEligibleReimbursement(e)) reimbursements += amt;
-    else if (isCountedIncome(e, cat)) income += amt;
+    if (isCountedIncome(e, cat)) income += amt;
     else if (isCountedExpense(e, cat)) spent += amt;
     // self-transfers fall through: neither income nor expense
   }
   return {
     totalIncome: round2(income),
     totalSpent: round2(spent),
-    totalReimbursements: round2(reimbursements),
   };
 };
 
