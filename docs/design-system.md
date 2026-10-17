@@ -170,14 +170,21 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - Mandatory for all category icons, feature badges, and Gullak/PiggyBank symbols. Pre-configured gradient pairs.
 6. **`<RollingText />`**:
    - Vertical odometer-style digit rolling animations on amount updates and screen focus across Home, Savings, and Insights.
+7. **`<BouncyCategoryFilter />`**:
+   - Horizontal category filter pill bar for `HistoryScreen`.
+   - UI-thread `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withSpring`, `withTiming`, `withSequence`, `cancelAnimation`).
+   - Apple-calibrated critically damped spring slide (`stiffness: 447.4, damping: 49`) and dual-edge liquid morph (`stiffness: 664.6, damping: 49`).
+   - Synchronous touch-driven dispatch (`handleSelect` launches animation immediately on touch before `onChange` state updates).
+   - Zero-shift typography architecture: invisible bold placeholder (`hiddenPlaceholder` with `opacity: 0`, `FontFamily.bold`) locks tab width across medium/bold active weight transitions.
+   - Fixed outer container height `ControlHeight.standard` (`48px`), stadium pill geometry (`BorderRadius.pill`), with clipping `overflow: 'hidden'` preserving rounded ends.
 
 ---
 
 ## 10. Animation & Motion Physics
 
-- **Apple WWDC-Calibrated Springs:** Primary sliding elements use critically damped springs (`tension: 100, friction: 16`, zero overshoot).
-- **Dual-Edge Liquid Morph Animation:** Sliding filter pills use direction-aware stretch (`scaleX: 1.08–1.28`) and volume squish (`scaleY: 0.96–0.88`) during flight, snapping into resting stadium geometry upon arrival.
-- **Tactile Press Feedback:** Interactive items scale to `0.93–0.94` on `onPressIn`, springing back with `friction: 4` on `onPressOut`, accompanied by light haptics (`expo-haptics`).
+- **Apple WWDC-Calibrated Springs:** Primary sliding elements use critically damped springs (`tension: 100, friction: 16`, zero overshoot; Reanimated worklet equivalent `stiffness: 447.4, damping: 49, mass: 1`).
+- **Dual-Edge Liquid Morph Animation:** Sliding filter pills use direction-aware stretch (`scaleX: 1.08–1.28`, `maxStretch = 1 + distance * 0.05`), vertical squish (`scaleY: 0.96–0.88`, `minSquish = 1 - distance * 0.02`), and leading-edge translation (`maxLead = distance * 2 * direction`) during flight, snapping into resting stadium geometry upon arrival (`stiffness: 664.6, damping: 49, mass: 1`).
+- **Tactile Press Feedback:** Interactive items scale to `0.93–0.94` on `onPressIn`, springing back with `friction: 4` (`damping: 12, stiffness: 200`) on `onPressOut`, accompanied by light haptics (`expo-haptics`).
 - **Reduced Motion:** When `useReduceMotion()` is true, disable morphing and infinite ambient light animations.
 
 ---

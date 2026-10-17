@@ -261,16 +261,16 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 
 | Screen | Kya karti hai |
 |---|---|
-| `HomeScreen.tsx` | Hero card (All/Daily/Weekly/Monthly), chips, recent transactions. `calculatePeriodSummary` aur waterfall use karti hai |
+| `HomeScreen.tsx` | Hero card (All/Daily/Weekly/Monthly), chips, bounded top-5 recent transactions (`selectRecentTransactions`). `calculatePeriodSummary` aur waterfall use karti hai |
 | `ExpenseFormScreen.tsx` (1152 lines) | Kharch/income add aur edit. Logic `useExpenseForm.ts` mein. Spending guard yahin se chalta hai |
 | `ExpenseDetailScreen.tsx` | Ek transaction ki detail + funding card |
-| `HistoryScreen.tsx` | Transactions ki list aur filters |
+| `HistoryScreen.tsx` | Transactions ki list aur filters. Memoized `categoryFilterOptions`, tuned SectionList virtualization (`initialNumToRender: 12`, `maxToRenderPerBatch: 10`) |
 | `SavingsScreen.tsx` (+ `.styles.ts`) | Budget hub, Gullak, streaks, deposits. Components `components/savings/*` |
-| `InsightsScreen.tsx` + `screens/insights/` | Weekly/Monthly/Yearly insights. Data `useInsightsData.ts` (929 lines) |
+| `InsightsScreen.tsx` + `screens/insights/` | Weekly/Monthly/Yearly insights. Data `useInsightsData.ts` with memoized $O(1)$ category lookup map (`buildCategoryMap`) |
 | `ProfileScreen.tsx` | Profile, settings, budget pause, app lock, AutoLog entry |
 | `AuthScreen`, `ResetPasswordScreen`, `ProfileSetupScreen`, `OnboardingScreen`, `SplashScreen` | Login, password reset, shuruaati flow |
 | `NotificationsScreen.tsx` | In-app notification inbox |
-| `ManageCategoriesScreen`, `AddEditCategoryScreen`, `CategoryDetailScreen` | Categories ka kaam |
+| `ManageCategoriesScreen`, `AddEditCategoryScreen`, `CategoryDetailScreen` | Categories ka kaam. Fine-grained Zustand selectors se unrelated store churn isolation |
 | `GullakDepositDetailScreen.tsx` | Ek Gullak deposit ki detail |
 | `FaqScreen.tsx`, `UpdateRequiredScreen.tsx` | FAQ, zaroori update |
 | `screens/autolog/*` | AutoLog: Center (reset learned rules), Setup, Review (pending - swipe to delete & bulk clear), Accounts, Email, Info/Privacy, Intro, WelcomeBack |
@@ -282,7 +282,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 - **Home/Hero:** `BrandedHeroCard` (bada hero card), `RollingText` (digits ka animation), `ExpenseFundingCard`, `TransactionRow`, `PullToHistoryList` + `PullToHistoryIndicator`.
 - **Budget/Savings:** `BudgetEditModal`, `CadenceSwitchModal` (cadence switch + carry mode chunna), `PeriodRenewalModal`, `DepositGullakModal`, `StreakCalendarModal`, `StreakFlame`, `SavingsRecordRow`, `GullakDepositRow`, `VaultSpendingGuardModal`, `MoneyExplainerModal`, `components/savings/*`, `components/profile/PauseBudgetModal`.
 - **Charts:** `CashFlowChart`, `YearlyCashFlowChart`, `SpendingFlowChart`, `DonutChart`, `DualRingChart`, `AnimatedCategoryDonut`, `BreathingStripShell` + Weekly/Monthly/Yearly strips, `YearlySavingsMilestoneCard`, `BehavioralInsightRow`.
-- **Form:** `BouncyTypeToggle`, `BouncyPaymentToggle`, `BouncyCategoryFilter`, `KeyButton`, `ui/KeypadGrid`, `CustomDatePickerModal`, `transfer/TransferExtras` (self-transfer switch), `transfer/TransferDetailCard`.
+- **Form:** `BouncyTypeToggle`, `BouncyPaymentToggle`, `BouncyCategoryFilter` (Reanimated UI-thread worklet slider, touch dispatch, zero-shift typography), `KeyButton`, `ui/KeypadGrid`, `CustomDatePickerModal`, `transfer/TransferExtras` (self-transfer switch), `transfer/TransferDetailCard`.
 - **App-wide:** `BottomNavBar`, `AmbientBackground`, `AppLockOverlay`, `OfflineBanner`, `SyncFailedBanner`, `OtaUpdateModal`, `ErrorBoundary`, `AppRefreshControl`, `RefreshScrollShell`.
 - **`components/ui/`:** design-system ke chhote tukde: `AppButton`, `AppInput`, `AmountText`, `SegmentedControl`, `BottomSheetModal`, `StatusBadge`, `ItemRowShell`, `AuthFormField`, `AuthMessageBanner`.
 - **`components/autolog/`:** `ReviewSheet` (pending review ka sawal-jawab), `WhyLoggedCard`, `AutoLogHomeBanner`, `AutoLogGate`, `EmailSourceInfo`, `AutoLogUi`.

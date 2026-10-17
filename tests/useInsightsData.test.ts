@@ -7,11 +7,13 @@ vi.mock('react', async () => {
 });
 
 import { renderHook } from './helpers/hookRuntime';
-import { useInsightsData, UseInsightsDataParams } from '../src/screens/insights/useInsightsData';
+import { useInsightsData, UseInsightsDataParams, buildCategoryMap } from '../src/screens/insights/useInsightsData';
 import { Expense } from '../src/store/expenseStore';
 import { Category } from '../src/store/categoryStore';
 import { DailyRecord, GullakDeposit } from '../src/store/dailyBudgetStore';
 import { BudgetPeriodRecord } from '../src/types';
+import { parseISO, isWithinInterval } from 'date-fns';
+import { isIncomeTransaction, isExcludedFromTotals } from '../src/lib/transactionUtils';
 
 
 describe('useInsightsData (pure analytics and derived calculations)', () => {
@@ -224,5 +226,195 @@ describe('useInsightsData (pure analytics and derived calculations)', () => {
     expect(result.current.budgetHealth.remaining).toBe(2750);
     expect(result.current.activeBudgetPool?.remaining).toBe(2750);
     expect(result.current.activeBudgetPool?.totalPool).toBe(3500);
+  });
+
+  describe('Category Map & Edge Cases (Phase A.3)', () => {
+    it('buildCategoryMap handles known categories, empty array, duplicates, and malformed items', () => {
+      const catA: Category = { id: 'c1', name: 'Food', color: '#FF8A65', icon: 'utensils', user_id: 'u1', is_default: true };
+      const catB: Category = { id: 'c2', name: 'Commute', color: '#4DB6AC', icon: 'bus', user_id: 'u1', is_default: true };
+      const catADup: Category = { id: 'c1', name: 'Food Duplicate', color: '#000000', icon: 'zap', user_id: 'u1', is_default: false };
+
+      // Normal array
+      const map1 = buildCategoryMap([catA, catB]);
+      expect(map1.size).toBe(2);
+      expect(map1.get('c1')).toBe(catA);
+      expect(map1.get('c2')).toBe(catB);
+      expect(map1.get('unknown')).toBeUndefined();
+
+      // Empty array
+      const map2 = buildCategoryMap([]);
+      expect(map2.size).toBe(0);
+      expect(map2.get('c1')).toBeUndefined();
+
+      // Preserves first entry on duplicate ID (exact match with Array.find)
+      const map3 = buildCategoryMap([catA, catADup]);
+      expect(map3.size).toBe(1);
+      expect(map3.get('c1')?.name).toBe('Food');
+
+      // Handles malformed / falsy items gracefully
+      const map4 = buildCategoryMap([null as any, undefined as any, { id: '' } as any, catA]);
+      expect(map4.size).toBe(1);
+      expect(map4.get('c1')).toBe(catA);
+    });
+
+    it('handles missing, null, and unknown category IDs in useInsightsData', () => {
+      const customExpenses: Expense[] = [
+        { id: 'e1', amount: 100, category_id: null, expense_date: '2026-10-14T10:00:00Z', note: 'No Cat 1', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+        { id: 'e2', amount: 200, category_id: undefined, expense_date: '2026-10-14T11:00:00Z', note: 'No Cat 2', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+        { id: 'e3', amount: 300, category_id: 'c_ghost', expense_date: '2026-10-14T12:00:00Z', note: 'Ghost Cat', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+        { id: 'e4', amount: 400, category_id: 'c1', expense_date: '2026-10-14T13:00:00Z', note: 'Known Cat', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+      ];
+
+      const { result } = renderHook(() =>
+        useInsightsData({
+          ...defaultParams,
+          expenses: customExpenses,
+          period: 'Weekly',
+          offset: 0,
+        })
+      );
+
+      // null and undefined category_ids grouped under 'others'
+      expect(result.current.categoryTotals['others']).toBe(300);
+      // 'c_ghost' unknown category ID retained as its key
+      expect(result.current.categoryTotals['c_ghost']).toBe(300);
+      // 'c1' known category ID
+      expect(result.current.categoryTotals['c1']).toBe(400);
+
+      // Verify sortedCategories names
+      const othersItem = result.current.sortedCategories.find((c) => c.id === 'others');
+      expect(othersItem).toBeDefined();
+      expect(othersItem?.name).toBe('Others');
+      expect(othersItem?.amount).toBe(300);
+
+      const ghostItem = result.current.sortedCategories.find((c) => c.id === 'c_ghost');
+      expect(ghostItem).toBeDefined();
+      expect(ghostItem?.name).toBe('Unknown');
+      expect(ghostItem?.amount).toBe(300);
+
+      const knownItem = result.current.sortedCategories.find((c) => c.id === 'c1');
+      expect(knownItem).toBeDefined();
+      expect(knownItem?.name).toBe('Food');
+      expect(knownItem?.amount).toBe(400);
+    });
+
+    it('handles completely empty category collection without errors', () => {
+      const customExpenses: Expense[] = [
+        { id: 'e1', amount: 150, category_id: 'c1', expense_date: '2026-10-14T10:00:00Z', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+        { id: 'e2', amount: 250, category_id: null, expense_date: '2026-10-14T11:00:00Z', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+      ];
+
+      const { result } = renderHook(() =>
+        useInsightsData({
+          ...defaultParams,
+          expenses: customExpenses,
+          categories: [],
+          period: 'Weekly',
+          offset: 0,
+        })
+      );
+
+      expect(result.current.currentTotal).toBe(400);
+      expect(result.current.categoryTotals).toEqual({ c1: 150, others: 250 });
+      expect(result.current.sortedCategories[0]).toEqual({
+        id: 'others',
+        name: 'Others',
+        amount: 250,
+        percentage: 63,
+        color: expect.any(String),
+      });
+      expect(result.current.sortedCategories[1]).toEqual({
+        id: 'c1',
+        name: 'Unknown',
+        amount: 150,
+        percentage: 38,
+        color: expect.any(String),
+      });
+    });
+
+    it('aggregates multiple transactions in the same category', () => {
+      const customExpenses: Expense[] = [
+        { id: 'e1', amount: 100, category_id: 'c1', expense_date: '2026-10-14T09:00:00Z', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+        { id: 'e2', amount: 200, category_id: 'c1', expense_date: '2026-10-14T10:00:00Z', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+        { id: 'e3', amount: 300, category_id: 'c1', expense_date: '2026-10-14T11:00:00Z', user_id: 'u1', type: 'expense', payment_mode: 'cash' },
+      ];
+
+      const { result } = renderHook(() =>
+        useInsightsData({
+          ...defaultParams,
+          expenses: customExpenses,
+          period: 'Weekly',
+          offset: 0,
+        })
+      );
+
+      expect(result.current.categoryTotals['c1']).toBe(600);
+      expect(result.current.currentTotal).toBe(600);
+      expect(result.current.sortedCategories).toHaveLength(1);
+      expect(result.current.sortedCategories[0].amount).toBe(600);
+      expect(result.current.sortedCategories[0].percentage).toBe(100);
+      expect(result.current.sortedCategories[0].name).toBe('Food');
+    });
+
+    it('produces valid outputs across Weekly, Monthly, and Yearly views', () => {
+      for (const p of ['Weekly', 'Monthly', 'Yearly'] as const) {
+        const { result: currentRes } = renderHook(() =>
+          useInsightsData({
+            ...defaultParams,
+            period: p,
+            offset: 0,
+          })
+        );
+
+        expect(currentRes.current.currentTotal).toBeGreaterThan(0);
+        expect(Object.keys(currentRes.current.categoryTotals).length).toBeGreaterThan(0);
+        expect(currentRes.current.sortedCategories.length).toBeGreaterThan(0);
+
+        // Every category in categoryTotals is present in sortedCategories
+        for (const [catId, total] of Object.entries(currentRes.current.categoryTotals)) {
+          const item = currentRes.current.sortedCategories.find((c) => c.id === catId);
+          expect(item).toBeDefined();
+          expect(item?.amount).toBe(total);
+        }
+      }
+    });
+
+    it('proves 100% output equivalence against legacy Array.find baseline across diverse datasets', () => {
+      function legacyAggregate(
+        exps: Expense[],
+        cats: Category[],
+        interval: { start: Date; end: Date }
+      ) {
+        let curr = 0;
+        const catTotals: Record<string, number> = {};
+        for (const exp of exps) {
+          const cat = exp.category_id ? cats.find((c) => c.id === exp.category_id) : undefined;
+          if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+          const cleanDate = exp.expense_date?.split('T')[0]?.trim();
+          if (!cleanDate) continue;
+          const date = parseISO(cleanDate);
+          if (isWithinInterval(date, interval)) {
+            curr += exp.amount;
+            const key = exp.category_id || 'others';
+            catTotals[key] = (catTotals[key] || 0) + exp.amount;
+          }
+        }
+        return { currentTotal: curr, categoryTotals: catTotals };
+      }
+
+      for (const p of ['Weekly', 'Monthly', 'Yearly'] as const) {
+        const { result } = renderHook(() =>
+          useInsightsData({
+            ...defaultParams,
+            period: p,
+            offset: 0,
+          })
+        );
+
+        const legacy = legacyAggregate(expenses, categories, result.current.currentInterval);
+        expect(result.current.currentTotal).toBe(legacy.currentTotal);
+        expect(result.current.categoryTotals).toEqual(legacy.categoryTotals);
+      }
+    });
   });
 });

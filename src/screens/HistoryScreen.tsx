@@ -132,6 +132,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     return map;
   }, [categories]);
 
+  const categoryFilterOptions = useMemo(
+    () => [{ id: null, name: 'All' }, ...categories],
+    [categories]
+  );
+
   const filteredAndGroupedExpenses = useMemo<Section[]>(() => {
     let filteredExpenses = expenses;
     let filteredDeposits = (!isBudgetModeEnabled || selectedCategoryId) ? [] : gullakDeposits;
@@ -469,7 +474,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Filter Pills — bouncy sliding pill */}
         <View style={[styles.filterWrapper, isSearchVisible && styles.filterWrapperSearchOpen]}>
           <BouncyCategoryFilter
-            options={[{ id: null, name: 'All' }, ...categories]}
+            options={categoryFilterOptions}
             value={selectedCategoryId}
             onChange={setSelectedCategoryId}
           />
@@ -506,8 +511,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           stickySectionHeadersEnabled={false}
           onScroll={handleScroll}
           scrollEventThrottle={32}
-          initialNumToRender={50}
-          maxToRenderPerBatch={30}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
           windowSize={21}
           removeClippedSubviews={false}
           updateCellsBatchingPeriod={50}

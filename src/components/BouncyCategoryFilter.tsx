@@ -1,16 +1,23 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  Animated,
   ScrollView,
-  Easing,
-  useAnimatedValue,
+  LayoutChangeEvent,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  Easing,
+  cancelAnimation,
+} from 'react-native-reanimated';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors } from '../config/theme';
 
 const PILL_PADDING = 4; // inset between outer pill edge and sliding highlight
 const TOGGLE_HEIGHT = ControlHeight.standard;
@@ -26,135 +33,224 @@ interface Props {
   onChange: (id: string | null) => void;
 }
 
-export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange }) => {
+interface FilterItemProps {
+  opt: FilterOption;
+  isActive: boolean;
+  colors: ThemeColors;
+  onLayout: (e: LayoutChangeEvent) => void;
+  onPress: () => void;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+const FilterItem = React.memo<FilterItemProps>(({
+  opt,
+  isActive,
+  colors,
+  onLayout,
+  onPress,
+  isFirst,
+  isLast,
+}) => {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.94, { damping: 12, stiffness: 200 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  };
+
+  return (
+    <Pressable
+      onLayout={onLayout}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+      style={styles.item}
+      pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+      hitSlop={{
+        top: 8,
+        bottom: 8,
+        left: isFirst ? 16 : 2,
+        right: isLast ? 16 : 2,
+      }}
+    >
+      <Animated.View style={animStyle}>
+        <View style={styles.labelWrapper}>
+          {/* Invisible bold placeholder reserves stable width to eliminate onLayout font-shift churn */}
+          <Text
+            numberOfLines={1}
+            style={[styles.label, styles.hiddenPlaceholder, { fontFamily: FontFamily.bold }]}
+            aria-hidden
+          >
+            {opt.name}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.label,
+              styles.visibleLabel,
+              {
+                color: isActive
+                  ? colors.forestGreen
+                  : colors.textSecondary,
+                fontFamily: isActive ? FontFamily.bold : FontFamily.medium,
+              },
+            ]}
+          >
+            {opt.name}
+          </Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+});
+
+export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChange }) => {
   const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
 
   // Content-space x + width for each option, keyed by id ?? 'all'
   const [layouts, setLayouts] = useState<Record<string, { x: number; width: number }>>({});
 
-  // Animated sliding pill position & size (layout-thread, not native, because width can't use ND)
-  const pillLeft = useAnimatedValue(PILL_PADDING);
-  const pillWidth = useAnimatedValue(0);
-  const stretchAnim = useAnimatedValue(1);
-  const squishAnim = useAnimatedValue(1);
-  const leadAnim = useAnimatedValue(0);
-
-  // Per-item press-scale (native driver OK)
-  const scales = useRef<Record<string, Animated.Value>>({}).current;
-  options.forEach((o) => {
-    const k = o.id ?? 'all';
-    if (!scales[k]) scales[k] = new Animated.Value(1);
-  });
+  // UI-thread Reanimated shared values for sliding highlight and dual-edge liquid morph
+  const pillLeft = useSharedValue(PILL_PADDING);
+  const pillWidth = useSharedValue(0);
+  const stretchAnim = useSharedValue(1);
+  const squishAnim = useSharedValue(1);
+  const leadAnim = useSharedValue(0);
 
   // Track whether we've done the first no-animation snap
   const initialized = useRef(false);
   const prevKey = useRef<string | null>(null);
+  const lastActiveLayout = useRef<{ x: number; width: number } | null>(null);
 
   const activeKey = value ?? 'all';
+
+  const animateTo = useCallback((targetKey: string, oldKey: string | null) => {
+    const targetLayout = layouts[targetKey];
+    if (!targetLayout) return;
+
+    const prevIdx = oldKey ? options.findIndex((o) => (o.id ?? 'all') === oldKey) : -1;
+    const currIdx = options.findIndex((o) => (o.id ?? 'all') === targetKey);
+    const distance = prevIdx >= 0 ? Math.max(1, Math.abs(currIdx - prevIdx)) : 1;
+    const direction = prevIdx >= 0 && currIdx >= prevIdx ? 1 : -1;
+
+    prevKey.current = targetKey;
+    lastActiveLayout.current = { x: targetLayout.x, width: targetLayout.width };
+
+    // 1. Primary slide: Apple-calibrated critically damped spring on native UI thread
+    // Exact physical equivalent of React Native Origami tension: 100, friction: 16
+    // stiffness = 447.4, damping = 49 (mass: 1)
+    cancelAnimation(pillLeft);
+    cancelAnimation(pillWidth);
+    pillLeft.value = withSpring(targetLayout.x, {
+      stiffness: 447.4,
+      damping: 49,
+      mass: 1,
+    });
+    pillWidth.value = withSpring(targetLayout.width, {
+      stiffness: 447.4,
+      damping: 49,
+      mass: 1,
+    });
+
+    // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
+    if (distance > 0) {
+      const maxStretch = Math.min(1.14, 1 + distance * 0.05);
+      const minSquish = Math.max(0.95, 1 - distance * 0.02);
+      const maxLead = Math.min(6, distance * 2) * direction;
+      const launchDuration = Math.min(95, 50 + distance * 15);
+
+      cancelAnimation(stretchAnim);
+      cancelAnimation(squishAnim);
+      cancelAnimation(leadAnim);
+
+      // Exact physical equivalent of React Native Origami tension: 160, friction: 16
+      // stiffness = 664.6, damping = 49 (mass: 1)
+      stretchAnim.value = withSequence(
+        withTiming(maxStretch, {
+          duration: launchDuration,
+          easing: Easing.out(Easing.quad),
+        }),
+        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
+      );
+
+      squishAnim.value = withSequence(
+        withTiming(minSquish, {
+          duration: launchDuration,
+          easing: Easing.out(Easing.quad),
+        }),
+        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
+      );
+
+      leadAnim.value = withSequence(
+        withTiming(maxLead, {
+          duration: launchDuration,
+          easing: Easing.out(Easing.quad),
+        }),
+        withSpring(0, { stiffness: 664.6, damping: 49, mass: 1 })
+      );
+    }
+  }, [layouts, options, pillLeft, pillWidth, stretchAnim, squishAnim, leadAnim]);
+
+  // Immediate touch-driven animation start on UI thread:
+  // Starts worklet animation on touch before parent re-renders/filters heavy SectionList data
+  const handleSelect = useCallback((id: string | null) => {
+    const targetKey = id ?? 'all';
+    if (targetKey !== prevKey.current && layouts[targetKey]) {
+      animateTo(targetKey, prevKey.current);
+    }
+    onChange(id);
+  }, [animateTo, layouts, onChange]);
 
   useEffect(() => {
     const activeLayout = layouts[activeKey];
     if (!activeLayout) return;
 
     if (!initialized.current) {
-      // First layout measurement — snap immediately, no animation
+      // First layout measurement — snap immediately on UI thread, no animation
       initialized.current = true;
       prevKey.current = activeKey;
-      pillLeft.setValue(activeLayout.x);
-      pillWidth.setValue(activeLayout.width);
-      stretchAnim.setValue(1);
-      squishAnim.setValue(1);
-      leadAnim.setValue(0);
+      lastActiveLayout.current = { x: activeLayout.x, width: activeLayout.width };
+      pillLeft.value = activeLayout.x;
+      pillWidth.value = activeLayout.width;
+      stretchAnim.value = 1;
+      squishAnim.value = 1;
+      leadAnim.value = 0;
       return;
     }
 
     if (prevKey.current !== activeKey) {
-      const prevIdx = options.findIndex((o) => (o.id ?? 'all') === prevKey.current);
-      const currIdx = options.findIndex((o) => (o.id ?? 'all') === activeKey);
-      const distance = Math.max(1, Math.abs(currIdx - prevIdx));
-      const direction = currIdx >= prevIdx ? 1 : -1;
-      prevKey.current = activeKey;
-
-      // 1. Primary slide: Apple-calibrated critically damped spring (zero overshoot)
-      pillLeft.stopAnimation();
-      pillWidth.stopAnimation();
-      Animated.parallel([
-        Animated.spring(pillLeft, {
-          toValue: activeLayout.x,
-          tension: 100,
-          friction: 16,
-          useNativeDriver: false,
-        }),
-        Animated.spring(pillWidth, {
-          toValue: activeLayout.width,
-          tension: 100,
-          friction: 16,
-          useNativeDriver: false,
-        }),
-      ]).start();
-
-      // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
-      if (distance > 0) {
-        const maxStretch = Math.min(1.14, 1 + distance * 0.05);
-        const minSquish = Math.max(0.95, 1 - distance * 0.02);
-        const maxLead = Math.min(6, distance * 2) * direction;
-        const launchDuration = Math.min(95, 50 + distance * 15);
-
-        stretchAnim.stopAnimation();
-        squishAnim.stopAnimation();
-        leadAnim.stopAnimation();
-
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(stretchAnim, {
-              toValue: maxStretch,
-              duration: launchDuration,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: false,
-            }),
-            Animated.spring(stretchAnim, {
-              toValue: 1,
-              tension: 160,
-              friction: 16,
-              useNativeDriver: false,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(squishAnim, {
-              toValue: minSquish,
-              duration: launchDuration,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: false,
-            }),
-            Animated.spring(squishAnim, {
-              toValue: 1,
-              tension: 160,
-              friction: 16,
-              useNativeDriver: false,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(leadAnim, {
-              toValue: maxLead,
-              duration: launchDuration,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: false,
-            }),
-            Animated.spring(leadAnim, {
-              toValue: 0,
-              tension: 160,
-              friction: 16,
-              useNativeDriver: false,
-            }),
-          ]),
-        ]).start();
-      }
-
-      // Auto-scrolling on click is deliberately removed per user request.
-      // The user scrolls manually; the pill glides to the selected item with liquid morph.
+      // External value change not triggered by direct handleSelect tap
+      animateTo(activeKey, prevKey.current);
+    } else if (
+      lastActiveLayout.current &&
+      (lastActiveLayout.current.x !== activeLayout.x ||
+        lastActiveLayout.current.width !== activeLayout.width)
+    ) {
+      // Genuine layout coordinate change (e.g. initial options load or window resize)
+      lastActiveLayout.current = { x: activeLayout.x, width: activeLayout.width };
+      pillLeft.value = activeLayout.x;
+      pillWidth.value = activeLayout.width;
     }
-  }, [activeKey, layouts, options, pillLeft, pillWidth, stretchAnim, squishAnim, leadAnim]);
+  }, [activeKey, animateTo, layouts, pillLeft, pillWidth, stretchAnim, squishAnim, leadAnim]);
+
+  const animatedHighlightStyle = useAnimatedStyle(() => ({
+    left: pillLeft.value,
+    width: pillWidth.value,
+    transform: [
+      { translateX: leadAnim.value },
+      { scaleX: stretchAnim.value },
+      { scaleY: squishAnim.value },
+    ],
+  }));
 
   return (
     // ── Outer pill: FIXED visual shape, both ends rounded, clips its children ──
@@ -179,16 +275,8 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
         <Animated.View
           style={[
             styles.slidingHighlight,
-            {
-              backgroundColor: colors.mintGreen,
-              left: pillLeft,
-              width: pillWidth,
-              transform: [
-                { translateX: leadAnim },
-                { scaleX: stretchAnim },
-                { scaleY: squishAnim },
-              ],
-            },
+            { backgroundColor: colors.mintGreen },
+            animatedHighlightStyle,
           ]}
         />
 
@@ -196,11 +284,16 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
         {options.map((opt, idx) => {
           const key = opt.id ?? 'all';
           const isActive = value === opt.id;
-          const scale = scales[key];
 
           return (
-            <Pressable
+            <FilterItem
               key={key}
+              opt={opt}
+              isActive={isActive}
+              colors={colors}
+              isFirst={idx === 0}
+              isLast={idx === options.length - 1}
+              onPress={() => handleSelect(opt.id)}
               onLayout={(e) => {
                 const { x, width } = e.nativeEvent.layout;
                 setLayouts((prev) => {
@@ -208,45 +301,13 @@ export const BouncyCategoryFilter: React.FC<Props> = ({ options, value, onChange
                   return { ...prev, [key]: { x, width } };
                 });
               }}
-              onPressIn={() =>
-                Animated.spring(scale, { toValue: 0.94, useNativeDriver: true }).start()
-              }
-              onPressOut={() =>
-                Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }).start()
-              }
-              onPress={() => onChange(opt.id)}
-              style={styles.item}
-              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              hitSlop={{
-                top: 8,
-                bottom: 8,
-                left: idx === 0 ? 16 : 2,
-                right: idx === options.length - 1 ? 16 : 2,
-              }}
-            >
-              <Animated.View style={{ transform: [{ scale }] }}>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.label,
-                    {
-                      color: isActive
-                        ? colors.forestGreen
-                        : colors.textSecondary,
-                      fontFamily: isActive ? FontFamily.bold : FontFamily.medium,
-                    },
-                  ]}
-                >
-                  {opt.name}
-                </Text>
-              </Animated.View>
-            </Pressable>
+            />
           );
         })}
       </ScrollView>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   pill: {
@@ -278,6 +339,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
+  },
+  labelWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hiddenPlaceholder: {
+    opacity: 0,
+  },
+  visibleLabel: {
+    position: 'absolute',
+    textAlign: 'center',
   },
   label: {
     fontSize: FontSize.bodySmall,

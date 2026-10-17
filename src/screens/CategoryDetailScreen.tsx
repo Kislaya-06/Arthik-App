@@ -27,8 +27,10 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
   const { categoryId, startDate, endDate, dateRangeLabel } = route.params;
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  const { categories, fetchCategories } = useCategoryStore();
-  const { expenses, fetchExpenses } = useExpenseStore();
+  const categories = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
+  const expenses = useExpenseStore((s) => s.expenses);
+  const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
 
   useFocusEffect(
     useCallback(() => {

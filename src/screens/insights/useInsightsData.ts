@@ -73,6 +73,20 @@ export interface UseInsightsDataParams {
   user?: { created_at?: string } | null;
 }
 
+/**
+ * Builds an O(1) Map from category ID to Category object.
+ * Preserves the first encountered entry per ID in case of duplicate IDs.
+ */
+export function buildCategoryMap(categories: Category[]): Map<string, Category> {
+  const map = new Map<string, Category>();
+  for (const cat of categories) {
+    if (cat && cat.id && !map.has(cat.id)) {
+      map.set(cat.id, cat);
+    }
+  }
+  return map;
+}
+
 export function useInsightsData({
   period,
   offset,
@@ -90,6 +104,10 @@ export function useInsightsData({
   focusTime = Date.now(),
   user,
 }: UseInsightsDataParams) {
+  // ─── Category Lookup Map ───────────────────────────────────────────────────
+  // O(1) category lookup map to avoid repeated O(C) array scans per transaction
+  const categoryMap = useMemo(() => buildCategoryMap(categories), [categories]);
+
   // ─── Earliest expense date bound ───────────────────────────────────────────
   // Scans non-income expenses to find the earliest recorded transaction date.
   // This ensures period navigation and pagination dots only exist for periods with real user activity.
@@ -99,14 +117,14 @@ export function useInsightsData({
       if (!exp.expense_date) continue;
       const cleanDate = exp.expense_date.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       if (!earliest || cleanDate < earliest) {
         earliest = cleanDate;
       }
     }
     return earliest ? parseISO(earliest) : null;
-  }, [expenses, categories]);
+  }, [expenses, categoryMap]);
 
   const minOff = useMemo(
     () => computeMinOffset(period, earliestExpenseDate),
@@ -157,7 +175,7 @@ export function useInsightsData({
     const catTotals: Record<string, number> = {};
 
     for (const exp of expenses) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
@@ -172,12 +190,12 @@ export function useInsightsData({
     }
 
     return { currentTotal: curr, categoryTotals: catTotals };
-  }, [expenses, categories, currentInterval]);
+  }, [expenses, categoryMap, currentInterval]);
 
   const sortedCategories = useMemo(() => {
     return Object.keys(categoryTotals)
       .map((catId, index) => {
-        const cat = categories.find((c) => c.id === catId);
+        const cat = categoryMap.get(catId);
         return {
           id: catId,
           name: cat?.name || (catId === 'others' ? 'Others' : 'Unknown'),
@@ -187,7 +205,7 @@ export function useInsightsData({
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  }, [categoryTotals, categories, currentTotal]);
+  }, [categoryTotals, categoryMap, currentTotal]);
 
   const topCategory = sortedCategories[0] ?? null;
 
@@ -216,7 +234,7 @@ export function useInsightsData({
     });
 
     for (const exp of expenses) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
@@ -232,7 +250,7 @@ export function useInsightsData({
 
     const maxDay = data.reduce((max, d) => (d.amount > max.amount ? d : max), data[0]);
     return { weeklyData: data, maxWeekDay: maxDay.amount > 0 ? maxDay : null };
-  }, [expenses, categories, period, offset]);
+  }, [expenses, categoryMap, period, offset]);
 
   // Monthly week-by-week cash flow (Money In vs Money Out)
   const monthlyCashFlowData = useMemo(() => {
@@ -243,7 +261,7 @@ export function useInsightsData({
       expenses,
       gullakDeposits,
       (exp) => {
-        const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+        const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
         return isCountedIncome(exp, cat);
       },
       user?.created_at,
@@ -260,7 +278,7 @@ export function useInsightsData({
     currentInterval,
     expenses,
     gullakDeposits,
-    categories,
+    categoryMap,
     user?.created_at,
     isBudgetModeEnabled,
     budgetCadence,
@@ -455,14 +473,14 @@ export function useInsightsData({
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
-        const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+        const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
         if (isCountedIncome(exp, cat)) {
           income += exp.amount;
         }
       }
     }
     return round2(income);
-  }, [expenses, categories, currentInterval, period]);
+  }, [expenses, categoryMap, currentInterval, period]);
 
   // ─── Active Spending Pool (Estimated Budget + Added Inflow) ───────────────────
   const activeBudgetPool = useMemo(() => {
@@ -531,7 +549,7 @@ export function useInsightsData({
   const weekTransactionCount = useMemo(() => {
     let count = 0;
     for (const exp of expenses) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -540,7 +558,7 @@ export function useInsightsData({
       }
     }
     return count;
-  }, [expenses, categories, currentInterval]);
+  }, [expenses, categoryMap, currentInterval]);
 
   const peakDayName = maxWeekDay?.day || 'Mon';
 
@@ -634,7 +652,7 @@ export function useInsightsData({
     if (period !== 'Monthly') return 0;
     let count = 0;
     for (const exp of expenses) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -643,7 +661,7 @@ export function useInsightsData({
       }
     }
     return count;
-  }, [period, expenses, categories, currentInterval]);
+  }, [period, expenses, categoryMap, currentInterval]);
 
   const smartMonthlyTakeaway = useMemo(() => {
     const isOver = activeBudgetPool && period === 'Monthly' ? activeBudgetPool.isOver : monthlyBudgetHealth.isOverBudget;
@@ -839,7 +857,7 @@ export function useInsightsData({
     if (period !== 'Yearly') return 0;
     let count = 0;
     for (const exp of expenses) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
       if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -848,7 +866,7 @@ export function useInsightsData({
       }
     }
     return count;
-  }, [period, expenses, categories, currentInterval]);
+  }, [period, expenses, categoryMap, currentInterval]);
 
   const gullakDepositsInYearCount = useMemo(() => {
     if (period !== 'Yearly') return 0;
