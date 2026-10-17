@@ -23,11 +23,14 @@ export const styles = StyleSheet.create({
     lineHeight: LineHeight.titleLarge,
   },
 
-  // Profile Card
+  // Profile Card (Executive Horizontal Row)
   profileCard: {
     borderRadius: BorderRadius.card,
     marginTop: 0,
-    padding: Spacing.gutter,
+    minHeight: 80,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.surface,
+    flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -39,45 +42,50 @@ export const styles = StyleSheet.create({
     position: 'relative',
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40, // Circle geometry: width / 2
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: FontSize.titleLarge,
+    fontFamily: FontFamily.bold,
+    fontSize: 24,
+    lineHeight: 28,
     color: '#1A2B4C',
   },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16, // Circle geometry: width / 2
-    alignItems: 'center',
+  profileInfo: {
+    flex: 1,
+    marginLeft: 14,
+    marginRight: 10,
     justifyContent: 'center',
-    borderWidth: 2,
   },
   fullName: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    marginTop: Spacing.block,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
+  },
+  accountSubtitle: {
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
+    marginTop: 2,
   },
   email: {
-    fontSize: FontSize.bodySmall,
-    marginTop: Spacing.micro,
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
+    marginTop: 2,
   },
   editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.gutter,
-    paddingVertical: 10,
-    marginTop: Spacing.block,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   editProfileText: {
-    fontSize: FontSize.bodySmall,
+    fontSize: FontSize.caption,
   },
 
   // Settings Card
@@ -214,6 +222,37 @@ export const styles = StyleSheet.create({
     fontSize: FontSize.body,
     borderWidth: 1,
   },
+  modalCounterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.element,
+    minHeight: 18,
+  },
+  modalErrorText: {
+    fontSize: FontSize.caption,
+    flex: 1,
+    marginRight: Spacing.element,
+  },
+  modalCharCount: {
+    fontSize: FontSize.caption,
+  },
+  modalEmailSection: {
+    marginTop: Spacing.element,
+  },
+  modalEmailBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    paddingHorizontal: Spacing.block,
+    paddingVertical: Spacing.row,
+    borderWidth: 1,
+  },
+  modalEmailText: {
+    flex: 1,
+    fontSize: FontSize.bodySmall,
+  },
   modalActions: {
     flexDirection: 'row',
     gap: Spacing.group,
@@ -281,22 +320,57 @@ export const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     marginTop: Spacing.micro,
   },
-  budgetModeRow: {
+
+  // Smart Budget & Gullak Card (Executive Horizontal Row matching Profile Card)
+  budgetCard: {
+    borderRadius: BorderRadius.card,
+    marginTop: Spacing.surface,
+    minHeight: 80,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.block,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  budgetModeTextWrap: {
+  budgetPressableArea: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     marginRight: Spacing.element,
   },
+  budgetIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  budgetInfo: {
+    flex: 1,
+    marginLeft: 14,
+    marginRight: 8,
+    justifyContent: 'center',
+  },
+  budgetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   budgetModeTitleText: {
-    fontSize: FontSize.body,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
+    flexShrink: 1,
+  },
+  budgetHelpBadge: {
+    marginLeft: 5,
   },
   budgetModeSubtitle: {
     fontSize: FontSize.bodySmall,
-    marginTop: Spacing.nano,
+    lineHeight: LineHeight.bodySmall,
+    marginTop: 3,
   },
   pauseIconCircle: {
     width: 48,

@@ -21,6 +21,12 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { AuthFormField } from '../components/ui/AuthFormField';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import {
+  clampNameInput,
+  calculateNameLength,
+  validateProfileName,
+  MAX_PROFILE_NAME_LENGTH,
+} from '../lib/profileUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProfileSetup'>;
 
@@ -62,6 +68,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [firstNameError, setFirstNameError] = useState(false);
+  const [nameLimitError, setNameLimitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -69,13 +76,42 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
     if (__DEV__) console.log('Avatar picker pressed');
   };
 
+  const totalNameLen = calculateNameLength(firstName, lastName);
+
+  const handleFirstNameChange = (t: string) => {
+    if (t.trim()) setFirstNameError(false);
+    const res = clampNameInput(t, lastName, 'first');
+    setFirstName(res.text);
+    if (res.limitReached) {
+      setNameLimitError(`Maximum ${MAX_PROFILE_NAME_LENGTH} characters allowed. Cannot write more.`);
+    } else {
+      setNameLimitError(null);
+    }
+  };
+
+  const handleLastNameChange = (t: string) => {
+    const res = clampNameInput(t, firstName, 'last');
+    setLastName(res.text);
+    if (res.limitReached) {
+      setNameLimitError(`Maximum ${MAX_PROFILE_NAME_LENGTH} characters allowed. Cannot write more.`);
+    } else {
+      setNameLimitError(null);
+    }
+  };
+
   const handleSubmit = async () => {
     if (loading) return;
-    if (!firstName.trim()) {
-      setFirstNameError(true);
+    const validation = validateProfileName(firstName, lastName);
+    if (!validation.isValid) {
+      if (!firstName.trim()) {
+        setFirstNameError(true);
+      } else {
+        setNameLimitError(validation.error);
+      }
       return;
     }
     setFirstNameError(false);
+    setNameLimitError(null);
     setLoading(true);
 
     try {
@@ -155,16 +191,24 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
             label="FIRST NAME"
             placeholder="First Name"
             value={firstName}
-            onChangeText={(t) => {
-              setFirstName(t);
-              if (t.trim()) setFirstNameError(false);
-            }}
+            onChangeText={handleFirstNameChange}
             isFocused={focusedField === 'firstName'}
             onFocus={() => setFocusedField('firstName')}
             onBlur={() => setFocusedField(null)}
             autoCapitalize="words"
             returnKeyType="next"
             errorText={firstNameError ? 'First name is required' : null}
+            rightLabel={
+              <Text
+                style={{
+                  color: totalNameLen >= MAX_PROFILE_NAME_LENGTH ? (colors.coral || colors.danger) : colors.textTertiary,
+                  fontSize: FontSize.caption,
+                  fontFamily: FontFamily.medium,
+                }}
+              >
+                {totalNameLen}/{MAX_PROFILE_NAME_LENGTH}
+              </Text>
+            }
             colors={colors}
             isDark={isDark}
           />
@@ -174,13 +218,14 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
             label="LAST NAME"
             placeholder="Last Name (optional)"
             value={lastName}
-            onChangeText={setLastName}
+            onChangeText={handleLastNameChange}
             isFocused={focusedField === 'lastName'}
             onFocus={() => setFocusedField('lastName')}
             onBlur={() => setFocusedField(null)}
             autoCapitalize="words"
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
+            errorText={nameLimitError}
             rightLabel={
               <View style={[styles.optionalBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : '#E8F5EC' }]}>
                 <Text style={[styles.optionalBadgeText, { color: colors.mintDark }]}>Optional</Text>

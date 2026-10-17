@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { Mail, Inbox, Landmark, BookOpen, Lock, PauseCircle, PlayCircle, Power, Zap, ShieldCheck, Smartphone } from 'lucide-react-native';
+import { Mail, Inbox, Landmark, BookOpen, Lock, PauseCircle, PlayCircle, Power, Zap, ShieldCheck, Smartphone, RotateCcw } from 'lucide-react-native';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
@@ -101,6 +101,30 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
             await service.turnOff(userId);
             useAutoLogStore.getState().setRemoteEnabled(false);
             await useAutoLogStore.getState().refresh(userId);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleResetRules = () => {
+    if (!userId) return;
+    Alert.alert(
+      'Reset learned rules?',
+      'This will clear all learned merchant categories and custom ignore rules back to defaults. Tracked accounts and past transactions will not be touched.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset Rules',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await service.resetLearnedRules(userId);
+              Alert.alert('Rules Reset', 'All learned merchant preferences and ignore rules have been reset.');
+              await useAutoLogStore.getState().refresh(userId);
+            } catch (e: any) {
+              Alert.alert('Error', e?.message || 'Failed to reset rules.');
+            }
           },
         },
       ]
@@ -291,6 +315,7 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
           <NavRow icon={<ShieldCheck size={18} color={colors.textPrimary} />} label="Privacy" onPress={() => navigation.navigate('AutoLogInfo', { section: 'privacy' })} last={!isSetUp} />
           {isSetUp ? (
             <>
+              <NavRow icon={<RotateCcw size={18} color={colors.textPrimary} />} label="Reset learned rules" onPress={handleResetRules} />
               {s.mode === 'paused' ? (
                 <NavRow icon={<PlayCircle size={18} color={colors.textPrimary} />} label="Resume" onPress={resume} />
               ) : (

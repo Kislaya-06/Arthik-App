@@ -381,5 +381,30 @@ The standardized interactive button component encapsulating primary, secondary, 
 - *Code location*: `src/components/ui/AppButton.tsx`, `docs/design-system.md`
 - *_Avoid_*: Raw Pressables, Custom Button Styles
 
+---
+
+### 10. Automatic Logging (AutoLog)
+
+**Pending Review**:
+Incoming financial events extracted from Bank SMS or Bank Transaction Emails that require explicit human confirmation (e.g. unknown merchant, ambiguous lookalike, new untracked account, or exceeding liquidity under Vault Spending Guard). Events wait in `Pending Review` until confirmed or dismissed.
+- *Code location*: `src/screens/autolog/AutoLogReviewScreen.tsx`, `src/components/autolog/ReviewSheet.tsx`, `src/features/autoLog/reviews.ts`
+- *_Avoid_*: Unconfirmed Queue, Review Inbox
+
+**Review Dismissal & Discard**:
+The act of dismissing a pending item either individually (via swipe-to-reveal delete button or inside `ReviewSheet`) or in bulk ("Clear All"). Dismissal marks the event record as `status = 'ignored'` in local SQLite and deletes any pre-logged ledger transaction from `expenseStore` and Supabase.
+- *Code location*: `src/features/autoLog/db.ts` (`dismissPendingEvent`, `clearAllPending`), `src/features/autoLog/reviews.ts` (`discardEvent`, `discardAllPending`), `src/features/autoLog/service.ts` (`clearAllPendingReviews`), `src/screens/autolog/AutoLogReviewScreen.tsx`
+- *_Avoid_*: Event Deletion, Row Purge, Drop Review
+
+**Learned Rules Reset**:
+The 1-tap factory reset action in `AutoLogCenterScreen` that wipes learned merchant categories (`merchant_prefs`) and custom ignore rules (`rules`) back to a clean slate without affecting tracked bank accounts, active credentials, or historical ledger transactions.
+- *Code location*: `src/screens/autolog/AutoLogCenterScreen.tsx`, `src/features/autoLog/service.ts` (`resetLearnedRules`), `src/features/autoLog/db.ts` (`resetLearnedRules`)
+- *_Avoid_*: Factory Reset, Profile Wipe, Account Reset
+
+**Deduplication Invariant (AutoLog)**:
+The foundational invariant that dismissing an event must NEVER physically delete the event row from the encrypted SQLite database (`events` table). Instead, the event is permanently flagged as `status = 'ignored'`, retaining its cryptographic payload fingerprint (SHA-256) so background SMS and email notification listeners never re-detect, re-queue, or re-prompt the same transaction in the future.
+- *Code location*: `src/features/autoLog/db.ts` (`dismissPendingEvent`, `clearAllPending`), `src/features/autoLog/matching.ts`, `docs/AUTO_LOGGING.md`
+- *_Avoid_*: Physical Event Deletion, Fingerprint Pruning
+
+
 
 

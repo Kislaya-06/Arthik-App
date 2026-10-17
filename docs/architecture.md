@@ -50,7 +50,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/profile/**`, `src/components/savings/**` |
 | **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (86 files, 1438 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (89 files, 1442 tests) | `tests/**` |
 | **Automatic Logging** | On-device SMS / notification / email → transactions | `modules/arthik-autolog/**`, `src/features/autoLog/**` — see [AUTO_LOGGING.md](AUTO_LOGGING.md) |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
@@ -301,7 +301,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v2.1.0**: 86 test files, 1438 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), and refactor regression suites.
+**Coverage as of v2.1.0**: 89 test files, 1442 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), and refactor regression suites.
 
 | Test file | What it covers |
 |---|---|
@@ -314,6 +314,10 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `appLockStore.test.ts` | Biometric toggle, persistence, multi-user isolation, sign-out reset |
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
 | `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
+| `autoLogEmail.test.ts` | Bank email notification parsing, sender resolution, multi-source identity matching |
+| `autoLogFlows.test.ts` | End-to-end AutoLog engine, review dismissal/discard, bulk clear, learned rules reset |
+| `autoLogParser.test.ts` | Regex tokenizers, transaction extraction, noise rejection, dedupe tokens |
+| `autoLogRollout.test.ts` | Feature flag rollout targeting, existing-user migration checks |
 | `brandedHeroCard.test.ts` | Branded hero card metrics, dynamic pace presentation, non-binding hints |
 | `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`missed`/`even`/`unknown`), duplicate prevention |
 | `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, persistence |
@@ -344,6 +348,8 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `notificationSync.test.ts` | OS notification plan builder, diff-based scheduling, cancellation |
 | `offlineStartup.test.ts` | Offline cold-launch boot sequence without network access |
 | `paymentAndIconUtils.test.ts` | Payment labels/icons, unified income classification (`isIncomeTransaction`) |
+| `piggyBankCoinIcon.test.ts` | Indian Rupee (₹) coin badge geometry, SVG path scaling, and theme stroke bindings |
+| `profileUtils.test.ts` | 15-character name limit guardrail, display name resolution, initial letter extraction |
 | `pullToHistoryPhysics.test.ts` | Instagram-calibrated rubber band pull physics, damping ratio, ring travel linearity |
 | `pureModeRules.test.ts` | Acceptance suite for Pure Mode rules: SEC-001 amend, PUR-001 deficit switch, PUR-002 leftover retention |
 | `rollingText.test.ts` | Digit-by-digit vertical odometer roll, layout effect mount/reveal, decimal handling |

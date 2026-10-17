@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — Smart Budget & Gullak Card Compact Executive Redesign — OTA-safe
+
+- **Authentic Indian Rupee (₹) Gullak & Ditto Silhouette Icon**: Re-engineered `PiggyBankCoinIcon` to a 1:1 mathematical vector replica of the reference sprite sheet icon. Features the chubby silhouette piggy body with curling tail, two triangular ears, rounded snout, splayed sturdy legs, smiling eye (◡) cutout, and an authentic, razor-sharp Indian Rupee (`₹`) symbol inside the coin with parallel bars and clean diagonal kick leg. All app touchpoints (`BottomNavBar`, `ProfileScreen`, `SavingsHeroCard`, `GullakDepositDetailScreen`, `DepositGullakModal`, `BudgetHubSection`, `SavingsRecordRow`, etc.) immediately render this premium graphic.
+- **Uniform Settings Icon Container Styling**: Updated `budgetIconContainer` in `ProfileScreen.tsx` to use `colors.cardSubtle` (sleek gray container) with `colors.textPrimary` (crisp white in dark/AMOLED, dark navy in light theme), establishing 100% visual uniformity with all rows in the `ACCOUNT` settings card (`Manage Categories`, `Notifications`, `Theme`, `Ambient Background`, `App Lock`).
+- **1:1 Card Size & Geometry Parity**: Synchronized `profileCard` and `budgetCard` to an identical `minHeight: 80` and 14px vertical padding. Re-engineered `budgetIconContainer` into a 52x52 rounded squircle (`borderRadius: 16`), matching the exact physical dimensions and visual mass of the 52x52 circular avatar.
+- **Enlarged & Bold Avatar Letter ("K")**: Scaled the user initial font from 20px up to 24px (`lineHeight: 28`) directly in `FontFamily.bold` (`Quicksand_700Bold`) without conflicting `fontWeight`, preventing Android's system font fallback and keeping the font 100% consistent with the user's name ("Kislaya").
+- **Enhanced Subtitle Legibility & Tap Target**: Enlarged the `Daily · ₹250 · Edit ✎` subtitle from 12px caption to 14px (`FontSize.bodySmall`, `lineHeight: LineHeight.bodySmall`), giving the interactive budget edit cue instant readability and comfortable touch affordance.
+- **Eliminated Awkward Line Breaking & Title Wrapping**: Removed the brittle dynamic layout measuring hacks (`budgetTitleWraps`, `onTextLayout`, invisible width test components) that awkwardly forced "Smart Budget & ⚠️" onto line 1 and "Gullak" onto line 2. The title is now locked on a single line (`numberOfLines={1}`) with `adjustsFontSizeToFit` and `minimumFontScale={0.88}`.
+- **Zero Void Space**: Completely removed empty padding voids and vertical sprawl, elevating settings groups further above the fold.
+
+### Fixed — Money Explainer Modal White Scroll Indicator & Standard Pill CTA — OTA-safe
+
+- **Beside-the-Cards White Scroll Indicator**: In `MoneyExplainerModal.tsx`, replaced Android's native black overlapping scrollbar with a custom animated scroll indicator. Styled with a 10px clear gutter (`paddingRight: 10`), the indicator renders cleanly beside the cards rather than overlapping card borders. In dark/AMOLED themes, it is rendered in crisp white (`#FFFFFF`) with smooth fade-in on scroll and automatic fade-out at rest.
+- **Unified 60px CTA Pill Parity**: Replaced the non-standard 48px custom button with the canonical `AppButton` primitive (`size="cta"`, `ControlHeight.cta = 60`), enforcing 100% design system consistency with all other primary action pills across the app, complete with responsive spring touch feedback.
+
+### Changed — Profile Hero Card Compact Executive Redesign — OTA-safe
+
+- **Horizontal Ergonomic Architecture**: Re-architected `profileCard` in `ProfileScreen.tsx` from an expansive ~240px vertical stack into a sleek ~82px horizontal executive row, eliminating excessive void spaces and saving >60% vertical viewport height.
+- **Pure Circular Avatar & Camera Removal**: Removed the confusing camera badge overlay from the 52px avatar, creating an unadorned, pure circular initial badge (`colors.mintGreen`) with centered bold typography and clean press accessibility.
+- **Zero-Truncation Clean Profile Card**: Replaced the compressed email address on the profile hero card with an elegant `Personal Account` subtitle, permanently eliminating awkward horizontal truncation (`...`) on narrow mobile viewports while keeping the user's name uncluttered and prominent.
+- **Dedicated Read-Only Registered Email in Edit Modal**: Added a read-only `Registered Email` field inside `EditProfileModal.tsx` equipped with a `<Mail size={16} />` icon, styled in parity with name inputs, displaying the full registered email without any truncation.
+- **Visual Balance & Touch Ergonomics**: Positioned the 52px circular avatar on the left, primary name and account subtitle stack in the center, and a tactile 34px pill "Edit" button with `<SquarePen size={13} />` icon on the right thumb edge.
+- **Above-the-Fold Settings Elevation**: "Budget & Savings" and "Account" settings groups are now immediately elevated into direct view on standard screens without requiring immediate scrolling.
+
+### Changed — Manage Categories Row Proportions & Action Button Parity — OTA-safe
+
+- **Badge & Icon Size Parity**: In `CategoryRowItem.tsx`, increased icon badge size from 44px to 48px with 22px category icon (`strokeWidth={2.2}`), creating 1:1 visual parity with `TransactionRow` across Recent Transactions on Home and History screens.
+- **Rhythm & Typography Calibration**: Matched `ItemRowShell` rhythm with 16px text-to-badge margin (`Spacing.group`), 12px vertical padding, -0.2 title letter spacing, and standard border dividers (`isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'`).
+- **Concentric Circular Action Buttons**: Re-engineered Edit and Delete buttons into proportional 40x40 circular capsules (`BorderRadius.pill`) with 18px icons, refined border tints, accessible touch targets, and tactile spring press feedback.
+
+### Fixed — Live Home Display Name Sync & 15-Character Name Limit Guardrail — OTA-safe
+
+- **Full Display Name on HomeScreen Header**: HomeScreen now displays the user's full name (first + last name or full metadata/email display name) via `getDisplayName` instead of truncating to first name only. Name updates in Profile edit reflect live and instantly on HomeScreen without app restart.
+- **Proportional Name Font Sizing**: Fine-tuned header greeting name font scaling with explicit dynamic `lineHeight` (`Math.round(nameFontSize * 1.2)`), preventing vertical gaps and ensuring names up to 15 characters render crisply beside action buttons.
+- **15-Character Business Limit Guardrail**: Established `MAX_PROFILE_NAME_LENGTH = 15` (benchmarked to `"Kislaya Agarwal"` = 15 characters) enforced across `EditProfileModal`, `ProfileSetupScreen`, and `authStore.ts`.
+- **Live Input Clamping & Immediate User Feedback**: In `EditProfileModal` and `ProfileSetupScreen`, inputs dynamically clamp excess characters with real-time warning feedback (`"Maximum 15 characters allowed. Cannot write more."`) and a visual character counter (`${len}/15`). Save actions are guarded against exceeding the limit.
+
+### Added — AutoLog Review Swipe-to-Delete, Bulk Dismiss & Reset Learned Rules — OTA-safe
+
+- **Swipe-to-Reveal Delete Action with Spring & Layout Physics**: In `AutoLogReviewScreen.tsx`, each pending review card supports a fluid swipe-to-reveal gesture with momentum projection, rubber-banding, and haptic feedback. Tapping the revealed Delete button animates the card smoothly off-screen (`withTiming` with `EASE_OUT`) and triggers `ROW_CLOSE` (`LinearTransition`) layout animation to gracefully glide subsequent items into place without jank.
+- **Bulk Dismiss ("Clear All") Reviews**: Added top header trash icon button to `AutoLogReviewScreen.tsx` with a destructive confirmation dialog to dismiss all pending review items at once.
+- **Review Sheet Direct Discard**: In `ReviewSheet.tsx`, added a direct "Discard review" action on Step 1 and "Delete transaction" on category step with confirmation alerts, removing any pre-logged ledger records immediately.
+- **Reset Learned Rules & Merchant Preferences**: In `AutoLogCenterScreen.tsx`, added a "Reset learned rules" action in the Navigation card with `<RotateCcw />` icon. Clears `merchant_prefs` (merchant category mappings) and `rules` (custom ignore rules) back to factory clean slate without touching tracked accounts or past transaction ledger history.
+- **Deduplication Invariant Preserved**: Dismissing pending reviews marks events as `status = 'ignored'` rather than deleting database rows, permanently retaining cryptographic SMS/email fingerprints to prevent background listeners from re-detecting and re-prompting the same transaction.
+
+### Changed — Bottom Navigation Bar Concentric Geometry & Uniform Inter-Icon Spacing — OTA-safe
+
+- Calibrated floating `BottomNavBar` geometry so that the active capsule's outer margin matches the vertical 13px gap ($R - r = 34 - 21 = 13\text{px}$) while preserving balanced, equal distances between all 5 icons (`Home` $\leftrightarrow$ `History` $\leftrightarrow$ `+ FAB` $\leftrightarrow$ `Savings` $\leftrightarrow$ `Insights`).
+- Eliminated clustering/crowding around the center FAB by tuning `pillBar` padding (4px) with balanced wing space-around distribution and 68px center isolation.
+- Added `maxWidth: 400` to prevent over-stretching on tablets or foldables.
+- Synchronized Pure Mode `purePillBar` concentric padding to `8px` matching $(58 - 42) / 2 = 8\text{px}$ ($R - r = 29 - 21 = 8\text{px}$).
+
+### Changed — Manage Categories Clean Borderless List & Tactile Feedback — OTA-safe
+
+- Removed the awkward container card (`listCard`) from `ManageCategoriesScreen.tsx`, rendering category rows directly on the screen background canvas with clean dividers (`borderSubtle`).
+- Set `FlatList` to `flex: 1` with `paddingBottom: insets.bottom + 96` so long category lists scroll smoothly and never get obscured by the floating `+` FAB.
+- Added tactile active press states (spring scale and opacity) to `CategoryRowItem.tsx` edit and delete buttons as well as the Floating Add Button.
+
 ### Fixed — Home All pill and the account total disagreed on a carry gap week (canonical `CAR-001`, `BAL-001`) — OTA-safe
 
 - In CAR-001 Mode B (weekly / monthly) the Home All pill left out the WHOLE budget of a carry-funded period (`carryCover = pc.base`) while the account total (spending guard, Gullak cap, Pure Mode deficit) left out only the funded part. On a gap week (e.g. ₹3,000 funded + ₹2,000 gap) they differed by the gap for good (Home ₹33,000 vs ₹35,000). Home now leaves out only the carry-FUNDED part (`pc.funded`): the gap counts like any budget, real money added grows it by exactly that amount, and both numbers are always the same. Owner decision recorded in `CAR-001` §3.

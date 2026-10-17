@@ -88,6 +88,25 @@ export const ignoreEvent = async (event: AutoLogEvent, scope: IgnoreScope) => {
   }
 };
 
+/** Discards a single pending review item without creating permanent ignore rules. */
+export const discardEvent = async (event: AutoLogEvent) => {
+  if (event.expenseId && (event.status === 'logged' || event.status === 'queued')) {
+    await deleteTransaction(event.expenseId);
+  }
+  await db.dismissPendingEvent(event.id);
+};
+
+/** Discards all pending review items. Removes any pre-logged transactions from ledger. */
+export const discardAllPending = async () => {
+  const pending = await db.listPending();
+  for (const event of pending) {
+    if (event.expenseId && (event.status === 'logged' || event.status === 'queued')) {
+      await deleteTransaction(event.expenseId);
+    }
+  }
+  await db.clearAllPending();
+};
+
 /** Discovery review: "This is relevant" → learn the format only. Never creates a transaction (spec §10). */
 export const learnFromDiscovery = async (event: AutoLogEvent, direction: 'debit' | 'credit') => {
   await db.addRule({ kind: 'accept_template', sender: event.sender, template: event.template, fingerprint: null, direction });

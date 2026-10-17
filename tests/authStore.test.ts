@@ -135,4 +135,22 @@ describe('authStore (Seam: useAuthStore)', () => {
     expect(cachedUser).toBeNull();
     expect(useAuthStore.getState().user).toBeNull();
   });
+
+  it('optimistically updates profile and user metadata on updateProfile', async () => {
+    useAuthStore.setState({
+      user: { ...mockUser, user_metadata: { first_name: 'Kislaya' } },
+      profile: { id: TEST_USER_ID, first_name: 'Kislaya', last_name: '', email: 'kislaya@arthik.app' },
+    });
+
+    await useAuthStore.getState().updateProfile('Kislaya', 'Agarwal');
+
+    const state = useAuthStore.getState();
+    expect(state.profile?.first_name).toBe('Kislaya');
+    expect(state.profile?.last_name).toBe('Agarwal');
+    expect(state.user?.user_metadata?.full_name).toBe('Kislaya Agarwal');
+
+    // Cached to AsyncStorage immediately
+    const cachedProfile = await AsyncStorage.getItem(`@arthik_cached_profile_${TEST_USER_ID}`);
+    expect(JSON.parse(cachedProfile!).last_name).toBe('Agarwal');
+  });
 });

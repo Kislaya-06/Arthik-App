@@ -9,7 +9,7 @@
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/fe28fa0f8c19f036ebbeffcbee7f26162e130069cb50d16fe6e498d32d16b271)
-[![Tests](https://img.shields.io/badge/Tests-1103_passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/Tests-1442_passing-brightgreen.svg)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -61,6 +61,8 @@ Log expenses and income without typing them.
 - **Transparent.** Every automatic transaction shows its sources and *"Why was this logged?"*, with **Report a problem**.
 - **Learns from you.** "Remember Zomato → Food", "Ignore similar messages" (exact format only, never "every ₹20").
 - **Bank emails too (v2.1, optional).** For banks and cards that email instead of sending an SMS: alert emails from Gmail, Outlook and other email apps are read from their notifications, on your phone. SMS, app notification and email for the same payment become **one** transaction — even when the email arrives hours later. Unclear matches wait in review.
+- **Review management & discard.** Swipe to delete pending reviews with fluid spring physics and layout reflow animations, 1-tap "Clear All" with confirmation dialog, and direct review discarding inside review sheets.
+- **Reset learned rules.** 1-tap factory reset of learned merchant categories and ignore preferences from settings without touching tracked accounts or past transaction ledger history.
 - **Welcome back.** After signing out or pausing, choose to *recover* the missed period or only *learn* from it.
 
 > Beta is rolling out gradually, starting with people who used Arthik before v2.0. It is controlled server-side (no app update needed to widen it).
@@ -96,7 +98,7 @@ Log expenses and income without typing them.
 | Updates | EAS Build (APK), EAS Update (OTA), in-app APK updater (`expo-file-system`, `expo-intent-launcher`) |
 | UI | `lucide-react-native`, Quicksand, `react-native-svg`, Reanimated, Gesture Handler |
 | Dates | `date-fns`, Indian number formatting (₹) |
-| Tests | Vitest (86 files, 1442 tests) |
+| Tests | Vitest (89 files, 1442 tests) |
 
 ---
 

@@ -8,8 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
-  Camera, Tag, ChevronRight, Bell, Moon, Sun, Sparkles, Palette,
-  CircleAlert, LogOut, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves, Zap
+  Tag, ChevronRight, Bell, Moon, Sun, Sparkles, Palette,
+  CircleAlert, LogOut, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves, Zap, SquarePen
 } from 'lucide-react-native';
 
 import Constants from 'expo-constants';
@@ -39,6 +39,7 @@ import { BetaPill } from '../components/autolog/AutoLogUi';
 import { PauseBudgetModal } from '../components/profile/PauseBudgetModal';
 import { EditProfileModal } from '../components/profile/EditProfileModal';
 import { DeleteAccountModal } from '../components/profile/DeleteAccountModal';
+import { getDisplayName, validateProfileName } from '../lib/profileUtils';
 import { styles } from './ProfileScreen.styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
@@ -80,7 +81,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const getCarryableAmount = useDailyBudgetStore((s) => s.getCarryableAmount);
 
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [budgetTitleWraps, setBudgetTitleWraps] = useState(true);
   const [pauseModalVisible, setPauseModalVisible] = useState(false);
 
   const currentCadenceAmount =
@@ -294,7 +294,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleSaveProfile = async () => {
-    if (!editFirstName.trim()) return;
+    const validation = validateProfileName(editFirstName, editLastName);
+    if (!validation.isValid) return;
     setEditSaving(true);
     try {
       await updateProfile(editFirstName.trim(), editLastName.trim());
@@ -306,10 +307,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  let fullName = 'User';
-  if (profile) {
-    fullName = `${profile.first_name} ${profile.last_name || ''}`.trim();
-  }
+  const fullName = getDisplayName(profile, user?.user_metadata, user?.email);
 
   const isEmailMatching = Boolean(user?.email && deleteEmailInput.trim().toLowerCase() === user.email.trim().toLowerCase());
   const deleteBtnBg = isEmailMatching ? '#DC2626' : (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2');
@@ -347,6 +345,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       <EditProfileModal
         visible={editVisible}
         onClose={() => setEditVisible(false)}
+        userEmail={profile?.email || user?.email}
         editFirstName={editFirstName}
         setEditFirstName={setEditFirstName}
         editLastName={editLastName}
@@ -401,126 +400,129 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Profile Info Card */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          <View style={styles.avatarWrapper}>
+          <Pressable
+            onPress={openEditProfile}
+            style={styles.avatarWrapper}
+            hitSlop={6}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+          >
             <View style={[styles.avatarCircle, { backgroundColor: colors.mintGreen }]}>
-              <Text style={[styles.avatarText, { fontFamily: FontFamily.bold }]}>
+              <Text style={styles.avatarText}>
                 {getInitials()}
               </Text>
             </View>
-            <Pressable
-              style={[styles.cameraBadge, { backgroundColor: colors.cardSubtle, borderColor: colors.card }]}
-              onPress={openEditProfile}
-              hitSlop={8}
+          </Pressable>
+
+          <View style={styles.profileInfo}>
+            <Text
+              style={[styles.fullName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+              numberOfLines={1}
             >
-              <Camera size={14} color={colors.textPrimary} />
-            </Pressable>
+              {fullName}
+            </Text>
+            <Text
+              style={[styles.accountSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
+              numberOfLines={1}
+            >
+              Personal Account
+            </Text>
           </View>
 
-          <Text style={[styles.fullName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-            {fullName}
-          </Text>
-          <Text style={[styles.email, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            {profile?.email || 'user@example.com'}
-          </Text>
-
           <Pressable
-            style={[styles.editProfileBtn, { borderColor: colors.mintGreenDark }]}
+            style={({ pressed }) => [
+              styles.editProfileBtn,
+              {
+                backgroundColor: colors.cardSubtle,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                opacity: pressed ? 0.75 : 1,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+              }
+            ]}
             onPress={openEditProfile}
+            hitSlop={6}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
           >
+            <SquarePen size={13} color={colors.textPrimary} strokeWidth={2.2} />
             <Text style={[styles.editProfileText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              Edit Profile
+              Edit
             </Text>
           </Pressable>
         </View>
 
         {/* Smart Budget & Gullak Card */}
-        <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-            BUDGET & SAVINGS
-          </Text>
-          <View style={styles.budgetModeRow}>
-            <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.18)' : '#E8F5EE' }]}>
-              <PiggyBankCoinIcon size={20} color={isDark ? colors.mintGreen : colors.forestGreen} />
-            </View>
-            <Pressable
-              style={styles.budgetModeTextWrap}
-              onLayout={(e) => {
-                const w = e.nativeEvent.layout.width;
-                if (w > 0) {
-                  if (w < 225 && !budgetTitleWraps) {
-                    setBudgetTitleWraps(true);
-                  } else if (w >= 260 && budgetTitleWraps) {
-                    setBudgetTitleWraps(false);
-                  }
-                }
-              }}
-              onPress={() => {
-                if (isBudgetModeEnabled) {
-                  setBudgetModalVisible(true);
-                }
-              }}
-              disabled={!isBudgetModeEnabled}
+        <View style={[styles.budgetCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.budgetPressableArea,
+              { opacity: pressed && isBudgetModeEnabled ? 0.75 : 1 }
+            ]}
+            onPress={() => {
+              if (isBudgetModeEnabled) {
+                setBudgetModalVisible(true);
+              }
+            }}
+            disabled={!isBudgetModeEnabled}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={
+              isBudgetModeEnabled
+                ? `Smart Budget & Gullak. ${budgetSubtitle}. Tap to edit budget plan.`
+                : 'Smart Budget & Gullak disabled'
+            }
+          >
+            <View
+              style={[
+                styles.budgetIconContainer,
+                {
+                  backgroundColor: colors.cardSubtle,
+                },
+              ]}
             >
-              {/* Invisible layout tester for dynamic fonts and device width */}
-              <Text
-                style={[
-                  styles.budgetModeTitleText,
-                  {
-                    position: 'absolute',
-                    opacity: 0,
-                    width: '100%',
-                    paddingRight: 24, // 18 (badge) + 6 (margin)
-                    fontFamily: FontFamily.bold,
-                  },
-                ]}
-                pointerEvents="none"
-                onTextLayout={(e) => {
-                  const shouldWrap = e.nativeEvent.lines.length > 1;
-                  if (shouldWrap !== budgetTitleWraps) {
-                    setBudgetTitleWraps(shouldWrap);
-                  }
-                }}
-              >
-                Smart Budget & Gullak
-              </Text>
+              <PiggyBankCoinIcon
+                size={26}
+                color={colors.textPrimary}
+              />
+            </View>
 
-              {budgetTitleWraps ? (
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                      Smart Budget &
-                    </Text>
-                    <MoneyHelpBadge
-                      size={18}
-                      style={{ marginLeft: 6 }}
-                      onPress={() => setShowMoneyExplainer(true)}
-                    />
-                  </View>
-                  <Text style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                    Gullak
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                    Smart Budget & Gullak
-                  </Text>
-                  <MoneyHelpBadge
-                    size={18}
-                    style={{ marginLeft: 6 }}
-                    onPress={() => setShowMoneyExplainer(true)}
-                  />
-                </View>
-              )}
-              <Text style={[styles.budgetModeSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+            <View style={styles.budgetInfo}>
+              <View style={styles.budgetTitleRow}>
+                <Text
+                  style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.88}
+                >
+                  Smart Budget & Gullak
+                </Text>
+                <MoneyHelpBadge
+                  size={16}
+                  style={styles.budgetHelpBadge}
+                  onPress={() => setShowMoneyExplainer(true)}
+                />
+              </View>
+
+              <Text
+                style={[styles.budgetModeSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
+                numberOfLines={1}
+              >
                 {budgetSubtitle}
+                {isBudgetModeEnabled && (
+                  <Text style={{ color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.semibold }}>
+                    {' '}· Edit ✎
+                  </Text>
+                )}
               </Text>
-            </Pressable>
-            <AnimatedToggle
-              value={isBudgetModeEnabled}
-              onValueChange={handleToggleBudgetMode}
-            />
-          </View>
+            </View>
+          </Pressable>
+
+          <AnimatedToggle
+            value={isBudgetModeEnabled}
+            onValueChange={handleToggleBudgetMode}
+          />
         </View>
 
         {/* Account Settings Card */}

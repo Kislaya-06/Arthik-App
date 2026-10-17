@@ -206,7 +206,7 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 `authLinkHandler.ts` + `deepLinkGuard.ts` (email deep links aur session fixation se bachav), `versionCheck.ts` (kam se kam version), `apkInstaller.ts` (APK download/install), `networkUtils.ts` (network failure pehchanna, timeout), `asyncStorageList.ts` (list save/load).
 
 ### UI helpers (paise ka hisaab nahi)
-`formatters.ts` (`round2`, currency), `amountKeypad.ts` (calculator keypad: `2+3*4` jaisa expression), `chartUtils.ts` (charts ke paths/segments/data), `colorUtils.ts`, `iconUtils.ts`, `flameUtils.ts`, `rollingText.ts` + `quicksandMetrics.ts` (digits ka rolling animation), `pullToHistoryPhysics.ts` (Home se pull karke History kholne ki physics), `ambientBackground.ts` + `ambientGrain.ts` + `ambientWind.ts` (screen ka halka glow background), `animationUtils.ts`, `streakCalendarData.ts`, `expenseFilters.ts`, `noteSuggestions.ts`, `moneyExplainerContent.ts` (help popups ka text).
+`formatters.ts` (`round2`, currency), `profileUtils.ts` (user display name resolution, 15-character guardrail matching "Kislaya Agarwal", input clamping aur validation), `amountKeypad.ts` (calculator keypad: `2+3*4` jaisa expression), `chartUtils.ts` (charts ke paths/segments/data), `colorUtils.ts`, `iconUtils.ts`, `flameUtils.ts`, `rollingText.ts` + `quicksandMetrics.ts` (digits ka rolling animation), `pullToHistoryPhysics.ts` (Home se pull karke History kholne ki physics), `ambientBackground.ts` + `ambientGrain.ts` + `ambientWind.ts` (screen ka halka glow background), `animationUtils.ts`, `streakCalendarData.ts`, `expenseFilters.ts`, `noteSuggestions.ts`, `moneyExplainerContent.ts` (help popups ka text).
 
 ---
 
@@ -273,7 +273,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `ManageCategoriesScreen`, `AddEditCategoryScreen`, `CategoryDetailScreen` | Categories ka kaam |
 | `GullakDepositDetailScreen.tsx` | Ek Gullak deposit ki detail |
 | `FaqScreen.tsx`, `UpdateRequiredScreen.tsx` | FAQ, zaroori update |
-| `screens/autolog/*` | AutoLog: Center, Setup, Review (pending), Accounts, Email, Info/Privacy, Intro, WelcomeBack |
+| `screens/autolog/*` | AutoLog: Center (reset learned rules), Setup, Review (pending - swipe to delete & bulk clear), Accounts, Email, Info/Privacy, Intro, WelcomeBack |
 
 ---
 
@@ -326,10 +326,10 @@ Bank email (notification) ─┤   (personal sender, OTP, bina paise wale messag
 | `parser.ts` | SMS/email se amount, merchant, bank, account nikalna, balance ko amount na samajhna, future/failed message ko txn na maanna |
 | `matching.ts` | Same payment pehchanna: reference/UTR, identity score, windows (SMS↔Email 15 min, same source kabhi fuzzy merge nahi) |
 | `engine.ts` | Faisla karne wali pipeline |
-| `reviews.ts` | User ke faisle: classify, category, duplicate, ignore, transfer |
-| `service.ts` | Setup, discovery, recovery, pause, sign-out, queue process |
+| `reviews.ts` | User ke faisle: classify, category, duplicate, ignore, transfer, single/bulk review discard (`discardEvent`, `discardAllPending`) |
+| `service.ts` | Setup, discovery, recovery, pause, sign-out, queue process, review clearing (`clearAllPendingReviews`), learned rules reset (`resetLearnedRules`) |
 | `ledger.ts` | Transaction banana/badalna; `isExceedingVaultLiquidity` (sirf Budget Mode mein review) |
-| `db.ts` | Encrypted SQLite (SQLCipher), user ke hisaab se, key SecureStore mein |
+| `db.ts` | Encrypted SQLite (SQLCipher), user ke hisaab se, key SecureStore mein, review dismissal (`dismissPendingEvent`, `clearAllPending`), learned rules reset (`resetLearnedRules`) |
 | `store.ts`, `types.ts`, `copy.ts`, `notify.ts`, `permissions.ts`, `background.ts`, `remote.ts`, `rollout.ts` | UI snapshot, types, text, notifications, permissions, background task, remote profile (message ka content nahi), beta rollout |
 
 Privacy: message ka content sirf phone mein rehta hai; payment apps (GPay, PhonePe...) ke notifications padhe hi nahi jaate.

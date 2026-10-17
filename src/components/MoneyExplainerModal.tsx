@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Animated,
   Easing,
   useAnimatedValue,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import {
@@ -26,6 +28,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { AppButton } from './ui/AppButton';
 import {
   MoneyExplainerTopic,
   getMoneyExplainerContent,
@@ -160,10 +163,25 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
   const content = getMoneyExplainerContent(topic);
 
   const anim = useAnimatedValue(0);
+  const [contentHeight, setContentHeight] = useState(1);
+  const [visibleHeight, setVisibleHeight] = useState(1);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const indicatorOpacity = useRef(new Animated.Value(0)).current;
+  const hideTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (visible) {
       anim.setValue(0);
+      scrollY.setValue(0);
+      indicatorOpacity.setValue(0);
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+
       Animated.spring(anim, {
         toValue: 1,
         tension: 70,
@@ -171,7 +189,41 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
         useNativeDriver: true,
       }).start();
     }
-  }, [visible, anim]);
+  }, [visible, anim, scrollY, indicatorOpacity]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    scrollY.setValue(y);
+
+    Animated.timing(indicatorOpacity, {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+
+    if (hideTimeout.current) {
+      clearTimeout(hideTimeout.current);
+    }
+    hideTimeout.current = setTimeout(() => {
+      Animated.timing(indicatorOpacity, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }).start();
+    }, 800);
+  };
+
+  const isScrollable = contentHeight > visibleHeight + 4;
+  const scrollRatio = visibleHeight > 0 && contentHeight > 0 ? visibleHeight / contentHeight : 1;
+  const thumbHeight = Math.max(36, Math.min(visibleHeight * scrollRatio, visibleHeight - 20));
+  const maxScroll = Math.max(1, contentHeight - visibleHeight);
+  const maxThumbTranslate = Math.max(0, visibleHeight - thumbHeight);
+
+  const thumbTranslateY = scrollY.interpolate({
+    inputRange: [0, maxScroll],
+    outputRange: [0, maxThumbTranslate],
+    extrapolate: 'clamp',
+  });
 
   return (
     <Modal
@@ -249,114 +301,131 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
             {content.subtitle}
           </Text>
 
-          {/* Smooth, Unblocked Scrollable List */}
-          <ScrollView
-            style={styles.scrollList}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={true}
-            bounces={true}
-            nestedScrollEnabled={true}
-            keyboardShouldPersistTaps="handled"
-          >
-            {content.items.map((item, index) => {
-              const IconComp = ICON_MAP[item.iconName] || CheckCircle2;
-              const accentColor = isDark ? '#93C5FD' : '#2563EB';
-              const iconBg = isDark ? 'rgba(59, 130, 246, 0.14)' : 'rgba(37, 99, 235, 0.08)';
+          {/* Smooth, Unblocked Scrollable List with Beside-the-Cards White Scrollbar */}
+          <View style={styles.scrollWrapper}>
+            <ScrollView
+              style={styles.scrollList}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={true}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              onLayout={(e) => setVisibleHeight(e.nativeEvent.layout.height)}
+              onContentSizeChange={(_, h) => setContentHeight(h)}
+            >
+              {content.items.map((item, index) => {
+                const IconComp = ICON_MAP[item.iconName] || CheckCircle2;
+                const accentColor = isDark ? '#93C5FD' : '#2563EB';
+                const iconBg = isDark ? 'rgba(59, 130, 246, 0.14)' : 'rgba(37, 99, 235, 0.08)';
 
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.itemCard,
-                    {
-                      backgroundColor: colors.cardSubtle,
-                      borderColor: colors.borderSubtle,
-                    },
-                  ]}
-                >
-                  <View style={[styles.itemIconWrap, { backgroundColor: iconBg }]}>
-                    <IconComp size={18} color={accentColor} strokeWidth={2.2} />
-                  </View>
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.itemCard,
+                      {
+                        backgroundColor: colors.cardSubtle,
+                        borderColor: colors.borderSubtle,
+                      },
+                    ]}
+                  >
+                    <View style={[styles.itemIconWrap, { backgroundColor: iconBg }]}>
+                      <IconComp size={18} color={accentColor} strokeWidth={2.2} />
+                    </View>
 
-                  <View style={styles.itemTextWrap}>
-                    <View style={styles.itemTagRow}>
+                    <View style={styles.itemTextWrap}>
+                      <View style={styles.itemTagRow}>
+                        <Text
+                          style={[
+                            styles.itemTag,
+                            {
+                              color: isDark ? colors.mintGreen : colors.forestGreen,
+                              fontFamily: FontFamily.bold,
+                            },
+                          ]}
+                        >
+                          {item.tag}
+                        </Text>
+                      </View>
                       <Text
                         style={[
-                          styles.itemTag,
-                          {
-                            color: isDark ? colors.mintGreen : colors.forestGreen,
-                            fontFamily: FontFamily.bold,
-                          },
+                          styles.itemTitle,
+                          { color: colors.textPrimary, fontFamily: FontFamily.bold },
                         ]}
                       >
-                        {item.tag}
+                        {item.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.itemDescription,
+                          { color: colors.textSecondary, fontFamily: FontFamily.medium },
+                        ]}
+                      >
+                        {item.description}
                       </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.itemTitle,
-                        { color: colors.textPrimary, fontFamily: FontFamily.bold },
-                      ]}
-                    >
-                      {item.title}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.itemDescription,
-                        { color: colors.textSecondary, fontFamily: FontFamily.medium },
-                      ]}
-                    >
-                      {item.description}
-                    </Text>
                   </View>
-                </View>
-              );
-            })}
+                );
+              })}
 
-            {/* Footer Tip Callout */}
-            {content.footerTip ? (
-              <View
-                style={[
-                  styles.footerTipCard,
-                  {
-                    backgroundColor: isDark ? 'rgba(184, 224, 200, 0.08)' : '#F0FAF4',
-                    borderColor: isDark ? 'rgba(184, 224, 200, 0.25)' : '#C6ECD3',
-                  },
-                ]}
-              >
-                <Text
+              {/* Footer Tip Callout */}
+              {content.footerTip ? (
+                <View
                   style={[
-                    styles.footerTipText,
+                    styles.footerTipCard,
                     {
-                      color: isDark ? colors.mintGreen : colors.forestGreen,
-                      fontFamily: FontFamily.medium,
+                      backgroundColor: isDark ? 'rgba(184, 224, 200, 0.08)' : '#F0FAF4',
+                      borderColor: isDark ? 'rgba(184, 224, 200, 0.25)' : '#C6ECD3',
                     },
                   ]}
                 >
-                  {content.footerTip}
-                </Text>
-              </View>
+                  <Text
+                    style={[
+                      styles.footerTipText,
+                      {
+                        color: isDark ? colors.mintGreen : colors.forestGreen,
+                        fontFamily: FontFamily.medium,
+                      },
+                    ]}
+                  >
+                    {content.footerTip}
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            {/* Custom White Scrollbar Indicator (Beside Cards, Never Overlapping) */}
+            {isScrollable ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.customScrollTrack,
+                  { opacity: indicatorOpacity },
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.customScrollThumb,
+                    {
+                      height: thumbHeight,
+                      transform: [{ translateY: thumbTranslateY }],
+                      backgroundColor: isDark ? '#FFFFFF' : 'rgba(15, 23, 42, 0.45)',
+                    },
+                  ]}
+                />
+              </Animated.View>
             ) : null}
-          </ScrollView>
+          </View>
 
           {/* Sticky "Got It" CTA */}
-          <TouchableOpacity
-            style={[
-              styles.gotItButton,
-              { backgroundColor: colors.mintGreen },
-            ]}
+          <AppButton
+            label="Got It"
+            size="cta"
             onPress={onClose}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.gotItText,
-                { color: colors.forestGreen, fontFamily: FontFamily.bold },
-              ]}
-            >
-              Got It
-            </Text>
-          </TouchableOpacity>
+            style={styles.gotItButton}
+          />
         </Animated.View>
       </View>
     </Modal>
@@ -422,12 +491,28 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: Spacing.element,
   },
+  scrollWrapper: {
+    flexShrink: 1,
+    position: 'relative',
+  },
   scrollList: {
     flexShrink: 1,
   },
   scrollContent: {
     paddingBottom: Spacing.element,
     paddingTop: Spacing.micro,
+    paddingRight: 10,
+  },
+  customScrollTrack: {
+    position: 'absolute',
+    right: 0,
+    top: Spacing.micro,
+    bottom: Spacing.element,
+    width: 3.5,
+  },
+  customScrollThumb: {
+    width: 3.5,
+    borderRadius: 2,
   },
   itemCard: {
     flexDirection: 'row',
@@ -476,13 +561,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   gotItButton: {
-    height: 48,
-    borderRadius: BorderRadius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.element,
-  },
-  gotItText: {
-    fontSize: FontSize.body,
+    marginTop: Spacing.surface,
   },
 });

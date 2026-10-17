@@ -408,6 +408,21 @@ export const removeTrackedAccount = (userId: string, key: string) =>
     await syncRemoteAccounts(userId);
   });
 
+/** Bulk dismiss all pending review items. Cleans up any pre-logged ledger records. */
+export const clearAllPendingReviews = (userId: string) =>
+  serial(async () => {
+    await db.openDb(userId);
+    const { discardAllPending } = await import('./reviews');
+    await discardAllPending();
+  });
+
+/** Resets learned merchant preferences and ignore rules back to a clean slate. Accounts and past transactions remain intact. */
+export const resetLearnedRules = (userId: string) =>
+  serial(async () => {
+    await db.openDb(userId);
+    await db.resetLearnedRules();
+  });
+
 export type { TrackedAccount };
 
 // ─── Background (wired in background.ts, imported lazily to keep this file testable) ──

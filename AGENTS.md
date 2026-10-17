@@ -72,7 +72,7 @@ src/
 │                 BottomNavBar, BrandedHeroCard, CadenceSwitchModal, VaultSpendingGuardModal,
 │                 PeriodRenewalModal, CustomDatePickerModal, BudgetEditModal, MoneyExplainerModal,
 │                 StreakCalendarModal, DepositGullakModal, GradientIconBadge, PiggyBankCoinIcon,
-│                 AppLockOverlay, OtaUpdateModal, PullToHistoryList, ErrorBoundary, OfflineBanner, SyncFailedBanner,
+│                 CategoryRowItem, AppLockOverlay, OtaUpdateModal, PullToHistoryList, ErrorBoundary, OfflineBanner, SyncFailedBanner,
 │                 autolog/ (AutoLogUi + BetaPill, ReviewSheet, WhyLoggedCard, AutoLogHomeBanner, AutoLogGate, EmailSourceInfo)
 ├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, rollout, background,
 │                 notify, permissions, remote, store, copy, types)
@@ -82,7 +82,7 @@ src/
 │                 budgetCalculations.ts, homeCalculations.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts,
-│                 streakCalendarData.ts, asyncStorageList.ts, chartUtils.ts,
+│                 streakCalendarData.ts, asyncStorageList.ts, chartUtils.ts, profileUtils.ts,
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install)
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History,

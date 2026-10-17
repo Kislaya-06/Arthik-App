@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AppButton } from '../ui/AppButton';
@@ -9,7 +9,7 @@ import { getCategoryIcon } from '../../lib/iconUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
-import { classifyEvent, setEventCategory, ignoreEvent, learnFromDiscovery, resolveDuplicate, resolveTransfer } from '../../features/autoLog/reviews';
+import { classifyEvent, setEventCategory, ignoreEvent, learnFromDiscovery, resolveDuplicate, resolveTransfer, discardEvent } from '../../features/autoLog/reviews';
 
 /**
  * One sheet for every review decision. Flow (spec §9, §18–21):
@@ -187,7 +187,36 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
           <AppButton label="Expense" variant="secondary" style={styles.flex} onPress={() => pick('expense')} />
           <AppButton label="Income" variant="secondary" style={styles.flex} onPress={() => pick('income')} />
         </View>
-        <AppButton label={discovery ? 'Not a transaction — Ignore' : 'Not a transaction'} variant="ghost" onPress={() => setStep('ignore')} />
+        <View style={styles.footerRow}>
+          <AppButton
+            label={discovery ? 'Not a transaction — Ignore' : 'Not a transaction'}
+            variant="ghost"
+            style={styles.flex}
+            onPress={() => setStep('ignore')}
+          />
+          {!discovery ? (
+            <AppButton
+              label="Discard review"
+              variant="ghost"
+              style={styles.flex}
+              textStyle={{ color: colors.peachCoral }}
+              onPress={() => {
+                Alert.alert(
+                  'Discard review?',
+                  'This item will be removed from pending reviews and will not be logged.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Discard',
+                      style: 'destructive',
+                      onPress: () => run(() => discardEvent(event), 'Review discarded'),
+                    },
+                  ]
+                );
+              }}
+            />
+          ) : null}
+        </View>
       </View>
     );
   } else if (step === 'confirm') {
@@ -246,8 +275,32 @@ export const ReviewSheet: React.FC<Props> = ({ visible, event, accounts, discove
         </ScrollView>
       </>
     );
-    footer = categoryOnly ? null : (
-      <AppButton label="Skip — choose later" variant="ghost" loading={busy} onPress={() => afterCategory(null)} />
+    footer = (
+      <View style={styles.footerRow}>
+        <AppButton
+          label="Delete transaction"
+          variant="ghost"
+          style={styles.flex}
+          textStyle={{ color: colors.peachCoral }}
+          onPress={() => {
+            Alert.alert(
+              'Delete transaction?',
+              'This transaction will be removed from your expenses.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: () => run(() => discardEvent(event), 'Transaction deleted'),
+                },
+              ]
+            );
+          }}
+        />
+        {!categoryOnly && (
+          <AppButton label="Skip — choose later" variant="ghost" style={styles.flex} loading={busy} onPress={() => afterCategory(null)} />
+        )}
+      </View>
     );
   } else if (step === 'remember') {
     title = 'Remember this?';

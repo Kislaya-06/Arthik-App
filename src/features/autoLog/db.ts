@@ -302,6 +302,19 @@ export const countPending = async (): Promise<number> => {
   return r?.n ?? 0;
 };
 
+export const dismissPendingEvent = async (id: string) => {
+  await requireDb().runAsync(
+    "UPDATE events SET status = 'ignored', review_reason = NULL, needs_category = 0 WHERE id = ?",
+    id
+  );
+};
+
+export const clearAllPending = async () => {
+  await requireDb().runAsync(
+    "UPDATE events SET status = 'ignored', review_reason = NULL, needs_category = 0 WHERE (status = 'pending' OR (status = 'logged' AND needs_category = 1)) AND origin != 'discovery'"
+  );
+};
+
 export const listRecent = async (limit = 15): Promise<AutoLogEvent[]> =>
   findEvents("origin != 'discovery' AND status NOT IN ('ignored','duplicate','untracked') ORDER BY occurred_at DESC LIMIT ?", limit);
 
@@ -369,6 +382,12 @@ export const setMerchantPref = async (merchant: string, categoryId: string | nul
      ON CONFLICT(merchant) DO UPDATE SET category_id = COALESCE(excluded.category_id, category_id), type = COALESCE(excluded.type, type), updated_at = excluded.updated_at`,
     merchantKey(merchant), categoryId, type, Date.now()
   );
+};
+
+export const resetLearnedRules = async () => {
+  const db = requireDb();
+  await db.runAsync('DELETE FROM merchant_prefs');
+  await db.runAsync('DELETE FROM rules');
 };
 
 export const addFeedback = async (eventId: string | null, expenseId: string | null, reason: string) => {

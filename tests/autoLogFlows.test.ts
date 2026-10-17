@@ -22,7 +22,7 @@ import { resetEnv, native, ledger, remote, receiveSms, receiveNotification, wipe
 import * as service from '../src/features/autoLog/service';
 import * as db from '../src/features/autoLog/db';
 import { flushQueued } from '../src/features/autoLog/engine';
-import { classifyEvent, setEventCategory, ignoreEvent, resolveDuplicate, reportProblem } from '../src/features/autoLog/reviews';
+import { classifyEvent, setEventCategory, ignoreEvent, resolveDuplicate, reportProblem, discardEvent } from '../src/features/autoLog/reviews';
 
 const U = 'user-1';
 const MIN = 60_000;
@@ -432,3 +432,58 @@ describe('Developer test tools (dev builds only)', () => {
     expect(await service.devSimulate(U, 'sms_debit')).toMatch(/must be active/);
   });
 });
+
+describe('Pending Review Management & Learned Rules Reset', () => {
+  it('discardEvent dismisses a pending item and cleans up any pre-logged ledger transaction', async () => {
+    await goLive(['HDFC:1234']);
+    await service.devSimulate(U, 'sms_credit_person');
+    const pending = await db.listPending();
+    expect(pending.length).toBe(1);
+    const item = pending[0];
+
+    await discardEvent(item);
+
+    const remaining = await db.listPending();
+    expect(remaining.length).toBe(0);
+    const updated = await db.getEvent(item.id);
+    expect(updated?.status).toBe('ignored');
+    expect(updated?.reviewReason).toBeNull();
+  });
+
+  it('clearAllPendingReviews bulk-dismisses all pending reviews', async () => {
+    await goLive(['HDFC:1234']);
+    await service.devSimulate(U, 'sms_credit_person');
+    await service.devSimulate(U, 'sms_unreadable');
+    const pendingBefore = await db.listPending();
+    expect(pendingBefore.length).toBe(2);
+
+    await service.clearAllPendingReviews(U);
+
+    const pendingAfter = await db.listPending();
+    expect(pendingAfter.length).toBe(0);
+  });
+
+  it('resetLearnedRules clears merchant_prefs and rules while keeping accounts, events, and templates intact', async () => {
+    await goLive(['HDFC:1234']);
+    await db.setMerchantPref('ZOMATO', 'cat-food', 'expense');
+    await db.addRule({ kind: 'ignore_message', sender: 'VM-TEST', template: null, fingerprint: 'fp123', direction: null });
+    await db.learnTemplate('tpl123', 'HDFC', 'sms');
+
+    expect(await db.getMerchantPref('ZOMATO')).not.toBeNull();
+    expect((await db.listRules()).length).toBeGreaterThan(0);
+    expect(await db.countTemplates()).toBeGreaterThan(0);
+
+    await service.resetLearnedRules(U);
+
+    // merchant_prefs and rules are cleared
+    expect(await db.getMerchantPref('ZOMATO')).toBeNull();
+    expect((await db.listRules()).length).toBe(0);
+
+    // Tracked accounts, templates, and setup state are preserved
+    const accounts = await db.listAccounts();
+    expect(accounts.find((a) => a.tracked)?.last4).toBe('1234');
+    expect(await db.countTemplates()).toBeGreaterThan(0);
+    expect((await service.readLocalState(U)).setupComplete).toBe(true);
+  });
+});
+

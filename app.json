@@ -65,10 +65,10 @@
         "version": "2.1.0",
         "title": "Pure Mode Freedom & Auto-Balance ⚡✨",
         "highlights": [
-          "Pure Mode allows unconstrained spending without blocking when balance is exhausted",
-          "Ended budget pools in Pure Mode keep unspent funds intact without false income inflation",
-          "Re-enabling Budget Mode while in deficit automatically balances your Total Income",
-          "When carried-over money stops funding your budget, you now get one clear message telling you to add the money"
+          "Streamlined Profile & Smart Budget hero cards with zero void space and tactile edit cues",
+          "Live full-name header sync on Home with 15-character guardrail feedback",
+          "Swipe-to-delete pending reviews with fluid physics and one-tap bulk Clear All",
+          "Reset learned merchant rules & ignore preferences from Automatic Logging settings"
         ]
       }
     }

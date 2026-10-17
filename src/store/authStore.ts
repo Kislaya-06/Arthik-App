@@ -176,10 +176,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       is_auto_renew: settings?.is_auto_renew !== undefined ? settings.is_auto_renew : (profile?.is_auto_renew ?? false),
     };
 
+    const updatedUser = user ? {
+      ...user,
+      user_metadata: {
+        ...user.user_metadata,
+        ...(firstName !== undefined ? { first_name: updatedProfile.first_name } : {}),
+        ...(lastName !== undefined ? { last_name: updatedProfile.last_name } : {}),
+        full_name: `${updatedProfile.first_name} ${updatedProfile.last_name || ''}`.trim(),
+      },
+    } : user;
+
     // Optimistic: update local state + cache immediately so UI reflects change without waiting for network
-    set({ profile: updatedProfile });
+    set({ profile: updatedProfile, user: updatedUser });
     try {
       await AsyncStorage.setItem(`@arthik_cached_profile_${user.id}`, JSON.stringify(updatedProfile));
+      if (updatedUser) {
+        await AsyncStorage.setItem('@arthik_cached_user', JSON.stringify(updatedUser));
+      }
     } catch (_) {}
 
     // Build patch (only changed scalar fields) for pending queue

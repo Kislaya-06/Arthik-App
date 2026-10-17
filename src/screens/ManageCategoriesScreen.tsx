@@ -14,7 +14,7 @@ import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import { CategoryRowItem } from '../components/CategoryRowItem';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
 
@@ -124,28 +124,34 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         {categories.length} {categories.length === 1 ? 'category' : 'categories'}
       </Text>
 
-      {/* List Card */}
-      <View style={[
-        styles.listCard, 
-        { 
-          backgroundColor: colors.card,
-          borderWidth: isDark ? 1 : 0,
-          borderColor: colors.borderSubtle,
-        }
-      ]}>
-        <FlatList
-          data={categories}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 80 }]}
-        />
-      </View>
+      {/* Categories List */}
+      <FlatList
+        data={categories}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        showsVerticalScrollIndicator={false}
+        style={styles.list}
+        contentContainerStyle={[
+          styles.listContent, 
+          { paddingBottom: insets.bottom + 96 }
+        ]}
+      />
 
       {/* Floating Add Button */}
       <Pressable 
-        style={[styles.fab, { bottom: insets.bottom + Spacing.gutter, backgroundColor: colors.mint }]}
+        style={({ pressed }) => [
+          styles.fab, 
+          { 
+            bottom: insets.bottom + Spacing.gutter, 
+            backgroundColor: colors.mint,
+            opacity: pressed ? 0.88 : 1,
+            transform: [{ scale: pressed ? 0.95 : 1 }],
+          }
+        ]}
         onPress={() => navigation.navigate('AddEditCategory')}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel="Add category"
       >
         <Plus size={24} color={colors.forestGreen} />
       </Pressable>
@@ -171,23 +177,15 @@ const styles = StyleSheet.create({
   },
   categoryCount: {
     marginTop: Spacing.block,
-    marginBottom: Spacing.block,
+    marginBottom: Spacing.element,
     fontSize: FontSize.bodySmall,
     color: '#8A8FA3',
   },
-  listCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: BorderRadius.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-    flexShrink: 1,
-    marginBottom: Spacing.gutter,
-    overflow: 'hidden',
+  list: {
+    flex: 1,
   },
   listContent: {
+    flexGrow: 1,
   },
   fab: {
     position: 'absolute',
@@ -200,9 +198,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 10,
+    elevation: 8,
     zIndex: 10,
   },
 });

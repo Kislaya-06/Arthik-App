@@ -78,6 +78,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Period filters | Daily, Weekly, Monthly, All — unified income, spent, and balance across all time horizons. |
 | Live today's spent | Updates instantly on every transaction without refresh. |
 | Budget progress alerts | Live in-app 80% threshold and silent over-budget banner alerts. |
+| Concentric Bottom Navigation | Floating pill bar calibrated with exact 13px concentric padding parity ($R - r = 34 - 21 = 13\text{px}$) and balanced 5-tab spacing without FAB crowding. |
 
 ### 4.4 Savings Screen ✅ Shipped
 
@@ -116,6 +117,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Custom categories | User-created with icon + color. |
 | Category deletion | Blocked if expenses are attached (orphan prevention). |
 | Offline category cache | Available on cold start without network. |
+| Clean Canvas & Tactile List | Category management screen renders directly on the screen canvas with subtle dividers, full-height scroll clearance, and spring-scale press states. |
 
 ### 4.8 Auth & Account ✅ Shipped
 
@@ -171,6 +173,8 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | On-Device Encrypted Storage | High-security local SQLite database using **SQLCipher** via `expo-sqlite`, secured with a 256-bit encryption key in `expo-secure-store`. |
 | Cross-Source Reconciliation | Unifies bank SMS and email alerts into a single transaction when both describe the same payment within a 15-minute window (`src/features/autoLog/matching.ts`). |
 | Human-in-the-Loop Review | Confirmed bank transactions on tracked accounts auto-log immediately; new accounts, untracked accounts, transfers, or ambiguous merchants route to `Pending Review` (`AutoLogReviewSheet`). Arthik never guesses. |
+| Swipe-to-Delete & Bulk Clear | `AutoLogReviewScreen` supports fluid swipe-to-reveal item deletion with spring physics and layout transitions, 1-tap "Clear All" bulk dismiss with confirmation, and direct discard inside `ReviewSheet` — always preserving deduplication hashes while pruning unneeded ledger rows. |
+| Reset Learned Rules | `AutoLogCenterScreen` allows 1-tap factory reset of learned merchant categories and custom ignore rules (`merchant_prefs` and `rules`) without touching tracked bank accounts or past ledger transactions. |
 | Historical Discovery Scanner | Scans past SMS on-device up to 90 days to discover bank accounts and formats before turning live tracking ON. |
 | AutoLog UI Suite | Comprehensive screens: `AutoLogCenterScreen`, `AutoLogSetupScreen`, `AutoLogReviewScreen`, `AutoLogIntroScreen`, `AutoLogInfoScreen`, `AutoLogAccountsScreen`, `AutoLogEmailScreen`. |
 

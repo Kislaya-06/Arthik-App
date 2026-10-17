@@ -130,8 +130,9 @@ Corner radii reflect surface elevation and interaction roles.
 | Token Name | Value | Semantic Role | Intended Usage |
 | :--- | :--- | :--- | :--- |
 | `ControlHeight.compact` | `36px` | Compact Control Height | Compact filter chips, mini action buttons |
-| `ControlHeight.standard` | `48px` | Standard Touch Target | Primary buttons, Segmented controls, tabs, modal action bars |
+| `ControlHeight.standard` | `48px` | Standard Touch Target | Secondary modal buttons, Segmented controls, tabs, search bars |
 | `ControlHeight.row` | `56px` | Row & Form Field Height | Standard text inputs, form toggle rows, date picker trigger |
+| `ControlHeight.cta` | `60px` | Full-Width Primary CTA | Primary bottom action buttons (Add Expense, Continue, Done, Got It) |
 
 - **Minimum Hit Area:** Every interactive element must provide at least a **44dp $\times$ 44dp** touch target (`hitSlop`).
 - **Filter Containers:** Screen, Tab, and Modal Segmented Controls must strictly use `ControlHeight.standard` (`48px`). Form-level toggles (e.g. Type, Payment Mode) strictly use `ControlHeight.row` (`56px`).

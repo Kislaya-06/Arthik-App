@@ -68,6 +68,9 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Narrow ignore rules (§11) | `rules` table: exact fingerprint or exact template; never amount-based |
 | Unknown merchant → ask category (§17) | logged with `needs_category = 1` → appears in Pending Review |
 | Manual entry look-alike | `ledger.findManualLookalike` → `possible_duplicate` |
+| Review Dismissal & Swipe Delete | `AutoLogReviewScreen.tsx` + `reviews.discardEvent`: swipe-to-reveal delete button with UI-thread spring and layout animation, plus header Clear All action; removes pre-logged ledger items and marks event as ignored without losing deduplication hash. |
+| Direct Review Discard | `ReviewSheet.tsx`: 1-tap "Discard review" on Step 1 and "Delete transaction" on category step with confirmation alert. |
+| Reset Learned Rules | `AutoLogCenterScreen.tsx` + `db.resetLearnedRules`: clears `merchant_prefs` and `rules` back to factory clean slate without touching tracked accounts or past transaction ledger history. |
 | Vault Spending Guard (ADR 0011) | `ledger.isExceedingVaultLiquidity` → `exceeds_liquidity` review (zero funds in Income & Gullak with amount > budget blocks silent deficit creation) |
 | Data loss ≠ silent restore (§30–36) | `service.evaluateEntry`: no local DB + `autolog_profiles.enabled` → re-setup |
 | Clear cache keeps state (§36) | DB lives in app data, not cache |

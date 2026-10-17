@@ -41,6 +41,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { round2 } from '../lib/formatters';
 import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
+import { getDisplayName } from '../lib/profileUtils';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
@@ -310,18 +311,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }, [expenses, gullakDeposits]);
 
   const { colors, isDark } = useTheme();
-  const nameFromMeta = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
-  const dbName = profile?.first_name === 'User' ? null : profile?.first_name;
-  const firstName = dbName || nameFromMeta?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
+  const displayName = useMemo(
+    () => getDisplayName(profile, user?.user_metadata, user?.email),
+    [profile, user?.user_metadata, user?.email]
+  );
 
   const nameFontSize = useMemo(() => {
-    const len = firstName.length;
-    if (len <= 8) return 36;
-    if (len <= 11) return 30;
-    if (len <= 14) return 26;
+    const len = displayName.length;
+    if (len <= 8) return 34;
+    if (len <= 11) return 28;
+    if (len <= 14) return 24;
     if (len <= 18) return 22;
     return 19;
-  }, [firstName]);
+  }, [displayName]);
 
   const isBudgetConfigured = isBudgetModeEnabled && isAutoRenew && dailyBudgetAmount > 0;
   const todayRecord = useMemo(
@@ -573,13 +575,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text
               style={[
                 styles.nameText,
-                { color: colors.textPrimary, fontSize: nameFontSize },
+                {
+                  color: colors.textPrimary,
+                  fontSize: nameFontSize,
+                  lineHeight: Math.round(nameFontSize * 1.2),
+                },
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {firstName}
+              {displayName}
             </Text>
           </View>
           <View style={styles.headerActions}>
