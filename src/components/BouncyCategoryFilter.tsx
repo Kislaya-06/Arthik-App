@@ -8,14 +8,16 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import Animated, {
+  SharedValue,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  withSequence,
-  Easing,
   cancelAnimation,
+  interpolateColor,
+  interpolate,
+  Extrapolation,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors } from '../config/theme';
 
@@ -37,6 +39,9 @@ interface FilterItemProps {
   opt: FilterOption;
   isActive: boolean;
   colors: ThemeColors;
+  layout?: { x: number; width: number };
+  pillLeft: SharedValue<number>;
+  pillWidth: SharedValue<number>;
   onLayout: (e: LayoutChangeEvent) => void;
   onPress: () => void;
   isFirst: boolean;
@@ -47,6 +52,9 @@ const FilterItem = React.memo<FilterItemProps>(({
   opt,
   isActive,
   colors,
+  layout,
+  pillLeft,
+  pillWidth,
   onLayout,
   onPress,
   isFirst,
@@ -63,8 +71,25 @@ const FilterItem = React.memo<FilterItemProps>(({
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+    scale.value = withSpring(1, { damping: 14, stiffness: 240 });
   };
+
+  // Reanimated UI-thread color interpolation as pill highlight passes underneath
+  const animatedTextStyle = useAnimatedStyle(() => {
+    if (!layout || layout.width <= 0) {
+      return {
+        color: isActive ? colors.forestGreen : colors.textSecondary,
+      };
+    }
+    const itemCenter = layout.x + layout.width / 2;
+    const pillCenter = pillLeft.value + pillWidth.value / 2;
+    const distance = Math.abs(pillCenter - itemCenter);
+    const maxRange = Math.max(layout.width, 40) * 0.6;
+    const progress = interpolate(distance, [0, maxRange], [1, 0], Extrapolation.CLAMP);
+    return {
+      color: interpolateColor(progress, [0, 1], [colors.textSecondary, colors.forestGreen]),
+    };
+  });
 
   return (
     <Pressable
@@ -91,21 +116,19 @@ const FilterItem = React.memo<FilterItemProps>(({
           >
             {opt.name}
           </Text>
-          <Text
+          <Animated.Text
             numberOfLines={1}
             style={[
               styles.label,
               styles.visibleLabel,
+              animatedTextStyle,
               {
-                color: isActive
-                  ? colors.forestGreen
-                  : colors.textSecondary,
                 fontFamily: isActive ? FontFamily.bold : FontFamily.medium,
               },
             ]}
           >
             {opt.name}
-          </Text>
+          </Animated.Text>
         </View>
       </Animated.View>
     </Pressable>
@@ -115,11 +138,12 @@ const FilterItem = React.memo<FilterItemProps>(({
 export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChange }) => {
   const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // Content-space x + width for each option, keyed by id ?? 'all'
   const [layouts, setLayouts] = useState<Record<string, { x: number; width: number }>>({});
 
-  // UI-thread Reanimated shared values for sliding highlight and dual-edge liquid morph
+  // UI-thread Reanimated shared values for sliding highlight
   const pillLeft = useSharedValue(PILL_PADDING);
   const pillWidth = useSharedValue(0);
   const stretchAnim = useSharedValue(1);
@@ -133,14 +157,20 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
 
   const activeKey = value ?? 'all';
 
-  const animateTo = useCallback((targetKey: string, oldKey: string | null) => {
+  // Smoothly center the active item in the ScrollView (Apple UX standard for horizontal chips)
+  const centerCategory = useCallback((targetKey: string) => {
+    const targetLayout = layouts[targetKey];
+    if (!targetLayout || containerWidth <= 0) return;
+    const centerOffset = Math.max(
+      0,
+      targetLayout.x - containerWidth / 2 + targetLayout.width / 2
+    );
+    scrollRef.current?.scrollTo({ x: centerOffset, animated: true });
+  }, [containerWidth, layouts]);
+
+  const animateTo = useCallback((targetKey: string, _oldKey?: string | null) => {
     const targetLayout = layouts[targetKey];
     if (!targetLayout) return;
-
-    const prevIdx = oldKey ? options.findIndex((o) => (o.id ?? 'all') === oldKey) : -1;
-    const currIdx = options.findIndex((o) => (o.id ?? 'all') === targetKey);
-    const distance = prevIdx >= 0 ? Math.max(1, Math.abs(currIdx - prevIdx)) : 1;
-    const direction = prevIdx >= 0 && currIdx >= prevIdx ? 1 : -1;
 
     prevKey.current = targetKey;
     lastActiveLayout.current = { x: targetLayout.x, width: targetLayout.width };
@@ -150,58 +180,32 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
     // stiffness = 447.4, damping = 49 (mass: 1)
     cancelAnimation(pillLeft);
     cancelAnimation(pillWidth);
+    cancelAnimation(stretchAnim);
+    cancelAnimation(squishAnim);
+    cancelAnimation(leadAnim);
+
     pillLeft.value = withSpring(targetLayout.x, {
       stiffness: 447.4,
       damping: 49,
       mass: 1,
+      overshootClamping: true,
     });
     pillWidth.value = withSpring(targetLayout.width, {
       stiffness: 447.4,
       damping: 49,
       mass: 1,
+      overshootClamping: true,
     });
+    stretchAnim.value = 1;
+    squishAnim.value = 1;
+    leadAnim.value = 0;
 
-    // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
-    if (distance > 0) {
-      const maxStretch = Math.min(1.14, 1 + distance * 0.05);
-      const minSquish = Math.max(0.95, 1 - distance * 0.02);
-      const maxLead = Math.min(6, distance * 2) * direction;
-      const launchDuration = Math.min(95, 50 + distance * 15);
-
-      cancelAnimation(stretchAnim);
-      cancelAnimation(squishAnim);
-      cancelAnimation(leadAnim);
-
-      // Exact physical equivalent of React Native Origami tension: 160, friction: 16
-      // stiffness = 664.6, damping = 49 (mass: 1)
-      stretchAnim.value = withSequence(
-        withTiming(maxStretch, {
-          duration: launchDuration,
-          easing: Easing.out(Easing.quad),
-        }),
-        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
-      );
-
-      squishAnim.value = withSequence(
-        withTiming(minSquish, {
-          duration: launchDuration,
-          easing: Easing.out(Easing.quad),
-        }),
-        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
-      );
-
-      leadAnim.value = withSequence(
-        withTiming(maxLead, {
-          duration: launchDuration,
-          easing: Easing.out(Easing.quad),
-        }),
-        withSpring(0, { stiffness: 664.6, damping: 49, mass: 1 })
-      );
-    }
-  }, [layouts, options, pillLeft, pillWidth, stretchAnim, squishAnim, leadAnim]);
+    centerCategory(targetKey);
+  }, [centerCategory, layouts, leadAnim, pillLeft, pillWidth, squishAnim, stretchAnim]);
 
   // Immediate touch-driven animation start on UI thread:
   const handleSelect = useCallback((id: string | null) => {
+    Haptics.selectionAsync().catch(() => {});
     const targetKey = id ?? 'all';
     if (targetKey !== prevKey.current && layouts[targetKey]) {
       animateTo(targetKey, prevKey.current);
@@ -230,6 +234,7 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
       stretchAnim.value = 1;
       squishAnim.value = 1;
       leadAnim.value = 0;
+      centerCategory(activeKey);
       return;
     }
 
@@ -245,8 +250,9 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
       lastActiveLayout.current = { x: activeLayout.x, width: activeLayout.width };
       pillLeft.value = activeLayout.x;
       pillWidth.value = activeLayout.width;
+      centerCategory(activeKey);
     }
-  }, [activeKey, animateTo, layouts, pillLeft, pillWidth, stretchAnim, squishAnim, leadAnim]);
+  }, [activeKey, animateTo, centerCategory, layouts, leadAnim, pillLeft, pillWidth, squishAnim, stretchAnim]);
 
   const animatedHighlightStyle = useAnimatedStyle(() => ({
     left: pillLeft.value,
@@ -261,6 +267,7 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
   return (
     // ── Outer pill: FIXED visual shape, both ends rounded, clips its children ──
     <View
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
       style={[
         styles.pill,
         {
@@ -297,6 +304,9 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
               opt={opt}
               isActive={isActive}
               colors={colors}
+              layout={layouts[key]}
+              pillLeft={pillLeft}
+              pillWidth={pillWidth}
               isFirst={idx === 0}
               isLast={idx === options.length - 1}
               onPress={() => handleSelect(opt.id)}
@@ -362,3 +372,5 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
+
+export default BouncyCategoryFilter;

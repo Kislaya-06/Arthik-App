@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,16 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import Animated, {
+  SharedValue,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  withSequence,
-  Easing,
   cancelAnimation,
+  interpolateColor,
+  interpolate,
+  Extrapolation,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../store/themeStore';
 import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight } from '../../config/theme';
 
@@ -54,6 +56,8 @@ interface OptionItemProps {
   iconSize?: number;
   index?: number;
   totalOptions?: number;
+  optionWidth?: number;
+  slideAnim?: SharedValue<number>;
 }
 
 const OptionItem: React.FC<OptionItemProps> = React.memo(({
@@ -66,6 +70,8 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
   iconSize = 16,
   index = 0,
   totalOptions = 1,
+  optionWidth = 0,
+  slideAnim,
 }) => {
   const { colors } = useTheme();
   const pressScale = useSharedValue(1);
@@ -75,15 +81,36 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
   }));
 
   const handlePressIn = () => {
-    pressScale.value = withSpring(0.94, { damping: 12, stiffness: 200 });
+    pressScale.value = withSpring(0.97, { damping: 14, stiffness: 240 });
   };
 
   const handlePressOut = () => {
-    pressScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+    pressScale.value = withSpring(1, { damping: 14, stiffness: 240 });
   };
 
+  // UI-thread label text color crossfade synchronized 1:1 with sliding pill position
+  const animatedLabelStyle = useAnimatedStyle(() => {
+    if (!slideAnim || optionWidth <= 0) {
+      return {
+        color: isSelected ? activeColor : inactiveColor,
+      };
+    }
+    const itemCenter = index * optionWidth;
+    const distance = Math.abs(slideAnim.value - itemCenter);
+    // Smooth crossfade: reaches activeColor at center, fades to inactiveColor over 60% of item width
+    const progress = interpolate(
+      distance,
+      [0, optionWidth * 0.6],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return {
+      color: interpolateColor(progress, [0, 1], [inactiveColor, activeColor]),
+    };
+  });
+
   const IconComponent = option.icon;
-  const textColor = isSelected ? activeColor : inactiveColor;
+  const iconColor = isSelected ? activeColor : inactiveColor;
 
   return (
     <Pressable
@@ -118,14 +145,14 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
         ) : null}
         <View style={styles.labelRow}>
           {IconComponent ? (
-            <IconComponent size={iconSize} color={textColor} />
+            <IconComponent size={iconSize} color={iconColor} />
           ) : null}
-          <Text
+          <Animated.Text
             numberOfLines={1}
             style={[
               styles.optionLabel,
+              animatedLabelStyle,
               {
-                color: textColor,
                 fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
                 marginLeft: IconComponent ? 6 : 0,
                 ...(fontSize ? { fontSize, lineHeight: fontSize + 4 } : {}),
@@ -133,7 +160,7 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
             ]}
           >
             {option.label}
-          </Text>
+          </Animated.Text>
         </View>
       </Animated.View>
     </Pressable>
@@ -142,12 +169,13 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
 
 /**
  * Standardized SegmentedControl primitive for Arthik.
- * Implements Apple Design WWDC Dual-Edge Liquid Morph animation on Native UI Thread:
- * - Critically damped primary slide spring (zero overshoot outside bounds, stiffness: 447.4, damping: 49)
- * - Direction-aware leading edge stretch & vertical volume squish (stiffness: 664.6, damping: 49)
+ * Implements Apple iOS UISegmentedControl physical motion:
+ * - Critically damped primary slide spring on native UI thread (stiffness: 447.4, damping: 49, mass: 1)
+ * - Zero rubber-band deformation: fixed stadium geometry preserving exact corner radius
+ * - UI-thread text color crossfade (interpolateColor) synchronized 1:1 with pill position
  * - Immediate Frame 0 touch-driven dispatch with React.startTransition decoupling
- * - Strict track clipping (overflow: 'hidden') keeping the pill inside the container
- * - Per-item Reanimated press scale (0.94)
+ * - Native haptic feedback on touch (Haptics.selectionAsync)
+ * - Strict track clipping keeping the pill inside the container radius
  */
 export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   options,
@@ -176,76 +204,37 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
     normalizedOptions.findIndex((opt) => opt.key === selectedKey)
   );
 
-  const [containerWidth, setContainerWidth] = React.useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
   const slideAnim = useSharedValue(0);
-  const stretchAnim = useSharedValue(1);
-  const squishAnim = useSharedValue(1);
-  const leadAnim = useSharedValue(0);
   const isFirstLayout = useRef(true);
   const prevIndexRef = useRef(selectedIndex);
 
-  const trackInset = Spacing.micro + 1;
+  const trackInset = Spacing.micro;
   const optionWidth =
     containerWidth > 0 && normalizedOptions.length > 0
       ? (containerWidth - trackInset * 2) / normalizedOptions.length
       : 0;
 
-  const animateTo = useCallback((targetIndex: number, oldIndex: number, optWidth: number) => {
+  const animateTo = useCallback((targetIndex: number, optWidth: number) => {
     if (optWidth <= 0) return;
     const targetX = targetIndex * optWidth;
-    const distance = Math.abs(targetIndex - oldIndex);
-    const direction = targetIndex > oldIndex ? 1 : -1;
     prevIndexRef.current = targetIndex;
 
     cancelAnimation(slideAnim);
-    // 1. Primary slide: Apple-calibrated critically damped spring on native UI thread (stiffness: 447.4, damping: 49)
+    // Apple-calibrated critically damped spring on native UI thread (stiffness: 447.4, damping: 49, mass: 1)
     slideAnim.value = withSpring(targetX, {
       stiffness: 447.4,
       damping: 49,
       mass: 1,
+      overshootClamping: true,
     });
-
-    // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
-    if (distance > 0) {
-      const maxStretch = Math.min(1.14, 1 + distance * 0.05);
-      const minSquish = Math.max(0.95, 1 - distance * 0.02);
-      const maxLead = Math.min(6, distance * 2) * direction;
-      const launchDuration = Math.min(95, 50 + distance * 15);
-
-      cancelAnimation(stretchAnim);
-      cancelAnimation(squishAnim);
-      cancelAnimation(leadAnim);
-
-      stretchAnim.value = withSequence(
-        withTiming(maxStretch, {
-          duration: launchDuration,
-          easing: Easing.out(Easing.quad),
-        }),
-        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
-      );
-
-      squishAnim.value = withSequence(
-        withTiming(minSquish, {
-          duration: launchDuration,
-          easing: Easing.out(Easing.quad),
-        }),
-        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
-      );
-
-      leadAnim.value = withSequence(
-        withTiming(maxLead, {
-          duration: launchDuration,
-          easing: Easing.out(Easing.quad),
-        }),
-        withSpring(0, { stiffness: 664.6, damping: 49, mass: 1 })
-      );
-    }
-  }, [slideAnim, stretchAnim, squishAnim, leadAnim]);
+  }, [slideAnim]);
 
   // Synchronous touch-driven selection: Starts animation on UI thread on Frame 0
   const handleSelect = useCallback((key: string, idx: number) => {
+    Haptics.selectionAsync().catch(() => {});
     if (idx !== prevIndexRef.current && optionWidth > 0) {
-      animateTo(idx, prevIndexRef.current, optionWidth);
+      animateTo(idx, optionWidth);
     }
     // Decouple UI-thread spring motion from heavy parent screen recalculations
     if (typeof React.startTransition === 'function') {
@@ -263,27 +252,23 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
 
       if (isFirstLayout.current) {
         slideAnim.value = targetX;
-        stretchAnim.value = 1;
-        squishAnim.value = 1;
-        leadAnim.value = 0;
         isFirstLayout.current = false;
         prevIndexRef.current = selectedIndex;
         return;
       }
 
       if (prevIndexRef.current !== selectedIndex) {
-        animateTo(selectedIndex, prevIndexRef.current, optionWidth);
+        animateTo(selectedIndex, optionWidth);
       }
     }
-  }, [selectedIndex, optionWidth, animateTo, slideAnim, stretchAnim, squishAnim, leadAnim]);
+  }, [selectedIndex, optionWidth, animateTo, slideAnim]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
     if (width > 0 && width !== containerWidth) {
       setContainerWidth(width);
       if (!isFirstLayout.current && normalizedOptions.length > 0) {
-        const inset = Spacing.micro + 1;
-        const newOptWidth = (width - inset * 2) / normalizedOptions.length;
+        const newOptWidth = (width - trackInset * 2) / normalizedOptions.length;
         slideAnim.value = selectedIndex * newOptWidth;
       }
     }
@@ -297,12 +282,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
 
   const animatedHighlightStyle = useAnimatedStyle(() => ({
     width: optionWidth,
-    transform: [
-      { translateX: slideAnim.value },
-      { translateX: leadAnim.value },
-      { scaleX: stretchAnim.value },
-      { scaleY: squishAnim.value },
-    ],
+    transform: [{ translateX: slideAnim.value }],
   }));
 
   return (
@@ -360,6 +340,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             iconSize={iconSize}
             index={idx}
             totalOptions={normalizedOptions.length}
+            optionWidth={optionWidth}
+            slideAnim={slideAnim}
           />
         ))}
       </View>
@@ -387,9 +369,9 @@ const styles = StyleSheet.create({
   },
   sliderPill: {
     position: 'absolute',
-    top: Spacing.micro + 1,
-    bottom: Spacing.micro + 1,
-    left: Spacing.micro + 1,
+    top: Spacing.micro,
+    bottom: Spacing.micro,
+    left: Spacing.micro,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1.5 },
     shadowOpacity: 0.12,

@@ -162,13 +162,13 @@ describe('BouncyCategoryFilter UI-Thread Reanimated Animation Parity (Source & S
     expect(historySrc).toMatch(/options=\{categoryFilterOptions\}/);
   });
 
-  it('implements Apple-calibrated critically-damped spring and dual-edge liquid morph parameters', () => {
+  it('implements Apple-calibrated critically-damped spring parameters without corner deformation', () => {
     expect(src).toMatch(/damping:\s*49/);
     expect(src).toMatch(/stiffness:\s*447\.4/);
-    expect(src).toMatch(/maxStretch\s*=\s*Math\.min\(1\.14,\s*1\s*\+\s*distance\s*\*\s*0\.05\)/);
-    expect(src).toMatch(/minSquish\s*=\s*Math\.max\(0\.95,\s*1\s*-\s*distance\s*\*\s*0\.02\)/);
-    expect(src).toMatch(/maxLead\s*=\s*Math\.min\(6,\s*distance\s*\*\s*2\)\s*\*\s*direction/);
-    expect(src).toMatch(/stiffness:\s*664\.6/);
+    expect(src).toMatch(/stretchAnim\.value\s*=\s*1/);
+    expect(src).toMatch(/squishAnim\.value\s*=\s*1/);
+    expect(src).toMatch(/leadAnim\.value\s*=\s*0/);
+    expect(src).toMatch(/overshootClamping:\s*true/);
   });
 
   it('cancels in-flight animations on rapid consecutive taps to prevent animation stacking', () => {

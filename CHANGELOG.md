@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### UI/UX Motion & Apple Polish — Silky Smooth Filter Pills, UI-Thread Text Crossfade & Supabase Migration Parity (`SegmentedControl.tsx`, `BouncyCategoryFilter.tsx`) — OTA-safe
+
+- **Apple-Grade Physical Spring Motion (`SegmentedControl.tsx`, `BouncyCategoryFilter.tsx`)**:
+  - Eliminated the glitchy rubber-band distortion ("liquid morph" scaleX 1.14x / scaleY 0.95x warping and leading edge overshoot) that caused pill corner smearing and animation stutter.
+  - Preserved fixed stadium pill geometry (`BorderRadius.pill`) with zero scale deformation during motion.
+  - Implemented Apple-calibrated critically damped spring physics (`stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`) across both the Home toggle and History category filters.
+  - Implemented 60/120fps UI-thread text color crossfade (`interpolateColor`) synchronized 1:1 with sliding pill position, eliminating mid-transit text color jumps.
+  - Added automatic viewport centering (`scrollTo`) in `BouncyCategoryFilter` whenever an off-center or edge category is selected, keeping active categories smoothly centered.
+  - Integrated native haptic feedback (`Haptics.selectionAsync()`) on the causal frame of touch.
+- **Supabase CI Migration Directory Parity Fix (`supabase/migrations/`)**:
+  - Aligned local migration filenames (`20261018111651_split_and_money_back.sql`, `20261018160000_multi_person_split.sql`) with remote `supabase_migrations.schema_migrations` timestamps.
+  - Recorded migration version `20261018160000` (`multi_person_split`) in remote Supabase schema migrations table.
+  - Permanently resolved GitHub Actions error: `"Remote migration versions not found in local migrations directory."`.
+
 ### UI/UX Polish — Fintech-Grade 2-Column Review Sheet Grid, Elevated Height & Sizing Balance (`ReviewSheet.tsx`, `BottomSheetModal.tsx`) — OTA-safe
 
 - **Fintech-Grade 2-Column Category Grid (`ReviewSheet.tsx`)**:
