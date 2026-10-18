@@ -1,5 +1,6 @@
 import { format, parseISO, addDays, isAfter, differenceInCalendarDays } from 'date-fns';
 import { formatCompactCurrency, formatCurrency, round2 } from './formatters';
+import { isExcludedFromTotals } from './transactionUtils';
 
 export interface SegmentInterpolation {
   inputRange: number[];
@@ -597,7 +598,7 @@ export function computeMonthlyWeeksData(
 
     let sum = 0;
     for (const exp of expenses) {
-      if ((isIncomeCheck && isIncomeCheck(exp)) || exp.transaction_class === 'self_transfer') continue;
+      if ((isIncomeCheck && isIncomeCheck(exp)) || isExcludedFromTotals(exp)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       // Exclude expenses before account registration
@@ -614,7 +615,7 @@ export function computeMonthlyWeeksData(
     while (!isAfter(curDay, rangeEnd)) {
       const curStr = format(curDay, 'yyyy-MM-dd');
       const hasExpense = expenses.some((exp) => {
-        if ((isIncomeCheck && isIncomeCheck(exp)) || exp.transaction_class === 'self_transfer') return false;
+        if ((isIncomeCheck && isIncomeCheck(exp)) || isExcludedFromTotals(exp)) return false;
         const cleanDate = exp.expense_date?.split('T')[0]?.trim();
         if (!cleanDate) return false;
         if (userCreatedAtStr && cleanDate < userCreatedAtStr) return false;
@@ -759,7 +760,7 @@ export function computeMonthlyCashFlowData(
       if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
 
       if (cleanDate >= startStr && cleanDate <= endStr) {
-        if (exp.transaction_class === 'self_transfer') continue;
+        if (isExcludedFromTotals(exp)) continue;
         const isIncome = isIncomeCheck ? isIncomeCheck(exp) : exp.type === 'income';
         if (isIncome) {
           weekIncome += exp.amount;

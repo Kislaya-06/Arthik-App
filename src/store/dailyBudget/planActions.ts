@@ -17,8 +17,10 @@ import {
   poolSpentBefore,
   poolKeyFor,
   computeEffectiveFrom,
+  getPeriodBounds,
   upsertPendingChange,
   getDateOwner,
+  resolvePlanForDate,
   BUDGET_RULES_V2_FROM,
 } from '../../lib/budgetPeriods';
 import { formatEffectiveFrom } from '../../lib/budgetModeUtils';
@@ -106,6 +108,8 @@ export function handleSetDailyBudget(
     isAutoRenew: willAutoRenew,
     dailyRecords: records,
     planChanges: updatedChanges,
+    scheduledNextDailyBudget: null,
+    scheduledBudgetSetDate: null,
     ...metrics,
   });
 
@@ -262,7 +266,7 @@ export function handleCancelScheduledNextDailyBudget(
   });
 }
 
-function balancePureDeficitIfNeeded(get: () => DailyBudgetState, todayStr: string): void {
+export function balancePureDeficitIfNeeded(get: () => DailyBudgetState, todayStr: string): void {
   if (get().isBudgetModeEnabled) return;
   const currentExpenses = getCurrentExpenses();
   const R = computeTotalAccountRemaining(get(), currentExpenses);
@@ -311,22 +315,51 @@ function balancePureDeficitIfNeeded(get: () => DailyBudgetState, todayStr: strin
 export function handleSetBudgetModeEnabled(
   get: () => DailyBudgetState,
   set: (partial: Partial<DailyBudgetState> | ((state: DailyBudgetState) => Partial<DailyBudgetState>)) => void,
-  enabled: boolean
+  enabled: boolean,
+  options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean }
 ): void {
   const todayStr = getTodayDateStr();
-  if (enabled && !get().isBudgetModeEnabled) {
+  const currentUser = useAuthStore.getState().user;
+  const activePlanToday = resolvePlanForDate(get().planChanges, todayStr);
+  const currentMode = activePlanToday ? activePlanToday.isEnabled : get().isBudgetModeEnabled;
+  const pendingChange = resolvePendingPlanChange(get().planChanges, todayStr);
+
+  // 1. Same-Day Reversal (Flip-Back) Check:
+  // If user had scheduled a future change for tomorrow that contradicts current active mode,
+  // and now toggles back to currentMode (e.g. Pure -> scheduled Budget -> back to Pure, or vice versa):
+  if (
+    pendingChange &&
+    pendingChange.effectiveFrom > todayStr &&
+    pendingChange.isEnabled !== currentMode &&
+    enabled === currentMode
+  ) {
+    handleCancelPendingPlanChange(get, set);
+    useNotificationStore.getState().removeNotification?.(`scheduled_budget_mode_${pendingChange.effectiveFrom}`);
+    useNotificationStore.getState().removeNotification?.(`scheduled_pure_mode_${pendingChange.effectiveFrom}`);
+    return;
+  }
+
+  // 2. Already in requested state with no pending contradiction:
+  if (enabled === currentMode && (!pendingChange || pendingChange.isEnabled === enabled)) {
+    return;
+  }
+
+  if (enabled && !currentMode) {
     balancePureDeficitIfNeeded(get, todayStr);
   }
-  const currentUser = useAuthStore.getState().user;
-  const effectiveFrom = computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr);
 
-  const cadence = get().budgetCadence;
-  const amount =
+  const effectiveFrom = options?.immediate
+    ? todayStr
+    : computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr, { changes: get().planChanges });
+
+  const cadence = options?.cadence || get().budgetCadence || 'daily';
+  const amount = options?.amount !== undefined ? options.amount : (
     cadence === 'weekly'
       ? get().weeklyBudgetAmount
       : cadence === 'monthly'
       ? get().monthlyBudgetAmount
-      : get().dailyBudgetAmount;
+      : get().dailyBudgetAmount
+  );
 
   const newChange: BudgetPlanChange = {
     id: Crypto.randomUUID(),
@@ -339,6 +372,72 @@ export function handleSetBudgetModeEnabled(
   };
 
   const updatedChanges = upsertPendingChange(get().planChanges, newChange);
+
+  // ADR 0012: switching Budget Mode back on inside the same week / month continues the SAME budget.
+  // Say so ("Welcome back: ₹4,600 left of this month's ₹9,000").
+  if (enabled && (cadence === 'weekly' || cadence === 'monthly') && todayStr >= BUDGET_RULES_V2_FROM) {
+    try {
+      const pools = buildBudgetPools(updatedChanges, effectiveFrom > todayStr ? effectiveFrom : todayStr);
+      const pool = pools[poolKeyFor(cadence, todayStr)];
+      if (pool && pool.startedOn < todayStr && !pool.closedOn) {
+        const spentByDate = computeSpentByDate(getCurrentExpenses(), buildCategoryClassifier());
+        const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
+        const left = Math.max(0, round2(pool.budget - poolSpentBefore(pools, updatedChanges, pool, tomorrowStr, spentByDate)));
+        notifyBudgetResumed(`resumed_${pool.key}_${todayStr}`, cadence, left, pool.budget, todayStr);
+      }
+    } catch {}
+  }
+
+  // If effectiveFrom > todayStr (scheduled for tomorrow):
+  // TODAY'S RUNNING STATE MUST NOT BE WIPED OR ALTERED!
+  if (effectiveFrom > todayStr) {
+    set({
+      planChanges: updatedChanges,
+    });
+
+    if (enabled) {
+      useNotificationStore.getState().addNotification({
+        id: `scheduled_budget_mode_${effectiveFrom}`,
+        title: 'Smart Budget & Gullak scheduled',
+        message: 'Smart Budget & Gullak will activate tomorrow at 12:00 AM. Today continues in Pure Mode.',
+        type: 'general',
+        data: { date: effectiveFrom, screen: 'Profile' },
+      });
+    } else {
+      useNotificationStore.getState().addNotification({
+        id: `scheduled_pure_mode_${effectiveFrom}`,
+        title: 'Pure Mode scheduled',
+        message: "Pure Mode will activate tomorrow at 12:00 AM. Today's budget and savings will finish normally.",
+        type: 'general',
+        data: { date: effectiveFrom, screen: 'Profile' },
+      });
+    }
+
+    if (currentUser) {
+      savePendingPlanChangeOffline(currentUser.id, newChange);
+      supabase
+        .from('budget_plan_changes')
+        .upsert(
+          {
+            id: newChange.id,
+            user_id: currentUser.id,
+            effective_from: newChange.effectiveFrom,
+            is_enabled: newChange.isEnabled,
+            cadence: newChange.cadence,
+            amount: newChange.amount,
+            created_at: newChange.createdAt,
+          },
+          { onConflict: 'user_id,effective_from' }
+        )
+        .then(({ error }) => {
+          if (!error) {
+            get().syncPendingPlanChanges();
+          }
+        });
+    }
+    return;
+  }
+
   const records = { ...get().dailyRecords };
 
   if (!enabled && records[todayStr] && !records[todayStr].isFinalized) {
@@ -374,33 +473,20 @@ export function handleSetBudgetModeEnabled(
     get().bestStreakByCadence
   );
 
+  const autoRenew = enabled ? get().isAutoRenew : false;
+
   set({
     isBudgetModeEnabled: enabled,
-    isAutoRenew: enabled,
+    isAutoRenew: autoRenew,
     planChanges: updatedChanges,
     dailyRecords: records,
     ...metrics,
   });
 
-  // ADR 0012: switching Budget Mode back on inside the same week / month continues the SAME budget.
-  // Say so ("Welcome back: ₹4,600 left of this month's ₹9,000").
-  if (enabled && (cadence === 'weekly' || cadence === 'monthly') && todayStr >= BUDGET_RULES_V2_FROM) {
-    try {
-      const pools = buildBudgetPools(updatedChanges, todayStr);
-      const pool = pools[poolKeyFor(cadence, todayStr)];
-      if (pool && pool.startedOn < todayStr && !pool.closedOn) {
-        const spentByDate = computeSpentByDate(getCurrentExpenses(), buildCategoryClassifier());
-        const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
-        const left = Math.max(0, round2(pool.budget - poolSpentBefore(pools, updatedChanges, pool, tomorrowStr, spentByDate)));
-        notifyBudgetResumed(`resumed_${pool.key}_${todayStr}`, cadence, left, pool.budget, todayStr);
-      }
-    } catch {}
-  }
-
   if (currentUser) {
     savePendingSettingsOffline(currentUser.id, {
       is_budget_mode_enabled: enabled,
-      is_auto_renew: enabled,
+      is_auto_renew: autoRenew,
     });
     savePendingPlanChangeOffline(currentUser.id, newChange);
 
@@ -408,7 +494,7 @@ export function handleSetBudgetModeEnabled(
       .from('profiles')
       .update({
         is_budget_mode_enabled: enabled,
-        is_auto_renew: enabled,
+        is_auto_renew: autoRenew,
       })
       .eq('id', currentUser.id)
       .then(({ error }) => {
@@ -542,12 +628,25 @@ export function handleSetBudgetCadence(
 export function handleSetWeeklyBudget(
   get: () => DailyBudgetState,
   set: (partial: Partial<DailyBudgetState> | ((state: DailyBudgetState) => Partial<DailyBudgetState>)) => void,
-  amount: number
+  amount: number,
+  options?: { immediate?: boolean }
 ): void {
   const cleanAmount = Math.max(0, round2(amount));
   const todayStr = getTodayDateStr();
   const currentUser = useAuthStore.getState().user;
-  const effectiveFrom = computeEffectiveFrom('weekly_amount', todayStr);
+  const bounds = getPeriodBounds('weekly', todayStr);
+  const currentPlan = resolvePlanForDate(get().planChanges, todayStr);
+
+  let effectiveFrom: string;
+  if (options?.immediate) {
+    if (currentPlan && currentPlan.cadence === 'weekly' && currentPlan.effectiveFrom >= bounds.start) {
+      effectiveFrom = currentPlan.effectiveFrom;
+    } else {
+      effectiveFrom = bounds.start <= todayStr ? bounds.start : todayStr;
+    }
+  } else {
+    effectiveFrom = computeEffectiveFrom('weekly_amount', todayStr);
+  }
 
   let updatedChanges = get().planChanges;
   let newChange: BudgetPlanChange | null = null;
@@ -613,12 +712,25 @@ export function handleSetWeeklyBudget(
 export function handleSetMonthlyBudget(
   get: () => DailyBudgetState,
   set: (partial: Partial<DailyBudgetState> | ((state: DailyBudgetState) => Partial<DailyBudgetState>)) => void,
-  amount: number
+  amount: number,
+  options?: { immediate?: boolean }
 ): void {
   const cleanAmount = Math.max(0, round2(amount));
   const todayStr = getTodayDateStr();
   const currentUser = useAuthStore.getState().user;
-  const effectiveFrom = computeEffectiveFrom('monthly_amount', todayStr);
+  const bounds = getPeriodBounds('monthly', todayStr);
+  const currentPlan = resolvePlanForDate(get().planChanges, todayStr);
+
+  let effectiveFrom: string;
+  if (options?.immediate) {
+    if (currentPlan && currentPlan.cadence === 'monthly' && currentPlan.effectiveFrom >= bounds.start) {
+      effectiveFrom = currentPlan.effectiveFrom;
+    } else {
+      effectiveFrom = bounds.start <= todayStr ? bounds.start : todayStr;
+    }
+  } else {
+    effectiveFrom = computeEffectiveFrom('monthly_amount', todayStr);
+  }
 
   let updatedChanges = get().planChanges;
   let newChange: BudgetPlanChange | null = null;
@@ -715,6 +827,9 @@ export function handleCancelPendingPlanChange(
     scheduledNextDailyBudget: null,
     scheduledBudgetSetDate: null,
   });
+
+  useNotificationStore.getState().removeNotification?.(`scheduled_budget_mode_${pending.effectiveFrom}`);
+  useNotificationStore.getState().removeNotification?.(`scheduled_pure_mode_${pending.effectiveFrom}`);
 
   const currentUser = useAuthStore.getState().user;
   if (currentUser) {

@@ -8,6 +8,9 @@ import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { GradientIconBadge } from './GradientIconBadge';
 import { ItemRowShell } from './ui/ItemRowShell';
+import { isRecoveryClass } from '../lib/transactionUtils';
+import { grossAmountOf } from '../lib/splitLedger';
+import { formatCurrency } from '../lib/formatters';
 
 export type TxRowProps = {
   expense: Expense;
@@ -54,10 +57,17 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
         ? 'Card'
         : 'Cash';
 
-  const categoryName = category?.name ?? (isIncome ? 'Money Added' : 'Other');
+  const isMoneyBack = isRecoveryClass(expense);
+  const categoryName = isMoneyBack ? 'Money back' : (category?.name ?? (isIncome ? 'Money Added' : 'Other'));
   const hasNote = Boolean(expense.note && expense.note.trim().length > 0);
   const mainTitle = hasNote ? expense.note!.trim() : categoryName;
-  const subtitle = hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
+  let subtitle = hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
+
+  // The row shows what was PAID. If part of it came back, or it is split, say so (SPL-001 / SPL-003).
+  const paid = grossAmountOf(expense);
+  const cameBack = isIncome ? 0 : Math.max(0, paid - (Number(expense.amount) || 0));
+  if (expense.split_person && Number(expense.split_amount) > 0) subtitle += ` · Split with ${expense.split_person}`;
+  if (cameBack > 0) subtitle += ` · ${formatCurrency(cameBack)} back`;
 
   return (
     <ItemRowShell
@@ -68,7 +78,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
       }
       title={mainTitle}
       subtitle={subtitle}
-      amount={expense.amount}
+      amount={paid}
       direction={isIncome ? 'income' : 'expense'}
       signed
       dateStr={dateStr}

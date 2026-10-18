@@ -54,6 +54,10 @@ export {
   sanitizeNote,
 };
 
+import { extraColumnsFor } from './expense/payload';
+import { withRecoveries } from './expense/recoveryMiddleware';
+import { deleteBlockReason } from '../lib/splitLedger';
+
 import {
   syncPendingDeletes,
   syncPendingAdds,
@@ -67,7 +71,7 @@ let isSyncInProgress = false;
 export { isNetworkFailure } from '../lib/networkUtils';
 import { isNetworkFailure } from '../lib/networkUtils';
 
-export const useExpenseStore = create<ExpenseState>((set, get) => ({
+export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) => ({
   expenses: [],
   loading: false,
   isExpensesLoaded: false,
@@ -385,6 +389,12 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       type,
       transaction_class: options?.transactionClass ?? 'normal',
       transfer_rule_id: options?.transferRuleId ?? null,
+      split_person: options?.split?.person ?? null,
+      split_amount: options?.split?.amount ?? null,
+      split_allocations: options?.split?.allocations ?? null,
+      recovery_kind: options?.recovery?.kind ?? null,
+      recovery_person: options?.recovery?.person ?? null,
+      recovery_allocations: options?.recovery?.allocations ?? null,
       created_at: nowIso,
       pending: true,
     };
@@ -414,6 +424,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         category_id: categoryId || null,
         transaction_class: options?.transactionClass ?? 'normal',
         transfer_rule_id: options?.transferRuleId ?? null,
+        ...extraColumnsFor(optimisticExpense),
       };
 
       // P0.4: upsert with onConflict: 'id', ignoreDuplicates: true
@@ -457,7 +468,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     }
   },
 
-  updateExpense: async (id, amount, categoryId, note, paymentMode, date, type = 'expense') => {
+  updateExpense: async (id, amount, categoryId, note, paymentMode, date, type = 'expense', extras) => {
     const user = useAuthStore.getState().user;
     // P0.10: Throw error if no active session
     if (!user) {
@@ -492,11 +503,18 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     if (categoryId !== undefined) {
       payload.category_id = categoryId || null;
     }
+    // SPL-001: undefined = leave the split alone, null = remove it, object = set / change it.
+    if (extras?.split !== undefined) {
+      payload.split_person = extras.split?.person ?? null;
+      payload.split_amount = extras.split?.amount ?? null;
+      payload.split_allocations = extras.split?.allocations ?? null;
+    }
 
-    // 1. Optimistic update in Zustand state
+    // 1. Optimistic update in Zustand state. `amount` here is the amount PAID; the middleware turns it into the
+    // counted amount (SPL-003), so the paid amount is also kept as gross_amount.
     set((state) => ({
       expenses: state.expenses.map((e) =>
-        e.id === id ? { ...e, ...payload } : e
+        e.id === id ? { ...e, ...payload, gross_amount: amount } : e
       ),
     }));
     useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
@@ -559,6 +577,10 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const previousExpense = get().expenses.find((e) => e.id === id);
     const previousIndex = get().expenses.findIndex((e) => e.id === id);
     if (!previousExpense) return;
+
+    // SPL-006: money that came back for this expense must be deleted first, so no money-back row is left pointing at nothing.
+    const blocked = deleteBlockReason(id, get().expenses);
+    if (blocked) throw new Error(blocked);
 
     let isRolledBack = false;
     const rollbackDelete = () => {
@@ -633,7 +655,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       set({ loading: false });
     }
   },
-}));
+})));
 
 // Register auto-sync when connection is restored
 registerSyncCallback(async () => {

@@ -31,7 +31,7 @@ Every function and helper associated with `src/store/dailyBudgetStore.ts` is cat
 | 5 | `applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods` | `src/store/dailyBudget/rollover.ts` | **ROLLOVER** | Midnight day evaluation, daily savings finalization, and weekly/monthly cycle rollovers. |
 | 6 | `runHydrateFromSupabase`, `buildOfflineHydrationPatch` | `src/store/dailyBudget/hydrate.ts` | **HYDRATION** | Startup hydration coordinator, persist-hydration gate, offline fast-path, and remote fetching. |
 | 7 | `selfHealDefaultBudget`, `selfHealCorruptedRows` | `src/store/dailyBudget/selfHealing.ts` | **SELF-HEALING** | Repairs OTA migration defaults (e.g. 500 budget) and corrupted savings log rows. |
-| 8 | `handleSetDailyBudget`, `handleToggleAutoRenew`, cadence switch handlers | `src/store/dailyBudget/planActions.ts` | **PLAN-ACTIONS** | Allowance updates, cadence switching, next-day scheduling, and pending plan queues. |
+| 8 | `handleSetDailyBudget`, `handleToggleAutoRenew`, `handleSetBudgetModeEnabled`, `handleCancelPendingPlanChange`, `resolvePendingPlanChange`, cadence switch handlers | `src/store/dailyBudget/planActions.ts` | **PLAN-ACTIONS** | Allowance updates, cadence switching, next-day scheduling (`PUR-003`), scheduled plan cancellation, and pending plan queues. |
 | 9 | `getTodayRecord`, `getPastRecordsList` | `src/store/dailyBudgetStore.ts` | **STORE-READ** | Zustand selectors for today's record and filtered past daily records. |
 | 10 | `addGullakDeposit`, `removeGullakDeposit`, `syncPendingGullakDeposits` | `src/store/dailyBudgetStore.ts` | **STORAGE** | Gullak manual deposits management and offline queue synchronization. |
 | 11 | `syncWithExpenses` | `src/store/dailyBudgetStore.ts` | **MIXED** | Recomputes today's live spent, checks 80%/100% notification thresholds, and invokes rollover. |
@@ -492,13 +492,15 @@ With the introduction of Budget Modes, the store orchestrates two high-level tra
   - Spending is never blocked: user may spend into negative without `VaultSpendingGuardModal` or AutoLog liquidity blockers (`SEC-001` amend).
   - Unspent budget from pools that ended in Pure Mode is retained as `pureLeftover` without inflating income or sending notifications (`PUR-002`). Pure spending draws from `pureLeftover` first.
   - Switching to Budget Mode with negative remaining ($R < 0$) automatically creates one real income transaction for deficit $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated to the earliest expense causing Gullak draw $\ge D$ (`PUR-001`), and posts a `pure_deficit_balanced` notification.
+  - Hero Card tap is disabled in Pure Mode (`onOpenDetails` and hint guarded), preventing opening the multi-cadence period breakdown sheet.
 - **Budget Mode (`isBudgetModeEnabled: true`)**:
   - Enables the 5th `'Savings'` tab with fluid spring entrance/exit.
-  - Solvency guard enforces that expenses are blocked if account liquidity $\le 0$ (`SEC-001`).
+  - Solvency guard enforces that expenses are blocked if account liquidity $\le 0$ (`SEC-001`). Overspending past weekly/monthly budget is allowed as long as total account liquidity (budget + income + Gullak) > 0.
   - Supports user-selectable cadences: `'daily'`, `'weekly'`, `'monthly'`.
 
-### 8.2 Plan Changes Timeline (`src/lib/budgetPeriods.ts`)
-- Instead of mutating today's budget abruptly, budget and cadence adjustments create a `BudgetPlanChange` row with `effectiveFrom = tomorrowStr` (or next standard boundary).
+### 8.2 Plan Changes Timeline & Next-Day Scheduling (`src/lib/budgetPeriods.ts`, `PUR-003`)
+- Toggling between Pure Mode and Budget Mode schedules the change for **tomorrow at 12:00 AM (00:00:00)** (`effectiveFrom = tomorrowStr`), protecting today's running budget and midnight Gullak rollover.
+- **Same-Day Reversal Protection**: If the user toggles back on the same day (reverting the scheduled change), `handleCancelPendingPlanChange` cancels the pending change, removes the scheduled notification, and cleanly keeps the app in its current active mode with zero glitches.
 - `buildPlanSlices(planChanges, todayStr, userCreatedAtStr)` divides the user's timeline into non-overlapping active slices `[activeStart, activeEnd]`, preventing double-counting across cadence transitions.
 - **Non-Prorated Budget Allocation (ADR 0011 Zero-Proration Policy)**: Mid-period cadence switches and new plan activations NEVER scale down or prorate the user's entered budget. The user-entered amount represents 100% real cash allocated into their active spending pool. Pacing previews are purely informational.
 
@@ -519,3 +521,5 @@ With the introduction of Budget Modes, the store orchestrates two high-level tra
 - **Rollover**: Emitted once per finalized period and deduped by `lastPeriodRolloverKey: periodId`.
 - **Sign-Out Reset**: All cadence-aware keys and queues are cleared on user sign-out via `registerStoreResetCallback`.
 
+## Split expenses & money back (`SPL-003`)
+Everything on this map reads `Expense.amount` from the expense store, which is the COUNTED amount: `amount paid − money back` (`src/lib/splitLedger.ts` `applyRecoveries`, applied by `src/store/expense/recoveryMiddleware.ts` on every write of `expenses`). `syncWithExpenses` → `checkAndRollover` already re-evaluate every past day and period on each expense change, so a settlement returns money to the ORIGINAL day's budget (and Gullak), to the income pool, or to Gullak with no extra code here. Money-back rows (`transaction_class = 'recovery'`) are excluded from `computeIncomeByDate` / `computeSpentByDate` and from the waterfall (`isExcludedFromTotals`).

@@ -9,7 +9,7 @@
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/fe28fa0f8c19f036ebbeffcbee7f26162e130069cb50d16fe6e498d32d16b271)
-[![Tests](https://img.shields.io/badge/Tests-1481_passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/Tests-1576_passing-brightgreen.svg)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -69,11 +69,12 @@ Log expenses and income without typing them.
 
 ### Core
 - 🧾 **Expense & income tracking** — custom spring keypad (with calculator), Cash / UPI / Card, categories, notes with suggestions.
-- 🎯 **Budget Modes: Daily, Weekly, Monthly** — or **Pure Mode** with no limits (Inflow vs Outflow rings).
+- 🎯 **Budget Modes: Daily, Weekly, Monthly** — or **Pure Mode** with no limits (Inflow vs Outflow rings). Instant adjustments when ₹0 spent in active period (`BPR-002`); next-day rollover protection when spending has occurred (`PUR-003`).
+- 🤝 **Split Expenses & Money Back** — split expenses with one or more friends (`SPL-001`), see live breakdown, track who owes what on the Ledger screen (`SPL-002`), and record money back or refunds without inflating income (`SPL-003..SPL-006`).
 - 🐷 **Gullak** — unspent budget rolls into your savings jar at the end of every period; add manual deposits too.
 - 🔥 **Streaks & calendar** — scaled to your cadence; paused periods never break a streak.
 - 🔄 **Next-day cadence switching** with carry-forward (Additive / Allocation) and capacity warnings.
-- 🛡️ **Vault Spending Guard** — real-money discipline: no expenses when your available money is ₹0.
+- 🛡️ **Vault Spending Guard** — real-money discipline: overspending past allowances draws from unspent Income and Gullak; when account liquidity is depleted (`accountRemaining <= 0`), in-sheet Add Money & Save allows adding funds without losing typed expense data (`SEC-001`). Pure Mode spending is never blocked.
 - 📈 **Insights** — weekly, monthly and yearly breakdowns, cash-flow and savings charts.
 - 📶 **Offline-first** — everything works offline; changes sync automatically with retries and a failed-sync recovery list.
 - 🔔 **Smart notifications** — max one nudge a day, budget alerts, rollover summaries.
@@ -98,7 +99,7 @@ Log expenses and income without typing them.
 | Updates | EAS Build (APK), EAS Update (OTA), in-app APK updater (`expo-file-system`, `expo-intent-launcher`) |
 | UI | `lucide-react-native`, Quicksand, `react-native-svg`, Reanimated, Gesture Handler |
 | Dates | `date-fns`, Indian number formatting (₹) |
-| Tests | Vitest (92 files, 1481 tests) |
+| Tests | Vitest (97 files, 1567 tests) |
 
 ---
 

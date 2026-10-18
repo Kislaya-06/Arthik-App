@@ -615,4 +615,48 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     expect(typeof r().formattedDate).toBe('string');
     expect(r().formattedDate.length).toBeGreaterThan(0);
   });
+
+  describe('multi-person split custom shares preservation (Edge Case 2)', () => {
+    it('does not overwrite existing custom split shares when a new member is added', () => {
+      const s = setup();
+      press(s, ['1', '0', '0', '0']); // 1000
+      act(() => {
+        s.r().split.setOn(true);
+        s.r().split.addMember('Aman');
+        s.r().split.updateMemberShareText(0, '600');
+      });
+      expect(s.r().split.members[0].share).toBe(600);
+
+      // Now add a second member (Vikas)
+      act(() => {
+        s.r().split.addMember('Vikas');
+      });
+
+      // Aman's 600 must NOT be overwritten with 333.33!
+      expect(s.r().split.members).toHaveLength(2);
+      expect(s.r().split.members[0].person).toBe('Aman');
+      expect(s.r().split.members[0].share).toBe(600);
+      expect(s.r().split.members[1].person).toBe('Vikas');
+      expect(s.r().split.members[1].share).toBe(0);
+    });
+
+    it('auto-splits equally when previous shares were already equal', () => {
+      const s = setup();
+      press(s, ['1', '0', '0', '0']); // 1000
+      act(() => {
+        s.r().split.setOn(true);
+        s.r().split.addMember('Aman');
+        s.r().split.splitEqually();
+      });
+      expect(s.r().split.members[0].share).toBe(500);
+
+      // Adding Vikas when both were equal splits them into 333.33 each
+      act(() => {
+        s.r().split.addMember('Vikas');
+      });
+      expect(s.r().split.members).toHaveLength(2);
+      expect(s.r().split.members[0].share).toBe(333.33);
+      expect(s.r().split.members[1].share).toBe(333.33);
+    });
+  });
 });

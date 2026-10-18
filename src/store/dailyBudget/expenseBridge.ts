@@ -1,4 +1,4 @@
-import type { Expense } from '../expense/types';
+import type { Expense, AddExpenseOptions } from '../expense/types';
 
 let expenseGetter: (() => Expense[]) | null = null;
 export const registerExpenseGetter = (getter: () => Expense[]) => {
@@ -33,11 +33,7 @@ export type AddExpenseBridgeFn = (
   paymentMode: 'cash' | 'upi' | 'card',
   date: string,
   type?: 'expense' | 'income',
-  options?: {
-    id?: string;
-    transactionClass?: 'normal' | 'self_transfer';
-    transferRuleId?: string | null;
-  }
+  options?: AddExpenseOptions
 ) => Promise<void>;
 
 let addExpenseFn: AddExpenseBridgeFn | null = null;

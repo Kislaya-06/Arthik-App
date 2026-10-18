@@ -181,7 +181,7 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
     const day = (byDate[date] = byDate[date] || emptyDay());
     const list = byDateTx.get(date) || [];
 
-    // 1. Income arrives first (WAT-002). Friend repayments and refunds are plain income (TXN-004).
+    // 1. Income arrives first (WAT-002). Money back (friend / refund) is not income: it already reduced the original expense (SPL-003).
     for (const tx of list) {
       if (tx.kind === 'income') {
         incomeAvail = round2(incomeAvail + tx.amount);
@@ -317,18 +317,20 @@ export function buildPoolResolver(p: PoolResolverParams, poolsIn?: Record<string
 
     // daily
     const rec = records[date];
-    if (rec && rec.status === 'unknown') return null;
+    if (rec && rec.status === 'unknown' && (!plan || plan.cadence !== 'daily')) return null;
     let budget: number;
     if (date === p.todayStr) {
       if (rec && rec.budget > 0) budget = rec.budget;
       else if ((p.todayBudget || 0) > 0) budget = p.todayBudget as number;
       else budget = p.isAutoRenew ? p.dailyBudgetAmount || 0 : 0;
-    } else if (rec && rec.budget !== undefined) {
+    } else if (rec && Number(rec.budget) > 0) {
       budget = rec.budget;
     } else if (plan && plan.cadence === 'daily') {
       budget = Number(plan.amount) || 0;
+    } else if (rec && rec.status !== 'unknown' && rec.budget !== undefined) {
+      budget = rec.budget;
     } else {
-      budget = p.dailyBudgetAmount || 0;
+      budget = (p.isAutoRenew || p.isBudgetModeEnabled) ? p.dailyBudgetAmount || 0 : 0;
     }
     return budget > 0 ? { key: `daily_${date}`, budget: round2(budget) } : null;
   };

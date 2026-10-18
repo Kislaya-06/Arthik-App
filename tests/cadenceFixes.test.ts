@@ -304,17 +304,17 @@ describe('Bug 2: additive carry-over is added ONCE (first period only)', () => {
   });
 });
 
-describe('Bug 6: All pill counts only days the app really tracked', () => {
-  it('5 days nobody opened the app add NO budget (they have no record and no Gullak entry)', () => {
+describe('Real money invariant: All pill counts every calendar day of active budget', () => {
+  it('counts all calendar days since registration (1..8 Oct = 8 days)', () => {
     const base: any = {
       activeFilter: 'All', dailyBudgetAmount: 500, isAutoRenew: true, todayBudget: 500, totalIncome: 0, totalSpent: 0,
       filtered: [], userCreatedAtStr: '2026-10-01', referenceDate: new Date(2026, 9, 8), externalDepositsInPeriod: 0,
       planChanges: [{ id: 'p', userId: 'u', effectiveFrom: '2026-10-01', isEnabled: true, cadence: 'daily', amount: 500 }],
     };
     const tracked = (d: string) => ({ date: d, budget: 500, spent: 0, saved: 500, isFinalized: true, status: 'saved' as const });
-    // opened on 1, 2, 3 and today (8): days 4..7 were never opened
+    // 1 to 8 Oct = 8 calendar days * 500 = 4000
     const r = calculatePeriodSummary({ ...base, dailyRecords: { '2026-10-01': tracked('2026-10-01'), '2026-10-02': tracked('2026-10-02'), '2026-10-03': tracked('2026-10-03') } });
-    expect(r.periodBudgetPool).toBe(4 * 500); // 3 tracked + today
+    expect(r.periodBudgetPool).toBe(8 * 500);
   });
 });
 
@@ -429,8 +429,8 @@ describe('Bug 5: the period ends while the user is in Pure Mode', () => {
     fresh('monthly', { monthly: 9000, from: '2026-11-01' });
     runDays(w, '2026-11-02', '2026-11-09', 200);
     pureOn('2026-11-09');
-    runDays(w, '2026-11-10', '2026-12-03', 0);
-    pureOff('2026-12-03');
+    runDays(w, '2026-11-10', '2026-12-02', 0);
+    pureOff('2026-12-02');
     openDay(w, '2026-12-03');
     const sum = getCurrentPeriodSummary(st().planChanges, {}, '2026-12-03');
     expect(sum?.budget).toBe(9000);

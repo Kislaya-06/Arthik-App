@@ -228,27 +228,29 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       }
     }
     const carryPart = activeFilter === 'All' ? params.carryCoveredByDate?.[d] || 0 : 0;
+    let dayBudget = 0;
+
     if (d === todayStr) {
       // Today: include today's allowance
-      periodBudget += Math.max(0, (todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0)) - carryPart);
-    } else if (dailyRecords[d]) {
-      if (dailyRecords[d].status !== 'unknown') {
-        periodBudget += Math.max(0, (Number(dailyRecords[d].budget) || 0) - carryPart);
-      }
-    } else if (activeFilter === 'All') {
-      // "All" counts only days the app really tracked (they have a record) and today.
-      // A day nobody opened the app has no record and no Gullak entry, so it must not add a budget either
-      // (it used to: 5 untouched days = ₹2,500 of budget that never existed in any other number).
+      dayBudget = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
+    } else if (dailyRecords[d] && Number(dailyRecords[d].budget) > 0) {
+      dayBudget = Number(dailyRecords[d].budget);
     } else if (planChanges && planChanges.length > 0) {
-      // Past day in the period governed by plan changes
       const plan = resolvePlanForDate(planChanges, d);
-      if (plan && plan.isEnabled && plan.cadence === 'daily') {
-        periodBudget += Number(plan.amount) || 0;
+      if (plan) {
+        if (!plan.isEnabled) {
+          dayBudget = 0;
+        } else if (plan.cadence === 'daily') {
+          dayBudget = Number(plan.amount) || dailyBudgetAmount;
+        }
+      } else {
+        dayBudget = isBudgetConfigured ? dailyBudgetAmount : 0;
       }
     } else {
-      // Past day in the period where no record was stored
-      periodBudget += isBudgetConfigured ? dailyBudgetAmount : 0;
+      dayBudget = isBudgetConfigured ? dailyBudgetAmount : 0;
     }
+
+    periodBudget += Math.max(0, dayBudget - carryPart);
   });
 
   // A weekly / monthly user may have no daily budget at all, yet a budget IS configured.

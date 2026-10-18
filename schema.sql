@@ -705,6 +705,7 @@ ON CONFLICT (key) DO NOTHING;
 -- 'normal'       -> a regular expense or regular income (default). A friend paying back is plain income (TXN-004).
 -- 'self_transfer'-> movement between the user's own accounts.
 --                   NEVER counted as income or expense (TXN-003).
+-- 'recovery'     -> money that came back for an expense already paid (Part 2 below, SPL-003). Never income.
 ALTER TABLE public.expenses
     ADD COLUMN IF NOT EXISTS transaction_class TEXT NOT NULL DEFAULT 'normal';
 
@@ -806,3 +807,48 @@ CREATE POLICY "self_transfer_rules_delete_own" ON public.self_transfer_rules
 ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_transfer_rule_id_fkey;
 ALTER TABLE public.expenses ADD CONSTRAINT expenses_transfer_rule_id_fkey
     FOREIGN KEY (transfer_rule_id) REFERENCES public.self_transfer_rules(id) ON DELETE SET NULL;
+
+-- ═══ Part 2: Split expenses, money back and refunds (SPL-001..SPL-006) ═══
+-- Same SQL as supabase/migrations/20261018_split_and_money_back.sql (safe to re-run).
+-- 'recovery' rows are income-direction rows that are NEVER income: they point back at the expenses they repaid.
+
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS split_person TEXT;
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS split_amount NUMERIC(12, 2);
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS split_allocations JSONB;
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS recovery_kind TEXT;
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS recovery_person TEXT;
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS recovery_allocations JSONB;
+
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_transaction_class_valid;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_transaction_class_valid
+    CHECK (transaction_class IN ('normal', 'self_transfer', 'recovery'));
+
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_split_valid;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_split_valid CHECK (
+    (split_person IS NULL AND split_amount IS NULL AND split_allocations IS NULL)
+    OR (
+        split_person IS NOT NULL AND split_amount IS NOT NULL
+        AND char_length(split_person) >= 1
+        AND split_amount > 0 AND split_amount <= amount
+        AND type = 'expense' AND transaction_class = 'normal'
+    )
+);
+
+ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_recovery_valid;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_recovery_valid CHECK (
+    (transaction_class <> 'recovery'
+        AND recovery_kind IS NULL AND recovery_person IS NULL AND recovery_allocations IS NULL)
+    OR (
+        transaction_class = 'recovery'
+        AND type = 'income'
+        AND recovery_kind IN ('settlement', 'refund')
+        AND (recovery_person IS NULL OR char_length(recovery_person) <= 40)
+        AND recovery_allocations IS NOT NULL
+        AND jsonb_typeof(recovery_allocations) = 'array'
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_expenses_split_person
+    ON public.expenses (user_id, lower(split_person)) WHERE split_person IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_expenses_recovery
+    ON public.expenses (user_id, expense_date DESC) WHERE transaction_class = 'recovery';

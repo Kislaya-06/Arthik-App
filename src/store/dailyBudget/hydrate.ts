@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../config/supabase';
 import { withTimeout } from '../../lib/networkUtils';
 import { round2 } from '../../lib/formatters';
-import { upsertPendingChange } from '../../lib/budgetPeriods';
+import { upsertPendingChange, resolvePlanForDate } from '../../lib/budgetPeriods';
 import type { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord, BudgetPeriodStatus } from '../../types';
 import type { DailyBudgetState, ProfileSettingsPatch, GullakDeposit } from './types';
 import {
@@ -464,6 +464,13 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       resolvedPlanChanges = get().planChanges || [];
     }
     resolvedPlanChanges = await mergePendingPlanChanges(userId, resolvedPlanChanges);
+    const activePlanForToday = resolvePlanForDate(resolvedPlanChanges, todayStr);
+    if (activePlanForToday) {
+      resolvedBudgetModeEnabled = activePlanForToday.isEnabled;
+      if (activePlanForToday.isEnabled) {
+        resolvedCadence = activePlanForToday.cadence;
+      }
+    }
 
     // Process budget periods
     let resolvedPeriods: Record<string, BudgetPeriodRecord> = { ...get().budgetPeriods };

@@ -61,11 +61,21 @@ export const notifyPreview = (key: string, amount: number | null, merchant: stri
     screen: 'AutoLogCenter',
   });
 
-export const notifyLogged = (key: string, amount: number | null, merchant: string | null, expenseId: string, isIncome: boolean) =>
+export const notifyLogged = (
+  key: string,
+  amount: number | null,
+  merchant: string | null,
+  expenseId: string,
+  isIncome: boolean,
+  /** Money from someone who owes the user: asked instead of the plain "Income" line (SPL-005). */
+  moneyBackQuestion?: string | null
+) =>
   present(
     `autolog-${key}`,
     `✓ ${amt(amount)} logged`,
-    `${merchant ? `${merchant} · ` : ''}${isIncome ? 'Income' : 'Expense'} · Automatically detected`,
+    moneyBackQuestion
+      ? `${merchant ? `${merchant} · ` : ''}${moneyBackQuestion} Tap to answer.`
+      : `${merchant ? `${merchant} · ` : ''}${isIncome ? 'Income' : 'Expense'} · Automatically detected`,
     { screen: 'ExpenseDetail', expenseId }
   );
 

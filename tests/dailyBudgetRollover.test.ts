@@ -131,6 +131,7 @@ import {
   getPendingBudgetPeriodsKey,
 } from '../src/store/dailyBudgetStore';
 import { Expense } from '../src/store/expenseStore';
+import { applyScheduledPlanChanges } from '../src/store/dailyBudget/rollover';
 
 describe('dailyBudgetStore — checkAndRollover Characterization & Safety Net', () => {
   const USER_ID = 'user_rollover_test_1';
@@ -553,5 +554,35 @@ describe('dailyBudgetStore — checkAndRollover Characterization & Safety Net', 
         },
       }
     `);
+  });
+
+  it('applies a scheduled plan change that matured yesterday during an offline rollover gap', () => {
+    let state: any = {
+      isBudgetModeEnabled: true,
+      budgetCadence: 'daily',
+      dailyBudgetAmount: 500,
+      weeklyBudgetAmount: 3500,
+      monthlyBudgetAmount: 15000,
+      isAutoRenew: true,
+      planChanges: [
+        {
+          id: 'pc-mature',
+          userId: USER_ID,
+          effectiveFrom: YESTERDAY_STR, // '2026-03-14'
+          isEnabled: false,
+          cadence: 'daily',
+          amount: 500,
+        },
+      ],
+    };
+    const get = () => state;
+    const set = (patch: any) => {
+      state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
+    };
+
+    const todayStr = '2026-03-15';
+    const applied = applyScheduledPlanChanges(get, set, todayStr);
+    expect(applied).toBe(true);
+    expect(state.isBudgetModeEnabled).toBe(false);
   });
 });

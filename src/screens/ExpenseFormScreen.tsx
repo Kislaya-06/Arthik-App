@@ -16,6 +16,8 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
 import { VaultSpendingGuardModal } from '../components/VaultSpendingGuardModal';
 import { TransferExtras } from '../components/transfer/TransferExtras';
+import { SplitExtras } from '../components/split/SplitExtras';
+import { MoneyBackExtras } from '../components/split/MoneyBackExtras';
 import { BouncyTypeToggle } from '../components/BouncyTypeToggle';
 import {
   BouncyPaymentToggle,
@@ -212,9 +214,12 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     setShowDatePicker,
     setPaymentMode,
     handleSave,
+    handleSaveWithIncome,
     noteSuggestions,
     handleSelectNoteSuggestion,
     isSelfTransfer,
+    split,
+    moneyBack,
     toggleSelfTransfer,
     rememberMode,
     setRememberMode,
@@ -530,7 +535,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                         isPlaceholder={isPlaceholder}
                         onSelect={() => {
                           handleCategorySelect(cat.id);
-                          hideKeypad();
                         }}
                         colors={colors}
                         isDark={isDark}
@@ -593,6 +597,69 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
           </View>
         )}
+
+        {/* Date Picker */}
+        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
+          DATE
+        </Text>
+        <Pressable
+          onPress={() => {
+            Keyboard.dismiss();
+            hideKeypad();
+            setShowDatePicker(true);
+          }}
+          style={[styles.datePickerButton, { backgroundColor: colors.inputBg }]}
+        >
+          <View style={styles.datePickerLeft}>
+            <Calendar size={18} color={colors.textSecondary} />
+            <Text style={[styles.datePickerText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}>
+              {formattedDate}
+            </Text>
+          </View>
+          <ChevronRight size={18} color={colors.textSecondary} />
+        </Pressable>
+        <CustomDatePickerModal
+          visible={showDatePicker}
+          value={selectedDate}
+          maxDate={new Date()}
+          onConfirm={handleDateConfirm}
+          onClose={() => setShowDatePicker(false)}
+        />
+
+        <VaultSpendingGuardModal
+          visible={showVaultGuard}
+          onClose={() => setShowVaultGuard(false)}
+          expenseAmount={evaluatedAmount}
+          onAddMoneyAndSave={handleSaveWithIncome}
+          onAddIncomeFirst={() => {
+            setShowVaultGuard(false);
+            onTypeChange('income');
+          }}
+          isBudgetMode={isBudgetModeEnabled}
+          totalVaultLiquidity={vaultLiquidity.totalVaultLiquidity}
+        />
+
+        {/* Paid Via / Added Via Toggle */}
+        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
+          {transactionType === 'income' ? 'MONEY ADDED VIA' : 'PAID VIA'}
+        </Text>
+        <View style={styles.formSectionPadding}>
+          <BouncyPaymentToggle
+            value={paymentMode}
+            onChange={(mode) => {
+              hideKeypad();
+              setPaymentMode(mode);
+            }}
+            options={transactionType === 'income' ? INCOME_PAYMENT_OPTIONS : EXPENSE_PAYMENT_OPTIONS}
+            activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
+          />
+        </View>
+
+        {/* Split with someone (expenses) / what kind of money came in (income) */}
+        <View style={styles.formSectionPadding}>
+          <SplitExtras split={split} onFieldFocus={hideKeypad} />
+          <MoneyBackExtras moneyBack={moneyBack} amount={evaluatedAmount} onFieldFocus={hideKeypad} />
+        </View>
 
         {/* Note Input — onLayout tracks Y for keyboard-scroll */}
         <View onLayout={handleNoteLayout}>
@@ -685,61 +752,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               ))}
             </ScrollView>
           )}
-        </View>
-
-        {/* Date Picker */}
-        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-          DATE
-        </Text>
-        <Pressable
-          onPress={() => {
-            Keyboard.dismiss();
-            hideKeypad();
-            setShowDatePicker(true);
-          }}
-          style={[styles.datePickerButton, { backgroundColor: colors.inputBg }]}
-        >
-          <View style={styles.datePickerLeft}>
-            <Calendar size={18} color={colors.textSecondary} />
-            <Text style={[styles.datePickerText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}>
-              {formattedDate}
-            </Text>
-          </View>
-          <ChevronRight size={18} color={colors.textSecondary} />
-        </Pressable>
-        <CustomDatePickerModal
-          visible={showDatePicker}
-          value={selectedDate}
-          maxDate={new Date()}
-          onConfirm={handleDateConfirm}
-          onClose={() => setShowDatePicker(false)}
-        />
-
-        <VaultSpendingGuardModal
-          visible={showVaultGuard}
-          onClose={() => setShowVaultGuard(false)}
-          onAddIncomeFirst={() => {
-            setShowVaultGuard(false);
-            onTypeChange('income');
-          }}
-          isBudgetMode={isBudgetModeEnabled}
-          totalVaultLiquidity={vaultLiquidity.totalVaultLiquidity}
-        />
-
-        {/* Paid Via / Added Via Toggle */}
-        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-          {transactionType === 'income' ? 'MONEY ADDED VIA' : 'PAID VIA'}
-        </Text>
-        <View style={styles.formSectionPadding}>
-          <BouncyPaymentToggle
-            value={paymentMode}
-            onChange={(mode) => {
-              hideKeypad();
-              setPaymentMode(mode);
-            }}
-            options={transactionType === 'income' ? INCOME_PAYMENT_OPTIONS : EXPENSE_PAYMENT_OPTIONS}
-            activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
-          />
         </View>
 
         {/* Self-transfer (new transactions only) */}

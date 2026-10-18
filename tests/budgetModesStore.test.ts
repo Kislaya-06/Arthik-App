@@ -103,6 +103,7 @@ vi.mock('../src/store/categoryStore', () => ({
 // 6. Mock NotificationService & NotificationStore
 const mockTriggerDeviceNotification = vi.fn();
 const mockAddNotification = vi.fn();
+const mockRemoveNotification = vi.fn();
 vi.mock('../src/lib/notificationService', () => ({
   triggerDeviceNotification: (...args: any[]) => mockTriggerDeviceNotification(...args),
 }));
@@ -110,6 +111,7 @@ vi.mock('../src/store/notificationStore', () => ({
   useNotificationStore: {
     getState: vi.fn(() => ({
       addNotification: (...args: any[]) => mockAddNotification(...args),
+      removeNotification: (...args: any[]) => mockRemoveNotification(...args),
       setOwnerUserId: vi.fn(),
     })),
   },
@@ -630,6 +632,267 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       // Second run: does not fire again
       useDailyBudgetStore.getState().checkAndRollover(expenses);
       expect(mockAddNotification).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('8. Mode Switching Scheduling & Same-Day Reversal Protection (PUR-003)', () => {
+    it('scheduling Pure Mode -> Budget Mode sets effectiveFrom tomorrow and adds notification', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 7000,
+        planChanges: [
+          {
+            id: 'p-initial',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: false,
+            cadence: 'weekly',
+            amount: 7000,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      });
+
+      mockAddNotification.mockClear();
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+
+      const state = useDailyBudgetStore.getState();
+      // Today continues in Pure Mode
+      expect(state.isBudgetModeEnabled).toBe(false);
+      // Scheduled for tomorrow (2026-10-01)
+      const pending = state.getPendingPlanChange();
+      expect(pending).toBeDefined();
+      expect(pending?.effectiveFrom).toBe('2026-10-01');
+      expect(pending?.isEnabled).toBe(true);
+
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'scheduled_budget_mode_2026-10-01',
+          title: 'Smart Budget & Gullak scheduled',
+        })
+      );
+    });
+
+    it('same-day reversal: flipping back to Pure Mode cancels scheduled Budget Mode and removes notification', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 7000,
+        planChanges: [
+          {
+            id: 'p-initial',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: false,
+            cadence: 'weekly',
+            amount: 7000,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      });
+
+      mockAddNotification.mockClear();
+      mockRemoveNotification.mockClear();
+
+      // First toggle: user schedules Budget Mode for tomorrow
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+      expect(useDailyBudgetStore.getState().getPendingPlanChange()?.isEnabled).toBe(true);
+
+      // Same day flip back: user toggles back to Pure Mode
+      useDailyBudgetStore.getState().setBudgetModeEnabled(false);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(false);
+      expect(state.getPendingPlanChange()).toBeNull();
+      expect(mockRemoveNotification).toHaveBeenCalledWith('scheduled_budget_mode_2026-10-01');
+    });
+
+    it('scheduling Budget Mode -> Pure Mode sets effectiveFrom tomorrow and adds notification', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: true,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 7000,
+        planChanges: [
+          {
+            id: 'p-initial',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 7000,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      });
+
+      mockAddNotification.mockClear();
+      useDailyBudgetStore.getState().setBudgetModeEnabled(false);
+
+      const state = useDailyBudgetStore.getState();
+      // Today continues in Budget Mode
+      expect(state.isBudgetModeEnabled).toBe(true);
+      // Scheduled for tomorrow (2026-10-01)
+      const pending = state.getPendingPlanChange();
+      expect(pending).toBeDefined();
+      expect(pending?.effectiveFrom).toBe('2026-10-01');
+      expect(pending?.isEnabled).toBe(false);
+
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'scheduled_pure_mode_2026-10-01',
+          title: 'Pure Mode scheduled',
+        })
+      );
+    });
+
+    it('same-day reversal: flipping back to Budget Mode cancels scheduled Pure Mode and removes notification', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: true,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 7000,
+        planChanges: [
+          {
+            id: 'p-initial',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 7000,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      });
+
+      mockAddNotification.mockClear();
+      mockRemoveNotification.mockClear();
+
+      // First toggle: user schedules Pure Mode for tomorrow
+      useDailyBudgetStore.getState().setBudgetModeEnabled(false);
+      expect(useDailyBudgetStore.getState().getPendingPlanChange()?.isEnabled).toBe(false);
+
+      // Same day flip back: user toggles back to Budget Mode
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.getPendingPlanChange()).toBeNull();
+      expect(mockRemoveNotification).toHaveBeenCalledWith('scheduled_pure_mode_2026-10-01');
+    });
+
+    it('scheduled plan matures and activates when today reaches effectiveFrom', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 7000,
+        planChanges: [
+          {
+            id: 'p-initial',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: false,
+            cadence: 'weekly',
+            amount: 7000,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'p-tomorrow',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-10-01',
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 7000,
+            createdAt: '2026-09-30T10:00:00Z',
+          },
+        ],
+      });
+
+      expect(useDailyBudgetStore.getState().isBudgetModeEnabled).toBe(false);
+
+      vi.setSystemTime(new Date('2026-10-01T08:00:00Z'));
+      useDailyBudgetStore.getState().checkAndRollover();
+
+      expect(useDailyBudgetStore.getState().isBudgetModeEnabled).toBe(true);
+    });
+
+    it('scheduled plan activates and applies cadence and amount patch on effectiveFrom day', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'daily',
+        dailyBudgetAmount: 250,
+        planChanges: [
+          {
+            id: 'p-initial',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: false,
+            cadence: 'daily',
+            amount: 250,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'p-tomorrow',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-10-01',
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 3500,
+            createdAt: '2026-09-30T10:00:00Z',
+          },
+        ],
+      });
+
+      expect(useDailyBudgetStore.getState().isBudgetModeEnabled).toBe(false);
+
+      vi.setSystemTime(new Date('2026-10-01T08:00:00Z'));
+      useDailyBudgetStore.getState().checkAndRollover();
+
+      expect(useDailyBudgetStore.getState().isBudgetModeEnabled).toBe(true);
+      expect(useDailyBudgetStore.getState().budgetCadence).toBe('weekly');
+      expect(useDailyBudgetStore.getState().weeklyBudgetAmount).toBe(3500);
+    });
+
+    it('setBudgetModeEnabled accepts custom cadence and amount options when scheduling next-day enable', () => {
+      vi.setSystemTime(new Date('2026-09-30T12:00:00'));
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'daily',
+        dailyBudgetAmount: 250,
+        planChanges: [
+          {
+            id: 'p-initial',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: false,
+            cadence: 'daily',
+            amount: 250,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      });
+
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true, { cadence: 'monthly', amount: 15000 });
+
+      const pending = useDailyBudgetStore.getState().getPendingPlanChange();
+      expect(pending).not.toBeNull();
+      expect(pending?.isEnabled).toBe(true);
+      expect(pending?.cadence).toBe('monthly');
+      expect(pending?.amount).toBe(15000);
+      expect(pending?.effectiveFrom).toBe('2026-10-01');
     });
   });
 });

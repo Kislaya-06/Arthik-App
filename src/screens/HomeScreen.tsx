@@ -15,7 +15,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Bell, User } from 'lucide-react-native';
+import { Bell, User, Users } from 'lucide-react-native';
+import { buildPeopleLedger } from '../lib/splitLedger';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { AutoLogHomeBanner } from '../components/autolog/AutoLogHomeBanner';
@@ -23,7 +24,9 @@ import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
 import { PullToHistoryList, PullToHistoryListHandle } from '../components/PullToHistoryList';
 import { RefreshScrollShell } from '../components/RefreshScrollShell';
 import { getNavTopOffset } from '../lib/pullToHistoryPhysics';
-import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameWeek, isSameMonth, isSameDay } from 'date-fns';
+import { HeroDetailsSheet } from '../components/HeroDetailsSheet';
+import { buildHeroDetails, heroDetailsTitle, moneyBackInRows, autoSavedInScope, withTillToday } from '../lib/heroDetails';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate, selectRecentTransactions } from '../lib/homeCalculations';
 import { dailyCarryForDate } from '../lib/budgetPeriods';
@@ -169,7 +172,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const handleFilterChange = useCallback((newFilter: Filter) => {
     if (newFilter !== activeFilter) {
-      setActiveFilter(newFilter);
+      if (typeof React.startTransition === 'function') {
+        React.startTransition(() => {
+          setActiveFilter(newFilter);
+        });
+      } else {
+        setActiveFilter(newFilter);
+      }
     }
   }, [activeFilter]);
 
@@ -187,6 +196,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const setWeeklyBudget = useDailyBudgetStore((s) => s.setWeeklyBudget);
   const setMonthlyBudget = useDailyBudgetStore((s) => s.setMonthlyBudget);
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
+  const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
+  const [showHeroDetails, setShowHeroDetails] = useState(false);
   const lastRenewedPeriodKey = useDailyBudgetStore((s) => s.lastRenewedPeriodKey);
   const setLastRenewedPeriodKey = useDailyBudgetStore((s) => s.setLastRenewedPeriodKey);
   const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
@@ -309,12 +320,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const nameFontSize = useMemo(() => {
     const len = displayName.length;
-    if (len <= 8) return 34;
-    if (len <= 11) return 28;
-    if (len <= 14) return 24;
-    if (len <= 18) return 22;
+    // Three header buttons (Ledger, Notifications, Profile) leave a little less room for the name.
+    if (len <= 7) return 34;
+    if (len <= 10) return 28;
+    if (len <= 13) return 24;
+    if (len <= 17) return 22;
     return 19;
   }, [displayName]);
+
+  // Dot on the Ledger button while someone still owes money (SPL-002).
+  const ledgerOwed = useMemo(() => round2(buildPeopleLedger(expenses).reduce((sum, p) => sum + p.owed, 0)), [expenses]);
 
   const isBudgetConfigured = isBudgetModeEnabled && isAutoRenew && dailyBudgetAmount > 0;
   const todayRecord = useMemo(
@@ -475,6 +490,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     remainingDeposits,
     isSpendingFromGullak,
     gullakDrawnAmount,
+    periodBudgetPool,
   } = useMemo(
     () =>
       calculatePeriodSummary({
@@ -516,16 +532,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       return 'All time';
     }
     if (activeFilter === 'Daily') return format(t, 'EEEE, d MMM');
+    const now = new Date();
+    const todayLabel = format(now, 'd MMM');
     if (activeFilter === 'Weekly') {
       const start = startOfWeek(t, { weekStartsOn: 1 });
       const end = endOfWeek(t, { weekStartsOn: 1 });
       const sameMonth = format(start, 'M') === format(end, 'M');
-      return sameMonth ? `${format(start, 'd')}\u2013${format(end, 'd MMM')}` : `${format(start, 'd MMM')} \u2013 ${format(end, 'd MMM')}`;
+      const range = sameMonth ? `${format(start, 'd')}\u2013${format(end, 'd MMM')}` : `${format(start, 'd MMM')} \u2013 ${format(end, 'd MMM')}`;
+      // A running week says how far the numbers go, so they are not read as a full-week figure.
+      return withTillToday(range, 'Weekly', isSameWeek(t, now, { weekStartsOn: 1 }), todayLabel);
     }
     const start = startOfMonth(t);
     const end = endOfMonth(t);
-    return `${format(start, 'd')}\u2013${format(end, 'd MMM yyyy')}`;
+    return withTillToday(`${format(start, 'd')}\u2013${format(end, 'd MMM yyyy')}`, 'Monthly', isSameMonth(t, now), todayLabel);
   }, [activeFilter, referenceDate, userCreatedAtStr]);
+
+  // Details sheet behind the card (same numbers as the card; money back is shown on its own line).
+  const heroDetails = useMemo(() => {
+    if (!showHeroDetails || !isBudgetModeEnabled) {
+      return { sections: [], totalSpent: periodSpent };
+    }
+    const period: FilterPeriod | null =
+      activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
+    const inScope = (d: string) => (period ? isDateInPeriod(d, period, referenceDate) : true);
+    return buildHeroDetails({
+      isBudgetMode: isBudgetModeEnabled,
+      budgetGiven: periodBudgetPool,
+      spent: periodSpent,
+      incomeReceived: periodIncome,
+      incomeLeft: remainingIncome ?? 0,
+      moneyBack: moneyBackInRows(filtered),
+      gullakAdded: round2(externalDepositsInPeriod + autoSavedInScope(dailyRecords, budgetPeriods, inScope)),
+      gullakDrawn: gullakDrawnAmount ?? 0,
+      gullakNow: activeFilter === 'All' ? totalAccumulatedSavings : null,
+    });
+  }, [showHeroDetails, activeFilter, referenceDate, isBudgetModeEnabled, periodBudgetPool, periodSpent, periodIncome, remainingIncome, filtered, externalDepositsInPeriod, dailyRecords, budgetPeriods, gullakDrawnAmount, totalAccumulatedSavings]);
 
   // ─── Pull to History ───────────────────────────────────────────────────────
   // Fired by PullToHistoryList only AFTER the finger is lifted with the ring full.
@@ -582,6 +623,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <View style={styles.headerActions}>
             <Pressable
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => navigation.navigate('Ledger' as any)}
+              accessibilityRole="button"
+              accessibilityLabel="Ledger"
+            >
+              <Users size={20} color={colors.textPrimary} />
+              {ledgerOwed > 0 && <View style={styles.badgeDot} />}
+            </Pressable>
+            <Pressable
+              style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => navigation.navigate('Notifications' as any)}
             >
               <Bell size={20} color={colors.textPrimary} />
@@ -634,7 +684,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           isSpendingFromGullak={isSpendingFromGullak}
           gullakDrawnAmount={gullakDrawnAmount}
           carryNote={carryNote}
+          onOpenDetails={isBudgetModeEnabled ? () => setShowHeroDetails(true) : undefined}
         />
+        {isBudgetModeEnabled ? (
+          <Text style={[styles.heroHint, { color: colors.textMuted }]}>Tap the card for details</Text>
+        ) : null}
 
         {/* Automatic Logging: only visible when something needs review/attention */}
         <AutoLogHomeBanner />
@@ -715,6 +769,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         onChangeBudget={handleChangeBudgetRenewal}
         onClose={handleCloseRenewalModal}
       />
+
+      <HeroDetailsSheet
+        visible={showHeroDetails}
+        onClose={() => setShowHeroDetails(false)}
+        title={heroDetailsTitle(activeFilter, isSameDay(referenceDate, new Date()))}
+        subtitle={filterDateLabel}
+        details={heroDetails}
+      />
     </View>
     </RefreshScrollShell>
   );
@@ -761,7 +823,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flexShrink: 0,
   },
   bellBtn: {
@@ -792,6 +854,7 @@ const styles = StyleSheet.create({
   filterToggleWrapper: {
     marginTop: Spacing.block,
   },
+  heroHint: { textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, marginTop: 6 },
   filterDateRow: {
     flexDirection: 'row',
     alignItems: 'center',

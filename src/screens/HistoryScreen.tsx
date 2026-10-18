@@ -53,6 +53,10 @@ interface TransactionRowItemProps {
 
 const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
   const isIncome = isIncomeTransaction(item, category);
+  const handlePress = useCallback(() => {
+    onPress(item.id);
+  }, [onPress, item.id]);
+
   return (
     <TransactionRow
       expense={item}
@@ -60,7 +64,7 @@ const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category
       isIncome={isIncome}
       colors={colors}
       isDark={colors.isDark}
-      onPress={() => onPress(item.id)}
+      onPress={handlePress}
     />
   );
 });
@@ -72,9 +76,13 @@ interface GullakRowItemProps {
 }
 
 const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors }) => {
+  const handlePress = useCallback(() => {
+    onPress(item.id);
+  }, [onPress, item.id]);
+
   return (
     <Pressable
-      onPress={() => onPress(item.id)}
+      onPress={handlePress}
       android_ripple={{ color: colors.cardSubtle, borderless: false }}
     >
       <GullakDepositRow
@@ -101,6 +109,17 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const sectionListRef = useRef<SectionList<HistoryItem, Section>>(null);
+
+  // Progressive section pagination: bounds initial mount to ~15-20 items (~7 dates)
+  // preventing Main UI thread / Choreographer frame drops when switching to "All"
+  const INITIAL_SECTION_COUNT = 7;
+  const PAGE_SIZE_SECTIONS = 7;
+  const [visibleSectionCount, setVisibleSectionCount] = useState(INITIAL_SECTION_COUNT);
+
+  // Reset pagination window whenever category or search filter changes
+  useEffect(() => {
+    setVisibleSectionCount(INITIAL_SECTION_COUNT);
+  }, [selectedCategoryId, searchQuery]);
 
   const lastFetchTime = useRef<number>(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -228,6 +247,21 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     });
   }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, searchQuery, isBudgetModeEnabled]);
 
+  // Sliced sections for progressive rendering
+  const displayedSections = useMemo(() => {
+    if (filteredAndGroupedExpenses.length <= visibleSectionCount) {
+      return filteredAndGroupedExpenses;
+    }
+    return filteredAndGroupedExpenses.slice(0, visibleSectionCount);
+  }, [filteredAndGroupedExpenses, visibleSectionCount]);
+
+  const handleEndReached = useCallback(() => {
+    setVisibleSectionCount((prev) => {
+      if (prev >= filteredAndGroupedExpenses.length) return prev;
+      return Math.min(prev + PAGE_SIZE_SECTIONS, filteredAndGroupedExpenses.length);
+    });
+  }, [filteredAndGroupedExpenses.length]);
+
   const targetDate = route.params?.targetDate;
   const targetStartDate = route.params?.startDate;
   const targetEndDate = route.params?.endDate;
@@ -314,6 +348,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           }
         });
         targetIndex = bestIndex;
+      }
+
+      if (targetIndex >= 0) {
+        // Expand visible sections window so the target section is mounted before scrolling
+        setVisibleSectionCount((prev) => Math.max(prev, targetIndex + 5));
       }
 
       if (targetIndex >= 0 && sectionListRef.current) {
@@ -483,7 +522,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Transaction List */}
         <SectionList
           ref={sectionListRef}
-          sections={filteredAndGroupedExpenses}
+          sections={displayedSections}
           keyExtractor={(item) => `${item.kind}-${item.data.id}`}
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
@@ -506,7 +545,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           }
           contentContainerStyle={[
             { paddingBottom: insets.bottom + 100 },
-            filteredAndGroupedExpenses.length === 0 && { flexGrow: 1 },
+            displayedSections.length === 0 && { flexGrow: 1 },
           ]}
           stickySectionHeadersEnabled={false}
           onScroll={handleScroll}
@@ -514,8 +553,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           initialNumToRender={12}
           maxToRenderPerBatch={10}
           windowSize={21}
-          removeClippedSubviews={false}
           updateCellsBatchingPeriod={50}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.6}
+          removeClippedSubviews={false}
           ListEmptyComponent={renderEmptyState}
         />
 

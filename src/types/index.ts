@@ -5,13 +5,14 @@ export type RootStackParamList = {
   ProfileSetup: undefined;
   AppTabs: { screen?: keyof TabParamList; params?: TabParamList[keyof TabParamList] } | undefined;
   AddExpense: undefined;
-  EditExpense: { expenseId: string };
+  EditExpense: { expenseId: string; /** Open the form with Split switched on (the "Split" button on a logged expense). */ splitOn?: boolean };
   ExpenseDetail: { expenseId: string };
   GullakDepositDetail: { depositId: string };
   CategoryDetail: { categoryId: string; startDate?: string; endDate?: string; dateRangeLabel?: string };
   ManageCategories: undefined;
   AddEditCategory: { categoryId?: string } | undefined;
   Notifications: undefined;
+  Ledger: undefined;
   Profile: undefined;
   Savings: undefined;
   ResetPassword: { initialError?: string } | undefined;

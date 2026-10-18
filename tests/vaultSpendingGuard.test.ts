@@ -176,5 +176,41 @@ describe('calculateVaultLiquidity (Digital Vault Spending Guard)', () => {
       expect(res.canAddExpense).toBe(false);
       expect(res.totalVaultLiquidity).toBe(0);
     });
+
+    it('permits overspending past weekly budget (e.g. Over by ₹1,000 this week) when account has liquidity from income/Gullak', () => {
+      // User set ₹2,000 weekly budget and spent ₹3,000 (over by ₹1,000).
+      // But user has ₹5,000 unspent income, so accountRemaining = 4,000 > 0.
+      const res = calculateVaultLiquidity({
+        isBudgetModeEnabled: true,
+        budgetCadence: 'weekly',
+        dailyBudgetAmount: 0,
+        weeklyBudgetAmount: 2000,
+        monthlyBudgetAmount: 0,
+        totalIncome: 5000,
+        totalExpenses: 3000,
+        accountRemaining: 4000,
+      });
+
+      expect(res.canAddExpense).toBe(true);
+      expect(res.totalVaultLiquidity).toBe(4000);
+      expect(res.reason).toBeUndefined();
+    });
+
+    it('blocks expense in Budget Mode ONLY when accountRemaining <= 0 (all budget, income, and Gullak exhausted)', () => {
+      const res = calculateVaultLiquidity({
+        isBudgetModeEnabled: true,
+        budgetCadence: 'weekly',
+        dailyBudgetAmount: 0,
+        weeklyBudgetAmount: 2000,
+        monthlyBudgetAmount: 0,
+        totalIncome: 1000,
+        totalExpenses: 3000,
+        accountRemaining: 0,
+      });
+
+      expect(res.canAddExpense).toBe(false);
+      expect(res.totalVaultLiquidity).toBe(0);
+      expect(res.reason).toBe('Account balance exhausted. Please add money first.');
+    });
   });
 });

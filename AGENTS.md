@@ -8,7 +8,7 @@ Read this fully before touching code. If a rule here conflicts with a user instr
 4. **MANDATORY DOCUMENTATION ATOMICITY & PERPETUAL RECONCILIATION (CRITICAL - ZERO DOCUMENTATION LAG)**: Whenever ANY change, feature, bugfix, policy update, refactor, UI modification, or direct documentation edit is made in the app (whether in code OR in any documentation file), ALL related, dependent, and interconnected documentation files across the repository (`docs/maps/*`, `docs/adr/*`, `docs/specs/*`, `docs/*.md`, `AGENTS.md`, `CHANGELOG.md`, `README.md`) MUST be updated immediately in the SAME change. From now on and for all future tasks, every single document in the project MUST remain 100% fresh, accurate, and up-to-date forever — NO document is ever allowed to lag behind, drift, or contradict true code reality.
 5. **MANDATORY PROACTIVE SKILL UTILIZATION (CRITICAL)**: Whenever ANY work or task is initiated (whether UI animation, gestures, TDD logic, bug diagnosis, code review, design polish, Android CLI, or architectural design), the agent MUST proactively identify, read, and strictly leverage the appropriate installed specialized skills (e.g. `animate-expo`, `tdd`, `code-review`, `diagnosing-bugs`, `ui-ux-pro-max`, `android-cli`, `apple-design`, etc.) relevant to the task without waiting for the user to explicitly ask for them. Specialized tasks must never be performed without consulting and executing the installed skill's best practices.
 
-> **CANONICAL RULES SUPREMACY (CRITICAL — read before ANY change)**: [`docs/ARTHIK_CANONICAL_RULES.md`](docs/ARTHIK_CANONICAL_RULES.md) is the owner's supreme file for every business / financial / accounting rule (transactions, budgets, Gullak, cadence switching and carry-forward, rollover, insights, notifications, AutoLog privacy, categories, form guardrails). It exists so that no new feature, edit or refactor can silently break how money behaves.
+> **CANONICAL RULES SUPREMACY (CRITICAL — read before ANY change)**: [`docs/ARTHIK_CANONICAL_RULES.md`](docs/ARTHIK_CANONICAL_RULES.md) is the owner's supreme file for every business / financial / accounting rule (transactions, split expenses and money back, budgets, Gullak, cadence switching and carry-forward, rollover, insights, notifications, AutoLog privacy, categories, form guardrails). It exists so that no new feature, edit or refactor can silently break how money behaves.
 > 1. **Never break it silently.** Before writing code for any feature, change, bugfix or refactor, check it against the canonical rules. Changes that touch money logic must keep every rule true.
 > 2. **If a change would contradict a rule, STOP and tell the owner first**: name the rule ID (e.g. `BUD-003`), say what would break and what else it affects. Change nothing — not code, not the canonical file — until the owner explicitly says to change the rule.
 > 3. **Only after that explicit "yes"**: update the code, the tests, the canonical file itself, and EVERY document the change touches (list below), precisely, in the same change.
@@ -69,7 +69,8 @@ src/
 │                 profile/ (PauseBudgetModal, EditProfileModal, DeleteAccountModal, styles),
 │                 savings/ (SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, styles),
 │                 transfer/ (TransferExtras, TransferDetailCard),
-│                 BottomNavBar, BrandedHeroCard, CadenceSwitchModal, VaultSpendingGuardModal,
+│                 split/ (SplitExtras, MoneyBackExtras, MoneyBackSheet, SplitDetailCard),
+│                 BottomNavBar, BrandedHeroCard, HeroDetailsSheet, CadenceSwitchModal, VaultSpendingGuardModal,
 │                 PeriodRenewalModal, CustomDatePickerModal, BudgetEditModal, MoneyExplainerModal,
 │                 StreakCalendarModal, DepositGullakModal, GradientIconBadge, PiggyBankCoinIcon,
 │                 CategoryRowItem, AppLockOverlay, OtaUpdateModal, PullToHistoryList, ErrorBoundary, OfflineBanner, SyncFailedBanner,
@@ -79,19 +80,19 @@ src/
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
 ├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts, useMoneyWaterfall.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
-│                 budgetCalculations.ts, homeCalculations.ts, moneyWaterfall.ts, transferRules.ts,
+│                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
-│                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts,
+│                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
 │                 streakCalendarData.ts, asyncStorageList.ts, chartUtils.ts, profileUtils.ts,
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install)
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History,
 │                 Insights (with insights/ periodUtils, PeriodNavigator, useInsightsData, styles),
-│                 Savings, ExpenseForm, ExpenseDetail, CategoryDetail, ManageCategories,
+│                 Savings, ExpenseForm, ExpenseDetail, Ledger, CategoryDetail, ManageCategories,
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
 │                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
 ├── store/        authStore, categoryStore,
-│                 expenseStore (with expense/ pendingQueues, syncPending, types),
+│                 expenseStore (with expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack),
 │                 dailyBudgetStore (with dailyBudget/ classifiers, expenseBridge, hydrate, metrics, pendingStorage, rollover, types),
 │                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore
 └── types/        index.ts (RootStackParamList, TabParamList)
@@ -208,11 +209,22 @@ Work with surgical precision and zero-breakage guarantee:
 - Amounts in state are `number`. Keypad manages strings and converts once.
 - "Today" is the user's local day. Daily budget/streak calculations depend on it.
 
+## 8.0 Split Expenses & Money Back Invariant (`SPL-001..SPL-006`)
+- The store's `Expense.amount` is the COUNTED amount (`amount paid − money back`); `gross_amount` is the amount PAID. Anything that writes an amount back to the database or to a form (edit form, `ledger.ts`, queues) MUST use `grossAmountOf(row)`, never `amount`.
+- Money back (`transaction_class = 'recovery'`) is never income and never an expense (`isExcludedFromTotals`). Any new code that sums income by hand must use `isEligibleIncome` / `isCountedIncome` / `isExcludedFromTotals`, never a bare `=== 'self_transfer'`.
+- Who owes what is derived (`src/lib/splitLedger.ts`), never stored. The `expenses` list is normalised in ONE place (`src/store/expense/recoveryMiddleware.ts`); do not re-apply money back anywhere else.
+- New database columns are sent only by rows that use them (`src/store/expense/payload.ts`).
+
 ## 8.1 Auto-Save to Gullak (`isAutoRenew`) & Budget Hydration Invariant (CRITICAL)
 - **User Preference Sovereignty**: When a user pauses or turns OFF "Auto-save unspent to Gullak" (`isAutoRenew: false`), that setting MUST be permanently respected across all app states.
 - **Never Auto-Force `isAutoRenew = true`**: Store hydration (`hydrateFromSupabase`), offline fast-paths, pull-to-refresh, and background sync must **NEVER** infer or flip `isAutoRenew` to `true` simply because `isBudgetModeEnabled` is `true` or `dailyBudgetAmount > 0`.
 - **No Hardcoded Defaults Overriding User State**: Never use hardcoded fallback values (`|| 100` or `|| 500`) that coerce 0 or overwrite custom user allowances (e.g. ₹250).
 - **Paused Allowance State**: When `isBudgetModeEnabled` is `true` but `isAutoRenew` is `false`, the user is explicitly in Paused Allowance state. Today's unfinalized daily record is `{ budget: 0, saved: 0, status: 'unknown' }`, while their configured allowance remains preserved in store state and Supabase profiles until they choose to resume.
+
+## 8.2 Mode Switching Next-Day Scheduling & Same-Day Reversal Protection (`PUR-003`)
+- **Next-Day Scheduling**: Toggling between Pure Mode and Budget Mode takes effect from tomorrow at 12:00 AM (`effectiveFrom = tomorrow`). Today's running-day budget and midnight Gullak savings conclude cleanly without disruption.
+- **Same-Day Reversal Protection**: If the user toggles back on the same day, `handleCancelPendingPlanChange` immediately cancels the pending switch, removes scheduled notifications (`removeNotification`), and seamlessly maintains the current active mode.
+- **Vault Spending Guard & Period Overspend Solvency**: Exceeding a weekly or monthly budget allowance draws from unspent Income and Gullak reserves; Digital Vault Guard blocks new expense creation strictly when total account liquidity is exhausted (`accountRemaining <= 0`).
 
 ---
 

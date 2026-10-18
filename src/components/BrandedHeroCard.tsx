@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -15,6 +16,7 @@ import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { calculatePureHeroMetrics, buildHeroSubtextChips } from '../lib/homeCalculations';
+import { pickPrimaryChip } from '../lib/heroDetails';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { PeriodSummaryInfo } from '../lib/budgetPeriods';
 import { formatCadenceRolloverStrip } from '../lib/budgetModeUtils';
@@ -43,6 +45,8 @@ export type BrandedHeroCardProps = {
   cadencePeriodSummary?: PeriodSummaryInfo | null;
   /** e.g. "Add only ₹50 today": part of today's budget is money carried over from the last plan. */
   carryNote?: string | null;
+  /** Tap on the card: opens the details sheet (budget, money in, Gullak of the period). */
+  onOpenDetails?: () => void;
 };
 
 // Corner & layout geometry constants
@@ -119,9 +123,11 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   cadencePeriodSummary,
   periodIncome = 0,
   remainingIncome = 0,
+  remainingDeposits = 0,
   isSpendingFromGullak = false,
   gullakDrawnAmount = 0,
   carryNote = null,
+  onOpenDetails,
 }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: DEFAULT_WIDTH,
@@ -323,10 +329,13 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
   const textColorSecondary = isDark ? 'rgba(26, 43, 76, 0.85)' : 'rgba(26, 43, 76, 0.80)';
 
   // Split breakdown into distinct micro-chips and sort ascending by size (shortest on top, longest on bottom)
-  const subtextChipItems = useMemo(
-    () => buildHeroSubtextChips({ effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome }),
-    [effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome]
-  );
+  // The card shows ONE chip, the most important one; the rest lives in the details sheet.
+  const subtextChipItems = useMemo(() => {
+    const only = pickPrimaryChip(
+      buildHeroSubtextChips({ effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome })
+    );
+    return only ? [only] : [];
+  }, [effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome]);
 
   const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
@@ -340,7 +349,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
       if (isCadenceMode && cadencePeriodSummary) {
         if (budgetCadence === 'weekly') {
           if (activeFilter === 'Weekly') {
-            targetIncome = cadencePeriodSummary.budget;
+            targetIncome = cadencePeriodSummary.budget + (periodIncome || 0) + (remainingDeposits || 0);
             targetSpent = cadencePeriodSummary.spent;
           } else if (activeFilter === 'Daily') {
             targetIncome = Math.max(cadencePeriodSummary.suggestedDailyPace, todayRecordSpent);
@@ -351,7 +360,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           }
         } else if (budgetCadence === 'monthly') {
           if (activeFilter === 'Monthly') {
-            targetIncome = cadencePeriodSummary.budget;
+            targetIncome = cadencePeriodSummary.budget + (periodIncome || 0) + (remainingDeposits || 0);
             targetSpent = cadencePeriodSummary.spent;
           } else if (activeFilter === 'Weekly') {
             targetIncome = cadencePeriodSummary.suggestedWeeklyPace ?? totalAvailable;
@@ -402,8 +411,16 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
 
   return (
     <View style={styles.outerWrapper}>
-      {/* ── Main Container (Measures Content) ── */}
-      <View style={styles.cardContainer} onLayout={handleLayout}>
+      {/* ── Main Container (Measures Content). Tap opens the details sheet. ── */}
+      <Pressable
+        style={styles.cardContainer}
+        onLayout={handleLayout}
+        onPress={onOpenDetails}
+        disabled={!onOpenDetails}
+        accessibilityRole={onOpenDetails ? 'button' : undefined}
+        accessibilityLabel={onOpenDetails ? 'Show details' : undefined}
+        accessibilityHint={onOpenDetails ? 'Opens the full breakdown for this period' : undefined}
+      >
         {/* ── SVG Notched Background ── */}
         {dimensions.width > 0 && dimensions.height > 0 && (
           <Svg
@@ -627,7 +644,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
             />
           )}
         </View>
-      </View>
+      </Pressable>
     </View>
   );
 };

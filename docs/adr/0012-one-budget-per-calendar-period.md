@@ -75,6 +75,12 @@ A day owned by a weekly / monthly plan or by Pure Mode has no daily budget recor
 (and the server rows overwritten) by the self-heal in `checkAndRollover` / hydration. Users with no plan history at all
 are old daily users and keep daily records.
 
+### D7. Mode Switching Next-Day Scheduling & Same-Day Reversal (PUR-003 Amendment - 2026-10-18)
+- **Next-Day Scheduling**: Toggling between Pure Mode and Budget Mode (Pure Mode → Budget Mode or Budget Mode → Pure Mode) takes effect from tomorrow at 12:00 AM (00:00:00). Today's running day budget and midnight Gullak rollover finish cleanly under the currently active mode.
+- **Same-Day Reversal**: If a user schedules a mode transition for tomorrow and changes their mind on the same day (reverting the toggle back to today's active mode), the scheduled future change is cancelled immediately (`handleCancelPendingPlanChange`), removing the scheduled plan change and cancelling any scheduled transition notifications (`removeNotification`).
+- **Hero Card Tap Guard**: In Pure Mode, the Hero Card disables details-sheet tap since budget slices and targets do not exist.
+- **Vault Guard Solvency Check**: Outflows past weekly/monthly budget allowances are absorbed from unspent Income and Gullak savings. Digital Vault Guard blocks transactions only when total vault liquidity across the entire account is exhausted (`accountRemaining <= 0`).
+
 ## Consequences
 - Toggling Budget Mode, or switching cadence and back, never changes what reaches Gullak for a period. This is
   covered by `tests/cadenceFixes.test.ts` (including the ₹9,000 example, where Gullak is ₹3,200 with or without the toggle).
@@ -82,3 +88,5 @@ are old daily users and keep daily records.
   decision: the extra money never existed.
 - Periods before `BUDGET_RULES_V2_FROM` are not recomputed with D1 / D3 / D4.
 - `getTotalAccountRemaining` and the Gullak hard cap count each pool once, and a closed pool only for what it used.
+- Same-day mode flip backs cleanly cancel pending transitions with 0 notification spam and 0 glitches.
+

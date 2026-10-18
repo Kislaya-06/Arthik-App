@@ -11,7 +11,7 @@ import {
   useAnimatedValue,
 } from 'react-native';
 import { X, Check, Clock } from 'lucide-react-native';
-import { format, parseISO, addDays } from 'date-fns';
+import { format, parseISO, addDays, eachDayOfInterval } from 'date-fns';
 import Svg, { Defs, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -20,12 +20,15 @@ import {
   formatAmountWithCommas,
   cleanAmountString,
   formatCurrency,
+  round2,
 } from '../lib/formatters';
 import { applyKeypadPress } from '../lib/amountKeypad';
 import {
   formatEffectiveFrom,
 } from '../lib/budgetModeUtils';
-import { computeEffectiveFrom } from '../lib/budgetPeriods';
+import { computeEffectiveFrom, getPeriodBounds } from '../lib/budgetPeriods';
+import { computeSpentByDate } from '../lib/budgetCalculations';
+import { buildEligibleIncomeClassifier } from '../store/dailyBudget/classifiers';
 import { BudgetCadence } from '../types';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
@@ -159,26 +162,80 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     [getCarryableAmount, expenses, planChanges, dailyRecords, budgetCadence, visible]
   );
 
+  // Spent calculations for current period (zero-spend allows immediate budget modification)
+  const isIncomeFn = useMemo(() => buildEligibleIncomeClassifier(), []);
+  const spentByDate = useMemo(() => computeSpentByDate(expenses, isIncomeFn), [expenses, isIncomeFn]);
+
+  const todaySpent = useMemo(() => {
+    const rec = dailyRecords[todayStr];
+    if (rec && typeof rec.spent === 'number') return rec.spent;
+    return spentByDate[todayStr] || 0;
+  }, [dailyRecords, todayStr, spentByDate]);
+
+  const currentWeekSpent = useMemo(() => {
+    const bounds = getPeriodBounds('weekly', todayStr);
+    const days = eachDayOfInterval({
+      start: parseISO(bounds.start),
+      end: parseISO(todayStr),
+    });
+    let sum = 0;
+    for (const d of days) {
+      const dStr = format(d, 'yyyy-MM-dd');
+      sum += spentByDate[dStr] || 0;
+    }
+    return round2(sum);
+  }, [spentByDate, todayStr]);
+
+  const currentMonthSpent = useMemo(() => {
+    const bounds = getPeriodBounds('monthly', todayStr);
+    const days = eachDayOfInterval({
+      start: parseISO(bounds.start),
+      end: parseISO(todayStr),
+    });
+    let sum = 0;
+    for (const d of days) {
+      const dStr = format(d, 'yyyy-MM-dd');
+      sum += spentByDate[dStr] || 0;
+    }
+    return round2(sum);
+  }, [spentByDate, todayStr]);
+
   // Compute effective date
+  const isFirstEnable = !isBudgetModeEnabled && (!planChanges || planChanges.length === 0);
   const effectiveFromStr = useMemo(() => {
     if (!isBudgetModeEnabled) {
-      return todayStr;
+      return computeEffectiveFrom('enable', todayStr, { changes: planChanges });
     }
     if (selectedCadence !== budgetCadence) {
       return computeEffectiveFrom('cadence_switch', todayStr, { currentOwner: budgetCadence });
     }
     if (selectedCadence === 'daily') {
-      return format(addDays(parseISO(todayStr), 1), 'yyyy-MM-dd');
+      return todaySpent === 0
+        ? todayStr
+        : format(addDays(parseISO(todayStr), 1), 'yyyy-MM-dd');
     }
     if (selectedCadence === 'weekly') {
-      return computeEffectiveFrom('weekly_amount', todayStr);
+      return currentWeekSpent === 0
+        ? todayStr
+        : computeEffectiveFrom('weekly_amount', todayStr);
     }
-    return computeEffectiveFrom('monthly_amount', todayStr);
-  }, [isBudgetModeEnabled, selectedCadence, budgetCadence, todayStr]);
+    return currentMonthSpent === 0
+      ? todayStr
+      : computeEffectiveFrom('monthly_amount', todayStr);
+  }, [
+    isBudgetModeEnabled,
+    planChanges,
+    selectedCadence,
+    budgetCadence,
+    todayStr,
+    todaySpent,
+    currentWeekSpent,
+    currentMonthSpent,
+  ]);
 
   const effectiveFromLabel = useMemo(() => {
-    return formatEffectiveFrom(effectiveFromStr, todayStr, selectedCadence, !isBudgetModeEnabled);
-  }, [effectiveFromStr, todayStr, selectedCadence, isBudgetModeEnabled]);
+    return formatEffectiveFrom(effectiveFromStr, todayStr, selectedCadence, isFirstEnable);
+  }, [effectiveFromStr, todayStr, selectedCadence, isFirstEnable]);
 
   const evaluatedAmount = useMemo(() => {
     const clean = cleanAmountString(amountStr);
@@ -204,7 +261,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     }
 
     if (!isBudgetModeEnabled) {
-      // First enable: applies today
+      // First enable: applies today; Re-enabling existing user schedules tomorrow (PUR-003)
       if (selectedCadence === 'daily') {
         setDailyBudget(evaluatedAmount);
       } else if (selectedCadence === 'weekly') {
@@ -213,7 +270,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
         setMonthlyBudget(evaluatedAmount);
       }
       setBudgetCadence(selectedCadence);
-      setBudgetModeEnabled(true);
+      setBudgetModeEnabled(true, { cadence: selectedCadence, amount: evaluatedAmount });
       onClose();
       return;
     }
@@ -227,61 +284,76 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     // Same cadence: updating amount
     if (selectedCadence === 'daily') {
       if (dailyBudgetAmount > 0 && evaluatedAmount !== dailyBudgetAmount) {
-        Alert.alert(
-          'Change Daily Budget?',
-          `Your new daily budget (${formatCurrency(evaluatedAmount)}) will take effect tomorrow at 12:00 AM. Today's budget (${formatCurrency(dailyBudgetAmount)}) remains active.\n\nDo you want to confirm?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Yes, Change',
-              onPress: () => {
-                scheduleNextDailyBudget(evaluatedAmount);
-                onClose();
+        if (todaySpent > 0) {
+          Alert.alert(
+            'Change Daily Budget?',
+            `You have spent ${formatCurrency(todaySpent)} today. Your new daily budget (${formatCurrency(evaluatedAmount)}) will take effect tomorrow at 12:00 AM. Today's budget (${formatCurrency(dailyBudgetAmount)}) remains active.\n\nDo you want to confirm?`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Yes, Change',
+                onPress: () => {
+                  scheduleNextDailyBudget(evaluatedAmount);
+                  onClose();
+                },
               },
-            },
-          ]
-        );
-        return;
+            ]
+          );
+          return;
+        }
+      }
+      if (pendingChange) {
+        cancelPendingPlanChange();
       }
       setDailyBudget(evaluatedAmount);
     } else if (selectedCadence === 'weekly') {
       if (weeklyBudgetAmount > 0 && evaluatedAmount !== weeklyBudgetAmount) {
-        Alert.alert(
-          'Change Weekly Budget?',
-          `Your new budget of ${formatCurrency(evaluatedAmount)} will take effect next Monday at 12:00 AM. Your current budget (${formatCurrency(weeklyBudgetAmount)}) stays active until Sunday.\n\nDo you want to confirm?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Yes, Change',
-              onPress: () => {
-                setWeeklyBudget(evaluatedAmount);
-                onClose();
+        if (currentWeekSpent > 0) {
+          Alert.alert(
+            'Change Weekly Budget?',
+            `You have spent ${formatCurrency(currentWeekSpent)} this week. Your new budget of ${formatCurrency(evaluatedAmount)} will take effect next Monday at 12:00 AM. Your current budget (${formatCurrency(weeklyBudgetAmount)}) stays active until Sunday.\n\nDo you want to confirm?`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Yes, Change',
+                onPress: () => {
+                  setWeeklyBudget(evaluatedAmount);
+                  onClose();
+                },
               },
-            },
-          ]
-        );
-        return;
+            ]
+          );
+          return;
+        }
       }
-      setWeeklyBudget(evaluatedAmount);
+      if (pendingChange) {
+        cancelPendingPlanChange();
+      }
+      setWeeklyBudget(evaluatedAmount, { immediate: true });
     } else {
       if (monthlyBudgetAmount > 0 && evaluatedAmount !== monthlyBudgetAmount) {
-        Alert.alert(
-          'Change Monthly Budget?',
-          `Your new budget of ${formatCurrency(evaluatedAmount)} will take effect on the 1st of next month at 12:00 AM. Your current budget (${formatCurrency(monthlyBudgetAmount)}) stays active until then.\n\nDo you want to confirm?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Yes, Change',
-              onPress: () => {
-                setMonthlyBudget(evaluatedAmount);
-                onClose();
+        if (currentMonthSpent > 0) {
+          Alert.alert(
+            'Change Monthly Budget?',
+            `You have spent ${formatCurrency(currentMonthSpent)} this month. Your new budget of ${formatCurrency(evaluatedAmount)} will take effect on the 1st of next month at 12:00 AM. Your current budget (${formatCurrency(monthlyBudgetAmount)}) stays active until then.\n\nDo you want to confirm?`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Yes, Change',
+                onPress: () => {
+                  setMonthlyBudget(evaluatedAmount);
+                  onClose();
+                },
               },
-            },
-          ]
-        );
-        return;
+            ]
+          );
+          return;
+        }
       }
-      setMonthlyBudget(evaluatedAmount);
+      if (pendingChange) {
+        cancelPendingPlanChange();
+      }
+      setMonthlyBudget(evaluatedAmount, { immediate: true });
     }
     onClose();
   }, [
@@ -292,6 +364,11 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     dailyBudgetAmount,
     weeklyBudgetAmount,
     monthlyBudgetAmount,
+    todaySpent,
+    currentWeekSpent,
+    currentMonthSpent,
+    pendingChange,
+    cancelPendingPlanChange,
     effectiveFromLabel,
     setDailyBudget,
     setWeeklyBudget,

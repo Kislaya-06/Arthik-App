@@ -52,9 +52,13 @@ describe('TXN-003: self-transfers', () => {
       expect(isCountedExpense(t)).toBe(false);
       expect(isExcludedFromTotals(t)).toBe(true);
     }
-    expect(calculateExpenseTotals([transferOut, transferIn], {})).toEqual({ totalIncome: 0, totalSpent: 0 });
-    expect(computeSpentByDate([transferOut, transferIn], makeIncomeClassifier())).toEqual({});
-    expect(computeIncomeByDate([transferOut, transferIn], makeEligibleIncomeClassifier())).toEqual({});
+    const recoveryRow: any = { id: 'rec1', amount: 200, type: 'income', transaction_class: 'recovery', expense_date: '2026-10-06' };
+    expect(isCountedIncome(recoveryRow)).toBe(false);
+    expect(isCountedExpense(recoveryRow)).toBe(false);
+    expect(isExcludedFromTotals(recoveryRow)).toBe(true);
+    expect(calculateExpenseTotals([transferOut, transferIn, recoveryRow], {})).toEqual({ totalIncome: 0, totalSpent: 0 });
+    expect(computeSpentByDate([transferOut, transferIn, recoveryRow], makeIncomeClassifier())).toEqual({});
+    expect(computeIncomeByDate([transferOut, transferIn, recoveryRow], makeEligibleIncomeClassifier())).toEqual({});
   });
 
   it('only the structured class marks a transfer: notes and category names are never guessed', () => {

@@ -178,6 +178,12 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - Zero-shift typography architecture: invisible bold placeholder (`hiddenPlaceholder` with `opacity: 0`, `FontFamily.bold`) locks tab width across medium/bold active weight transitions.
    - Fixed outer container height `ControlHeight.standard` (`48px`), stadium pill geometry (`BorderRadius.pill`), with clipping `overflow: 'hidden'` preserving rounded ends.
 
+### Home Card Details Sheet
+`HeroDetailsSheet` is a `BottomSheetModal` with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens. The Home card is a `Pressable` and keeps exactly one chip.
+
+### Split & Money Back Components (`src/components/split/`)
+Built only from existing tokens and primitives (no new tokens): `SplitExtras` (switch row + name field + share field + suggestion pills, same anatomy as `TransferExtras`), `MoneyBackExtras` (mode pills + person / expense option rows), `MoneyBackSheet` (`BottomSheetModal` with `AppButton` footer), `SplitDetailCard` (detail-screen card, `BorderRadius.card`, `Spacing.surface`). Pills use `BorderRadius.pill`; the active pill uses `colors.mintGreen` with `colors.forestGreen` text.
+
 ---
 
 ## 10. Animation & Motion Physics

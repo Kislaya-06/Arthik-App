@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Alert, ScrollView,
 } from 'react-native';
@@ -16,7 +16,10 @@ import { ArrowLeft, SquarePen, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
-import { isIncomeTransaction } from '../lib/transactionUtils';
+import { isIncomeTransaction, isRecoveryClass } from '../lib/transactionUtils';
+import { SplitDetailCard } from '../components/split/SplitDetailCard';
+import { deleteBlockReason, grossAmountOf, recoverySlices, buildPeopleLedger, matchIncomingToPeople, refundCandidates } from '../lib/splitLedger';
+import { MoneyBackSheet } from '../components/split/MoneyBackSheet';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -43,6 +46,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const [showMoneyBack, setShowMoneyBack] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -80,6 +84,16 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     gullakDeposits,
   ]);
 
+  // SPL-005: for an ordinary income, offer "was this money back?" - first choice is a person whose name matches.
+  const moneyBackHint = useMemo(() => {
+    if (!expense || expense.type !== 'income' || expense.transaction_class === 'self_transfer' || isRecoveryClass(expense)) return null;
+    const people = buildPeopleLedger(expenses).filter((p) => p.owed > 0);
+    const match = matchIncomingToPeople(people, { amount: grossAmountOf(expense), sender: expense.note })[0];
+    const canRefund = refundCandidates(expenses).length > 0;
+    if (people.length === 0 && !canRefund) return null;
+    return { match: match || null };
+  }, [expense, expenses]);
+
   if (!expense) {
     return (
       <View style={[styles.notFoundContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
@@ -97,6 +111,43 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   }
 
   const handleDelete = () => {
+    // SPL-006: an expense that has money back must lose that money-back entry first.
+    const blocked = deleteBlockReason(expense.id, expenses);
+    if (blocked) {
+      Alert.alert("Can't delete yet", blocked);
+      return;
+    }
+    // SPL-003: deleting a money-back entry puts the spending (and what the person owes) back as it was.
+    if (isRecoveryClass(expense)) {
+      const days = recoverySlices(expense, expenses)
+        .map((s) => {
+          const dateStr = s.expense?.expense_date;
+          if (!dateStr) return '';
+          try {
+            return format(parseISO(dateStr), 'd MMM');
+          } catch {
+            return dateStr;
+          }
+        })
+        .filter(Boolean);
+      Alert.alert(
+        'Delete money back',
+        `${formatCurrency(expense.amount)} will go back to being spent${days.length ? ` on ${Array.from(new Set(days)).join(', ')}` : ''}, and what was settled will be owed again.\n\nDo you want to continue?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteExpense(expense.id);
+              useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+              navigation.pop(1);
+            },
+          },
+        ]
+      );
+      return;
+    }
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const cleanDate = expense.expense_date?.split('T')[0]?.trim() || '';
     const isPastDate = cleanDate !== '' && cleanDate < todayStr;
@@ -198,9 +249,11 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </View>
           <View style={styles.headerRight}>
-            <Pressable onPress={handleEdit} hitSlop={10}>
-              <SquarePen size={20} color={colors.textPrimary} />
-            </Pressable>
+            {!isRecoveryClass(expense) && (
+              <Pressable onPress={handleEdit} hitSlop={10}>
+                <SquarePen size={20} color={colors.textPrimary} />
+              </Pressable>
+            )}
             <Pressable onPress={handleDelete} hitSlop={10} style={{ marginLeft: Spacing.block }}>
               <Trash2 size={20} color={colors.coral} />
             </Pressable>
@@ -229,18 +282,19 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.amountContainer}>
             <AmountText
               role="hero"
-              value={expense.amount}
+              value={grossAmountOf(expense)}
               color={colors.textPrimary}
-              showDecimals={expense.amount % 1 !== 0}
+              showDecimals={grossAmountOf(expense) % 1 !== 0}
             />
           </View>
 
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
             <StatusBadge
-              variant={expense.transaction_class === 'self_transfer' ? 'neutral' : isIncome ? 'success' : 'danger'}
+              variant={expense.transaction_class === 'self_transfer' || isRecoveryClass(expense) ? 'neutral' : isIncome ? 'success' : 'danger'}
               label={
                 expense.transaction_class === 'self_transfer' ? 'TRANSFER'
+                : isRecoveryClass(expense) ? 'MONEY BACK'
                 : isIncome ? 'INCOME' : 'EXPENSE'
               }
             />
@@ -275,7 +329,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
 
             {/* Deducted From / Destination Row */}
-            {fundingInfo && (
+            {fundingInfo && !isRecoveryClass(expense) && (
               <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
                 <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                   {isIncome ? 'Destination' : 'Deducted from'}
@@ -288,7 +342,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       color: fundingInfo.coveredByGullak > 0
                         ? colors.coral
                         : fundingInfo.coveredByIncome > 0
-                        ? colors.mintGreenDark
+                        ? (isDark ? colors.mintGreen : colors.mintGreenDark)
                         : colors.textPrimary,
                       fontFamily: FontFamily.bold,
                     },
@@ -322,10 +376,49 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* Funding Breakdown Card */}
-          {fundingInfo && isBudgetModeEnabled && <ExpenseFundingCard funding={fundingInfo} />}
+          {fundingInfo && isBudgetModeEnabled && !isRecoveryClass(expense) && <ExpenseFundingCard funding={fundingInfo} />}
 
           {/* Self-transfer details (renders nothing for normal transactions) */}
           <TransferDetailCard expense={expense} />
+
+          {/* Split expense / money back (SPL-001..SPL-006); renders nothing for ordinary transactions */}
+          <SplitDetailCard
+            expense={expense}
+            allExpenses={expenses}
+            onOpen={(id) => navigation.push('ExpenseDetail', { expenseId: id })}
+          />
+
+          {/* Income that may really be money coming back (SPL-005) */}
+          {moneyBackHint ? (
+            <View style={[styles.hintCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <Text style={[styles.cardValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                {moneyBackHint.match
+                  ? `${moneyBackHint.match.person.name} owes you ${formatCurrency(moneyBackHint.match.person.owed)}. Is this their payment?`
+                  : 'Was this money coming back?'}
+              </Text>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                A friend paying you back or a refund is not new income.
+              </Text>
+              <AppButton
+                label={moneyBackHint.match ? 'Yes, settle it' : 'Mark as money back'}
+                onPress={() => setShowMoneyBack(true)}
+                variant="secondary"
+                size="cta"
+                style={{ marginTop: Spacing.group }}
+              />
+            </View>
+          ) : null}
+
+          {/* Split an expense that is already logged (for example by Automatic Logging) */}
+          {expense.type !== 'income' && !isRecoveryClass(expense) && expense.transaction_class !== 'self_transfer' && !expense.split_person ? (
+            <AppButton
+              label="Split this expense"
+              onPress={() => navigation.navigate('EditExpense', { expenseId: expense.id, splitOn: true })}
+              variant="outline"
+              size="cta"
+              style={{ marginTop: Spacing.block }}
+            />
+          ) : null}
 
           {/* Automatic Logging: source + "Why was this logged?" (renders nothing for manual entries) */}
           <WhyLoggedCard
@@ -336,28 +429,52 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Bottom Actions */}
           <View style={styles.actionsContainer}>
+            {isRecoveryClass(expense) ? (
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium, marginBottom: Spacing.block }]}>
+                To change this, delete it and add it again.
+              </Text>
+            ) : (
+              <AppButton
+                label={isIncome ? 'Edit Transaction' : 'Edit Expense'}
+                onPress={handleEdit}
+                variant="primary"
+                size="cta"
+              />
+            )}
             <AppButton
-              label={isIncome ? 'Edit Transaction' : 'Edit Expense'}
-              onPress={handleEdit}
-              variant="primary"
-              size="cta"
-            />
-            <AppButton
-              label={isIncome ? 'Delete Transaction' : 'Delete Expense'}
+              label={isRecoveryClass(expense) ? 'Delete Money Back' : isIncome ? 'Delete Transaction' : 'Delete Expense'}
               onPress={handleDelete}
               variant="danger"
               size="cta"
-              style={{ marginTop: Spacing.block }}
+              style={{ marginTop: isRecoveryClass(expense) ? 0 : Spacing.block }}
             />
           </View>
 
         </ScrollView>
       </View>
+
+      <MoneyBackSheet
+        visible={showMoneyBack}
+        incomeId={showMoneyBack ? expense.id : null}
+        suggestedPerson={moneyBackHint?.match?.person.name}
+        onClose={() => setShowMoneyBack(false)}
+        onDone={() => {
+          setShowMoneyBack(false);
+          useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+        }}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  hintCard: {
+    borderRadius: BorderRadius.card,
+    padding: Spacing.surface,
+    marginTop: Spacing.block,
+    borderWidth: 1,
+    gap: Spacing.micro,
+  },
   safeArea: {
     flex: 1,
   },

@@ -201,13 +201,19 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
   }, [layouts, options, pillLeft, pillWidth, stretchAnim, squishAnim, leadAnim]);
 
   // Immediate touch-driven animation start on UI thread:
-  // Starts worklet animation on touch before parent re-renders/filters heavy SectionList data
   const handleSelect = useCallback((id: string | null) => {
     const targetKey = id ?? 'all';
     if (targetKey !== prevKey.current && layouts[targetKey]) {
       animateTo(targetKey, prevKey.current);
     }
-    onChange(id);
+    // Decouple UI-thread spring motion from heavy SectionList dataset transition
+    if (typeof React.startTransition === 'function') {
+      React.startTransition(() => {
+        onChange(id);
+      });
+    } else {
+      onChange(id);
+    }
   }, [animateTo, layouts, onChange]);
 
   useEffect(() => {

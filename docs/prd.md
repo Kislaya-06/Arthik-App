@@ -56,7 +56,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| Pure Mode vs Budget Mode | Pure Mode provides unconstrained expense tracking without spending blocks; Budget Mode activates multi-cadence spending limits, solvency guard, Gullak savings rollovers, and a 5th navigation tab (`Savings`). Switching from Pure to Budget Mode with negative balance automatically balances the deficit into Total Income (`PUR-001`); pools ending in Pure retain unspent funds as `pureLeftover` without converting to income (`PUR-002`). |
+| Pure Mode vs Budget Mode | Pure Mode provides unconstrained expense tracking without spending blocks; Budget Mode activates multi-cadence spending limits, solvency guard, Gullak savings rollovers, and a 5th navigation tab (`Savings`). Mode switching schedules for tomorrow at midnight with same-day reversal protection (`PUR-003`); switching from Pure to Budget Mode with negative balance automatically balances the deficit into Total Income (`PUR-001`); pools ending in Pure retain unspent funds as `pureLeftover` without converting to income (`PUR-002`). |
 | Multi-Cadence Budgets | User can configure spending allowances across three native cadences: **Daily**, **Weekly** (Mon–Sun), or **Monthly** (1st to month-end). |
 | Zero-Proration Policy | Budgets configured mid-period are 100% active immediately without fractional day slicing (`isProrated: false`). |
 | Dynamic Pace Guidance | Non-binding guidance: suggested daily pace (`remaining / remainingDays`), suggested weekly pace, and projected monthly spend based on actual 28, 29, 30, or 31 month days. |
@@ -178,14 +178,22 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Historical Discovery Scanner | Scans past SMS on-device up to 90 days to discover bank accounts and formats before turning live tracking ON. |
 | AutoLog UI Suite | Comprehensive screens: `AutoLogCenterScreen`, `AutoLogSetupScreen`, `AutoLogReviewScreen`, `AutoLogIntroScreen`, `AutoLogInfoScreen`, `AutoLogAccountsScreen`, `AutoLogEmailScreen`. |
 
-### 4.13 Splits, Repayments & Self-Transfers
+### 4.12b Home Card Details
 
-**Split Expenses / Shares were removed** (canonical rules `REF-001`, `TXN-004`). Arthik is simple personal cashflow:
+The Home card keeps Remaining, Total Income / Total Expense and ONE chip (`pickPrimaryChip`: Gullak drawn → over limit → budget used up → budget left → income). Tapping the card opens `HeroDetailsSheet` with Budget, Money in (including "Money back", never income) and Gullak for the selected period (`buildHeroDetails`). A running week / month shows "till today" / "till <date>". Display only: no money rule is involved.
+
+### 4.13 Split Expenses, Money Back, Refunds & Self-Transfers
+
+Canonical rules `SPL-001..SPL-006`, `TXN-004`, `TXN-003`:
 
 | Topic | Behaviour |
 |---|---|
-| Expense you shared with friends | Recorded at its full amount. No friend directory, no shares, no debt tracking. |
-| A friend paying you back, or a refund | Recorded as **Income** on the day it arrives. |
+| Expense shared with one or more people | A "Split" switch on the expense form (and a "Split this expense" button on logged expenses, including AutoLog ones). The user can add one or more participants with custom shares or equal split shortcut, with live calculation breakdown ("Your share ₹X · Total split ₹Y"). The expense keeps the full amount paid (`SPL-001`). |
+| A friend paying you back | Add Money → "Friend paid back", or answer "Is this their payment?" on a notification, on the review screen, or on the income's detail screen. Money goes to the oldest unpaid expenses first. It reduces the original expenses (from their original days) and is **never income**. If more arrives than was owed, the extra is ordinary income. |
+| A refund from a shop or company | Add Money → "Refund": who sent it and which expense it is for. Same effect as above. |
+| Where the money returns | Budget goes back to that day's budget (and Gullak if that day was saved), income back to the Available Income pool, Gullak back to Gullak. Total Income never changes. |
+| Ledger | A Ledger button on the Home header opens `LedgerScreen`: total to get back, each person's owed / shared / paid-back amounts, every shared expense (settled or what is left) and every payment back with dates. |
+| History / detail | Money-back rows show as "Money back". An expense shows "Split with Name" and what came back; the detail screen shows what is still owed. Deleting a money-back row restores everything. |
 | Transfer between your own accounts | Marked as a self-transfer (`transaction_class = 'self_transfer'`): never income, never expense, never touches budget or Gullak (`TXN-003`). The user can ask Arthik to remember a transfer note (`src/store/transferRulesStore.ts`). |
 
 ---
@@ -194,7 +202,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 The following are **explicitly out of scope** for v2.x:
 
-- **Shared household ledgers**: Arthik is single-user authenticated (there is no split / shared-expense tracking; shared multi-user household ledger sync is out of scope).
+- **Shared household ledgers**: Arthik is single-user authenticated. A split only records what named people owe you; other participants have no account, and shared multi-user ledger sync is out of scope.
 - **Bank aggregator credentials sync**: No cloud bank aggregator APIs, NetBanking credentials, or screen-scraping (all automated detection is strictly 100% on-device via Bank SMS and Bank Email alerts).
 - **Investment tracking**: No mutual funds, SIPs, or stock portfolio.
 - **Recurring expense automation**: No auto-detected or rule-based recurring entries.

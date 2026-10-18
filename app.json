@@ -63,12 +63,19 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Ultra-Smooth History & Performance Boost ⚡✨",
+        "title": "Split Expenses & Money Back 🤝",
         "highlights": [
-          "History category filter pill upgraded to native UI-thread Reanimated worklets for butter-smooth glides and zero lag",
-          "Instant History filter resets with 65% faster SectionList virtualization and zero font-shift churn",
-          "Accelerated Home and Insights calculations with single-pass recent transaction scanning and O(1) category lookups",
-          "Swipe-to-delete pending reviews with fluid physics and one-tap bulk Clear All"
+          "Split an expense with friends and see exactly what each person owes you",
+          "When a friend pays you back, it is no longer counted as income",
+          "Refunds go back to their expense — choose to split across everyone, just for you, or for a specific friend",
+          "New Ledger button on Home: see who owes you, what was paid back and what is settled",
+          "Tap the Home card for a full breakdown of budget, money in and Gullak",
+          "Notifications and review now ask \"Is this their payment?\" for money from someone who owes you",
+          "Mode switching takes effect next day at midnight, protecting today's budget and savings rollover",
+          "Concise AutoLog Review: 1-page bottom sheet with Type, Category, and Remember toggle before saving",
+          "Spending Guard: Add money directly inside the sheet when balance is ₹0 without losing your typed expense",
+          "Instant Budget Update: When you have spent ₹0, budget updates apply immediately today without waiting for tomorrow",
+          "Expense Form: Category selection keeps the numeric keypad open for uninterrupted typing"
         ]
       }
     }

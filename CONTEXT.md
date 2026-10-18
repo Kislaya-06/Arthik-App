@@ -126,10 +126,25 @@ Unspent budget from a weekly or monthly pool that ended while the user was in Pu
 - *Code location*: `src/lib/moneyWaterfall.ts` (`pureLeftoverAdded`, `pureLeftoverUsed`, `pureLeftoverRemaining`), `src/store/dailyBudget/metrics.ts`
 - *_Avoid_*: Pure Income, Restored Income, Expired Budget
 
+**Split Expense**:
+An expense shared with one or more named people (`split_allocations`: `[{ person, amount }]`, maintaining backward compatibility with single-person `split_person` and `split_amount`). The row keeps the full amount paid; the user's own share is `paid − sum(their shares)` (canonical rule `SPL-001`).
+- *Code location*: `src/lib/splitLedger.ts` (`validateSplit`, `validateSplitAllocations`, `splitAllocationsOf`, `getSplitView`), `src/components/split/SplitExtras.tsx`, `src/hooks/useExpenseForm.ts`
+- *_Avoid_*: Share, Reimbursement, Debt
+
+**Money Back**:
+A row (`transaction_class = 'recovery'`) for money that came back for expenses already paid: a friend paying their share (`settlement`) or a refund (`refund`). It lists the expenses it went back to (`recovery_allocations`), is never income, and reduces the counted amount of those expenses from their original day (`SPL-003..SPL-006`).
+- *Code location*: `src/store/expense/moneyBack.ts`, `src/store/expense/recoveryMiddleware.ts`, `src/lib/splitLedger.ts` (`applyRecoveries`, `planSettlement`, `planRefund`)
+- *_Avoid_*: Repayment income, Reimbursement
+
 **Pure Deficit Auto-Balance**:
 The automatic real-income balancing transaction created when a user switches from Pure Mode to Budget Mode while in deficit (`R = computeTotalAccountRemaining(st, expenses) < 0`, canonical rule `PUR-001`). Creates exactly one income row for $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated to the earliest expense causing Gullak draw $\ge D$. Excluded from the Home budget chip `periodIncome` but fully counted in all-time inflows and the money waterfall.
 - *Code location*: `src/store/dailyBudget/planActions.ts` (`balancePureDeficitIfNeeded`), `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`), `src/lib/homeCalculations.ts` (`calculatePeriodSummary`)
 - *_Avoid_*: Fake Income, Deficit Penalty, Balance Reset
+
+**Scheduled Mode Transition & Same-Day Reversal Protection (`PUR-003`)**:
+Mode transitions (Pure Mode ↔ Budget Mode) take effect next day at 12:00 AM (`effectiveFrom = tomorrow`), protecting running-day budget and midnight Gullak savings. If toggled back on the same day, the pending switch is cancelled, scheduled notifications removed, and the active mode continues seamlessly with zero glitches. Overspending past weekly/monthly allowances draws from unspent income and Gullak reserves; Digital Vault Guard only blocks if total account liquidity ($R \le 0$) is exhausted.
+- *Code location*: `src/store/dailyBudget/planActions.ts` (`handleSetBudgetModeEnabled`, `handleCancelPendingPlanChange`), `src/store/dailyBudget/rollover.ts` (`applyScheduledPlanChanges`), `src/lib/vaultSpendingGuard.ts`
+- *_Avoid_*: Immediate Mode Wipe, Mid-day Gullak Dump, Contradictory Notifications
 
 ---
 

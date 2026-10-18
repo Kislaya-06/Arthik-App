@@ -44,13 +44,13 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 |---|---|---|
 | **Entry** | App boot, theme, OTA listener | `App.tsx`, `index.ts` |
 | **Navigation** | Screen routing, typed params | `src/navigation/index.tsx`, `src/navigation/navigationRef.ts`, `src/types/index.ts` |
-| **Screens** | UI render + dispatch store actions | `src/screens/**`, `src/screens/insights/**` |
+| **Screens** | UI render + dispatch store actions | `src/screens/**` (including `LedgerScreen.tsx`), `src/screens/insights/**`, `src/screens/autolog/**` |
 | **Stores** | Business logic, Supabase I/O, offline queues, derived state | `src/store/**`, `src/store/expense/**`, `src/store/dailyBudget/**` |
-| **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` (including `streakCalendarData.ts`, `asyncStorageList.ts`) |
-| **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/profile/**`, `src/components/savings/**` |
-| **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`) |
+| **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` (including `heroDetails.ts`, `splitLedger.ts`, `streakCalendarData.ts`, `asyncStorageList.ts`) |
+| **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/split/**`, `src/components/profile/**`, `src/components/savings/**`, `HeroDetailsSheet.tsx` |
+| **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`, `useExpenseForm.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (92 files, 1481 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (97 files, 1567 tests) | `tests/**` |
 | **Automatic Logging** | On-device SMS / notification / email → transactions | `modules/arthik-autolog/**`, `src/features/autoLog/**` — see [AUTO_LOGGING.md](AUTO_LOGGING.md) |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
@@ -61,12 +61,12 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 
 ## 3. Stores
 
-Eleven Zustand stores. Each owns a well-defined domain. To avoid monolithic file explosion, high-complexity stores (`dailyBudgetStore`, `expenseStore`) are decomposed into cohesive sub-modules in dedicated subdirectories while maintaining their canonical root export interface (see [ADR 0013](adr/0013-store-module-split.md)).
+Twelve core Zustand stores (plus AutoLog store). Each owns a well-defined domain. To avoid monolithic file explosion, high-complexity stores (`dailyBudgetStore`, `expenseStore`) are decomposed into cohesive sub-modules in dedicated subdirectories while maintaining their canonical root export interface (see [ADR 0013](adr/0013-store-module-split.md)).
 
 | Store | Domain | Persisted? | Reset on sign-out? |
 |---|---|---|---|
 | `authStore` | Session, user profile, sign-in/out | No | — (orchestrates resets) |
-| `expenseStore` | Transaction CRUD, offline queues, sync (split: `pendingQueues`, `syncPending`, `types`) | No (manual AsyncStorage) | ✅ `resetExpenses` |
+| `expenseStore` | Transaction CRUD, offline queues, sync (split: `pendingQueues`, `syncPending`, `payload`, `recoveryMiddleware`, `moneyBack`, `types`) | No (manual AsyncStorage) | ✅ `resetExpenses` |
 | `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks (split: `classifiers`, `expenseBridge`, `hydrate`, `metrics`, `pendingStorage`, `planActions`, `rollover`, `selfHealing`, `types`) | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
 | `categoryStore` | User categories, placeholders, cache | No (manual AsyncStorage) | ✅ `resetCategories` |
 | `notificationStore` | In-app notification list, unread count | No (manual AsyncStorage) | ✅ `clearNotifications` |
@@ -76,6 +76,7 @@ Eleven Zustand stores. Each owns a well-defined domain. To avoid monolithic file
 | `appLockStore` | Biometric gate, lock/unlock state | No (manual AsyncStorage) | ✅ `reset` |
 | `transferRulesStore` | Remembered self-transfer notes (`self_transfer_rules` table) | No | ✅ `reset` |
 | `ambientStore` | Ambient background animation state, toggle | ✅ `persist` (AsyncStorage key `arthik-ambient-preference`) | — |
+| `otaStore` | Expo OTA update check, pending release highlights, in-app update prompt | No | — |
 
 ### Cross-store wiring (no circular imports)
 
@@ -177,8 +178,10 @@ Entered budgets are **never scaled down or prorated** due to mid-cycle starts or
 - **Weekly Pace**: `(remainingBudget / remainingDays) * 7`
 - **Projected Monthly Budget**: `(weeklyBudget / 7) * daysInMonth`
 
-### 6.3 Next-Day Cadence Switching & Carry-Forward Engine
-- Switching cadences takes effect **tomorrow at 12:00 AM (00:00:00)** (`computeEffectiveFrom`), allowing today's budget and transactions to conclude cleanly under the active plan.
+### 6.3 Next-Day Mode & Cadence Switching (`PUR-003`) & Carry-Forward Engine
+- Switching cadences as well as toggling between Pure Mode and Budget Mode takes effect **tomorrow at 12:00 AM (00:00:00)** (`computeEffectiveFrom`), allowing today's budget and transactions to conclude cleanly under the active plan.
+- **Same-Day Reversal Protection (`PUR-003`)**: If a user switches modes (scheduled for tomorrow) and toggles back on the same day, the pending switch is immediately cancelled (`handleCancelPendingPlanChange`), scheduled notifications are removed, and the app seamlessly remains in its currently active mode with zero glitches.
+- **Pure Mode Hero Card Details Guard**: In Pure Mode, Hero Card tap is disabled and "Tap the card for details" hint is hidden (`GUL-002`).
 - **Zero Mid-Cycle Gullak Dumps (Golden Invariant)**: Mid-cycle cadence switching carries unspent funds forward into the new cadence rather than prematurely dumping them into Gullak (`amountSaved = 0`).
 - **Carry-Forward Modes (CAR-001)**:
   - **Additive (`'additive'`)**: Remaining balance is added once on top of the first period's target budget ceiling (`targetBudget + carriedOverAmount`) via `carryForPeriod`.
@@ -197,9 +200,9 @@ Gullak savings deposits happen **exclusively upon the natural completion of a fu
 
 ### 6.5 Digital Vault Spending Guard
 Arthik operates as a financial bank vault (`src/lib/vaultSpendingGuard.ts`):
-- If total net liquid funds (active cadence allowance + logged income + external savings) equal ₹0, outflow (expense) creation is blocked at the input boundary (`canAddExpense: false`).
+- If total net liquid funds across the entire account (`accountRemaining`) equal ₹0 or negative, outflow (expense) creation is blocked at the input boundary (`canAddExpense: false`).
 - Users are prompted to add income or configure their allowance before spending money that does not exist.
-- Overspending against a single cadence limit is permitted when backed by available income or liquid reserves.
+- Overspending past daily, weekly, or monthly allowance (e.g. "Over by ₹1,000 this week") is fully permitted when backed by available unspent income or Gullak reserves. It only blocks when all account liquidity is exhausted.
 
 ### 6.6 Gullak Total Accumulated Savings Formula
 
@@ -218,7 +221,9 @@ See [ADR 0008](adr/0008-unified-income-classification.md). Single function `isIn
 2. Check `item.type === 'expense'` → false
 3. Inert legacy fallback (rule `TXN-002`, only for old rows with no `type`; the database makes `type` NOT NULL): match `category.name` against `DEFAULT_INCOME_KEYWORDS`
 
-Self-transfers are identified ONLY by `transaction_class === 'self_transfer'` (`TXN-003`); notes and category names are never used to guess one. There is no reimbursement class (`TXN-004`).
+Self-transfers are identified ONLY by `transaction_class === 'self_transfer'` (`TXN-003`); notes and category names are never used to guess one.
+
+**Split & money back (`SPL-001..SPL-006`)**: a third class, `transaction_class === 'recovery'`, marks money that came back for an expense already paid. It is excluded from income and expense totals like a self-transfer, and instead lists the expenses it went back to (`recovery_allocations`). `src/lib/splitLedger.ts` (pure) derives who owes what and plans settlements. Refunds on multi-person split expenses support interactive recipient attribution (Solution 2: `refund_target` in `recovery_allocations`), allowing proportional fair splits or targeted participant/user allocation so one person's settlement never falsely zeroes out another friend's debt. `src/store/expense/recoveryMiddleware.ts` wraps the expense store so that every write of `expenses` recomputes each expense's COUNTED amount (`amount paid − money back`); the paid amount stays in `gross_amount` (store-only, never sent to the database). Because the waterfall and day rollover already re-run on every expense change, money returns to its original budget day / income pool / Gullak with no extra source tracking. `src/store/expense/moneyBack.ts` records money back (and converts an already logged income); `src/store/expense/payload.ts` sends the new columns only when a row uses them.
 
 ---
 
@@ -301,7 +306,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v2.1.0**: 92 test files, 1481 tests (Node 22+). v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` UI-thread worklets, `recentTransactions` bounded selection, and granular store selector test suites.
+**Coverage as of v2.1.0**: 97 test files, 1567 tests (Node 22+). Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
 
 | Test file | What it covers |
 |---|---|
@@ -312,54 +317,94 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `animationUtils.test.ts` | Spring physics, layout transitions, easing curves |
 | `appButton.test.ts` | Button variants, tactile press feedback, loading state, disabled guards |
 | `appLockStore.test.ts` | Biometric toggle, persistence, multi-user isolation, sign-out reset |
+| `appUpdate.test.ts` | In-app APK updates, permission prompts, download progress, install intents |
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
 | `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
 | `autoLogEmail.test.ts` | Bank email notification parsing, sender resolution, multi-source identity matching |
+| `autoLogFixes.test.ts` | Regression tests for AutoLog parser and edge cases |
 | `autoLogFlows.test.ts` | End-to-end AutoLog engine, review dismissal/discard, bulk clear, learned rules reset |
 | `autoLogParser.test.ts` | Regex tokenizers, transaction extraction, noise rejection, dedupe tokens |
 | `autoLogRollout.test.ts` | Feature flag rollout targeting, existing-user migration checks |
+| `bottomSheetModal.test.ts` | BottomSheetModal backdrop dismiss, pan gestures, snap points |
 | `bouncyCategoryFilter.test.ts` | UI-thread Reanimated worklet parity, Apple spring constants, zero-shift typography, immediate touch dispatch, lastActiveLayout isolation |
 | `brandedHeroCard.test.ts` | Branded hero card metrics, dynamic pace presentation, non-binding hints |
+| `breathingStrips.test.ts` | Weekly, Monthly, and Yearly breathing strip rendering and pulse physics |
+| `budgetAlerts.test.ts` | Real-time budget alerts: threshold crossings, rollover summaries, resume notifications |
 | `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`missed`/`even`/`unknown`), duplicate prevention |
-| `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, persistence |
 | `budgetModeUtils.test.ts` | Unprorated pacing previews, calendar streak cards, monthly matrices |
+| `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, next-day scheduling, same-day reversal protection (PUR-003), persistence, offline queues |
 | `budgetPeriods.test.ts` | Period timeline engine, active slices, finalization, idempotency |
 | `budgetUtils.test.ts` | Budget resolution helpers, fallback logic, allowance math |
+| `cadenceFixes.test.ts` | Next-day switch planning, Additive vs Allocation carry-forward, capacity limits |
 | `cadenceSwitch.test.ts` | Next-day switch planning, Additive vs Allocation carry-forward, capacity limits |
+| `canonicalStatusAndGuard.test.ts` | Canonical rule acceptance: BUD-008 missed status, SEC-001 digital vault spending guard |
+| `carryAllocationWeeklyMonthly.test.ts` | CAR-001 Mode B allocation carry-forward across weekly and monthly cadences |
 | `categoryStore.test.ts` | CRUD, ordering, user isolation, orphan prevention, sign-out reset |
 | `chartUtils.test.ts` | SVG donut sweep calculations, flow bar coordinate mapping, color palettes |
 | `colorUtils.test.ts` | Dynamic hex resolution, contrast math, gradient pairs |
+| `dailyBudgetHydrate.test.ts` | Supabase hydration fast-path, persist-hydration gate, legacy row self-healing |
+| `dailyBudgetPlanActions.test.ts` | Allowance updates, cadence switching, scheduled next-day plan actions, queue sync |
+| `dailyBudgetRollover.test.ts` | Midnight rollover cycle, period finalization, daily record grouping |
 | `dailyBudgetStore.test.ts` | Rollover finalization, hydration guard, Gullak deposits, store reset |
+| `dailyBudgetSyncWithExpenses.test.ts` | Cross-store expense synchronization with daily records and spend totals |
 | `dateFilters.test.ts` | Date range boundary logic, ISO string manipulation |
 | `deepLinkGuard.test.ts` | Session fixation prevention, deep link validation |
 | `expenseFilters.test.ts` | Transaction filtering, category sorting, payment mode slices |
 | `expenseStore.test.ts` | Offline queues (create/update/delete), optimistic pending, reconnect sync |
+| `expenseSyncPending.test.ts` | Offline pending expense synchronization, retry logic, error classification |
 | `financialCorrectnessMatrix.test.ts` | 16-scenario financial matrix: zero proration, switches, mutations, boundary math |
 | `formatters.test.ts` | `formatCurrency`, `formatAmountWithCommas`, `round2`, Indian numbering |
 | `granularCategorySelectors.test.ts` | Granular Zustand store selector isolation in CategoryDetail and ManageCategories screens, rerender prevention |
 | `gullakDeposits.test.ts` | Income vs external Gullak deposits, balance limits, timeline logs |
+| `gullakReconciliationHardCap.test.ts` | Gullak hard-cap reconciliation (GUL-001) preventing deposits exceeding net account liquidity |
+| `heroDetails.test.ts` | Hero card details breakdown sheet, money in/out lines, money-back isolation |
 | `homeCalculations.test.ts` | Home screen derived metrics, live spent, remaining balance |
 | `homeSpendingNewUser.test.ts` | Cold-start user calculations, zero-data rendering guards |
+| `incomeClassifier.test.ts` | Unified income classifier logic, fallback keywords inertness (TXN-002) |
 | `insightsData.test.ts` | Analytical aggregations across weekly, monthly, and yearly intervals |
 | `moneyExplainerContent.test.ts` | Explainer modal copy resolution, cadence help topic routing |
+| `moneyFixesFour.test.ts` | Real-money invariant regression suite for 4 critical money bugs |
+| `moneyWaterfall.test.ts` | Single source of truth money waterfall engine (WAT-001, WAT-002) |
+| `moneyWaterfallStore.test.ts` | Integration between money waterfall and daily budget store metrics |
+| `monthlyCardConsistency.test.ts` | Monthly hero card and detail card financial consistency across date slices |
 | `monthlyInsightsData.test.ts` | Monthly aggregations, category breakdowns, week-over-week comparisons |
+| `navBarStore.test.ts` | Bottom navigation bar visibility state and toggle actions |
 | `networkUtils.test.ts` | NetInfo state listener, reconnect queue trigger |
 | `noteSuggestions.test.ts` | Autocomplete ranking by recency, frequency, and category affinity |
 | `notificationPolicy.test.ts` | Pure notification policy: max 1/day, priority order, evening nudge, Gullak reward, recaps |
 | `notificationStore.test.ts` | Add/dedup/cap-50, read status, multi-user isolation |
 | `notificationSync.test.ts` | OS notification plan builder, diff-based scheduling, cancellation |
 | `offlineStartup.test.ts` | Offline cold-launch boot sequence without network access |
+| `otaStore.test.ts` | OTA update detection, modal prompt state, version binding |
+| `part2Consistency.test.ts` | Multi-cadence and carry-forward state consistency verification |
 | `paymentAndIconUtils.test.ts` | Payment labels/icons, unified income classification (`isIncomeTransaction`) |
 | `piggyBankCoinIcon.test.ts` | Indian Rupee (₹) coin badge geometry, SVG path scaling, and theme stroke bindings |
 | `profileUtils.test.ts` | 15-character name limit guardrail, display name resolution, initial letter extraction |
 | `pullToHistoryPhysics.test.ts` | Instagram-calibrated rubber band pull physics, damping ratio, ring travel linearity |
 | `pureModeRules.test.ts` | Acceptance suite for Pure Mode rules: SEC-001 amend, PUR-001 deficit switch, PUR-002 leftover retention |
+| `realTimeIncomeGullakDeduction.test.ts` | Real-time income deduction from Gullak overspend and waterfall priority |
 | `recentTransactions.test.ts` | Single-pass bounded top-5 transaction selection (`selectRecentTransactions`), tie-breaker stability, allocation reduction |
 | `rollingText.test.ts` | Digit-by-digit vertical odometer roll, layout effect mount/reveal, decimal handling |
 | `segmentedControl.test.ts` | Critical damped spring slide, outer hitSlop, touch release selection, elevation |
+| `selfTransfersAndIncome.test.ts` | Pure classification of self-transfers excluded from income/expense totals (TXN-003) |
+| `splitLedger.test.ts` | Multi-person debt tracking, settlements, and summaries |
+| `splitMoneyBackStore.test.ts` | Money back and refund store operations |
+| `splitMultiPerson.test.ts` | Multi-person expense splitting and participant allocation |
+| `splitPureModeTransitions.test.ts` | Pure Mode transitions for split expenses |
+| `streakCalendarData.test.ts` | Calendar month grid data generation for savings streak modal |
 | `streakFlame.test.ts` | Streak counter tiers, milestone badge triggers, flame stages |
 | `themeStore.test.ts` | Light/dark/AMOLED toggle, Appearance listener, persistence |
+| `transactionFunding.test.ts` | Waterfall transaction funding card breakdown resolution |
+| `transactionUtils.test.ts` | Pure predicates: isCountedExpense, isCountedIncome, isExcludedFromTotals |
+| `uiPrimitiveParity.test.ts` | UI primitive styling, typography tokens, and prop pass-through parity |
+| `useExpenseForm.test.ts` | Expense and income form hook logic, split expense handling, validations |
+| `useFocusEntry.test.ts` | Screen focus entry animation state and layout timing |
+| `useFormKeyboard.test.ts` | Custom keypad numeric entry, backspace, and cursor positioning |
+| `useInsightsData.test.ts` | Insights hook aggregations, category map caching, interval navigation |
+| `useSavingsDashboard.test.ts` | Savings screen dashboard state aggregation and view model |
+| `useScrollDirection.test.ts` | Scroll direction detection for floating bottom navigation bar |
 | `vaultSpendingGuard.test.ts` | Digital Vault Spending Guard, net liquidity evaluation, inflow blockers |
+| `vaultSpendingGuardAndBudgetEdit.test.ts` | In-sheet Add Money & Save workflow, zero-spend immediate budget adjustments (Daily/Weekly/Monthly) |
 | `versionCheck.test.ts` | Semver comparison, update-required screen gating |
 | `weeklyInsightsData.test.ts` | Weekly day-by-day aggregations, daily averages, weekend vs weekday spend |
 | `yearlyInsightsData.test.ts` | 12-month calendar aggregation, annual savings, largest month-over-month increases |
@@ -381,7 +426,8 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest unit test coverage policy | Active |
 | [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011, amended by 0012) |
 | [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012, amended by canonical `SEC-001`) |
-| [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active (D2/D3 amended by canonical `PUR-002` & `SEC-001`) |
+| [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active (D2/D3/D7 amended by canonical `PUR-002`, `PUR-003` & `SEC-001`) |
 | [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |
 | [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 / Pure Mode Status | Active |
 | [0015](adr/0015-ui-thread-reanimated-worklet-migration-and-render-optimizations.md) | UI-Thread Reanimated Worklet Migration and Render Optimizations | Active |
+| [0016](adr/0016-split-expenses-and-money-back.md) | Split Expenses, Money Back and Refunds | Active |

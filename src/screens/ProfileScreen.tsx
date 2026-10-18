@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, Pressable, Alert,
   ActivityIndicator,
 } from 'react-native';
+import { formatCurrency } from '../lib/formatters';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -79,9 +80,16 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const savingsStreak = useDailyBudgetStore((s) => s.savingsStreak);
   const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
   const getCarryableAmount = useDailyBudgetStore((s) => s.getCarryableAmount);
+  const getPendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange);
+  const cancelPendingPlanChange = useDailyBudgetStore((s) => s.cancelPendingPlanChange);
+  const planChanges = useDailyBudgetStore((s) => s.planChanges);
 
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [pauseModalVisible, setPauseModalVisible] = useState(false);
+
+  const pendingPlanChange = useMemo(() => getPendingPlanChange(), [getPendingPlanChange, planChanges]);
+  const isScheduledSwitch = Boolean(pendingPlanChange && pendingPlanChange.isEnabled !== isBudgetModeEnabled);
+  const toggleValue = isScheduledSwitch ? pendingPlanChange!.isEnabled : isBudgetModeEnabled;
 
   const currentCadenceAmount =
     budgetCadence === 'weekly'
@@ -90,13 +98,28 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       ? monthlyBudgetAmount
       : dailyBudgetAmount;
 
-  const budgetSubtitle = formatCadenceBudgetSubtitle(
+  let budgetSubtitle = formatCadenceBudgetSubtitle(
     isBudgetModeEnabled,
     budgetCadence,
     currentCadenceAmount
   );
 
+  if (isScheduledSwitch && pendingPlanChange) {
+    if (pendingPlanChange.isEnabled) {
+      const cLabel = pendingPlanChange.cadence.charAt(0).toUpperCase() + pendingPlanChange.cadence.slice(1);
+      const amtStr = pendingPlanChange.amount > 0 ? ` · ${formatCurrency(pendingPlanChange.amount)}` : '';
+      budgetSubtitle = `Activating tomorrow (${cLabel}${amtStr}) · Tap to cancel`;
+    } else {
+      budgetSubtitle = 'Switching to Pure Mode tomorrow · Tap to cancel';
+    }
+  }
+
   const handleToggleBudgetMode = (val: boolean) => {
+    if (isScheduledSwitch) {
+      setBudgetModeEnabled(val);
+      return;
+    }
+
     if (!val) {
       if (totalAccumulatedSavings > 0 || savingsStreak > 0) {
         setPauseModalVisible(true);
@@ -104,10 +127,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         setBudgetModeEnabled(false);
       }
     } else {
-      setBudgetModeEnabled(true);
-      if (currentCadenceAmount <= 0) {
-        setBudgetModalVisible(true);
-      }
+      setBudgetModalVisible(true);
     }
   };
 
@@ -458,18 +478,33 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <Pressable
             style={({ pressed }) => [
               styles.budgetPressableArea,
-              { opacity: pressed && isBudgetModeEnabled ? 0.75 : 1 }
+              { opacity: pressed && (isBudgetModeEnabled || isScheduledSwitch) ? 0.75 : 1 }
             ]}
             onPress={() => {
-              if (isBudgetModeEnabled) {
+              if (isScheduledSwitch) {
+                Alert.alert(
+                  'Cancel Scheduled Switch?',
+                  pendingPlanChange?.isEnabled
+                    ? 'Do you want to stay in Pure Mode and cancel activating Smart Budget & Gullak tomorrow?'
+                    : 'Do you want to keep Smart Budget & Gullak and cancel switching to Pure Mode tomorrow?',
+                  [
+                    { text: 'Keep Scheduled', style: 'cancel' },
+                    {
+                      text: 'Cancel Switch',
+                      style: 'destructive',
+                      onPress: () => cancelPendingPlanChange(),
+                    },
+                  ]
+                );
+              } else if (isBudgetModeEnabled) {
                 setBudgetModalVisible(true);
               }
             }}
-            disabled={!isBudgetModeEnabled}
+            disabled={!isBudgetModeEnabled && !isScheduledSwitch}
             accessible
             accessibilityRole="button"
             accessibilityLabel={
-              isBudgetModeEnabled
+              isBudgetModeEnabled || isScheduledSwitch
                 ? `Smart Budget & Gullak. ${budgetSubtitle}. Tap to edit budget plan.`
                 : 'Smart Budget & Gullak disabled'
             }
@@ -510,7 +545,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 numberOfLines={1}
               >
                 {budgetSubtitle}
-                {isBudgetModeEnabled && (
+                {(isBudgetModeEnabled || isScheduledSwitch) && !isScheduledSwitch && (
                   <Text style={{ color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.semibold }}>
                     {' '}· Edit ✎
                   </Text>
@@ -520,7 +555,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </Pressable>
 
           <AnimatedToggle
-            value={isBudgetModeEnabled}
+            value={toggleValue}
             onValueChange={handleToggleBudgetMode}
           />
         </View>

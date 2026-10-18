@@ -70,7 +70,7 @@ export interface DailyBudgetState {
   getCarryableAmount: () => number;
   getPriorAvailableIncomeBalance: () => number;
   syncWithExpenses: (expenses: Expense[]) => void;
-  checkAndRollover: (expenses: Expense[], skipRolloverNotification?: boolean) => void;
+  checkAndRollover: (expenses?: Expense[], skipRolloverNotification?: boolean) => void;
   uploadPendingDailyRecords: () => Promise<void>;
   syncPendingGullakDeposits: () => Promise<void>;
   hydrateFromSupabase: (userId: string) => Promise<void>;
@@ -79,7 +79,10 @@ export interface DailyBudgetState {
   getPastRecordsList: () => DailyRecord[];
 
   // --- Multi-Cadence Actions & Selectors ---
-  setBudgetModeEnabled: (enabled: boolean) => void;
+  setBudgetModeEnabled: (
+    enabled: boolean,
+    options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean }
+  ) => void;
   setBudgetCadence: (
     cadence: BudgetCadence,
     options?: {
@@ -88,8 +91,8 @@ export interface DailyBudgetState {
       carriedOverAmount?: number;
     }
   ) => void;
-  setWeeklyBudget: (amount: number) => void;
-  setMonthlyBudget: (amount: number) => void;
+  setWeeklyBudget: (amount: number, options?: { immediate?: boolean }) => void;
+  setMonthlyBudget: (amount: number, options?: { immediate?: boolean }) => void;
   getPendingPlanChange: () => BudgetPlanChange | null;
   getEffectiveFromLabel: (change?: BudgetPlanChange | null) => string;
   cancelPendingPlanChange: () => void;

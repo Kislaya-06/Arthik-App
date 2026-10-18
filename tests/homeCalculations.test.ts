@@ -617,6 +617,50 @@ describe('calculatePeriodSummary - Hero Summary Card Engine', () => {
       expect(result.totalAvailable).toBe(3000);
       expect(result.periodSpent).toBe(500);
     });
+
+    it('accumulates all calendar days in All filter even when records have status unknown or are unfinalized', () => {
+      // 15 July 2026 to 18 October 2026: 96 days * ₹250 = ₹24,000 budget
+      // Plus ₹3,123.8 income = ₹27,123.8 totalAvailable. Spent ₹4,812 -> Remaining ₹22,311.8
+      const planChanges: any[] = [
+        {
+          id: 'p1',
+          cadence: 'daily',
+          amount: 250,
+          isEnabled: true,
+          effectiveFrom: '2026-07-15',
+          createdAt: '2026-07-15T00:00:00Z',
+        },
+      ];
+
+      // Some days have unknown status with budget 0
+      const dailyRecords: Record<string, any> = {
+        '2026-07-16': { date: '2026-07-16', budget: 0, status: 'unknown' },
+        '2026-08-01': { date: '2026-08-01', budget: 0, status: 'unknown' },
+      };
+
+      const refDate = parseISO('2026-10-18');
+      const result = calculatePeriodSummary({
+        activeFilter: 'All',
+        dailyBudgetAmount: 250,
+        isAutoRenew: true,
+        todayBudget: 250,
+        dailyRecords,
+        totalIncome: 3123.8,
+        totalSpent: 4812,
+        filtered: [],
+        userCreatedAtStr: '2026-07-15',
+        referenceDate: refDate,
+        planChanges,
+      });
+
+      // 96 calendar days * 250 = 24000
+      expect(result.periodBudgetPool).toBe(24000);
+      expect(result.totalAvailable).toBe(27123.8);
+      expect(result.periodSpent).toBe(4812);
+      expect(result.primaryAmount).toBe(22311.8);
+      expect(result.primaryLabel).toBe('Total Remaining');
+    });
   });
 });
+
 

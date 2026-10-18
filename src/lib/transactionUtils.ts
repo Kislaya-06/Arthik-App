@@ -1,19 +1,28 @@
 /**
  * Transaction classification (canonical rules TXN-001..TXN-004, see docs/ARTHIK_CANONICAL_RULES.md).
- * A row is either an expense or an income (explicit `type`). The ONLY other class is 'self_transfer'
- * (money moved between the user's own accounts), which never counts as spent or earned.
- * There is no reimbursement class: a friend paying back, or a refund, is simply Income (TXN-004).
+ * A row is either an expense or an income (explicit `type`). The other classes never count as spent or earned:
+ *  - 'self_transfer': money moved between the user's own accounts (TXN-003).
+ *  - 'recovery': money that came BACK for an expense the user already paid (a friend's share or a refund).
+ *    It is stored as an income-direction row so it shows in History, but it is not income: it reduces the
+ *    counted amount of the expenses it points at instead (SPL-003, src/lib/splitLedger.ts).
  */
-export type TransactionClass = 'normal' | 'self_transfer';
+export type TransactionClass = 'normal' | 'self_transfer' | 'recovery';
 
 /** Fixed note prefix identifying auto-balanced Pure Mode deficit income transactions (PUR-001). */
 export const PURE_DEFICIT_NOTE = 'Auto-balance (Pure Mode deficit)';
 
 /** Structured classification. Missing/unknown values (including the retired 'reimbursement') behave as 'normal'. */
 export const getTransactionClass = (item?: { transaction_class?: string | null } | null): TransactionClass =>
-  item?.transaction_class === 'self_transfer' ? 'self_transfer' : 'normal';
+  item?.transaction_class === 'self_transfer'
+    ? 'self_transfer'
+    : item?.transaction_class === 'recovery'
+    ? 'recovery'
+    : 'normal';
 export const isSelfTransferClass = (item?: { transaction_class?: string | null } | null): boolean =>
   getTransactionClass(item) === 'self_transfer';
+/** True for a "money back" row (friend paid back / refund). Never income, never expense (SPL-003). */
+export const isRecoveryClass = (item?: { transaction_class?: string | null } | null): boolean =>
+  getTransactionClass(item) === 'recovery';
 /** True for rows that are real cash movements but must never count as income OR expense. */
 export const isExcludedFromTotals = (item?: { transaction_class?: string | null } | null): boolean =>
   getTransactionClass(item) !== 'normal';

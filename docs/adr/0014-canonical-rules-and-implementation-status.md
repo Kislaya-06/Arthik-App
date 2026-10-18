@@ -8,7 +8,7 @@ Money rules had spread over AGENTS.md, CONTEXT.md, the PRD, several ADRs and the
 
 ## Decision
 1. `docs/ARTHIK_CANONICAL_RULES.md` is the single authority for every money rule. Code, tests and every other document must agree with it. A rule changes only on the owner's explicit approval; a request that would contradict a rule makes the agent stop and say so first (AGENTS.md §0).
-2. **Split Expenses / Shares and the `reimbursement` class are removed** (`REF-001`, `TXN-004`). A friend paying back, or a refund, is plain Income. Self-transfers stay (`TXN-003`) and are marked only by `transaction_class = 'self_transfer'`. Old `reimbursement` rows are converted by `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`; the `expense_shares` table is left in place, unused.
+2. *(Superseded by [ADR 0016](0016-split-expenses-and-money-back.md), 2026-10-18: a new, simpler Split and Money back feature exists; `REF-001` is replaced by `SPL-001..006`.)* **Split Expenses / Shares and the `reimbursement` class are removed** (`REF-001`, `TXN-004`). A friend paying back, or a refund, is plain Income. Self-transfers stay (`TXN-003`) and are marked only by `transaction_class = 'self_transfer'`. Old `reimbursement` rows are converted by `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`; the `expense_shares` table is left in place, unused.
 3. **One status vocabulary** (`BUD-008`): `'saved' | 'missed' | 'even' | 'unknown'`, plus the never-persisted in-progress marker `'active'`. `'exceeded'` is gone as a status (the notification alert kind `exceeded` is a different thing and is unchanged). Cached days from older versions are read as `'missed'`.
 4. The carry-forward rules of ADR 0010 D4, ADR 0011 D2 and ADR 0012 D5 are governed by canonical `CAR-001`. Where they differ, `CAR-001` wins.
 
@@ -20,11 +20,12 @@ Money rules had spread over AGENTS.md, CONTEXT.md, the PRD, several ADRs and the
 - Switching **from Daily**: today's unused daily money goes to Gullak at night, so nothing is carried (ADR 0012 D5).
 All acceptance tests are verified in `tests/carryAllocationWeeklyMonthly.test.ts` and `tests/cadenceFixes.test.ts`.
 
-## Pure Mode Rules (PUR-001, PUR-002, SEC-001 amend) Status (100% complete)
+## Pure Mode Rules (PUR-001, PUR-002, PUR-003, SEC-001 amend) Status (100% complete)
 - **SEC-001 amend:** Pure Mode allows spending into negative without blocking (`canAddExpense: true`, no guard sheet, AutoLog `isExceedingVaultLiquidity` returns `false`). Budget Mode guard is unchanged.
 - **PUR-002:** Pools ending in Pure Mode do NOT convert into income (`incomeAvail` and `incomeRestored` are untouched; no notification is sent). Unspent money is stored in `pureLeftover`, consumed first by Pure days, and flows to Gullak only when Budget Mode is re-enabled.
 - **PUR-001:** Switching from Pure to Budget Mode with negative remaining ($R < 0$) automatically creates one real income transaction for deficit $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated by scanning expenses in reverse chronological order to the first expense where Gullak draw $\ge D$ (WAT-002). Excluded from Home budget chip `periodIncome` but included in all-time inflows/waterfall.
-All acceptance tests are verified in `tests/pureModeRules.test.ts`.
+- **PUR-003:** Mode switching between Pure Mode and Budget Mode schedules for tomorrow at 12:00 AM (`effectiveFrom = tomorrow`) to protect today's running budget and midnight Gullak rollover. Toggling back on the same day cancels the pending plan change and scheduled notifications immediately (same-day reversal protection). Overspending past weekly/monthly budget draws from unspent Income and Gullak; Vault Guard only blocks if whole account liquidity ($R \le 0$) is exhausted.
+All acceptance tests are verified in `tests/pureModeRules.test.ts`, `tests/budgetModesStore.test.ts`, and `tests/vaultSpendingGuard.test.ts`.
 
 ## Consequences
 - Old users who used Split will see repaid amounts counted as income after the migration (lifetime income goes up by those amounts).

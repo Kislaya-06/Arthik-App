@@ -5,6 +5,8 @@ import { useAuthStore } from '../../store/authStore';
 import { useExpenseStore, isValidUUID, Expense } from '../../store/expenseStore';
 import { useDailyBudgetStore } from '../../store/dailyBudgetStore';
 import { cancelTonightNudge } from '../../lib/notificationService';
+import { grossAmountOf, buildPeopleLedger, matchIncomingToPeople } from '../../lib/splitLedger';
+import { formatCurrency } from '../../lib/formatters';
 
 /**
  * Bridge between Automatic Logging and Arthik's normal transaction store.
@@ -100,7 +102,7 @@ export const setTransactionCategory = async (expenseId: string, categoryId: stri
   if (storeReady() && existing) {
     try {
       await store.updateExpense(
-        existing.id, existing.amount, cat, existing.note || '', existing.payment_mode, existing.expense_date, existing.type || 'expense'
+        existing.id, grossAmountOf(existing), cat, existing.note || '', existing.payment_mode, existing.expense_date, existing.type || 'expense'
       );
       return true;
     } catch {
@@ -121,7 +123,7 @@ export const setTransactionType = async (expenseId: string, type: 'expense' | 'i
   if (!existing) return false;
   try {
     const mode = type === 'income' && existing.payment_mode === 'card' ? 'upi' : existing.payment_mode;
-    await store.updateExpense(existing.id, existing.amount, existing.category_id, existing.note || '', mode, existing.expense_date, type);
+    await store.updateExpense(existing.id, grossAmountOf(existing), existing.category_id, existing.note || '', mode, existing.expense_date, type);
     return true;
   } catch {
     return false;
@@ -162,3 +164,15 @@ export const findManualLookalike = (
     );
 };
 
+
+/**
+ * SPL-005: when money arrives from someone who owes the user (name first, then amount), the notification asks
+ * "is this their payment?". Needs the app's data, so it only works while the app is loaded; otherwise null and
+ * the normal notification is used (the transaction screen still offers the same question).
+ */
+export const moneyBackQuestionFor = (amount: number | null, sender: string | null): string | null => {
+  if (!amount || !sender || !storeReady()) return null;
+  const people = buildPeopleLedger(useExpenseStore.getState().expenses);
+  const match = matchIncomingToPeople(people, { amount, sender })[0];
+  return match ? `${match.person.name} owes you ${formatCurrency(match.person.owed)}. Is this their payment?` : null;
+};

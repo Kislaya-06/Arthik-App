@@ -166,6 +166,7 @@ export type { DailyBudgetState };
 
 import {
   applyScheduledNextDayBudget,
+  applyScheduledPlanChanges,
   groupSpentByDate,
   collectPastDates,
   finalizeDailyRecords,
@@ -173,6 +174,7 @@ import {
 } from './dailyBudget/rollover';
 export {
   applyScheduledNextDayBudget,
+  applyScheduledPlanChanges,
   groupSpentByDate,
   collectPastDates,
   finalizeDailyRecords,
@@ -311,7 +313,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
       cancelScheduledNextDailyBudget: () => handleCancelScheduledNextDailyBudget(set),
 
-      setBudgetModeEnabled: (enabled: boolean) => handleSetBudgetModeEnabled(get, set, enabled),
+      setBudgetModeEnabled: (
+        enabled: boolean,
+        options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean }
+      ) => handleSetBudgetModeEnabled(get, set, enabled, options),
 
       setBudgetCadence: (
         cadence: BudgetCadence,
@@ -322,9 +327,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
       ) => handleSetBudgetCadence(get, set, cadence, options),
 
-      setWeeklyBudget: (amount: number) => handleSetWeeklyBudget(get, set, amount),
+      setWeeklyBudget: (amount: number, options?: { immediate?: boolean }) => handleSetWeeklyBudget(get, set, amount, options),
 
-      setMonthlyBudget: (amount: number) => handleSetMonthlyBudget(get, set, amount),
+      setMonthlyBudget: (amount: number, options?: { immediate?: boolean }) => handleSetMonthlyBudget(get, set, amount, options),
 
       getPendingPlanChange: () => resolvePendingPlanChange(get().planChanges, getTodayDateStr()),
 
@@ -595,7 +600,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         get().checkAndRollover(expenses);
       },
 
-      checkAndRollover: (expenses: Expense[], skipRolloverNotification = false) => {
+      checkAndRollover: (expenses?: Expense[], skipRolloverNotification = false) => {
         const currentUser = useAuthStore.getState().user;
         // P0.1: Must not run or finalize before hydrateFromSupabase has completed for this user!
         if (!currentUser || get().hydratedForUserId !== currentUser.id) {
@@ -607,12 +612,16 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         let updated = false;
 
         applyScheduledNextDayBudget(get, set, todayStr);
+        if (applyScheduledPlanChanges(get, set, todayStr)) {
+          updated = true;
+        }
 
         const isIncomeFn = buildCategoryClassifier();
         const isEligibleIncomeFn = buildEligibleIncomeClassifier();
+        const resolvedExpenses = Array.isArray(expenses) ? expenses : getCurrentExpenses();
 
         const { spentByDate, incomeByDate } = groupSpentByDate(
-          expenses,
+          resolvedExpenses,
           isIncomeFn,
           isEligibleIncomeFn
         );

@@ -5,6 +5,9 @@ vi.mock('react', async () => {
   const mockRef = (init: any) => ({ current: init });
   const mockState = (init: any) => [init, vi.fn()];
   const mockEffect = vi.fn();
+  const mockCallback = (fn: any) => fn;
+  const mockMemo = (comp: any) => comp;
+  const mockStartTransition = (fn: any) => fn();
   return {
     ...actual,
     default: {
@@ -12,10 +15,41 @@ vi.mock('react', async () => {
       useRef: mockRef,
       useState: mockState,
       useEffect: mockEffect,
+      useCallback: mockCallback,
+      memo: mockMemo,
+      startTransition: mockStartTransition,
     },
     useRef: mockRef,
     useState: mockState,
     useEffect: mockEffect,
+    useCallback: mockCallback,
+    memo: mockMemo,
+    startTransition: mockStartTransition,
+  };
+});
+
+vi.mock('react-native-reanimated', () => {
+  const useSharedValue = (init: any) => ({ value: init });
+  const useAnimatedStyle = (fn: any) => fn();
+  const withSpring = (val: any) => val;
+  const withTiming = (val: any) => val;
+  const withSequence = (...anims: any[]) => anims[anims.length - 1];
+  const cancelAnimation = () => {};
+
+  return {
+    default: {
+      View: (props: any) => ({ type: 'Animated.View', props }),
+    },
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    withSequence,
+    cancelAnimation,
+    Easing: {
+      out: (fn: any) => fn,
+      quad: 'quad',
+    },
   };
 });
 

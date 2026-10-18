@@ -67,9 +67,10 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Only tracked accounts (§7, trust rule 4) | new accounts inserted with `tracked = 0`, shown as "New account found" |
 | Narrow ignore rules (§11) | `rules` table: exact fingerprint or exact template; never amount-based |
 | Unknown merchant → ask category (§17) | logged with `needs_category = 1` → appears in Pending Review |
+| Money back from a person (`SPL-005`) | A logged credit can be a friend paying back. `ledger.moneyBackQuestionFor` (name + amount first, then name only) adds "X owes you ₹Y. Is this their payment?" to the notification while the app data is loaded; `ReviewSheet` lists everyone who owes money ("Paid back by someone?", name matches first) and `ExpenseDetailScreen` / `MoneyBackSheet` ask the same question for any logged income. Arthik only asks, never settles by itself. A debit review also has "Expense, split with someone" (`SPL-001`). |
 | Manual entry look-alike | `ledger.findManualLookalike` → `possible_duplicate` |
 | Review Dismissal & Swipe Delete | `AutoLogReviewScreen.tsx` + `reviews.discardEvent`: swipe-to-reveal delete button with UI-thread spring and layout animation, plus header Clear All action; removes pre-logged ledger items and marks event as ignored without losing deduplication hash. |
-| Direct Review Discard | `ReviewSheet.tsx`: 1-tap "Discard review" on Step 1 and "Delete transaction" on category step with confirmation alert. |
+| Concise Review Sheet & Direct Discard | `ReviewSheet.tsx`: 1-page concise bottom sheet combining Type selector, Category chips, Remember checkbox, and explicit Save button, with secondary "Not a transaction" and "Discard review" / "Delete transaction" escape hatches. |
 | Reset Learned Rules | `AutoLogCenterScreen.tsx` + `db.resetLearnedRules`: clears `merchant_prefs` and `rules` back to factory clean slate without touching tracked accounts or past transaction ledger history. |
 | Vault Spending Guard (ADR 0011) | `ledger.isExceedingVaultLiquidity` → `exceeds_liquidity` review (zero funds in Income & Gullak with amount > budget blocks silent deficit creation) |
 | Data loss ≠ silent restore (§30–36) | `service.evaluateEntry`: no local DB + `autolog_profiles.enabled` → re-setup |

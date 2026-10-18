@@ -45,6 +45,21 @@ When the user switches from Pure Mode to Budget Mode while in deficit ($R < 0$),
 - **Stable ID**: `pure_deficit_${dateStr}_${D}` (ensures idempotency across multiple sync passes).
 - **Note on PUR-002**: The historical `pure_end_*` notification (which claimed unspent pool funds became income when a period ended in Pure Mode) has been deleted. Unspent funds are retained as `pureLeftover` without dispatching notifications.
 
+### Scheduled Mode Switch Notifications (`PUR-003`)
+When toggling between Pure Mode and Budget Mode, the switch takes effect tomorrow and an inbox notification confirms the schedule:
+- **Scheduled Budget Mode**:
+  - **ID**: `scheduled_budget_mode_${tomorrow}`
+  - **Title**: *"Smart Budget & Gullak scheduled"*
+  - **Message**: *"Smart Budget & Gullak will activate tomorrow at 12:00 AM. Today continues in Pure Mode."*
+- **Scheduled Pure Mode**:
+  - **ID**: `scheduled_pure_mode_${tomorrow}`
+  - **Title**: *"Pure Mode scheduled"*
+  - **Message**: *"Pure Mode will activate tomorrow at 12:00 AM. Today's budget and savings will finish normally."*
+- **Same-Day Reversal (`removeNotification`)**: If the user flips the toggle back on the same day, the pending notification is cleanly removed from the store and inbox, leaving zero contradictory notices.
+
+## Automatic Logging: money from someone who owes you (`SPL-005`)
+When Automatic Logging logs a credit (while the app data is loaded) and the sender's name matches a person who still owes money, the "✓ ₹X logged" notification asks "Name owes you ₹Y. Is this their payment? Tap to answer." instead of the plain "Income" line. Name and amount are checked first, then name only. Tapping it opens the transaction, which offers "Yes, settle it". When the app data is not loaded (app closed) the normal notification is sent and the transaction screen asks the same question. Arthik never settles by itself.
+
 ## How it stays true
 `notificationSync.ts` rebuilds the whole plan from the latest data (3 s after any expense / budget change, on app foreground, after login) and replaces the OS schedule; an identical plan is not rescheduled. Logging an expense therefore cancels tonight's nudge immediately.
 

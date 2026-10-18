@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Enhancement — Vault Spending Guard In-Sheet Top-Up, Keypad Preservation & Zero-Spend Immediate Budget Adjustments — OTA-safe
+
+- **Vault Spending Guard In-Sheet Top-Up & Save (`VaultSpendingGuardModal.tsx`, `SEC-001`)**: In Budget Mode, when account balance is exhausted (₹0) and an expense is attempted, the spending guard modal now provides an inline "Add Money & Save Expense" workflow directly within the bottom sheet:
+  - Users can select smart pre-filled preset chips (`Exact ₹X`, `₹500`, `₹1,000`, `₹2,000`) or tap on an integrated numeric keypad to customize the incoming money amount.
+  - Choose deposit mode via quick `UPI` / `Cash` pills.
+  - The expense cannot be saved without adding funds (`addedAmount >= expenseAmount`), but users never have to abandon or re-type their filled expense form. Pure Mode remains 100% untouched (`canAddExpense: true`).
+- **Expense Form Keypad Fix (`ExpenseFormScreen.tsx`)**: Selecting a category chip no longer dismisses the custom numeric keypad (`hideKeypad` removed on chip selection), preventing jarring screen jumps and allowing continuous editing.
+- **Zero-Spend Immediate Budget Adjustment (`BudgetEditModal.tsx`, `BPR-002`)**:
+  - When ₹0 has been spent in the current period (`todaySpent === 0` for Daily, `currentWeekSpent === 0` for Weekly, `currentMonthSpent === 0` for Monthly), budget modifications take effect **IMMEDIATELY** today without waiting until midnight or next period.
+  - If spending has already occurred (`spent > 0`), the existing safe scheduling rules apply (tomorrow 12:00 AM for Daily, next Monday for Weekly, 1st of next month for Monthly).
+  - The modal's dynamic subtitle updates in real-time (`"Takes effect today"` when spent is 0), and any obsolete pending future changes are superseded.
+
+### Performance — Progressive Section Pagination & UI-Thread SegmentedControl Migration — OTA-safe
+
+- **Incremental Progressive Section Pagination (`HistoryScreen.tsx`)**: Bounded initial rendering of the "All" category filter to the first 7 active date sections (~15–20 transactions), completely eliminating the ~80–120ms native view inflation stall on the Android Main UI Thread. Subsequent batches are seamlessly appended via `onEndReached` (threshold `0.6`) during scrolling with zero visual interruption.
+- **React 19 `startTransition` Motion Decoupling**: Decoupled touch-driven pill animation from heavy SectionList re-grouping and Home screen period waterfall recalculations using `React.startTransition`, ensuring Reanimated springs accelerate freely on Frame 0 at solid 60/120 FPS.
+- **Universal Reanimated SegmentedControl**: Upgraded `SegmentedControl.tsx` from legacy core `Animated` (inside `useEffect`) to native UI-thread `react-native-reanimated` worklets (`slideAnim`, `stretchAnim`, `squishAnim`, `leadAnim`) with Apple-calibrated critically damped springs (`stiffness: 447.4, damping: 49`), eliminating the 60–100ms touch delay across `HomeScreen` (All/Daily/Weekly/Monthly), `InsightsScreen`, `ProfileScreen`, and `BudgetEditModal`.
+- **Row Callback Memoization**: Stabilized `TransactionRowItem` and `GullakRowItem` click handlers (`handlePress`), preventing redundant cell re-renders during filter transitions.
+
+### Enhancement — Multi-Person Split Refund Recipient Attribution (Solution 2) — OTA-safe
+
+- **Interactive Refund Recipient Choice (Revolut / Monzo / Splitwise Pattern)**: When logging a merchant refund for a multi-person split expense (e.g. food delivery item cancellation, returned item, or ticket refund), users can now interactively choose who the refund was for:
+  - **Split among everyone** (`everyone`): Automatically distributes the refund proportionally across all participants (user + friends) according to their original shares.
+  - **Just for me** (`me` / `user`): Credits the refund entirely to the user's portion of the bill, leaving friends' outstanding debts untouched.
+  - **Specific friend** (`[Person Name]`): Credits the refund directly against that friend's outstanding debt (up to their remaining share), without penalizing other friends' obligations.
+- **Live Balance Progression Preview**: The refund form (`MoneyBackExtras.tsx`) and conversion bottom sheet (`MoneyBackSheet.tsx`) render a real-time before-and-after breakdown (`₹X → ₹Y`, with a green `(Settled)` badge when cleared) showing exact balance impacts for every participant before saving.
+- **Split Expense Detail Attribution**: `SplitDetailCard.tsx` clearly badges each refund slice with its exact recipient attribution: `Refund · ₹X (for Bob)`, `Refund · ₹X (split proportionally)`, or `Refund · ₹X (for you)`.
+- **Zero Ledger Drift & Debt Isolation**: Replaced naive debt-clamping math in `src/lib/splitLedger.ts` so that one friend settling or receiving a targeted refund never clamps or wipes out another friend's outstanding debt.
+
+### Enhancement — Single Concise AutoLog Review Sheet (`ReviewSheet.tsx`) — OTA-safe
+
+- **Concise 1-Page Review Interface**: Replaced the sequential 4-step wizard (Type → Confirm → Category → Remember) in `ReviewSheet.tsx` with a single, elegant bottom sheet displaying transaction context, Type selector (`SegmentedControl`), compact Category chips, and Remember preference toggle simultaneously.
+- **Explicit Save Gate**: Review decisions now persist ONLY when the user explicitly taps the primary "Save Transaction" button (`Save as Income` / `Save as Expense`), giving users complete control before modifying their ledger.
+- **Visual Category Selection**: Rendered categories as compact visual chips with icon badges, category colors, and active selection checkmarks, plus a "None" option.
+- **One-Tap Remember Toggle**: Interactive "Remember for future transactions" checkbox card with intelligent merchant-aware microcopy, auto-assigning preferred categories to future incoming/outgoing transactions.
+- **Dedicated Resolution Cards**: Preserved specialized confirmation cards for own-account transfers (`possible_transfer`) and manual entry duplicates (`possible_duplicate`), and streamlined secondary actions ("Not a transaction" / "Discard review").
+
+### Enhancement — Mode Transition Next-Day Scheduling & Same-Day Reversal Protection (`PUR-003`) — OTA-safe
+
+- **Next-Day Mode Activation (`PUR-003`)**: Toggling between Pure Mode and Budget Mode in Profile now schedules the transition for **tomorrow at 12:00 AM (00:00:00)** (`effectiveFrom = tomorrowStr`). This ensures today's running budget, active daily records, and midnight Gullak savings conclude cleanly without mid-day disruption.
+- **Same-Day Reversal Protection**: If a user schedules a mode transition for tomorrow and changes their mind on the same day (toggling the switch back to today's active mode), the app cancels the pending switch immediately (`handleCancelPendingPlanChange`), removes the scheduled confirmation notification (`removeNotification`), and seamlessly continues in the current mode with zero glitches or contradictory notifications.
+- **Pure Mode Hero Card Details Guard**: In Pure Mode, disabled the Hero Card tap-to-open interaction and suppressed the "Tap the card for details" hint (`GUL-002`), keeping the interface calm since budget breakdowns and targets are inactive in Pure Mode.
+- **Digital Vault Guard Overspend Solvency Rule**: Verified and documented that exceeding a weekly or monthly budget allowance (e.g. "Over by ₹1,000 this week") is absorbed from available Income and Gullak savings. Digital Vault Guard blocks new expense additions only when the entire account liquidity is depleted (`accountRemaining <= 0`).
+
+### Fix & Polish — Scheduled Plan Rollover, Re-Enable Budget Modal & Performance Audit — OTA-safe
+
+- **Custom Split Share Input Preservation**: Fixed `addMember` in `src/hooks/useExpenseForm.ts` to preserve existing members' custom split amounts when adding subsequent participants, ensuring typed allocations are not wiped out while still auto-distributing equally when all prior members were equal.
+- **Offline Scheduled Plan Rollover Gap Resilience**: Updated `applyScheduledPlanChanges` in `src/store/dailyBudget/rollover.ts` to evaluate both `todayStr` and `yesterdayStr`, ensuring scheduled plan transitions maturing during multi-day offline gaps activate cleanly without requiring internet access.
+- **Home Ledger Dot Floating-Point Precision Guard**: Wrapped `ledgerOwed` summation in `src/screens/HomeScreen.tsx` with `round2`, eliminating ghost indicator dots on the Home header caused by IEEE 754 decimal paise artifacts after all debts are settled.
+
+- **Profile Budget Re-Enable Verification**: Fixed `handleToggleBudgetMode(true)` in `ProfileScreen.tsx` to always present `BudgetEditModal` rather than silently auto-scheduling previous budget amounts without user review.
+- **Accurate Next-Day Schedule Copy**: Fixed `BudgetEditModal.tsx` to display `"Takes effect tomorrow (Day, Date)"` when re-enabling Budget Mode with scheduled activation, reserving `"Takes effect today"` strictly for fresh onboarding.
+- **Rollover Scheduled Plan Amount Application**: Fixed `applyScheduledPlanChanges` in `src/store/dailyBudget/rollover.ts` so that when a scheduled plan change matures on midnight rollover, the corresponding cadence budget amount (`dailyBudgetAmount / weeklyBudgetAmount / monthlyBudgetAmount`) is immediately updated alongside `budgetCadence`.
+- **HomeScreen Idle Render Optimization**: Short-circuited `heroDetails` computation in `HomeScreen.tsx` when the details sheet is closed or when in Pure Mode, eliminating redundant scans over `dailyRecords` and `budgetPeriods` on idle scrolls.
+- **Dark & AMOLED Theme Contrast Polish**: Replaced hardcoded mint-green text colors in `HeroDetailsSheet.tsx`, `LedgerScreen.tsx`, `SplitDetailCard.tsx`, and `MoneyBackExtras.tsx` with adaptive theme tokens (`isDark ? colors.mintGreen : colors.mintGreenDark`) for WCAG AAA contrast.
+- **Per-Person Split Edit & Recovery Guards (`SPL-006`)**: Upgraded `minShareForExpense` to support per-person queries and added `settledPersonsForExpense` in `src/lib/splitLedger.ts`. In `useExpenseForm.ts`, strictly prevent lowering an individual friend's share below what they already paid back or removing them from the split while their repayment is linked.
+- **Edit Mode Type-Switch Guard (`SPL-006`)**: In `useExpenseForm.ts`, blocked changing transaction type from 'expense' to 'income' for expenses that have money-back recoveries or refunds attached, preventing orphaned recovery records.
+- **Multi-Person Split Form React Key Stability (`break-ui`)**: Added stable member IDs in `useExpenseForm.ts` and `SplitExtras.tsx` (`key={member.id}`) ensuring clean React reconciliation and preventing cursor jumps or stale text inputs when adding or removing split members.
+- **ExpenseDetail & Ledger Visual Polish**: Replaced hardcoded `mintGreenDark` with adaptive theme tokens in `ExpenseDetailScreen.tsx` for dark/AMOLED WCAG contrast, and wrapped `totalOwed` calculation in `round2` in `LedgerScreen.tsx` to prevent floating-point addition jitter.
+- **Split Expense Edit Form Protections (`SPL-006`)**: Enforced strict safety checks in `src/hooks/useExpenseForm.ts` (`handleSplitOn` & `handleSave`) preventing users from toggling off split or reducing the expense amount/split share below the money already paid back by friends, protecting linked repayment integrity.
+- **Duplicate Split Participant Prevention**: Upgraded `validateSplitAllocations` in `src/lib/splitLedger.ts` to detect duplicate participant names across multiple split rows, preventing key collisions, React render warnings, and shadowed settlement balances.
+- **Universal Non-Spending Exclusion Enforcement**: Replaced legacy bare `=== 'self_transfer'` checks in `src/lib/budgetCalculations.ts` (`extractNonIncomeExpense`) and `src/lib/notificationSync.ts` with `isExcludedFromTotals`, ensuring money-back recovery rows are never mistakenly counted in daily/weekly spend summaries or category rankings.
+- **Defensive Recovery Slice Date Formatting**: Wrapped date parsing in `src/screens/ExpenseDetailScreen.tsx` with error boundary fallbacks to eliminate potential `RangeError: Invalid time value` crashes when reviewing money-back slices.
+
+### Addition — Home Card: One Chip + Tap-for-Details Sheet — OTA-safe
+
+- **One chip on the card**: the Home card (All / Daily / Weekly / Monthly) now shows a single, most important chip: money drawn from Gullak, else over the limit, else budget used up, else budget left, else income. Remaining, Total Income and Total Expense stay on the card.
+- **Tap the card for details**: in Budget Mode, a sheet opens with the whole period: Budget (given / spent from budget / left), Money in (received / still unspent / **Money back** on its own line, never counted as income), and Gullak (added / taken out / in Gullak now on the All view). Pure Mode keeps the card calm and uncluttered with no redundant tap hint or sheet (`GUL-002`), since all Net Balance, Inflow, and Outflow numbers are already directly visible on the card.
+- **Calibrated Sheet Visual Hierarchy**: elevated Total Spent into a prominent hero card at the top of the details sheet (`heroCard`, bold typography, integrated date subtitle) establishing the period's primary spend metric instantly. Calibrated line item amounts so zero values (`₹0`) remain visually neutral (`textMuted`) rather than screaming in green, maintaining crisp typographic hierarchy.
+- **Clear "till today" dates**: a running week or month says how far its numbers go ("12–18 Oct · till today", "1–31 Oct 2026 · till 18 Oct"). Past weeks and months show the full range.
+- **No money rule changed** (display only). Pure logic in `src/lib/heroDetails.ts` with `tests/heroDetails.test.ts` (12 tests).
+
+### Addition — Split Expenses, Multi-Person Sharing, Money Back & Refunds (`SPL-001..SPL-006`) — OTA-safe, needs one SQL run
+
+- **Split an expense with one or multiple people**:
+  - **Discoverable capsule pill**: redesigned the "Split this expense" trigger into a compact capsule pill (`BorderRadius.pill`) with an `AnimatedToggle` (matching Profile screen styling), placed alongside `DATE` and `PAID VIA` pills immediately above `Note (Optional)` so it is prominent and visible above the numeric keypad fold without scrolling.
+  - **Multi-person sharing ("Who shares this?")**: expanded splitting to support unlimited participants. Add people via "+ Add Person" or quick suggestion chips, enter individual shares or use the "Split equally" shortcut, and see real-time calculation breakdown ("Your share ₹X · Total split ₹Y").
+  - **Multi-person debt tracking & settlement**: settlements match repayments to individual participants (`settlementByPerson`). When one friend repays, their debt clears independently without affecting other participants, while correctly reducing the counted expense amount.
+  - **Multi-person detail view**: `SplitDetailCard` cleanly presents individual participant rows, their shares, repayments, and statuses when an expense is split among multiple people.
+- **Money that comes back is not income**: a friend paying back or a refund is recorded as a "Money back" row. It reduces the original expense from its ORIGINAL day, so the money returns to that day's budget (and Gullak), to the income pool, or to Gullak, depending on where it came from. Total Income does not change.
+- **Ledger screen**: a new button on the Home header (next to Notifications and Profile; shows a dot while someone owes you) opens the Ledger: total you will get back, every person with what they owe, shared and paid-back totals, each shared expense (with "SETTLED" or what is left) and every payment back with its date. Tap an expense or payment to open it. Derived only from the expense rows (`buildPersonSummaries`).
+- **Add Money now asks what the money is**: Income / Friend paid back / Refund. A friend's payment settles the oldest unpaid expenses first; extra money becomes normal income. A refund is linked to the expense it is for.
+- **Automatic Logging**: the "logged" notification asks "Name owes you ₹Y. Is this their payment?" (name and amount first, then name only), the review screen always lists people who owe money ("Paid back by someone?"), and any logged income can be marked as money back from its detail screen. Arthik only asks; it never settles by itself.
+- **History & details**: money-back rows show as "Money back"; split expenses show "Split with Name" and what came back; the detail screen shows what is still owed and every payment back.
+- **Safety**: an expense with money back cannot be deleted until its money-back entry is deleted (deleting that entry restores everything); the edit form always edits the amount paid; the cash-flow chart ignores money-back rows.
+- **Fix**: Automatic Logging category / type updates wrote the counted amount instead of the amount paid; they now always use the amount paid.
+- **Database**: run `supabase/migrations/20261018_split_and_money_back.sql` and `supabase/migrations/20261018_multi_person_split.sql` once (also in `schema.sql`). Normal expenses keep working before it is run; only the new features need it.
+- **Docs**: canonical rules `TXN-004` and `SPL-001` updated (`SPL-001..SPL-006`); new [ADR 0016](docs/adr/0016-split-expenses-and-money-back.md); AGENTS, CONTEXT, PRD, architecture, maps, AutoLogging, notifications and design-system updated.
+- **Tests**: `tests/splitLedger.test.ts` (32), `tests/splitMultiPerson.test.ts` (7), and `tests/splitMoneyBackStore.test.ts` (15).
+
 ### Performance — History Category Pill UI-Thread Reanimated Animation & Zero-Shift Typography — OTA-safe
 
 - **Touch-Driven UI-Thread Spring Dispatch**: Moved the Reanimated spring launch from `useEffect` into the touch event handler (`handleSelect`) in `src/components/BouncyCategoryFilter.tsx`. Starting the UI-thread animation synchronously on touch ensures the pill glides immediately on frame 0 (~8–16ms) without waiting for React to complete heavy SectionList re-grouping and initial item mounting.

@@ -107,6 +107,10 @@ vi.mock('../src/store/notificationStore', () => ({
       addNotification: vi.fn((n: any) => {
         addedNotifications.push(n);
       }),
+      removeNotification: vi.fn((id: string) => {
+        const idx = addedNotifications.findIndex((n) => n.id === id);
+        if (idx >= 0) addedNotifications.splice(idx, 1);
+      }),
       setOwnerUserId: vi.fn(),
     })),
   },
@@ -495,7 +499,7 @@ describe('Pure Mode Acceptance Tests (PUR-001, PUR-002, SEC-001 amend)', () => {
     expect(autoIncomes[0].amount).toBe(500);
 
     // Toggle OFF into Pure Mode
-    useDailyBudgetStore.getState().setBudgetModeEnabled(false);
+    useDailyBudgetStore.getState().setBudgetModeEnabled(false, { immediate: true });
 
     // Spend 200 more in Pure Mode
     const exp200: Expense = {
@@ -515,7 +519,7 @@ describe('Pure Mode Acceptance Tests (PUR-001, PUR-002, SEC-001 amend)', () => {
     expect(R_cycle2).toBe(-200);
 
     // 2nd toggle ON: should add exactly 200, not 700 again
-    useDailyBudgetStore.getState().setBudgetModeEnabled(true);
+    useDailyBudgetStore.getState().setBudgetModeEnabled(true, { immediate: true });
     autoIncomes = useExpenseStore.getState().expenses.filter((e) => e.note === PURE_DEFICIT_NOTE);
     expect(autoIncomes.length).toBe(2);
     const totalAutoIncome = autoIncomes.reduce((s, e) => s + e.amount, 0);

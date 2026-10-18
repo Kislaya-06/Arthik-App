@@ -17,6 +17,7 @@ import {
   FailedSyncItem,
 } from './pendingQueues';
 import type { Expense, StoreGet, StoreSet } from './types';
+import { extraColumnsFor, storedTransactionClass } from './payload';
 
 const saveFailedSyncItem = (
   userId: string,
@@ -168,8 +169,9 @@ export const syncPendingAdds = async (userId: string, _get: StoreGet, set: Store
           type: item.type,
           category_id: item.category_id || null,
           // A queued 'reimbursement' from an older app version is plain income now (TXN-004).
-          transaction_class: item.transaction_class === 'self_transfer' ? 'self_transfer' : 'normal',
+          transaction_class: storedTransactionClass(item.transaction_class),
           transfer_rule_id: item.transfer_rule_id ?? null,
+          ...extraColumnsFor(item),
         };
 
         // P0.4: upsert with onConflict: 'id', ignoreDuplicates: true

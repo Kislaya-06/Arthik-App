@@ -1,6 +1,6 @@
 # Arthik — Codebase Guide (kahan kya hai, kaun si file kya karti hai)
 
-Ye guide **ab ki state** par hai: pehla package + Pure Mode + CAR-001 Mode B + last fixes sab apply hone ke baad. Isme 204 source files, 89 test entries, native Android module aur docs ka naksha hai.
+Ye guide **ab ki state** par hai: pehla package + Pure Mode + CAR-001 Mode B + Split Expenses & Money Back + Home Card Details + AutoLog single-page review sab apply hone ke baad. Isme 204+ source files, 97 test suites (1567 tests), native Android module aur docs ka naksha hai.
 
 **Kaise bani:** maine har file ka header comment, exports, aur core money files (waterfall, budget periods, home calculations, notification policy, stores, AutoLog) seedha padhe hain. UI components (buttons, charts, modals) ke baare mein likha hai wo unke naam aur exports se hai, unki andar ki logic maine line-by-line nahi padhi. Jahan ye farak matter karta hai wahan likh diya hai.
 
@@ -66,14 +66,23 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
   - Pure Mode mein kharch kabhi block nahi hota, minus bhi ja sakta hai (SEC-001).
   - Pure Mode mein period khatam ho to bacha paisa **income nahi banta**, koi message nahi aata. Wo chhupa "pureLeftover" rehta hai (PUR-002). Pure mein kharch hone par pehle leftover, phir income, phir Gullak.
   - Pure se Budget Mode mein aate waqt agar Remaining minus hai, to utni **auto-income** jud jaati hai (note: `Auto-balance (Pure Mode deficit)`), aur ek notification aati hai (PUR-001). Ye income Home ke budget-chip wale income mein nahi dikhti, par Total Income mein dikhti hai.
+  - Pure aur Budget Mode switch kal 12:00 AM se schedule hota hai taaki aaj ka running budget aur midnight Gullak rollover safely conclude hon (PUR-003). Agar usi din toggle wapas kar dein, to switch aur notification cancel ho jaate hain aur app bina glitch ke chalte rehta hai (same-day reversal protection).
 
 ### Samasya 6: "Ek hi cheez 'income' ya 'expense' kaise tay ho?"
 - **Hal:** `type` field hi sab kuch tay karta hai (TXN-001). Category ke naam se andaza nahi lagta (keyword fallback sirf purani rows ke liye, jo ab practically use nahi hoti, TXN-002).
 - Apne accounts ke beech paisa: `transaction_class = 'self_transfer'`. Ye kabhi income ya expense nahi gina jaata (TXN-003).
-- Dost ka paisa wapas aana ya refund: sirf **Income** (TXN-004). Split/Shares feature ab app mein nahi hai (REF-001).
+- Dost ka paisa wapas aana ya refund: ye **Income nahi hai**. Ye `transaction_class = 'recovery'` wali "money back" row hai jo purane expense ko ghata deti hai (TXN-004, SPL-003). Ek expense ek ya zyada doston ke saath split ho sakta hai (SPL-001).
+
+### Samasya 6b: "Dost ke paise wapas aaye to wo income kyun bane?"
+- **Hal:** Expense poora amount rakhta hai (`split_allocations`, backward-compatible `split_person`, `split_amount`). Paise wapas aane par ek money-back row banti hai jisme `recovery_allocations` likha hota hai ki paise kin expenses ko gaye. Store ke andar `recoveryMiddleware.ts` har baar expense ka **counted amount** = `paid − wapas aaya` nikaal deta hai (`gross_amount` me paid amount rehta hai). Baaki engine (waterfall, rollover) pehle se har change par dobara chalta hai, isliye paisa wahin wapas jaata hai jahan se gaya tha: budget ka paisa us din ke budget (aur Gullak) me, income ka paisa income pool me, Gullak ka paisa Gullak me (SPL-003).
+- Kaun kitna dega, ye kabhi store nahi hota; hamesha rows se nikala jaata hai (SPL-002, `src/lib/splitLedger.ts`).
+- Zyada paise aaye to extra normal income banta hai (SPL-004). Bank message se naam + amount match hone par sirf poochha jaata hai (SPL-005). Refund ek expense se jud ke aata hai, aur multi-person split par user interactive recipient chip se choose karta hai ki refund sabme baanta jaye ya kisi specific person/apne share me credit ho (SPL-006, Solution 2).
 
 ### Samasya 7: "Paisa nahi hai to kharch kaise?" (Budget Mode)
-- **Hal:** Spending guard (`vaultSpendingGuard.ts`): agar poore account ka paisa 0 ya kam hai to naya kharch block, aur message: "Account balance exhausted. Please add money first." Ye sirf Budget Mode mein hai.
+- **Hal:** Spending guard (`vaultSpendingGuard.ts`): weekly/monthly allowance cross hone par kharch unspent Income aur Gullak reserves se absorb hota hai; naya kharch sirf tab block hota hai jab poore account ka kul paisa (`accountRemaining`) 0 ya kam ho (`SEC-001`). Agar ₹0 ho, toh `VaultSpendingGuardModal` me bina form chhodhe turant paise add karke expense save karne ka in-sheet option milta hai (bina paise add kiye save nahi hoga, par form ka data barkarar rehta hai). Pure Mode mein kharch kabhi block nahi hota.
+
+### Samasya 8: "Aaj ka Budget Aaj hi Change kyun nahi ho sakta?"
+- **Hal:** Agar aaj abhi tak ₹0 kharch hua hai (`todaySpent === 0` for Daily, `currentWeekSpent === 0` for Weekly, `currentMonthSpent === 0` for Monthly), toh budget update kal raat 12 AM ka wait karne ke bajaye **aaj hi turant** active period me apply ho jata hai (`BPR-002`). Agar ₹1 bhi kharch ho chuka hai, tabhi safe rollover ke liye agle cycle par schedule hota hai. Category chip tap karne par keypad bhi band nahi hota taaki editing frictionless rahe.
 
 ---
 
@@ -136,7 +145,7 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 
 **Navigation (`src/navigation/index.tsx`):**
 - Tabs: **Home, History, Savings, Insights**.
-- Stack screens: Splash, Onboarding, Auth, ResetPassword, ProfileSetup, AppTabs, AddExpense/EditExpense (dono `ExpenseFormScreen`), ExpenseDetail, GullakDepositDetail, CategoryDetail, ManageCategories, AddEditCategory, Notifications, Savings, Profile, Faq, aur AutoLog ki 8 screens.
+- Stack screens: Splash, Onboarding, Auth, ResetPassword, ProfileSetup, AppTabs, AddExpense/EditExpense (dono `ExpenseFormScreen`), ExpenseDetail, Ledger (`LedgerScreen`), GullakDepositDetail, CategoryDetail, ManageCategories, AddEditCategory, Notifications, Savings, Profile, Faq, aur AutoLog ki 8 screens.
 - Savings tab Pure Mode mein guard hota hai (`GuardedSavings...`).
 
 ---
@@ -158,7 +167,7 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 | `expense_shares` | **Retired** (Split feature hata diya). Table rakhi hai, app use nahi karti, data delete nahi hua |
 
 - `handle_new_user()` function naye user ke liye profile aur default categories banata hai.
-- **Migrations** (`supabase/migrations/`): budget modes (Oct), autolog profiles, release v2 flags, aur `20261017083146_retire_shares_reimbursements.sql` (purane reimbursement rows ko normal income banata hai).
+- **Migrations** (`supabase/migrations/`): budget modes (Oct), autolog profiles, release v2 flags, `20261017083146_retire_shares_reimbursements.sql` (purane reimbursement rows ko normal income banata hai), aur `20261018_split_and_money_back.sql` (split + money-back columns, class `recovery`).
 - Row-level security: har user sirf apna data dekhta hai (ADR 0004).
 
 ---
@@ -188,6 +197,8 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 |---|---|
 | **`moneyWaterfall.ts`** | **"Paisa kahan se aaya" ka ek hi sach.** Samay ke kram mein chalta hai. Output: har kharch ka `fromBudget / fromLeftover / fromIncome / fromGullak`, din-wise hisaab, income bacha, Gullak kitna kata, `pureLeftover` (added/used/remaining) |
 | `transactionFunding.ts` | Ek kharch ke detail screen ka funding breakdown (waterfall se) |
+| `heroDetails.ts` | Home card tap details sheet (`HeroDetailsSheet`) ka breakdown: Budget pool, Money in / unspent, Gullak movement, Money back alag line par |
+| `splitLedger.ts` | Split expenses, repayments, multi-person debt & merchant refund attribution engine: `buildPeopleLedger`, `buildPersonSummaries`, settlements, `planRefund` (Solution 2 interactive recipient attribution: everyone / me / specific member with live balance preview), debt validation |
 | `homeCalculations.ts` | **Home ke hero card ka dimaag.** `calculatePeriodSummary` 4 filters (All/Daily/Weekly/Monthly) ka primary amount, label, subtext banata hai. Display ka copy bhi yahin se aata hai (jaan-boojhkar, taaki sab filters ek hi logic use karein). `PURE_DEFICIT_NOTE` wali auto-income budget chip ke income se bahar rakhta hai |
 | `vaultSpendingGuard.ts` | Spending guard ka hisaab: `canAddExpense` + `VAULT_GUARD_MESSAGE`. Pure Mode mein hamesha allowed |
 
@@ -222,7 +233,7 @@ Is store ko chhote modules mein toda gaya hai (ADR 0013):
 |---|---|
 | `types.ts` | `DailyBudgetState` aur saari actions ke types |
 | `metrics.ts` | **Balance selectors.** `runWaterfall`, `computeAllTimeBudget`, `computeTotalAccountRemaining` (minus bhi ho sakta hai), `computeAvailableIncomeBalance`, `computeCarryableAmount`, `computeMetrics` (Gullak total + cap) |
-| `planActions.ts` | Budget set karna, cadence badalna (`handleSetBudgetCadence`), mode on/off (`handleSetBudgetModeEnabled`, yahin **Pure deficit auto-income** `balancePureDeficitIfNeeded` hai), scheduled next-day budget, pending plan sync |
+| `planActions.ts` | Budget set karna, cadence badalna (`handleSetBudgetCadence`), mode on/off (`handleSetBudgetModeEnabled`, yahin **Pure deficit auto-income** `balancePureDeficitIfNeeded` aur next-day transition `PUR-003` hai), scheduled next-day budget, pending plan sync, scheduled reversal (`handleCancelPendingPlanChange`) |
 | `rollover.ts` | Din/period ka finalize: `finalizeDailyRecords`, `finalizePeriods`, `groupSpentByDate` |
 | `hydrate.ts` | Supabase se data laana (`runHydrateFromSupabase`) aur offline start |
 | `selfHealing.ts` | Purani galat rows ko theek karna (₹500 default, galat daily rows) |
@@ -240,6 +251,9 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `types.ts` | `Expense`, pending types |
 | `pendingQueues.ts` | Queue ke keys, retry/backoff, UUID check, failed items |
 | `syncPending.ts` | Pending adds/updates/deletes ko server par bhejna. Purani `reimbursement` class ko normal bana deta hai |
+| `payload.ts` | Split / money-back columns sirf tab bhejta hai jab row unhe use kare (SQL chalne se pehle bhi normal expenses chalte hain) |
+| `recoveryMiddleware.ts` | Har `expenses` write par counted amount dobara nikaalta hai (SPL-003) |
+| `moneyBack.ts` | Money back / refund record karna, aur logged income ko money back me badalna (SPL-003..006) |
 
 ### Baaki stores
 | Store | Kaam |
@@ -263,7 +277,8 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 |---|---|
 | `HomeScreen.tsx` | Hero card (All/Daily/Weekly/Monthly), chips, bounded top-5 recent transactions (`selectRecentTransactions`). `calculatePeriodSummary` aur waterfall use karti hai |
 | `ExpenseFormScreen.tsx` (1152 lines) | Kharch/income add aur edit. Logic `useExpenseForm.ts` mein. Spending guard yahin se chalta hai |
-| `ExpenseDetailScreen.tsx` | Ek transaction ki detail + funding card |
+| `ExpenseDetailScreen.tsx` | Ek transaction ki detail + funding card + split repayments |
+| `LedgerScreen.tsx` | Split expenses ledger: who owes what, multi-person settlements, person detail modal |
 | `HistoryScreen.tsx` | Transactions ki list aur filters. Memoized `categoryFilterOptions`, tuned SectionList virtualization (`initialNumToRender: 12`, `maxToRenderPerBatch: 10`) |
 | `SavingsScreen.tsx` (+ `.styles.ts`) | Budget hub, Gullak, streaks, deposits. Components `components/savings/*` |
 | `InsightsScreen.tsx` + `screens/insights/` | Weekly/Monthly/Yearly insights. Data `useInsightsData.ts` with memoized $O(1)$ category lookup map (`buildCategoryMap`) |
@@ -279,8 +294,9 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 
 ## 10. Components (naam se, andar ki logic maine line-by-line nahi padhi)
 
-- **Home/Hero:** `BrandedHeroCard` (bada hero card), `RollingText` (digits ka animation), `ExpenseFundingCard`, `TransactionRow`, `PullToHistoryList` + `PullToHistoryIndicator`.
+- **Home/Hero:** `BrandedHeroCard` (bada hero card), `HeroDetailsSheet` (tap card breakdown), `RollingText` (digits ka animation), `ExpenseFundingCard`, `TransactionRow`, `PullToHistoryList` + `PullToHistoryIndicator`.
 - **Budget/Savings:** `BudgetEditModal`, `CadenceSwitchModal` (cadence switch + carry mode chunna), `PeriodRenewalModal`, `DepositGullakModal`, `StreakCalendarModal`, `StreakFlame`, `SavingsRecordRow`, `GullakDepositRow`, `VaultSpendingGuardModal`, `MoneyExplainerModal`, `components/savings/*`, `components/profile/PauseBudgetModal`.
+- **Split & Money Back:** `components/split/SplitExtras`, `components/split/MoneyBackExtras`, `components/split/MoneyBackSheet`, `components/split/SplitDetailCard`.
 - **Charts:** `CashFlowChart`, `YearlyCashFlowChart`, `SpendingFlowChart`, `DonutChart`, `DualRingChart`, `AnimatedCategoryDonut`, `BreathingStripShell` + Weekly/Monthly/Yearly strips, `YearlySavingsMilestoneCard`, `BehavioralInsightRow`.
 - **Form:** `BouncyTypeToggle`, `BouncyPaymentToggle`, `BouncyCategoryFilter` (Reanimated UI-thread worklet slider, touch dispatch, zero-shift typography), `KeyButton`, `ui/KeypadGrid`, `CustomDatePickerModal`, `transfer/TransferExtras` (self-transfer switch), `transfer/TransferDetailCard`.
 - **App-wide:** `BottomNavBar`, `AmbientBackground`, `AppLockOverlay`, `OfflineBanner`, `SyncFailedBanner`, `OtaUpdateModal`, `ErrorBoundary`, `AppRefreshControl`, `RefreshScrollShell`.
@@ -373,7 +389,7 @@ User Budget Mode mein, Daily ₹500, ₹300 kharch add karta hai:
 
 ## 15. Tests (`tests/`, `npm test`)
 Har major file ka apna test hota hai (jaise `moneyWaterfall.test.ts`, `budgetPeriods.test.ts`). Khaas groups:
-- **Paise ke core:** `moneyWaterfall`, `moneyWaterfallStore`, `budgetCalculations`, `budgetPeriods`, `homeCalculations`, `transactionFunding`, `transactionUtils`, `incomeClassifier`, `financialCorrectnessMatrix`, `part2Consistency`, `moneyFixesFour`, `gullakReconciliationHardCap`, `realTimeIncomeGullakDeduction`, `monthlyCardConsistency`.
+- **Paise ke core:** `moneyWaterfall`, `moneyWaterfallStore`, `budgetCalculations`, `budgetPeriods`, `homeCalculations`, `heroDetails`, `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, `splitPureModeTransitions`, `transactionFunding`, `transactionUtils`, `incomeClassifier`, `financialCorrectnessMatrix`, `part2Consistency`, `moneyFixesFour`, `gullakReconciliationHardCap`, `realTimeIncomeGullakDeduction`, `monthlyCardConsistency`.
 - **Canonical rules:** `selfTransfersAndIncome` (TXN), `canonicalStatusAndGuard` (BUD-008, SEC-001), `pureModeRules` (PUR-001/002), `carryAllocationWeeklyMonthly` (CAR-001, Home vs total, daily regression, carry-ended notice), `vaultSpendingGuard`.
 - **Cadence:** `cadenceSwitch`, `cadenceFixes`, `budgetModesStore`, `dailyBudget*` (hydrate, planActions, rollover, store, syncWithExpenses).
 - **Offline/sync:** `expenseStore`, `expenseSyncPending`, `offlineStartup`.
@@ -400,10 +416,10 @@ Har major file ka apna test hota hai (jaise `moneyWaterfall.test.ts`, `budgetPer
 | `docs/notifications.md` | Har notification ka table |
 | `docs/maps/daily-budget-map.md` | Budget code ka naksha (functions aur call sites) |
 | `docs/RELEASE_PROCESS.md` | Release aur smoke-test checklist |
-| `docs/adr/0001…0014` | Faisle: offline-first, zustand-only, RLS, store wiring, OTA vs version, vitest, cadence periods, zero-proration + vault guard, one budget per period, store split, canonical rules + implementation status |
+| `docs/adr/0001…0016` | Faisle: offline-first, zustand-only, RLS, store wiring, OTA vs version, vitest, cadence periods, zero-proration + vault guard, one budget per period, store split, canonical rules, UI-thread worklets, split expenses & money back |
 
 **Canonical rule IDs ek line mein:**
-`TXN-001` direction `type` se · `TXN-002` keyword fallback inert · `TXN-003` self-transfer totals se bahar · `TXN-004` repayment = income · `REF-001` koi split nahi · `WAT-001/002` kharch ka kram, din mein income pehle · `BUD-001` cycle engine · `BUD-003` income Gullak mein nahi jaati · `BUD-008` status `missed` · `BAL-001/002` total remaining, available income · `GUL-001` Gullak cap · `GUL-002` Pure mein Gullak nahi dikhta · `GUL-004` deposit sources · `GUL-008` overspend apne aap Gullak se · `BPR-001/002` cadences, kal se effective · `CAR-001` carry (Mode A/B) · `PUR-001/002` Pure Mode deficit aur leftover · `SEC-001` spending guard · `NOT-001` notifications · `ROL-001/002/003` rollover · `HEA-001/002` self-healing · `RND-001` `round2` · `DAT-001/003/004` date aur Monday week · `INS-001…006` insights · `AUT-001…004` AutoLog · `CAT-001…003` categories · `UX-001…003` form rules.
+`TXN-001` direction `type` se · `TXN-002` keyword fallback inert · `TXN-003` self-transfer totals se bahar · `TXN-004` money back income nahi · `SPL-001..006` split, money back, refund · `WAT-001/002` kharch ka kram, din mein income pehle · `BUD-001` cycle engine · `BUD-003` income Gullak mein nahi jaati · `BUD-008` status `missed` · `BAL-001/002` total remaining, available income · `GUL-001` Gullak cap · `GUL-002` Pure mein Gullak nahi dikhta · `GUL-004` deposit sources · `GUL-008` overspend apne aap Gullak se · `BPR-001/002` cadences, kal se effective · `CAR-001` carry (Mode A/B) · `PUR-001/002/003` Pure Mode deficit, leftover aur next-day transition · `SEC-001` spending guard · `NOT-001` notifications · `ROL-001/002/003` rollover · `HEA-001/002` self-healing · `RND-001` `round2` · `DAT-001/003/004` date aur Monday week · `INS-001…006` insights · `AUT-001…004` AutoLog · `CAT-001…003` categories · `UX-001…003` form rules.
 
 ---
 

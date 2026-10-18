@@ -4,7 +4,7 @@
 > **Status:** ACTIVE — Governed by Owner Approval Protocol  
 > **Repository:** `Arthik-App` (this file lives at `docs/ARTHIK_CANONICAL_RULES.md`)  
 > **Initial Creation:** 2026-10-17  
-> **Last Updated:** 2026-10-17  
+> **Last Updated:** 2026-10-18  
 
 ---
 
@@ -55,16 +55,15 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Code Enforcement:** `src/lib/transactionUtils.ts` (`isExcludedFromTotals`, `isCountedExpense`, `isCountedIncome`)
 - **Verified By:** `tests/selfTransfersAndIncome.test.ts`, `tests/moneyFixesFour.test.ts`
 
-#### `TXN-004`: Reimbursements / Repayments Treatment
-- **Status:** `APPROVED AS-IS` (Owner decision on 2026-10-17)
+#### `TXN-004`: Money That Comes Back Is Not Income
+- **Status:** `APPROVED AS CHANGED` (Owner decision 2026-10-17, replaced by owner decision 2026-10-18)
 - **Canonical Definition:**
-  To keep accounting completely friction-free and simple:
-  1. **No Separate Reimbursement Class:** Transactions are strictly either `'expense'` or `'income'` (with internal `'self_transfer'`).
-  2. **Friend Repayment as Income:** When a friend returns their share of a shared expense (or any refund arrives), it is recorded simply as **Income** (or Add Money).
-  3. **Natural Lifetime Cashflow Settlement:** Lifetime net spending (`All-Time Spent − All-Time Income`) naturally settles without needing complex transaction-linking or proportional waterfall restoration.
+  1. **Classes:** A transaction is `'expense'` or `'income'` (explicit `type`, `TXN-001`). Its class is `'normal'`, `'self_transfer'` (`TXN-003`) or `'recovery'` (`SPL-003`).
+  2. **Money back is not income:** Money that comes back for an expense the user already paid (a friend paying their share back, or a refund) is a `'recovery'` row. It never counts as income, never raises Total Income, Available Income or any income chip. See `SPL-003..SPL-006`.
+  3. **Real new money is income:** A salary, a gift, or any amount received beyond what was owed or still out is normal Income (`SPL-004`).
   4. **Old Data:** Any row that still carries the retired `'reimbursement'` class is read as normal income.
-- **Code Enforcement:** `src/lib/transactionUtils.ts` (`getTransactionClass`), `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`
-- **Verified By:** `tests/selfTransfersAndIncome.test.ts`
+- **Code Enforcement:** `src/lib/transactionUtils.ts` (`getTransactionClass`, `isRecoveryClass`, `isExcludedFromTotals`), `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`, `supabase/migrations/20261018_split_and_money_back.sql`
+- **Verified By:** `tests/selfTransfersAndIncome.test.ts`, `tests/splitLedger.test.ts`
 
 ---
 
@@ -175,11 +174,12 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Weekly:** Fixed weekly allowance starting Monday 00:00:00 and concluding Sunday 23:59:59.
   3. **Monthly:** Fixed monthly allowance starting on the 1st of the calendar month and concluding on the final day of the month at 23:59:59.
 
-#### `BPR-002`: Tomorrow Effective Rule
-- **Status:** `APPROVED AS-IS`
+#### `BPR-002`: Tomorrow Effective Rule & Zero-Spend Immediate Adjustment Rule
+- **Status:** `APPROVED AS-IS` (Owner approved immediate zero-spend adjustment on 2026-10-19)
 - **Canonical Definition:**
-  All budget allowance modifications and cadence switch plans take effect starting **Tomorrow at 00:00:00** (`effectiveFrom = tomorrow`). The active calendar day concludes safely under the existing plan so historical day records, daily savings, and streak metrics are not disrupted mid-day.
-  *(Exception: Enabling Budget Mode for the very first time from Pure Mode activates immediately on "Today").*
+  1. **Standard Modification (Spend > 0):** All budget allowance modifications and cadence switch plans take effect starting **Tomorrow at 00:00:00** (`effectiveFrom = tomorrow`) when spending has already occurred in the current period. The active calendar day concludes safely under the existing plan so historical day records, daily savings, and streak metrics are not disrupted mid-day.
+  2. **Zero-Spend Immediate Adjustment Exception:** When ₹0 has been spent in the active cycle (`todaySpent === 0` for Daily, `currentWeekSpent === 0` for Weekly, `currentMonthSpent === 0` for Monthly), modifying the budget amount takes effect **IMMEDIATELY** for the current period (`effectiveFrom = todayStr`), with no need to wait for midnight or the next cycle. Any obsolete pending scheduled change is superseded and cleared.
+  3. **Onboarding Exception:** Enabling Budget Mode for the very first time from Pure Mode activates immediately on "Today".
 
 #### `CAR-001`: The Universal Carry-Forward Law (Supreme Owner Specification)
 - **Status:** `APPROVED BY OWNER (SUPREME SPECIFICATION)` (2026-10-17)
@@ -246,13 +246,79 @@ This document is the **single authoritative canonical source of truth** for all 
 
 ---
 
-### Domain: REF — No Splits, No Shares, No Debt Tracking
+### Domain: SPL — Split Expenses, Money Back & Refunds
 
-#### `REF-001`: Arthik Is Simple Personal Cashflow
-- **Status:** `APPROVED AS-IS` (Owner decision on 2026-10-17)
+> Owner decision 2026-10-18. This domain replaces the retired `REF-001` ("no splits"). Pure logic: `src/lib/splitLedger.ts`. Names in the app are English only: "Split", "Money back", "Paid back", "Refund".
+
+#### `SPL-001`: Split Expense & Multi-Person Sharing
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18: Phase 1 & Phase 2)
 - **Canonical Definition:**
-  Arthik does not have a Split Expenses / Shares feature. There is no friend directory, no share allocation, no outstanding-debt tracking, no repayment matching and no reimbursement class. An expense is recorded at its full amount; money that comes back (a friend's share, a refund) is recorded as Income (`TXN-004`). AutoLog never asks "is this a friend's share?".
-- **Database:** the `expense_shares` table and `expenses.reimburses_share_id` column are retired and unused by the app (kept in the database, no data deleted).
+  1. An expense may be shared with one or more people: `split_allocations` (`[{ person: string, amount: number }]`), maintaining backward compatibility with single-person `split_person` and `split_amount`. Total shares must satisfy `0 < total share <= amount paid`.
+  2. The expense form trigger is a compact capsule pill (`BorderRadius.pill`) with an `AnimatedToggle` placed above the keypad fold alongside Date and Paid Via pills for immediate discoverability. Expanding reveals a card with multi-person rows, "+ Add Person", quick suggestion chips, and a "Split equally" shortcut.
+  3. The expense row always keeps the FULL amount paid (real money left the account). The user's own share is `amount paid − sum(their shares)` (a display figure only).
+  4. Names are remembered and offered as suggestions. Names represent the same person regardless of case and extra spaces.
+  5. Until money comes back, the expense counts in full everywhere.
+  6. Cash lent (no expense of its own) is recorded as an expense whose split is the whole amount.
+  7. Multi-person settlements track repayments per person (`settlementByPerson` in `recoveredByExpense`), so each friend's debt settles independently without affecting other participants.
+- **Code Enforcement:** `src/lib/splitLedger.ts` (`validateSplit`, `validateSplitAllocations`, `splitAllocationsOf`, `buildPeopleLedger`), `src/hooks/useExpenseForm.ts`, `src/components/split/SplitExtras.tsx`, `src/components/split/SplitDetailCard.tsx`
+- **Database:** `expenses.split_person`, `expenses.split_amount`, `expenses.split_allocations`, check `expenses_split_valid`.
+- **Verified By:** `tests/splitLedger.test.ts`, `tests/splitMultiPerson.test.ts`, `tests/splitMoneyBackStore.test.ts`
+
+#### `SPL-002`: Who Owes What Is Derived, Never Stored
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18)
+- **Canonical Definition:**
+  1. A person's outstanding amount = Σ (their share − what already came back from them), per expense, never more than the money still out on that expense.
+  2. It is always computed from the rows. No balance, counter or "settled" flag is stored, so it can never drift.
+  3. Money is matched to the OLDEST unpaid expense first.
+  4. The Ledger screen (`LedgerScreen`, opened from the Home header) shows, per person, what they owe, everything shared, everything paid back, each shared expense (settled or what is left) and every payment with its date.
+- **Code Enforcement:** `src/lib/splitLedger.ts` (`outstandingOnExpense`, `planSettlement`, `buildPersonSummaries`), `src/screens/LedgerScreen.tsx`
+- **Verified By:** `tests/splitLedger.test.ts`
+
+#### `SPL-003`: Money Back Row & Counted Amount
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18)
+- **Canonical Definition:**
+  1. Money coming back is ONE row with `transaction_class = 'recovery'`, income direction, `recovery_kind` (`'settlement'` or `'refund'`), `recovery_person` and `recovery_allocations` (`[{ expense_id, amount }]`). Its amount equals the sum of its allocations.
+  2. It is excluded from income and from expense totals exactly like a self-transfer (`TXN-003`). It never raises Total Income.
+  3. The COUNTED amount of an expense is `amount paid − money that came back for it`, never below 0. It is applied once, when rows enter the expense store (`applyRecoveries`), so every total, budget day, Gullak figure, chart and notification sees the reduced amount, from the day of the ORIGINAL expense.
+  4. Because the engine replays money in order (`WAT-001`), money returns to where it came from: budget back to that day's budget (and to Gullak as saved budget, `BUD-003`), income back to the Available Income pool, Gullak back to Gullak. No source tracking exists or is needed.
+  5. Total Account Remaining rises by the money received; Total Income does not change (`BAL-001`).
+  6. Deleting the money-back row restores every amount exactly as it was.
+  7. The amount written back to the database is always the amount PAID, never the counted amount.
+- **Code Enforcement:** `src/lib/splitLedger.ts` (`applyRecoveries`), `src/store/expense/recoveryMiddleware.ts`, `src/lib/transactionUtils.ts`
+- **Database:** `expenses.transaction_class = 'recovery'`, `recovery_kind`, `recovery_person`, `recovery_allocations`, check `expenses_recovery_valid`.
+- **Verified By:** `tests/splitLedger.test.ts`, `tests/splitMoneyBackStore.test.ts`
+
+#### `SPL-004`: More Money Than Owed
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18)
+- **Canonical Definition:**
+  If more money arrives than the person owes (or than is still out on a refunded expense), the owed part becomes the money-back row and the extra becomes ordinary Income.
+- **Code Enforcement:** `src/store/expense/moneyBack.ts` (`recordMoneyBack`)
+- **Verified By:** `tests/splitMoneyBackStore.test.ts`
+
+#### `SPL-005`: Detecting Money Back From a Person (AutoLog & Review)
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18)
+- **Canonical Definition:**
+  1. Order of matching an incoming credit to a person who owes money: (a) NAME and AMOUNT both match (amount equals their total or one open expense), then (b) NAME only (they may have paid half). An amount alone is never enough.
+  2. The app only ASKS ("Is this their payment?"). It never settles by itself.
+  3. On the review screen and on an income's detail screen, every person who still owes money is always offered, name matches first.
+  4. A phone notification can carry the question only while the app's data is loaded; otherwise the same question is on the transaction's detail screen.
+- **Code Enforcement:** `src/lib/splitLedger.ts` (`nameMatches`, `matchIncomingToPeople`), `src/features/autoLog/ledger.ts` (`moneyBackQuestionFor`), `src/components/autolog/ReviewSheet.tsx`, `src/components/split/MoneyBackSheet.tsx`
+- **Verified By:** `tests/splitLedger.test.ts`
+
+#### `SPL-006`: Refunds & Guards
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18; Solution 2 refined 2026-10-19)
+- **Canonical Definition:**
+  1. A refund from a shop or company is a money-back row of kind `'refund'` pointing at the expense it belongs to, never more than is still out on it.
+  2. An expense that has money back linked to it cannot be deleted until that money-back entry is deleted. Its amount cannot be edited below the money that came back, and its split share cannot go below what the person already paid back.
+  3. A money-back row cannot be edited; the user deletes it and adds it again.
+  4. Deleting a money-back row asks for confirmation and says which days get their spending back.
+  5. **Multi-Person Split Refunds (Solution 2 — Interactive Recipient Choice):** When refunding a multi-person split expense, the user chooses whether the refund is:
+     - **Split among everyone** (default: distributed proportionally across each participant and user based on original allocations; general refunds never collapse a remaining friend's debt when another participant settles).
+     - **Specific person** (targets that participant's debt directly, leaving other participants untouched).
+     - **Just for me / user** (targets the user's personal share, leaving friends' shares untouched).
+     - `recovery_allocations` records `refund_target` on each slice.
+- **Code Enforcement:** `src/lib/splitLedger.ts` (`planRefund`, `outstandingOnExpense`, `deleteBlockReason`, `minAmountForExpense`, `minShareForExpense`), `src/store/expenseStore.ts`, `src/screens/ExpenseDetailScreen.tsx`, `src/components/split/MoneyBackExtras.tsx`, `src/components/split/MoneyBackSheet.tsx`, `src/components/split/SplitDetailCard.tsx`
+- **Verified By:** `tests/splitLedger.test.ts`, `tests/splitMoneyBackStore.test.ts`, `tests/splitMultiPerson.test.ts`
 
 ---
 
@@ -364,13 +430,14 @@ This document is the **single authoritative canonical source of truth** for all 
 ### Domain 7: NOT & SEC — Notifications & Digital Vault Spending Guard
 
 #### `SEC-001`: Digital Vault Spending Guard (Budget Mode Solvency Protection)
-- **Status:** `APPROVED AS-IS` (Owner amended on 2026-10-17)
+- **Status:** `APPROVED AS-IS` (Owner amended on 2026-10-17, enhanced on 2026-10-19)
 - **Canonical Definition:**
   1. **Budget Mode Solvency Guard:** In Budget Mode, a user cannot spend money they do not possess. If total account liquidity $\le 0$, new expense creation is blocked and `VaultSpendingGuardModal` is displayed (*"Account balance exhausted. Please add money first."*, `VAULT_GUARD_MESSAGE`).
-  2. **Pure Mode Exemption:** Pure Mode never blocks spending and allows the user to spend into negative balance (`canAddExpense: true`, no guard sheet, AutoLog `isExceedingVaultLiquidity` returns `false`).
-  3. **Overspending Allowance in Budget Mode:** Spending beyond the active daily/weekly allowance is permitted as long as total account liquidity (allowances, income, or Gullak reserve) remains positive.
-- **Code Enforcement:** `src/lib/vaultSpendingGuard.ts`, `src/features/autoLog/ledger.ts`
-- **Verified By:** `tests/vaultSpendingGuard.test.ts`, `tests/canonicalStatusAndGuard.test.ts`, `tests/pureModeRules.test.ts`
+  2. **In-Sheet Add Money & Save (Zero-Abandonment Resilience):** Instead of a hard dead-end requiring the user to leave and re-enter typed expense data, `VaultSpendingGuardModal` provides an inline flow to add money to the vault and immediately complete saving the pending expense. The expense cannot be saved without adding funds (`addedAmount >= expenseAmount`), but the user never loses form state.
+  3. **Pure Mode Exemption:** Pure Mode never blocks spending and allows the user to spend into negative balance (`canAddExpense: true`, no guard sheet, AutoLog `isExceedingVaultLiquidity` returns `false`).
+  4. **Overspending Allowance in Budget Mode:** Spending beyond the active daily/weekly allowance is permitted as long as total account liquidity (allowances, income, or Gullak reserve) remains positive.
+- **Code Enforcement:** `src/lib/vaultSpendingGuard.ts`, `src/components/VaultSpendingGuardModal.tsx`, `src/hooks/useExpenseForm.ts`, `src/features/autoLog/ledger.ts`
+- **Verified By:** `tests/vaultSpendingGuard.test.ts`, `tests/canonicalStatusAndGuard.test.ts`, `tests/pureModeRules.test.ts`, `tests/vaultSpendingGuardAndBudgetEdit.test.ts`
 
 #### `NOT-001`: Multi-Tier Notification Architecture & Fatigue Protection
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -519,6 +586,23 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Code Enforcement:** `src/lib/moneyWaterfall.ts`, `src/store/dailyBudget/metrics.ts`, `src/store/dailyBudget/rollover.ts`
 - **Verified By:** `tests/pureModeRules.test.ts`, `tests/cadenceFixes.test.ts`
 
+#### `PUR-003`: Mode Switching Next-Day Scheduling & Same-Day Reversal Protection
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18)
+- **Canonical Definition:**
+  1. **Next-Day Activation**:
+     - Switching between Pure Mode and Budget Mode (Pure Mode → Budget Mode or Budget Mode → Pure Mode) takes effect from the **Next Day at 12:00 AM (00:00:00)** (`effectiveFrom = tomorrow`).
+     - This protects today's active running budget, daily/period records, and midnight Gullak savings from mid-day disruption.
+     - Confirmation notifications are queued (`scheduled_budget_mode_${tomorrow}` or `scheduled_pure_mode_${tomorrow}`).
+  2. **Same-Day Reversal Protection**:
+     - If a user switches modes (scheduled for tomorrow) and then on the same day toggles back to their currently active mode (e.g. Pure Mode → scheduled Budget Mode → toggles back to Pure Mode; or Budget Mode → scheduled Pure Mode → toggles back to Budget Mode):
+     - The pending scheduled switch is immediately cancelled (`handleCancelPendingPlanChange`), removing the scheduled plan change.
+     - The scheduled notification for tomorrow is removed from inbox (`removeNotification`).
+     - The app seamlessly continues in its currently active mode without sending any contradictory next-day notifications or glitching.
+  3. **Zero Proration & Full Liquidity Guard**:
+     - Overspending past weekly/monthly budget allowance is permitted as long as total account liquidity (budget + income + Gullak) > 0 (`SEC-001`). Digital Vault Guard only blocks outflows when `totalVaultLiquidity <= 0` (`accountRemaining <= 0`).
+- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/lib/budgetPeriods.ts`, `src/lib/vaultSpendingGuard.ts`, `src/screens/ProfileScreen.tsx`
+- **Verified By:** `tests/budgetModesStore.test.ts`, `tests/cadenceFixes.test.ts`, `tests/vaultSpendingGuard.test.ts`
+
 ---
 
 ## 3. Canonical Architecture & Audit Summary
@@ -527,7 +611,8 @@ With the owner's final approvals on 2026-10-17, this document represents the **s
 
 ### Key Architectural Decisions Finalized:
 1. **Real-Money Invariant:** Every rupee in Arthik is real money. Past allowances, unspent balances, and cashflow remain immutable.
-2. **No Splits (`REF`):** There is no split expense or debt tracking. Repayments and refunds are recorded as standard Income.
+2. **Split & Money Back (`SPL`):** An expense can be shared with one or more people; money that comes back (a friend's share, a refund) is a money-back row that reduces the original expense, never income.
 3. **Status Unification:** The codebase and database use one vocabulary: `'saved' | 'missed' | 'even' | 'unknown'` (plus the never-saved in-progress marker `'active'`).
 4. **Universal Carry-Forward Law:** Carry-over unspent money never double-counts in all-time inflow. Mode A adds to spendable target; Mode B funds days with ₹0 fresh cash needed from user.
 5. **AutoLog Privacy:** Dual bank sources (SMS + Email), payment app notifications dropped, zero-knowledge encrypted on-device SQLite database (SQLCipher) with hardware Keystore. Granular specs in [`docs/AUTO_LOGGING.md`](AUTO_LOGGING.md).
+6. **Mode Transition Scheduling (`PUR-003`):** Switching Pure Mode ↔ Budget Mode takes effect next day at 12:00 AM, protecting running budgets and midnight Gullak rollovers. Same-day reversal cleanly cancels pending schedules and inbox notices.

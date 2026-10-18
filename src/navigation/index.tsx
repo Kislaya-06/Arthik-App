@@ -24,6 +24,7 @@ import { CategoryDetailScreen } from '../screens/CategoryDetailScreen';
 import { ManageCategoriesScreen } from '../screens/ManageCategoriesScreen';
 import { AddEditCategoryScreen } from '../screens/AddEditCategoryScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { LedgerScreen } from '../screens/LedgerScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 import { SavingsScreen } from '../screens/SavingsScreen';
 import { FaqScreen } from '../screens/FaqScreen';
@@ -240,6 +241,7 @@ export function AppNavigation({
         <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />
         <Stack.Screen name="AddEditCategory" component={AddEditCategoryScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="Ledger" component={LedgerScreen} />
         <Stack.Screen name="Savings" component={GuardedSavingsStackScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Faq" component={FaqScreen} />

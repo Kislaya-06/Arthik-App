@@ -161,8 +161,8 @@ export function getDateOwner(changes: BudgetPlanChange[], dateStr: string): Date
  * - 'cadence_switch' -> tomorrow, EXCEPT when today's owner is 'paused' (first enable/re-enable) -> today
  * - 'weekly_amount'  -> next Monday
  * - 'monthly_amount' -> next 1st of month
- * - 'disable'        -> today
- * - 'enable'         -> today
+ * - 'disable'        -> tomorrow (protects running-day budget & Gullak savings), except fresh onboarding (today)
+ * - 'enable'         -> tomorrow (user sets fresh budget), except fresh onboarding (today)
  */
 export function computeEffectiveFrom(
   kind: EffectiveFromKind,
@@ -172,7 +172,13 @@ export function computeEffectiveFrom(
   const d = parseISO(todayStr);
 
   if (kind === 'disable' || kind === 'enable') {
-    return todayStr;
+    // Fresh user without any prior plan history starts immediately today.
+    // Existing users toggle modes for the NEXT day so today's running budget and savings complete normally.
+    const hasHistory = context?.changes && context.changes.length > 0;
+    if (!hasHistory) {
+      return todayStr;
+    }
+    return format(addDays(d, 1), 'yyyy-MM-dd');
   }
 
   if (kind === 'cadence_switch') {

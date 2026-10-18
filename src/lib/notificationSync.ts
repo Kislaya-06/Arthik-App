@@ -21,6 +21,7 @@ import {
   buildNotificationPlan,
 } from './notificationPolicy';
 import { makeIncomeClassifier } from './incomeClassifier';
+import { isExcludedFromTotals } from './transactionUtils';
 import { computeSpentByDate } from './budgetCalculations';
 import {
   NOTIFICATIONS_ENABLED_KEY,
@@ -170,7 +171,7 @@ export function buildPlanContext(now: Date): PlanContext {
     }
     if (d === todayStr || enteredToday) loggedToday = true;
 
-    if (isIncome(e) || e.transaction_class === 'self_transfer') continue;
+    if (isIncome(e) || isExcludedFromTotals(e)) continue;
     const amount = Number(e.amount) || 0;
     const name = (e.category_id && catMap.get(e.category_id)?.name) || 'Other';
     const add = (b: Bucket) => {

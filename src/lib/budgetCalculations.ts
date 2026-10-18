@@ -1,6 +1,7 @@
 import { format, subDays, parseISO, differenceInCalendarDays, addDays } from 'date-fns';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { round2 } from './formatters';
+import { isExcludedFromTotals } from './transactionUtils';
 
 export interface DailyRecord {
   date: string; // 'yyyy-MM-dd'
@@ -231,8 +232,8 @@ export const extractNonIncomeExpense = <T extends ExpenseItem>(
   expense: T,
   isIncomeFn: (expense: T) => boolean
 ): NonIncomeExpenseEntry | null => {
-  // Self-transfers (either leg) are never money spent (TXN-003).
-  if (expense.transaction_class === 'self_transfer') return null;
+  // Self-transfers and recoveries are never money spent (TXN-003, SPL-003).
+  if (isExcludedFromTotals(expense)) return null;
   const isIncome = isIncomeFn(expense);
   const cleanDate = expense.expense_date?.split('T')[0]?.trim();
   if (!isIncome && cleanDate) {

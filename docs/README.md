@@ -63,15 +63,16 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
 | [0012](adr/0012-one-budget-per-calendar-period.md) | One Budget per Calendar Period, and Pure Mode Keeps the Same Books | Active |
 | [0013](adr/0013-store-module-split.md) | Store Helper Decomposition and Module Encapsulation | Active |
-| [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 Implementation Status | Active |
+| [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 Implementation Status | Active (split part superseded by 0016) |
 | [0015](adr/0015-ui-thread-reanimated-worklet-migration-and-render-optimizations.md) | UI-Thread Reanimated Worklet Migration and Render Optimizations | Active |
+| [0016](adr/0016-split-expenses-and-money-back.md) | Split Expenses, Money Back and Refunds | Active |
 
 ---
 
 ## 3. How to Add a New ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0015` (i.e. `0016`).
+2. Next available number after `0016` (i.e. `0017`).
 3. Standard sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the new ADR supersedes an older one, mark `## Status: Superseded by NNNN` in the old ADR.
 5. Register the new ADR in the table above and in `docs/architecture.md §13`.

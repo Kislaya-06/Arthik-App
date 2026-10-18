@@ -19,13 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Monthly Card Deficit Rule & Gullak Breakdown 📊✨',
+    title: ota?.title || 'Split Expenses & Money Back 🤝',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          'Accurate Monthly Remaining: Deficit shows only when both budget and income are used up; unspent income now correctly shows as Remaining',
-          'Realistic Income Chips: No more artificial ₹0 chips; displays real unspent income alongside period spending',
-          'Drawn from Gullak: Live calculation accurately tracks funds drawn from savings to cover budget overspends',
+          'Split an expense with a friend and see exactly what they owe you',
+          'When a friend pays you back, it is no longer counted as income',
+          'Refunds go back to the expense they belong to',
+          'New Ledger button on Home: see who owes you, what was paid back and what is settled',
+          'Tap the Home card for a full breakdown of budget, money in and Gullak',
         ],
   };
 };

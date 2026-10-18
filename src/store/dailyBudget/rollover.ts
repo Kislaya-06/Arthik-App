@@ -21,13 +21,16 @@ import type { DailyRecord } from '../../lib/budgetCalculations';
 import type { BudgetPeriodRecord } from '../../types';
 import type { Expense } from '../expense/types';
 import type { DailyBudgetState } from './types';
-import { savePendingBudgetPeriodOffline } from './pendingStorage';
+import {
+  savePendingBudgetPeriodOffline,
+} from './pendingStorage';
 import { areExpensesLoaded } from './expenseBridge';
 import {
   getUserCreatedAtLocalDate,
   isDailyOwnedDate,
   dailyCarryExtraFor,
 } from './metrics';
+import { balancePureDeficitIfNeeded } from './planActions';
 
 export interface FinalizeDailyRecordsContext {
   get: () => DailyBudgetState;
@@ -67,6 +70,53 @@ export function applyScheduledNextDayBudget(
       notifyBudgetUpdated(`scheduled_budget_${todayStr}`, scheduled, todayStr);
     }
   }
+}
+
+export function applyScheduledPlanChanges(
+  get: () => DailyBudgetState,
+  set: (partial: Partial<DailyBudgetState> | ((state: DailyBudgetState) => Partial<DailyBudgetState>)) => void,
+  todayStr: string
+): boolean {
+  // A scheduled plan change takes effect on its effectiveFrom date, or if it matured recently (e.g. yesterday during rollover)
+  const yesterdayStr = format(subDays(new Date(`${todayStr}T12:00:00`), 1), 'yyyy-MM-dd');
+  const planStartingToday = (get().planChanges || []).find(
+    (c) => c.effectiveFrom === todayStr || c.effectiveFrom === yesterdayStr
+  );
+  if (planStartingToday) {
+    const isModeDiff = get().isBudgetModeEnabled !== planStartingToday.isEnabled;
+    const isCadenceDiff = planStartingToday.isEnabled && get().budgetCadence !== planStartingToday.cadence;
+    const isAmountDiff =
+      planStartingToday.isEnabled &&
+      planStartingToday.amount > 0 &&
+      (planStartingToday.cadence === 'daily'
+        ? get().dailyBudgetAmount !== planStartingToday.amount
+        : planStartingToday.cadence === 'weekly'
+        ? get().weeklyBudgetAmount !== planStartingToday.amount
+        : get().monthlyBudgetAmount !== planStartingToday.amount);
+
+    if (isModeDiff || isCadenceDiff || isAmountDiff) {
+      if (planStartingToday.isEnabled && !get().isBudgetModeEnabled) {
+        balancePureDeficitIfNeeded(get, todayStr);
+      }
+      const amountPatch =
+        planStartingToday.isEnabled && planStartingToday.amount > 0
+          ? planStartingToday.cadence === 'daily'
+            ? { dailyBudgetAmount: planStartingToday.amount }
+            : planStartingToday.cadence === 'weekly'
+            ? { weeklyBudgetAmount: planStartingToday.amount }
+            : { monthlyBudgetAmount: planStartingToday.amount }
+          : {};
+
+      set({
+        isBudgetModeEnabled: planStartingToday.isEnabled,
+        isAutoRenew: planStartingToday.isEnabled ? get().isAutoRenew : false,
+        budgetCadence: planStartingToday.isEnabled ? planStartingToday.cadence : get().budgetCadence,
+        ...amountPatch,
+      });
+      return true;
+    }
+  }
+  return false;
 }
 
 export function groupSpentByDate(

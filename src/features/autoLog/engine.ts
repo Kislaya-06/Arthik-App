@@ -14,7 +14,7 @@ import {
   isSameSourceDuplicate,
 } from './matching';
 import * as db from './db';
-import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor, isExceedingVaultLiquidity } from './ledger';
+import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor, isExceedingVaultLiquidity, moneyBackQuestionFor } from './ledger';
 import { notifyLogged, notifyNeedsReview } from './notify';
 import type { AutoLogEvent, EventOrigin, EventStatus, ParsedMessage, ReviewReason } from './types';
 
@@ -207,7 +207,10 @@ export const logEvent = async (
   e.status = created ? 'logged' : 'queued';
   e.direction = type === 'income' ? 'credit' : 'debit';
   e.reviewReason = null;
-  if (created && opts.notify) await notifyLogged(e.id, e.amount, e.merchant, id, type === 'income');
+  if (created && opts.notify) {
+    const question = type === 'income' ? moneyBackQuestionFor(e.amount, e.merchant) : null;
+    await notifyLogged(e.id, e.amount, e.merchant, id, type === 'income', question);
+  }
 };
 
 // ─── SMS ────────────────────────────────────────────────────────────────────

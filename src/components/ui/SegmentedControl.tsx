@@ -1,16 +1,22 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  Animated,
-  Easing,
   ViewStyle,
   StyleProp,
   LayoutChangeEvent,
-  useAnimatedValue,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  Easing,
+  cancelAnimation,
+} from 'react-native-reanimated';
 import { useTheme } from '../../store/themeStore';
 import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight } from '../../config/theme';
 
@@ -50,7 +56,7 @@ interface OptionItemProps {
   totalOptions?: number;
 }
 
-const OptionItem: React.FC<OptionItemProps> = ({
+const OptionItem: React.FC<OptionItemProps> = React.memo(({
   option,
   isSelected,
   onPress,
@@ -62,21 +68,18 @@ const OptionItem: React.FC<OptionItemProps> = ({
   totalOptions = 1,
 }) => {
   const { colors } = useTheme();
-  const pressScale = useAnimatedValue(1);
+  const pressScale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
 
   const handlePressIn = () => {
-    Animated.spring(pressScale, {
-      toValue: 0.94,
-      useNativeDriver: true,
-    }).start();
+    pressScale.value = withSpring(0.94, { damping: 12, stiffness: 200 });
   };
 
   const handlePressOut = () => {
-    Animated.spring(pressScale, {
-      toValue: 1,
-      friction: 4,
-      useNativeDriver: true,
-    }).start();
+    pressScale.value = withSpring(1, { damping: 12, stiffness: 200 });
   };
 
   const IconComponent = option.icon;
@@ -103,7 +106,7 @@ const OptionItem: React.FC<OptionItemProps> = ({
       <Animated.View
         style={[
           styles.optionContent,
-          { transform: [{ scale: pressScale }] },
+          animStyle,
         ]}
       >
         {option.badge ? (
@@ -135,15 +138,16 @@ const OptionItem: React.FC<OptionItemProps> = ({
       </Animated.View>
     </Pressable>
   );
-};
+});
 
 /**
  * Standardized SegmentedControl primitive for Arthik.
- * Implements Apple Design WWDC Dual-Edge Liquid Morph animation:
- * - Critically damped primary slide spring (zero overshoot outside bounds)
- * - Direction-aware leading edge stretch & vertical volume squish
+ * Implements Apple Design WWDC Dual-Edge Liquid Morph animation on Native UI Thread:
+ * - Critically damped primary slide spring (zero overshoot outside bounds, stiffness: 447.4, damping: 49)
+ * - Direction-aware leading edge stretch & vertical volume squish (stiffness: 664.6, damping: 49)
+ * - Immediate Frame 0 touch-driven dispatch with React.startTransition decoupling
  * - Strict track clipping (overflow: 'hidden') keeping the pill inside the container
- * - Per-item press scale (0.94)
+ * - Per-item Reanimated press scale (0.94)
  */
 export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   options,
@@ -173,10 +177,10 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   );
 
   const [containerWidth, setContainerWidth] = React.useState(0);
-  const slideAnim = useAnimatedValue(0);
-  const stretchAnim = useAnimatedValue(1);
-  const squishAnim = useAnimatedValue(1);
-  const leadAnim = useAnimatedValue(0);
+  const slideAnim = useSharedValue(0);
+  const stretchAnim = useSharedValue(1);
+  const squishAnim = useSharedValue(1);
+  const leadAnim = useSharedValue(0);
   const isFirstLayout = useRef(true);
   const prevIndexRef = useRef(selectedIndex);
 
@@ -186,89 +190,92 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
       ? (containerWidth - trackInset * 2) / normalizedOptions.length
       : 0;
 
+  const animateTo = useCallback((targetIndex: number, oldIndex: number, optWidth: number) => {
+    if (optWidth <= 0) return;
+    const targetX = targetIndex * optWidth;
+    const distance = Math.abs(targetIndex - oldIndex);
+    const direction = targetIndex > oldIndex ? 1 : -1;
+    prevIndexRef.current = targetIndex;
+
+    cancelAnimation(slideAnim);
+    // 1. Primary slide: Apple-calibrated critically damped spring on native UI thread (stiffness: 447.4, damping: 49)
+    slideAnim.value = withSpring(targetX, {
+      stiffness: 447.4,
+      damping: 49,
+      mass: 1,
+    });
+
+    // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
+    if (distance > 0) {
+      const maxStretch = Math.min(1.14, 1 + distance * 0.05);
+      const minSquish = Math.max(0.95, 1 - distance * 0.02);
+      const maxLead = Math.min(6, distance * 2) * direction;
+      const launchDuration = Math.min(95, 50 + distance * 15);
+
+      cancelAnimation(stretchAnim);
+      cancelAnimation(squishAnim);
+      cancelAnimation(leadAnim);
+
+      stretchAnim.value = withSequence(
+        withTiming(maxStretch, {
+          duration: launchDuration,
+          easing: Easing.out(Easing.quad),
+        }),
+        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
+      );
+
+      squishAnim.value = withSequence(
+        withTiming(minSquish, {
+          duration: launchDuration,
+          easing: Easing.out(Easing.quad),
+        }),
+        withSpring(1, { stiffness: 664.6, damping: 49, mass: 1 })
+      );
+
+      leadAnim.value = withSequence(
+        withTiming(maxLead, {
+          duration: launchDuration,
+          easing: Easing.out(Easing.quad),
+        }),
+        withSpring(0, { stiffness: 664.6, damping: 49, mass: 1 })
+      );
+    }
+  }, [slideAnim, stretchAnim, squishAnim, leadAnim]);
+
+  // Synchronous touch-driven selection: Starts animation on UI thread on Frame 0
+  const handleSelect = useCallback((key: string, idx: number) => {
+    if (idx !== prevIndexRef.current && optionWidth > 0) {
+      animateTo(idx, prevIndexRef.current, optionWidth);
+    }
+    // Decouple UI-thread spring motion from heavy parent screen recalculations
+    if (typeof React.startTransition === 'function') {
+      React.startTransition(() => {
+        onChange(key);
+      });
+    } else {
+      onChange(key);
+    }
+  }, [animateTo, onChange, optionWidth]);
+
   useEffect(() => {
     if (optionWidth > 0) {
       const targetX = selectedIndex * optionWidth;
-      const distance = Math.abs(selectedIndex - prevIndexRef.current);
-      const direction = selectedIndex > prevIndexRef.current ? 1 : -1;
-      prevIndexRef.current = selectedIndex;
 
       if (isFirstLayout.current) {
-        slideAnim.setValue(targetX);
-        stretchAnim.setValue(1);
-        squishAnim.setValue(1);
-        leadAnim.setValue(0);
+        slideAnim.value = targetX;
+        stretchAnim.value = 1;
+        squishAnim.value = 1;
+        leadAnim.value = 0;
         isFirstLayout.current = false;
+        prevIndexRef.current = selectedIndex;
         return;
       }
 
-      // 1. Primary slide: Apple-calibrated critically damped spring (zero overshoot)
-      slideAnim.stopAnimation();
-      Animated.spring(slideAnim, {
-        toValue: targetX,
-        tension: 100,
-        friction: 16,
-        useNativeDriver: true,
-      }).start();
-
-      // 2. Dual-Edge Liquid Morph: subtle leading edge stretch & vertical volume squish
-      if (distance > 0) {
-        const maxStretch = Math.min(1.14, 1 + distance * 0.05);
-        const minSquish = Math.max(0.95, 1 - distance * 0.02);
-        const maxLead = Math.min(6, distance * 2) * direction;
-        const launchDuration = Math.min(95, 50 + distance * 15);
-
-        stretchAnim.stopAnimation();
-        squishAnim.stopAnimation();
-        leadAnim.stopAnimation();
-
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(stretchAnim, {
-              toValue: maxStretch,
-              duration: launchDuration,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-            Animated.spring(stretchAnim, {
-              toValue: 1,
-              tension: 160,
-              friction: 16,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(squishAnim, {
-              toValue: minSquish,
-              duration: launchDuration,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-            Animated.spring(squishAnim, {
-              toValue: 1,
-              tension: 160,
-              friction: 16,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(leadAnim, {
-              toValue: maxLead,
-              duration: launchDuration,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-            Animated.spring(leadAnim, {
-              toValue: 0,
-              tension: 160,
-              friction: 16,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]).start();
+      if (prevIndexRef.current !== selectedIndex) {
+        animateTo(selectedIndex, prevIndexRef.current, optionWidth);
       }
     }
-  }, [selectedIndex, optionWidth, slideAnim, stretchAnim, squishAnim, leadAnim]);
+  }, [selectedIndex, optionWidth, animateTo, slideAnim, stretchAnim, squishAnim, leadAnim]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
@@ -277,7 +284,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
       if (!isFirstLayout.current && normalizedOptions.length > 0) {
         const inset = Spacing.micro + 1;
         const newOptWidth = (width - inset * 2) / normalizedOptions.length;
-        slideAnim.setValue(selectedIndex * newOptWidth);
+        slideAnim.value = selectedIndex * newOptWidth;
       }
     }
   };
@@ -287,6 +294,16 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   const resolvedPillBg = activePillColor ?? colors.mintGreen;
   const resolvedActiveText = activeTextColor ?? colors.forestGreen;
   const resolvedInactiveText = inactiveTextColor ?? colors.textSecondary;
+
+  const animatedHighlightStyle = useAnimatedStyle(() => ({
+    width: optionWidth,
+    transform: [
+      { translateX: slideAnim.value },
+      { translateX: leadAnim.value },
+      { scaleX: stretchAnim.value },
+      { scaleY: squishAnim.value },
+    ],
+  }));
 
   return (
     <View
@@ -319,14 +336,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             pointerEvents="none"
             style={[
               styles.sliderPill,
+              animatedHighlightStyle,
               {
-                width: optionWidth,
-                transform: [
-                  { translateX: slideAnim },
-                  { translateX: leadAnim },
-                  { scaleX: stretchAnim },
-                  { scaleY: squishAnim },
-                ],
                 backgroundColor: resolvedPillBg,
                 borderRadius: Math.max(4, borderRadius - 2),
               },
@@ -342,7 +353,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             key={option.key}
             option={option}
             isSelected={option.key === selectedKey}
-            onPress={() => onChange(option.key)}
+            onPress={() => handleSelect(option.key, idx)}
             activeColor={resolvedActiveText}
             inactiveColor={resolvedInactiveText}
             fontSize={fontSize}

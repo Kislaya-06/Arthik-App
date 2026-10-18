@@ -115,6 +115,30 @@ describe('HistoryScreen virtualization: initial batch and batch size parity', ()
   it('SectionList preserves windowSize 21 for smooth bidirectional scrolling', () => {
     expect(historySrc).toMatch(/windowSize=\{21\}/);
   });
+
+  it('SectionList uses progressive section pagination bounding initial mount to 7 sections with onEndReached stream', () => {
+    expect(historySrc).toMatch(/INITIAL_SECTION_COUNT\s*=\s*7/);
+    expect(historySrc).toMatch(/sections=\{displayedSections\}/);
+    expect(historySrc).toMatch(/onEndReached=\{handleEndReached\}/);
+    expect(historySrc).toMatch(/onEndReachedThreshold=\{0\.6\}/);
+  });
+});
+
+describe('SegmentedControl & BouncyCategoryFilter: Reanimated UI-thread worklet parity', () => {
+  const segSrc = read('src/components/ui/SegmentedControl.tsx');
+  const catSrc = read('src/components/BouncyCategoryFilter.tsx');
+
+  it('SegmentedControl runs on react-native-reanimated with Apple critically damped springs', () => {
+    expect(segSrc).toMatch(/from 'react-native-reanimated'/);
+    expect(segSrc).toMatch(/useSharedValue/);
+    expect(segSrc).toMatch(/stiffness:\s*447\.4/);
+    expect(segSrc).toMatch(/damping:\s*49/);
+  });
+
+  it('SegmentedControl and BouncyCategoryFilter decouple UI touch from React state via startTransition', () => {
+    expect(segSrc).toMatch(/React\.startTransition/);
+    expect(catSrc).toMatch(/React\.startTransition/);
+  });
 });
 
 
