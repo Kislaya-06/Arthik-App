@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Check, ShieldCheck } from 'lucide-react-native';
+import { Check, ShieldCheck, Users, CircleOff } from 'lucide-react-native';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AppButton } from '../ui/AppButton';
 import { SegmentedControl, SegmentedOption } from '../ui/SegmentedControl';
@@ -46,6 +46,8 @@ const TYPE_OPTIONS: SegmentedOption[] = [
   { key: 'income', label: '💰 Income' },
 ];
 
+const GRID_GAP = 10;
+
 export const ReviewSheet: React.FC<Props> = ({
   visible,
   event,
@@ -55,6 +57,7 @@ export const ReviewSheet: React.FC<Props> = ({
   onDone,
 }) => {
   const { colors, isDark } = useTheme();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const categories = useCategoryStore((s) => s.categories);
 
   const [type, setType] = useState<'expense' | 'income'>('expense');
@@ -65,6 +68,11 @@ export const ReviewSheet: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
+
+  // Sizing calculations for fintech-grade 2-column grid and screen-elevated sheet
+  const availableWidth = Math.max(windowWidth - Spacing.gutter * 2, 280);
+  const chipWidth = Math.floor((availableWidth - GRID_GAP) / 2);
+  const sheetHeight = Math.min(Math.round(windowHeight * 0.86), 740);
 
   useEffect(() => {
     if (visible && event) {
@@ -215,7 +223,7 @@ export const ReviewSheet: React.FC<Props> = ({
 
   // ── Summary card ──
   const summary = (
-    <View style={[styles.summary, { backgroundColor: colors.cardSubtle }]}>
+    <View style={[styles.summary, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle, borderWidth: isDark ? 1 : 0 }]}>
       <View style={styles.summaryTopRow}>
         <Text style={[styles.amount, { color: colors.textPrimary }]}>{money(amount)}</Text>
         {discovery ? (
@@ -234,7 +242,7 @@ export const ReviewSheet: React.FC<Props> = ({
         ].filter(Boolean).join(' · ')}
       </Text>
       {event.body ? (
-        <View style={[styles.quoteBox, { backgroundColor: colors.background }]}>
+        <View style={[styles.quoteBox, { backgroundColor: colors.background, borderColor: colors.borderSubtle, borderWidth: isDark ? 1 : 0 }]}>
           <Text style={[styles.quoteText, { color: colors.textSecondary }]} numberOfLines={2}>
             {event.body}
           </Text>
@@ -285,7 +293,12 @@ export const ReviewSheet: React.FC<Props> = ({
   } else {
     // ── Unified 1-page concise review content ──
     content = (
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.mainScroll}
+        contentContainerStyle={styles.mainScrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {summary}
 
         {needsAmount && !discovery ? (
@@ -329,23 +342,49 @@ export const ReviewSheet: React.FC<Props> = ({
             <Text style={[styles.label, { color: colors.textSecondary }]}>CATEGORY</Text>
             {chosenCategory ? <Text style={[styles.chosenLabel, { color: colors.mintGreenDark }]}>{chosenCategory.name}</Text> : null}
           </View>
-          <ScrollView style={styles.categoryScroll} nestedScrollEnabled showsVerticalScrollIndicator={false} contentContainerStyle={styles.categoryChipsWrap}>
+          <View style={styles.categoryChipsWrap}>
             {!categoryOnly ? (
               <Pressable
                 onPress={() => {
                   Haptics.selectionAsync().catch(() => {});
                   setCategoryId(null);
                 }}
-                style={[
+                style={({ pressed }) => [
                   styles.catChip,
                   {
-                    backgroundColor: categoryId === null ? (isDark ? 'rgba(184, 224, 200, 0.16)' : colors.mintGreenSoft) : colors.cardSubtle,
+                    width: chipWidth,
+                    backgroundColor: categoryId === null
+                      ? isDark
+                        ? 'rgba(184, 224, 200, 0.16)'
+                        : colors.mintGreenSoft
+                      : colors.cardSubtle,
                     borderColor: categoryId === null ? colors.mintGreenDark : colors.borderSubtle,
+                    borderWidth: categoryId === null ? 1.5 : 1,
                   },
+                  pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
                 ]}
               >
-                <Text style={[styles.catChipText, { color: categoryId === null ? colors.textPrimary : colors.textSecondary, fontFamily: categoryId === null ? FontFamily.bold : FontFamily.medium }]}>None</Text>
-                {categoryId === null ? <Check size={12} color={colors.mintGreenDark} strokeWidth={2.8} /> : null}
+                <View style={[styles.catIconBadge, { backgroundColor: isDark ? '#1F2937' : '#E2E8F0' }]}>
+                  <CircleOff size={14} color={categoryId === null ? colors.mintGreenDark : colors.textSecondary} strokeWidth={2.4} />
+                </View>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={[
+                    styles.catChipText,
+                    {
+                      color: categoryId === null ? colors.textPrimary : colors.textSecondary,
+                      fontFamily: categoryId === null ? FontFamily.bold : FontFamily.semibold,
+                    },
+                  ]}
+                >
+                  None
+                </Text>
+                {categoryId === null ? (
+                  <View style={styles.catCheckWrapper}>
+                    <Check size={13} color={colors.mintGreenDark} strokeWidth={2.8} />
+                  </View>
+                ) : null}
               </Pressable>
             ) : null}
 
@@ -359,23 +398,46 @@ export const ReviewSheet: React.FC<Props> = ({
                     Haptics.selectionAsync().catch(() => {});
                     setCategoryId(selected ? null : c.id);
                   }}
-                  style={[
+                  style={({ pressed }) => [
                     styles.catChip,
                     {
-                      backgroundColor: selected ? (isDark ? 'rgba(184, 224, 200, 0.16)' : colors.mintGreenSoft) : colors.cardSubtle,
+                      width: chipWidth,
+                      backgroundColor: selected
+                        ? isDark
+                          ? 'rgba(184, 224, 200, 0.16)'
+                          : colors.mintGreenSoft
+                        : colors.cardSubtle,
                       borderColor: selected ? colors.mintGreenDark : colors.borderSubtle,
+                      borderWidth: selected ? 1.5 : 1,
                     },
+                    pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
                   ]}
                 >
-                  <View style={[styles.catIconBadge, { backgroundColor: c.color }]}>
-                    <Icon size={12} color="#1A2B4C" />
+                  <View style={[styles.catIconBadge, { backgroundColor: c.color || colors.mintGreen }]}>
+                    <Icon size={14} color="#1A2B4C" strokeWidth={2.4} />
                   </View>
-                  <Text numberOfLines={1} style={[styles.catChipText, { color: selected ? colors.textPrimary : colors.textSecondary, fontFamily: selected ? FontFamily.bold : FontFamily.medium }]}>{c.name}</Text>
-                  {selected ? <Check size={12} color={colors.mintGreenDark} strokeWidth={2.8} /> : null}
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={[
+                      styles.catChipText,
+                      {
+                        color: selected ? colors.textPrimary : colors.textSecondary,
+                        fontFamily: selected ? FontFamily.bold : FontFamily.semibold,
+                      },
+                    ]}
+                  >
+                    {c.name}
+                  </Text>
+                  {selected ? (
+                    <View style={styles.catCheckWrapper}>
+                      <Check size={13} color={colors.mintGreenDark} strokeWidth={2.8} />
+                    </View>
+                  ) : null}
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
 
         <Pressable
@@ -383,7 +445,15 @@ export const ReviewSheet: React.FC<Props> = ({
             Haptics.selectionAsync().catch(() => {});
             setRemember((r) => !r);
           }}
-          style={[styles.rememberRow, { backgroundColor: colors.cardSubtle, borderColor: remember ? colors.mintGreenDark : colors.borderSubtle }]}
+          style={({ pressed }) => [
+            styles.rememberRow,
+            {
+              backgroundColor: colors.cardSubtle,
+              borderColor: remember ? colors.mintGreenDark : colors.borderSubtle,
+              borderWidth: remember ? 1.5 : 1,
+            },
+            pressed && { opacity: 0.8 },
+          ]}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: remember }}
         >
@@ -407,12 +477,13 @@ export const ReviewSheet: React.FC<Props> = ({
                   key={p.key}
                   disabled={busy}
                   onPress={() => settleWith(p.name)}
-                  style={[
+                  style={({ pressed }) => [
                     styles.owingRow,
                     {
                       borderColor: p.matched ? colors.mintGreenDark : colors.borderSubtle,
                       backgroundColor: p.matched ? (isDark ? 'rgba(184, 224, 200, 0.12)' : colors.mintGreenSoft) : colors.cardSubtle,
                     },
+                    pressed && { opacity: 0.75 },
                   ]}
                 >
                   <Text style={[styles.owingName, { color: colors.textPrimary }]}>{p.name}{p.matched ? ' · name matches' : ''}</Text>
@@ -427,7 +498,8 @@ export const ReviewSheet: React.FC<Props> = ({
           <AppButton
             label="Save and split with friends"
             variant="outline"
-            size="compact"
+            size="standard"
+            icon={<Users size={16} color={colors.textPrimary} />}
             disabled={busy}
             style={{ marginBottom: Spacing.group }}
             onPress={logAndSplit}
@@ -455,13 +527,23 @@ export const ReviewSheet: React.FC<Props> = ({
           onPress={handleSave}
         />
         <View style={styles.secondaryRow}>
-          <Pressable hitSlop={10} disabled={busy} onPress={handleIgnore} style={({ pressed }) => pressed && { opacity: 0.65 }}>
+          <Pressable
+            hitSlop={{ top: 8, bottom: 12, left: 12, right: 12 }}
+            disabled={busy}
+            onPress={handleIgnore}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.65 }]}
+          >
             <Text style={[styles.secondaryText, { color: colors.textSecondary }]}>
               {discovery ? 'Not a transaction — Ignore' : 'Not a transaction'}
             </Text>
           </Pressable>
-          <Text style={{ color: colors.border, fontSize: FontSize.caption }}>•</Text>
-          <Pressable hitSlop={10} disabled={busy} onPress={handleDiscard} style={({ pressed }) => pressed && { opacity: 0.65 }}>
+          <Text style={[styles.dotSeparator, { color: colors.border }]}>•</Text>
+          <Pressable
+            hitSlop={{ top: 8, bottom: 12, left: 12, right: 12 }}
+            disabled={busy}
+            onPress={handleDiscard}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.65 }]}
+          >
             <Text style={[styles.secondaryText, { color: colors.peachCoral }]}>
               {categoryOnly ? 'Delete transaction' : 'Discard review'}
             </Text>
@@ -479,6 +561,8 @@ export const ReviewSheet: React.FC<Props> = ({
       colors={colors}
       isDark={isDark}
       avoidKeyboard={needsAmount}
+      containerStyle={[styles.modalContainer, { height: sheetHeight }]}
+      contentStyle={styles.modalContent}
       footer={
         <View>
           {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
@@ -492,36 +576,208 @@ export const ReviewSheet: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  summary: { borderRadius: BorderRadius.input, padding: Spacing.block, marginBottom: Spacing.group },
-  summaryTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  amount: { fontSize: FontSize.titleLarge, lineHeight: LineHeight.titleLarge, fontFamily: FontFamily.bold },
-  discoveryBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.pill },
-  discoveryBadgeText: { fontSize: FontSize.micro, fontFamily: FontFamily.bold, letterSpacing: 0.5, textTransform: 'uppercase' },
-  meta: { fontSize: FontSize.body, fontFamily: FontFamily.bold, marginTop: Spacing.micro },
-  metaMuted: { fontSize: FontSize.caption, fontFamily: FontFamily.medium, marginTop: Spacing.micro },
-  quoteBox: { borderRadius: 10, paddingHorizontal: Spacing.element, paddingVertical: 6, marginTop: Spacing.element },
-  quoteText: { fontSize: FontSize.caption, lineHeight: LineHeight.caption + 2, fontFamily: FontFamily.medium, fontStyle: 'italic' },
-  section: { marginBottom: Spacing.group },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.micro },
-  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: Spacing.micro },
-  chosenLabel: { fontSize: FontSize.caption, fontFamily: FontFamily.bold },
-  categoryScroll: { maxHeight: 120 },
-  categoryChipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.element, paddingVertical: 2 },
-  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderWidth: 1.5, borderRadius: BorderRadius.pill },
-  catIconBadge: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  catChipText: { fontSize: FontSize.caption },
-  rememberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.group, padding: Spacing.group, borderWidth: 1.5, borderRadius: BorderRadius.input, marginBottom: Spacing.group },
-  rememberTitle: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.bold },
-  rememberSub: { fontSize: FontSize.caption, fontFamily: FontFamily.medium, marginTop: 2 },
-  owingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderRadius: BorderRadius.input, padding: Spacing.group },
-  owingName: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.bold, flex: 1 },
-  owingOwed: { fontSize: FontSize.caption, fontFamily: FontFamily.bold },
-  amountBox: { flexDirection: 'row', alignItems: 'center', borderRadius: BorderRadius.input, paddingHorizontal: Spacing.block, height: ControlHeight.standard },
-  rupee: { fontSize: FontSize.titleSmall, fontFamily: FontFamily.bold, marginRight: Spacing.element },
-  amountInput: { flex: 1, fontSize: FontSize.titleSmall, fontFamily: FontFamily.bold },
-  footerCol: { gap: Spacing.group },
-  secondaryRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: Spacing.group, paddingVertical: 4 },
-  secondaryText: { fontSize: FontSize.caption, fontFamily: FontFamily.semibold },
-  error: { fontSize: FontSize.caption, fontFamily: FontFamily.semibold, marginBottom: Spacing.micro, textAlign: 'center' },
-  text: { fontSize: FontSize.bodySmall, lineHeight: LineHeight.bodySmall + 2, fontFamily: FontFamily.medium, marginBottom: Spacing.element },
+  modalContainer: {
+    height: '86%',
+    maxHeight: '92%',
+  },
+  modalContent: {
+    flex: 1,
+  },
+  mainScroll: {
+    flex: 1,
+  },
+  mainScrollContent: {
+    paddingBottom: Spacing.block,
+  },
+  summary: {
+    borderRadius: BorderRadius.input,
+    padding: Spacing.block,
+    marginBottom: Spacing.group,
+  },
+  summaryTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  amount: {
+    fontSize: FontSize.titleLarge,
+    lineHeight: LineHeight.titleLarge,
+    fontFamily: FontFamily.bold,
+  },
+  discoveryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.pill,
+  },
+  discoveryBadgeText: {
+    fontSize: FontSize.micro,
+    fontFamily: FontFamily.bold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  meta: {
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
+    marginTop: Spacing.micro,
+  },
+  metaMuted: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
+    marginTop: Spacing.micro,
+  },
+  quoteBox: {
+    borderRadius: 10,
+    paddingHorizontal: Spacing.element,
+    paddingVertical: 6,
+    marginTop: Spacing.element,
+  },
+  quoteText: {
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption + 2,
+    fontFamily: FontFamily.medium,
+    fontStyle: 'italic',
+  },
+  section: {
+    marginBottom: Spacing.group,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.element,
+  },
+  label: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  chosenLabel: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
+  },
+  categoryChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+    paddingVertical: 2,
+  },
+  catChip: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.pill,
+  },
+  catIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  catChipText: {
+    flex: 1,
+    fontSize: 13.5,
+    includeFontPadding: false,
+  },
+  catCheckWrapper: {
+    marginLeft: 4,
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.group,
+    padding: Spacing.block,
+    borderRadius: BorderRadius.input,
+    marginBottom: Spacing.group,
+  },
+  rememberTitle: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
+    lineHeight: LineHeight.bodySmall,
+  },
+  rememberSub: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
+    lineHeight: LineHeight.caption + 2,
+    marginTop: 3,
+  },
+  owingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.input,
+    padding: Spacing.group,
+    minHeight: 48,
+  },
+  owingName: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
+    flex: 1,
+  },
+  owingOwed: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
+  },
+  amountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.block,
+    height: ControlHeight.standard,
+  },
+  rupee: {
+    fontSize: FontSize.titleSmall,
+    fontFamily: FontFamily.bold,
+    marginRight: Spacing.element,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: FontSize.titleSmall,
+    fontFamily: FontFamily.bold,
+  },
+  footerCol: {
+    gap: Spacing.group,
+  },
+  secondaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.block,
+    paddingTop: Spacing.element,
+    paddingBottom: Spacing.nano,
+  },
+  secondaryBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.element,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  secondaryText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.semibold,
+  },
+  dotSeparator: {
+    fontSize: FontSize.bodySmall,
+  },
+  error: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.semibold,
+    marginBottom: Spacing.micro,
+    textAlign: 'center',
+  },
+  text: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall + 2,
+    fontFamily: FontFamily.medium,
+    marginBottom: Spacing.element,
+  },
 });
+

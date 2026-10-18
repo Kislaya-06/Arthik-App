@@ -69,7 +69,8 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   }, [avoidKeyboard]);
   const keyboardOpen = avoidKeyboard && keyboardHeight > 0;
   const [isMounted, setIsMounted] = useState(visible);
-  const slideAnim = useAnimatedValue(500);
+  const initialSlide = Math.max(windowHeight || 800, 600);
+  const slideAnim = useAnimatedValue(initialSlide);
   const fadeAnim = useAnimatedValue(0);
   const isFirstRender = useRef(true);
   // Guards the close animation's completion callback: if `visible` flips back to true while the close animation is
@@ -107,7 +108,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
-          toValue: 500,
+          toValue: initialSlide,
           duration: 180,
           useNativeDriver: true,
         }),

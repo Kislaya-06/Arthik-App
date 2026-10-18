@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### UI/UX Polish — Fintech-Grade 2-Column Review Sheet Grid, Elevated Height & Sizing Balance (`ReviewSheet.tsx`, `BottomSheetModal.tsx`) — OTA-safe
+
+- **Fintech-Grade 2-Column Category Grid (`ReviewSheet.tsx`)**:
+  - Replaced erratic, variable-width `flexWrap` category pills with a mathematically balanced 2-column grid (`chipWidth = (availableWidth - 10) / 2`).
+  - Standardized every category chip to a uniform 48px height (`ControlHeight.standard` touch target), complete stadium pill radius (`BorderRadius.pill`), 28x28 round icon badges, and 13.5px semibold/bold typography.
+  - Active category selections render a crisp right-aligned checkmark with subtle tinted background and mint green outline without altering pill dimensions.
+  - "None" chip in full review mode shares the identical 48px × `chipWidth` dimensions with a clean `CircleOff` badge for seamless alignment.
+- **Elevated Bottom Sheet Height (`BottomSheetModal.tsx`, `ReviewSheet.tsx`)**:
+  - Elevated review pop-up height to ~86% of window height (`maxHeight: '92%'`), eliminating the cramped feeling and providing generous breathing room for summary cards, category pills, preference toggles, and actions.
+  - Replaced hardcoded 120px inner category scroll restriction with an unconstrained, fluid single-scroll layout that avoids nested scroll gesture traps on Android.
+  - Updated `BottomSheetModal` slide entrance and exit distance to use dynamic window height (`initialSlide`), ensuring tall sheets enter and exit completely off-screen with zero visual clipping.
+- **Balanced Button Hierarchy & Touch Targets**:
+  - Upgraded "Save and split with friends" from a flimsy 36px compact button to a substantial 48px standard button with a `Users` icon.
+  - Refined bottom secondary row ("Not a transaction" · "Delete transaction") with comfortable 36–38px touch targets, generous hit-slop, and 14px `bodySmall` typography.
+  - Generous 16px padding on "Remember preference" card prevents awkward text wrapping.
+
 ### Enhancement — Vault Spending Guard In-Sheet Top-Up, Keypad Preservation & Zero-Spend Immediate Budget Adjustments — OTA-safe
 
 - **Vault Spending Guard In-Sheet Top-Up & Save (`VaultSpendingGuardModal.tsx`, `SEC-001`)**: In Budget Mode, when account balance is exhausted (₹0) and an expense is attempted, the spending guard modal now provides an inline "Add Money & Save Expense" workflow directly within the bottom sheet:
