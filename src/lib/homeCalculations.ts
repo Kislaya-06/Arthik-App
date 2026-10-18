@@ -566,6 +566,12 @@ export function buildHeroSubtextChips(input: {
     const isIncomeChip = lower.includes('income');
     const isGullakChip = lower.includes('gullak');
 
+    // When income is exhausted (e.g. "+₹0 income") and money was drawn from Gullak,
+    // do NOT display an invented "+₹0 income" chip — promote Gullak spending to its own standalone chip.
+    if (lower.includes('₹0 income') && isSpendingFromGullak && gullakDrawnAmount > 0) {
+      return standalone();
+    }
+
     const showGullakSpending =
       (isIncomeChip && isSpendingFromGullak) || (!periodIncome && isGullakChip && isSpendingFromGullak);
 
@@ -573,7 +579,7 @@ export function buildHeroSubtextChips(input: {
     return { id: `${index}_${text}`, text, badgeText, approxSize: text.length + (badgeText ? badgeText.length + 6 : 0) };
   });
 
-  if (isSpendingFromGullak && gullakDrawnAmount > 0 && !items.some((i) => i.badgeText)) items.push(standalone());
+  if (isSpendingFromGullak && gullakDrawnAmount > 0 && !items.some((i) => i.badgeText || i.id === 'gullak_only')) items.push(standalone());
 
   items.sort((a, b) => a.approxSize - b.approxSize);
   return items;

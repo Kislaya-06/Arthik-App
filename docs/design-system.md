@@ -172,26 +172,36 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - Vertical odometer-style digit rolling animations on amount updates and screen focus across Home, Savings, and Insights.
 7. **`<BouncyCategoryFilter />`**:
    - Horizontal category filter pill bar for `HistoryScreen`.
-   - UI-thread `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withSpring`, `withTiming`, `withSequence`, `cancelAnimation`).
-   - Apple-calibrated critically damped spring slide (`stiffness: 447.4, damping: 49`) and dual-edge liquid morph (`stiffness: 664.6, damping: 49`).
+   - UI-thread `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withSpring`, `cancelAnimation`).
+   - Hardware-accelerated transform-only animation (`transform: [{ translateX: pillX.value }]`, static `left: 0`), preventing per-frame Android native relayout passes.
+   - Apple-calibrated critically damped spring slide (`stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`) preserving pure stadium pill geometry (`BorderRadius.pill`) with zero scale distortion.
    - Synchronous touch-driven dispatch (`handleSelect` launches animation immediately on touch before `onChange` state updates).
    - Zero-shift typography architecture: invisible bold placeholder (`hiddenPlaceholder` with `opacity: 0`, `FontFamily.bold`) locks tab width across medium/bold active weight transitions.
    - Fixed outer container height `ControlHeight.standard` (`48px`), stadium pill geometry (`BorderRadius.pill`), with clipping `overflow: 'hidden'` preserving rounded ends.
 
-### Home Card Details Sheet
-`HeroDetailsSheet` is a `BottomSheetModal` with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens. The Home card is a `Pressable` and keeps exactly one chip.
+### Home Card Details Sheet & Hero Card Geometry (`BrandedHeroCard`)
+- `HeroDetailsSheet` is a `BottomSheetModal` with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens. The Home card is a `Pressable` and keeps exactly one primary chip.
+- **Hero Card Subtext Chips Boundary Enclosure**: In `BrandedHeroCard`, `subtextContainer` is nested inside `topSection`, sharing the exact `paddingRight: podSize + GAP + 6` constraint to prevent chips from protruding into the top-right circular chart pod and SVG socket cutout.
+- **Fintech Gullak Alert Badges**: When money is drawn from Gullak, it renders as a dedicated alert badge (`gullakSpendingBadge`) with a `PiggyBankCoinIcon`, bold red typography (`#DC2626`), and `maxWidth: '100%'` with text truncation protection. If remaining income is zero, redundant `+₹0 income` chips are discarded in favor of the standalone Gullak chip.
 
 ### Split & Money Back Components (`src/components/split/`)
 Built only from existing tokens and primitives (no new tokens): `SplitExtras` (switch row + name field + share field + suggestion pills, same anatomy as `TransferExtras`), `MoneyBackExtras` (mode pills + person / expense option rows), `MoneyBackSheet` (`BottomSheetModal` with `AppButton` footer), `SplitDetailCard` (detail-screen card, `BorderRadius.card`, `Spacing.surface`). Pills use `BorderRadius.pill`; the active pill uses `colors.mintGreen` with `colors.forestGreen` text.
+
+### AutoLog Review Sheet Specifications (`src/components/autolog/ReviewSheet.tsx`)
+- **Compact Split-Row Receipt Card**: Top summary card employs a balanced split row (`summarySplitRow`): large amount (26px, `FontFamily.bold`) and merchant title on the left; compact account pill (`accountPill`, `BorderRadius.pill`) and date/source on the right. Raw SMS text is condensed into a 1-line italic quote box (`summaryQuoteBox`), eliminating 30% vertical height and right-side void space.
+- **Horizontal Category Chip Scroll with Edge Fades**: Matches `ExpenseFormScreen.tsx` with horizontal chip scrolling (`categoryList`), left/right SVG LinearGradient edge faders (`reviewCategoryFadeLeft`, `reviewCategoryFadeRight`), animated scale press feedback, and category SVG gradient fills (`getCategoryChipGradient`). Includes a standardized "None" chip with `CircleOff` icon in full review mode.
+- **Uniform 48px Stadium Pills**: "Remember preference", "Mark as Self Transfer", and "Save and split with friends" strictly share uniform 48px stadium pill height (`ControlHeight.standard`, `BorderRadius.pill`).
+- **Self Transfer Action & Invariant**: "Mark as Self Transfer" confirms and purges any pre-logged expense, updates status to `'transfer'`, registers the transfer rule in `self_transfer_rules`, and persists merchant preference to automatically route future transfers as non-expenses.
+- **Bottom Action Hierarchy**: 52px primary Save CTA with comfortable 38px touch targets for secondary actions ("Not a transaction" · "Delete transaction" / "Discard review").
 
 ---
 
 ## 10. Animation & Motion Physics
 
-- **Apple WWDC-Calibrated Springs:** Primary sliding elements use critically damped springs (`tension: 100, friction: 16`, zero overshoot; Reanimated worklet equivalent `stiffness: 447.4, damping: 49, mass: 1`).
-- **Dual-Edge Liquid Morph Animation:** Sliding filter pills use direction-aware stretch (`scaleX: 1.08–1.28`, `maxStretch = 1 + distance * 0.05`), vertical squish (`scaleY: 0.96–0.88`, `minSquish = 1 - distance * 0.02`), and leading-edge translation (`maxLead = distance * 2 * direction`) during flight, snapping into resting stadium geometry upon arrival (`stiffness: 664.6, damping: 49, mass: 1`).
+- **Apple WWDC-Calibrated Springs:** Primary sliding elements use critically damped springs (`tension: 100, friction: 16`, zero overshoot; Reanimated worklet equivalent `stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`).
+- **Hardware-Accelerated Transform Sliding:** Sliding highlight pills animate exclusively via `translateX` (anchored at `left: 0`) and width, avoiding layout properties (`left`, `top`, `margin`) to guarantee 60/120fps motion without native Yoga relayout passes.
 - **Tactile Press Feedback:** Interactive items scale to `0.93–0.94` on `onPressIn`, springing back with `friction: 4` (`damping: 12, stiffness: 200`) on `onPressOut`, accompanied by light haptics (`expo-haptics`).
-- **Reduced Motion:** When `useReduceMotion()` is true, disable morphing and infinite ambient light animations.
+- **Reduced Motion:** When `useReduceMotion()` is true, disable animations and use immediate snapping.
 
 ---
 

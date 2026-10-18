@@ -376,7 +376,7 @@ export const getMerchantPref = async (merchant: string | null) => {
   );
 };
 
-export const setMerchantPref = async (merchant: string, categoryId: string | null, type: 'expense' | 'income' | null) => {
+export const setMerchantPref = async (merchant: string, categoryId: string | null, type: 'expense' | 'income' | 'transfer' | null) => {
   await requireDb().runAsync(
     `INSERT INTO merchant_prefs (merchant, category_id, type, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(merchant) DO UPDATE SET category_id = COALESCE(excluded.category_id, category_id), type = COALESCE(excluded.type, type), updated_at = excluded.updated_at`,

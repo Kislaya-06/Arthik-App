@@ -24,6 +24,14 @@ import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors
 const PILL_PADDING = 4; // inset between outer pill edge and sliding highlight
 const TOGGLE_HEIGHT = ControlHeight.standard;
 
+/** Apple-calibrated critically damped spring — runs entirely on the native UI thread */
+const SLIDE_SPRING = {
+  stiffness: 447.4,
+  damping: 49,
+  mass: 1,
+  overshootClamping: true,
+} as const;
+
 export interface FilterOption {
   id: string | null;
   name: string;
@@ -138,17 +146,17 @@ const FilterItem = React.memo<FilterItemProps>(({
 export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChange }) => {
   const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
 
   // Content-space x + width for each option, keyed by id ?? 'all'
   const [layouts, setLayouts] = useState<Record<string, { x: number; width: number }>>({});
 
-  // UI-thread Reanimated shared values for sliding highlight
-  const pillLeft = useSharedValue(PILL_PADDING);
+  // UI-thread Reanimated shared values — TRANSFORM-ONLY (no layout properties animated)
+  const pillX = useSharedValue(PILL_PADDING);   // drives translateX (not `left`) → zero native relayout
   const pillWidth = useSharedValue(0);
-  const stretchAnim = useSharedValue(1);
-  const squishAnim = useSharedValue(1);
-  const leadAnim = useSharedValue(0);
+
+  // Ref mirrors for stable callback access (avoids re-creating animateTo on every layout change)
+  const layoutsRef = useRef<Record<string, { x: number; width: number }>>({});
+  const containerWidthRef = useRef(0);
 
   // Track whether we've done the first no-animation snap
   const initialized = useRef(false);
@@ -159,56 +167,35 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
 
   // Smoothly center the active item in the ScrollView (Apple UX standard for horizontal chips)
   const centerCategory = useCallback((targetKey: string) => {
-    const targetLayout = layouts[targetKey];
-    if (!targetLayout || containerWidth <= 0) return;
-    const centerOffset = Math.max(
-      0,
-      targetLayout.x - containerWidth / 2 + targetLayout.width / 2
-    );
+    const targetLayout = layoutsRef.current[targetKey];
+    const cw = containerWidthRef.current;
+    if (!targetLayout || cw <= 0) return;
+    const centerOffset = Math.max(0, targetLayout.x - cw / 2 + targetLayout.width / 2);
     scrollRef.current?.scrollTo({ x: centerOffset, animated: true });
-  }, [containerWidth, layouts]);
+  }, []); // stable: reads from refs
 
-  const animateTo = useCallback((targetKey: string, _oldKey?: string | null) => {
-    const targetLayout = layouts[targetKey];
+  const animateTo = useCallback((targetKey: string) => {
+    const targetLayout = layoutsRef.current[targetKey];
     if (!targetLayout) return;
 
     prevKey.current = targetKey;
     lastActiveLayout.current = { x: targetLayout.x, width: targetLayout.width };
 
-    // 1. Primary slide: Apple-calibrated critically damped spring on native UI thread
-    // Exact physical equivalent of React Native Origami tension: 100, friction: 16
-    // stiffness = 447.4, damping = 49 (mass: 1)
-    cancelAnimation(pillLeft);
+    cancelAnimation(pillX);
     cancelAnimation(pillWidth);
-    cancelAnimation(stretchAnim);
-    cancelAnimation(squishAnim);
-    cancelAnimation(leadAnim);
 
-    pillLeft.value = withSpring(targetLayout.x, {
-      stiffness: 447.4,
-      damping: 49,
-      mass: 1,
-      overshootClamping: true,
-    });
-    pillWidth.value = withSpring(targetLayout.width, {
-      stiffness: 447.4,
-      damping: 49,
-      mass: 1,
-      overshootClamping: true,
-    });
-    stretchAnim.value = 1;
-    squishAnim.value = 1;
-    leadAnim.value = 0;
+    pillX.value = withSpring(targetLayout.x, SLIDE_SPRING);
+    pillWidth.value = withSpring(targetLayout.width, SLIDE_SPRING);
 
     centerCategory(targetKey);
-  }, [centerCategory, layouts, leadAnim, pillLeft, pillWidth, squishAnim, stretchAnim]);
+  }, [centerCategory, pillX, pillWidth]); // stable: shared values never change identity
 
   // Immediate touch-driven animation start on UI thread:
   const handleSelect = useCallback((id: string | null) => {
     Haptics.selectionAsync().catch(() => {});
     const targetKey = id ?? 'all';
-    if (targetKey !== prevKey.current && layouts[targetKey]) {
-      animateTo(targetKey, prevKey.current);
+    if (targetKey !== prevKey.current && layoutsRef.current[targetKey]) {
+      animateTo(targetKey);
     }
     // Decouple UI-thread spring motion from heavy SectionList dataset transition
     if (typeof React.startTransition === 'function') {
@@ -218,7 +205,7 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
     } else {
       onChange(id);
     }
-  }, [animateTo, layouts, onChange]);
+  }, [animateTo, onChange]);
 
   useEffect(() => {
     const activeLayout = layouts[activeKey];
@@ -229,18 +216,15 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
       initialized.current = true;
       prevKey.current = activeKey;
       lastActiveLayout.current = { x: activeLayout.x, width: activeLayout.width };
-      pillLeft.value = activeLayout.x;
+      pillX.value = activeLayout.x;
       pillWidth.value = activeLayout.width;
-      stretchAnim.value = 1;
-      squishAnim.value = 1;
-      leadAnim.value = 0;
       centerCategory(activeKey);
       return;
     }
 
     if (prevKey.current !== activeKey) {
       // External value change not triggered by direct handleSelect tap
-      animateTo(activeKey, prevKey.current);
+      animateTo(activeKey);
     } else if (
       lastActiveLayout.current &&
       (lastActiveLayout.current.x !== activeLayout.x ||
@@ -248,26 +232,24 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
     ) {
       // Genuine layout coordinate change (e.g. initial options load or window resize)
       lastActiveLayout.current = { x: activeLayout.x, width: activeLayout.width };
-      pillLeft.value = activeLayout.x;
+      pillX.value = activeLayout.x;
       pillWidth.value = activeLayout.width;
       centerCategory(activeKey);
     }
-  }, [activeKey, animateTo, centerCategory, layouts, leadAnim, pillLeft, pillWidth, squishAnim, stretchAnim]);
+  }, [activeKey, layouts, animateTo, centerCategory, pillX, pillWidth]);
 
+  // TRANSFORM-ONLY animation: translateX (not `left`) → zero native relayout per frame
   const animatedHighlightStyle = useAnimatedStyle(() => ({
-    left: pillLeft.value,
     width: pillWidth.value,
-    transform: [
-      { translateX: leadAnim.value },
-      { scaleX: stretchAnim.value },
-      { scaleY: squishAnim.value },
-    ],
+    transform: [{ translateX: pillX.value }],
   }));
 
   return (
     // ── Outer pill: FIXED visual shape, both ends rounded, clips its children ──
     <View
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        containerWidthRef.current = e.nativeEvent.layout.width;
+      }}
       style={[
         styles.pill,
         {
@@ -305,13 +287,14 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
               isActive={isActive}
               colors={colors}
               layout={layouts[key]}
-              pillLeft={pillLeft}
+              pillLeft={pillX}
               pillWidth={pillWidth}
               isFirst={idx === 0}
               isLast={idx === options.length - 1}
               onPress={() => handleSelect(opt.id)}
               onLayout={(e) => {
                 const { x, width } = e.nativeEvent.layout;
+                layoutsRef.current[key] = { x, width };
                 setLayouts((prev) => {
                   if (prev[key]?.x === x && prev[key]?.width === width) return prev;
                   return { ...prev, [key]: { x, width } };
@@ -342,6 +325,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: PILL_PADDING,
     bottom: PILL_PADDING,
+    left: 0, // static anchor — pill position driven entirely by translateX
     borderRadius: BorderRadius.pill,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1.5 },

@@ -137,6 +137,7 @@ export const fakeLedger = {
   findManualLookalike: (amount: number, type: 'expense' | 'income', occurredAt: number) =>
     ledger.manual.find((m) => m.amount === amount && m.type === type && sameDay(m.occurredAt, occurredAt)),
   isExceedingVaultLiquidity: (_amount: number) => false,
+  saveSelfTransferRule: async (_text: string) => true,
 };
 
 // ─── remote (autolog_profiles) ───

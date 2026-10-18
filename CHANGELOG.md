@@ -7,11 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### UI/UX Polish & Automation — AutoLog ReviewSheet Parity, Horizontal Category Scroll & Self-Transfer Rule Automation (`ReviewSheet.tsx`, `reviews.ts`, `engine.ts`, `db.ts`) — OTA-safe
+
+- **Compact Split-Row Receipt Card (`ReviewSheet.tsx`)**:
+  - Eliminated right-hand void space by restructuring the transaction summary into a compact, fintech split-row receipt: Large bold amount and merchant title on the left, account pill badge and date/source on the right.
+  - Formatted original SMS/notification snippet into a subtle 1-line italic quote box, reducing summary card vertical height by ~30% and elevating category selection into immediate focus.
+- **Horizontal Category Scroll with Gradient Faders (`ReviewSheet.tsx`)**:
+  - Replaced the 2-column grid with the exact horizontal scrollable category chip system from `ExpenseFormScreen.tsx`.
+  - Added left and right SVG `LinearGradient` fade overlays (`reviewCategoryFadeLeft`, `reviewCategoryFadeRight`) with zero-interaction pointer events, elegantly feathering chips into the modal sheet card background during horizontal scroll.
+  - Implemented animated scale press feedback (`Animated.spring` physics), SVG gradient backgrounds with `getCategoryChipGradient`, Lucide icons, and bold labels.
+  - Included a standardized "None" chip with `CircleOff` icon when not in `categoryOnly` mode for effortless unsetting.
+- **Uniform 48px Stadium Pills (`ReviewSheet.tsx`)**:
+  - Replaced the bulky rectangular preference card with a standardized 48px stadium pill (`BorderRadius.pill`) with concise single-line copy (`Remember preference for "..."`).
+  - Standardized "Remember preference", "Mark as Self Transfer", and "Save and split with friends" to the exact same 48px stadium pill height (`ControlHeight.standard`).
+- **Self-Transfer Rule Automation (Real Money Invariant, `reviews.ts`, `engine.ts`, `db.ts`)**:
+  - Added `markAsSelfTransfer` review action: purges any pre-logged expense from state and database (ensuring self-transfers never count towards expenses or income), updates local event status to `'transfer'`, saves the transfer rule to `self_transfer_rules`, and persists merchant preference as `'transfer'`.
+  - Updated AutoLog engine (`processSms` and `processEmail`) to recognize `'transfer'` merchant preferences, automatically marking future transfers as `status = 'transfer'` and bypassing expense creation.
+- **Bottom Button Hierarchy**:
+  - Standardized primary CTA to 52px CTA with generous 38px comfortable touch targets for secondary actions ("Not a transaction" · "Delete transaction" / "Discard review").
+
+### UI/UX Polish — Branded Hero Card Chip Boundary Enclosure & Redundant Income Elimination (`BrandedHeroCard.tsx`, `homeCalculations.ts`) — OTA-safe
+
+- **Concentric Pod Boundary Enclosure (`BrandedHeroCard.tsx`)**:
+  - Relocated `subtextContainer` inside `topSection`, strictly bounding subtext chips to the safe left column (`paddingRight: podSize + GAP + 6`) and permanently preventing horizontal protrusion into the top-right circular chart pod and SVG socket cutout.
+  - Added strict `maxWidth: '100%'` and `flexShrink: 1` with `ellipsizeMode="tail"` across `subtextContainer`, `subtextChipRow`, `gullakSpendingBadge`, and text elements to guarantee chips never break card boundaries.
+- **Standalone Gullak Spending Chip & Zero-Income Elimination (`homeCalculations.ts`)**:
+  - When all period income is exhausted (`₹0 income`) and deficit spending draws from Gullak reserves, promoted Gullak spending into a single, clean standalone chip (`Drawn ₹... from Gullak`) instead of rendering an awkward, redundant `+₹0 income` pill alongside it.
+  - Standardized Gullak drawn chips to render with `styles.gullakSpendingBadge` styling and red `PiggyBankCoinIcon` for consistent fintech alert hierarchy.
+
 ### UI/UX Motion & Apple Polish — Silky Smooth Filter Pills, UI-Thread Text Crossfade & Supabase Migration Parity (`SegmentedControl.tsx`, `BouncyCategoryFilter.tsx`) — OTA-safe
 
 - **Apple-Grade Physical Spring Motion (`SegmentedControl.tsx`, `BouncyCategoryFilter.tsx`)**:
   - Eliminated the glitchy rubber-band distortion ("liquid morph" scaleX 1.14x / scaleY 0.95x warping and leading edge overshoot) that caused pill corner smearing and animation stutter.
   - Preserved fixed stadium pill geometry (`BorderRadius.pill`) with zero scale deformation during motion.
+  - **Transform-Only UI Motion (`BouncyCategoryFilter.tsx`)**: Replaced layout property animation (`left`) with hardware-accelerated `transform: [{ translateX: pillX.value }]` anchored at static `left: 0`, completely eliminating expensive per-frame Android Yoga native relayout passes (~16ms UI thread blocks).
+  - **Render & Callback Decoupling**: Mirrored layout measurements and container width to mutable refs (`layoutsRef`, `containerWidthRef`), stabilizing `animateTo` and `centerCategory` callbacks and removing intermediate React state re-renders during pill transit.
   - Implemented Apple-calibrated critically damped spring physics (`stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`) across both the Home toggle and History category filters.
   - Implemented 60/120fps UI-thread text color crossfade (`interpolateColor`) synchronized 1:1 with sliding pill position, eliminating mid-transit text color jumps.
   - Added automatic viewport centering (`scrollTo`) in `BouncyCategoryFilter` whenever an off-center or edge category is selected, keeping active categories smoothly centered.

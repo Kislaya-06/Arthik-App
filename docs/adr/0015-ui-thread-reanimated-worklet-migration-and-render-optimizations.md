@@ -13,11 +13,13 @@ When filtering transactions on `HistoryScreen`, switching category pills (`Bounc
 ## Decision
 
 ### 1. UI-Thread Reanimated Worklet Migration (`BouncyCategoryFilter`)
-- Replaced React Native core `Animated` with `react-native-reanimated` (v3+) shared values (`pillLeft`, `pillWidth`, `stretchAnim`, `squishAnim`, `leadAnim`) and worklets.
-- **Immediate Touch Dispatch:** Moved the spring launch from `useEffect` directly into the `handleSelect` touch handler. Springs launch synchronously on touch before React initiates heavy SectionList re-grouping.
-- **Apple-Calibrated Critically Damped Springs:** Calibrated Reanimated springs to exact mathematical equivalents of React Native Origami tension and friction (`tension: 100, friction: 16` $\to$ `stiffness: 447.4, damping: 49` for primary slide; `tension: 160, friction: 16` $\to$ `stiffness: 664.6, damping: 49` for dual-edge liquid morph recovery).
-- **Mid-Flight Protection:** Introduced `lastActiveLayout` ref to isolate measured geometry from in-flight spring values.
-- **Zero-Shift Typography:** Introduced an invisible bold placeholder (`hiddenPlaceholder` with `opacity: 0`, `FontFamily.bold`) behind an absolute visible label, locking container width regardless of active status.
+- Replaced React Native core `Animated` with `react-native-reanimated` UI-thread shared values (`pillX`, `pillWidth`) and worklets.
+- **Hardware-Accelerated Transform-Only Animation**: Replaced layout property animation (`left`) with `transform: [{ translateX: pillX.value }]` anchored at static `left: 0`. This eliminates native Android Yoga layout engine passes on every animation frame, preventing 16ms UI thread bottlenecks.
+- **Immediate Touch Dispatch**: Moved the spring launch from `useEffect` directly into the `handleSelect` touch handler. Springs launch synchronously on touch before React initiates heavy SectionList re-grouping.
+- **Apple-Calibrated Critically Damped Springs**: Calibrated Reanimated springs to exact mathematical equivalents of React Native Origami tension and friction (`tension: 100, friction: 16` $\to$ `stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true` via shared `SLIDE_SPRING` constant). Removed dead rubber-band morph values (`stretchAnim`, `squishAnim`, `leadAnim`) to preserve pure stadium pill geometry (`BorderRadius.pill`).
+- **Ref-Based Layout & Container Width Mirroring**: Stored layouts and container width in mutable refs (`layoutsRef`, `containerWidthRef`), giving `animateTo` and `centerCategory` stable callback identities and eliminating intermediate React re-renders during pill transit.
+- **Mid-Flight Protection**: Introduced `lastActiveLayout` ref to isolate measured geometry from in-flight spring values.
+- **Zero-Shift Typography**: Introduced an invisible bold placeholder (`hiddenPlaceholder` with `opacity: 0`, `FontFamily.bold`) behind an absolute visible label, locking container width regardless of active status.
 - Wrapped `BouncyCategoryFilter` and `FilterItem` with `React.memo`.
 
 ### 2. SectionList Virtualization Tuning & Progressive Section Pagination (`HistoryScreen`)

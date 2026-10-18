@@ -1,14 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  TextInput,
+  Alert,
+  useWindowDimensions,
+  Animated,
+} from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Check, ShieldCheck, Users, CircleOff } from 'lucide-react-native';
+import { ShieldCheck, Users, CircleOff, ArrowLeftRight } from 'lucide-react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AppButton } from '../ui/AppButton';
 import { SegmentedControl, SegmentedOption } from '../ui/SegmentedControl';
 import { Checkbox } from './AutoLogUi';
 import { useTheme } from '../../store/themeStore';
-import { useCategoryStore } from '../../store/categoryStore';
+import { useCategoryStore, Category } from '../../store/categoryStore';
 import { getCategoryIcon } from '../../lib/iconUtils';
+import { getCategoryChipGradient } from '../../lib/colorUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
@@ -24,12 +36,18 @@ import {
   resolveDuplicate,
   resolveTransfer,
   discardEvent,
+  markAsSelfTransfer,
 } from '../../features/autoLog/reviews';
 
 /**
  * Concise single-sheet AutoLog review (Spec §9, §18-21).
- * Presents Type + Category + Remember preference on 1 screen.
- * Saves ONLY when the user explicitly taps the primary Save button.
+ * Features:
+ * - Compact fintech split-row receipt (left: Amount + Merchant, right: Account pill + Date/Source).
+ * - Horizontal category scroll with left/right fade gradients (matching Add Transaction / ExpenseFormScreen).
+ * - 48px stadium pill for Remember Preference.
+ * - 48px stadium pill button for "Mark as Self Transfer" (automates transfer rule & purges expense).
+ * - 48px stadium pill button for "Save and split with friends".
+ * - Primary 52px CTA with comfortable 38px auxiliary actions below.
  */
 
 interface Props {
@@ -46,7 +64,137 @@ const TYPE_OPTIONS: SegmentedOption[] = [
   { key: 'income', label: '💰 Income' },
 ];
 
-const GRID_GAP = 10;
+let chipGradCounter = 0;
+
+// ─── Animated Category Chip (Parity with ExpenseFormScreen) ──────────────────
+const CategoryChipItem: React.FC<{
+  category: Category;
+  isSelected: boolean;
+  onSelect: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
+}> = ({ category, isSelected, onSelect, colors, isDark }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  const IconComp = getCategoryIcon(category.icon);
+
+  useEffect(() => {
+    if (isSelected) {
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [isSelected, scale]);
+
+  const chipColor = category.color || colors.mintGreen;
+
+  const { startColor, midColor, endColor, contentColor } = useMemo(() => {
+    if (!isSelected) {
+      return {
+        startColor: '',
+        midColor: '',
+        endColor: '',
+        contentColor: colors.textPrimary,
+      };
+    }
+    return getCategoryChipGradient(chipColor, isDark);
+  }, [chipColor, isSelected, isDark, colors.textPrimary]);
+
+  const gradId = useMemo(() => {
+    chipGradCounter = (chipGradCounter + 1) % 1000000;
+    return `review_chip_grad_${(category.id || 'c').replace(/[^a-zA-Z0-9]/g, '')}_${chipGradCounter}`;
+  }, [category.id]);
+
+  return (
+    <Pressable onPress={onSelect}>
+      <Animated.View
+        style={[
+          styles.categoryChip,
+          isSelected
+            ? { backgroundColor: midColor, borderColor: midColor }
+            : { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle },
+          { transform: [{ scale }] },
+        ]}
+      >
+        {isSelected && (
+          <Svg style={StyleSheet.absoluteFill}>
+            <Defs>
+              <LinearGradient id={gradId} x1="10%" y1="0%" x2="90%" y2="100%">
+                <Stop offset="0%" stopColor={startColor} />
+                <Stop offset="50%" stopColor={midColor} />
+                <Stop offset="100%" stopColor={endColor} />
+              </LinearGradient>
+            </Defs>
+            <Rect x={0} y={0} width="100%" height="100%" rx={21} ry={21} fill={`url(#${gradId})`} />
+          </Svg>
+        )}
+        <IconComp size={15} color={contentColor} strokeWidth={isSelected ? 2.2 : 2.0} />
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={[styles.categoryChipText, { color: contentColor, fontFamily: FontFamily.bold }]}
+        >
+          {category.name}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+// ─── "None" Category Chip ───────────────────────────────────────────────────
+const NoneChipItem: React.FC<{
+  isSelected: boolean;
+  onSelect: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
+}> = ({ isSelected, onSelect, colors, isDark }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isSelected) {
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [isSelected, scale]);
+
+  return (
+    <Pressable onPress={onSelect}>
+      <Animated.View
+        style={[
+          styles.categoryChip,
+          isSelected
+            ? {
+                backgroundColor: isDark ? 'rgba(184, 224, 200, 0.16)' : colors.mintGreenSoft,
+                borderColor: colors.mintGreenDark,
+                borderWidth: 1.5,
+              }
+            : { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle },
+          { transform: [{ scale }] },
+        ]}
+      >
+        <CircleOff
+          size={15}
+          color={isSelected ? colors.mintGreenDark : colors.textSecondary}
+          strokeWidth={2.0}
+        />
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.categoryChipText,
+            {
+              color: isSelected ? colors.textPrimary : colors.textSecondary,
+              fontFamily: FontFamily.bold,
+            },
+          ]}
+        >
+          None
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 export const ReviewSheet: React.FC<Props> = ({
   visible,
@@ -57,7 +205,7 @@ export const ReviewSheet: React.FC<Props> = ({
   onDone,
 }) => {
   const { colors, isDark } = useTheme();
-  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { height: windowHeight } = useWindowDimensions();
   const categories = useCategoryStore((s) => s.categories);
 
   const [type, setType] = useState<'expense' | 'income'>('expense');
@@ -68,10 +216,6 @@ export const ReviewSheet: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
-
-  // Sizing calculations for fintech-grade 2-column grid and screen-elevated sheet
-  const availableWidth = Math.max(windowWidth - Spacing.gutter * 2, 280);
-  const chipWidth = Math.floor((availableWidth - GRID_GAP) / 2);
   const sheetHeight = Math.min(Math.round(windowHeight * 0.86), 740);
 
   useEffect(() => {
@@ -157,6 +301,20 @@ export const ReviewSheet: React.FC<Props> = ({
     }, `${money(amount)} logged as ${type === 'income' ? 'income' : 'an expense'}`);
   };
 
+  const handleSelfTransfer = () => {
+    Alert.alert(
+      'Mark as self transfer?',
+      `This transaction will not be counted as an expense or income${event.merchant ? `, and future transfers for "${event.merchant}" will be remembered` : ''}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark as Transfer',
+          onPress: () => run(() => markAsSelfTransfer(event, remember), 'Marked as self transfer'),
+        },
+      ]
+    );
+  };
+
   const settleWith = (personName: string) =>
     run(async () => {
       const logged = await classifyEvent(
@@ -221,30 +379,91 @@ export const ReviewSheet: React.FC<Props> = ({
     );
   };
 
-  // ── Summary card ──
+  // ── Split-Row Receipt Summary Card (Zero void space, compact layout) ──
   const summary = (
-    <View style={[styles.summary, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle, borderWidth: isDark ? 1 : 0 }]}>
-      <View style={styles.summaryTopRow}>
-        <Text style={[styles.amount, { color: colors.textPrimary }]}>{money(amount)}</Text>
-        {discovery ? (
-          <View style={[styles.discoveryBadge, { backgroundColor: colors.mintGreenSoft }]}>
-            <ShieldCheck size={12} color={colors.mintGreenDark} />
-            <Text style={[styles.discoveryBadgeText, { color: colors.mintGreenDark }]}>Discovery</Text>
-          </View>
-        ) : null}
+    <View
+      style={[
+        styles.summaryCard,
+        {
+          backgroundColor: colors.cardSubtle,
+          borderColor: colors.borderSubtle,
+          borderWidth: isDark ? 1 : 0,
+        },
+      ]}
+    >
+      <View style={styles.summarySplitRow}>
+        <View style={styles.summaryLeftCol}>
+          <Text style={[styles.summaryAmount, { color: colors.textPrimary }]} numberOfLines={1}>
+            {money(amount)}
+          </Text>
+          <Text
+            style={[styles.summaryMerchant, { color: colors.textPrimary }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {eventTitle(event)}
+          </Text>
+        </View>
+
+        <View style={styles.summaryRightCol}>
+          {account ? (
+            <View
+              style={[
+                styles.accountPill,
+                {
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                  borderColor: colors.borderSubtle,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.accountPillText, { color: colors.textPrimary }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {account}
+              </Text>
+            </View>
+          ) : null}
+          <Text style={[styles.summaryDateText, { color: colors.textSecondary }]} numberOfLines={1}>
+            {[
+              dateTime(event.occurredAt),
+              event.source === 'notification'
+                ? 'Notification'
+                : event.source === 'email'
+                ? 'Email'
+                : 'SMS',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
+        </View>
       </View>
-      <Text style={[styles.meta, { color: colors.textPrimary }]}>{eventTitle(event)}</Text>
-      <Text style={[styles.metaMuted, { color: colors.textSecondary }]}>
-        {[
-          account,
-          dateTime(event.occurredAt),
-          event.source === 'notification' ? `${event.sender} notification` : event.source === 'email' ? `${event.sender} email` : null,
-        ].filter(Boolean).join(' · ')}
-      </Text>
+
+      {discovery ? (
+        <View style={[styles.discoveryBadge, { backgroundColor: colors.mintGreenSoft }]}>
+          <ShieldCheck size={12} color={colors.mintGreenDark} />
+          <Text style={[styles.discoveryBadgeText, { color: colors.mintGreenDark }]}>Discovery</Text>
+        </View>
+      ) : null}
+
       {event.body ? (
-        <View style={[styles.quoteBox, { backgroundColor: colors.background, borderColor: colors.borderSubtle, borderWidth: isDark ? 1 : 0 }]}>
-          <Text style={[styles.quoteText, { color: colors.textSecondary }]} numberOfLines={2}>
-            {event.body}
+        <View
+          style={[
+            styles.summaryQuoteBox,
+            {
+              backgroundColor: colors.background,
+              borderColor: colors.borderSubtle,
+              borderWidth: isDark ? 1 : 0,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.summaryQuoteText, { color: colors.textSecondary }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            "{event.body.replace(/\s+/g, ' ').trim()}"
           </Text>
         </View>
       ) : null}
@@ -270,8 +489,20 @@ export const ReviewSheet: React.FC<Props> = ({
     );
     footer = (
       <View style={styles.footerCol}>
-        <AppButton label="Yes, my own transfer" variant="secondary" size="standard" loading={busy} onPress={() => run(() => resolveTransfer(event, true), 'Marked as a transfer')} />
-        <AppButton label="No, a separate payment" variant="outline" size="standard" disabled={busy} onPress={() => run(() => resolveTransfer(event, false), 'Logged as a separate payment')} />
+        <AppButton
+          label="Yes, my own transfer"
+          variant="secondary"
+          size="standard"
+          loading={busy}
+          onPress={() => run(() => resolveTransfer(event, true), 'Marked as a transfer')}
+        />
+        <AppButton
+          label="No, a separate payment"
+          variant="outline"
+          size="standard"
+          disabled={busy}
+          onPress={() => run(() => resolveTransfer(event, false), 'Logged as a separate payment')}
+        />
       </View>
     );
   } else if (event.reviewReason === 'possible_duplicate') {
@@ -286,8 +517,20 @@ export const ReviewSheet: React.FC<Props> = ({
     );
     footer = (
       <View style={styles.footerCol}>
-        <AppButton label="Yes, same payment — don't add" variant="secondary" size="standard" loading={busy} onPress={() => run(() => resolveDuplicate(event, true), 'Kept your manual entry')} />
-        <AppButton label="No, it's a different payment" variant="outline" size="standard" disabled={busy} onPress={() => run(() => resolveDuplicate(event, false), 'Logged as a separate transaction')} />
+        <AppButton
+          label="Yes, same payment — don't add"
+          variant="secondary"
+          size="standard"
+          loading={busy}
+          onPress={() => run(() => resolveDuplicate(event, true), 'Kept your manual entry')}
+        />
+        <AppButton
+          label="No, it's a different payment"
+          variant="outline"
+          size="standard"
+          disabled={busy}
+          onPress={() => run(() => resolveDuplicate(event, false), 'Logged as a separate transaction')}
+        />
       </View>
     );
   } else {
@@ -337,118 +580,98 @@ export const ReviewSheet: React.FC<Props> = ({
           </View>
         ) : null}
 
-        <View style={styles.section}>
+        {/* ── Category Section: Horizontal Scroll with Left/Right Fade Gradients ── */}
+        <View style={styles.categorySection}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>CATEGORY</Text>
-            {chosenCategory ? <Text style={[styles.chosenLabel, { color: colors.mintGreenDark }]}>{chosenCategory.name}</Text> : null}
-          </View>
-          <View style={styles.categoryChipsWrap}>
-            {!categoryOnly ? (
-              <Pressable
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setCategoryId(null);
-                }}
-                style={({ pressed }) => [
-                  styles.catChip,
-                  {
-                    width: chipWidth,
-                    backgroundColor: categoryId === null
-                      ? isDark
-                        ? 'rgba(184, 224, 200, 0.16)'
-                        : colors.mintGreenSoft
-                      : colors.cardSubtle,
-                    borderColor: categoryId === null ? colors.mintGreenDark : colors.borderSubtle,
-                    borderWidth: categoryId === null ? 1.5 : 1,
-                  },
-                  pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
-                ]}
-              >
-                <View style={[styles.catIconBadge, { backgroundColor: isDark ? '#1F2937' : '#E2E8F0' }]}>
-                  <CircleOff size={14} color={categoryId === null ? colors.mintGreenDark : colors.textSecondary} strokeWidth={2.4} />
-                </View>
-                <Text
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={[
-                    styles.catChipText,
-                    {
-                      color: categoryId === null ? colors.textPrimary : colors.textSecondary,
-                      fontFamily: categoryId === null ? FontFamily.bold : FontFamily.semibold,
-                    },
-                  ]}
-                >
-                  None
-                </Text>
-                {categoryId === null ? (
-                  <View style={styles.catCheckWrapper}>
-                    <Check size={13} color={colors.mintGreenDark} strokeWidth={2.8} />
-                  </View>
-                ) : null}
-              </Pressable>
+            {chosenCategory ? (
+              <Text style={[styles.chosenLabel, { color: colors.mintGreenDark }]}>
+                {chosenCategory.name}
+              </Text>
             ) : null}
+          </View>
 
-            {usableCategories.map((c) => {
-              const Icon = getCategoryIcon(c.icon);
-              const selected = c.id === categoryId;
-              return (
-                <Pressable
-                  key={c.id}
-                  onPress={() => {
+          <View style={styles.categoryScrollContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="always"
+              contentContainerStyle={styles.categoryList}
+            >
+              {!categoryOnly ? (
+                <NoneChipItem
+                  isSelected={categoryId === null}
+                  onSelect={() => {
                     Haptics.selectionAsync().catch(() => {});
-                    setCategoryId(selected ? null : c.id);
+                    setCategoryId(null);
                   }}
-                  style={({ pressed }) => [
-                    styles.catChip,
-                    {
-                      width: chipWidth,
-                      backgroundColor: selected
-                        ? isDark
-                          ? 'rgba(184, 224, 200, 0.16)'
-                          : colors.mintGreenSoft
-                        : colors.cardSubtle,
-                      borderColor: selected ? colors.mintGreenDark : colors.borderSubtle,
-                      borderWidth: selected ? 1.5 : 1,
-                    },
-                    pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
-                  ]}
-                >
-                  <View style={[styles.catIconBadge, { backgroundColor: c.color || colors.mintGreen }]}>
-                    <Icon size={14} color="#1A2B4C" strokeWidth={2.4} />
-                  </View>
-                  <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    style={[
-                      styles.catChipText,
-                      {
-                        color: selected ? colors.textPrimary : colors.textSecondary,
-                        fontFamily: selected ? FontFamily.bold : FontFamily.semibold,
-                      },
-                    ]}
-                  >
-                    {c.name}
-                  </Text>
-                  {selected ? (
-                    <View style={styles.catCheckWrapper}>
-                      <Check size={13} color={colors.mintGreenDark} strokeWidth={2.8} />
-                    </View>
-                  ) : null}
-                </Pressable>
-              );
-            })}
+                  colors={colors}
+                  isDark={isDark}
+                />
+              ) : null}
+
+              {usableCategories.map((cat: Category) => {
+                const isSelected = categoryId === cat.id;
+                return (
+                  <CategoryChipItem
+                    key={cat.id}
+                    category={cat}
+                    isSelected={isSelected}
+                    onSelect={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setCategoryId(isSelected ? null : cat.id);
+                    }}
+                    colors={colors}
+                    isDark={isDark}
+                  />
+                );
+              })}
+            </ScrollView>
+
+            {/* Left Fade Overlay */}
+            <View pointerEvents="none" style={styles.categoryFadeLeft}>
+              <Svg width="100%" height="100%" preserveAspectRatio="none">
+                <Defs>
+                  <LinearGradient id="reviewCategoryFadeLeft" x1="0" y1="0" x2="1" y2="0">
+                    <Stop offset="0" stopColor={colors.card} stopOpacity="1" />
+                    <Stop offset="0.5" stopColor={colors.card} stopOpacity="0.8" />
+                    <Stop offset="1" stopColor={colors.card} stopOpacity="0" />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#reviewCategoryFadeLeft)" />
+              </Svg>
+            </View>
+
+            {/* Right Fade Overlay */}
+            <View pointerEvents="none" style={styles.categoryFadeRight}>
+              <Svg width="100%" height="100%" preserveAspectRatio="none">
+                <Defs>
+                  <LinearGradient id="reviewCategoryFadeRight" x1="0" y1="0" x2="1" y2="0">
+                    <Stop offset="0" stopColor={colors.card} stopOpacity="0" />
+                    <Stop offset="0.5" stopColor={colors.card} stopOpacity="0.8" />
+                    <Stop offset="1" stopColor={colors.card} stopOpacity="1" />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#reviewCategoryFadeRight)" />
+              </Svg>
+            </View>
           </View>
         </View>
 
+        {/* ── Remember Preference 48px Stadium Pill ── */}
         <Pressable
           onPress={() => {
             Haptics.selectionAsync().catch(() => {});
             setRemember((r) => !r);
           }}
           style={({ pressed }) => [
-            styles.rememberRow,
+            styles.rememberPill,
             {
-              backgroundColor: colors.cardSubtle,
+              backgroundColor: remember
+                ? isDark
+                  ? 'rgba(184, 224, 200, 0.12)'
+                  : colors.mintGreenSoft
+                : colors.cardSubtle,
               borderColor: remember ? colors.mintGreenDark : colors.borderSubtle,
               borderWidth: remember ? 1.5 : 1,
             },
@@ -458,15 +681,47 @@ export const ReviewSheet: React.FC<Props> = ({
           accessibilityState={{ checked: remember }}
         >
           <Checkbox checked={remember} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rememberTitle, { color: colors.textPrimary }]}>
-              {event.merchant ? `Remember preference for "${event.merchant}"` : 'Remember this preference'}
-            </Text>
-            <Text style={[styles.rememberSub, { color: colors.textSecondary }]} numberOfLines={2}>
-              {chosenCategory ? `Auto-assign "${chosenCategory.name}" to future similar transactions` : 'Auto-assign this choice to future similar transactions'}
-            </Text>
-          </View>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[
+              styles.rememberText,
+              {
+                color: colors.textPrimary,
+                fontFamily: remember ? FontFamily.bold : FontFamily.semibold,
+              },
+            ]}
+          >
+            {event.merchant
+              ? `Remember preference for "${event.merchant}"`
+              : 'Remember this preference'}
+          </Text>
         </Pressable>
+
+        {/* ── Action Stadium Pills (Mark as Self Transfer & Split) ── */}
+        {!discovery && type === 'expense' ? (
+          <View style={styles.actionPillsGroup}>
+            <AppButton
+              label="Mark as Self Transfer"
+              variant="outline"
+              size="standard"
+              icon={<ArrowLeftRight size={16} color={colors.textPrimary} />}
+              disabled={busy}
+              onPress={handleSelfTransfer}
+            />
+
+            {event.direction !== 'credit' ? (
+              <AppButton
+                label="Save and split with friends"
+                variant="outline"
+                size="standard"
+                icon={<Users size={16} color={colors.textPrimary} />}
+                disabled={busy}
+                onPress={logAndSplit}
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         {owingPeople.length > 0 && type === 'income' ? (
           <View style={styles.section}>
@@ -481,29 +736,26 @@ export const ReviewSheet: React.FC<Props> = ({
                     styles.owingRow,
                     {
                       borderColor: p.matched ? colors.mintGreenDark : colors.borderSubtle,
-                      backgroundColor: p.matched ? (isDark ? 'rgba(184, 224, 200, 0.12)' : colors.mintGreenSoft) : colors.cardSubtle,
+                      backgroundColor: p.matched
+                        ? isDark
+                          ? 'rgba(184, 224, 200, 0.12)'
+                          : colors.mintGreenSoft
+                        : colors.cardSubtle,
                     },
                     pressed && { opacity: 0.75 },
                   ]}
                 >
-                  <Text style={[styles.owingName, { color: colors.textPrimary }]}>{p.name}{p.matched ? ' · name matches' : ''}</Text>
-                  <Text style={[styles.owingOwed, { color: colors.mintGreenDark }]}>owes {money(p.owed)} → Settle</Text>
+                  <Text style={[styles.owingName, { color: colors.textPrimary }]}>
+                    {p.name}
+                    {p.matched ? ' · name matches' : ''}
+                  </Text>
+                  <Text style={[styles.owingOwed, { color: colors.mintGreenDark }]}>
+                    owes {money(p.owed)} → Settle
+                  </Text>
                 </Pressable>
               ))}
             </View>
           </View>
-        ) : null}
-
-        {!discovery && type === 'expense' && event.direction !== 'credit' ? (
-          <AppButton
-            label="Save and split with friends"
-            variant="outline"
-            size="standard"
-            icon={<Users size={16} color={colors.textPrimary} />}
-            disabled={busy}
-            style={{ marginBottom: Spacing.group }}
-            onPress={logAndSplit}
-          />
         ) : null}
       </ScrollView>
     );
@@ -589,20 +841,51 @@ const styles = StyleSheet.create({
   mainScrollContent: {
     paddingBottom: Spacing.block,
   },
-  summary: {
+  // ── Split-row Receipt Summary Card ──
+  summaryCard: {
     borderRadius: BorderRadius.input,
-    padding: Spacing.block,
+    padding: Spacing.group,
     marginBottom: Spacing.group,
   },
-  summaryTopRow: {
+  summarySplitRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  amount: {
-    fontSize: FontSize.titleLarge,
-    lineHeight: LineHeight.titleLarge,
+  summaryLeftCol: {
+    flex: 1,
+    marginRight: Spacing.element,
+  },
+  summaryAmount: {
+    fontSize: 26,
+    lineHeight: 30,
     fontFamily: FontFamily.bold,
+    letterSpacing: -0.5,
+  },
+  summaryMerchant: {
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
+    marginTop: 2,
+  },
+  summaryRightCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  accountPill: {
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    maxWidth: 150,
+  },
+  accountPillText: {
+    fontSize: FontSize.caption - 1,
+    fontFamily: FontFamily.bold,
+  },
+  summaryDateText: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.medium,
+    marginTop: 4,
   },
   discoveryBadge: {
     flexDirection: 'row',
@@ -611,6 +894,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.pill,
+    marginTop: Spacing.micro,
+    alignSelf: 'flex-start',
   },
   discoveryBadgeText: {
     fontSize: FontSize.micro,
@@ -618,29 +903,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  meta: {
-    fontSize: FontSize.body,
-    fontFamily: FontFamily.bold,
-    marginTop: Spacing.micro,
-  },
-  metaMuted: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    marginTop: Spacing.micro,
-  },
-  quoteBox: {
-    borderRadius: 10,
+  summaryQuoteBox: {
+    borderRadius: 8,
     paddingHorizontal: Spacing.element,
-    paddingVertical: 6,
-    marginTop: Spacing.element,
+    paddingVertical: 5,
+    marginTop: 8,
   },
-  quoteText: {
-    fontSize: FontSize.caption,
-    lineHeight: LineHeight.caption + 2,
+  summaryQuoteText: {
+    fontSize: FontSize.caption - 1,
     fontFamily: FontFamily.medium,
     fontStyle: 'italic',
   },
   section: {
+    marginBottom: Spacing.group,
+  },
+  categorySection: {
     marginBottom: Spacing.group,
   },
   sectionHeaderRow: {
@@ -659,53 +936,66 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
   },
-  categoryChipsWrap: {
+  // ── Horizontal category scroll & fade styles ──
+  categoryScrollContainer: {
+    position: 'relative',
+    marginHorizontal: -Spacing.gutter,
+  },
+  categoryList: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: GRID_GAP,
+    gap: Spacing.element,
+    paddingHorizontal: Spacing.gutter,
     paddingVertical: 2,
   },
-  catChip: {
-    height: 48,
+  categoryFadeLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 28,
+    zIndex: 10,
+  },
+  categoryFadeRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 28,
+    zIndex: 10,
+  },
+  categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
     borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.block,
+    paddingVertical: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+    height: 42,
   },
-  catIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  catChipText: {
-    flex: 1,
-    fontSize: 13.5,
+  categoryChipText: {
+    fontSize: FontSize.bodySmall,
+    marginLeft: Spacing.element,
     includeFontPadding: false,
   },
-  catCheckWrapper: {
-    marginLeft: 4,
-  },
-  rememberRow: {
+  // ── 48px Uniform Stadium Pills ──
+  rememberPill: {
+    height: ControlHeight.standard,
+    borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.group,
-    padding: Spacing.block,
-    borderRadius: BorderRadius.input,
+    paddingHorizontal: Spacing.block,
+    gap: Spacing.element,
     marginBottom: Spacing.group,
   },
-  rememberTitle: {
+  rememberText: {
+    flex: 1,
     fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-    lineHeight: LineHeight.bodySmall,
+    includeFontPadding: false,
   },
-  rememberSub: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    lineHeight: LineHeight.caption + 2,
-    marginTop: 3,
+  actionPillsGroup: {
+    gap: Spacing.element,
+    marginBottom: Spacing.group,
   },
   owingRow: {
     flexDirection: 'row',
@@ -754,11 +1044,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.nano,
   },
   secondaryBtn: {
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: Spacing.element,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 36,
+    minHeight: 38,
   },
   secondaryText: {
     fontSize: FontSize.bodySmall,
@@ -780,4 +1070,3 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.element,
   },
 });
-

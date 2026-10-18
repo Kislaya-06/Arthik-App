@@ -362,6 +362,14 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
 
   // ── Confidence & type ──
   const pref = await db.getMerchantPref(e.merchant);
+  if (pref?.type === 'transfer') {
+    e.status = 'transfer';
+    e.reviewReason = null;
+    await db.insertEvent(e);
+    if (takeOverRoot) await db.updateEvent(takeOverRoot.id, { status: 'merged', matchedId: e.id, reviewReason: null });
+    return { status: 'transfer', eventId: e.id, accountKey: e.accountKey, isNewAccount };
+  }
+
   let type: 'expense' | 'income' | null = null;
   if (e.direction === 'debit') type = 'expense';
   else if (parsed.creditKind === 'salary' || parsed.creditKind === 'interest' || parsed.creditKind === 'refund') type = 'income';
@@ -518,6 +526,14 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
   }
 
   const pref = await db.getMerchantPref(e.merchant);
+  if (pref?.type === 'transfer') {
+    e.status = 'transfer';
+    e.reviewReason = null;
+    await db.insertEvent(e);
+    await finishTakeOver();
+    return { status: 'transfer', eventId: e.id, accountKey: e.accountKey, isNewAccount };
+  }
+
   let type: 'expense' | 'income' | null = null;
   if (e.direction === 'debit') type = 'expense';
   else if (parsed.creditKind === 'salary' || parsed.creditKind === 'interest' || parsed.creditKind === 'refund') type = 'income';

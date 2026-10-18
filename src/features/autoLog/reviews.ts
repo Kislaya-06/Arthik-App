@@ -1,6 +1,6 @@
 import * as db from './db';
 import { logEvent } from './engine';
-import { deleteTransaction, setTransactionCategory, setTransactionType } from './ledger';
+import { deleteTransaction, setTransactionCategory, setTransactionType, saveSelfTransferRule } from './ledger';
 import { identityScore, ownTransferStrength, TRANSFER_WINDOW_MS } from './matching';
 import type { AutoLogEvent } from './types';
 
@@ -172,3 +172,48 @@ export const resolveTransfer = async (event: AutoLogEvent, isTransfer: boolean) 
   }
   await db.updateEvent(event.id, { status: 'transfer', reviewReason: null, matchedId: other?.id ?? null, needsCategory: false });
 };
+
+/**
+ * User explicitly marks this transaction / review as a self-transfer (TXN-003).
+ * - Real money invariant: self transfers are never expenses and never income.
+ * - If an expense was logged, it is purged from the expense ledger / Supabase.
+ * - The event status is updated to 'transfer' (reviewReason = null, needsCategory = false).
+ * - If remember is true and merchant exists, merchant preference is saved as 'transfer'
+ *   and registered in transferRulesStore so future transactions from this merchant
+ *   are automatically classified as transfers.
+ */
+export const markAsSelfTransfer = async (event: AutoLogEvent, remember = true) => {
+  if (event.expenseId && (event.status === 'logged' || event.status === 'queued')) {
+    await deleteTransaction(event.expenseId);
+  }
+  let matchedOtherId: string | null = null;
+  if (event.amount != null) {
+    const opposite = await db.findEvents(
+      "direction = ? AND amount = ? AND occurred_at BETWEEN ? AND ? AND status IN ('logged','queued','pending') AND id != ?",
+      event.direction === 'debit' ? 'credit' : 'debit',
+      event.amount,
+      event.occurredAt - TRANSFER_WINDOW_MS,
+      event.occurredAt + TRANSFER_WINDOW_MS,
+      event.id
+    );
+    for (const other of opposite) {
+      if (other.expenseId && (other.status === 'logged' || other.status === 'queued')) {
+        await deleteTransaction(other.expenseId);
+      }
+      await db.updateEvent(other.id, { status: 'transfer', reviewReason: null, expenseId: null, needsCategory: false, matchedId: event.id });
+      if (!matchedOtherId) matchedOtherId = other.id;
+    }
+  }
+  await db.updateEvent(event.id, {
+    status: 'transfer',
+    reviewReason: null,
+    expenseId: null,
+    needsCategory: false,
+    matchedId: matchedOtherId ?? event.matchedId,
+  });
+  if (remember && event.merchant) {
+    await db.setMerchantPref(event.merchant, null, 'transfer');
+    await saveSelfTransferRule(event.merchant);
+  }
+};
+

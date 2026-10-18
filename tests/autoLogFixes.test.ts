@@ -23,7 +23,7 @@ import * as service from '../src/features/autoLog/service';
 import * as db from '../src/features/autoLog/db';
 import { parseSms, parseNotification } from '../src/features/autoLog/parser';
 import { isSameSourceDuplicate, ownTransferStrength } from '../src/features/autoLog/matching';
-import { resolveTransfer } from '../src/features/autoLog/reviews';
+import { resolveTransfer, markAsSelfTransfer } from '../src/features/autoLog/reviews';
 
 const U = 'user-1';
 const MIN = 60_000;
@@ -337,3 +337,52 @@ describe('Email is a first-class source (no waiting for the bank SMS)', () => {
     expect(sources).toEqual(['email', 'sms']);
   });
 });
+
+describe('Fix 5: markAsSelfTransfer excludes transaction and remembers transfer preference', () => {
+  it('marks logged transaction as transfer, removes it from expense ledger, and remembers transfer for future SMS', async () => {
+    await goLive();
+    // 1. First transaction arrives and gets logged
+    receiveSms(HDFC, hdfcDebit(500, 'Zerodha Broking'), Date.now());
+    await run();
+    expect(txs()).toHaveLength(1);
+    const [event] = await events("merchant = 'Zerodha Broking'");
+    expect(event.status).toBe('logged');
+
+    // 2. User marks it as self transfer
+    await markAsSelfTransfer(event, true);
+
+    // Ledger has 0 expenses (real money invariant)
+    expect(txs()).toHaveLength(0);
+    const [updatedEvent] = await events('id = ?', event.id);
+    expect(updatedEvent.status).toBe('transfer');
+
+    // Preference is saved
+    const pref = await db.getMerchantPref('Zerodha Broking');
+    expect(pref?.type).toBe('transfer');
+
+    // 3. Second transaction arrives from the same merchant
+    receiveSms(HDFC, hdfcDebit(1000, 'Zerodha Broking'), Date.now() + 1000);
+    await run();
+
+    // Still 0 expenses logged!
+    expect(txs()).toHaveLength(0);
+    const [secondEvent] = await events("amount = 1000 AND merchant = 'Zerodha Broking'");
+    expect(secondEvent.status).toBe('transfer');
+  });
+
+  it('also reconciles and marks any opposite transfer leg in the transfer window', async () => {
+    await goLive(['HDFC:1234', 'SBI:7821']);
+    const now = Date.now();
+    receiveSms(HDFC, hdfcDebit(500, 'SELF TRANSFER', 'REF1001'), now);
+    receiveSms(SBI, 'A/C X7821 credited by Rs 500.00 on 05Oct26 trf from SELF REF1001', now + 5000);
+    await run();
+
+    const [debitEvent] = await events("direction = 'debit' AND amount = 500");
+    await markAsSelfTransfer(debitEvent, true);
+
+    const allTransfers = await events("status = 'transfer'");
+    expect(allTransfers.length).toBeGreaterThanOrEqual(1);
+    expect(txs()).toHaveLength(0);
+  });
+});
+

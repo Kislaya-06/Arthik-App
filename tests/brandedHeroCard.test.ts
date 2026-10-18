@@ -341,5 +341,36 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
       expect(formatCadenceRolloverStrip(overBudget, 'monthly')).toBe('Over by ₹2,500 this month');
     });
   });
+
+  describe('BrandedHeroCard Subtext & Gullak Badge Layout Safety', () => {
+    it('guarantees subtextContainer is nested within topSection to inherit podSize boundary', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const src = fs.readFileSync(path.resolve(__dirname, '../src/components/BrandedHeroCard.tsx'), 'utf8');
+
+      // subtextContainer must be rendered before topSection closes, ensuring it respects paddingRight: podSize + GAP + 6
+      const topSectionIdx = src.indexOf('styles.topSection');
+      const subtextContainerIdx = src.indexOf('styles.subtextContainer');
+      const metricsRowIdx = src.indexOf('styles.metricsRow');
+
+      expect(topSectionIdx).toBeGreaterThan(0);
+      expect(subtextContainerIdx).toBeGreaterThan(topSectionIdx);
+      expect(subtextContainerIdx).toBeLessThan(metricsRowIdx);
+
+      // Verify gullakSpendingBadge has maxWidth 100% and flexShrink 1
+      expect(src).toMatch(/gullakSpendingBadge:\s*\{[^}]*maxWidth:\s*'100%'/);
+      expect(src).toMatch(/gullakSpendingText:\s*\{[^}]*flexShrink:\s*1/);
+    });
+
+    it('renders Gullak drawn chip with PiggyBankCoinIcon and gullakSpendingBadge styling', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const src = fs.readFileSync(path.resolve(__dirname, '../src/components/BrandedHeroCard.tsx'), 'utf8');
+
+      expect(src).toMatch(/isGullakDrawn/);
+      expect(src).toMatch(/<PiggyBankCoinIcon\s+size=\{12\}\s+color="#DC2626"\s*\/>/);
+    });
+  });
 });
+
 

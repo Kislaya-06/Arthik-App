@@ -109,6 +109,23 @@ describe('Gullak chip wording and no invented income', () => {
     expect(chips.some((c) => c.text.includes('₹0 income'))).toBe(false);
   });
 
+  it('exhausted income with Gullak drawn: does NOT invent "+₹0 income" chip, promotes Gullak to standalone chip', () => {
+    const chips = buildHeroSubtextChips({
+      effectiveSubtext: 'Exceeded monthly limit by ₹531.06 + ₹0 income',
+      isBudgetModeEnabled: true,
+      isSpendingFromGullak: true,
+      gullakDrawnAmount: 782.06,
+      periodIncome: 2677,
+    });
+    // Must NOT have any "+₹0 income" chip
+    expect(chips.some((c) => c.text.includes('₹0 income'))).toBe(false);
+    // Must contain standalone Drawn from Gullak chip
+    const gullakChip = chips.find((c) => c.id === 'gullak_only');
+    expect(gullakChip).toBeDefined();
+    expect(gullakChip?.text).toBe('Drawn ₹782.06 from Gullak');
+    expect(gullakChip?.badgeText).toBeNull();
+  });
+
   it('nothing drawn -> no Gullak chip at all', () => {
     expect(buildHeroSubtextChips({ effectiveSubtext: '₹300 budget (3 days)', isBudgetModeEnabled: true, isSpendingFromGullak: false, gullakDrawnAmount: 0, periodIncome: 0 })).toHaveLength(1);
     expect(buildHeroSubtextChips({ effectiveSubtext: null, isBudgetModeEnabled: true, isSpendingFromGullak: false, gullakDrawnAmount: 0, periodIncome: 0 })).toHaveLength(0);

@@ -176,3 +176,16 @@ export const moneyBackQuestionFor = (amount: number | null, sender: string | nul
   const match = matchIncomingToPeople(people, { amount, sender })[0];
   return match ? `${match.person.name} owes you ${formatCurrency(match.person.owed)}. Is this their payment?` : null;
 };
+
+export const saveSelfTransferRule = async (text: string): Promise<boolean> => {
+  try {
+    const user = useAuthStore.getState().user;
+    if (!user) return false;
+    const { useTransferRulesStore } = await import('../../store/transferRulesStore');
+    await useTransferRulesStore.getState().addRule(text, text);
+    return true;
+  } catch {
+    return false;
+  }
+};
+

@@ -140,12 +140,11 @@ describe('BouncyCategoryFilter UI-Thread Reanimated Animation Parity (Source & S
     expect(src).not.toMatch(/useAnimatedValue/);
   });
 
-  it('sliding highlight animated style derives left, width, and liquid morph transform', () => {
-    expect(src).toMatch(/left:\s*pillLeft\.value/);
+  it('sliding highlight animated style derives translateX (not left) and width for transform-only animation', () => {
+    expect(src).toMatch(/transform:\s*\[\{\s*translateX:\s*pillX\.value\s*\}\]/);
     expect(src).toMatch(/width:\s*pillWidth\.value/);
-    expect(src).toMatch(/translateX:\s*leadAnim\.value/);
-    expect(src).toMatch(/scaleX:\s*stretchAnim\.value/);
-    expect(src).toMatch(/scaleY:\s*squishAnim\.value/);
+    // Must NOT animate layout properties (`left`) — causes per-frame native relayout on Android
+    expect(src).not.toMatch(/left:\s*pill[A-Z].*\.value/);
   });
 
   it('uses invisible bold placeholder to guarantee zero-shift tab width stability', () => {
@@ -162,21 +161,20 @@ describe('BouncyCategoryFilter UI-Thread Reanimated Animation Parity (Source & S
     expect(historySrc).toMatch(/options=\{categoryFilterOptions\}/);
   });
 
-  it('implements Apple-calibrated critically-damped spring parameters without corner deformation', () => {
+  it('implements Apple-calibrated critically-damped spring parameters via SLIDE_SPRING constant', () => {
     expect(src).toMatch(/damping:\s*49/);
     expect(src).toMatch(/stiffness:\s*447\.4/);
-    expect(src).toMatch(/stretchAnim\.value\s*=\s*1/);
-    expect(src).toMatch(/squishAnim\.value\s*=\s*1/);
-    expect(src).toMatch(/leadAnim\.value\s*=\s*0/);
     expect(src).toMatch(/overshootClamping:\s*true/);
+    expect(src).toMatch(/SLIDE_SPRING/);
   });
 
   it('cancels in-flight animations on rapid consecutive taps to prevent animation stacking', () => {
-    expect(src).toMatch(/cancelAnimation\(pillLeft\)/);
+    expect(src).toMatch(/cancelAnimation\(pillX\)/);
     expect(src).toMatch(/cancelAnimation\(pillWidth\)/);
-    expect(src).toMatch(/cancelAnimation\(stretchAnim\)/);
-    expect(src).toMatch(/cancelAnimation\(squishAnim\)/);
-    expect(src).toMatch(/cancelAnimation\(leadAnim\)/);
+    // Must NOT reference dead shared values (stretchAnim, squishAnim, leadAnim removed for perf)
+    expect(src).not.toMatch(/cancelAnimation\(stretchAnim\)/);
+    expect(src).not.toMatch(/cancelAnimation\(squishAnim\)/);
+    expect(src).not.toMatch(/cancelAnimation\(leadAnim\)/);
   });
 
   it('FilterItem uses native worklet spring scale for touch feedback', () => {
@@ -187,7 +185,7 @@ describe('BouncyCategoryFilter UI-Thread Reanimated Animation Parity (Source & S
 
   it('implements immediate touch-driven animation dispatch in handleSelect before parent state update', () => {
     expect(src).toMatch(/const handleSelect\s*=\s*useCallback/);
-    expect(src).toMatch(/animateTo\(targetKey,\s*prevKey\.current\)/);
+    expect(src).toMatch(/animateTo\(targetKey\)/);
     expect(src).toMatch(/onChange\(id\)/);
   });
 
@@ -441,16 +439,12 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
     expect(lastWidthSpring?.toValue).toBe(56.76);
 
     // All shared values must settle to canonical target coordinates
-    const pillLeft = reanimatedSpies.sharedValues[0];
+    const pillX = reanimatedSpies.sharedValues[0];
     const pillWidth = reanimatedSpies.sharedValues[1];
-    const stretchAnim = reanimatedSpies.sharedValues[2];
-    const squishAnim = reanimatedSpies.sharedValues[3];
-    const leadAnim = reanimatedSpies.sharedValues[4];
 
-    expect(pillLeft.value).toBe(4.19);
+    expect(pillX.value).toBe(4.19);
     expect(pillWidth.value).toBe(56.76);
-    expect(stretchAnim.value).toBe(1);
-    expect(squishAnim.value).toBe(1);
-    expect(leadAnim.value).toBe(0);
+    // Dead shared values (stretchAnim, squishAnim, leadAnim) removed — only 2 shared values remain
+    // plus 1 per FilterItem scale = 2 + 3 items = 5 total, but only first 2 are pill geometry
   });
 });

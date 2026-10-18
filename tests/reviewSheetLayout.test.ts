@@ -7,19 +7,28 @@ const read = (p: string) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8
 describe('ReviewSheet Layout & UI Invariants', () => {
   const src = read('src/components/autolog/ReviewSheet.tsx');
 
-  it('calculates equal-width 2-column grid for category pills', () => {
-    expect(src).toMatch(/const availableWidth = Math\.max\(windowWidth - Spacing\.gutter \* 2, 280\);/);
-    expect(src).toMatch(/const chipWidth = Math\.floor\(\(availableWidth - GRID_GAP\) \/ 2\);/);
-    expect(src).toMatch(/width:\s*chipWidth/);
+  it('renders horizontal scroll category chip bar with left and right gradient fades matching ExpenseFormScreen', () => {
+    expect(src).toMatch(/categoryScrollContainer:\s*\{[\s\S]*?position:\s*'relative'/);
+    expect(src).toMatch(/categoryFadeLeft:\s*\{[\s\S]*?position:\s*'absolute'/);
+    expect(src).toMatch(/categoryFadeRight:\s*\{[\s\S]*?position:\s*'absolute'/);
+    expect(src).toMatch(/<ScrollView[\s\S]*?horizontal/);
   });
 
-  it('uses standard 48px touch target height and stadium pill radius for category chips', () => {
-    expect(src).toMatch(/catChip:\s*\{[\s\S]*?height:\s*48/);
-    expect(src).toMatch(/catChip:\s*\{[\s\S]*?borderRadius:\s*BorderRadius\.pill/);
+  it('uses uniform 48px stadium pills for Remember Preference, Mark as Self Transfer, and Save and split', () => {
+    expect(src).toMatch(/rememberPill:\s*\{[\s\S]*?height:\s*ControlHeight\.standard/);
+    expect(src).toMatch(/rememberPill:\s*\{[\s\S]*?borderRadius:\s*BorderRadius\.pill/);
+    expect(src).toMatch(/label="Mark as Self Transfer"/);
+    expect(src).toMatch(/size="standard"/);
   });
 
-  it('does NOT contain cramped nested categoryScroll with 120px max height', () => {
-    expect(src).not.toMatch(/categoryScroll:\s*\{\s*maxHeight:\s*120\s*\}/);
+  it('renders compact split-row receipt summary card with zero void space', () => {
+    expect(src).toMatch(/summaryCard:\s*\{/);
+    expect(src).toMatch(/summarySplitRow:\s*\{/);
+    expect(src).toMatch(/accountPill:\s*\{[\s\S]*?borderRadius:\s*BorderRadius\.pill/);
+  });
+
+  it('includes Mark as Self Transfer action calling markAsSelfTransfer', () => {
+    expect(src).toMatch(/markAsSelfTransfer\(event,\s*remember\)/);
   });
 
   it('elevates sheet container height to ~86% of window height', () => {
@@ -33,8 +42,8 @@ describe('ReviewSheet Layout & UI Invariants', () => {
     expect(src).toMatch(/icon=\{<Users size=\{16\}/);
   });
 
-  it('provides comfortable touch target and bodySmall typography for secondary bottom actions', () => {
-    expect(src).toMatch(/secondaryBtn:\s*\{[\s\S]*?minHeight:\s*36/);
+  it('provides comfortable 38px touch target and bodySmall typography for secondary bottom actions', () => {
+    expect(src).toMatch(/secondaryBtn:\s*\{[\s\S]*?minHeight:\s*38/);
     expect(src).toMatch(/secondaryText:\s*\{[\s\S]*?fontSize:\s*FontSize\.bodySmall/);
   });
 });

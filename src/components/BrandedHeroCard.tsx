@@ -465,41 +465,61 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
               minScale={0.55}
               rollOnFocus
             />
-          </View>
 
-          {/* Subtext Chips (Budget mode only): Full-width row below topSection */}
-          {isBudgetModeEnabled && subtextChipItems.length > 0 && (
-            <View style={styles.subtextContainer}>
-              {subtextChipItems.map((item) => (
-                <View key={item.id} style={styles.subtextChipRow}>
-                  <View
-                    style={[
-                      styles.subtextChip,
-                      effectiveIsOver && { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.subtextChipText,
-                        { color: effectiveIsOver ? '#DC2626' : textColorPrimary },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.text}
-                    </Text>
-                  </View>
-                  {item.badgeText && (
-                    <View style={styles.gullakSpendingBadge}>
-                      <PiggyBankCoinIcon size={12} color="#DC2626" />
-                      <Text style={styles.gullakSpendingText} numberOfLines={1}>
-                        {item.badgeText}
-                      </Text>
+            {/* Subtext Chips (Budget mode only): Rendered inside topSection to guarantee clearing the chart pod */}
+            {isBudgetModeEnabled && subtextChipItems.length > 0 && (
+              <View style={styles.subtextContainer}>
+                {subtextChipItems.map((item) => {
+                  const isGullakDrawn =
+                    item.id === 'gullak_only' ||
+                    (item.text.toLowerCase().includes('drawn') && item.text.toLowerCase().includes('gullak'));
+
+                  if (isGullakDrawn) {
+                    return (
+                      <View key={item.id} style={styles.subtextChipRow}>
+                        <View style={styles.gullakSpendingBadge}>
+                          <PiggyBankCoinIcon size={12} color="#DC2626" />
+                          <Text style={styles.gullakSpendingText} numberOfLines={1} ellipsizeMode="tail">
+                            {item.text}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  }
+
+                  return (
+                    <View key={item.id} style={styles.subtextChipRow}>
+                      <View
+                        style={[
+                          styles.subtextChip,
+                          effectiveIsOver && { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.subtextChipText,
+                            { color: effectiveIsOver ? '#DC2626' : textColorPrimary },
+                          ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {item.text}
+                        </Text>
+                      </View>
+                      {item.badgeText && (
+                        <View style={styles.gullakSpendingBadge}>
+                          <PiggyBankCoinIcon size={12} color="#DC2626" />
+                          <Text style={styles.gullakSpendingText} numberOfLines={1} ellipsizeMode="tail">
+                            {item.badgeText}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          )}
+                  );
+                })}
+              </View>
+            )}
+          </View>
 
           {/* ── Inflow & Outflow / Net Footer Row ── */}
           {isBudgetModeEnabled ? (
@@ -690,12 +710,14 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 5,
+    maxWidth: '100%',
   },
   subtextChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     flexWrap: 'wrap',
+    maxWidth: '100%',
   },
   subtextChip: {
     backgroundColor: 'rgba(26, 43, 76, 0.08)',
@@ -710,6 +732,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
     color: 'rgba(26, 43, 76, 0.88)',
     includeFontPadding: false,
+    flexShrink: 1,
   },
   gullakSpendingBadge: {
     flexDirection: 'row',
@@ -722,12 +745,14 @@ const styles = StyleSheet.create({
     paddingVertical: 3.5,
     borderRadius: 8,
     alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   gullakSpendingText: {
     fontSize: 10.5,
     fontFamily: FontFamily.bold,
     color: '#DC2626',
     includeFontPadding: false,
+    flexShrink: 1,
   },
   // Inflow & Outflow unboxed layout matching user reference
   metricsRow: {
