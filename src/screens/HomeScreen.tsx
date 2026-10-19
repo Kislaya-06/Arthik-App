@@ -589,10 +589,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         ? todayRemaining
         : undefined;
 
+    const totalRemainingBalance = isOverBudgetPeriod ? 0 : primaryAmount;
     const unspentInflowLeft =
-      activeFilter === 'All' && totalAvailable > (todayRemaining || 0)
-        ? round2(totalAvailable - (todayRemaining || 0))
-        : undefined;
+      activeFilter === 'All' && totalRemainingBalance > (todayRemaining || 0)
+        ? Math.min(periodIncome, round2(totalRemainingBalance - (todayRemaining || 0)))
+        : (activeFilter === 'All' ? 0 : undefined);
 
     return buildHeroDetails({
       isBudgetMode: isBudgetModeEnabled,
@@ -607,7 +608,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       activeBudgetLeft,
       unspentInflowLeft,
     });
-  }, [showHeroDetails, activeFilter, referenceDate, isBudgetModeEnabled, periodBudgetPool, periodSpent, periodIncome, remainingIncome, filtered, externalDepositsInPeriod, dailyRecords, budgetPeriods, gullakDrawnAmount, totalAccumulatedSavings, todayRemaining, budgetCadence, totalAvailable]);
+  }, [showHeroDetails, activeFilter, referenceDate, isBudgetModeEnabled, periodBudgetPool, periodSpent, periodIncome, remainingIncome, filtered, externalDepositsInPeriod, dailyRecords, budgetPeriods, gullakDrawnAmount, totalAccumulatedSavings, todayRemaining, budgetCadence, primaryAmount, isOverBudgetPeriod]);
 
   // ─── Pull to History ───────────────────────────────────────────────────────
   // Fired by PullToHistoryList only AFTER the finger is lifted with the ring full.

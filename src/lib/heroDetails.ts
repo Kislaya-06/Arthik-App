@@ -128,9 +128,11 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
     });
   }
 
-  const effectiveIncomeLeft = i.unspentInflowLeft !== undefined
+  const rawIncomeLeft = i.unspentInflowLeft !== undefined
     ? round2(i.unspentInflowLeft)
     : round2(i.incomeLeft);
+  // Real money invariant: Money unspent cannot exceed money received
+  const effectiveIncomeLeft = Math.min(round2(i.incomeReceived), Math.max(0, rawIncomeLeft));
 
   const moneyIn: DetailRow[] = [{ id: 'received', label: 'Money received', amount: round2(i.incomeReceived) }];
   if (i.isBudgetMode) moneyIn.push({ id: 'left', label: 'Still unspent', amount: round2(effectiveIncomeLeft), tone: 'good' });

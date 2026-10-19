@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Financial Integrity & Lifecycle Alignment — HeroDetailsSheet All-Time Budget Preservation & Gullak Overdraft Hard-Cap (`heroDetails.ts`, `HomeScreen.tsx`) — OTA-safe
 
-- **All-Time Active Budget Preservation (`heroDetails.ts`, `HomeScreen.tsx`)**:
+- **All-Time Active Budget Preservation & Unspent Income Reconciliation (`heroDetails.ts`, `HomeScreen.tsx`)**:
   - Resolved discrepancy between Home Card total remaining (e.g. ₹132.94) and HeroDetailsSheet "All time" breakdown. Previously, lifetime spending exceeding cumulative budget (`spent > budgetGiven`) collapsed `rawLeft = Math.max(0, budgetGiven - spent)` to ₹0, hiding today's active unspent budget allowance.
-  - `HomeScreen.tsx` now passes `activeBudgetLeft` (`todayRemaining`) and `unspentInflowLeft` (`totalAvailable - todayRemaining`) into `buildHeroDetails`.
+  - `HomeScreen.tsx` now derives `unspentInflowLeft` from the actual remaining balance (`totalRemainingBalance = isOverBudgetPeriod ? 0 : primaryAmount`), computing `Math.min(periodIncome, totalRemainingBalance - todayRemaining)` (₹32.94) instead of erroneously subtracting from lifetime inflow `totalAvailable` (which previously produced ₹4,699).
   - `buildHeroDetails` preserves today's unspent budget allowance (`budgetLeft = Math.max(rawLeft, activeBudgetLeft)`) and adjusts `used = Math.min(budgetGiven - budgetLeft, spent)` so that `given (₹3,700) = used (₹3,600) + left (₹100)`.
-  - Under "Money in", "Still unspent" reflects `unspentInflowLeft` (₹32.94), ensuring `₹100 + ₹32.94 = ₹132.94` exactly matches the Home Card.
+  - Added Real-Money Hard-Cap Guard in `buildHeroDetails`: `effectiveIncomeLeft` is strictly bounded by `Math.min(round2(i.incomeReceived), Math.max(0, rawIncomeLeft))` guaranteeing "Still unspent" can never physically exceed "Money received".
+  - Under "Money in", "Still unspent" reflects `unspentInflowLeft` (₹32.94), ensuring `₹100 + ₹32.94 = ₹132.94` exactly matches the Home Card and perfectly balances lifetime spent (₹3,600 budget + ₹1,066.06 income = ₹4,666.06).
 - **Gullak Overdraft Hard-Cap (`heroDetails.ts`)**:
   - Enforced real-money invariant: money drawn from Gullak can never exceed total deposits added.
   - In `buildHeroDetails`, `effectiveGullakDrawn` is strictly hard-capped at `Math.min(gullakDrawn, gullakAdded)`, eliminating impossible figures (e.g. Taken ₹1,287.06 vs Added ₹1,282) and guaranteeing clean, physically consistent piggy bank reporting.

@@ -66,7 +66,7 @@
         "title": "Split Expenses & Money Back 🤝",
         "highlights": [
           "AutoLog Review: Clean vertical spacing, emoji-free typography, default unchecked merchant preference, and instant self-transfer for incoming credits",
-          "Home Card Breakdown: Preserves active budget allowance in All-time sheet and caps Gullak withdrawals at real savings",
+          "Home Card Breakdown: Preserves active budget allowance & reconciles unspent income in All-time sheet with real piggy bank bounds",
           "History Screen: 4-day progressive pagination with 'See More' button for buttery-smooth, jitter-free category transitions",
           "Home Screen: 60/120 FPS pill switching with decoupled odometer roll choreography & zero-jitter transition",
           "Ledger: Streamlined minimalist rows with 1-tap settlement sheet, eliminating pill fatigue while keeping Settle All as the primary action",

@@ -112,6 +112,50 @@ describe('buildHeroDetails', () => {
     expect(gullakRows.find((r) => r.id === 'drawn')!.amount).toBe(1282); // Capped at 1282!
     expect(gullakRows.find((r) => r.id === 'now')!.amount).toBe(0);
   });
+
+  it('hard-caps Still unspent at incomeReceived so unspent can never exceed received', () => {
+    const d = buildHeroDetails({
+      ...base,
+      incomeReceived: 1099,
+      incomeLeft: 4699, // caller passing larger amount
+      unspentInflowLeft: 4699,
+    });
+    const moneyInRows = d.sections.find((s) => s.id === 'money_in')!.rows;
+    expect(moneyInRows.find((r) => r.id === 'received')!.amount).toBe(1099);
+    expect(moneyInRows.find((r) => r.id === 'left')!.amount).toBe(1099); // Hard-capped at 1099!
+  });
+
+  it('reconciles All-time sheet to exact numbers from owner report', () => {
+    // Total lifetime spent: 4666.06. Total budget given: 3700. Money received: 1099. Today remaining budget: 100.
+    // Total spendable: 3700 + 1099 = 4799. Total remaining: 4799 - 4666.06 = 132.94.
+    // Unspent income: 132.94 - 100 = 32.94.
+    const d = buildHeroDetails({
+      isBudgetMode: true,
+      budgetGiven: 3700,
+      spent: 4666.06,
+      incomeReceived: 1099,
+      incomeLeft: 32.94,
+      moneyBack: 0,
+      gullakAdded: 1282,
+      gullakDrawn: 1282,
+      gullakNow: 0,
+      activeBudgetLeft: 100,
+      unspentInflowLeft: 32.94,
+    });
+    const budgetRows = d.sections.find((s) => s.id === 'budget')!.rows;
+    expect(budgetRows.find((r) => r.id === 'given')!.amount).toBe(3700);
+    expect(budgetRows.find((r) => r.id === 'used')!.amount).toBe(3600);
+    expect(budgetRows.find((r) => r.id === 'left')!.amount).toBe(100);
+
+    const moneyInRows = d.sections.find((s) => s.id === 'money_in')!.rows;
+    expect(moneyInRows.find((r) => r.id === 'received')!.amount).toBe(1099);
+    expect(moneyInRows.find((r) => r.id === 'left')!.amount).toBe(32.94);
+
+    const gullakRows = d.sections.find((s) => s.id === 'gullak')!.rows;
+    expect(gullakRows.find((r) => r.id === 'added')!.amount).toBe(1282);
+    expect(gullakRows.find((r) => r.id === 'drawn')!.amount).toBe(1282);
+    expect(gullakRows.find((r) => r.id === 'now')!.amount).toBe(0);
+  });
 });
 
 describe('period helpers', () => {
