@@ -10,9 +10,10 @@ import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
 import {
-  ArrowLeft, Calendar, ChevronRight, Plus, Check,
+  ArrowLeft, Calendar, ChevronRight, Plus, Check, AlertTriangle,
 } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
 import { VaultSpendingGuardModal } from '../components/VaultSpendingGuardModal';
 import { TransferExtras } from '../components/transfer/TransferExtras';
@@ -31,6 +32,7 @@ import { formatAmountWithCommas } from '../lib/formatters';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { getCategoryChipGradient } from '../lib/colorUtils';
 import { useTheme } from '../store/themeStore';
+import { useAuthStore } from '../store/authStore';
 import { useFormKeyboard } from '../hooks/useFormKeyboard';
 import {
   useExpenseForm,
@@ -176,6 +178,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleNoteLayout,
     handleNoteFocus,
     handleNoteBlur,
+    handleSplitLayout,
+    handleSplitFocus,
     showKeypad,
     hideKeypad,
     handleKeypadDrag,
@@ -202,6 +206,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     setShowVaultGuard,
     vaultLiquidity,
     isBudgetModeEnabled,
+    backdatedSpendingNotice,
+    shortfallAmount,
     categories,
     isCategoriesLoading,
     areCategoriesPlaceholder,
@@ -282,6 +288,16 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     }
     try {
       await handleSave(async () => {
+        const editId = (route.params as any)?.expenseId;
+        if (isEdit && editId) {
+          try {
+            const { reconcileExpenseSaved } = await import('../features/autoLog/reviews');
+            const userId = useAuthStore.getState().user?.id;
+            await reconcileExpenseSaved(editId, userId);
+          } catch {
+            // Best-effort
+          }
+        }
         Keyboard.dismiss();
         hideKeypad();
         setIsMorphing(true);
@@ -480,7 +496,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <ScrollView
         ref={scrollRef}
         style={styles.scrollSection}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isKeyboardOpen && { paddingBottom: 280 },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -618,6 +637,58 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <ChevronRight size={18} color={colors.textSecondary} />
         </Pressable>
+
+        {/* Dynamic Backdated Spending Notice (FIN-01 / UX Transparency) */}
+        {backdatedSpendingNotice && (
+          <View
+            style={[
+              styles.backdatedNoticeCard,
+              {
+                backgroundColor: backdatedSpendingNotice.hasShortfall
+                  ? (isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB')
+                  : (isDark ? 'rgba(139, 92, 246, 0.10)' : '#F5F3FF'),
+                borderColor: backdatedSpendingNotice.hasShortfall
+                  ? (isDark ? 'rgba(245, 158, 11, 0.32)' : '#FDE68A')
+                  : (isDark ? 'rgba(139, 92, 246, 0.28)' : '#DDD6FE'),
+              },
+            ]}
+          >
+            <View style={styles.backdatedNoticeLeftIcon}>
+              {backdatedSpendingNotice.hasShortfall ? (
+                <AlertTriangle size={18} color={isDark ? '#FBBF24' : '#D97706'} />
+              ) : (
+                <PiggyBankCoinIcon size={18} color={isDark ? '#A78BFA' : '#7C3AED'} />
+              )}
+            </View>
+            <View style={styles.backdatedNoticeTextWrap}>
+              <Text
+                style={[
+                  styles.backdatedNoticeTitle,
+                  {
+                    color: backdatedSpendingNotice.hasShortfall
+                      ? (isDark ? '#FBBF24' : '#B45309')
+                      : (isDark ? '#DDD6FE' : '#6D28D9'),
+                    fontFamily: FontFamily.bold,
+                  },
+                ]}
+              >
+                {backdatedSpendingNotice.title}
+              </Text>
+              <Text
+                style={[
+                  styles.backdatedNoticeDesc,
+                  {
+                    color: colors.textSecondary,
+                    fontFamily: FontFamily.medium,
+                  },
+                ]}
+              >
+                {backdatedSpendingNotice.description}
+              </Text>
+            </View>
+          </View>
+        )}
+
         <CustomDatePickerModal
           visible={showDatePicker}
           value={selectedDate}
@@ -629,7 +700,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         <VaultSpendingGuardModal
           visible={showVaultGuard}
           onClose={() => setShowVaultGuard(false)}
-          expenseAmount={evaluatedAmount}
+          expenseAmount={shortfallAmount > 0 ? shortfallAmount : evaluatedAmount}
           onAddMoneyAndSave={handleSaveWithIncome}
           onAddIncomeFirst={() => {
             setShowVaultGuard(false);
@@ -656,9 +727,9 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Split with someone (expenses) / what kind of money came in (income) */}
-        <View style={styles.formSectionPadding}>
-          <SplitExtras split={split} onFieldFocus={hideKeypad} />
-          <MoneyBackExtras moneyBack={moneyBack} amount={evaluatedAmount} onFieldFocus={hideKeypad} />
+        <View style={styles.formSectionPadding} onLayout={handleSplitLayout}>
+          <SplitExtras split={split} onFieldFocus={handleSplitFocus} />
+          <MoneyBackExtras moneyBack={moneyBack} amount={evaluatedAmount} onFieldFocus={handleSplitFocus} />
         </View>
 
         {/* Note Input — onLayout tracks Y for keyboard-scroll */}
@@ -1089,6 +1160,34 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     includeFontPadding: false,
     textAlignVertical: 'center',
+  },
+  backdatedNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.surface,
+    borderRadius: BorderRadius.card,
+    borderWidth: 1,
+    marginHorizontal: Spacing.gutter,
+    marginTop: -Spacing.element,
+    marginBottom: Spacing.block,
+  },
+  backdatedNoticeLeftIcon: {
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backdatedNoticeTextWrap: {
+    flex: 1,
+  },
+  backdatedNoticeTitle: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
+    marginBottom: 2,
+  },
+  backdatedNoticeDesc: {
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
   },
   bottomSection: {
     borderTopLeftRadius: 26,

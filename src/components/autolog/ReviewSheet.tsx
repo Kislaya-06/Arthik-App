@@ -337,9 +337,10 @@ export const ReviewSheet: React.FC<Props> = ({
       const logged = await classifyEvent(
         event,
         'expense',
-        null,
-        false,
-        needsAmount ? amount ?? undefined : undefined
+        categoryId,
+        remember,
+        needsAmount ? amount ?? undefined : undefined,
+        { clearNeedsCategory: true }
       );
       if (logged.expenseId && navigationRef.isReady()) {
         (navigationRef as any).navigate('EditExpense', { expenseId: logged.expenseId, splitOn: true });

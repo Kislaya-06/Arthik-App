@@ -225,6 +225,12 @@ Self-transfers are identified ONLY by `transaction_class === 'self_transfer'` (`
 
 **Split & money back (`SPL-001..SPL-006`)**: a third class, `transaction_class === 'recovery'`, marks money that came back for an expense already paid. It is excluded from income and expense totals like a self-transfer, and instead lists the expenses it went back to (`recovery_allocations`). `src/lib/splitLedger.ts` (pure) derives who owes what and plans settlements. Refunds on multi-person split expenses support interactive recipient attribution (Solution 2: `refund_target` in `recovery_allocations`), allowing proportional fair splits or targeted participant/user allocation so one person's settlement never falsely zeroes out another friend's debt. `src/store/expense/recoveryMiddleware.ts` wraps the expense store so that every write of `expenses` recomputes each expense's COUNTED amount (`amount paid − money back`); the paid amount stays in `gross_amount` (store-only, never sent to the database). Because the waterfall and day rollover already re-run on every expense change, money returns to its original budget day / income pool / Gullak with no extra source tracking. `src/store/expense/moneyBack.ts` records money back (and converts an already logged income); `src/store/expense/payload.ts` sends the new columns only when a row uses them.
 
+### 6.8 Multi-Cadence Insights & Period Rollover Reconciliation (`INS-002`, `HEA-002`)
+Insights breathing strips reconcile savings across all budget cadences without relying on nonexistent daily records for non-daily modes:
+- **Weekly & Monthly Cadence Savings**: Weekly and Monthly insights aggregate finalized savings directly from `budget_periods` (`status === 'saved'`). Cross-month weekly periods attribute their savings at `activeEnd` matching true cash accounting rollovers.
+- **Mid-Interval Cadence Switching**: Daily records and period slices combine additively (`autoSaved = dailySaved + periodSaved`) ensuring zero data loss and exact reconciliation.
+- **Option 2 (Month Budget Share %)**: When monthly cadence users view the Weekly Insights tab, the second card renders `MONTH BUDGET SHARE` (showing current week's spend percentage of total monthly pool, status badge `🟢 On Track` / `⚠️ High Burn`, and contextual subtext `₹X of ₹Y pool`) paired with cadence-aware discipline takeaways.
+
 ---
 
 ## 7. Auth & Security
@@ -352,10 +358,12 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `expenseFilters.test.ts` | Transaction filtering, category sorting, payment mode slices |
 | `expenseStore.test.ts` | Offline queues (create/update/delete), optimistic pending, reconnect sync |
 | `expenseSyncPending.test.ts` | Offline pending expense synchronization, retry logic, error classification |
+| `fetchExpensesTimeout.test.ts` | FIN-05: Range pagination per-page timeout scaling, retry resilience, cancellation guard, and NetInfo connectivity validation |
 | `financialCorrectnessMatrix.test.ts` | 16-scenario financial matrix: zero proration, switches, mutations, boundary math |
 | `formatters.test.ts` | `formatCurrency`, `formatAmountWithCommas`, `round2`, Indian numbering |
 | `granularCategorySelectors.test.ts` | Granular Zustand store selector isolation in CategoryDetail and ManageCategories screens, rerender prevention |
 | `gullakDeposits.test.ts` | Income vs external Gullak deposits, balance limits, timeline logs |
+| `gullakIncomeDeleteEditGuard.test.ts` | FIN-06: Income deletion and reduction Gullak deficit calculation, auto-adjustment, and user alert confirmation |
 | `gullakReconciliationHardCap.test.ts` | Gullak hard-cap reconciliation (GUL-001) preventing deposits exceeding net account liquidity |
 | `heroDetails.test.ts` | Hero card details breakdown sheet, money in/out lines, money-back isolation |
 | `homeCalculations.test.ts` | Home screen derived metrics, live spent, remaining balance |
@@ -368,9 +376,25 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `moneyWaterfallStore.test.ts` | Integration between money waterfall and daily budget store metrics |
 | `monthlyCardConsistency.test.ts` | Monthly hero card and detail card financial consistency across date slices |
 | `monthlyInsightsData.test.ts` | Monthly aggregations, category breakdowns, week-over-week comparisons |
+| `multiCadenceInsightsSavings.test.ts` | FIN-04: Multi-cadence savings reconciliation across weekly and monthly periods, cross-month attribution, mid-interval switches, and Option 2 share % |
 | `navBarStore.test.ts` | Bottom navigation bar visibility state and toggle actions |
 | `networkUtils.test.ts` | NetInfo state listener, reconnect queue trigger |
 | `noteSuggestions.test.ts` | Autocomplete ranking by recency, frequency, and category affinity |
+| `otaStore.test.ts` | In-app OTA modal triggers, version comparisons |
+| `part2Consistency.test.ts` | Pure Mode invariants, category classification, carry-over rules |
+| `paymentAndIconUtils.test.ts` | Payment mode resolution, icon key validation |
+| `piggyBankCoinIcon.test.ts` | Gullak piggy icon and coin rendering |
+| `profileUtils.test.ts` | Profile data sanitization, avatar upload URL derivation |
+| `pullToHistoryPhysics.test.ts` | Reanimated worklet drag gesture physics, haptic threshold triggers |
+| `pureModeRules.test.ts` | Pure mode allowance immunity, unspent immunity, negative balance allowance |
+| `realTimeIncomeGullakDeduction.test.ts` | Real-time income-funded Gullak deposits deduction from daily budget pools |
+| `recentTransactions.test.ts` | Home screen recent transaction slice, sorting, date grouping |
+| `reviewSheetLayout.test.ts` | AutoLog ReviewSheet compact layout and bottom-sheet rendering |
+| `rollingText.test.ts` | FIN-09: Number ticker digit roll planning, cross-filter forced spin, digit diff computation |
+| `scaffoldExercises.test.ts` | Scaffolding validation |
+| `segmentedControl.test.ts` | Segmented pill control selection, sliding indicator layout |
+| `selfTransfersAndIncome.test.ts` | Self-transfer classification and exclusions from income totals |
+| `splitEqualSharePrecision.test.ts` | FIN-07: Split equally remainder absorption and integer paise distribution preventing validation lockouts |
 | `notificationPolicy.test.ts` | Pure notification policy: max 1/day, priority order, evening nudge, Gullak reward, recaps |
 | `notificationStore.test.ts` | Add/dedup/cap-50, read status, multi-user isolation |
 | `notificationSync.test.ts` | OS notification plan builder, diff-based scheduling, cancellation |
@@ -408,6 +432,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `versionCheck.test.ts` | Semver comparison, update-required screen gating |
 | `weeklyInsightsData.test.ts` | Weekly day-by-day aggregations, daily averages, weekend vs weekday spend |
 | `yearlyInsightsData.test.ts` | 12-month calendar aggregation, annual savings, largest month-over-month increases |
+| `yearlyInsightsInflowDeposits.test.ts` | FIN-03: Annual and 12-month inflow deposit filtering, income double-counting prevention (GUL-004) |
 
 ---
 

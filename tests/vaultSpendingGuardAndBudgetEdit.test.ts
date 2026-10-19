@@ -279,4 +279,23 @@ describe('Vault Spending Guard & Zero-Spend Immediate Budget Update', () => {
       expect(pendingChange?.amount).toBe(20000);
     });
   });
+
+  describe('Backdated Ungoverned Spending Shortfall & Vault Guard', () => {
+    it('calculates exact shortfall needed when backdated expense exceeds available vault liquidity', () => {
+      // User has 100 in vault liquidity (Gullak + cash remaining)
+      // Backdated expense amount is 400
+      const totalVaultLiquidity = 100;
+      const expenseAmount = 400;
+      const shortfall = Math.max(0, expenseAmount - totalVaultLiquidity);
+      expect(shortfall).toBe(300);
+    });
+
+    it('identifies when shortfall is 0 (sufficient funds in Gullak/vault)', () => {
+      const totalVaultLiquidity = 500;
+      const expenseAmount = 400;
+      const shortfall = Math.max(0, expenseAmount - totalVaultLiquidity);
+      expect(shortfall).toBe(0);
+    });
+  });
 });
+

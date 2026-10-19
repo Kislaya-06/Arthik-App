@@ -28,6 +28,8 @@ import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { DepositGullakModal } from '../components/DepositGullakModal';
 import { MoneyExplainerModal } from '../components/MoneyExplainerModal';
+import { PauseBudgetModal } from '../components/profile/PauseBudgetModal';
+import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -37,6 +39,7 @@ import { SavingsHeroCard } from '../components/savings/SavingsHeroCard';
 import { BudgetHubSection } from '../components/savings/BudgetHubSection';
 import { SavingsHistorySection } from '../components/savings/SavingsHistorySection';
 import { styles } from './SavingsScreen.styles';
+import { styles as profileStyles } from './ProfileScreen.styles';
 
 const FILTERS = ['All', 'This Week', 'This Month', 'Deposits'] as const;
 const INITIAL_RECORDS_COUNT = 8;
@@ -75,6 +78,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const [streakCalendarVisible, setStreakCalendarVisible] = useState(false);
   const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [explainerVisible, setExplainerVisible] = useState(false);
+  const [explainerTopic, setExplainerTopic] = useState<MoneyExplainerTopic>('rollover_savings');
+  const [pauseModalVisible, setPauseModalVisible] = useState(false);
   const [heroCardSize, setHeroCardSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [allowanceCardSize, setAllowanceCardSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
@@ -85,6 +90,8 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
+  const getCarryableAmount = useDailyBudgetStore((s) => s.getCarryableAmount);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
   const getPendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange);
   const cancelPendingPlanChange = useDailyBudgetStore((s) => s.cancelPendingPlanChange);
@@ -92,6 +99,42 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const categories = useCategoryStore((s) => s.categories);
 
   const pendingPlanChange = useMemo(() => getPendingPlanChange(), [getPendingPlanChange, planChanges]);
+  const isScheduledSwitch = Boolean(pendingPlanChange && pendingPlanChange.isEnabled !== isBudgetModeEnabled);
+  const toggleValue = isScheduledSwitch ? pendingPlanChange!.isEnabled : isBudgetModeEnabled;
+
+  const handleToggleBudgetMode = useCallback((val: boolean) => {
+    if (isScheduledSwitch) {
+      setBudgetModeEnabled(val);
+      return;
+    }
+
+    if (!val) {
+      if (totalAccumulatedSavings > 0 || effectiveBestStreak > 0) {
+        setPauseModalVisible(true);
+      } else {
+        setBudgetModeEnabled(false);
+      }
+    } else {
+      setBudgetModeEnabled(true);
+    }
+  }, [isScheduledSwitch, totalAccumulatedSavings, effectiveBestStreak, setBudgetModeEnabled]);
+
+  const handleCancelPendingPlan = useCallback(() => {
+    Alert.alert(
+      'Cancel Scheduled Switch?',
+      pendingPlanChange?.isEnabled
+        ? 'Do you want to stay in Pure Mode and cancel activating Smart Budget & Gullak tomorrow?'
+        : 'Do you want to keep Smart Budget & Gullak and cancel switching to Pure Mode tomorrow?',
+      [
+        { text: 'Keep Scheduled', style: 'cancel' },
+        {
+          text: 'Cancel Switch',
+          style: 'destructive',
+          onPress: () => cancelPendingPlanChange(),
+        },
+      ]
+    );
+  }, [cancelPendingPlanChange, pendingPlanChange]);
 
   const handleDeleteDeposit = useCallback((id: string, amount: number) => {
     Alert.alert(
@@ -326,15 +369,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const progressAnim = useAnimatedValue(0);
 
   useEffect(() => {
-    if (isAutoRenew) {
-      Animated.timing(progressAnim, {
-        toValue: cardIsOver ? 1 : Math.min(1, Math.max(0, cardProgressRatio)),
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [isAutoRenew, cardProgressRatio, cardIsOver, progressAnim]);
+    Animated.timing(progressAnim, {
+      toValue: cardIsOver ? 1 : Math.min(1, Math.max(0, cardProgressRatio)),
+      duration: 500,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [cardProgressRatio, cardIsOver, progressAnim]);
 
   const animatedProgressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -378,7 +419,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           heroCardSize={heroCardSize}
           setHeroCardSize={setHeroCardSize}
           budgetCadence={budgetCadence}
-          onOpenExplainer={() => setExplainerVisible(true)}
+          onOpenExplainer={() => {
+            setExplainerTopic('rollover_savings');
+            setExplainerVisible(true);
+          }}
           triggerPiggyBounce={triggerPiggyBounce}
           heroPiggyScale={heroPiggyScale}
           totalAccumulatedSavings={totalAccumulatedSavings}
@@ -404,12 +448,15 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           cadencePeriodSummary={cadencePeriodSummary}
           handleCancelScheduled={handleCancelScheduled}
           pendingPlanChange={pendingPlanChange}
-          cancelPendingPlanChange={cancelPendingPlanChange}
+          cancelPendingPlanChange={handleCancelPendingPlan}
           isOverBudget={isOverBudget}
           overspendHint={overspendHint}
           budgetCadence={budgetCadence}
           weeklyBudgetAmount={weeklyBudgetAmount}
           monthlyBudgetAmount={monthlyBudgetAmount}
+          toggleValue={toggleValue}
+          onToggleBudgetMode={handleToggleBudgetMode}
+          isScheduledSwitch={isScheduledSwitch}
         />
 
         {/* ── Day-by-Day Savings History ── */}
@@ -449,10 +496,30 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
         onClose={() => setDepositModalVisible(false)}
       />
 
+      {/* ── Switch to Pure Mode Confirmation Modal ── */}
+      <PauseBudgetModal
+        visible={pauseModalVisible}
+        onClose={() => setPauseModalVisible(false)}
+        totalAccumulatedSavings={totalAccumulatedSavings}
+        budgetCadence={budgetCadence}
+        getCarryableAmount={getCarryableAmount}
+        onTurnOff={() => {
+          setPauseModalVisible(false);
+          setBudgetModeEnabled(false);
+        }}
+        onOpenMoneyExplainer={() => {
+          setExplainerTopic('budget_pause');
+          setExplainerVisible(true);
+        }}
+        colors={colors}
+        isDark={isDark}
+        styles={profileStyles}
+      />
+
       {/* ── Money Explainer Modal ── */}
       <MoneyExplainerModal
         visible={explainerVisible}
-        topic="rollover_savings"
+        topic={explainerTopic}
         onClose={() => setExplainerVisible(false)}
       />
     </View>

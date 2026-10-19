@@ -84,6 +84,30 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
 ### Samasya 8: "Aaj ka Budget Aaj hi Change kyun nahi ho sakta?"
 - **Hal:** Agar aaj abhi tak ₹0 kharch hua hai (`todaySpent === 0` for Daily, `currentWeekSpent === 0` for Weekly, `currentMonthSpent === 0` for Monthly), toh budget update kal raat 12 AM ka wait karne ke bajaye **aaj hi turant** active period me apply ho jata hai (`BPR-002`). Agar ₹1 bhi kharch ho chuka hai, tabhi safe rollover ke liye agle cycle par schedule hota hai. Category chip tap karne par keypad bhi band nahi hota taaki editing frictionless rahe.
 
+### Samasya 9: "Slow internet connection par jhootha 'You are offline' banner dikhna"
+- **Hal (`FIN-05`, `expenseStore.ts`):** Pehle poore pagination loop ko ek hi 5s hard timeout mein daala gaya tha, jisse hazaaron transactions ya slow network par time out hokar app jhoothi offline banner dikha deta tha. Ab har 1000-row page ka apna 10s timeout aur automatic retries hain, aur offline status sirf tab set hota hai jab `NetInfo` sach mein disconnected confirm kare. Kisi page par failure ho to partial data state ya cache mein save nahi hota, aur puraani cache sahi salamat load ho jaati hai.
+
+### Samasya 10: "Puraane bina budget waale din ka kharch daalne par Gullak aur solvency clarity" (FIN-01)
+- **Hal (`FIN-01`, `budgetUtils.ts`, `ExpenseFormScreen.tsx`, `VaultSpendingGuardModal.tsx`):** Agar user kisi puraani date (jaise Sunday, jab budget ya income nahi thi) ka expense log karta hai, toh `ExpenseFormScreen` par date picker ke neeche live contextual notice chip aati hai: agar Gullak mein paise hain toh bata deta hai ki ye kharch Gullak se katega (`GUL-001`); agar Gullak/vault mein paise kam hain, toh alert chip shortfall batati hai aur save dabane par `VaultSpendingGuardModal` seedha shortfall amount pre-fill karke open hota hai (`SEC-001`) taaki user bina form data khoe 1-tap me "Add Money & Save" kar sake. Gullak balance ko bhi hard-capped rakha gaya hai taaki wo kisi bhi mode mein kul account cash se zyada na ho sake (`GUL-001`).
+
+### Samasya 11: "Kai din app na kholne par scheduled plan change drop hona" (FIN-02)
+- **Hal (`FIN-02`, `rollover.ts`, Rules `CAD-001`, `ROL-001`):** Pehle `applyScheduledPlanChanges` sirf `effectiveFrom === todayStr || effectiveFrom === yesterdayStr` check karta tha. Agar user ne 2 ya zyada din app nahi kholi (jaise Friday se Monday), toh scheduled cadence switch ya budget change drop ho jata tha. Ab canonical `resolvePlanForDate(planChanges, todayStr)` helper ka use hota hai, jisse multi-day gap hone par bhi mature ho chuka plan app khulte hi 100% reliably activate ho jata hai.
+
+### Samasya 12: "Income delete ya kam karne par Gullak mein bina backing ke paise reh jana" (FIN-06)
+- **Hal (`FIN-06`, `gullakReconciliation.ts`, `dailyBudgetStore.ts`, `ExpenseDetailScreen.tsx`, `useExpenseForm.ts`, Rules `GUL-001`, `GUL-004`):** Agar user ne income ke din Gullak me deposit kiya tha (jaise ₹10,000 income me se ₹4,000 Gullak me daale) aur baad me user wo income delete karta hai ya ghata kar ₹3,000 karta hai, toh Gullak ke paas ₹1,000 ki backing khatam ho jaati hai. System user ko clear confirmation alert deta hai aur unbacked deficit ko Gullak se adjust kar deta hai (`adjustGullakIncomeDeposits`), taaki fake ya phantom savings balance na bache.
+
+### Samasya 13: "Split equally mein paise fractional hone par form save na hona" (FIN-07)
+- **Hal (`FIN-07`, `useExpenseForm.ts`, Rule `SPL-001`):** Odd split amounts (jaise ₹10 teen logon mein baantna) par floating-point division `3.333333...` se sum `10.00` se match nahi karta tha aur validation error aa jati thi. Ab exact integer paise distribution aur remainder absorption se ek-ek paise ka hisaab 100% exact match hota hai bina kisi save lockout ke.
+
+### Samasya 14: "Splash screen par unnecessary 2.2s delay" (FIN-08)
+- **Hal (`FIN-08`, `SplashScreen.tsx`):** Hardcoded minimum delay ko 2200ms se ghata kar 500ms kiya gaya. Brand logo crisp dikhta hai aur app 1.5s pehle turant khulti hai.
+
+### Samasya 15: "Daily aur Weekly pill ke beech amount same hone par rollover animation na aana" (FIN-09)
+- **Hal (`FIN-09`, `HomeScreen.tsx`, `BrandedHeroCard.tsx`, `RollingText.tsx`, `rollingText.ts`):** Mondays ko Daily aur Weekly balance numerical roop se same hota hai. Pehle identical amounts par animation skip ho jaata tha. Ab `rollTrigger` aur `forceSpin` se har pill switch par crisp digit roll animation trigger hota hai, aur waterfall calculation ko active filter se decouple karke instantaneous response diya gaya hai.
+
+### Samasya 16: "History screen mein Category se All pill par aane par UI lag" (FIN-12)
+- **Hal (`FIN-12`, `HistoryScreen.tsx`):** User scroll karke 50+ sections khol chuka hota tha, aur Category se "All" par aate hi saare 50+ sections ek saath re-render hote the aur saari dates baar-baar parse hoti thi. Ab synchronous section count reset aur `dateHeaderCache` se switch bilkul buttery smooth hota hai.
+
 ---
 
 ## 3. App ki layers (kaun kisse baat karta hai)
@@ -203,7 +227,7 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 | `vaultSpendingGuard.ts` | Spending guard ka hisaab: `canAddExpense` + `VAULT_GUARD_MESSAGE`. Pure Mode mein hamesha allowed |
 
 ### Insights (sab pure)
-`weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts` (weekly/monthly/yearly spend, budget health, safe daily pace, day-matched comparisons, takeaways), `insightsCommon.ts` (shared types).
+`weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts` (weekly/monthly/yearly spend, budget health, safe daily pace, day-matched comparisons, multi-cadence period savings aggregation, Option 2 `computeWeeklyShareOfMonthlyBudget` for monthly savers on weekly tab, cadence-aware discipline takeaways), `insightsCommon.ts` (shared types).
 
 ### Notifications
 | File | Kya karti hai |

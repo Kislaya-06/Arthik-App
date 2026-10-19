@@ -17,6 +17,7 @@ export interface MonthlyBreathingStripProps {
   isOverBudget?: boolean;
   monthlyDailyBurnPace?: number;
   onPressSavings?: () => void;
+  savedPillLabel?: string;
 }
 
 export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
@@ -32,6 +33,7 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
   isOverBudget = false,
   monthlyDailyBurnPace = 0,
   onPressSavings,
+  savedPillLabel,
 }) => {
   const { colors, isDark } = useTheme();
 
@@ -76,14 +78,16 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
               ? colors.mintGreen
               : colors.forestGreen
             : colors.textPrimary,
-        pillText: `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
+        pillText:
+          savedPillLabel ||
+          `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
         pillVariant: 'neutral',
         onPress: onPressSavings,
         accessibilityLabel: `Gullak savings this month: ${
           totalMonthSavings > 0
             ? `+${formatCurrency(totalMonthSavings)}`
             : formatCurrency(0)
-        } across ${savedDaysCount} saved days. Tap to open Savings.`,
+        } across ${savedPillLabel || `${savedDaysCount} saved days`}. Tap to open Savings.`,
       }}
     />
   );

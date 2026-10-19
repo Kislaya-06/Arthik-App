@@ -318,7 +318,23 @@ describe('Pure Mode Acceptance Tests (PUR-001, PUR-002, SEC-001 amend)', () => {
     expect(remAfter).toBe(500);
 
     // 3) Going to Budget Mode on Nov 15: unspent leftover (500) shows as Gullak!
-    useDailyBudgetStore.setState({ isBudgetModeEnabled: true });
+    useDailyBudgetStore.setState({
+      isBudgetModeEnabled: true,
+      planChanges: [
+        ...useDailyBudgetStore.getState().planChanges,
+        {
+          id: 'pc-3',
+          userId: 'test_user_pure',
+          effectiveFrom: '2026-11-15',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 0,
+          createdAt: '2026-11-15T00:00:00Z',
+        },
+      ],
+      budgetCadence: 'daily',
+      dailyBudgetAmount: 0,
+    });
     useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
     expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(500);
     expect(computeTotalAccountRemaining(useDailyBudgetStore.getState(), useExpenseStore.getState().expenses)).toBe(500);

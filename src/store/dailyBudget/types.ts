@@ -62,6 +62,8 @@ export interface DailyBudgetState {
   toggleAutoRenew: (enabled: boolean) => void;
   addGullakDeposit: (amount: number, note?: string, source?: GullakDepositSource) => void;
   removeGullakDeposit: (id: string) => void;
+  updateGullakDepositAmount: (id: string, newAmount: number) => void;
+  adjustGullakIncomeDeposits: (dateStr: string, deficit: number) => Promise<void>;
   getAvailableIncomeBalance: () => number;
   getGrossIncomeBalance: () => number;
   /** Everything left across the whole account (budgets + income + external deposits - spent). Can be <= 0. */

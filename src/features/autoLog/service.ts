@@ -159,7 +159,11 @@ const catchUpInbox = async (since: number, notify: boolean) => {
   }
   toProcess.sort((a, b) => a.date - b.date);
   for (const m of toProcess) {
-    try { await processSms(m, { origin: 'live', notify }); } catch {}
+    try {
+      await processSms(m, { origin: 'live', notify });
+    } catch (err) {
+      if (__DEV__) console.warn('[AutoLog] catchUpInbox SMS process error:', err);
+    }
   }
 };
 
@@ -176,7 +180,11 @@ export const processQueue = (userId: string, opts: { notify: boolean } = { notif
     try { lines = ArthikAutoLog?.drainQueue() ?? []; } catch {}
     const parsed: QueueLine[] = [];
     for (const l of lines) {
-      try { parsed.push(JSON.parse(l)); } catch {}
+      try {
+        parsed.push(JSON.parse(l));
+      } catch (err) {
+        if (__DEV__) console.warn('[AutoLog] Queue line parse error:', err);
+      }
     }
     parsed.sort((a, b) => (a.date ?? 0) - (b.date ?? 0));
     for (const ev of parsed) {
@@ -195,13 +203,17 @@ export const processQueue = (userId: string, opts: { notify: boolean } = { notif
             await processEmail({ app: ev.app, title: ev.title ?? '', body: ev.body ?? '', date: ev.date }, { origin: 'live', notify: opts.notify });
           }
         }
-      } catch {
-        // keep going with the next event
+      } catch (err) {
+        if (__DEV__) console.warn('[AutoLog] Event processing error (isolated):', err);
       }
     }
     // Safety net: SMS the receiver may have missed (OEM killed the app, etc.).
     const since = Math.max(liveSince, (state.lastChecked ?? liveSince) - 30 * 60_000);
-    try { await catchUpInbox(since, opts.notify); } catch {}
+    try {
+      await catchUpInbox(since, opts.notify);
+    } catch (err) {
+      if (__DEV__) console.warn('[AutoLog] catchUpInbox safety net error:', err);
+    }
     const now = Date.now();
     await sweepAwaiting(now, opts.notify);
     await flushQueued();

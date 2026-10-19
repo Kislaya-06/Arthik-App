@@ -71,6 +71,8 @@ export interface RollingTextProps {
   accessibilityLabel?: string;
   /** true = rolls up from zero whenever the screen gains focus. */
   rollOnFocus?: boolean;
+  /** Optional trigger key (e.g. active filter/tab name); when it changes, forces a full cycle roll even if text is identical. */
+  rollTrigger?: string | number;
 }
 
 // ─── OS "reduce motion" (shared by every instance) ───────────────────────────
@@ -243,6 +245,7 @@ export const RollingText: React.FC<RollingTextProps> = ({
   testID,
   accessibilityLabel,
   rollOnFocus,
+  rollTrigger,
 }) => {
   const flat = (StyleSheet.flatten(style) || {}) as TextStyle;
   const family = flat.fontFamily;
@@ -282,6 +285,7 @@ export const RollingText: React.FC<RollingTextProps> = ({
   // ── Detect a change and start a roll (layout effect: no frame of the new text before the wheels) ──
   const [active, setActive] = useState<ActiveRoll | null>(null);
   const lastTextRef = useRef(text);
+  const lastTriggerRef = useRef(rollTrigger);
   const idRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useReduceMotion();
@@ -298,6 +302,8 @@ export const RollingText: React.FC<RollingTextProps> = ({
 
   useLayoutEffect(() => {
     const prev = lastTextRef.current;
+    const triggerChanged = rollTrigger !== undefined && lastTriggerRef.current !== undefined && lastTriggerRef.current !== rollTrigger;
+    lastTriggerRef.current = rollTrigger;
     const justGainedFocus = !!rollOnFocus && isFocused && !wasFocusedRef.current;
     wasFocusedRef.current = isFocused;
 
@@ -320,7 +326,7 @@ export const RollingText: React.FC<RollingTextProps> = ({
 
     // Determine what roll to plan:
     // 1. Entering the screen (even if the value also changed while away): roll up from 0 to the value
-    // 2. Normal value change while the screen is visible: roll between prev and text
+    // 2. Normal value change while the screen is visible: roll between prev and text (or force cycle if trigger changed)
     let plan: RollPlan | null = null;
     if (justGainedFocus) {
       lastTextRef.current = text;
@@ -328,9 +334,9 @@ export const RollingText: React.FC<RollingTextProps> = ({
       if (zeroText !== text) {
         plan = planRoll(zeroText, text);
       }
-    } else if (prev !== text) {
+    } else if (prev !== text || triggerChanged) {
       lastTextRef.current = text;
-      plan = planRoll(prev, text);
+      plan = planRoll(prev, text, triggerChanged && prev === text);
     } else {
       return;
     }
@@ -352,7 +358,7 @@ export const RollingText: React.FC<RollingTextProps> = ({
       () => setActive((cur) => (cur && cur.id === id ? null : cur)),
       ROLL_DURATION_MS + ROLL_STAGGER_MS * rollCount + 80
     );
-  }, [text, animate, reduceMotion, isFocused, rollOnFocus]);
+  }, [text, animate, reduceMotion, isFocused, rollOnFocus, rollTrigger]);
 
   useEffect(
     () => () => {

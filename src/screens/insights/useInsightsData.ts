@@ -11,6 +11,7 @@ import {
   computeBudgetHealth,
   computeSafeDailyPace,
   computeWeeklyGullakSavings,
+  computeWeeklyShareOfMonthlyBudget,
   computeSmartWeeklyTakeaway,
   computeLargestSingleOutflow,
   computeWeekdayVsWeekendDynamics,
@@ -418,9 +419,10 @@ export function useInsightsData({
       dailyBudgetAmount,
       weeklyBudgetAmount,
       user?.created_at,
-      currentInterval
+      currentInterval,
+      monthlyBudgetAmount
     );
-  }, [budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, user?.created_at, currentInterval]);
+  }, [budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount, user?.created_at, currentInterval]);
 
   const budgetHealth = useMemo(() => {
     return computeBudgetHealth(effectiveBudgetResult.effectiveBudget, currentTotal);
@@ -543,8 +545,19 @@ export function useInsightsData({
   }, [activeBudgetPool, period, monthlyBudgetHealth.remaining, elapsedDaysInMonth, currentInterval]);
 
   const weeklyGullak = useMemo(() => {
-    return computeWeeklyGullakSavings(dailyRecords, gullakDeposits, currentInterval);
-  }, [dailyRecords, gullakDeposits, currentInterval]);
+    return computeWeeklyGullakSavings(
+      dailyRecords,
+      gullakDeposits,
+      currentInterval,
+      budgetPeriods,
+      budgetCadence
+    );
+  }, [dailyRecords, gullakDeposits, currentInterval, budgetPeriods, budgetCadence]);
+
+  const weeklyMonthlyBudgetShare = useMemo(() => {
+    if (period !== 'Weekly' || budgetCadence !== 'monthly') return null;
+    return computeWeeklyShareOfMonthlyBudget(currentTotal, monthlyBudgetAmount);
+  }, [period, budgetCadence, currentTotal, monthlyBudgetAmount]);
 
   const weekTransactionCount = useMemo(() => {
     let count = 0;
@@ -579,6 +592,10 @@ export function useInsightsData({
       isCurrentWeek: offset === 0,
       transactionCount: weekTransactionCount,
       dailyAverageBurn: Math.round(currentTotal / Math.max(1, elapsedDaysInWeek)),
+      cadence: budgetCadence,
+      savedWeeksCount: weeklyGullak.savedWeeksCount,
+      monthlyBudgetShare: weeklyMonthlyBudgetShare,
+      monthlyBudgetAmount,
     });
   }, [
     currentTotal,
@@ -593,6 +610,9 @@ export function useInsightsData({
     offset,
     weekTransactionCount,
     elapsedDaysInWeek,
+    budgetCadence,
+    weeklyMonthlyBudgetShare,
+    monthlyBudgetAmount,
   ]);
 
   const largestOutflow = useMemo(() => {
@@ -621,9 +641,25 @@ export function useInsightsData({
   }, [currentTotal, elapsedDaysInMonth]);
 
   const monthlyGullakSavings = useMemo(() => {
-    if (period !== 'Monthly') return { totalSaved: 0, autoSaved: 0, manualDeposits: 0, savedDaysCount: 0 };
-    return computeMonthlyGullakSavings(dailyRecords, gullakDeposits, currentInterval);
-  }, [period, dailyRecords, gullakDeposits, currentInterval]);
+    if (period !== 'Monthly') {
+      return {
+        totalSaved: 0,
+        autoSaved: 0,
+        manualDeposits: 0,
+        savedDaysCount: 0,
+        savedWeeksCount: 0,
+        savedMonthsCount: 0,
+        pillLabel: '',
+      };
+    }
+    return computeMonthlyGullakSavings(
+      dailyRecords,
+      gullakDeposits,
+      currentInterval,
+      budgetPeriods,
+      budgetCadence
+    );
+  }, [period, dailyRecords, gullakDeposits, currentInterval, budgetPeriods, budgetCadence]);
 
   const monthlyLargestOutflow = useMemo(() => {
     if (period !== 'Monthly') return null;
@@ -682,6 +718,9 @@ export function useInsightsData({
       remainingBudget: remBudget,
       transactionCount: monthTransactionCount,
       monthlyDailyBurnPace,
+      cadence: budgetCadence,
+      savedWeeksCount: monthlyGullakSavings.savedWeeksCount,
+      savedMonthsCount: monthlyGullakSavings.savedMonthsCount,
     });
   }, [
     currentTotal,
@@ -696,6 +735,7 @@ export function useInsightsData({
     monthlyRemainingDays,
     monthTransactionCount,
     monthlyDailyBurnPace,
+    budgetCadence,
   ]);
 
   // ─── Yearly Insights Analytics & Engines ────────────────────────────────────
@@ -919,6 +959,7 @@ export function useInsightsData({
     safeDailyPace,
     monthlySafeDailyPace,
     weeklyGullak,
+    weeklyMonthlyBudgetShare,
     weekTransactionCount,
     smartTakeaway,
     largestOutflow,

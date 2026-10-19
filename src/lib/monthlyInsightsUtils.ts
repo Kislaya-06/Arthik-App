@@ -25,7 +25,7 @@ import { round2, formatAmountWithCommas } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import type { Category } from '../store/categoryStore';
-import type { BudgetCadence } from '../types';
+import type { BudgetCadence, BudgetPeriodRecord } from '../types';
 
 export { ExpenseLike };
 
@@ -153,6 +153,9 @@ export interface MonthlyTakeawayParams {
   remainingBudget: number;
   transactionCount: number;
   monthlyDailyBurnPace: number;
+  cadence?: BudgetCadence;
+  savedWeeksCount?: number;
+  savedMonthsCount?: number;
 }
 
 export interface SmartMonthlyTakeawayResult {
@@ -177,6 +180,9 @@ export function computeSmartMonthlyTakeaway(params: MonthlyTakeawayParams): Smar
     remainingDays,
     transactionCount,
     monthlyDailyBurnPace,
+    cadence,
+    savedWeeksCount,
+    savedMonthsCount,
   } = params;
 
   // 1. Zero Spend
@@ -195,12 +201,27 @@ export function computeSmartMonthlyTakeaway(params: MonthlyTakeawayParams): Smar
     };
   }
 
-  // 3. High Savings Discipline (5+ saved days in month and savings > 0)
-  if (isBudgetMode && savedDaysCount >= 5 && totalMonthSavings > 0) {
-    return {
-      text: `Great discipline! Stayed under budget on ${savedDaysCount} days · +₹${formatAmountWithCommas(String(totalMonthSavings))} saved to Gullak.`,
-      status: 'mint',
-    };
+  // 3. High Savings Discipline
+  if (isBudgetMode && totalMonthSavings > 0) {
+    if (cadence === 'monthly' && (savedMonthsCount || 0) >= 1) {
+      return {
+        text: `Great discipline! Stayed under monthly budget · +₹${formatAmountWithCommas(String(totalMonthSavings))} saved to Gullak.`,
+        status: 'mint',
+      };
+    }
+    if (cadence === 'weekly' && (savedWeeksCount || 0) >= 1) {
+      const wkUnit = savedWeeksCount === 1 ? 'week' : 'weeks';
+      return {
+        text: `Great discipline! Stayed under budget on ${savedWeeksCount} ${wkUnit} · +₹${formatAmountWithCommas(String(totalMonthSavings))} saved to Gullak.`,
+        status: 'mint',
+      };
+    }
+    if (savedDaysCount >= 5) {
+      return {
+        text: `Great discipline! Stayed under budget on ${savedDaysCount} days · +₹${formatAmountWithCommas(String(totalMonthSavings))} saved to Gullak.`,
+        status: 'mint',
+      };
+    }
   }
 
   // 4. Dominant Category (Taking 45%+ of month)
@@ -240,19 +261,33 @@ export function computeSmartMonthlyTakeaway(params: MonthlyTakeawayParams): Smar
  * Aggregates Gullak savings for the month.
  * Strictly avoids double-counting:
  * 1. Sums `dailyRecords[date].saved` for finalized saved days.
- * 2. Sums `gullakDeposits` where `source !== 'daily_savings'` (external/manual deposits only).
+ * 2. Sums `budgetPeriods` (Weekly periods finalized within this month, or Monthly period for this month).
+ * 3. Sums `gullakDeposits` where `source !== 'daily_savings'` (external/manual deposits only).
  */
 export function computeMonthlyGullakSavings(
   dailyRecords: Record<string, DailyRecord>,
   gullakDeposits: GullakDeposit[],
-  monthInterval: MonthInterval
-): { totalSaved: number; autoSaved: number; manualDeposits: number; savedDaysCount: number } {
+  monthInterval: MonthInterval,
+  budgetPeriods?: Record<string, BudgetPeriodRecord> | BudgetPeriodRecord[],
+  cadence?: BudgetCadence
+): {
+  totalSaved: number;
+  autoSaved: number;
+  manualDeposits: number;
+  savedDaysCount: number;
+  savedWeeksCount: number;
+  savedMonthsCount: number;
+  pillLabel: string;
+} {
   const startStr = toDateStr(monthInterval.start);
   const endStr = toDateStr(monthInterval.end);
 
   let autoSaved = 0;
   let savedDaysCount = 0;
+  let savedWeeksCount = 0;
+  let savedMonthsCount = 0;
 
+  // 1. Finalized daily records
   Object.values(dailyRecords || {}).forEach((r) => {
     if (!r.date) return;
     const cleanDate = toDateStr(r.date);
@@ -264,6 +299,46 @@ export function computeMonthlyGullakSavings(
     }
   });
 
+  // 2. Finalized budget periods (Weekly or Monthly)
+  const periodsList = Array.isArray(budgetPeriods)
+    ? budgetPeriods
+    : Object.values(budgetPeriods || {});
+
+  for (const p of periodsList) {
+    if (!p) continue;
+    if (p.status === 'saved' && (p.amountSaved || 0) > 0) {
+      if (p.cadence === 'weekly') {
+        // A weekly period belongs to this month if its completion / rollover date (activeEnd) is within this month
+        if (p.activeEnd && isDateInBounds(p.activeEnd, startStr, endStr)) {
+          autoSaved += Number(p.amountSaved) || 0;
+          savedWeeksCount++;
+          if (p.activeStart && p.activeEnd) {
+            const span = differenceInCalendarDays(parseISO(p.activeEnd), parseISO(p.activeStart)) + 1;
+            savedDaysCount += Math.max(1, span);
+          } else {
+            savedDaysCount += 7;
+          }
+        }
+      } else if (p.cadence === 'monthly') {
+        // A monthly period belongs to this month if activeStart or activeEnd is within this month
+        if (
+          (p.activeStart && isDateInBounds(p.activeStart, startStr, endStr)) ||
+          (p.activeEnd && isDateInBounds(p.activeEnd, startStr, endStr))
+        ) {
+          autoSaved += Number(p.amountSaved) || 0;
+          savedMonthsCount++;
+          if (p.activeStart && p.activeEnd) {
+            const span = differenceInCalendarDays(parseISO(p.activeEnd), parseISO(p.activeStart)) + 1;
+            savedDaysCount += Math.max(1, span);
+          } else {
+            savedDaysCount += 30;
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Manual deposits
   let manualDeposits = 0;
   (gullakDeposits || []).forEach((dep) => {
     if (!dep.date) return;
@@ -274,11 +349,22 @@ export function computeMonthlyGullakSavings(
   });
 
   const totalSaved = round2(autoSaved + manualDeposits);
+
+  let pillLabel = `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
+  if (cadence === 'weekly') {
+    pillLabel = `🐷 ${savedWeeksCount} ${savedWeeksCount === 1 ? 'Saved Week' : 'Saved Weeks'}`;
+  } else if (cadence === 'monthly') {
+    pillLabel = `🐷 ${savedMonthsCount} ${savedMonthsCount === 1 ? 'Saved Month' : 'Saved Months'}`;
+  }
+
   return {
     totalSaved,
     autoSaved: round2(autoSaved),
     manualDeposits: round2(manualDeposits),
     savedDaysCount,
+    savedWeeksCount,
+    savedMonthsCount,
+    pillLabel,
   };
 }
 

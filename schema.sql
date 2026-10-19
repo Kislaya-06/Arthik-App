@@ -360,8 +360,7 @@ ALTER TABLE public.expenses ADD CONSTRAINT expenses_note_len CHECK (note IS NULL
 ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_name_len;
 ALTER TABLE public.categories ADD CONSTRAINT categories_name_len CHECK (char_length(btrim(name)) BETWEEN 1 AND 24);
 
-CREATE INDEX IF NOT EXISTS idx_expenses_category ON public.expenses (category_id);
-CREATE INDEX IF NOT EXISTS idx_categories_user ON public.categories (user_id);
+-- Note: idx_expenses_category and idx_categories_user are already created in sections 2 and 3 above
 DROP INDEX IF EXISTS public.idx_daily_savings_log_user_date; -- unique(user_id,date) already covers it
 
 -- A3. Clean up Legacy/Dead RPC Functions

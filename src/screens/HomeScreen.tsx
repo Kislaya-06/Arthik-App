@@ -172,13 +172,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const handleFilterChange = useCallback((newFilter: Filter) => {
     if (newFilter !== activeFilter) {
-      if (typeof React.startTransition === 'function') {
-        React.startTransition(() => {
-          setActiveFilter(newFilter);
-        });
-      } else {
-        setActiveFilter(newFilter);
-      }
+      setActiveFilter(newFilter);
     }
   }, [activeFilter]);
 
@@ -455,8 +449,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   // Money waterfall: budget first -> then income -> then Gullak (time ordered, shared with the
   // expense detail screen and the Gullak total). Gives each pill its own real income / Gullak numbers.
-  const scopeFunding = useMemo(() => {
-    const waterfall = computeWaterfallFromState({
+  // Memoized separately so filter pill switches do NOT re-simulate the heavy chronological lifetime waterfall!
+  const fullWaterfall = useMemo(() => {
+    return computeWaterfallFromState({
       expenses,
       categories,
       deposits: gullakDeposits,
@@ -468,14 +463,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       records: dailyRecords,
       planChanges,
     });
+  }, [expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges]);
+
+  const scopeFunding = useMemo(() => {
     const period: FilterPeriod | null =
       activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
     return summarizeScope(
-      waterfall,
+      fullWaterfall,
       (d) => (period ? isDateInPeriod(d, period, referenceDate) : true),
       activeFilter === 'All'
     );
-  }, [expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges, activeFilter, referenceDate]);
+  }, [fullWaterfall, activeFilter, referenceDate]);
 
   const {
     primaryAmount,

@@ -136,8 +136,9 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Sub-Vault Principle:** Gullak is an internal savings envelope within the user's total money. A sub-pocket cannot physically hold more cash than the user's entire account universe.
   3. **Natural Waterfall Deduction:** Overspending beyond active budget and income draws down Gullak naturally via chronological waterfall priority. No artificial zeroing hacks are required.
   4. **Automatic Deficit Protection:** If Total Account Remaining drops to 0 or deficit, Gullak balance naturally evaluates to 0.
-- **Code Enforcement:** `src/store/dailyBudget/metrics.ts`
-- **Verified By:** `tests/gullakReconciliationHardCap.test.ts`, `tests/gullakDeposits.test.ts`
+  5. **Backdated Spending on Ungoverned Days:** When logging an expense on a past date with no active budget or unspent funds (e.g. Sunday before Monday activation), the expense is funded directly from available Gullak reserves. A contextual notice chip on `ExpenseFormScreen` informs the user of the exact Gullak deduction in real time.
+- **Code Enforcement:** `src/store/dailyBudget/metrics.ts`, `src/lib/budgetUtils.ts`, `src/screens/ExpenseFormScreen.tsx`
+- **Verified By:** `tests/gullakReconciliationHardCap.test.ts`, `tests/gullakDeposits.test.ts`, `tests/budgetUtils.test.ts`
 
 #### `GUL-002`: Pure Mode Interface Exclusion
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -150,8 +151,9 @@ This document is the **single authoritative canonical source of truth** for all 
   Users can manually allocate money into Gullak via two distinct sources:
   1. **Source `'income'` (Transfer from Salary/Earned Income):** Decrements the Available Income pool and increments Gullak savings by equal amount. Total Account Remaining (`All` pill) is unchanged. Cannot exceed currently available income balance.
   2. **Source `'external'` (Fresh Outside Cash):** Fresh capital added to Gullak. Increments both Gullak savings AND Total Account Remaining (`All` pill).
-- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`
-- **Verified By:** `tests/gullakDeposits.test.ts`
+  3. **Income Deletion / Reduction Reconciliation (`FIN-06`):** If an income entry is deleted or reduced below the income-funded Gullak deposits on that date, an alert confirms the adjustment and the unbacked deficit is deducted from Gullak deposits in real time, preventing phantom savings balances.
+- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/lib/yearlyInsightsUtils.ts`, `src/lib/gullakReconciliation.ts`, `src/store/dailyBudgetStore.ts`, `src/screens/ExpenseDetailScreen.tsx`, `src/hooks/useExpenseForm.ts`
+- **Verified By:** `tests/gullakDeposits.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/gullakIncomeDeleteEditGuard.test.ts`
 
 #### `GUL-008`: Automated Overspend Drawdown (No Manual Withdrawal)
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -324,11 +326,12 @@ This document is the **single authoritative canonical source of truth** for all 
 
 ### Domain 5: ROL & HEA — Midnight Rollover, Finalization & Self-Healing (Tier 5)
 
-#### `ROL-001`: Scheduled Next-Day Budget Activation
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
+#### `ROL-001`: Scheduled Next-Day Budget Activation & Multi-Day Inactivity Catchup
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17; Multi-day catchup refined 2026-10-19)
 - **Canonical Definition:**
-  When a user edits their daily budget mid-day, the change is scheduled for the next calendar day (`scheduledNextDailyBudget`). Upon local midnight rollover (as soon as date advances past `scheduledBudgetSetDate`), the scheduled amount automatically activates as the live `dailyBudgetAmount`.
-- **Code Enforcement:** `src/store/dailyBudget/rollover.ts` (`applyScheduledNextDayBudget`)
+  1. When a user edits their daily budget mid-day, the change is scheduled for the next calendar day (`scheduledNextDailyBudget`). Upon local midnight rollover (as soon as date advances past `scheduledBudgetSetDate`), the scheduled amount automatically activates as the live `dailyBudgetAmount`.
+  2. **Multi-Day Inactivity Catchup (FIN-02):** When an app inactivity gap of $\ge 2$ days occurs (e.g. user opens the app 3 or 4 days after a scheduled change matured), scheduled plan changes (cadence switches, budget modifications, or mode toggles) are accurately resolved and activated via `resolvePlanForDate(planChanges, todayStr)` upon app launch, permanently eliminating missed plan activations across inactive intervals.
+- **Code Enforcement:** `src/store/dailyBudget/rollover.ts` (`applyScheduledNextDayBudget`, `applyScheduledPlanChanges`)
 - **Verified By:** `tests/dailyBudgetRollover.test.ts`
 
 #### `ROL-002`: Daily Record Finalization Idempotency
@@ -384,15 +387,25 @@ This document is the **single authoritative canonical source of truth** for all 
      *"Safe daily spending pace: ₹X per day with Y days remaining."*
 - **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`
 
-#### `INS-002`: Auto-Saved to Gullak Metrics (Weekly & Monthly Savings Cards)
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
+#### `INS-002`: Auto-Saved to Gullak Metrics & Multi-Cadence Savings Cards (Weekly & Monthly Insights)
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17; Multi-Cadence & Option 2 refined 2026-10-19)
 - **Canonical Definition:**
-  Both Weekly and Monthly Insights calculate and present exact savings performance:
-  1. **Auto-Saved Sum:** Aggregates `amount_saved` across all finalized daily records where `status === 'saved'` in the interval.
+  Both Weekly and Monthly Insights calculate and present exact savings performance across all cadences:
+  1. **Multi-Cadence Auto-Saved Sum:**
+     - **Daily Cadence:** Aggregates `amount_saved` across all finalized daily records where `status === 'saved'` in the interval.
+     - **Weekly Cadence:** Aggregates `amountSaved` from finalized weekly `budget_periods` (`status === 'saved'`) falling within the interval. For cross-month weekly periods spanning month boundaries, attribution is evaluated by `activeEnd` strictly matching cash accounting rollovers.
+     - **Monthly Cadence (Monthly Tab):** Aggregates `amountSaved` from finalized monthly `budget_periods` (`status === 'saved'`).
+     - **Mid-Interval Cadence Switches:** Slices are additive (`autoSaved = dailySaved + periodSaved`) ensuring zero data loss and exact reconciliation.
   2. **Manual Deposits:** Sums all manual Gullak deposits made within the interval.
-  3. **Saved Days Count:** Tallies the exact number of days on which budget savings occurred (`savedDaysCount`).
-  4. **Display:** Presented on Weekly and Monthly Insights as total saved to Gullak and days saved count.
-- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts` (`computeWeeklyGullakSavings`), `src/lib/monthlyInsightsUtils.ts` (`computeMonthlyGullakSavings`)
+  3. **Cadence-Aware Saved Counts & Dynamic Badges:**
+     - Daily: Tallies `savedDaysCount` with badge `🐷 X Saved Days`.
+     - Weekly (on Weekly tab or Monthly tab with weekly periods): Tallies `savedWeeksCount` with badge `🐷 X Saved Weeks`.
+     - Monthly: Tallies `savedMonthsCount` with badge `🐷 1 Saved Month`.
+  4. **Option 2 (Month Budget Share % on Weekly Tab for Monthly Users):**
+     - When a monthly cadence user views the Weekly Insights tab, instead of an irrelevant ₹0 Gullak tile, the right card transforms into `MONTH BUDGET SHARE` displaying the week's spending percentage of the total monthly budget (`percentage%`), a status pill (`🟢 On Track` if $\le 25\%$, `⚠️ High Burn` if $> 25\%$, `🚨 Critical Burn` if $> 50\%$), and dynamic subtext (`₹X of ₹Y pool`).
+     - Accompanied by intelligent cadence-aware discipline takeaways.
+- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts` (`computeWeeklyGullakSavings`, `computeWeeklyShareOfMonthlyBudget`, `computeSmartWeeklyTakeaway`), `src/lib/monthlyInsightsUtils.ts` (`computeMonthlyGullakSavings`, `computeSmartMonthlyTakeaway`), `src/components/WeeklyBreathingStrip.tsx`, `src/components/MonthlyBreathingStrip.tsx`, `src/screens/insights/useInsightsData.ts`, `src/screens/InsightsScreen.tsx`
+- **Verified By:** `tests/multiCadenceInsightsSavings.test.ts`, `tests/weeklyInsightsData.test.ts`, `tests/monthlyInsightsData.test.ts`
 
 #### `INS-003`: Fair Day-Matched Comparisons (MTD & YTD)
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -424,6 +437,7 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Daily Burn Velocity:** `Total Annual Outflow / Active Registered Days in Year` (real average daily expenditure rate).
   3. **Consistency Score:** Ratio of completed calendar months concluded within budget.
 - **Code Enforcement:** `src/lib/yearlyInsightsUtils.ts`
+- **Verified By:** `tests/yearlyInsightsData.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`
 
 ---
 
@@ -436,6 +450,7 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **In-Sheet Add Money & Save (Zero-Abandonment Resilience):** Instead of a hard dead-end requiring the user to leave and re-enter typed expense data, `VaultSpendingGuardModal` provides an inline flow to add money to the vault and immediately complete saving the pending expense. The expense cannot be saved without adding funds (`addedAmount >= expenseAmount`), but the user never loses form state.
   3. **Pure Mode Exemption:** Pure Mode never blocks spending and allows the user to spend into negative balance (`canAddExpense: true`, no guard sheet, AutoLog `isExceedingVaultLiquidity` returns `false`).
   4. **Overspending Allowance in Budget Mode:** Spending beyond the active daily/weekly allowance is permitted as long as total account liquidity (allowances, income, or Gullak reserve) remains positive.
+  5. **Backdated Ungoverned Shortfall Guarding:** When logging a backdated expense on an ungoverned day that exceeds total available vault/Gullak liquidity, the system proactively blocks save and launches `VaultSpendingGuardModal` pre-filled with the exact shortfall amount required (`Math.max(0, expenseAmount - totalVaultLiquidity)`) and dynamic contextual copy (*'Available: ₹X • Need: ₹Y'*).
 - **Code Enforcement:** `src/lib/vaultSpendingGuard.ts`, `src/components/VaultSpendingGuardModal.tsx`, `src/hooks/useExpenseForm.ts`, `src/features/autoLog/ledger.ts`
 - **Verified By:** `tests/vaultSpendingGuard.test.ts`, `tests/canonicalStatusAndGuard.test.ts`, `tests/pureModeRules.test.ts`, `tests/vaultSpendingGuardAndBudgetEdit.test.ts`
 

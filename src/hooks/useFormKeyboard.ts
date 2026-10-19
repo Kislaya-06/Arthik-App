@@ -17,6 +17,8 @@ export interface UseFormKeyboardReturn {
   handleNoteLayout: (e: LayoutChangeEvent) => void;
   handleNoteFocus: () => void;
   handleNoteBlur: () => void;
+  handleSplitLayout: (e: LayoutChangeEvent) => void;
+  handleSplitFocus: (relativeY?: number) => void;
   showKeypad: () => void;
   hideKeypad: () => void;
   handleKeypadDrag: (dy: number) => void;
@@ -28,12 +30,15 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   // Tracks the Y offset of the Note section inside the ScrollView so the
   // keyboard-show listener can scroll the note field into view.
   const noteSectionY = useRef(0);
+  const splitSectionY = useRef(0);
+  const activeSplitY = useRef(0);
 
   // Keypad animation value: 1 = fully visible, 0 = collapsed/hidden downwards
   const keypadAnim = useAnimatedValue(1);
   const isKeypadVisibleRef = useRef(true);
   const isKeyboardOpenRef = useRef(false);
   const isNoteFocusedRef = useRef(false);
+  const isSplitFocusedRef = useRef(false);
 
   const [isKeypadVisible, setIsKeypadVisible] = useState(true);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
@@ -120,12 +125,20 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
             animated: true,
           });
         });
+      } else if (isSplitFocusedRef.current && activeSplitY.current > 0) {
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({
+            y: Math.max(0, activeSplitY.current - 24),
+            animated: true,
+          });
+        });
       }
     });
 
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       isKeyboardOpenRef.current = false;
       isNoteFocusedRef.current = false;
+      isSplitFocusedRef.current = false;
       setIsKeyboardOpen(false);
       // Keyboard dismissed: keep keypad collapsed so the user can easily
       // view Category, Note, Date, and Payment mode without clutter.
@@ -140,6 +153,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   // Tapping the amount display brings the keypad back and scrolls to top
   const handleAmountPress = useCallback(() => {
     isNoteFocusedRef.current = false;
+    isSplitFocusedRef.current = false;
     Keyboard.dismiss();
     showKeypad();
     requestAnimationFrame(() => {
@@ -153,6 +167,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
 
   const handleNoteFocus = useCallback(() => {
     isNoteFocusedRef.current = true;
+    isSplitFocusedRef.current = false;
     isKeyboardOpenRef.current = true;
     setIsKeyboardOpen(true);
     hideKeypad();
@@ -170,6 +185,28 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     isNoteFocusedRef.current = false;
   }, []);
 
+  const handleSplitLayout = useCallback((e: LayoutChangeEvent) => {
+    splitSectionY.current = e.nativeEvent.layout.y;
+  }, []);
+
+  const handleSplitFocus = useCallback(
+    (relativeY = 0) => {
+      isNoteFocusedRef.current = false;
+      isSplitFocusedRef.current = true;
+      isKeyboardOpenRef.current = true;
+      setIsKeyboardOpen(true);
+      hideKeypad();
+      activeSplitY.current = splitSectionY.current + relativeY;
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, activeSplitY.current - 24),
+          animated: true,
+        });
+      });
+    },
+    [hideKeypad]
+  );
+
   return {
     scrollRef,
     isKeypadVisible,
@@ -179,6 +216,8 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     handleNoteLayout,
     handleNoteFocus,
     handleNoteBlur,
+    handleSplitLayout,
+    handleSplitFocus,
     showKeypad,
     hideKeypad,
     handleKeypadDrag,

@@ -65,6 +65,8 @@
         "version": "2.1.0",
         "title": "Split Expenses & Money Back 🤝",
         "highlights": [
+          "Home Screen: Instant, zero-lag switching across Daily, Weekly, Monthly, and All filter pills with 60 FPS spring animations",
+          "Ledger: Mark split expenses as paid individually or settle all with a single tap, choosing UPI or Cash",
           "Split an expense with friends and see exactly what each person owes you",
           "When a friend pays you back, it is no longer counted as income",
           "Refunds go back to their expense — choose to split across everyone, just for you, or for a specific friend",
@@ -76,7 +78,21 @@
           "Spending Guard: Add money directly inside the sheet when balance is ₹0 without losing your typed expense",
           "Instant Budget Update: When you have spent ₹0, budget updates apply immediately today without waiting for tomorrow",
           "Expense Form: Category selection keeps the numeric keypad open for uninterrupted typing",
-          "Apple-Grade Motion: Silky-smooth pill toggle and category filter animations with auto-centering and zero distortion"
+          "Apple-Grade Motion: Silky-smooth pill toggle and category filter animations with auto-centering and zero distortion",
+          "Network Resilience: Fixed false 'You are offline' banner on slow networks with per-page timeouts, automatic retries, and strict connectivity validation",
+          "Yearly Insights: Fixed annual inflow calculation to strictly attribute outside deposits and prevent income transfers from double-counting",
+          "Savings Hub: Seamless Pure Mode transition scheduling from Savings tab with same-day cancellation and safe streak protection",
+          "Backdated Spending: Contextual transparency chip and smart shortfall guarding for past dates without active budget",
+          "Scheduled Catchup: Matured budget plans and cadence switches activate reliably after multi-day app breaks",
+          "Multi-Cadence Insights: Weekly and Monthly savings accurately reflect period rollovers, with a dedicated Month Budget Share tracker for monthly planners on the weekly tab",
+          "Auto-Log Review & Split: Instant review banner clearance on Home when saving a split expense without requiring duplicate reviews",
+          "Split Expense Form: Smart keyboard runway and auto-scroll positioning keep person names and amounts fully visible while typing",
+          "Gullak Reconciliation: Editing or deleting income prompts confirmation and auto-adjusts funded Gullak savings, keeping real balance accurate",
+          "Split Equally: Precision paise distribution prevents form submission errors on odd split amounts",
+          "Instant Cold Launch: Faster app startup with an optimized 500ms entrance",
+          "Delightful Ticker Motion: Seamless digit roll animation across all filter switches including Mondays, with zero-lag background waterfall calculations",
+          "Form Consistency: 'Transfer between accounts' now uses a sleek capsule pill with custom animated toggle matching the rest of the form",
+          "Sliding Income Toggle: 'What is this money?' upgraded to an executive sliding toggle with balanced vertical spacing and glitch-free alignment"
         ]
       }
     }

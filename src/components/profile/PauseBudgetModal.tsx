@@ -50,11 +50,11 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
           </View>
 
           <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold, marginBottom: Spacing.element }]}>
-            Pause Smart Budget & Gullak?
+            Switch to Pure Mode?
           </Text>
 
           <Text style={[styles.pauseModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            Your Gullak balance ({formatCurrency(totalAccumulatedSavings)}) and streaks are safe. You can resume anytime.
+            Your Gullak balance ({formatCurrency(totalAccumulatedSavings)}) and streaks stay 100% safe. You can switch back anytime.
           </Text>
           <Text style={[styles.pauseModalDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.element }]}>
             {(() => {
@@ -93,7 +93,7 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
               onPress={onTurnOff}
             >
               <Text style={[styles.modalSaveText, { color: colors.white, fontFamily: FontFamily.bold }]}>
-                Turn Off
+                Switch to Pure Mode
               </Text>
             </Pressable>
           </View>

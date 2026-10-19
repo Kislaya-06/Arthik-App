@@ -9,6 +9,7 @@ import { resolveRolloverBudget } from '../../lib/budgetUtils';
 import {
   buildPeriodsToFinalize,
   isDailyGovernedDate,
+  resolvePlanForDate,
 } from '../../lib/budgetPeriods';
 import {
   evaluateDayStatus,
@@ -77,40 +78,37 @@ export function applyScheduledPlanChanges(
   set: (partial: Partial<DailyBudgetState> | ((state: DailyBudgetState) => Partial<DailyBudgetState>)) => void,
   todayStr: string
 ): boolean {
-  // A scheduled plan change takes effect on its effectiveFrom date, or if it matured recently (e.g. yesterday during rollover)
-  const yesterdayStr = format(subDays(new Date(`${todayStr}T12:00:00`), 1), 'yyyy-MM-dd');
-  const planStartingToday = (get().planChanges || []).find(
-    (c) => c.effectiveFrom === todayStr || c.effectiveFrom === yesterdayStr
-  );
-  if (planStartingToday) {
-    const isModeDiff = get().isBudgetModeEnabled !== planStartingToday.isEnabled;
-    const isCadenceDiff = planStartingToday.isEnabled && get().budgetCadence !== planStartingToday.cadence;
+  // A scheduled plan change takes effect on its effectiveFrom date, or on subsequent dates if the app was inactive (FIN-02)
+  const activePlanForToday = resolvePlanForDate(get().planChanges || [], todayStr);
+  if (activePlanForToday) {
+    const isModeDiff = get().isBudgetModeEnabled !== activePlanForToday.isEnabled;
+    const isCadenceDiff = activePlanForToday.isEnabled && get().budgetCadence !== activePlanForToday.cadence;
     const isAmountDiff =
-      planStartingToday.isEnabled &&
-      planStartingToday.amount > 0 &&
-      (planStartingToday.cadence === 'daily'
-        ? get().dailyBudgetAmount !== planStartingToday.amount
-        : planStartingToday.cadence === 'weekly'
-        ? get().weeklyBudgetAmount !== planStartingToday.amount
-        : get().monthlyBudgetAmount !== planStartingToday.amount);
+      activePlanForToday.isEnabled &&
+      activePlanForToday.amount > 0 &&
+      (activePlanForToday.cadence === 'daily'
+        ? get().dailyBudgetAmount !== activePlanForToday.amount
+        : activePlanForToday.cadence === 'weekly'
+        ? get().weeklyBudgetAmount !== activePlanForToday.amount
+        : get().monthlyBudgetAmount !== activePlanForToday.amount);
 
     if (isModeDiff || isCadenceDiff || isAmountDiff) {
-      if (planStartingToday.isEnabled && !get().isBudgetModeEnabled) {
+      if (activePlanForToday.isEnabled && !get().isBudgetModeEnabled) {
         balancePureDeficitIfNeeded(get, todayStr);
       }
       const amountPatch =
-        planStartingToday.isEnabled && planStartingToday.amount > 0
-          ? planStartingToday.cadence === 'daily'
-            ? { dailyBudgetAmount: planStartingToday.amount }
-            : planStartingToday.cadence === 'weekly'
-            ? { weeklyBudgetAmount: planStartingToday.amount }
-            : { monthlyBudgetAmount: planStartingToday.amount }
+        activePlanForToday.isEnabled && activePlanForToday.amount > 0
+          ? activePlanForToday.cadence === 'daily'
+            ? { dailyBudgetAmount: activePlanForToday.amount }
+            : activePlanForToday.cadence === 'weekly'
+            ? { weeklyBudgetAmount: activePlanForToday.amount }
+            : { monthlyBudgetAmount: activePlanForToday.amount }
           : {};
 
       set({
-        isBudgetModeEnabled: planStartingToday.isEnabled,
-        isAutoRenew: planStartingToday.isEnabled ? get().isAutoRenew : false,
-        budgetCadence: planStartingToday.isEnabled ? planStartingToday.cadence : get().budgetCadence,
+        isBudgetModeEnabled: activePlanForToday.isEnabled,
+        isAutoRenew: activePlanForToday.isEnabled ? get().isAutoRenew : false,
+        budgetCadence: activePlanForToday.isEnabled ? activePlanForToday.cadence : get().budgetCadence,
         ...amountPatch,
       });
       return true;

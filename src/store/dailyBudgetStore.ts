@@ -425,6 +425,59 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         });
       },
 
+      updateGullakDepositAmount: (id: string, newAmount: number) => {
+        const roundedAmount = round2(newAmount);
+        if (roundedAmount <= 0) {
+          get().removeGullakDeposit(id);
+          return;
+        }
+        const deposits = (get().gullakDeposits || []).map((d) =>
+          d.id === id ? { ...d, amount: roundedAmount } : d
+        );
+        const metrics = computeMetrics(get().dailyRecords, deposits);
+        set({ gullakDeposits: deposits, ...metrics });
+
+        const userId = useAuthStore.getState().user?.id;
+        if (!userId) return;
+
+        if (useNetworkStore.getState().isOffline) {
+          return;
+        }
+
+        supabase
+          .from('gullak_deposits')
+          .update({ amount: roundedAmount })
+          .eq('id', id)
+          .eq('user_id', userId)
+          .then(({ error }) => {
+            if (error && __DEV__) {
+              console.error('[dailyBudgetStore] Error updating gullak_deposit:', error);
+            }
+          });
+      },
+
+      adjustGullakIncomeDeposits: async (dateStr: string, deficit: number) => {
+        let remainingDeficit = round2(deficit);
+        if (remainingDeficit <= 0) return;
+
+        const allDeposits = [...(get().gullakDeposits || [])];
+        const dateDeposits = allDeposits
+          .filter((d) => d.source === 'income' && d.date?.split('T')[0]?.trim() === dateStr)
+          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+        for (const dep of dateDeposits) {
+          if (remainingDeficit <= 0) break;
+          if (dep.amount <= remainingDeficit) {
+            remainingDeficit = round2(remainingDeficit - dep.amount);
+            get().removeGullakDeposit(dep.id);
+          } else {
+            const updated = round2(dep.amount - remainingDeficit);
+            remainingDeficit = 0;
+            get().updateGullakDepositAmount(dep.id, updated);
+          }
+        }
+      },
+
       getAvailableIncomeBalance: () => computeAvailableIncomeBalance(),
 
       getCarryableAmount: () => computeCarryableAmount(get()),

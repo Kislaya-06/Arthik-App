@@ -6,19 +6,20 @@ import { useExpenseStore } from '../../store/expenseStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
 import { formatCurrency, formatDate } from '../../lib/formatters';
 import { MAX_PERSON_NAME, splitAllocationsOf } from '../../lib/splitLedger';
+import { SegmentedControl, SegmentedOption } from '../ui/SegmentedControl';
 import type { MoneyBackFormState, MoneyBackMode } from '../../hooks/useExpenseForm';
 
-const MODES: Array<{ id: MoneyBackMode; label: string }> = [
-  { id: 'income', label: 'Income' },
-  { id: 'friend', label: 'Friend paid back' },
-  { id: 'refund', label: 'Refund' },
+const MODES: SegmentedOption[] = [
+  { key: 'income', label: 'Income' },
+  { key: 'friend', label: 'Friend paid back' },
+  { key: 'refund', label: 'Refund' },
 ];
 
 export interface MoneyBackExtrasProps {
   moneyBack: MoneyBackFormState;
   /** Amount typed on the keypad, for the live summary. */
   amount: number;
-  onFieldFocus?: () => void;
+  onFieldFocus?: (relativeY?: number) => void;
 }
 
 /** What kind of money came in? Money that is only coming back is never income (SPL-003). */
@@ -34,27 +35,16 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
   return (
     <View style={styles.wrap}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>WHAT IS THIS MONEY?</Text>
-      <View style={styles.pills}>
-        {MODES.map((m) => {
-          const active = mb.mode === m.id;
-          return (
-            <Pressable
-              key={m.id}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                mb.setMode(m.id);
-              }}
-              style={[styles.pill, { borderColor: active ? activeBorder : colors.borderSubtle, backgroundColor: active ? colors.mintGreen : 'transparent' }]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.pillText, { color: active ? colors.forestGreen : colors.textSecondary, fontFamily: active ? FontFamily.bold : FontFamily.medium }]}>
-                {m.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SegmentedControl
+        options={MODES}
+        selectedKey={mb.mode}
+        onChange={(key) => mb.setMode(key as MoneyBackMode)}
+        height={ControlHeight.row}
+        activePillColor={colors.mintGreen}
+        activeTextColor={colors.forestGreen}
+        backgroundColor={colors.inputBg}
+        fontSize={13}
+      />
 
       {mb.mode === 'friend' ? (
         <View style={[styles.card, { backgroundColor: colors.cardSubtle }]}>
@@ -95,7 +85,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
           <TextInput
             value={mb.refundWho}
             onChangeText={mb.setRefundWho}
-            onFocus={onFieldFocus}
+            onFocus={() => onFieldFocus?.()}
             maxLength={MAX_PERSON_NAME}
             placeholder="Shop or company"
             placeholderTextColor={colors.textMuted}
@@ -277,10 +267,10 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
 };
 
 const styles = StyleSheet.create({
-  wrap: { gap: Spacing.group, marginTop: Spacing.block },
+  wrap: { gap: Spacing.group, marginTop: Spacing.block, marginBottom: Spacing.block },
   flex: { flex: 1 },
   card: { borderRadius: BorderRadius.input, padding: Spacing.block, gap: Spacing.element },
-  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold },
+  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: 1, textTransform: 'uppercase' },
   title: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.bold },
   sub: { fontSize: FontSize.caption, fontFamily: FontFamily.medium, marginTop: 2 },
   input: { height: ControlHeight.standard, borderRadius: BorderRadius.input, paddingHorizontal: Spacing.block, fontSize: FontSize.body },

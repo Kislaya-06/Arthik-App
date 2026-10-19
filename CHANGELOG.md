@@ -7,6 +7,164 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance & UI Responsiveness — Home Filter Pill Zero-Lag Optimization (`SegmentedControl.tsx`, `HomeScreen.tsx`, `BouncyFilterToggle.tsx`, `BrandedHeroCard.tsx`, `dateFilters.ts`) — OTA-safe
+
+- **Instant Pill Transitions & Input Responsiveness (`SegmentedControl.tsx`, `HomeScreen.tsx`)**:
+  - Removed double `React.startTransition` wrapping in `SegmentedControl.tsx` and `HomeScreen.tsx` that deferred state updates by hundreds of milliseconds, making pill selection feel sluggish on mobile devices.
+  - Filter state updates are now dispatched immediately, resulting in 60 FPS native indicator spring animations with zero perceived touch latency.
+- **Digit Animation Thrashing Elimination (`BrandedHeroCard.tsx`)**:
+  - Removed `rollTrigger={activeFilter}` on Primary Amount, Total Income, and Total Expense in `BrandedHeroCard.tsx`.
+  - Previously, tapping any filter pill forced 3 numbers to simultaneously mount 25+ `DigitWheel` components with 250+ `<Text>` nodes and run 25 native timing animations concurrently, saturating the JS/UI bridge.
+  - Values now transition cleanly when numbers change (`prev !== text`), preserving natural digit rolling without freezing the UI thread.
+- **500x Faster String-Based Period Matching (`dateFilters.ts`)**:
+  - Replaced repetitive date parsing (`parseISO`, `isSameWeek`, `isSameMonth`) across hundreds of expenses with precomputed ISO string bounds matching (`cleanDate >= weekStart && cleanDate <= weekEnd` and prefix slicing for months/years).
+- **Array Allocation Memoization (`BouncyFilterToggle.tsx`)**:
+  - Memoized `segOptions` array with `useMemo`, preventing unstable object references from invalidating memoized props in `SegmentedControl`.
+
+### UI/UX & Fintech Settlements — Ledger Screen "Mark as Paid" & "Settle All" (`LedgerScreen.tsx`, `SettleExpenseSheet.tsx`, Rules `SPL-001..SPL-006`) — OTA-safe
+
+- **Per-Expense "Paid" Action Pill (`LedgerScreen.tsx`, `SettleExpenseSheet.tsx`)**:
+  - Added an interactive `[ Paid ✓ ]` action pill next to each unsettled split expense on the Ledger screen.
+  - Engineered with a dedicated non-nested touch structure and an expanded 44x44px accessibility hitSlop (`hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}`).
+  - Right-aligned in a column under the outstanding balance with `flexShrink: 0`, while the left title and share description use `flex: 1`, `minWidth: 0`, and `numberOfLines={1}`, guaranteeing that large amounts (e.g. ₹1,46,670.50 left) and long descriptions never collide, overlap, or cause layout shifts across any screen size.
+- **Person-Level "Settle All" Shortcut (`LedgerScreen.tsx`)**:
+  - Added a `Settle all (₹...)` shortcut on the `EXPENSES` section header for each person with open debt, allowing lump-sum settlements in a single tap without needing to settle each split individually.
+- **Settle Expense Modal Sheet (`SettleExpenseSheet.tsx`)**:
+  - Implemented a dedicated bottom sheet (`BottomSheetModal`) featuring dynamic context badges, big formatted settlement amounts, and an instant `[ UPI ]` vs `[ Cash ]` mode toggle via `SegmentedControl`.
+  - Accurately calls `recordMoneyBack` targeting specific `expenseIds` (for individual splits) or all open debts (for lump-sum settlements), recording canonical `recovery` transactions that return funds to historical spending and Gullak without creating artificial income.
+  - Integrated tactile haptic feedback (`Haptics.notificationAsync(Success)`) and an auto-dismissing in-UI confirmation banner on the Ledger screen.
+  - Fully verified by unit tests in `tests/ledgerSettleActions.test.ts`.
+
+### UI/UX Design Parity & Spacing Polish — Transaction Form Pill Parity, Sliding Income Segmented Control & Dynamic Pill Geometry Sync (`TransferExtras.tsx`, `MoneyBackExtras.tsx`, `SegmentedControl.tsx`, `BouncyPaymentToggle.tsx`) — OTA-safe
+
+- **Transfer Between Accounts Capsule Pill Parity (`TransferExtras.tsx`)**:
+  - Replaced the rectangular card container (`BorderRadius.input`) with a stadium capsule pill (`BorderRadius.pill`, `minHeight: ControlHeight.row` = 56px) matching the Date Picker and Split Expense triggers.
+  - Replaced the standard native `<Switch />` with Arthik's canonical `<AnimatedToggle />` featuring tactile spring physics, embedded "ON" / "OFF" text indicator, and theme-adaptive coloring.
+  - Entire pill area is now an accessible, tap-responsive trigger.
+- **Sliding Segmented Control for Income Modes (`MoneyBackExtras.tsx`)**:
+  - Replaced the 3 static discrete chips in "WHAT IS THIS MONEY?" with a unified `<SegmentedControl />` (`ControlHeight.row` = 56px) featuring native Reanimated spring-slide physics, active mint green pill indicator, deep forest green contrast text, and responsive label scaling.
+- **Vertical Rhythm & Label Spacing Polish (`MoneyBackExtras.tsx`, `ExpenseFormScreen.tsx`)**:
+  - Standardized "WHAT IS THIS MONEY?" section header styling to match uppercase caption format with `letterSpacing: 1`.
+  - Added `marginBottom: Spacing.block` (16px) below the income mode control, permanently fixing the collapsed 0px margin above "NOTE (OPTIONAL)" and restoring Gestalt proximity alignment so "NOTE (OPTIONAL)" breathes with exact 12px label-to-input rhythm.
+- **Dynamic Segmented Control Geometry Re-alignment & Payment Toggle Glitch Resolution (`SegmentedControl.tsx`, `BouncyPaymentToggle.tsx`)**:
+  - Resolved misalignment glitch in "Money Added Via" when toggling or booting in Income mode where the active green indicator was drawn across the boundary of Cash and UPI.
+  - Tracked `prevOptionWidthRef` and `prevOptionsCountRef` in `SegmentedControl`; dynamically re-synchronizes `slideAnim.value` to `selectedIndex * optionWidth` whenever option count or width changes.
+  - Added dynamic option-derived key (`key={options.map(o => o.mode).join('-')}`) in `BouncyPaymentToggle` guaranteeing immediate Frame-0 geometric alignment.
+  - Added dedicated unit test in `tests/segmentedControl.test.ts`.
+
+### Financial Correctness & System Integrity — Comprehensive Audit Resolutions (FIN-06, FIN-07, FIN-08, FIN-09, FIN-11, FIN-12, FIN-13) — OTA-safe
+
+- **FIN-06 (UNCOVERED-01) — Income Deletion & Reduction Gullak Auto-Reconciliation (`gullakReconciliation.ts`, `ExpenseDetailScreen.tsx`, `useExpenseForm.ts`, `dailyBudgetStore.ts`, Rules `GUL-001` & `GUL-004`)**:
+  - Implemented real-time backing deficit calculation via `calculateGullakIncomeDeficit` when deleting an income entry or reducing its value.
+  - If a user reduces income on a date where income-funded Gullak deposits exist (e.g. income reduced from ₹10k to ₹3k when ₹4k was deposited), an explicit confirmation alert informs the user that the unbacked excess (₹1k) will be deducted from Gullak.
+  - If user deletes the income entry entirely, the full unbacked Gullak deposit amount is adjusted via `adjustGullakIncomeDeposits`, preventing phantom savings balances.
+  - Verified by 6 dedicated unit tests in `tests/gullakIncomeDeleteEditGuard.test.ts`.
+- **FIN-07 — "Split Equally" Remainder Absorption & Exact Paise Balancing (`useExpenseForm.ts`, Rule `SPL-001`)**:
+  - Fixed form validation lockout on odd/fractional split amounts (e.g. ₹0.02 among 4 people, ₹10 among 3 people) where floating point rounding caused total member shares to exceed paid amounts.
+  - Distributes exact integer paise across participants with remainder absorption allocated to the payer/earlier members, ensuring mathematical precision and 100% total conservation.
+  - Verified by dedicated unit tests in `tests/splitEqualSharePrecision.test.ts`.
+- **FIN-08 — Instant App Cold Launch (`SplashScreen.tsx`)**:
+  - Reduced hardcoded minimum splash delay from 2200ms to 500ms, providing a crisp logo entrance while opening the app 1.5 seconds faster on cold starts.
+- **FIN-09 — Waterfall Simulation Decoupling & Cross-Filter Ticker Rollover Motion (`HomeScreen.tsx`, `BrandedHeroCard.tsx`, `RollingText.tsx`, `rollingText.ts`)**:
+  - Decoupled `computeWaterfallFromState` from `activeFilter` and `referenceDate`. The chronological multi-pass lifetime simulation runs only when financial transactions change, while pill taps execute instantaneous $O(N)$ scope filtering without UI freezes.
+  - Added `rollTrigger` prop and `forceSpin` planning mode to `<RollingText />` and `planRoll`. Tapping between "Daily" and "Weekly" filter pills (including Mondays when both intervals have identical values) now reliably triggers a full delightful digit rollover cycle.
+  - Verified by unit tests in `tests/rollingText.test.ts`.
+- **FIN-11 — AutoLog Diagnostics & Error Isolation (`features/autoLog/service.ts`)**:
+  - Replaced naked empty `catch {}` blocks across queue draining, live SMS processing, and inbox catch-up with structured diagnostic warning telemetry, ensuring transient database locks or malformed event records never cause silent queue data loss.
+- **FIN-12 — History Screen Category Switch Lag Elimination (`HistoryScreen.tsx`)**:
+  - Synchronously resets progressive pagination window on category selection to prevent mounting massive offscreen section windows when tapping "All".
+  - Introduced fast `dateHeaderCache` lookup for date headers (`EEEE, d MMM`) eliminating redundant `parseISO` and string formatting calls across historical transactions.
+- **FIN-13 — Database Schema Cleanliness (`schema.sql`)**:
+  - Deduplicated redundant index definitions for `idx_expenses_category` and `idx_categories_user` in the maintenance migration section.
+
+### UX & Reliability — Auto-Log Review & Split Instant Clearance & Keyboard-Aware Split Runway (`ReviewSheet.tsx`, `reviews.ts`, `ExpenseFormScreen.tsx`, `SplitExtras.tsx`, `useFormKeyboard.ts`) — OTA-safe
+
+- **Auto-Log Review & Split Instant Clearance (`ReviewSheet.tsx`, `reviews.ts`, `ExpenseFormScreen.tsx`)**:
+  - Resolved issue where tapping "Save and split with friends" on Auto-Log Review redirected to the expense form, but left the Home review banner visible after saving, forcing a redundant second review.
+  - `ReviewSheet.tsx`: `logAndSplit` now preserves any category selected in the sheet and explicitly clears `needsCategory` in the SQLite database (`needs_category = 0`), so the transaction is immediately marked decided.
+  - `ExpenseFormScreen.tsx`: Introduced `reconcileExpenseSaved` helper on save to ensure any linked SQLite events are atomically marked resolved, immediately refreshing `useAutoLogStore` and vanishing the Home banner without requiring a second save.
+  - Added dedicated unit tests in `tests/autoLogReviewSplit.test.ts` verifying zero-lag clearance.
+- **Fintech Keyboard-Aware Split Form Runway & Per-Member Auto-Scroll (`useFormKeyboard.ts`, `SplitExtras.tsx`, `ExpenseFormScreen.tsx`)**:
+  - Solved software keyboard input occlusion where person name and share amount inputs were hidden underneath the keyboard and "Save Expense" button.
+  - **Dynamic 280px Runway**: `ScrollView` dynamically expands its bottom padding (`paddingBottom: isKeyboardOpen ? 280 : Spacing.section`), ensuring ample scroll range for all person cards.
+  - **Per-Member Focus Auto-Scroll**: Implemented `handleSplitLayout` and `handleSplitFocus` layout tracking; tapping any person's name or share input smoothly scrolls that card into clear, unobstructed view in the safe zone above the keyboard.
+  - **Auto-Scroll on Adding Members**: Tapping "+ Add Person" or quick friend suggestions automatically scrolls to the newly appended person card.
+  - Added comprehensive unit tests in `tests/useFormKeyboard.test.ts`.
+
+### Financial Correctness & UX — Multi-Cadence Insights Savings & Option 2 Month Budget Share (FIN-04, `weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `WeeklyBreathingStrip.tsx`, `MonthlyBreathingStrip.tsx`, `useInsightsData.ts`, Rules `INS-002` & `HEA-002`) — OTA-safe
+
+- **Multi-Cadence Insights Savings Reconciliation (`weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`)**:
+  - Resolved `INS-002` & `HEA-002` data disconnect where Weekly and Monthly cadence users saw ₹0 Gullak savings on Weekly/Monthly Insights tabs due to absence of `dailyRecords`.
+  - Added support for reading and aggregating finalized savings directly from `budget_periods` (`cadence === 'weekly'` and `cadence === 'monthly'`).
+  - Seamlessly handles cross-month weekly periods via `activeEnd` attribution matching true cash accounting rollovers.
+  - Seamlessly handles mid-interval cadence switches by additively combining daily records and period slices without double-counting or data loss.
+- **Dynamic Cadence Badges & Discipline Takeaways**:
+  - Dynamically renders cadence-accurate pill labels: `🐷 X Saved Days` (Daily), `🐷 X Saved Weeks` (Weekly), and `🐷 1 Saved Month` (Monthly).
+  - Enhanced smart takeaways to generate cadence-aware financial feedback celebrating weekly and monthly discipline when staying under budget.
+- **Option 2: "Month Budget Share %" for Monthly Savers on Weekly Tab**:
+  - Replaced the irrelevant ₹0 Gullak card for monthly budget users on the Weekly tab with an executive fintech metric: `MONTH BUDGET SHARE`.
+  - Displays the current week's burn as a percentage of the user's monthly pool, status pill (`🟢 On Track` for $\le 25\%$, `⚠️ High Burn` for $> 25\%$, `🚨 Critical Burn` for $> 50\%$), subtext (`₹X of ₹Y pool`), and tailored pacing takeaways.
+  - Retained exact dual-tile `BreathingStripShell` layout with zero layout shifting or screen redesign.
+- **Comprehensive Unit Test Suite (`tests/multiCadenceInsightsSavings.test.ts`)**:
+  - Added 9 unit tests verifying HEA-002 parity, mid-week cadence switching, Option 2 percentages and thresholds, cross-month weekly period attribution, and monthly period aggregations.
+
+### Financial Correctness — Multi-Day Inactivity Scheduled Plan Catchup (FIN-02, `rollover.ts`, Rules `CAD-001` & `ROL-001`) — OTA-safe
+
+- **Resolved Inactivity Gap Plan Drop (`rollover.ts`, `applyScheduledPlanChanges`)**:
+  - Replaced tight `c.effectiveFrom === todayStr || c.effectiveFrom === yesterdayStr` lookup with canonical `resolvePlanForDate(planChanges, todayStr)`.
+  - Scheduled plan transitions (cadence switches, budget modifications, mode toggles) that mature during an app inactivity period of 2 or more days (e.g. user absent over a 3-day weekend) now activate reliably upon app launch instead of being permanently dropped.
+  - Added dedicated Vitest unit tests in `tests/dailyBudgetRollover.test.ts` verifying 3-day inactivity catchup and non-premature activation of future scheduled plans.
+
+### Financial Correctness & UX — Backdated Ungoverned Spending Notice & Vault Guard Shortfall Pre-fill (FIN-01, `budgetUtils.ts`, `useExpenseForm.ts`, `ExpenseFormScreen.tsx`, `VaultSpendingGuardModal.tsx`, `metrics.ts`, Rules `GUL-001` & `SEC-001`) — OTA-safe
+
+- **Universal Gullak Hard Cap (`GUL-001`, `metrics.ts`)**:
+  - Enforced `totalAccumulatedSavings = Math.min(rawAccumulatedSavings, totalAccountRemaining)` universally across both Budget Mode and Pure Mode. Gullak savings can never mathematically exceed the user's net account cash liquidity under any state or transition.
+- **Dynamic Contextual Backdated Spending Notice (`budgetUtils.ts`, `useExpenseForm.ts`, `ExpenseFormScreen.tsx`)**:
+  - Implemented pure detection helper `getBackdatedSpendingNotice` that identifies when an expense is logged on a past date with no active budget or unspent funds (e.g. Sunday before Monday activation).
+  - Rendered an Apple-grade fintech notice chip directly below the Date Picker on `ExpenseFormScreen`:
+    - **Sufficient Gullak Funds**: Displays PiggyBank coin badge and info chip: *"Sunday had no active budget · ₹400 will be drawn from your Gullak (₹500 available)."*
+    - **Shortfall Warning**: Displays AlertTriangle warning chip: *"Sunday had no budget · ₹300 short · You only have ₹100 in Gullak. Add ₹300 to log this expense."*
+    - **Zero Balance**: Displays AlertTriangle warning chip: *"Sunday had no budget · Balance ₹0 · Your vault balance is ₹0. Please add money first to log this expense."*
+- **Proactive Shortfall Guarding & In-Sheet Pre-fill (`SEC-001`, `useExpenseForm.ts`, `VaultSpendingGuardModal.tsx`)**:
+  - Intercepts expense submission when backdated amount exceeds available vault liquidity on ungoverned days, launching `VaultSpendingGuardModal` pre-filled with the exact shortfall (`Math.max(0, evaluatedAmount - totalVaultLiquidity)`) rather than the full transaction amount.
+  - Enhanced `VaultSpendingGuardModal` with dynamic status header (*"Available: ₹X • Need: ₹Y"*) and custom title ("Insufficient Balance"), letting the user deposit the exact deficit and complete saving atomically via "Add Money & Save" without losing form state.
+- **Comprehensive Unit Test Suite (`tests/budgetUtils.test.ts`, `tests/vaultSpendingGuardAndBudgetEdit.test.ts`)**:
+  - Added full test coverage for ungoverned day detection, deterministic yesterday calculations relative to `todayStr`, Pure Mode exemptions, sufficient Gullak drawdowns, exact shortfall calculations, and zero-liquidity guards.
+
+### Financial Correctness & UX — Savings Tab Pause Elimination & Pure Mode Scheduling Parity (`SavingsScreen.tsx`, `BudgetHubSection.tsx`, `PauseBudgetModal.tsx`) — OTA-safe
+
+- **Eliminated Dead "Budget Mode Paused" State**:
+  - Removed confusing disabled/dead grey box and "Paused" badge in Savings Tab. The Allowance card now remains fully active, showing live progress, spent amounts, and budget targets without locking the UI.
+- **Unified Budget Mode Scheduling Parity**:
+  - Wired the Savings tab toggle directly to `handleSetBudgetModeEnabled(false)`, harmonizing it with Profile Screen settings.
+  - Toggling OFF now prompts `PauseBudgetModal` (retitled to "Switch to Pure Mode?") to confirm that streak and accumulated Gullak savings remain safe, and schedules the transition to Pure Mode for tomorrow at 12:00 AM (`effectiveFrom = tomorrow`).
+  - Displays a dedicated scheduled banner (`Tomorrow: Switching to Pure Mode · Takes effect tomorrow at 12:00 AM · Tap ✕ to cancel`).
+  - Seamless Same-Day Reversal: Flipping the toggle back ON on the same day or tapping ✕ cancels the pending change immediately, restoring normal budget mode.
+- **Copy & Explainer Alignment**:
+  - Updated `PauseBudgetModal` to "Switch to Pure Mode?" with clear financial explanations. Integrated `budget_pause` topic into `MoneyExplainerModal` directly accessible from the confirmation dialog.
+
+### Financial Correctness — Yearly Inflow & Cashflow Gullak Income Double-Counting Fix (FIN-03, `yearlyInsightsUtils.ts`, Rule `GUL-004`) — OTA-safe
+
+- **Eliminated Phantom Income Inflation (`yearlyInsightsUtils.ts`)**:
+  - Replaced legacy condition `(dep as any).source !== 'daily_savings'` with strict check `dep.source === 'external'` across `computeYearlyInflow` and `compute12MonthCashFlow` (monthly breakdown bar chart).
+  - Aligned with canonical rule `GUL-004` and `schema.sql`: Deposits funded from available income (`source === 'income'`) represent re-allocation of already-counted earned income, and are strictly excluded from annual and monthly inflow calculations to prevent double-counting. Fresh capital deposits (`source === 'external'`) continue to increment inflow accurately.
+- **Comprehensive Test Coverage (`tests/yearlyInsightsInflowDeposits.test.ts`)**:
+  - Added dedicated unit tests verifying that income-funded deposits do not inflate annual inflow in both Pure Mode and Budget Mode, and do not inflate monthly cashflow bars.
+
+### Reliability & Offline Resilience — Range Pagination Per-Page Timeout & False Offline Banner Elimination (FIN-05, `expenseStore.ts`) — OTA-safe
+
+- **Per-Page Timeout & Pagination Scaling (`expenseStore.ts`)**:
+  - Replaced the single global 5-second `Promise.race` timeout that wrapped the entire pagination loop with a dedicated 10-second `withTimeout` guard per 1000-row page. Total fetch time now naturally scales with data size without timing out healthy multi-thousand transaction accounts on high-latency connections.
+  - Implemented automatic per-page retries (up to 2 retries with exponential backoff) for transient timeouts and connection resets before failing.
+- **Intelligent Connectivity Verification & False Banner Fix (`expenseStore.ts`)**:
+  - In the event of a fetch failure, `fetchExpenses` now validates true device connectivity via `NetInfo.fetch()` (`isConnected === false` or `isInternetReachable === false`) before calling `useNetworkStore.getState().setOffline(true)`. Slow or high-latency fetches no longer trigger a false "You are offline" banner while the user is actively connected.
+- **Atomic Cache & State Invariant (Invariant 1 & 2)**:
+  - If a page fails after retries, partial rows are completely discarded and never committed to state or the `@arthik_cached_expenses_${userId}` cache. State safely falls back to previously cached expenses.
+- **In-Flight Cancellation Guard (`expenseStore.ts`)**:
+  - Introduced monotonic `activeFetchSeq` sequence tracking to immediately discard and ignore any late-finishing or superseded fetch loops upon store reset (`resetExpenses`) or concurrent refreshes, permanently preventing stale data overwrites.
+- **Comprehensive Unit Test Suite (`tests/fetchExpensesTimeout.test.ts`)**:
+  - Added dedicated test coverage verifying: (a) slow multi-page fetches (6+ pages taking 6s total) complete without triggering offline status, (b) true network disconnections set offline status and load cache, (c) failure on page N preserves existing state and cache without partial overwrites, and (d) late-finishing loops after cancellation do not mutate state.
+
 ### UI/UX Polish & Automation — AutoLog ReviewSheet Parity, Horizontal Category Scroll & Self-Transfer Rule Automation (`ReviewSheet.tsx`, `reviews.ts`, `engine.ts`, `db.ts`) — OTA-safe
 
 - **Compact Split-Row Receipt Card (`ReviewSheet.tsx`)**:

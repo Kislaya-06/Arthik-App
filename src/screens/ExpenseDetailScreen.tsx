@@ -19,6 +19,7 @@ import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
 import { isIncomeTransaction, isRecoveryClass } from '../lib/transactionUtils';
 import { SplitDetailCard } from '../components/split/SplitDetailCard';
 import { deleteBlockReason, grossAmountOf, recoverySlices, buildPeopleLedger, matchIncomingToPeople, refundCandidates } from '../lib/splitLedger';
+import { calculateGullakIncomeDeficit } from '../lib/gullakReconciliation';
 import { MoneyBackSheet } from '../components/split/MoneyBackSheet';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AmountText } from '../components/ui/AmountText';
@@ -181,29 +182,45 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       return;
     }
 
-    if (isPastDate && isIncome) {
-      Alert.alert(
-        'Delete Past Income',
-        `Deleting this ${formatCurrency(expense.amount)} income on ${formattedDate} will reduce your total available income balance.\n\nAre you sure you want to delete?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              await deleteExpense(expense.id);
-              useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
-              navigation.pop(1);
-            },
+    if (isIncome) {
+      const gullakDeposits = useDailyBudgetStore.getState().gullakDeposits || [];
+      const deficit = calculateGullakIncomeDeficit({
+        dateStr: cleanDate,
+        expenseId: expense.id,
+        newAmount: 0,
+        expenses,
+        gullakDeposits,
+      });
+
+      const title = isPastDate ? 'Delete Past Income' : 'Delete Income';
+      const message =
+        deficit > 0
+          ? `Deleting this ${formatCurrency(expense.amount)} income on ${formattedDate} will also reduce ${formatCurrency(deficit)} from your Gullak savings (funded by this income).\n\nDo you want to continue?`
+          : isPastDate
+          ? `Deleting this ${formatCurrency(expense.amount)} income on ${formattedDate} will reduce your total available income balance.\n\nAre you sure you want to delete?`
+          : `Are you sure you want to delete this income transaction?`;
+
+      Alert.alert(title, message, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: deficit > 0 ? 'Delete & Adjust Gullak' : 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (deficit > 0) {
+              await useDailyBudgetStore.getState().adjustGullakIncomeDeposits(cleanDate, deficit);
+            }
+            await deleteExpense(expense.id);
+            useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+            navigation.pop(1);
           },
-        ]
-      );
+        },
+      ]);
       return;
     }
 
     Alert.alert(
-      isIncome ? 'Delete Income' : 'Delete Expense',
-      `Are you sure you want to delete this ${isIncome ? 'income transaction' : 'expense'}?`,
+      'Delete Expense',
+      `Are you sure you want to delete this expense?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

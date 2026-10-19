@@ -4,6 +4,7 @@ import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
 import type { Category } from '../store/categoryStore';
+import type { BudgetCadence, BudgetPeriodRecord } from '../types';
 
 export { ExpenseLike };
 
@@ -56,7 +57,8 @@ export function computeEffectiveWeekBudget(
   dailyAmount: number,
   weeklyAmount: number,
   userCreatedAtStr: string | undefined | null,
-  weekInterval: WeekInterval
+  weekInterval: WeekInterval,
+  monthlyAmount?: number
 ): { effectiveBudget: number; activeDays: number; isPartialFirstWeek: boolean } {
   const startStr = toDateStr(weekInterval.start);
   const endStr = toDateStr(weekInterval.end);
@@ -80,8 +82,13 @@ export function computeEffectiveWeekBudget(
     effectiveBudget = isPartialFirstWeek
       ? round2((weeklyAmount / 7) * activeDays)
       : weeklyAmount;
+  } else if (cadence === 'monthly') {
+    const mAmt = Number(monthlyAmount) || 0;
+    effectiveBudget = isPartialFirstWeek
+      ? round2((mAmt / 30) * activeDays)
+      : round2((mAmt / 30) * 7);
   } else {
-    // daily cadence (or monthly prorated daily amount)
+    // daily cadence
     effectiveBudget = round2(dailyAmount * activeDays);
   }
 
@@ -116,20 +123,71 @@ export function computeSafeDailyPace(remaining: number, elapsedDays: number): nu
 }
 
 /**
- * Aggregates Gullak savings for the week: finalized daily budget rollovers + manual deposits.
+ * Option 2 Helper: Evaluates a Monthly budget user's spend share during a single week.
+ * Benchmark: A standard week is ~23-25% of a full month.
+ */
+export interface WeeklyMonthlyBudgetShare {
+  percentage: number;
+  status: 'on_track' | 'heavy' | 'critical';
+  pillText: string;
+  subtext: string;
+}
+
+export function computeWeeklyShareOfMonthlyBudget(
+  weekSpent: number,
+  monthlyBudgetAmount: number
+): WeeklyMonthlyBudgetShare {
+  const mBudget = Number(monthlyBudgetAmount) || 0;
+  if (mBudget <= 0) {
+    return {
+      percentage: 0,
+      status: 'on_track',
+      pillText: '🟢 On Track',
+      subtext: `₹${formatAmountWithCommas(String(weekSpent))} spent`,
+    };
+  }
+
+  const percentage = Math.round((weekSpent / mBudget) * 100);
+  const status: 'on_track' | 'heavy' | 'critical' =
+    percentage > 50 ? 'critical' : percentage > 25 ? 'heavy' : 'on_track';
+  const pillText = percentage > 25 ? '⚠️ High Burn' : '🟢 On Track';
+  const subtext = `₹${formatAmountWithCommas(String(weekSpent))} of ₹${formatAmountWithCommas(String(mBudget))} pool`;
+
+  return {
+    percentage,
+    status,
+    pillText,
+    subtext,
+  };
+}
+
+/**
+ * Aggregates Gullak savings for the week: finalized daily budget rollovers + finalized weekly periods + manual deposits.
+ * Seamlessly handles cadence switches (Daily + Weekly slices) without double counting.
  */
 export function computeWeeklyGullakSavings(
   dailyRecords: Record<string, DailyRecord>,
   gullakDeposits: GullakDeposit[],
-  weekInterval: WeekInterval
-): { totalSaved: number; autoSaved: number; manualDeposits: number; savedDaysCount: number } {
+  weekInterval: WeekInterval,
+  budgetPeriods?: Record<string, BudgetPeriodRecord> | BudgetPeriodRecord[],
+  cadence?: BudgetCadence
+): {
+  totalSaved: number;
+  autoSaved: number;
+  manualDeposits: number;
+  savedDaysCount: number;
+  savedWeeksCount: number;
+  pillLabel: string;
+} {
   const startStr = toDateStr(weekInterval.start);
   const endStr = toDateStr(weekInterval.end);
 
   let autoSaved = 0;
   let savedDaysCount = 0;
+  let savedWeeksCount = 0;
 
-  Object.values(dailyRecords).forEach((r) => {
+  // 1. Finalized daily records
+  Object.values(dailyRecords || {}).forEach((r) => {
     if (!r.date) return;
     const cleanDate = toDateStr(r.date);
     if (isDateInBounds(cleanDate, startStr, endStr) && r.isFinalized) {
@@ -140,21 +198,54 @@ export function computeWeeklyGullakSavings(
     }
   });
 
+  // 2. Finalized budget periods (Weekly cadence)
+  const periodsList = Array.isArray(budgetPeriods)
+    ? budgetPeriods
+    : Object.values(budgetPeriods || {});
+
+  for (const p of periodsList) {
+    if (!p) continue;
+    if (p.cadence === 'weekly' && p.status === 'saved' && (p.amountSaved || 0) > 0) {
+      if (
+        (p.activeStart && isDateInBounds(p.activeStart, startStr, endStr)) ||
+        (p.activeEnd && isDateInBounds(p.activeEnd, startStr, endStr))
+      ) {
+        autoSaved += Number(p.amountSaved) || 0;
+        savedWeeksCount++;
+        if (p.activeStart && p.activeEnd) {
+          const span = differenceInCalendarDays(parseISO(p.activeEnd), parseISO(p.activeStart)) + 1;
+          savedDaysCount += Math.max(1, span);
+        } else {
+          savedDaysCount += 7;
+        }
+      }
+    }
+  }
+
+  // 3. Manual deposits
   let manualDeposits = 0;
-  gullakDeposits.forEach((dep) => {
+  (gullakDeposits || []).forEach((dep) => {
     if (!dep.date) return;
     const cleanDate = toDateStr(dep.date);
     if (cleanDate && isDateInBounds(cleanDate, startStr, endStr)) {
-      manualDeposits += dep.amount;
+      manualDeposits += Number(dep.amount) || 0;
     }
   });
 
   const totalSaved = round2(autoSaved + manualDeposits);
+
+  let pillLabel = `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
+  if (cadence === 'weekly') {
+    pillLabel = `🐷 ${savedWeeksCount} ${savedWeeksCount === 1 ? 'Saved Week' : 'Saved Weeks'}`;
+  }
+
   return {
     totalSaved,
     autoSaved: round2(autoSaved),
     manualDeposits: round2(manualDeposits),
     savedDaysCount,
+    savedWeeksCount,
+    pillLabel,
   };
 }
 
@@ -178,6 +269,10 @@ export interface TakeawayEngineParams {
   safeDailyPace: number;
   transactionCount: number;
   dailyAverageBurn: number;
+  cadence?: BudgetCadence;
+  savedWeeksCount?: number;
+  monthlyBudgetShare?: WeeklyMonthlyBudgetShare | null;
+  monthlyBudgetAmount?: number;
 }
 
 /**
@@ -197,6 +292,10 @@ export function computeSmartWeeklyTakeaway(params: TakeawayEngineParams): SmartT
     safeDailyPace,
     transactionCount,
     dailyAverageBurn,
+    cadence,
+    savedWeeksCount,
+    monthlyBudgetShare,
+    monthlyBudgetAmount,
   } = params;
 
   // 1. Zero Spend
@@ -205,6 +304,23 @@ export function computeSmartWeeklyTakeaway(params: TakeawayEngineParams): SmartT
       text: 'No expenses logged this week.',
       status: 'neutral',
     };
+  }
+
+  // Monthly Cadence Burn / Share Insight (Option 2)
+  if (isBudgetMode && cadence === 'monthly' && monthlyBudgetShare) {
+    if (monthlyBudgetShare.status === 'heavy' || monthlyBudgetShare.status === 'critical') {
+      return {
+        text: `High burn week: spent ${monthlyBudgetShare.percentage}% of monthly budget in 1 week. Pace daily spend through month-end.`,
+        status: 'coral',
+      };
+    }
+    if (monthlyBudgetShare.status === 'on_track') {
+      const mAmt = monthlyBudgetAmount || 0;
+      return {
+        text: `Healthy pacing: spent ${monthlyBudgetShare.percentage}% of monthly budget this week (₹${formatAmountWithCommas(String(currentTotal))} of ₹${formatAmountWithCommas(String(mAmt))}).`,
+        status: 'mint',
+      };
+    }
   }
 
   // 2. Over-budget
@@ -216,12 +332,20 @@ export function computeSmartWeeklyTakeaway(params: TakeawayEngineParams): SmartT
     };
   }
 
-  // 3. High Savings Discipline (5+ saved days in week)
-  if (isBudgetMode && savedDaysCount >= 5 && weekSavings > 0) {
-    return {
-      text: `Great discipline! Stayed under budget on ${savedDaysCount} of 7 days · +₹${formatAmountWithCommas(String(weekSavings))} saved to Gullak.`,
-      status: 'mint',
-    };
+  // 3. High Savings Discipline (weekly budget under budget OR 5+ saved daily records)
+  if (isBudgetMode && weekSavings > 0) {
+    if (cadence === 'weekly' && (savedWeeksCount || 0) >= 1) {
+      return {
+        text: `Great discipline! Stayed under weekly budget · +₹${formatAmountWithCommas(String(weekSavings))} saved to Gullak.`,
+        status: 'mint',
+      };
+    }
+    if (savedDaysCount >= 5) {
+      return {
+        text: `Great discipline! Stayed under budget on ${savedDaysCount} of 7 days · +₹${formatAmountWithCommas(String(weekSavings))} saved to Gullak.`,
+        status: 'mint',
+      };
+    }
   }
 
   // 4. Dominant Category (Taking 50%+ of week)

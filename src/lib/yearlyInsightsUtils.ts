@@ -292,7 +292,7 @@ export function computeYearlyInflow(
     if (!cleanDate) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
-      if ((dep as any).source !== 'daily_savings') {
+      if (dep.source === 'external') {
         totalInflow += dep.amount;
       }
     }
@@ -497,7 +497,7 @@ export function compute12MonthCashFlow(
         if (!cleanDate) continue;
 
         if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
-          if ((dep as any).source !== 'daily_savings') {
+          if (dep.source === 'external') {
             monthIncome += dep.amount;
           }
         }

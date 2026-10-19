@@ -371,9 +371,9 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       } catch (e) {
         if (__DEV__) console.error('Session retrieval error:', e);
       } finally {
-        // Optimized viewing time (~2.2s total) so animations complete crisply and dots pulse before transition
+        // Crisp minimum viewing time (~500ms total) so logo pulse renders nicely while opening instantly
         const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, 2200 - elapsed);
+        const delay = Math.max(0, 500 - elapsed);
         exitTimerRef.current = setTimeout(() => {
           triggerExitAndNavigate(nextScreen);
         }, delay);

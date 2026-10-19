@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { ChevronRight, Clock, X, Sparkles } from 'lucide-react-native';
+import { ChevronRight, Clock, X } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { GradientIconBadge } from '../GradientIconBadge';
@@ -33,9 +33,12 @@ export interface BudgetHubSectionProps {
   cancelPendingPlanChange: () => void;
   isOverBudget: boolean;
   overspendHint: string;
-  budgetCadence: string;
-  weeklyBudgetAmount: number;
-  monthlyBudgetAmount: number;
+  budgetCadence?: string;
+  weeklyBudgetAmount?: number;
+  monthlyBudgetAmount?: number;
+  toggleValue?: boolean;
+  onToggleBudgetMode?: (val: boolean) => void;
+  isScheduledSwitch?: boolean;
 }
 
 export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
@@ -56,9 +59,9 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
   cancelPendingPlanChange,
   isOverBudget,
   overspendHint,
-  budgetCadence,
-  weeklyBudgetAmount,
-  monthlyBudgetAmount,
+  toggleValue: propToggleValue,
+  onToggleBudgetMode,
+  isScheduledSwitch = false,
 }) => {
   const { isDark } = useTheme();
   const {
@@ -66,8 +69,10 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
     handleToggleAutoRenew,
     scheduledNextDailyBudget,
     openBudgetModal,
-    dailyBudgetAmount,
   } = dashboard;
+
+  const activeToggleValue = propToggleValue !== undefined ? propToggleValue : isAutoRenew;
+  const handleToggle = onToggleBudgetMode || handleToggleAutoRenew;
 
   return (
     <View
@@ -134,7 +139,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
         </View>
 
         {/* Unboxed High-Visibility Status Indicator */}
-        {isAutoRenew && cardBudget > 0 ? (
+        {cardBudget > 0 && (
           <View style={styles.ucStatusRow}>
             <View
               style={[
@@ -163,24 +168,11 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
               {cardIsOver ? 'Over budget' : cardProgressRatio >= 0.8 ? 'Near limit' : 'On track'}
             </Text>
           </View>
-        ) : (
-          <View style={styles.ucStatusRow}>
-            <View
-              style={[
-                styles.ucStatusDot,
-                { backgroundColor: 'rgba(255, 255, 255, 0.5)' },
-              ]}
-            />
-            <Text style={[styles.ucStatusText, { color: 'rgba(255, 255, 255, 0.85)' }]}>
-              Paused
-            </Text>
-          </View>
         )}
       </View>
 
-      {/* Body: Active or Paused */}
-      {isAutoRenew ? (
-        <View style={styles.ucBody}>
+      {/* Body: Always Active */}
+      <View style={styles.ucBody}>
           {/* Row 2: Hero Amount & Budget Change */}
           <View style={styles.ucHeroRow}>
             <View style={styles.ucHeroLeft}>
@@ -272,7 +264,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
             </View>
           )}
 
-          {/* Scheduled Next Cadence Switch Banner (if active) */}
+          {/* Scheduled Next Cadence or Mode Switch Banner (if active) */}
           {pendingPlanChange && (
             <View
               style={[
@@ -291,7 +283,9 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
                     { color: '#FFFFFF', fontFamily: FontFamily.bold },
                   ]}
                 >
-                  Tomorrow: Switch to {pendingPlanChange.cadence.toUpperCase()} ({formatCurrency(pendingPlanChange.amount)})
+                  {pendingPlanChange.isEnabled
+                    ? `Tomorrow: Switch to ${pendingPlanChange.cadence.toUpperCase()} (${formatCurrency(pendingPlanChange.amount)})`
+                    : 'Tomorrow: Switching to Pure Mode'}
                 </Text>
                 <Text
                   style={[
@@ -299,9 +293,11 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
                     { color: 'rgba(255, 255, 255, 0.85)', fontFamily: FontFamily.medium },
                   ]}
                 >
-                  {pendingPlanChange.carriedOverAmount && pendingPlanChange.carriedOverAmount > 0
-                    ? `${formatCurrency(pendingPlanChange.carriedOverAmount)} carried forward (${pendingPlanChange.carryMode === 'additive' ? 'Additive' : 'Allocation'})`
-                    : 'Takes effect tomorrow at 12:00 AM'}
+                  {pendingPlanChange.isEnabled
+                    ? pendingPlanChange.carriedOverAmount && pendingPlanChange.carriedOverAmount > 0
+                      ? `${formatCurrency(pendingPlanChange.carriedOverAmount)} carried forward (${pendingPlanChange.carryMode === 'additive' ? 'Additive' : 'Allocation'})`
+                      : 'Takes effect tomorrow at 12:00 AM'
+                    : 'Takes effect tomorrow at 12:00 AM · Tap ✕ to cancel'}
                 </Text>
               </View>
               <TouchableOpacity onPress={cancelPendingPlanChange} hitSlop={8}>
@@ -310,7 +306,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
             </View>
           )}
 
-          {/* Row 4: Dedicated Auto-save Feature Row (Unboxed) */}
+          {/* Row 4: Dedicated Mode Toggle Row (Unboxed) */}
           <View style={styles.ucAutoSaveCapsule}>
             <View style={styles.ucAutoSaveLeft}>
               <GradientIconBadge size={40} color="#FFFFFF" isDark={isDark}>
@@ -324,18 +320,26 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
                   style={[
                     styles.ucFooterHint,
                     {
-                      color: isOverBudget ? OVER_BUDGET_CORAL : 'rgba(255, 255, 255, 0.85)',
-                      fontFamily: isOverBudget ? FontFamily.semibold : FontFamily.medium,
+                      color: isScheduledSwitch && !activeToggleValue
+                        ? '#FDE68A'
+                        : isOverBudget
+                        ? OVER_BUDGET_CORAL
+                        : 'rgba(255, 255, 255, 0.85)',
+                      fontFamily: (isScheduledSwitch && !activeToggleValue) || isOverBudget
+                        ? FontFamily.semibold
+                        : FontFamily.medium,
                     },
                   ]}
                 >
-                  {overspendHint}
+                  {isScheduledSwitch && !activeToggleValue
+                    ? 'Switching to Pure Mode tomorrow · Tap to cancel'
+                    : overspendHint}
                 </Text>
               </View>
             </View>
             <AnimatedToggle
-              value={isAutoRenew}
-              onValueChange={handleToggleAutoRenew}
+              value={activeToggleValue}
+              onValueChange={handleToggle}
               width={52}
               height={26}
               onColor="#FFFFFF"
@@ -344,106 +348,6 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
             />
           </View>
         </View>
-      ) : (
-        /* Paused State */
-        <View style={styles.ucBody}>
-          <View style={styles.pausedStateBox}>
-            <View style={styles.pausedStateTop}>
-              <View style={[styles.pausedIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.18)' }]}>
-                <Sparkles size={16} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.pausedTitle, { color: '#FFFFFF' }]}>
-                  {budgetCadence === 'weekly'
-                    ? 'Weekly Budget Paused'
-                    : budgetCadence === 'monthly'
-                    ? 'Monthly Budget Paused'
-                    : 'Daily Allowance Paused'}
-                </Text>
-                <Text style={[styles.pausedDesc, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-                  Auto-rollover to Gullak is paused. All your past savings stay 100% safe.
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.pausedDivider, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]} />
-
-            <View style={styles.pausedBottomRow}>
-              <View>
-                <Text style={[styles.pausedSubLabel, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                  Configured {budgetCadence === 'weekly' ? 'Weekly Budget' : budgetCadence === 'monthly' ? 'Monthly Budget' : 'Daily Allowance'}
-                </Text>
-                {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0 ? (
-                  <AmountText
-                    role="primary"
-                    value={budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount}
-                    color="#FFFFFF"
-                  />
-                ) : (
-                  <Text style={[styles.pausedAmountText, { color: '#FFFFFF' }]}>
-                    Not Set
-                  </Text>
-                )}
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.ucChangeBtn,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-                    borderColor: 'rgba(255, 255, 255, 0.16)',
-                  },
-                ]}
-                disabled={true}
-                activeOpacity={1}
-                accessibilityState={{ disabled: true }}
-              >
-                <Text style={[styles.ucChangeBtnText, { color: 'rgba(255, 255, 255, 0.4)' }]}>
-                  {(budgetCadence === 'weekly' ? weeklyBudgetAmount : budgetCadence === 'monthly' ? monthlyBudgetAmount : dailyBudgetAmount) > 0 ? 'Change' : 'Set Limit'}
-                </Text>
-                <ChevronRight size={13} color="rgba(255, 255, 255, 0.4)" strokeWidth={2.5} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Auto-save toggle capsule to re-enable (Unboxed, clean) */}
-          <View
-            style={[
-              styles.ucAutoSaveCapsule,
-              {
-                marginTop: Spacing.group,
-              },
-            ]}
-          >
-            <View style={styles.ucAutoSaveLeft}>
-              <GradientIconBadge size={40} color="#FFFFFF" isDark={isDark}>
-                {({ iconColor }) => <PiggyBankCoinIcon size={20} color={iconColor} />}
-              </GradientIconBadge>
-              <View style={styles.ucAutoSaveTextWrap}>
-                <Text style={[styles.ucAutoSaveLabel, { color: '#FFFFFF' }]}>
-                  Auto-save unspent to Gullak
-                </Text>
-                <Text style={[styles.ucFooterHint, { color: 'rgba(255, 255, 255, 0.85)' }]}>
-                  {budgetCadence === 'weekly'
-                    ? 'Turn on to resume weekly rollover into Gullak'
-                    : budgetCadence === 'monthly'
-                    ? 'Turn on to resume monthly rollover into Gullak'
-                    : 'Turn on to resume daily rollover into Gullak'}
-                </Text>
-              </View>
-            </View>
-            <AnimatedToggle
-              value={isAutoRenew}
-              onValueChange={handleToggleAutoRenew}
-              width={52}
-              height={26}
-              onColor="#FFFFFF"
-              offColor="#FFFFFF"
-              trackColor="rgba(255, 255, 255, 0.2)"
-            />
-          </View>
-        </View>
-      )}
     </View>
   );
 };

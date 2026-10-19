@@ -230,5 +230,18 @@ describe('splitRollingStyles — wheel strip pitch preservation', () => {
     expect(textStyle.marginBottom).toBe(0);
     expect(textStyle.paddingTop).toBe(0);
   });
+
+  it('FIN-09: forceSpin triggers a full cycle roll even when values are identical (e.g. Daily and Weekly filter pills on Monday)', () => {
+    // Normal same text returns null
+    expect(planRoll('₹500', '₹500', false)).toBeNull();
+    // With forceSpin=true, returns active rolls for every digit
+    const plan = planRoll('₹500', '₹500', true);
+    expect(plan).not.toBeNull();
+    expect(Object.keys(plan!.rolls).length).toBe(3);
+    for (const roll of Object.values(plan!.rolls)) {
+      expect(roll.travel).toBeGreaterThanOrEqual(10);
+    }
+  });
 });
+
 

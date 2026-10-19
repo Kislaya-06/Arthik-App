@@ -241,19 +241,8 @@ export const computeMetrics = (
     const totalInflow = round2(allTimeBudget + allTimeIncome + externalDeposits);
     const totalAccountRemaining = Math.max(0, round2(totalInflow - allTimeSpent));
 
-    const isBudgetOn = st ? st.isBudgetModeEnabled : false;
-    if (!isBudgetOn) {
-      // In Pure Mode, hard cap Gullak at Total Account Remaining
-      totalAccumulatedSavings = Math.min(rawAccumulatedSavings, totalAccountRemaining);
-    } else {
-      // In Budget Mode: overspending is absorbed first from Income, then Gullak (already computed in rawAccumulatedSavings).
-      // Only cap to 0 if the entire account is in overall deficit (totalAccountRemaining <= 0).
-      if (totalAccountRemaining <= 0) {
-        totalAccumulatedSavings = 0;
-      } else {
-        totalAccumulatedSavings = rawAccumulatedSavings;
-      }
-    }
+    // Universal Hard Cap (Rule GUL-001): Gullak savings can never exceed Total Account Remaining ('All' balance)
+    totalAccumulatedSavings = Math.min(rawAccumulatedSavings, totalAccountRemaining);
   }
 
   const todayStr = getTodayDateStr();
