@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  GLYPHS,
   ROLL_EXTRA_CYCLES,
   WHEEL_BASE,
   parseText,
@@ -8,6 +9,7 @@ import {
   wheelStart,
   wheelEnd,
   digitAt,
+  getWheelGlyphs,
   splitRollingStyles,
 } from '../src/lib/rollingText';
 import {
@@ -132,6 +134,25 @@ describe('rollingText', () => {
       }
     });
   });
+
+  describe('getWheelGlyphs', () => {
+    it('generates ascending continuous sequence for dir = 1', () => {
+      const glyphs = getWheelGlyphs({ from: 2, to: 5, dir: 1, travel: 13, isNew: false });
+      expect(glyphs.length).toBe(14);
+      expect(glyphs[0]).toBe(2); // starts on 'from'
+      expect(glyphs[13]).toBe(5); // ends on 'to'
+      // Sequence must cycle monotonically through modulo 10
+      expect(glyphs).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5]);
+    });
+
+    it('generates descending continuous sequence for dir = -1', () => {
+      const glyphs = getWheelGlyphs({ from: 8, to: 2, dir: -1, travel: 16, isNew: false });
+      expect(glyphs.length).toBe(17);
+      expect(glyphs[16]).toBe(8); // start position (top at -16*lineHeight)
+      expect(glyphs[0]).toBe(2); // settle position (top at 0)
+      expect(glyphs).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    });
+  });
 });
 
 describe('quicksandMetrics', () => {
@@ -241,6 +262,20 @@ describe('splitRollingStyles — wheel strip pitch preservation', () => {
     for (const roll of Object.values(plan!.rolls)) {
       expect(roll.travel).toBeGreaterThanOrEqual(10);
     }
+  });
+
+  describe('GLYPHS 11-Glyph Odometer Invariant', () => {
+    it('GLYPHS has exactly 11 digits representing 0-9 and a wrap-around 0 for seamless modulo 10 looping', () => {
+      expect(GLYPHS).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+      expect(GLYPHS).toHaveLength(11);
+    });
+
+    it('modulo 10 wraps seamlessly between the 10th (index 9) and 11th (index 10) glyph', () => {
+      // Step 9 is '9', Step 10 is '0'
+      expect(GLYPHS[9]).toBe(9);
+      expect(GLYPHS[10]).toBe(0);
+      expect(GLYPHS[0]).toBe(0);
+    });
   });
 });
 

@@ -16,14 +16,39 @@
 
 // ─── FEEL constants (safe to tune) ───────────────────────────────────────────
 
-/** Total time of one roll. The recording is a slowed-down demo of a ~0.2-0.4s effect; 450ms reads as quick but visible. */
-export const ROLL_DURATION_MS = 450;
+/** Total time of one roll. 320ms provides a crisp, snappy, Apple/Revolut-grade feel. */
+export const ROLL_DURATION_MS = 320;
 /** Extra full revolutions every digit makes on top of the distance to its new value. 1 = matches the recording. */
 export const ROLL_EXTRA_CYCLES = 1;
 /** Delay between neighbouring digits (ms, left to right). The recording starts them together => 0. */
 export const ROLL_STAGGER_MS = 0;
 /** true = digits that did not change also spin (like the recording). false = only changed digits spin. */
 export const SPIN_UNCHANGED_DIGITS = true;
+
+/** 11-glyph wheel strip (0-9 + wrap-around 0) */
+export const GLYPHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0] as const;
+export const GLYPH_STRIP = GLYPHS.join('\n');
+
+/**
+ * Deterministic glyph sequence for a single digit roll.
+ * When dir === 1 (up), digits ascend from roll.from to roll.to.
+ * When dir === -1 (down), digits descend from roll.from to roll.to.
+ * Eliminates modulo discontinuities and font baseline clipping on native Android.
+ */
+export function getWheelGlyphs(roll: DigitRoll): number[] {
+  const count = roll.travel + 1;
+  const glyphs: number[] = new Array(count);
+  if (roll.dir === 1) {
+    for (let i = 0; i < count; i++) {
+      glyphs[i] = (roll.from + i) % 10;
+    }
+  } else {
+    for (let i = 0; i < count; i++) {
+      glyphs[i] = (roll.to + i) % 10;
+    }
+  }
+  return glyphs;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

@@ -80,6 +80,10 @@ export interface HeroDetailsInput {
   gullakDrawn: number;
   /** Gullak total right now. Only passed for the All view. */
   gullakNow: number | null;
+  /** Active period/today remaining budget, preserving today's unspent allowance in All view. */
+  activeBudgetLeft?: number;
+  /** Real unspent inflow balance remaining (so All-time sheet agrees with All-time card). */
+  unspentInflowLeft?: number;
 }
 
 export interface DetailRow {
@@ -106,27 +110,39 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
   const sections: DetailSection[] = [];
 
   if (i.isBudgetMode && i.budgetGiven > 0) {
-    const used = Math.min(i.spent, i.budgetGiven);
+    const rawLeft = round2(Math.max(0, i.budgetGiven - i.spent));
+    // Lifecycle preservation: active period/today's unspent budget is real cash allocated for today
+    // and must never be wiped out by past historical finalized spending in the All-time sheet.
+    const budgetLeft = i.activeBudgetLeft !== undefined
+      ? Math.max(rawLeft, round2(i.activeBudgetLeft))
+      : rawLeft;
+    const used = round2(Math.min(i.budgetGiven - budgetLeft, i.spent));
     sections.push({
       id: 'budget',
       title: 'Budget',
       rows: [
         { id: 'given', label: 'Budget given', amount: round2(i.budgetGiven) },
         { id: 'used', label: 'Spent from budget', amount: round2(used) },
-        { id: 'left', label: 'Budget left', amount: round2(Math.max(0, i.budgetGiven - i.spent)), tone: 'good' },
+        { id: 'left', label: 'Budget left', amount: round2(budgetLeft), tone: 'good' },
       ],
     });
   }
 
+  const effectiveIncomeLeft = i.unspentInflowLeft !== undefined
+    ? round2(i.unspentInflowLeft)
+    : round2(i.incomeLeft);
+
   const moneyIn: DetailRow[] = [{ id: 'received', label: 'Money received', amount: round2(i.incomeReceived) }];
-  if (i.isBudgetMode) moneyIn.push({ id: 'left', label: 'Still unspent', amount: round2(i.incomeLeft), tone: 'good' });
+  if (i.isBudgetMode) moneyIn.push({ id: 'left', label: 'Still unspent', amount: round2(effectiveIncomeLeft), tone: 'good' });
   if (i.moneyBack > 0) moneyIn.push({ id: 'back', label: 'Money back', amount: round2(i.moneyBack), tone: 'good' });
   sections.push({ id: 'money_in', title: 'Money in', rows: moneyIn });
 
   if (i.isBudgetMode) {
+    // Real money invariant: Money taken from Gullak cannot exceed money added to Gullak (no overdraft)
+    const effectiveGullakDrawn = Math.min(round2(i.gullakDrawn), round2(i.gullakAdded));
     const gullak: DetailRow[] = [
       { id: 'added', label: 'Added to Gullak', amount: round2(i.gullakAdded), tone: 'good' },
-      { id: 'drawn', label: 'Taken from Gullak', amount: round2(i.gullakDrawn), tone: i.gullakDrawn > 0 ? 'bad' : 'neutral' },
+      { id: 'drawn', label: 'Taken from Gullak', amount: round2(effectiveGullakDrawn), tone: effectiveGullakDrawn > 0 ? 'bad' : 'neutral' },
     ];
     if (i.gullakNow !== null) gullak.push({ id: 'now', label: 'In Gullak now', amount: round2(i.gullakNow) });
     sections.push({ id: 'gullak', title: 'Gullak', rows: gullak });

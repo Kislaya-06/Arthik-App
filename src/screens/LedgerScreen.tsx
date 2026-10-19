@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, ChevronDown, ChevronUp, Users, Check, CheckCheck } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Users, Check, CheckCheck } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO } from 'date-fns';
 import { RootStackParamList } from '../types';
@@ -181,62 +181,52 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                         ) : null}
                       </View>
 
-                      {p.splits.map((s) => (
-                        <View key={s.expenseId} style={styles.line}>
+                      {p.splits.map((s) => {
+                        const isSettled = s.isSettled;
+                        return (
                           <Pressable
-                            onPress={() => navigation.navigate('ExpenseDetail', { expenseId: s.expenseId })}
-                            style={styles.flex}
+                            key={s.expenseId}
+                            onPress={() => {
+                              if (isSettled) {
+                                navigation.navigate('ExpenseDetail', { expenseId: s.expenseId });
+                              } else {
+                                handleOpenSettleExpense(p.name, s);
+                              }
+                            }}
+                            style={({ pressed }) => [
+                              styles.line,
+                              pressed && { opacity: 0.65 },
+                            ]}
                             accessibilityRole="button"
+                            accessibilityLabel={
+                              isSettled
+                                ? `${s.note || 'Expense'}, settled`
+                                : `${s.note || 'Expense'}, ${formatCurrency(s.outstanding)} left. Tap to mark as paid.`
+                            }
                           >
-                            <Text numberOfLines={1} style={[styles.lineTitle, { color: colors.textPrimary }]}>
-                              {s.note || 'Expense'}
-                            </Text>
-                            <Text numberOfLines={1} style={[styles.sub, { color: colors.textSecondary }]}>
-                              {day(s.date)} · Their share {formatCurrency(s.theirShare)}
-                              {s.settled > 0 && !s.isSettled ? ` · Paid ${formatCurrency(s.settled)}` : ''}
-                            </Text>
-                          </Pressable>
+                            <View style={styles.flex}>
+                              <Text numberOfLines={1} style={[styles.lineTitle, { color: colors.textPrimary }]}>
+                                {s.note || 'Expense'}
+                              </Text>
+                              <Text numberOfLines={1} style={[styles.sub, { color: colors.textSecondary }]}>
+                                {day(s.date)} · Their share {formatCurrency(s.theirShare)}
+                                {s.settled > 0 && !s.isSettled ? ` · Paid ${formatCurrency(s.settled)}` : ''}
+                              </Text>
+                            </View>
 
-                          {s.isSettled ? (
-                            <Pressable
-                              onPress={() => navigation.navigate('ExpenseDetail', { expenseId: s.expenseId })}
-                              accessibilityRole="button"
-                            >
-                              <StatusBadge variant="success" label="SETTLED" />
-                            </Pressable>
-                          ) : (
-                            <View style={styles.actionCol}>
-                              <Pressable
-                                onPress={() => navigation.navigate('ExpenseDetail', { expenseId: s.expenseId })}
-                                accessibilityRole="button"
-                              >
+                            <View style={styles.lineRight}>
+                              {isSettled ? (
+                                <StatusBadge variant="success" label="SETTLED" />
+                              ) : (
                                 <Text style={[styles.lineAmount, { color: colors.coral }]}>
                                   {formatCurrency(s.outstanding)} left
                                 </Text>
-                              </Pressable>
-                              <Pressable
-                                onPress={() => handleOpenSettleExpense(p.name, s)}
-                                style={({ pressed }) => [
-                                  styles.paidPill,
-                                  {
-                                    backgroundColor: isDark ? 'rgba(184, 224, 200, 0.14)' : colors.mintGreenSoft,
-                                    borderColor: isDark ? 'rgba(184, 224, 200, 0.3)' : colors.mintGreen,
-                                  },
-                                  pressed && { opacity: 0.65 },
-                                ]}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Mark ${s.note || 'expense'} as paid`}
-                              >
-                                <Check size={11} color={isDark ? colors.mintGreen : colors.forestGreen} strokeWidth={2.8} />
-                                <Text style={[styles.paidPillText, { color: isDark ? colors.mintGreen : colors.forestGreen }]}>
-                                  Paid
-                                </Text>
-                              </Pressable>
+                              )}
+                              <ChevronRight size={14} color={colors.textMuted} strokeWidth={2.2} />
                             </View>
-                          )}
-                        </View>
-                      ))}
+                          </Pressable>
+                        );
+                      })}
 
                       <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: Spacing.group }]}>PAID BACK</Text>
                       {p.payments.length === 0 ? (
@@ -246,11 +236,22 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                           <Pressable
                             key={pay.id}
                             onPress={() => navigation.navigate('ExpenseDetail', { expenseId: pay.id })}
-                            style={styles.line}
+                            style={({ pressed }) => [
+                              styles.line,
+                              pressed && { opacity: 0.65 },
+                            ]}
                             accessibilityRole="button"
+                            accessibilityLabel={`Paid back ${formatCurrency(pay.amount)} on ${day(pay.date)}`}
                           >
-                            <Text style={[styles.lineTitle, styles.flex, { color: colors.textPrimary }]}>{day(pay.date)}</Text>
-                            <Text style={[styles.lineAmount, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>+{formatCurrency(pay.amount)}</Text>
+                            <Text style={[styles.lineTitle, styles.flex, { color: colors.textPrimary }]}>
+                              {day(pay.date)}
+                            </Text>
+                            <View style={styles.lineRight}>
+                              <Text style={[styles.lineAmount, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
+                                +{formatCurrency(pay.amount)}
+                              </Text>
+                              <ChevronRight size={14} color={colors.textMuted} strokeWidth={2.2} />
+                            </View>
                           </Pressable>
                         ))
                       )}
@@ -272,6 +273,7 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
           targetExpense={settleTarget.targetExpense}
           totalOwed={settleTarget.totalOwed}
           onSettled={(msg) => setFeedbackMessage(msg)}
+          onViewExpense={(expenseId) => navigation.navigate('ExpenseDetail', { expenseId })}
         />
       ) : null}
     </View>
@@ -347,29 +349,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.element,
-    minHeight: 40,
-  },
-  actionCol: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    flexShrink: 0,
-    gap: 3,
+    minHeight: 46,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.input,
   },
   lineTitle: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.semibold },
   lineAmount: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.bold },
-  paidPill: {
+  lineRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    gap: 3,
-  },
-  paidPillText: {
-    fontSize: FontSize.micro,
-    fontFamily: FontFamily.bold,
-    lineHeight: LineHeight.micro,
+    gap: 6,
+    flexShrink: 0,
   },
   empty: { alignItems: 'center', gap: Spacing.group, paddingTop: Spacing.section },
   emptyTitle: { fontSize: FontSize.body, fontFamily: FontFamily.bold },

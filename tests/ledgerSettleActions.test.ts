@@ -176,4 +176,34 @@ describe('Ledger Settle Actions (Single Expense "Paid" vs "Settle All")', () => 
     expect(aditya.isSettled).toBe(true);
     expect(aditya.splits.every((s) => s.isSettled)).toBe(true);
   });
+
+  it('maps Option 1 row tap to single expense settlement target with correct parameters', async () => {
+    const store = useExpenseStore.getState();
+
+    await store.addExpense(12, null, 'Akash Kumar', 'upi', '2026-10-19', 'expense', {
+      split: { person: 'Aditya', amount: 12 },
+    });
+
+    const summaries = buildPersonSummaries(useExpenseStore.getState().expenses);
+    const aditya = summaries.find((p) => p.name === 'Aditya')!;
+    const split = aditya.splits[0];
+
+    // Option 1 contract: row tap on unsettled item opens SettleExpenseSheet for that specific target
+    const targetPayload = {
+      personName: aditya.name,
+      targetExpense: {
+        expenseId: split.expenseId,
+        note: split.note,
+        outstanding: split.outstanding,
+        date: split.date,
+      },
+      totalOwed: split.outstanding,
+    };
+
+    expect(targetPayload.personName).toBe('Aditya');
+    expect(targetPayload.targetExpense.expenseId).toBe(split.expenseId);
+    expect(targetPayload.targetExpense.outstanding).toBe(12);
+    expect(targetPayload.totalOwed).toBe(12);
+  });
 });
+

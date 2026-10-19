@@ -9,14 +9,10 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import Animated, {
-  SharedValue,
+  cancelAnimation,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  cancelAnimation,
-  interpolateColor,
-  interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../store/themeStore';
@@ -56,8 +52,6 @@ interface OptionItemProps {
   iconSize?: number;
   index?: number;
   totalOptions?: number;
-  optionWidth?: number;
-  slideAnim?: SharedValue<number>;
 }
 
 const OptionItem: React.FC<OptionItemProps> = React.memo(({
@@ -70,8 +64,6 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
   iconSize = 16,
   index = 0,
   totalOptions = 1,
-  optionWidth = 0,
-  slideAnim,
 }) => {
   const { colors } = useTheme();
   const pressScale = useSharedValue(1);
@@ -88,29 +80,9 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
     pressScale.value = withSpring(1, { damping: 14, stiffness: 240 });
   };
 
-  // UI-thread label text color crossfade synchronized 1:1 with sliding pill position
-  const animatedLabelStyle = useAnimatedStyle(() => {
-    if (!slideAnim || optionWidth <= 0) {
-      return {
-        color: isSelected ? activeColor : inactiveColor,
-      };
-    }
-    const itemCenter = index * optionWidth;
-    const distance = Math.abs(slideAnim.value - itemCenter);
-    // Smooth crossfade: reaches activeColor at center, fades to inactiveColor over 60% of item width
-    const progress = interpolate(
-      distance,
-      [0, optionWidth * 0.6],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
-    return {
-      color: interpolateColor(progress, [0, 1], [inactiveColor, activeColor]),
-    };
-  });
-
   const IconComponent = option.icon;
   const iconColor = isSelected ? activeColor : inactiveColor;
+  const labelColor = isSelected ? activeColor : inactiveColor;
 
   return (
     <Pressable
@@ -147,20 +119,20 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
           {IconComponent ? (
             <IconComponent size={iconSize} color={iconColor} />
           ) : null}
-          <Animated.Text
+          <Text
             numberOfLines={1}
             style={[
               styles.optionLabel,
-              animatedLabelStyle,
               {
-                fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
+                color: labelColor,
+                fontFamily: FontFamily.bold,
                 marginLeft: IconComponent ? 6 : 0,
                 ...(fontSize ? { fontSize, lineHeight: fontSize + 4 } : {}),
               },
             ]}
           >
             {option.label}
-          </Animated.Text>
+          </Text>
         </View>
       </Animated.View>
     </Pressable>
@@ -172,12 +144,10 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
  * Implements Apple iOS UISegmentedControl physical motion:
  * - Critically damped primary slide spring on native UI thread (stiffness: 447.4, damping: 49, mass: 1)
  * - Zero rubber-band deformation: fixed stadium geometry preserving exact corner radius
- * - UI-thread text color crossfade (interpolateColor) synchronized 1:1 with pill position
- * - Immediate Frame 0 touch-driven dispatch with React.startTransition decoupling
  * - Native haptic feedback on touch (Haptics.selectionAsync)
  * - Strict track clipping keeping the pill inside the container radius
  */
-export const SegmentedControl: React.FC<SegmentedControlProps> = ({
+export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
   options,
   selectedKey,
   onChange,
@@ -222,8 +192,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
     const targetX = targetIndex * optWidth;
     prevIndexRef.current = targetIndex;
 
-    cancelAnimation(slideAnim);
     // Apple-calibrated critically damped spring on native UI thread (stiffness: 447.4, damping: 49, mass: 1)
+    // Preserves in-flight velocity vector for smooth momentum redirect during rapid taps
     slideAnim.value = withSpring(targetX, {
       stiffness: 447.4,
       damping: 49,
@@ -238,7 +208,9 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
     if (idx !== prevIndexRef.current && optionWidth > 0) {
       animateTo(idx, optionWidth);
     }
-    onChange(key);
+    React.startTransition(() => {
+      onChange(key);
+    });
   }, [animateTo, onChange, optionWidth]);
 
   useEffect(() => {
@@ -273,7 +245,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
-    if (width > 0 && width !== containerWidth) {
+    // Guard against sub-pixel float noise and spurious reflow cancellations
+    if (width > 0 && Math.abs(width - containerWidth) > 1) {
       setContainerWidth(width);
       if (!isFirstLayout.current && normalizedOptions.length > 0) {
         const newOptWidth = (width - trackInset * 2) / normalizedOptions.length;
@@ -349,14 +322,12 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
             iconSize={iconSize}
             index={idx}
             totalOptions={normalizedOptions.length}
-            optionWidth={optionWidth}
-            slideAnim={slideAnim}
           />
         ))}
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

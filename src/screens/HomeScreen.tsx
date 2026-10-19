@@ -28,7 +28,7 @@ import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfM
 import { HeroDetailsSheet } from '../components/HeroDetailsSheet';
 import { buildHeroDetails, heroDetailsTitle, moneyBackInRows, autoSavedInScope, withTillToday } from '../lib/heroDetails';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
-import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate, selectRecentTransactions } from '../lib/homeCalculations';
+import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate, selectRecentTransactions, FILTER_DECOUPLE_DELAY_MS } from '../lib/homeCalculations';
 import { dailyCarryForDate } from '../lib/budgetPeriods';
 import { carryCoverCopy } from '../lib/notificationPolicy';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
@@ -159,7 +159,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Instagram-style pull-up-to-History lives entirely inside PullToHistoryList.
   const listRef = useRef<PullToHistoryListHandle>(null);
 
-  const [activeFilter, setActiveFilter] = useState<Filter>(() => {
+  const [selectedFilter, setSelectedFilter] = useState<Filter>(() => {
     const isBudgetEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
     const cadence = useDailyBudgetStore.getState().budgetCadence;
     if (!isBudgetEnabled) return 'Daily';
@@ -167,14 +167,43 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (cadence === 'monthly') return 'Monthly';
     return 'Daily';
   });
+  const [activeFilter, setActiveFilter] = useState<Filter>(selectedFilter);
   const [todayKey, setTodayKey] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const referenceDate = useMemo(() => parseISO(todayKey), [todayKey]);
 
+  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selectedFilterRef = useRef<Filter>(selectedFilter);
+  selectedFilterRef.current = selectedFilter;
+
   const handleFilterChange = useCallback((newFilter: Filter) => {
-    if (newFilter !== activeFilter) {
-      setActiveFilter(newFilter);
+    if (newFilter === selectedFilterRef.current) return;
+    selectedFilterRef.current = newFilter;
+
+    // 1. Immediately update pill indicator state on Frame 0 for instant, silky UI feedback
+    setSelectedFilter(newFilter);
+
+    if (filterTimerRef.current) {
+      clearTimeout(filterTimerRef.current);
     }
-  }, [activeFilter]);
+
+    // 2. Micro-choreography (Apple/Revolut pattern):
+    // Defer heavy period calculations and number roll updates by 220ms so the UI-thread
+    // spring launch gets an unhindered 120 FPS path across all 3 slots with zero frame drops.
+    // Rapid sequential taps cancel intermediate timers, preventing intermediate slot-machine rolling numbers.
+    filterTimerRef.current = setTimeout(() => {
+      filterTimerRef.current = null;
+      setActiveFilter(newFilter);
+    }, FILTER_DECOUPLE_DELAY_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+      }
+    };
+  }, []);
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
@@ -203,6 +232,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       hasAlignedCadenceFilter.current = true;
       const target: Filter =
         budgetCadence === 'weekly' ? 'Weekly' : budgetCadence === 'monthly' ? 'Monthly' : 'Daily';
+      setSelectedFilter(target);
       setActiveFilter(target);
     }
   }, [isBudgetModeEnabled, budgetCadence]);
@@ -553,6 +583,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     const period: FilterPeriod | null =
       activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
     const inScope = (d: string) => (period ? isDateInPeriod(d, period, referenceDate) : true);
+
+    const activeBudgetLeft =
+      activeFilter === 'Daily' || activeFilter === 'All' || (isBudgetModeEnabled && budgetCadence === 'daily')
+        ? todayRemaining
+        : undefined;
+
+    const unspentInflowLeft =
+      activeFilter === 'All' && totalAvailable > (todayRemaining || 0)
+        ? round2(totalAvailable - (todayRemaining || 0))
+        : undefined;
+
     return buildHeroDetails({
       isBudgetMode: isBudgetModeEnabled,
       budgetGiven: periodBudgetPool,
@@ -563,8 +604,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       gullakAdded: round2(externalDepositsInPeriod + autoSavedInScope(dailyRecords, budgetPeriods, inScope)),
       gullakDrawn: gullakDrawnAmount ?? 0,
       gullakNow: activeFilter === 'All' ? totalAccumulatedSavings : null,
+      activeBudgetLeft,
+      unspentInflowLeft,
     });
-  }, [showHeroDetails, activeFilter, referenceDate, isBudgetModeEnabled, periodBudgetPool, periodSpent, periodIncome, remainingIncome, filtered, externalDepositsInPeriod, dailyRecords, budgetPeriods, gullakDrawnAmount, totalAccumulatedSavings]);
+  }, [showHeroDetails, activeFilter, referenceDate, isBudgetModeEnabled, periodBudgetPool, periodSpent, periodIncome, remainingIncome, filtered, externalDepositsInPeriod, dailyRecords, budgetPeriods, gullakDrawnAmount, totalAccumulatedSavings, todayRemaining, budgetCadence, totalAvailable]);
 
   // ─── Pull to History ───────────────────────────────────────────────────────
   // Fired by PullToHistoryList only AFTER the finger is lifted with the ring full.
@@ -647,7 +690,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         {/* Segmented Filter Toggle */}
         <View style={styles.filterToggleWrapper}>
           <BouncyFilterToggle
-            value={activeFilter}
+            value={selectedFilter}
             onChange={handleFilterChange}
             options={FILTERS}
           />

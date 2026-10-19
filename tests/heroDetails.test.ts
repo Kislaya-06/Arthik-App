@@ -73,6 +73,45 @@ describe('buildHeroDetails', () => {
   it('no budget set: no budget block', () => {
     expect(buildHeroDetails({ ...base, budgetGiven: 0 }).sections.map((s) => s.id)).toEqual(['money_in', 'gullak']);
   });
+
+  it('preserves activeBudgetLeft when lifetime spent exceeds total budgetGiven in All view', () => {
+    // 37 days @ 100/day = 3700 budgetGiven, spent = 4666.06. Today is active with 100 remaining.
+    const d = buildHeroDetails({
+      ...base,
+      budgetGiven: 3700,
+      spent: 4666.06,
+      activeBudgetLeft: 100,
+    });
+    const budgetRows = d.sections.find((s) => s.id === 'budget')!.rows;
+    expect(budgetRows.find((r) => r.id === 'given')!.amount).toBe(3700);
+    expect(budgetRows.find((r) => r.id === 'used')!.amount).toBe(3600);
+    expect(budgetRows.find((r) => r.id === 'left')!.amount).toBe(100);
+  });
+
+  it('reflects unspentInflowLeft under Money in so sheet breakdown matches Home Card total remaining', () => {
+    const d = buildHeroDetails({
+      ...base,
+      budgetGiven: 3700,
+      spent: 4666.06,
+      activeBudgetLeft: 100,
+      unspentInflowLeft: 32.94,
+    });
+    const moneyInRows = d.sections.find((s) => s.id === 'money_in')!.rows;
+    expect(moneyInRows.find((r) => r.id === 'left')!.amount).toBe(32.94);
+  });
+
+  it('hard-caps Taken from Gullak at Added to Gullak so overdraft never shows in sheet', () => {
+    const d = buildHeroDetails({
+      ...base,
+      gullakAdded: 1282,
+      gullakDrawn: 1287.06,
+      gullakNow: 0,
+    });
+    const gullakRows = d.sections.find((s) => s.id === 'gullak')!.rows;
+    expect(gullakRows.find((r) => r.id === 'added')!.amount).toBe(1282);
+    expect(gullakRows.find((r) => r.id === 'drawn')!.amount).toBe(1282); // Capped at 1282!
+    expect(gullakRows.find((r) => r.id === 'now')!.amount).toBe(0);
+  });
 });
 
 describe('period helpers', () => {

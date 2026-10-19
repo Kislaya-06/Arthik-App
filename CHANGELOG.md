@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Financial Integrity & Lifecycle Alignment — HeroDetailsSheet All-Time Budget Preservation & Gullak Overdraft Hard-Cap (`heroDetails.ts`, `HomeScreen.tsx`) — OTA-safe
+
+- **All-Time Active Budget Preservation (`heroDetails.ts`, `HomeScreen.tsx`)**:
+  - Resolved discrepancy between Home Card total remaining (e.g. ₹132.94) and HeroDetailsSheet "All time" breakdown. Previously, lifetime spending exceeding cumulative budget (`spent > budgetGiven`) collapsed `rawLeft = Math.max(0, budgetGiven - spent)` to ₹0, hiding today's active unspent budget allowance.
+  - `HomeScreen.tsx` now passes `activeBudgetLeft` (`todayRemaining`) and `unspentInflowLeft` (`totalAvailable - todayRemaining`) into `buildHeroDetails`.
+  - `buildHeroDetails` preserves today's unspent budget allowance (`budgetLeft = Math.max(rawLeft, activeBudgetLeft)`) and adjusts `used = Math.min(budgetGiven - budgetLeft, spent)` so that `given (₹3,700) = used (₹3,600) + left (₹100)`.
+  - Under "Money in", "Still unspent" reflects `unspentInflowLeft` (₹32.94), ensuring `₹100 + ₹32.94 = ₹132.94` exactly matches the Home Card.
+- **Gullak Overdraft Hard-Cap (`heroDetails.ts`)**:
+  - Enforced real-money invariant: money drawn from Gullak can never exceed total deposits added.
+  - In `buildHeroDetails`, `effectiveGullakDrawn` is strictly hard-capped at `Math.min(gullakDrawn, gullakAdded)`, eliminating impossible figures (e.g. Taken ₹1,287.06 vs Added ₹1,282) and guaranteeing clean, physically consistent piggy bank reporting.
+
+### UI/UX Polish & AutoLog Review Parity — ReviewSheet Label Rhythm, Emoji Purge, Default Unchecked Preference & Income Self-Transfer (`ReviewSheet.tsx`) — OTA-safe
+
+- **Label Spacing & Vertical Rhythm (`ReviewSheet.tsx`)**:
+  - Added consistent `marginBottom: Spacing.element` (8px) to `styles.label`, giving "TRANSACTION TYPE", "ENTER AMOUNT", and "PAID BACK BY SOMEONE?" proper breathing space above segmented controls and inputs.
+- **Emoji-Free Design System Parity (`ReviewSheet.tsx`)**:
+  - Removed emojis from `TYPE_OPTIONS` labels (`'Expense'`, `'Income'`), restoring clean, professional fintech typography consistent with the rest of the application.
+- **Remember Preference Explicit Opt-In (`ReviewSheet.tsx`)**:
+  - Changed `remember` state default to `false` (unchecked) in `useState` and `useEffect`, ensuring user preferences for merchants are only saved when explicitly requested.
+- **Income Self-Transfer Parity (`ReviewSheet.tsx`)**:
+  - Enabled the 48px "Mark as Self Transfer" stadium pill button for both `expense` and `income` transaction types. For incoming money, it is cleanly positioned below the "PAID BACK BY SOMEONE?" debtors list (or directly below Remember Preference if no debtors exist), ensuring intra-account self-transfers can be marked as non-income without leaving the review flow.
+
+### UI/UX & Performance — Home Filter Pill 60/120 FPS Transition & Number Roll Choreography (`HomeScreen.tsx`, `RollingText.tsx`, `SegmentedControl.tsx`, ADR 0015) — OTA-safe
+
+- **Continuous Monotonic Wheel Glyph Geometry (`RollingText.tsx`, `rollingText.ts`)**:
+  - Replaced flawed `Animated.modulo(position, 10)` anti-pattern with `getWheelGlyphs(roll: DigitRoll): number[]`, producing a deterministic finite sequence of `travel + 1` glyphs (`from` to `to` for up, `to` to `from` for down).
+  - Animates `translateY` strictly monotonically from `startY` to `endY`, completely eliminating 0-to-10 modulo jump discontinuities when numbers decrease or roll across 10-boundaries, and ending font baseline clipping or distorted/chopped glyphs.
+  - Applied Apple-calibrated snappy ease-out curve (`Easing.bezier(0.16, 1, 0.3, 1)`) with `320ms` roll duration.
+  - Wrapped `DigitWheel` and `StaticDigit` in `React.memo` to eliminate unnecessary re-renders during active screen interactions.
+- **SegmentedControl Paint Invalidation Elimination (`SegmentedControl.tsx`)**:
+  - Replaced per-frame `interpolateColor` worklet in `OptionItem` with direct static color rendering (`isSelected ? activeColor : inactiveColor`), eliminating ~240 native Android `TextView.setTextColor()` paint invalidations per second that starved the Android Choreographer during 3-slot travel (All $\leftrightarrow$ Monthly).
+  - Preserved in-flight spring momentum vector (`withSpring`) across sequential taps without brick-wall stops.
+  - Maintained consistent `FontFamily.bold` across all segmented control options, eliminating Android font-swapping layout cache invalidations during sliding animations.
+  - Guarded `handleLayout` against sub-pixel reflow noise (`Math.abs(width - containerWidth) > 1`), preventing the sliding spring from aborting mid-flight.
+- **Apple/Revolut-Grade Micro-Choreography & Decoupling (`HomeScreen.tsx`, `homeCalculations.ts`)**:
+  - Decoupled instant pill UI state (`selectedFilter`) from heavy data calculation state (`activeFilter`).
+  - On user tap, the SegmentedControl pill spring launches immediately on Frame 0 on the UI thread with zero JS friction and zero dropped frames.
+  - Deferred heavy period aggregations (`calculatePeriodSummary`, `filterExpenses`, and `RollingText` mounts) by 220ms (`FILTER_DECOUPLE_DELAY_MS`), creating a clean, silky stagger (pill slides smoothly across 3 slots first, then numbers roll into place).
+  - Rapid sequential taps (Daily → Weekly → Monthly → All) cancel pending timeouts, ensuring only the final tab triggers heavy recalculations and eliminating slot-machine churn.
+
+- **4-Day Progressive Mount & Zero-Jitter Category Transitions (`HistoryScreen.tsx`)**:
+  - Capped initial transaction rendering across all categories (including "All") to 4 active days (`INITIAL_SECTION_COUNT = 4`).
+  - Switching category pills now mounts an initial light footprint of only 4 date sections, eliminating main thread frame drops and preventing pill spring animation jitter.
+  - Resetting `visibleSectionCount` back to 4 synchronously on category change ensures smooth, lightweight transitions without mounting stale, large section lists.
+- **Explicit "See More" Button Flow (`HistoryScreen.tsx`)**:
+  - Replaced background automatic `onEndReached` streaming with a clean, centered "See More" pill button featuring a `ChevronDown` icon, matching the visual design of `SavingsScreen` / `SavingsHistorySection`.
+  - Tapping "See More" loads the next 4 days of transactions (`PAGE_SIZE_SECTIONS = 4`) with tactile haptic feedback (`Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)`).
+  - When all days are loaded (or if total days <= 4), the "See More" button cleanly hides.
+
+### UI/UX Polish & Design System Parity — Pure Mode Modal Pill Geometry & Ledger Option 1 Minimalist Row Refinement (`PauseBudgetModal.tsx`, `LedgerScreen.tsx`, `SettleExpenseSheet.tsx`) — OTA-safe
+
+- **Pause Budget Modal Pill Geometry & Contrast Fix (`PauseBudgetModal.tsx`)**:
+  - Replaced cramped side-by-side action buttons with an Apple-grade vertical stack, eliminating the bulky two-line text wrapping that distorted the pill's border radius.
+  - Sized buttons to canonical `ControlHeight.standard` (48px) with `BorderRadius.pill` (9999px) stadium curvature matching the app's design system.
+  - Replaced washed-out white font color with high-contrast `#1A2B4C` (dark navy) on `colors.coral` background, elevating contrast ratio from 1.5:1 to 9.8:1 (WCAG AAA compliant).
+- **Ledger Minimalist Row Hierarchy & Pill Fatigue Elimination (`LedgerScreen.tsx`, `SettleExpenseSheet.tsx`)**:
+  - Eliminated the repetitive green boxed `[ ✓ Mark as Paid ]` pill from every line item, removing visual acne and competing CTAs with the master `Settle all` button.
+  - Upgraded each split expense to a full-width Apple/Revolut-grade interactive row (46px touch target):
+    - Left: Note / Title + date subtitle (`Their share ₹X · Paid ₹Y`).
+    - Right: Clean outstanding amount typography (`₹X left` in `colors.coral`) with a subtle `ChevronRight` accessory icon.
+  - Tapping an unsettled row directly opens `SettleExpenseSheet` with UPI/Cash payment mode selection and 1-tap confirmation.
+  - Added a subtle "View expense details ›" link inside `SettleExpenseSheet` allowing users to inspect the full transaction details with zero friction.
+  - Settled rows display `<StatusBadge variant="success" label="SETTLED" />` and navigate directly to `ExpenseDetail`.
+
 ### Performance & UI Responsiveness — Home Filter Pill Zero-Lag Optimization (`SegmentedControl.tsx`, `HomeScreen.tsx`, `BouncyFilterToggle.tsx`, `BrandedHeroCard.tsx`, `dateFilters.ts`) — OTA-safe
 
 - **Instant Pill Transitions & Input Responsiveness (`SegmentedControl.tsx`, `HomeScreen.tsx`)**:

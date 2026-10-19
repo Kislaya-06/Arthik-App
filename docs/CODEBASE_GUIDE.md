@@ -106,7 +106,13 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
 - **Hal (`FIN-09`, `HomeScreen.tsx`, `BrandedHeroCard.tsx`, `RollingText.tsx`, `rollingText.ts`):** Mondays ko Daily aur Weekly balance numerical roop se same hota hai. Pehle identical amounts par animation skip ho jaata tha. Ab `rollTrigger` aur `forceSpin` se har pill switch par crisp digit roll animation trigger hota hai, aur waterfall calculation ko active filter se decouple karke instantaneous response diya gaya hai.
 
 ### Samasya 16: "History screen mein Category se All pill par aane par UI lag" (FIN-12)
-- **Hal (`FIN-12`, `HistoryScreen.tsx`):** User scroll karke 50+ sections khol chuka hota tha, aur Category se "All" par aate hi saare 50+ sections ek saath re-render hote the aur saari dates baar-baar parse hoti thi. Ab synchronous section count reset aur `dateHeaderCache` se switch bilkul buttery smooth hota hai.
+- **Hal (`FIN-12`, `HistoryScreen.tsx`):** User scroll karke kai sections khol chuka hota tha, aur Category se "All" par aate hi saare sections ek saath re-render hote the aur saari dates baar-baar parse hoti thi jisse pill animation jitter karti thi. Ab initial mount par 4 dinon ki transactions render hoti hain, category switch par pagination turant 4 par reset hoti hai, aur extra days ke liye "See More" button (4-day increments) provide kiya gaya hai, bilkul SavingsScreen ki tarah buttery smooth performance ke saath.
+
+### Samasya 17: "Home Screen par All se Monthly switch par pill jitter aur rapid sequential tap par number roll distortion" (FIN-13)
+- **Hal (`FIN-13`, `SegmentedControl.tsx`, `RollingText.tsx`, `rollingText.ts`, `HomeScreen.tsx`, `homeCalculations.ts`):** 
+  1. **Modulo Discontinuity Fix**: Pehle `Animated.modulo(position, 10)` use hota tha, jisse decrease hone par 0 se 10 ka instantaneous jump native Android driver par glyphs ko chop/distort kar deta tha. Ab `getWheelGlyphs` monotonic sequence banata hai (`travel + 1` digits) aur `translateY` strictly monotonic travel karta hai bina modulo ke.
+  2. **240 Paint Invalidations/sec Elimination**: `SegmentedControl` ke har tab par chalne wala per-frame `interpolateColor` worklet har second ~240 baar Android `TextView.setTextColor()` call kar raha tha, jisse Choreographer starve hota tha aur 3-slot travel (All se Monthly) par pill jitter hoti thi. Ise static color aur memoized options se replace kiya gaya.
+  3. **220ms Micro-Choreography & Debounce**: Frame 0 par pill spring native UI thread par launch hoti hai, aur card recalculation 220ms delay ke baad aati hai. Jaldi-jaldi tap karne par intermediate timers cancel ho jaate hain, jisse slot-machine jaisa card thrashing khatam ho jaata hai aur final tab par number crisply roll hote hain.
 
 ---
 

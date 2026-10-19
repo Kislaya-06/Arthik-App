@@ -116,11 +116,13 @@ describe('HistoryScreen virtualization: initial batch and batch size parity', ()
     expect(historySrc).toMatch(/windowSize=\{21\}/);
   });
 
-  it('SectionList uses progressive section pagination bounding initial mount to 7 sections with onEndReached stream', () => {
-    expect(historySrc).toMatch(/INITIAL_SECTION_COUNT\s*=\s*7/);
+  it('SectionList uses progressive 4-day section pagination with "See More" button to prevent main thread frame drops', () => {
+    expect(historySrc).toMatch(/INITIAL_SECTION_COUNT\s*=\s*4/);
+    expect(historySrc).toMatch(/PAGE_SIZE_SECTIONS\s*=\s*4/);
     expect(historySrc).toMatch(/sections=\{displayedSections\}/);
-    expect(historySrc).toMatch(/onEndReached=\{handleEndReached\}/);
-    expect(historySrc).toMatch(/onEndReachedThreshold=\{0\.6\}/);
+    expect(historySrc).toMatch(/ListFooterComponent=\{renderFooter\}/);
+    expect(historySrc).toMatch(/handleSeeMore/);
+    expect(historySrc).toMatch(/seeMoreBtn/);
   });
 });
 

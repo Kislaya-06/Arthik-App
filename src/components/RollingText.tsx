@@ -19,10 +19,9 @@ import {
   ROLL_DURATION_MS,
   ROLL_STAGGER_MS,
   RollPlan,
+  getWheelGlyphs,
   planRoll,
   splitRollingStyles,
-  wheelEnd,
-  wheelStart,
 } from '../lib/rollingText';
 import { getAdvanceEm, getMaxDigitEm, measureTextWidth } from '../lib/quicksandMetrics';
 
@@ -115,8 +114,6 @@ function useReduceMotion(): boolean {
 
 // ─── One spinning digit ──────────────────────────────────────────────────────
 
-const GLYPHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]; // 11th glyph = a second "0" so the strip wraps seamlessly
-
 interface DigitWheelProps {
   roll: DigitRoll;
   fontSize: number;
@@ -126,44 +123,39 @@ interface DigitWheelProps {
   delay: number;
 }
 
-const DigitWheel: React.FC<DigitWheelProps> = ({ roll, fontSize, lineHeight, family, textStyle, delay }) => {
-  // The ONLY thing that animates is this value, and it runs entirely on the native thread. Layout (the cell
-  // width) is NOT animated: it is the final width from the first frame. Animating width from the JS thread made
-  // the number lag behind the spin whenever JS was busy and then snap into place when the roll ended (jitter).
-  const position = useAnimatedValue(wheelStart(roll));
+const DigitWheel: React.FC<DigitWheelProps> = React.memo(({ roll, fontSize, lineHeight, family, textStyle, delay }) => {
+  // Continuous linear travel:
+  // When roll.dir === 1 (up): glyphs ascend from roll.from to roll.to. TranslateY moves 0 -> -roll.travel * lineHeight.
+  // When roll.dir === -1 (down): glyphs descend from roll.from to roll.to. TranslateY moves -roll.travel * lineHeight -> 0.
+  // Completely eliminates Animated.modulo wrapping discontinuities and Android native font baseline clipping.
+  const startY = roll.dir === 1 ? 0 : -roll.travel * lineHeight;
+  const endY = roll.dir === 1 ? -roll.travel * lineHeight : 0;
+  const translateY = useAnimatedValue(startY);
 
   const cellWidth = getAdvanceEm(family, String(roll.to)) * fontSize; // identical to the resting digit's width
   const boxWidth = getMaxDigitEm(family) * fontSize; // wide enough that no digit is clipped sideways
 
+  const glyphs = useMemo(() => getWheelGlyphs(roll), [roll]);
+
   useEffect(() => {
-    const move = Animated.timing(position, {
-      toValue: wheelEnd(roll),
+    const move = Animated.timing(translateY, {
+      toValue: endY,
       duration: ROLL_DURATION_MS,
       delay,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
       useNativeDriver: true,
     });
     move.start();
     return () => {
       move.stop();
     };
-    // One roll per mount: the parent re-mounts the wheel (new key) for every new roll.
   }, []);
 
-  const wheel = useMemo(() => Animated.modulo(position, 10), [position]);
-  const translateY = useMemo(
-    () =>
-      wheel.interpolate({
-        inputRange: [0, 10],
-        outputRange: [0, -10 * lineHeight],
-      }),
-    [wheel, lineHeight]
-  );
   return (
     <View style={{ width: cellWidth, height: lineHeight }}>
       <View style={[styles.clipBox, { width: boxWidth, height: lineHeight, left: (cellWidth - boxWidth) / 2 }]}>
         <Animated.View style={{ width: boxWidth, transform: [{ translateY }] }}>
-          {GLYPHS.map((d, k) => (
+          {glyphs.map((d, k) => (
             <Text
               key={k}
               allowFontScaling={false}
@@ -186,7 +178,7 @@ const DigitWheel: React.FC<DigitWheelProps> = ({ roll, fontSize, lineHeight, fam
       </View>
     </View>
   );
-};
+});
 
 // ─── One resting digit ───────────────────────────────────────────────────────
 
@@ -204,7 +196,7 @@ interface StaticDigitProps {
   textStyle: TextStyle;
 }
 
-const StaticDigit: React.FC<StaticDigitProps> = ({ digit, fontSize, lineHeight, family, textStyle }) => {
+const StaticDigit: React.FC<StaticDigitProps> = React.memo(({ digit, fontSize, lineHeight, family, textStyle }) => {
   const cellWidth = getAdvanceEm(family, digit) * fontSize;
   const boxWidth = getMaxDigitEm(family) * fontSize;
   return (
@@ -225,7 +217,7 @@ const StaticDigit: React.FC<StaticDigitProps> = ({ digit, fontSize, lineHeight, 
       </View>
     </View>
   );
-};
+});
 
 // ─── The text ────────────────────────────────────────────────────────────────
 

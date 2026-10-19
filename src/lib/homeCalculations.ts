@@ -29,6 +29,14 @@ import type { GullakDeposit } from '../store/dailyBudgetStore';
 
 export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
 
+/**
+ * Delay (in milliseconds) used to decouple the Frame 0 UI-thread indicator spring
+ * from heavy financial waterfall aggregations and RollingText number animations.
+ * Provides an unhindered 120 FPS path for multi-slot travels (All <-> Monthly)
+ * and debounces rapid sequential taps (Apple / Revolut pattern).
+ */
+export const FILTER_DECOUPLE_DELAY_MS = 220;
+
 export interface ExpenseDateItem {
   expense_date?: string;
   note?: string | null;

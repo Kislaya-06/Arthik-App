@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput,
-  SectionList,
+  SectionList, TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
@@ -14,9 +14,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
-import { Search, Receipt, SearchX, FilterX } from 'lucide-react-native';
+import { Search, Receipt, SearchX, FilterX, ChevronDown } from 'lucide-react-native';
 import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
+import * as Haptics from 'expo-haptics';
 import { TabParamList, RootStackParamList } from '../types';
 import { formatCurrency } from '../lib/formatters';
 import { isIncomeTransaction, isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
@@ -128,10 +129,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const sectionListRef = useRef<SectionList<HistoryItem, Section>>(null);
 
-  // Progressive section pagination: bounds initial mount to ~15-20 items (~7 dates)
-  // preventing Main UI thread / Choreographer frame drops when switching to "All"
-  const INITIAL_SECTION_COUNT = 7;
-  const PAGE_SIZE_SECTIONS = 7;
+  // Progressive section pagination: bounds initial mount to 4 days (sections),
+  // expandable via "See More" button to eliminate Main UI thread frame drops
+  const INITIAL_SECTION_COUNT = 4;
+  const PAGE_SIZE_SECTIONS = 4;
   const [visibleSectionCount, setVisibleSectionCount] = useState(INITIAL_SECTION_COUNT);
 
   // Synchronously reset visibleSectionCount on category change to prevent mounting stale large section windows
@@ -278,12 +279,35 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     return filteredAndGroupedExpenses.slice(0, visibleSectionCount);
   }, [filteredAndGroupedExpenses, visibleSectionCount]);
 
-  const handleEndReached = useCallback(() => {
-    setVisibleSectionCount((prev) => {
-      if (prev >= filteredAndGroupedExpenses.length) return prev;
-      return Math.min(prev + PAGE_SIZE_SECTIONS, filteredAndGroupedExpenses.length);
-    });
-  }, [filteredAndGroupedExpenses.length]);
+  const hasMoreSections = filteredAndGroupedExpenses.length > visibleSectionCount;
+
+  const handleSeeMore = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setVisibleSectionCount((prev) => prev + PAGE_SIZE_SECTIONS);
+  }, []);
+
+  const renderFooter = useCallback(() => {
+    if (!hasMoreSections) return null;
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.seeMoreBtn,
+          {
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+        onPress={handleSeeMore}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.seeMoreText, { color: colors.textPrimary }]}>
+          See More
+        </Text>
+        <ChevronDown size={16} color={colors.textSecondary} />
+      </TouchableOpacity>
+    );
+  }, [hasMoreSections, isDark, colors, handleSeeMore]);
 
   const targetDate = route.params?.targetDate;
   const targetStartDate = route.params?.startDate;
@@ -577,8 +601,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           maxToRenderPerBatch={10}
           windowSize={21}
           updateCellsBatchingPeriod={50}
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.6}
+          ListFooterComponent={renderFooter}
           removeClippedSubviews={false}
           ListEmptyComponent={renderEmptyState}
         />
@@ -687,5 +710,22 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
     textAlign: 'center',
+  },
+  seeMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: Spacing.element,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.surface,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    marginTop: Spacing.block,
+    marginBottom: Spacing.element,
+  },
+  seeMoreText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.bold,
   },
 });

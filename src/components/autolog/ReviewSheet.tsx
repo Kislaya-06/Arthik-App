@@ -60,8 +60,8 @@ interface Props {
 }
 
 const TYPE_OPTIONS: SegmentedOption[] = [
-  { key: 'expense', label: '💸 Expense' },
-  { key: 'income', label: '💰 Income' },
+  { key: 'expense', label: 'Expense' },
+  { key: 'income', label: 'Income' },
 ];
 
 let chipGradCounter = 0;
@@ -210,7 +210,7 @@ export const ReviewSheet: React.FC<Props> = ({
 
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [amountText, setAmountText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +222,7 @@ export const ReviewSheet: React.FC<Props> = ({
     if (visible && event) {
       setType(event.direction === 'credit' ? 'income' : 'expense');
       setCategoryId(null);
-      setRemember(Boolean(event.merchant || event.sender));
+      setRemember(false);
       setAmountText('');
       setError(null);
       setBusy(false);
@@ -584,7 +584,7 @@ export const ReviewSheet: React.FC<Props> = ({
         {/* ── Category Section: Horizontal Scroll with Left/Right Fade Gradients ── */}
         <View style={styles.categorySection}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>CATEGORY</Text>
+            <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 0 }]}>CATEGORY</Text>
             {chosenCategory ? (
               <Text style={[styles.chosenLabel, { color: colors.mintGreenDark }]}>
                 {chosenCategory.name}
@@ -699,35 +699,11 @@ export const ReviewSheet: React.FC<Props> = ({
           </Text>
         </Pressable>
 
-        {/* ── Action Stadium Pills (Mark as Self Transfer & Split) ── */}
-        {!discovery && type === 'expense' ? (
-          <View style={styles.actionPillsGroup}>
-            <AppButton
-              label="Mark as Self Transfer"
-              variant="outline"
-              size="standard"
-              icon={<ArrowLeftRight size={16} color={colors.textPrimary} />}
-              disabled={busy}
-              onPress={handleSelfTransfer}
-            />
-
-            {event.direction !== 'credit' ? (
-              <AppButton
-                label="Save and split with friends"
-                variant="outline"
-                size="standard"
-                icon={<Users size={16} color={colors.textPrimary} />}
-                disabled={busy}
-                onPress={logAndSplit}
-              />
-            ) : null}
-          </View>
-        ) : null}
-
+        {/* ── Paid back by someone (if income and people owe money) ── */}
         {owingPeople.length > 0 && type === 'income' ? (
           <View style={styles.section}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>PAID BACK BY SOMEONE?</Text>
-            <View style={{ gap: Spacing.element, marginTop: Spacing.micro }}>
+            <View style={{ gap: Spacing.element }}>
               {owingPeople.map((p) => (
                 <Pressable
                   key={p.key}
@@ -756,6 +732,31 @@ export const ReviewSheet: React.FC<Props> = ({
                 </Pressable>
               ))}
             </View>
+          </View>
+        ) : null}
+
+        {/* ── Action Stadium Pills (Mark as Self Transfer & Split) ── */}
+        {!discovery ? (
+          <View style={styles.actionPillsGroup}>
+            <AppButton
+              label="Mark as Self Transfer"
+              variant="outline"
+              size="standard"
+              icon={<ArrowLeftRight size={16} color={colors.textPrimary} />}
+              disabled={busy}
+              onPress={handleSelfTransfer}
+            />
+
+            {type === 'expense' && event.direction !== 'credit' ? (
+              <AppButton
+                label="Save and split with friends"
+                variant="outline"
+                size="standard"
+                icon={<Users size={16} color={colors.textPrimary} />}
+                disabled={busy}
+                onPress={logAndSplit}
+              />
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
@@ -932,6 +933,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
+    marginBottom: Spacing.element,
   },
   chosenLabel: {
     fontSize: FontSize.caption,

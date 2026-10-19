@@ -241,4 +241,37 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
     expect(el2.props.children[1].props.children).toHaveLength(2);
     expect(el2.props.children[1].props.children[1].props.isSelected).toBe(true);
   });
+
+  it('maintains consistent bold typography across both selected and unselected options to eliminate Android font-switch layout recalculations', () => {
+    const onChange = vi.fn();
+    const el = SegmentedControl({
+      options: ['Daily', 'Weekly', 'Monthly', 'All'],
+      selectedKey: 'Daily',
+      onChange,
+    }) as any;
+
+    const optionsRow = el.props.children[1];
+    const dailyItem = optionsRow.props.children[0];
+    const weeklyItem = optionsRow.props.children[1];
+
+    // Both selected and unselected option labels render with FontFamily.bold
+    expect(dailyItem.props.isSelected).toBe(true);
+    expect(weeklyItem.props.isSelected).toBe(false);
+
+    // Render OptionItem elements and inspect label text style
+    const dailyRendered = dailyItem.type(dailyItem.props);
+    const weeklyRendered = weeklyItem.type(weeklyItem.props);
+
+    // OptionItem -> Pressable -> Animated.View -> [optional badge, labelRow] -> labelRow.children[1] = Animated.Text
+    const dailyLabelRow = dailyRendered.props.children.props.children[1];
+    const dailyText = dailyLabelRow.props.children[1];
+    const weeklyLabelRow = weeklyRendered.props.children.props.children[1];
+    const weeklyText = weeklyLabelRow.props.children[1];
+
+    const dailyFont = dailyText.props.style.find((s: any) => s && s.fontFamily)?.fontFamily;
+    const weeklyFont = weeklyText.props.style.find((s: any) => s && s.fontFamily)?.fontFamily;
+
+    expect(dailyFont).toBe('Quicksand_700Bold');
+    expect(weeklyFont).toBe('Quicksand_700Bold');
+  });
 });

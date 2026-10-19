@@ -65,8 +65,11 @@
         "version": "2.1.0",
         "title": "Split Expenses & Money Back 🤝",
         "highlights": [
-          "Home Screen: Instant, zero-lag switching across Daily, Weekly, Monthly, and All filter pills with 60 FPS spring animations",
-          "Ledger: Mark split expenses as paid individually or settle all with a single tap, choosing UPI or Cash",
+          "AutoLog Review: Clean vertical spacing, emoji-free typography, default unchecked merchant preference, and instant self-transfer for incoming credits",
+          "Home Card Breakdown: Preserves active budget allowance in All-time sheet and caps Gullak withdrawals at real savings",
+          "History Screen: 4-day progressive pagination with 'See More' button for buttery-smooth, jitter-free category transitions",
+          "Home Screen: 60/120 FPS pill switching with decoupled odometer roll choreography & zero-jitter transition",
+          "Ledger: Streamlined minimalist rows with 1-tap settlement sheet, eliminating pill fatigue while keeping Settle All as the primary action",
           "Split an expense with friends and see exactly what each person owes you",
           "When a friend pays you back, it is no longer counted as income",
           "Refunds go back to their expense — choose to split across everyone, just for you, or for a specific friend",

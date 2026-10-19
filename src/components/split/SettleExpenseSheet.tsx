@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
@@ -24,6 +25,7 @@ export interface SettleExpenseSheetProps {
   targetExpense?: SettleExpenseTarget | null;
   totalOwed: number;
   onSettled?: (message: string) => void;
+  onViewExpense?: (expenseId: string) => void;
 }
 
 /**
@@ -38,6 +40,7 @@ export const SettleExpenseSheet: React.FC<SettleExpenseSheetProps> = ({
   targetExpense,
   totalOwed,
   onSettled,
+  onViewExpense,
 }) => {
   const { colors, isDark } = useTheme();
   const [paymentMode, setPaymentMode] = useState<'upi' | 'cash'>('upi');
@@ -175,6 +178,27 @@ export const SettleExpenseSheet: React.FC<SettleExpenseSheetProps> = ({
               : `Settling all open expenses will link ${formatCurrency(settleAmount)} back to original expenses (oldest first). It is not counted as new income.`}
           </Text>
         </View>
+
+        {isSingle && onViewExpense && targetExpense ? (
+          <Pressable
+            onPress={() => {
+              onClose();
+              onViewExpense(targetExpense.expenseId);
+            }}
+            style={({ pressed }) => [
+              styles.viewExpenseLink,
+              pressed && { opacity: 0.65 },
+            ]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="View full expense details"
+          >
+            <Text style={[styles.viewExpenseText, { color: colors.textSecondary }]}>
+              View expense details
+            </Text>
+            <ChevronRight size={13} color={colors.textSecondary} strokeWidth={2.2} />
+          </Pressable>
+        ) : null}
       </View>
     </BottomSheetModal>
   );
@@ -185,6 +209,17 @@ const styles = StyleSheet.create({
     gap: Spacing.block,
     paddingTop: Spacing.element,
     paddingBottom: Spacing.element,
+  },
+  viewExpenseLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.micro,
+    paddingVertical: Spacing.nano,
+  },
+  viewExpenseText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
   },
   contextBadge: {
     flexDirection: 'row',

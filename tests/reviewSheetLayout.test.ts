@@ -46,6 +46,23 @@ describe('ReviewSheet Layout & UI Invariants', () => {
     expect(src).toMatch(/secondaryBtn:\s*\{[\s\S]*?minHeight:\s*38/);
     expect(src).toMatch(/secondaryText:\s*\{[\s\S]*?fontSize:\s*FontSize\.bodySmall/);
   });
+
+  it('renders emoji-free Transaction Type labels and consistent Spacing.element label margins', () => {
+    expect(src).toMatch(/\{\s*key:\s*'expense',\s*label:\s*'Expense'\s*\}/);
+    expect(src).toMatch(/\{\s*key:\s*'income',\s*label:\s*'Income'\s*\}/);
+    expect(src).not.toMatch(/💸/);
+    expect(src).not.toMatch(/💰/);
+    expect(src).toMatch(/label:\s*\{[\s\S]*?marginBottom:\s*Spacing\.element/);
+  });
+
+  it('defaults remember preference to false so user explicitly opts into remembering', () => {
+    expect(src).toMatch(/const\s*\[remember,\s*setRemember\]\s*=\s*useState\(false\);/);
+    expect(src).toMatch(/setRemember\(false\);/);
+  });
+
+  it('renders Mark as Self Transfer for both expense and income when not in discovery mode', () => {
+    expect(src).toMatch(/\{!discovery \? \(\s*<View style=\{styles\.actionPillsGroup\}>\s*<AppButton\s*label="Mark as Self Transfer"/);
+  });
 });
 
 describe('BottomSheetModal Slide Animation Invariant', () => {

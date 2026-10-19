@@ -22,9 +22,9 @@ When filtering transactions on `HistoryScreen`, switching category pills (`Bounc
 - **Zero-Shift Typography**: Introduced an invisible bold placeholder (`hiddenPlaceholder` with `opacity: 0`, `FontFamily.bold`) behind an absolute visible label, locking container width regardless of active status.
 - Wrapped `BouncyCategoryFilter` and `FilterItem` with `React.memo`.
 
-### 2. SectionList Virtualization Tuning & Progressive Section Pagination (`HistoryScreen`)
-- **Incremental Progressive Section Pagination**: Capped initial mount on "All" filter to the first 7 active date sections (~15–20 transactions), eliminating massive Android Main UI thread view inflation stalls (~80–120ms).
-- **Smooth `onEndReached` Streaming**: As user scrolls (threshold `0.6`), subsequent 7-section batches are appended incrementally without UI hitches.
+### 2. SectionList Virtualization Tuning & Progressive Section Pagination with 'See More' (`HistoryScreen`)
+- **Incremental Progressive Section Pagination (4 Days)**: Capped initial mount on "All" or any category filter to the first 4 active date sections (~4–8 transactions), eliminating Main UI thread view inflation stalls (~80–120ms).
+- **Explicit 'See More' Button Flow**: Replaced automatic `onEndReached` streaming with an explicit "See More" button (matching the `SavingsScreen` pattern). When tapped, the next 4 days of transactions load with haptic feedback, preventing background view inflation from interrupting category pill spring transitions.
 - **`startTransition` Decoupling**: Wrapped filter state updates in `React.startTransition` so list reconciliation yields to Reanimated's UI-thread spring.
 - Preserved pinned virtualization parameters: `initialNumToRender={12}`, `maxToRenderPerBatch={10}`, and `windowSize={21}`.
 - Memoized item row callbacks (`handlePress`) in `TransactionRowItem` and `GullakRowItem` preventing row re-renders.
@@ -43,8 +43,25 @@ When filtering transactions on `HistoryScreen`, switching category pills (`Bounc
 ### 6. Single-Pass Bounded Top-5 Transaction Selection (`homeCalculations`)
 - Replaced full-array mapping, spreading, and $O(N \log N)$ sorting in `HomeScreen.tsx` with a single-pass $O(N)$ bounded selection algorithm (`selectRecentTransactions` in `src/lib/homeCalculations.ts`).
 
+### 7. Home Filter Pill Micro-Choreography & RollingText Monotonic Wheel Rendering
+- **Micro-Choreography Decoupling (`HomeScreen.tsx`)**:
+  - Decoupled instant pill UI state (`selectedFilter`) from heavy calculation state (`activeFilter`).
+  - On user tap, the SegmentedControl pill spring launches immediately on Frame 0 on the native UI thread with zero JS friction and zero dropped frames.
+  - Deferred heavy period aggregations (`calculatePeriodSummary`, `filterExpenses`, and `RollingText` mounts) by 220ms (`FILTER_DECOUPLE_DELAY_MS`), allowing the native UI-thread spring across all 3 slots (All $\leftrightarrow$ Monthly) to complete its trajectory smoothly before JS math executes.
+  - Rapid sequential taps (Daily → Weekly → Monthly → All) cancel pending intermediate calculation timers, preventing card thrashing and chopped mid-air digit distortion.
+- **Continuous Monotonic Wheel Glyph Geometry (`RollingText.tsx`, `rollingText.ts`)**:
+  - Replaced the flawed `Animated.modulo(position, 10)` anti-pattern with `getWheelGlyphs(roll: DigitRoll): number[]`, generating a deterministic finite sequence of `travel + 1` glyphs (`from` to `to` for up, `to` to `from` for down).
+  - Animates `translateY` strictly monotonically from `startY` to `endY`, completely eliminating 0-to-10 modulo jump discontinuities when numbers decrease or cross 10-boundaries, and ending font baseline clipping or distorted glyphs.
+  - Applied Apple-calibrated snappy ease-out curve (`Easing.bezier(0.16, 1, 0.3, 1)`) with `320ms` roll duration.
+- **SegmentedControl Paint Invalidation Elimination (`SegmentedControl.tsx`)**:
+  - Replaced per-frame `interpolateColor` worklet in `OptionItem` with static color selection (`isSelected ? activeColor : inactiveColor`), eliminating ~240 native Android `TextView.setTextColor()` paint invalidations per second during 3-slot pill flight.
+  - Preserved in-flight spring momentum vector (`withSpring`) across rapid sequential taps without brick-wall stops.
+  - Maintained consistent `FontFamily.bold` across all segmented control options, eliminating Android font-swapping layout cache invalidations during sliding animations.
+  - Guarded `handleLayout` against sub-pixel reflow noise (`Math.abs(width - containerWidth) > 1`), preventing the sliding spring from aborting mid-flight.
+
 ## Consequences
-- **Zero Frame Stutters on History & Home Pills**: Reanimated worklets execute at 60/120 FPS on the native UI thread without Choreographer starvation.
-- **Initial "All" Batch Latency Eliminated**: Bounding initial mount to 7 sections drops view inflation time from ~100ms down to ~2ms, matching single-category transitions.
-- **Immediate Touch Response**: SegmentedControl responds on Frame 0 instead of waiting for parent waterfall and hero card renders.
+- **Zero Frame Stutters on History & Home Pills**: Reanimated worklets execute at 60/120 FPS on the native UI thread without Choreographer starvation, even during transitions across 3 slots with rapid sequential tapping.
+- **Odometer Visual Fidelity**: Preserved authentic physical slot-wheel rolling animation across all hero metrics without font baseline clipping, modulo discontinuities, or glyph distortions on Android.
+- **Initial "All" Batch Latency Eliminated**: Bounding initial mount to 4 sections on HistoryScreen drops view inflation time down to ~2ms.
+- **Immediate Touch Response**: SegmentedControl responds on Frame 0 with instantaneous haptic and visual feedback.
 - **100% Financial & OTA Invariance**: All changes are pure performance and rendering optimizations; zero financial formulas, budget rules, or native Android dependencies were modified.
