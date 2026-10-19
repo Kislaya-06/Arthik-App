@@ -585,4 +585,88 @@ describe('dailyBudgetStore — checkAndRollover Characterization & Safety Net', 
     expect(applied).toBe(true);
     expect(state.isBudgetModeEnabled).toBe(false);
   });
+
+  it('FIN-02: applies a scheduled plan change that matured multiple days ago (e.g. 3-day inactivity gap)', () => {
+    // User scheduled Weekly cadence starting on 2026-03-12 (3 days ago), but didn't open the app until 2026-03-15
+    let state: any = {
+      isBudgetModeEnabled: true,
+      budgetCadence: 'daily',
+      dailyBudgetAmount: 500,
+      weeklyBudgetAmount: 0,
+      monthlyBudgetAmount: 0,
+      isAutoRenew: true,
+      planChanges: [
+        {
+          id: 'pc-initial',
+          userId: USER_ID,
+          effectiveFrom: '2026-03-01',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 500,
+        },
+        {
+          id: 'pc-weekly-switch',
+          userId: USER_ID,
+          effectiveFrom: '2026-03-12', // 3 days before todayStr (2026-03-15)
+          isEnabled: true,
+          cadence: 'weekly',
+          amount: 3500,
+        },
+      ],
+    };
+    const get = () => state;
+    const set = (patch: any) => {
+      state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
+    };
+
+    const todayStr = '2026-03-15';
+    const applied = applyScheduledPlanChanges(get, set, todayStr);
+
+    expect(applied).toBe(true);
+    expect(state.budgetCadence).toBe('weekly');
+    expect(state.weeklyBudgetAmount).toBe(3500);
+    expect(state.isBudgetModeEnabled).toBe(true);
+  });
+
+  it('FIN-02: does NOT prematurely apply a plan scheduled for tomorrow or the future', () => {
+    let state: any = {
+      isBudgetModeEnabled: true,
+      budgetCadence: 'daily',
+      dailyBudgetAmount: 500,
+      weeklyBudgetAmount: 0,
+      monthlyBudgetAmount: 0,
+      isAutoRenew: true,
+      planChanges: [
+        {
+          id: 'pc-initial',
+          userId: USER_ID,
+          effectiveFrom: '2026-03-01',
+          isEnabled: true,
+          cadence: 'daily',
+          amount: 500,
+        },
+        {
+          id: 'pc-future-switch',
+          userId: USER_ID,
+          effectiveFrom: '2026-03-16', // Tomorrow relative to todayStr (2026-03-15)
+          isEnabled: true,
+          cadence: 'monthly',
+          amount: 15000,
+        },
+      ],
+    };
+    const get = () => state;
+    const set = (patch: any) => {
+      state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
+    };
+
+    const todayStr = '2026-03-15';
+    const applied = applyScheduledPlanChanges(get, set, todayStr);
+
+    // Should return false and leave daily cadence intact
+    expect(applied).toBe(false);
+    expect(state.budgetCadence).toBe('daily');
+    expect(state.dailyBudgetAmount).toBe(500);
+  });
 });
+

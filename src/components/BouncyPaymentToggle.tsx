@@ -53,6 +53,7 @@ export const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({
 
   return (
     <SegmentedControl
+      key={options.map((o) => o.mode).join('-')}
       options={segOptions}
       selectedKey={value}
       onChange={(key) => onChange(key as 'cash' | 'upi' | 'card')}

@@ -94,6 +94,24 @@ const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors })
   );
 });
 
+const dateHeaderCache = new Map<string, { day: string; title: string }>();
+
+function getDateHeaderTitle(dateStr: string, todayKey: string): string {
+  const cached = dateHeaderCache.get(dateStr);
+  if (cached && cached.day === todayKey) return cached.title;
+  const dateObj = parseISO(dateStr);
+  const dayName = format(dateObj, 'EEEE');
+  const dateFormatted = format(dateObj, 'd MMM');
+  let title = `${dayName}, ${dateFormatted}`.toUpperCase();
+  if (isToday(dateObj)) {
+    title = `TODAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
+  } else if (isYesterday(dateObj)) {
+    title = `YESTERDAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
+  }
+  dateHeaderCache.set(dateStr, { day: todayKey, title });
+  return title;
+}
+
 export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const expenses = useExpenseStore((s) => s.expenses);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
@@ -115,6 +133,18 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const INITIAL_SECTION_COUNT = 7;
   const PAGE_SIZE_SECTIONS = 7;
   const [visibleSectionCount, setVisibleSectionCount] = useState(INITIAL_SECTION_COUNT);
+
+  // Synchronously reset visibleSectionCount on category change to prevent mounting stale large section windows
+  const handleCategoryChange = useCallback((id: string | null) => {
+    setVisibleSectionCount(INITIAL_SECTION_COUNT);
+    if (typeof React.startTransition === 'function') {
+      React.startTransition(() => {
+        setSelectedCategoryId(id);
+      });
+    } else {
+      setSelectedCategoryId(id);
+    }
+  }, []);
 
   // Reset pagination window whenever category or search filter changes
   useEffect(() => {
@@ -220,18 +250,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
       }
     });
 
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
     const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
     return sortedDates.map((dateStr) => {
-      const dateObj = parseISO(dateStr);
-      const dayName = format(dateObj, 'EEEE');
-      const dateFormatted = format(dateObj, 'd MMM');
-      let title = `${dayName}, ${dateFormatted}`.toUpperCase();
-      if (isToday(dateObj)) {
-        title = `TODAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
-      } else if (isYesterday(dateObj)) {
-        title = `YESTERDAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
-      }
+      const title = getDateHeaderTitle(dateStr, todayKey);
 
       const sortedData = grouped[dateStr].slice().sort((a, b) =>
         b.created_at.localeCompare(a.created_at)
@@ -515,7 +538,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           <BouncyCategoryFilter
             options={categoryFilterOptions}
             value={selectedCategoryId}
-            onChange={setSelectedCategoryId}
+            onChange={handleCategoryChange}
           />
         </View>
 

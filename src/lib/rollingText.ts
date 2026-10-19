@@ -90,8 +90,8 @@ export function stepsBetween(from: number, to: number, dir: RollDirection): numb
  * Returns null when nothing should animate: same text, or the words/symbols around the numbers differ
  * (a different sentence is simply swapped).
  */
-export function planRoll(prev: string, next: string): RollPlan | null {
-  if (prev === next) return null;
+export function planRoll(prev: string, next: string, forceSpin: boolean = false): RollPlan | null {
+  if (prev === next && !forceSpin) return null;
 
   const a = parseText(prev);
   const b = parseText(next);
@@ -105,10 +105,10 @@ export function planRoll(prev: string, next: string): RollPlan | null {
   for (let g = 0; g < b.groups.length; g++) {
     const before = a.groups[g].raw;
     const after = b.groups[g].raw;
-    if (before === after) continue; // this number did not change -> it stays still
+    if (before === after && !forceSpin) continue; // this number did not change -> it stays still
 
     const delta = groupValue(after) - groupValue(before);
-    const dir: RollDirection = delta > 0 ? 1 : -1;
+    const dir: RollDirection = delta !== 0 ? (delta > 0 ? 1 : -1) : 1;
 
     const prevDigits = groupDigits(before);
     const nextDigits = groupDigits(after);
@@ -124,7 +124,7 @@ export function planRoll(prev: string, next: string): RollPlan | null {
       const from = hasOld ? prevDigits[fromFromRight] : 0;
 
       const base = stepsBetween(from, to, dir);
-      const travel = base + (hasOld && !SPIN_UNCHANGED_DIGITS && base === 0 ? 0 : 10 * ROLL_EXTRA_CYCLES);
+      const travel = base + (hasOld && !SPIN_UNCHANGED_DIGITS && base === 0 && !forceSpin ? 0 : 10 * ROLL_EXTRA_CYCLES);
       if (travel > 0) {
         rolls[b.groups[g].start + c] = { from, to, dir, travel, isNew: !hasOld };
       }

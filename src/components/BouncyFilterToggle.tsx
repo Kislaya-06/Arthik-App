@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { ControlHeight } from '../config/theme';
 import { SegmentedControl, SegmentedOption } from './ui/SegmentedControl';
 
@@ -17,10 +18,14 @@ export function BouncyFilterToggle<T extends string>({
   options,
   style,
 }: BouncyFilterToggleProps<T>) {
-  const segOptions: SegmentedOption[] = options.map((opt) => ({
-    key: opt,
-    label: opt,
-  }));
+  const segOptions = useMemo<SegmentedOption[]>(
+    () =>
+      options.map((opt) => ({
+        key: opt,
+        label: opt,
+      })),
+    [options]
+  );
 
   return (
     <SegmentedControl

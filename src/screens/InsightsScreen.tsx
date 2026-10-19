@@ -163,6 +163,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     safeDailyPace,
     monthlySafeDailyPace,
     weeklyGullak,
+    weeklyMonthlyBudgetShare,
     weekTransactionCount,
     smartTakeaway,
     largestOutflow,
@@ -428,6 +429,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               addedIncome={currentPeriodIncome}
               isOverBudget={activeBudgetPool ? activeBudgetPool.isOver : budgetHealth.isOverBudget}
               weeklyDailyBurnPace={Math.round(currentTotal / Math.max(1, elapsedDaysInWeek))}
+              budgetCadence={budgetCadence}
+              savedPillLabel={weeklyGullak.pillLabel}
+              monthlyBudgetShare={weeklyMonthlyBudgetShare}
               onPressSavings={() => {
                 navigation.navigate('Savings');
               }}
@@ -455,6 +459,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               transactionCount={monthTransactionCount}
               totalMonthSavings={monthlyGullakSavings.totalSaved}
               savedDaysCount={monthlyGullakSavings.savedDaysCount}
+              savedPillLabel={monthlyGullakSavings.pillLabel}
               addedIncome={currentPeriodIncome}
               isOverBudget={activeBudgetPool ? activeBudgetPool.isOver : monthlyBudgetHealth.isOverBudget}
               monthlyDailyBurnPace={monthlyDailyBurnPace}

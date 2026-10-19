@@ -15,6 +15,7 @@ When a user paid for a friend and the friend paid back later, the money counted 
 6. **Matching a bank credit to a person** uses name and amount first, then name only. The app only asks; it never settles by itself.
 7. **Refund attribution for multi-person splits (Solution 2):** When a merchant refunds a split expense, the user interactively selects who the refund was for: (a) *Split among everyone* (proportional deduction across user and each participant), (b) *Specific friend* (targeted deduction), or (c) *Just for me* (targeted to user's share). `recovery_allocations` stores `refund_target` without schema changes, and `outstandingOnExpense` applies proportional and targeted deductions so one person's settlement never falsely zeroes out another person's debt.
 8. **Safety:** an expense with money back cannot be deleted first; a money-back row cannot be edited (delete and add again); the new database columns are sent only by rows that use them, so the app keeps working before the SQL is run.
+9. **Interactive Ledger Settlements (Mark as Paid & Settle All):** Users can directly settle offline payments (Cash or UPI) from the Ledger screen. Each open expense has a responsive `Paid` action pill, and each person card offers a `Settle all` shortcut. Settlements prompt a quick confirmation sheet (`SettleExpenseSheet`) with payment mode selection and record canonical recovery transactions without false income.
 
 ## Rejected
 - *Negative expense on the day money arrives*: it would make that day look under budget and push the money into Gullak (breaks `BUD-003`).

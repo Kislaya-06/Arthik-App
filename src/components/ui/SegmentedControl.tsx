@@ -208,6 +208,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   const slideAnim = useSharedValue(0);
   const isFirstLayout = useRef(true);
   const prevIndexRef = useRef(selectedIndex);
+  const prevOptionWidthRef = useRef(0);
+  const prevOptionsCountRef = useRef(normalizedOptions.length);
 
   const trackInset = Spacing.micro;
   const optionWidth =
@@ -236,14 +238,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
     if (idx !== prevIndexRef.current && optionWidth > 0) {
       animateTo(idx, optionWidth);
     }
-    // Decouple UI-thread spring motion from heavy parent screen recalculations
-    if (typeof React.startTransition === 'function') {
-      React.startTransition(() => {
-        onChange(key);
-      });
-    } else {
-      onChange(key);
-    }
+    onChange(key);
   }, [animateTo, onChange, optionWidth]);
 
   useEffect(() => {
@@ -254,14 +249,27 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
         slideAnim.value = targetX;
         isFirstLayout.current = false;
         prevIndexRef.current = selectedIndex;
+        prevOptionWidthRef.current = optionWidth;
+        prevOptionsCountRef.current = normalizedOptions.length;
         return;
       }
 
-      if (prevIndexRef.current !== selectedIndex) {
+      const optionsCountChanged = prevOptionsCountRef.current !== normalizedOptions.length;
+      const optionWidthChanged = Math.abs(prevOptionWidthRef.current - optionWidth) > 0.5;
+      const indexChanged = prevIndexRef.current !== selectedIndex;
+
+      if (optionsCountChanged || optionWidthChanged) {
+        // Options array resized or width changed: snap or smooth re-align to correct new geometry
+        cancelAnimation(slideAnim);
+        slideAnim.value = targetX;
+        prevIndexRef.current = selectedIndex;
+        prevOptionWidthRef.current = optionWidth;
+        prevOptionsCountRef.current = normalizedOptions.length;
+      } else if (indexChanged) {
         animateTo(selectedIndex, optionWidth);
       }
     }
-  }, [selectedIndex, optionWidth, animateTo, slideAnim]);
+  }, [selectedIndex, optionWidth, normalizedOptions.length, animateTo, slideAnim]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
@@ -270,6 +278,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
       if (!isFirstLayout.current && normalizedOptions.length > 0) {
         const newOptWidth = (width - trackInset * 2) / normalizedOptions.length;
         slideAnim.value = selectedIndex * newOptWidth;
+        prevOptionWidthRef.current = newOptWidth;
       }
     }
   };

@@ -19,13 +19,17 @@ export const classifyEvent = async (
   type: 'expense' | 'income',
   categoryId: string | null,
   rememberMerchant: boolean,
-  amountOverride?: number
+  amountOverride?: number,
+  options?: { clearNeedsCategory?: boolean }
 ) => {
   const e = { ...event };
   if (amountOverride && amountOverride > 0) e.amount = amountOverride;
   if (e.amount == null) throw new Error('Amount is missing');
   const acc = e.accountKey ? await db.getAccount(e.accountKey) : null;
   await logEvent(e, type, categoryId, acc?.kind ?? null, quiet);
+  if (options?.clearNeedsCategory) {
+    e.needsCategory = false;
+  }
   await db.updateEvent(e.id, {
     status: e.status, reviewReason: null, expenseId: e.expenseId, needsCategory: e.needsCategory,
     direction: e.direction, amount: e.amount,
@@ -37,6 +41,30 @@ export const classifyEvent = async (
 
   await reconcileAwaitingNotifications(e);
   return e;
+};
+
+/** Reconciles any AutoLog events linked to an expense when it is saved or edited. */
+export const reconcileExpenseSaved = async (expenseId: string, userId?: string) => {
+  try {
+    const list = await db.getEventsForExpense(expenseId);
+    let changed = false;
+    for (const ev of list) {
+      if (ev.needsCategory || ev.status === 'pending') {
+        await db.updateEvent(ev.id, { needsCategory: false, status: 'logged', reviewReason: null });
+        changed = true;
+      }
+    }
+    if (changed && userId) {
+      try {
+        const { useAutoLogStore } = await import('./store');
+        await useAutoLogStore.getState().refresh(userId);
+      } catch {
+        // UI refresh best-effort
+      }
+    }
+  } catch {
+    // Best-effort
+  }
 };
 
 /** Immediately reconcile compatible awaiting_sms notifications for a newly confirmed transaction. */

@@ -1,10 +1,8 @@
-/**
- * Pure helper functions for daily budget hydration, phantom row detection,
- * and budget resolution.
- *
- * Extracted from src/store/dailyBudgetStore.ts to make the decision logic
- * pure and testable without storage, store state, or network I/O.
- */
+import { format, subDays, parseISO } from 'date-fns';
+import { formatCurrency, round2 } from './formatters';
+import { resolvePlanForDate } from './budgetPeriods';
+import type { BudgetPlanChange } from '../types';
+import type { DailyRecord } from './budgetCalculations';
 
 export interface ShouldDeletePhantom500DayParams {
   date: string;
@@ -91,3 +89,105 @@ export function resolveRolloverBudget(
 ): number {
   return existingBudget;
 }
+
+export interface BackdatedSpendingNoticeParams {
+  selectedDate: Date;
+  todayStr: string;
+  isBudgetModeEnabled: boolean;
+  planChanges: BudgetPlanChange[];
+  dailyRecords?: Record<string, DailyRecord>;
+  evaluatedAmount: number;
+  totalVaultLiquidity: number;
+  totalAccumulatedSavings: number;
+}
+
+export interface BackdatedSpendingNotice {
+  dayName: string;
+  isUngoverned: boolean;
+  hasShortfall: boolean;
+  shortfallAmount: number;
+  availableLiquidity: number;
+  gullakAvailable: number;
+  title: string;
+  description: string;
+}
+
+/**
+ * Pure helper for backdated expense logging (FIN-01 / UX Transparency).
+ * Detects if a past date had no active budget or unspent funds, and calculates
+ * whether the expense can be drawn from Gullak or has a shortfall requiring Vault Guard.
+ */
+export function getBackdatedSpendingNotice(
+  params: BackdatedSpendingNoticeParams
+): BackdatedSpendingNotice | null {
+  const {
+    selectedDate,
+    todayStr,
+    isBudgetModeEnabled,
+    planChanges,
+    dailyRecords,
+    evaluatedAmount,
+    totalVaultLiquidity,
+    totalAccumulatedSavings,
+  } = params;
+
+  if (!isBudgetModeEnabled) return null;
+
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  if (selectedDateStr >= todayStr) return null;
+
+  // Determine if selectedDateStr had an active budget
+  const plan = resolvePlanForDate(planChanges || [], selectedDateStr);
+  let hasBudget = false;
+
+  if (plan && plan.isEnabled) {
+    if (plan.cadence === 'daily') {
+      const rec = dailyRecords ? dailyRecords[selectedDateStr] : undefined;
+      hasBudget = Boolean(rec && rec.status !== 'unknown' && Number(rec.budget) > 0);
+    } else {
+      hasBudget = Boolean(Number(plan.amount) > 0);
+    }
+  }
+
+  if (hasBudget) return null;
+
+  const yesterdayStr = format(subDays(parseISO(todayStr), 1), 'yyyy-MM-dd');
+  const dayName = selectedDateStr === yesterdayStr ? 'Yesterday' : format(selectedDate, 'EEEE');
+  const availableLiquidity = Math.max(0, totalVaultLiquidity || 0);
+  const gullakAvailable = Math.max(0, totalAccumulatedSavings || 0);
+  const effectiveAvailable = Math.min(availableLiquidity, gullakAvailable);
+
+  const numAmount = evaluatedAmount > 0 ? evaluatedAmount : 0;
+  const hasShortfall = numAmount > availableLiquidity || availableLiquidity <= 0;
+  const shortfallAmount = hasShortfall ? round2(Math.max(0, numAmount - availableLiquidity)) : 0;
+
+  let title = '';
+  let description = '';
+
+  if (availableLiquidity <= 0) {
+    title = `${dayName} had no budget · Balance ₹0`;
+    description = `Your vault balance is ₹0. Please add money first to log this expense.`;
+  } else if (hasShortfall) {
+    title = `${dayName} had no budget · ${formatCurrency(shortfallAmount)} short`;
+    description = `You only have ${formatCurrency(effectiveAvailable)} in Gullak. Add ${formatCurrency(shortfallAmount)} to log this expense.`;
+  } else {
+    title = `${dayName} had no active budget`;
+    if (numAmount > 0) {
+      description = `${formatCurrency(numAmount)} will be drawn from your Gullak (${formatCurrency(gullakAvailable)} available).`;
+    } else {
+      description = `Expenses on this date will be drawn from your Gullak (${formatCurrency(gullakAvailable)} available).`;
+    }
+  }
+
+  return {
+    dayName,
+    isUngoverned: true,
+    hasShortfall,
+    shortfallAmount,
+    availableLiquidity,
+    gullakAvailable,
+    title,
+    description,
+  };
+}
+

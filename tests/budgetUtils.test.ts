@@ -3,7 +3,10 @@ import {
   shouldDeletePhantom500Day,
   resolveHydratedDayBudget,
   resolveRolloverBudget,
+  getBackdatedSpendingNotice,
 } from '../src/lib/budgetUtils';
+import { parseISO } from 'date-fns';
+import type { BudgetPlanChange } from '../src/types';
 
 describe('shouldDeletePhantom500Day - Behavior Tests', () => {
   // Reference dates for testing: yesterday vs older days
@@ -200,3 +203,193 @@ describe('resolveRolloverBudget - Behavior Tests', () => {
     expect(result).toBe(500);
   });
 });
+
+describe('getBackdatedSpendingNotice - Behavior & Shortfall Tests', () => {
+  const TODAY_STR = '2026-10-15'; // Thursday
+  const YESTERDAY_DATE = parseISO('2026-10-14'); // Wednesday
+  const SUNDAY_DATE = parseISO('2026-10-11'); // Sunday
+  const SUNDAY_STR = '2026-10-11';
+
+  it('returns null when Budget Mode is OFF (Pure Mode allows unconstrained spending)', () => {
+    const notice = getBackdatedSpendingNotice({
+      selectedDate: SUNDAY_DATE,
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: false,
+      planChanges: [],
+      dailyRecords: undefined,
+      evaluatedAmount: 400,
+      totalVaultLiquidity: 500,
+      totalAccumulatedSavings: 500,
+    });
+    expect(notice).toBeNull();
+  });
+
+  it('returns null when selected date is today or in the future', () => {
+    const noticeToday = getBackdatedSpendingNotice({
+      selectedDate: parseISO('2026-10-15'),
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges: [],
+      dailyRecords: undefined,
+      evaluatedAmount: 400,
+      totalVaultLiquidity: 500,
+      totalAccumulatedSavings: 500,
+    });
+    expect(noticeToday).toBeNull();
+
+    const noticeFuture = getBackdatedSpendingNotice({
+      selectedDate: parseISO('2026-10-16'),
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges: [],
+      dailyRecords: undefined,
+      evaluatedAmount: 400,
+      totalVaultLiquidity: 500,
+      totalAccumulatedSavings: 500,
+    });
+    expect(noticeFuture).toBeNull();
+  });
+
+  it('returns null when selected past date had an active budget (daily cadence)', () => {
+    const planChanges: BudgetPlanChange[] = [
+      {
+        id: 'p1',
+        userId: 'u1',
+        cadence: 'daily',
+        amount: 500,
+        effectiveFrom: '2026-10-10',
+        isEnabled: true,
+        createdAt: '2026-10-10',
+      },
+    ];
+    const dailyRecords = {
+      [SUNDAY_STR]: {
+        date: SUNDAY_STR,
+        budget: 500,
+        spent: 0,
+        saved: 500,
+        isFinalized: true,
+        status: 'saved' as const,
+      },
+    };
+
+    const notice = getBackdatedSpendingNotice({
+      selectedDate: SUNDAY_DATE,
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges,
+      dailyRecords,
+      evaluatedAmount: 400,
+      totalVaultLiquidity: 1000,
+      totalAccumulatedSavings: 500,
+    });
+    expect(notice).toBeNull();
+  });
+
+  it('returns informative notice when past date had NO active budget and user has sufficient Gullak funds', () => {
+    // Sunday had no budget (plan starts Monday 2026-10-12)
+    const planChanges: BudgetPlanChange[] = [
+      {
+        id: 'p1',
+        userId: 'u1',
+        cadence: 'daily',
+        amount: 500,
+        effectiveFrom: '2026-10-12',
+        isEnabled: true,
+        createdAt: '2026-10-12',
+      },
+    ];
+
+    const notice = getBackdatedSpendingNotice({
+      selectedDate: SUNDAY_DATE,
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges,
+      dailyRecords: {},
+      evaluatedAmount: 400,
+      totalVaultLiquidity: 500,
+      totalAccumulatedSavings: 500,
+    });
+
+    expect(notice).not.toBeNull();
+    expect(notice?.dayName).toBe('Sunday');
+    expect(notice?.isUngoverned).toBe(true);
+    expect(notice?.hasShortfall).toBe(false);
+    expect(notice?.shortfallAmount).toBe(0);
+    expect(notice?.title).toBe('Sunday had no active budget');
+    expect(notice?.description).toContain('₹400 will be drawn from your Gullak (₹500 available)');
+  });
+
+  it('formats "Yesterday" correctly for the day immediately before today', () => {
+    const notice = getBackdatedSpendingNotice({
+      selectedDate: YESTERDAY_DATE,
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges: [],
+      dailyRecords: {},
+      evaluatedAmount: 200,
+      totalVaultLiquidity: 500,
+      totalAccumulatedSavings: 500,
+    });
+
+    expect(notice).not.toBeNull();
+    expect(notice?.dayName).toBe('Yesterday');
+    expect(notice?.title).toBe('Yesterday had no active budget');
+  });
+
+  it('provides generic prompt when evaluated amount is 0', () => {
+    const notice = getBackdatedSpendingNotice({
+      selectedDate: SUNDAY_DATE,
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges: [],
+      dailyRecords: {},
+      evaluatedAmount: 0,
+      totalVaultLiquidity: 500,
+      totalAccumulatedSavings: 500,
+    });
+
+    expect(notice).not.toBeNull();
+    expect(notice?.description).toBe('Expenses on this date will be drawn from your Gullak (₹500 available).');
+  });
+
+  it('returns shortfall notice with exact calculated shortage when amount exceeds available vault liquidity', () => {
+    // User wants to spend 400 on Sunday, but only has 100 in liquidity
+    const notice = getBackdatedSpendingNotice({
+      selectedDate: SUNDAY_DATE,
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges: [],
+      dailyRecords: {},
+      evaluatedAmount: 400,
+      totalVaultLiquidity: 100,
+      totalAccumulatedSavings: 100,
+    });
+
+    expect(notice).not.toBeNull();
+    expect(notice?.hasShortfall).toBe(true);
+    expect(notice?.shortfallAmount).toBe(300);
+    expect(notice?.title).toBe('Sunday had no budget · ₹300 short');
+    expect(notice?.description).toBe('You only have ₹100 in Gullak. Add ₹300 to log this expense.');
+  });
+
+  it('returns balance ₹0 notice when available liquidity is zero or negative', () => {
+    const notice = getBackdatedSpendingNotice({
+      selectedDate: SUNDAY_DATE,
+      todayStr: TODAY_STR,
+      isBudgetModeEnabled: true,
+      planChanges: [],
+      dailyRecords: {},
+      evaluatedAmount: 250,
+      totalVaultLiquidity: 0,
+      totalAccumulatedSavings: 0,
+    });
+
+    expect(notice).not.toBeNull();
+    expect(notice?.hasShortfall).toBe(true);
+    expect(notice?.shortfallAmount).toBe(250);
+    expect(notice?.title).toBe('Sunday had no budget · Balance ₹0');
+    expect(notice?.description).toBe('Your vault balance is ₹0. Please add money first to log this expense.');
+  });
+});
+

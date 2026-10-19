@@ -175,6 +175,32 @@ describe('useFormKeyboard (the custom keypad and the system keyboard on the add 
     });
   });
 
+  describe('split section', () => {
+    it('focusing a split field opens the keyboard state and hides the keypad', () => {
+      const { h } = newHook();
+      h.result.current.handleSplitFocus();
+      expect(h.result.current.isKeyboardOpen).toBe(true);
+      expect(lastAnim().cfg).toMatchObject({ toValue: 0 });
+    });
+
+    it('scrolls the focused member into view, accounting for split section offset and member row relative Y', () => {
+      const { h, scrollTo } = newHook();
+      h.result.current.handleSplitLayout({ nativeEvent: { layout: { y: 350 } } } as any);
+      h.result.current.handleSplitFocus(120);
+      expect(scrollTo).toHaveBeenCalledWith({ y: 446, animated: true });
+    });
+
+    it('re-scrolls when system keyboardDidShow fires while split field was focused', () => {
+      const { h, scrollTo } = newHook();
+      h.result.current.handleSplitLayout({ nativeEvent: { layout: { y: 300 } } } as any);
+      h.result.current.handleSplitFocus(60);
+      scrollTo.mockClear();
+
+      rn.listeners.get('keyboardDidShow')!();
+      expect(scrollTo).toHaveBeenCalledWith({ y: 336, animated: true });
+    });
+  });
+
   describe('tapping the amount', () => {
     it('closes the system keyboard, brings the keypad back and scrolls to the top', () => {
       const { h, scrollTo } = newHook();

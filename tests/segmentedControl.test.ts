@@ -211,4 +211,34 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
     option1.props.onPress();
     expect(onChange).toHaveBeenCalledWith('w');
   });
+
+  it('guarantees geometry re-synchronization when options count changes dynamically (e.g. Expense 3-opts to Income 2-opts)', () => {
+    const onChange = vi.fn();
+    // 3 options (Expense: Cash, UPI, Card)
+    const el3 = SegmentedControl({
+      options: [
+        { key: 'cash', label: 'Cash' },
+        { key: 'upi', label: 'UPI' },
+        { key: 'card', label: 'Card' },
+      ],
+      selectedKey: 'upi',
+      onChange,
+    }) as any;
+
+    expect(el3.props.children[1].props.children).toHaveLength(3);
+    expect(el3.props.children[1].props.children[1].props.isSelected).toBe(true);
+
+    // 2 options (Income: Cash, UPI)
+    const el2 = SegmentedControl({
+      options: [
+        { key: 'cash', label: 'Cash' },
+        { key: 'upi', label: 'UPI' },
+      ],
+      selectedKey: 'upi',
+      onChange,
+    }) as any;
+
+    expect(el2.props.children[1].props.children).toHaveLength(2);
+    expect(el2.props.children[1].props.children[1].props.isSelected).toBe(true);
+  });
 });

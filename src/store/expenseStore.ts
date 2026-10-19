@@ -58,6 +58,7 @@ import { extraColumnsFor } from './expense/payload';
 import { withRecoveries } from './expense/recoveryMiddleware';
 import { deleteBlockReason } from '../lib/splitLedger';
 
+import NetInfo from '@react-native-community/netinfo';
 import {
   syncPendingDeletes,
   syncPendingAdds,
@@ -66,10 +67,11 @@ import {
 } from './expense/syncPending';
 
 let isSyncInProgress = false;
+let activeFetchSeq = 0;
 
 // P0.7: Exact network failure identification
-export { isNetworkFailure } from '../lib/networkUtils';
-import { isNetworkFailure } from '../lib/networkUtils';
+export { isNetworkFailure, withTimeout } from '../lib/networkUtils';
+import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 
 export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) => ({
   expenses: [],
@@ -83,6 +85,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
   },
 
   resetExpenses: () => {
+    activeFetchSeq++;
     set({ expenses: [], loading: false, isExpensesLoaded: false, transactionType: 'expense', failedSyncItems: [] });
   },
 
@@ -234,6 +237,9 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
     }
 
     // Offline fast-path: if currently offline, return immediately with cached expenses
+    const fetchSeq = ++activeFetchSeq;
+
+    // Offline fast-path: return immediately with cached expenses without network call
     const isOffline = useNetworkStore.getState().isOffline;
     if (isOffline) {
       set({ loading: false });
@@ -248,42 +254,70 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         await get().syncPendingExpenses();
       } catch {}
 
-      // P0.6: Range pagination in a loop with timeout guard
+      if (fetchSeq !== activeFetchSeq) return;
+
+      // FIN-05: Range pagination with per-page timeout guard and retries
       const BATCH_SIZE = 1000;
+      const PAGE_TIMEOUT_MS = 10000;
+      const MAX_PAGE_RETRIES = 2;
       let fetchedRows: Expense[] = [];
       let from = 0;
       let hasMore = true;
 
-      const paginationPromise = (async () => {
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from('expenses')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('expense_date', { ascending: false })
-            .order('created_at', { ascending: false })
-            .range(from, from + BATCH_SIZE - 1);
+      while (hasMore) {
+        if (fetchSeq !== activeFetchSeq) return;
 
-          if (error) throw error;
+        let pageData: Expense[] | null = null;
+        let lastPageError: unknown = null;
 
-          if (data && data.length > 0) {
-            fetchedRows = fetchedRows.concat(data);
-            if (data.length < BATCH_SIZE) {
-              hasMore = false;
-            } else {
-              from += BATCH_SIZE;
+        for (let attempt = 0; attempt <= MAX_PAGE_RETRIES; attempt++) {
+          if (fetchSeq !== activeFetchSeq) return;
+          try {
+            const pageQuery = supabase
+              .from('expenses')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('expense_date', { ascending: false })
+              .order('created_at', { ascending: false })
+              .range(from, from + BATCH_SIZE - 1);
+
+            const { data, error } = await withTimeout<{ data: Expense[] | null; error: any }>(
+              pageQuery,
+              PAGE_TIMEOUT_MS,
+              { data: null, error: new Error('Network request failed: timeout') }
+            );
+
+            if (error) throw error;
+            pageData = data;
+            lastPageError = null;
+            break;
+          } catch (pageErr) {
+            lastPageError = pageErr;
+            if (attempt < MAX_PAGE_RETRIES) {
+              await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
             }
-          } else {
-            hasMore = false;
           }
         }
-      })();
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Network request failed: timeout')), 5000)
-      );
+        if (lastPageError || !pageData) {
+          throw lastPageError || new Error('Network request failed: timeout');
+        }
 
-      await Promise.race([paginationPromise, timeoutPromise]);
+        if (fetchSeq !== activeFetchSeq) return;
+
+        if (pageData && pageData.length > 0) {
+          fetchedRows = fetchedRows.concat(pageData);
+          if (pageData.length < BATCH_SIZE) {
+            hasMore = false;
+          } else {
+            from += BATCH_SIZE;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (fetchSeq !== activeFetchSeq) return;
 
       // P0.5: Read pending deletes and updates from AsyncStorage
       let pendingDeletes: string[] = [];
@@ -334,10 +368,20 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
       await AsyncStorage.setItem(getCachedStorageKey(user.id), JSON.stringify(reconciledFetched));
       useDailyBudgetStore.getState().syncWithExpenses(combined);
     } catch (e: unknown) {
+      if (fetchSeq !== activeFetchSeq) return;
       const err = e as { message?: string } | null;
-      if (isNetworkFailure(e)) {
+
+      let isNetOffline = false;
+      try {
+        const netState = await NetInfo.fetch();
+        isNetOffline = Boolean(netState && (netState.isConnected === false || netState.isInternetReachable === false));
+      } catch {}
+
+      if (isNetOffline) {
         if (__DEV__) console.warn('Network unavailable while fetching expenses, falling back to cache:', err?.message || e);
         useNetworkStore.getState().setOffline(true);
+      } else if (isNetworkFailure(e)) {
+        if (__DEV__) console.warn('Network request failed while fetching expenses, falling back to cache:', err?.message || e);
       } else {
         if (__DEV__) console.error('Error fetching expenses:', e);
       }
@@ -358,7 +402,9 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         if (__DEV__) console.log('Error reading cached expenses:', cacheErr);
       }
     } finally {
-      set({ loading: false });
+      if (fetchSeq === activeFetchSeq) {
+        set({ loading: false });
+      }
     }
   },
 

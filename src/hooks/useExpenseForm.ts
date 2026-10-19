@@ -16,6 +16,7 @@ import {
 } from '../lib/amountKeypad';
 import { getNoteSuggestions } from '../lib/noteSuggestions';
 import { calculateVaultLiquidity } from '../lib/vaultSpendingGuard';
+import { getBackdatedSpendingNotice, BackdatedSpendingNotice } from '../lib/budgetUtils';
 import * as Crypto from 'expo-crypto';
 import { isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
 import { useTransferRulesStore } from '../store/transferRulesStore';
@@ -37,6 +38,7 @@ import {
   type RecoveryPlan,
 } from '../lib/splitLedger';
 import { recordMoneyBack } from '../store/expense/moneyBack';
+import { calculateGullakIncomeDeficit } from '../lib/gullakReconciliation';
 import { round2 } from '../lib/formatters';
 
 let memberIdCounter = 0;
@@ -78,6 +80,8 @@ export interface UseExpenseFormReturn {
   setShowVaultGuard: (show: boolean) => void;
   vaultLiquidity: VaultLiquidityInfo;
   isBudgetModeEnabled: boolean;
+  backdatedSpendingNotice: BackdatedSpendingNotice | null;
+  shortfallAmount: number;
 
   // Category Store Status
   categories: Category[];
@@ -391,6 +395,40 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
 
   const formattedExpression = useMemo(() => formatExpressionWithCommas(amount), [amount]);
 
+  const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
+
+  const backdatedSpendingNotice = useMemo(() => {
+    if (transactionType !== 'expense' || isSelfTransfer) return null;
+    return getBackdatedSpendingNotice({
+      selectedDate,
+      todayStr,
+      isBudgetModeEnabled,
+      planChanges: planChangesForGuard || [],
+      dailyRecords: dailyRecordsForGuard || {},
+      evaluatedAmount,
+      totalVaultLiquidity: vaultLiquidity.totalVaultLiquidity,
+      totalAccumulatedSavings,
+    });
+  }, [
+    transactionType,
+    isSelfTransfer,
+    selectedDate,
+    todayStr,
+    isBudgetModeEnabled,
+    planChangesForGuard,
+    dailyRecordsForGuard,
+    evaluatedAmount,
+    vaultLiquidity.totalVaultLiquidity,
+    totalAccumulatedSavings,
+  ]);
+
+  const shortfallAmount = useMemo(() => {
+    if (!isBudgetModeEnabled || transactionType !== 'expense' || isSelfTransfer) return 0;
+    const avail = Math.max(0, vaultLiquidity.totalVaultLiquidity || 0);
+    return evaluatedAmount > avail ? round2(evaluatedAmount - avail) : 0;
+  }, [isBudgetModeEnabled, transactionType, isSelfTransfer, vaultLiquidity.totalVaultLiquidity, evaluatedAmount]);
+
   // ─── Self-transfer: remembered rule suggestion (visible + reversible) ───
   const matchedRule = useMemo(() => findMatchingTransferRule(transferRules, note), [transferRules, note]);
   useEffect(() => {
@@ -477,12 +515,21 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     if (evaluatedAmount <= 0) return;
     setSplitMembers((prev) => {
       const count = prev.length + 1;
-      const equalShare = round2(evaluatedAmount / count);
-      return prev.map((m) => ({
-        ...m,
-        share: equalShare,
-        shareText: String(equalShare),
-      }));
+      const totalPaise = Math.round(evaluatedAmount * 100);
+      const basePaise = Math.floor(totalPaise / count);
+      const remainderPaise = totalPaise % count;
+      let extraForMembers = remainderPaise > 0 ? remainderPaise - 1 : 0;
+
+      return prev.map((m) => {
+        const extra = extraForMembers > 0 ? 1 : 0;
+        if (extraForMembers > 0) extraForMembers--;
+        const share = round2((basePaise + extra) / 100);
+        return {
+          ...m,
+          share,
+          shareText: String(share),
+        };
+      });
     });
   }, [evaluatedAmount]);
 
@@ -715,7 +762,11 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
 
     if (transactionType === 'expense' && !selfTransferNow) {
       // ─── Digital Vault Spending Guard (ADR 0011 / Clip 5-8) ─────────────
-      if (!isEdit && !vaultLiquidity.canAddExpense) {
+      const isShortfall = isBudgetModeEnabled && (
+        vaultLiquidity.totalVaultLiquidity <= 0 ||
+        (vaultLiquidity.totalVaultLiquidity < numAmount)
+      );
+      if (!isEdit && (!vaultLiquidity.canAddExpense || isShortfall)) {
         setShowVaultGuard(true);
         return;
       }
@@ -768,6 +819,60 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
           existingExp?.split_person ||
           (Array.isArray(existingExp?.split_allocations) && existingExp.split_allocations.length > 0)
         );
+
+        if (existingExp?.type === 'income') {
+          const effectiveNewIncome = transactionType === 'income' ? numAmount : 0;
+          const gullakDeposits = useDailyBudgetStore.getState().gullakDeposits || [];
+          const cleanDate = existingExp.expense_date?.split('T')[0]?.trim() || dateStr;
+          const deficit = calculateGullakIncomeDeficit({
+            dateStr: cleanDate,
+            expenseId,
+            newAmount: effectiveNewIncome,
+            expenses,
+            gullakDeposits,
+          });
+
+          if (deficit > 0) {
+            setIsSubmitting(false);
+            Alert.alert(
+              'Gullak Adjustment Required',
+              transactionType === 'income'
+                ? `Reducing this income to ₹${numAmount} will also reduce ₹${deficit} from your Gullak savings (funded by this income).\n\nDo you want to proceed?`
+                : `Changing this income to an expense will also reduce ₹${deficit} from your Gullak savings (funded by this income).\n\nDo you want to proceed?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Update & Adjust Gullak',
+                  onPress: async () => {
+                    setIsSubmitting(true);
+                    try {
+                      await useDailyBudgetStore.getState().adjustGullakIncomeDeposits(cleanDate, deficit);
+                      await updateExpense(
+                        expenseId,
+                        numAmount,
+                        categoryIdToSave,
+                        clampedNote,
+                        paymentMode,
+                        dateStr,
+                        transactionType,
+                        ...(transactionType === 'expense' && (splitActive || hadSplit)
+                          ? [{ split: splitPayload }]
+                          : [])
+                      );
+                      useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+                      if (onSuccess) onSuccess();
+                      else navigation.goBack();
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  },
+                },
+              ]
+            );
+            return;
+          }
+        }
+
         await updateExpense(
           expenseId,
           numAmount,
@@ -969,5 +1074,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     transferRuleMatched: !!matchedRule,
     split,
     moneyBack,
+    backdatedSpendingNotice,
+    shortfallAmount,
   };
 }

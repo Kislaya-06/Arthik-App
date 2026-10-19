@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import { Users, Plus, X, User } from 'lucide-react-native';
 import { useTheme } from '../../store/themeStore';
@@ -10,7 +10,7 @@ import type { SplitFormState } from '../../hooks/useExpenseForm';
 
 export interface SplitExtrasProps {
   split: SplitFormState;
-  onFieldFocus?: () => void;
+  onFieldFocus?: (relativeY?: number) => void;
 }
 
 /**
@@ -20,6 +20,7 @@ export interface SplitExtrasProps {
  */
 export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus }) => {
   const { colors, isDark } = useTheme();
+  const rowOffsets = useRef<Record<number, number>>({});
   if (!split.visible) return null;
 
   const existingKeys = new Set(split.members.map((m) => personKey(m.person)));
@@ -90,14 +91,20 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
           {/* Members List */}
           <View style={styles.memberList}>
             {split.members.map((member, index) => (
-              <View key={member.id || index} style={styles.memberRow}>
+              <View
+                key={member.id || index}
+                style={styles.memberRow}
+                onLayout={(e) => {
+                  rowOffsets.current[index] = e.nativeEvent.layout.y;
+                }}
+              >
                 {/* Person Name Input */}
                 <View style={[styles.inputBox, styles.nameBox, { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle }]}>
                   <User size={15} color={colors.textMuted} style={styles.iconPrefix} />
                   <TextInput
                     value={member.person}
                     onChangeText={(text) => split.updateMemberName(index, text)}
-                    onFocus={onFieldFocus}
+                    onFocus={() => onFieldFocus?.(rowOffsets.current[index] ?? index * 56)}
                     maxLength={MAX_PERSON_NAME}
                     placeholder={`Person ${index + 1}`}
                     placeholderTextColor={colors.textMuted}
@@ -112,7 +119,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
                   <TextInput
                     value={member.shareText}
                     onChangeText={(text) => split.updateMemberShareText(index, text)}
-                    onFocus={onFieldFocus}
+                    onFocus={() => onFieldFocus?.(rowOffsets.current[index] ?? index * 56)}
                     keyboardType="decimal-pad"
                     placeholder="0"
                     placeholderTextColor={colors.textMuted}
@@ -140,8 +147,12 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
           <View style={styles.actionsRow}>
             <Pressable
               onPress={() => {
-                onFieldFocus?.();
                 split.addMember();
+                const nextIndex = split.members.length;
+                const targetOffset = (rowOffsets.current[nextIndex - 1] ?? nextIndex * 56) + 56;
+                setTimeout(() => {
+                  onFieldFocus?.(targetOffset);
+                }, 50);
               }}
               style={[styles.addPersonBtn, { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle }]}
               accessibilityRole="button"
@@ -157,8 +168,12 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
               <Pressable
                 key={name}
                 onPress={() => {
-                  onFieldFocus?.();
                   split.addMember(name);
+                  const nextIndex = split.members.length;
+                  const targetOffset = (rowOffsets.current[nextIndex - 1] ?? nextIndex * 56) + 56;
+                  setTimeout(() => {
+                    onFieldFocus?.(targetOffset);
+                  }, 50);
                 }}
                 style={[styles.suggestionChip, { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle }]}
                 accessibilityRole="button"

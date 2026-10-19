@@ -44,6 +44,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
   expenseAmount = 0,
   onAddMoneyAndSave,
   onAddIncomeFirst,
+  totalVaultLiquidity,
 }) => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -222,11 +223,15 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
 
             {/* Typography */}
             <Text style={[styles.title, { color: colors.textPrimary }]}>
-              Account Balance Exhausted
+              {totalVaultLiquidity !== undefined && totalVaultLiquidity > 0
+                ? 'Insufficient Balance'
+                : 'Account Balance Exhausted'}
             </Text>
 
             <Text style={[styles.description, { color: colors.textSecondary }]}>
-              {expenseAmount > 0
+              {totalVaultLiquidity !== undefined && totalVaultLiquidity > 0
+                ? `You have ${formatCurrency(totalVaultLiquidity)} available. Add ${formatCurrency(expenseAmount)} to save this expense.`
+                : expenseAmount > 0
                 ? `Your vault balance is ₹0. Add money directly to save this ${formatCurrency(expenseAmount)} expense.`
                 : VAULT_GUARD_MESSAGE}
             </Text>
@@ -242,7 +247,9 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
               ]}
             >
               <Text style={[styles.statusLabel, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>
-                Available: ₹0 • Expense: {formatCurrency(expenseAmount)}
+                {totalVaultLiquidity !== undefined && totalVaultLiquidity > 0
+                  ? `Available: ${formatCurrency(totalVaultLiquidity)} • Need: ${formatCurrency(expenseAmount)}`
+                  : `Available: ₹0 • Expense: ${formatCurrency(expenseAmount)}`}
               </Text>
             </View>
 
