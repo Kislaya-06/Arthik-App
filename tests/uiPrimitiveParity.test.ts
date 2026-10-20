@@ -130,11 +130,13 @@ describe('SegmentedControl & BouncyCategoryFilter: Reanimated UI-thread worklet 
   const segSrc = read('src/components/ui/SegmentedControl.tsx');
   const catSrc = read('src/components/BouncyCategoryFilter.tsx');
 
-  it('SegmentedControl runs on react-native-reanimated with Apple critically damped springs', () => {
+  it('SegmentedControl runs on react-native-reanimated with the two-edge liquid pill springs', () => {
     expect(segSrc).toMatch(/from 'react-native-reanimated'/);
     expect(segSrc).toMatch(/useSharedValue/);
-    expect(segSrc).toMatch(/stiffness:\s*447\.4/);
-    expect(segSrc).toMatch(/damping:\s*49/);
+    expect(segSrc).toMatch(/edgeSpringsFor/);
+    expect(segSrc).toMatch(/pillLeft\.value = withSpring/);
+    expect(segSrc).toMatch(/pillRight\.value = withSpring/);
+    expect(segSrc).toMatch(/labelActiveProgress/);
   });
 
   it('SegmentedControl and BouncyCategoryFilter decouple UI touch from React state via startTransition', () => {

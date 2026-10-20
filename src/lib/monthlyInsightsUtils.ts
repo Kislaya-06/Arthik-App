@@ -21,8 +21,8 @@ import {
   getDaysInMonth,
 } from 'date-fns';
 import { isCountedExpense } from './transactionUtils';
-import { sumSpendingBetweenDateKeys } from '../money/ledger';
-import { addDaysToDateKey } from '../money/dateKeys';
+import { sumSpendingBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
 import { round2, formatAmountWithCommas } from './formatters';
@@ -518,19 +518,14 @@ export function computeMonthlyLargestOutflow(
 
   let largest: ExpenseLike | null = null;
   let txnCount = 0;
+  const entries = buildLedgerEntries(expenses, categories);
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (!isCountedExpense(exp, cat)) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startStr, endStr)) {
       txnCount++;
-      if (!largest || exp.amount > largest.amount) {
-        largest = exp;
+      if (!largest || entry.amountCountedAfterMoneyBack > largest.amount) {
+        largest = expenses[i];
       }
     }
   }
@@ -616,24 +611,21 @@ export function computeMonthlyCategoryShift(
   const prevCatTotals: Record<string, number> = {};
   let prevTotalSpend = 0;
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
+  const entries = buildLedgerEntries(expenses, categories);
 
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (!isCountedExpense(exp, cat)) continue;
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (entry.kind !== 'spending' || !entry.dateKey) continue;
+    const key = entry.categoryId || 'others';
 
-    const key = exp.category_id || 'others';
-
-    if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
+    if (isDateKeyWithin(entry.dateKey, currentStartStr, matchedCurrentEndStr)) {
       if (!currentCatTotals[key]) currentCatTotals[key] = { amount: 0, count: 0 };
-      currentCatTotals[key].amount += exp.amount;
+      currentCatTotals[key].amount += entry.amountCountedAfterMoneyBack;
       currentCatTotals[key].count++;
     }
-    if (isDateInBounds(cleanDate, prevStartStr, matchedPrevEndStr)) {
-      prevCatTotals[key] = (prevCatTotals[key] || 0) + exp.amount;
-      prevTotalSpend += exp.amount;
+    if (isDateKeyWithin(entry.dateKey, prevStartStr, matchedPrevEndStr)) {
+      prevCatTotals[key] = (prevCatTotals[key] || 0) + entry.amountCountedAfterMoneyBack;
+      prevTotalSpend += entry.amountCountedAfterMoneyBack;
     }
   }
 

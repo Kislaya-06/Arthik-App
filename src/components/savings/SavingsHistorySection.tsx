@@ -50,6 +50,7 @@ export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = ({
           options={filters as unknown as string[]}
           selectedKey={activeFilter}
           onChange={(key) => setActiveFilter(key as any)}
+          commitOnSettle
           height={ControlHeight.standard}
         />
       </View>

@@ -16,12 +16,23 @@
 
 // ─── FEEL constants (safe to tune) ───────────────────────────────────────────
 
-/** Total time of one roll. 320ms provides a crisp, snappy, Apple/Revolut-grade feel. */
-export const ROLL_DURATION_MS = 320;
+/**
+ * Total time of one roll. 460ms: long enough for the eye to read the reel slowing down (the "premium"
+ * part), short enough to never feel like waiting. Paired with ROLL_EASING below.
+ */
+export const ROLL_DURATION_MS = 460;
+/**
+ * Ease-out with a long, soft landing (like a reel coming to rest), as cubic-bezier control points.
+ * Fast start so the change registers instantly, then a gentle settle on the final digit.
+ */
+export const ROLL_EASING: readonly [number, number, number, number] = [0.22, 1, 0.36, 1];
 /** Extra full revolutions every digit makes on top of the distance to its new value. 1 = matches the recording. */
 export const ROLL_EXTRA_CYCLES = 1;
-/** Delay between neighbouring digits (ms, left to right). The recording starts them together => 0. */
-export const ROLL_STAGGER_MS = 0;
+/**
+ * Delay between neighbouring digits (ms, left to right). A tiny 18ms ripple makes the number feel
+ * like it is being "typed in" by a mechanism, instead of one block jumping. Keep it under ~25ms.
+ */
+export const ROLL_STAGGER_MS = 18;
 /** true = digits that did not change also spin (like the recording). false = only changed digits spin. */
 export const SPIN_UNCHANGED_DIGITS = true;
 

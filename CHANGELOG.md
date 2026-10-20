@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Architecture & Performance — Insights & Home Screen Loop Consolidation onto Central Ledger (`src/money/`) — OTA-safe
+
+- **Unified Insights loops (`useInsightsData.ts`, `weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts`)**: Replaced manual `for...of expenses` loops in `useInsightsData` (category totals, 7-day weekly bar chart, and weekly/monthly/yearly transaction counts), `computeLargestSingleOutflow`, `computeMonthlyLargestOutflow`, `computeMonthlyCategoryShift`, `computeAnnualCapitalOutlier`, and `computeAnnualCategoryTrajectory` with `buildLedgerEntries` and `isDateKeyWithin`.
+- **Zero manual loops on Home (`HomeScreen.tsx`)**: `HomeScreen`'s `spentByDate` and `todayLiveSpent` now use `spendingTotalsByDateKey(buildLedgerEntries(expenses, categories))` in 1 shared call, removing duplicated O(N) scans and aligning exact paise rounding with `SavingsScreen`.
+- **Zero numerical drift**: 100% parity across all 120 test files (1,781 tests passing); `tsc --noEmit` clean.
+
+### Motion Polish Review — Pill Geometry, Long-Jump Stretch, Label Fringe, Zero-Flash Rolling Numbers, Fluid Overlap (`SegmentedControl.tsx`, `segmentedMotion.ts`, `RollingText.tsx`, `rollingText.ts`) — OTA-safe
+
+- **Zero-flash rolling numbers (`RollingText.tsx`)**: when text changes, roll planning now executes synchronously during the render phase instead of after a `useLayoutEffect` commit. Eliminates the 1-frame static flash of the new number before wheels mount; digits now roll directly from previous to new values.
+- **Fluid motion overlap (`SegmentedControl.tsx`, `segmentedMotion.ts`)**: `PILL_COMMIT_MS = 200` notifies heavy screens (`commitOnSettle`) right as the pill reaches 95%+ of its destination, allowing rolling digits to start naturally during final deceleration instead of waiting for a 320ms dead pause. Full landing haptic still fires at `PILL_SETTLE_MS` (320ms).
+- **Pill drift fixed (`optionWidthFor`)**: the slot width ignored the control's border, so the pill drifted up to ~1.5px off the labels on the last option and sat 2px from the right edge against 4px on the left. Pill and labels now share one slot width.
+- **Long-jump blob fixed (`trailingSpringFor`)**: All -> Monthly stretched the pill to 1.56x its width. The trailing edge now gets stiffer with distance: stretch is about 19% / 28% / 29% for 1 / 2 / 3 slots and every jump lands in about 285ms. `PILL_SETTLE_MS` 340 -> 320, so Home updates 20ms sooner.
+- **No grey fringe on the active label**: the inactive-colour copy fades out as the active copy fades in (`inactiveLabelOpacity`).
+- **No first-frame flash**: the pill is placed during the first layout and stays invisible until it has a real width.
+- **Reduce-motion**: the pill snaps with no stretch and no settle wait when the OS asks for reduced motion.
+- **Haptics**: the tick fires only when the selection really changes (like `UISegmentedControl`), and the extra landing tick is iOS-only (Android would buzz twice ~320ms apart).
+- **Rolling numbers**: removed the per-glyph dimming added earlier. It created about 700 animated nodes per roll on Home, a bad trade on low-end Android for a small visual gain. The 460ms soft-landing ease and the 18ms ripple stay.
+- **Tests**: `segmentedMotion.test.ts` now tests `PILL_COMMIT_MS` travel completion along with all 12 slot-to-slot moves at 120fps; `segmentedControl.test.ts` verifies `PILL_COMMIT_MS` debouncing. 120 files, 1781 tests pass; `tsc --noEmit` clean.
+- **Docs**: `design-system.md`, `architecture.md`, `CODEBASE_GUIDE.md` (FIN-14b).
+
+### Motion Polish — Squish Toggle For Every On/Off Switch (`AnimatedToggle.tsx`, `toggleMotion.ts`) — OTA-safe
+
+- **One component, whole app**: every on/off in the app already goes through `AnimatedToggle` (Profile: Budget mode, Notifications, Ambient light, App lock; Savings Budget Hub; Split this expense; Self transfer; AutoLog tracked accounts), so all of them get the new motion. No caller changed. Props are unchanged (`value`, `onValueChange`, `width`, `height`, `onColor`, `offColor`, `trackColor`); new optional `stretch`, `colorDuration`, `pressScale`, `haptics`, `style`, `accessibilityLabel`, `testID`.
+- **Squish motion**: press has subtle tactile give (0.25 stretch share) instead of an awkward in-place elongation, so the thumb glides fast and fluidly (`SLIDE_SPRING` stiffness 720, damping 44). While sliding, the thumb is longest mid-trip (front edge leads, back edge lags) and lands with a tiny squash. The thumb never leaves the track.
+- **Runs on the UI thread** (Reanimated). The old toggle drove colours on the JS thread every frame (`useNativeDriver: false`).
+- **Colours**: thumb and ON/OFF text cross-fade over 200ms with layer opacity (no per-frame colour interpolation, FIN-13 rule).
+- **Haptic** selection tick on every change. Honours the OS reduce-motion setting.
+- **Unchanged**: resting look for all three sizes (58x30, 50x26, 52x26), accessibility role/state, and controlled behaviour (the thumb moves only when `value` changes, so a refused change such as a failed biometric keeps the switch where it was). No money behaviour touched.
+- **Tests**: new `tests/toggleMotion.test.ts` (19 tests). 120 files, 1777 tests pass; `tsc --noEmit` clean.
+- **Docs**: `design-system.md` (new `<AnimatedToggle />` entry), `architecture.md` (9.2b + test table), `CODEBASE_GUIDE.md` (FIN-15).
+
+### Motion Polish — Liquid Pills, No Home Pill Jitter, Premium Rolling Numbers (`SegmentedControl.tsx`, `segmentedMotion.ts`, `RollingText.tsx`, `rollingText.ts`) — OTA-safe
+
+- **Home pill jitter fixed (`HomeScreen.tsx`)**: the old 220ms timer fired before the pill's ~350ms glide finished, so the full Home re-render, hero-card relayout and digit-wheel mount landed while the pill was still moving. Home now uses `commitOnSettle`: the pill reports the change only after it has landed (`PILL_SETTLE_MS` = 320ms after the last tap) and Home switches pill + numbers in one render. Rapid taps still report only the final choice. `FILTER_DECOUPLE_DELAY_MS` is no longer used by Home.
+- **Liquid pill (`SegmentedControl.tsx`, new `src/lib/segmentedMotion.ts`)**: the pill's two edges ride separate UI-thread springs, so it stretches in the direction of travel and lands at its exact width (under 1px overshoot, corners never squash). Applies to every segmented pill: Home, Savings, Insights, Cash/UPI and the rest.
+- **Label colour moves with the pill**: the active-colour label fades in by the pill's live position (opacity, not `setTextColor`), so text and pill change together.
+- **Haptics**: selection tick on tap (plus a soft landing tick on iOS only).
+- **Heavy screens wait for landing**: Insights (Weekly/Monthly/Yearly) and Savings history filters also use `commitOnSettle`. Cash/UPI and other forms are unchanged (report at once).
+- **Premium rolling numbers (`rollingText.ts`, `RollingText.tsx`)**: 460ms soft-landing ease (was 320ms), 18ms left-to-right digit ripple (was 0). Applies everywhere `RollingText` is used. Roll planning (directions, cycles) unchanged.
+- **No money behaviour changed.** Canonical rules untouched.
+- **Tests**: new `tests/segmentedMotion.test.ts`; `segmentedControl.test.ts` (commit-after-landing), `homeFilterMicroChoreography.test.ts` and `uiPrimitiveParity.test.ts` updated to the new design. 119 files, 1739 tests pass; `tsc --noEmit` clean.
+- **Docs**: `design-system.md`, `architecture.md` (9.2, 9.2a, test tables), `CODEBASE_GUIDE.md` (FIN-14).
+
 ### Bug Fix — Friend's Payback No Longer Comes Back For Review (`ReviewSheet.tsx`, `moneyBack.ts`) — OTA-safe
 
 - **Problem**: tapping a person on the AutoLog review screen ("Aditya owes ₹X → Settle") did settle the split, but the same transaction came back for review ("Logged · choose a category"). Cause: the income was saved with no category, which marks the event `needsCategory`, and the settle path never cleared it. A payback has no category of its own, so nothing could ever clear it.

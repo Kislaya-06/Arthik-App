@@ -28,8 +28,8 @@ import {
   isAfter,
 } from 'date-fns';
 import { isCountedIncome, isCountedExpense } from './transactionUtils';
-import { sumSpendingBetweenDateKeys } from '../money/ledger';
-import { addDaysToDateKey } from '../money/dateKeys';
+import { sumSpendingBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates, budgetAllowedForActiveDays } from '../money/budgetAllowance';
 import { round2, formatCurrency } from './formatters';
 import { ExpenseLike, toDateStr, toDateObj, isDateInBounds } from './insightsCommon';
@@ -650,19 +650,14 @@ export function computeAnnualCapitalOutlier(
 
   let largestExp: ExpenseLike | null = null;
   let maxAmount = 0;
+  const entries = buildLedgerEntries(expenses, categories);
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
-
-      if (exp.amount > maxAmount) {
-        maxAmount = exp.amount;
-        largestExp = exp;
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startStr, endStr)) {
+      if (entry.amountCountedAfterMoneyBack > maxAmount) {
+        maxAmount = entry.amountCountedAfterMoneyBack;
+        largestExp = expenses[i];
       }
     }
   }
@@ -756,27 +751,25 @@ export function computeAnnualCategoryTrajectory(
   const h2SpendByCat: Record<string, number> = {};
   const annualSpendByCat: Record<string, { amount: number; txnCount: number }> = {};
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
+  const entries = buildLedgerEntries(expenses, categories);
 
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (entry.kind !== 'spending' || !entry.dateKey) continue;
 
-      const catId = exp.category_id || 'others';
+    if (isDateKeyWithin(entry.dateKey, startStr, endStr)) {
+      const catId = entry.categoryId || 'others';
 
       if (!annualSpendByCat[catId]) {
         annualSpendByCat[catId] = { amount: 0, txnCount: 0 };
       }
-      annualSpendByCat[catId].amount += exp.amount;
+      annualSpendByCat[catId].amount += entry.amountCountedAfterMoneyBack;
       annualSpendByCat[catId].txnCount += 1;
 
-      if (isDateInBounds(cleanDate, h1StartStr, h1EndStr)) {
-        h1SpendByCat[catId] = (h1SpendByCat[catId] || 0) + exp.amount;
-      } else if (isDateInBounds(cleanDate, h2StartStr, h2EndStr)) {
-        h2SpendByCat[catId] = (h2SpendByCat[catId] || 0) + exp.amount;
+      if (isDateKeyWithin(entry.dateKey, h1StartStr, h1EndStr)) {
+        h1SpendByCat[catId] = (h1SpendByCat[catId] || 0) + entry.amountCountedAfterMoneyBack;
+      } else if (isDateKeyWithin(entry.dateKey, h2StartStr, h2EndStr)) {
+        h2SpendByCat[catId] = (h2SpendByCat[catId] || 0) + entry.amountCountedAfterMoneyBack;
       }
     }
   }

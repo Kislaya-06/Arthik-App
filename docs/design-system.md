@@ -165,12 +165,26 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
 3. **`<AmountText />`**:
    - Shared wrapper ensuring consistent `₹` symbol placement, font sizing, and optional rolling digit animations.
 4. **`<SegmentedControl />`**:
-   - Container height 48px, inner sliding active pill with Apple liquid morph spring physics, deep text contrast.
+   - Container height 48px, deep text contrast.
+   - **Liquid pill** (`src/lib/segmentedMotion.ts`): the pill's left and right edges ride two springs on the UI thread. The edge in the direction of travel uses `LEADING_EDGE_SPRING` (`stiffness 700, damping 46`), the back edge `trailingSpringFor(slots)` (`stiffness 420 + 80 per extra slot`, 0.97 of critical damping), so the pill stretches while it moves and lands at its exact width (under 1px overshoot). The trailing edge is distance-aware on purpose: with one fixed spring an All -> Monthly jump stretched the pill to 1.56x (a blob); now it is about 19% / 28% / 29% for 1 / 2 / 3 slots and every jump lands in about 285ms. Width is animated, never `scaleX`, so the round corners never squash.
+   - **Label colour follows the pill**: each label is drawn twice (inactive colour + active colour on top). The top copy's *opacity* follows the pill's live centre (`labelActiveProgress`). Opacity on a View is a cheap GPU property, so this does not bring back the per-frame `setTextColor` cost removed in FIN-13.
+   - **Geometry**: slot width comes from `optionWidthFor` (border excluded). Ignoring the border made the pill drift up to ~1.5px off the labels on the last option.
+   - **Labels**: each label is drawn twice; the inactive-colour copy fades out (`inactiveLabelOpacity`) as the active copy fades in, so no grey fringe shows around the active text.
+   - **Haptics**: selection tick only when the selection really changes (like `UISegmentedControl`); on iOS also a soft impact when the pill lands. Android gets the single tick only (no double buzz). Honours OS reduce-motion (snap, no stretch, no wait).
+   - **`commitOnSettle`**: heavy screens (Home, Insights, Savings history) receive `onChange` at `PILL_COMMIT_MS` (200ms) after the last tap when the pill is 95%+ arrived, seamlessly overlapping the pill's soft deceleration with screen content transitions (rolling numbers, card layout). Soft landing tick fires at `PILL_SETTLE_MS` (320ms). Rapid taps debounce clean. Cheap forms (Cash/UPI, Profile) report at once.
 5. **`<GradientIconBadge />`**:
    - Mandatory for all category icons, feature badges, and Gullak/PiggyBank symbols. Pre-configured gradient pairs.
 6. **`<RollingText />`**:
    - Vertical odometer-style digit rolling animations on amount updates and screen focus across Home, Savings, and Insights.
-7. **`<BouncyCategoryFilter />`**:
+   - Zero-flash planning: rolls are planned synchronously during render on frame 0, mounting `DigitWheel`s immediately from the old value to the new value with zero frames of static new text leaking to the display.
+   - Feel (`src/lib/rollingText.ts`): `ROLL_DURATION_MS` 460, `ROLL_EASING` `(0.22, 1, 0.36, 1)` long soft landing, `ROLL_STAGGER_MS` 18 (left-to-right ripple). No per-glyph opacity animation on purpose: it would add hundreds of animated nodes per roll on Home.
+7. **`<AnimatedToggle />`** (the only on/off switch; no native `<Switch />` anywhere):
+   - "Squish" motion from `src/lib/toggleMotion.ts`, all on the UI thread (Reanimated): fast and fluid slide (`SLIDE_SPRING` stiffness 720, damping 44) with subtle press cushion (`PRESS_STRETCH_FACTOR` 0.25) so the thumb does not awkwardly elongate in place before moving. During the slide the thumb is longest mid-trip (front edge leads, back edge lags, `sin(pi * progress)`), then lands with a tiny squash.
+   - One clamped slide spring (`SLIDE_SPRING`), so the thumb never pokes past the track end. The resting edge stays on the track end while pressed, so the stretch always grows toward the middle.
+   - Thumb and ON/OFF text cross-fade over `colorDuration` (200ms) using layer **opacity**, never per-frame colour interpolation (FIN-13 rule). Selection haptic on every change. Honours OS reduce-motion (instant, no stretch).
+   - Resting look is unchanged (1px border, 2.5/3px padding, same thumb size and travel for 50x26, 52x26 and 58x30). Public props unchanged; optional `stretch`, `colorDuration`, `pressScale`, `haptics`.
+   - Controlled: the thumb moves only when `value` changes, so a handler that refuses the change keeps the switch where it was.
+8. **`<BouncyCategoryFilter />`**:
    - Horizontal category filter pill bar for `HistoryScreen`.
    - UI-thread `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withSpring`, `cancelAnimation`).
    - Hardware-accelerated transform-only animation (`transform: [{ translateX: pillX.value }]`, static `left: 0`), preventing per-frame Android native relayout passes.
@@ -198,7 +212,8 @@ Built only from existing tokens and primitives (no new tokens): `SplitExtras` (s
 
 ## 10. Animation & Motion Physics
 
-- **Apple WWDC-Calibrated Springs:** Primary sliding elements use critically damped springs (`tension: 100, friction: 16`, zero overshoot; Reanimated worklet equivalent `stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`).
+- **Apple WWDC-Calibrated Springs:** `BouncyCategoryFilter` uses a critically damped spring (`stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`). `SegmentedControl` uses the two-edge liquid pill springs from `src/lib/segmentedMotion.ts` (see `<SegmentedControl />` above).
+- **Never animate a screen while its pill glides:** heavy re-renders wait for the pill to land (`commitOnSettle`, `PILL_SETTLE_MS`).
 - **Hardware-Accelerated Transform Sliding:** Sliding highlight pills animate exclusively via `translateX` (anchored at `left: 0`) and width, avoiding layout properties (`left`, `top`, `margin`) to guarantee 60/120fps motion without native Yoga relayout passes.
 - **Tactile Press Feedback:** Interactive items scale to `0.93–0.94` on `onPressIn`, springing back with `friction: 4` (`damping: 12, stiffness: 200`) on `onPressOut`, accompanied by light haptics (`expo-haptics`).
 - **Reduced Motion:** When `useReduceMotion()` is true, disable animations and use immediate snapping.

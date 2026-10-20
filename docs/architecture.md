@@ -263,7 +263,9 @@ All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`).
 ## 9. UI & Motion System
 
 - **9.1 Theme & Design Tokens**: `src/config/theme.ts` — `LightColors`, `DarkColors` (with true AMOLED obsidian `DarkColors.amoled`), `Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`. 3-theme picker supported on Profile (Light, Dark, AMOLED).
-- **9.2 Rolling-Digit Numbers (`RollingText`)**: Vertical digit-by-digit odometer rolling animations on amount updates and screen focus across Home, Savings, Insights, and Category Details. Runs natively on the UI thread without layout shifts or text spasms.
+- **9.2 Rolling-Digit Numbers (`RollingText`)**: Vertical digit-by-digit odometer rolling animations on amount updates and screen focus across Home, Savings, Insights, and Category Details. Runs natively on the UI thread without layout shifts or text spasms. Premium feel: 460ms soft-landing ease, 18ms left-to-right digit ripple. Zero-flash synchronous render planning prevents any 1-frame static leak of new values before wheels mount.
+- **9.2b Squish toggle (`AnimatedToggle`, `src/lib/toggleMotion.ts`)**: the single on/off switch used on Profile (4), Savings Budget Hub, Split, Self-transfer and AutoLog accounts. Press stretch, mid-trip stretch, landing squash, opacity colour cross-fade, selection haptic, reduce-motion support. Whole animation runs on the UI thread (the old version used JS-thread colour interpolation).
+- **9.2a Segmented pills (`SegmentedControl`, `src/lib/segmentedMotion.ts`)**: Liquid two-edge pill (stretches in flight, distance-aware trailing spring, lands exactly in ~285ms), label colour cross-fade by pill position, tick on real change (+ iOS landing tick), reduce-motion aware. Heavy screens use `commitOnSettle` which commits at `PILL_COMMIT_MS` (200ms) to seamlessly overlap the pill's deceleration with content transitions (rolling numbers, card layout) without dead pauses, while the soft landing haptic plays at `PILL_SETTLE_MS` (320ms).
 - **9.3 Ambient Background & Light Flow (`AmbientBackground`, `ambientStore`)**: Subtle, organic blurred gradient light bands moving slowly across the top of the screen surface. Automatically throttled/paused when tab/screen loses focus (`useSafeIsFocused`), app goes to background (`useAppActive`), or `useReduceMotion()` is active. User-toggleable in Profile.
 - **9.4 Home Pull-to-Refresh & Pull-to-History Physics (`PullToHistoryContainer`, `pullToHistoryPhysics.ts`)**: Replaces default scroll view with unified drag, momentum, and pull-up gestures. Calibrated Instagram Vanish-mode spring physics (stiffness 42, damping 11.6, ~0.88 damping ratio) with countdown progress ring. Pull-down uses unified native refresh circle (`AppRefreshControl`) with haptic feedback and throttle cooldown.
 - **9.5 Icons & Badges**: `lucide-react-native` (1.24+). Feature icons and badges strictly utilize `GradientIconBadge`.
@@ -312,7 +314,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v2.1.0**: 97 test files, 1567 tests (Node 22+). Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
+**Coverage as of v2.1.0**: 120 test files, 1777 tests (Node 22+). Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
 
 | Test file | What it covers |
 |---|---|
@@ -392,7 +394,10 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `reviewSheetLayout.test.ts` | AutoLog ReviewSheet compact layout and bottom-sheet rendering |
 | `rollingText.test.ts` | FIN-09: Number ticker digit roll planning, cross-filter forced spin, digit diff computation |
 | `scaffoldExercises.test.ts` | Scaffolding validation |
-| `segmentedControl.test.ts` | Segmented pill control selection, sliding indicator layout |
+| `segmentedControl.test.ts` | Segmented pill control selection, sliding indicator layout, `commitOnSettle` reports only the last tap after arrival (`PILL_COMMIT_MS`) |
+| `toggleMotion.test.ts` | Squish switch: resting geometry equals old toggle for all 3 sizes, stretch anchoring, mid-trip stretch, never leaves the track, landing squash bound, no native `<Switch />` |
+| `segmentedMotion.test.ts` | Liquid pill: settle within `PILL_SETTLE_MS` for 1-4 slot jumps, 95%+ travel by `PILL_COMMIT_MS`, same landing time for all distances, 120fps frame simulation of every slot move (in-bounds, no wobble, stretch 10-35%), slot geometry, label fade |
+| `homeFilterMicroChoreography.test.ts` | Home pill commits after landing; no overlapping 220ms timer |
 | `selfTransfersAndIncome.test.ts` | Self-transfer classification and exclusions from income totals |
 | `splitEqualSharePrecision.test.ts` | FIN-07: Split equally remainder absorption and integer paise distribution preventing validation lockouts |
 | `notificationPolicy.test.ts` | Pure notification policy: max 1/day, priority order, evening nudge, Gullak reward, recaps |
@@ -409,7 +414,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `realTimeIncomeGullakDeduction.test.ts` | Real-time income deduction from Gullak overspend and waterfall priority |
 | `recentTransactions.test.ts` | Single-pass bounded top-5 transaction selection (`selectRecentTransactions`), tie-breaker stability, allocation reduction |
 | `rollingText.test.ts` | Digit-by-digit vertical odometer roll, layout effect mount/reveal, decimal handling |
-| `segmentedControl.test.ts` | Critical damped spring slide, outer hitSlop, touch release selection, elevation |
+| `segmentedControl.test.ts` | Two-edge liquid pill, outer hitSlop, touch release selection, commit-after-landing |
 | `selfTransfersAndIncome.test.ts` | Pure classification of self-transfers excluded from income/expense totals (TXN-003) |
 | `splitLedger.test.ts` | Multi-person debt tracking, settlements, and summaries |
 | `splitMoneyBackStore.test.ts` | Money back and refund store operations |

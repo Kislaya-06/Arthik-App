@@ -35,6 +35,7 @@ vi.mock('react-native-reanimated', () => {
   const withTiming = (val: any) => val;
   const withSequence = (...anims: any[]) => anims[anims.length - 1];
   const cancelAnimation = () => {};
+  const useReducedMotion = () => false;
 
   return {
     default: {
@@ -42,6 +43,7 @@ vi.mock('react-native-reanimated', () => {
     },
     useSharedValue,
     useAnimatedStyle,
+    useReducedMotion,
     withSpring,
     withTiming,
     withSequence,
@@ -57,6 +59,7 @@ vi.mock('react-native', () => ({
   View: (props: any) => ({ type: 'View', props }),
   Text: (props: any) => ({ type: 'Text', props }),
   Pressable: (props: any) => ({ type: 'Pressable', props }),
+  Platform: { OS: 'android' },
   Animated: {
     View: (props: any) => ({ type: 'Animated.View', props }),
     Value: class {
@@ -273,5 +276,44 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
 
     expect(dailyFont).toBe('Quicksand_700Bold');
     expect(weeklyFont).toBe('Quicksand_700Bold');
+  });
+
+  it('commitOnSettle: reports only the LAST tap, and only after the pill has arrived (PILL_COMMIT_MS)', async () => {
+    vi.useFakeTimers();
+    const { PILL_COMMIT_MS } = await import('../src/lib/segmentedMotion');
+    const onChange = vi.fn();
+    const el = SegmentedControl({
+      options: ['All', 'Daily', 'Weekly', 'Monthly'],
+      selectedKey: 'Daily',
+      onChange,
+      commitOnSettle: true,
+    }) as any;
+    const row = el.props.children[1];
+    row.props.children[2].props.onPress(); // Weekly
+    vi.advanceTimersByTime(100);
+    row.props.children[3].props.onPress(); // Monthly, mid-glide
+    expect(onChange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(PILL_COMMIT_MS - 1); // measured from the LAST move
+    expect(onChange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('Monthly');
+    // Re-tapping after the pill has landed reports at once (parents ignore same-value changes).
+    row.props.children[3].props.onPress();
+    vi.advanceTimersByTime(0);
+    expect(onChange).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it('re-tapping the already selected option does not tick (Apple parity) but still reports', () => {
+    const onChange = vi.fn();
+    const el = SegmentedControl({
+      options: ['Weekly', 'Monthly', 'Yearly'],
+      selectedKey: 'Weekly',
+      onChange,
+    }) as any;
+    const weekly = el.props.children[1].props.children[0];
+    weekly.props.onPress();
+    expect(onChange).toHaveBeenCalledWith('Weekly');
   });
 });

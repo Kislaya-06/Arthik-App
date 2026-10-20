@@ -28,7 +28,7 @@ import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfM
 import { HeroDetailsSheet } from '../components/HeroDetailsSheet';
 import { buildHeroDetails, heroDetailsTitle, moneyBackInRows, autoSavedInScope, withTillToday } from '../lib/heroDetails';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
-import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate, selectRecentTransactions, FILTER_DECOUPLE_DELAY_MS } from '../lib/homeCalculations';
+import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate, selectRecentTransactions } from '../lib/homeCalculations';
 import { dailyCarryForDate } from '../lib/budgetPeriods';
 import { carryCoverCopy } from '../lib/notificationPolicy';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
@@ -44,7 +44,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { round2 } from '../lib/formatters';
 import { calculateBudgetStatus } from '../money/budgetStatus';
-import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
+import { buildLedgerEntries, spendingTotalsByDateKey } from '../money/ledger';
+import { isIncomeTransaction } from '../lib/transactionUtils';
 import { getDisplayName } from '../lib/profileUtils';
 import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
@@ -172,38 +173,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [todayKey, setTodayKey] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const referenceDate = useMemo(() => parseISO(todayKey), [todayKey]);
 
-  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const selectedFilterRef = useRef<Filter>(selectedFilter);
   selectedFilterRef.current = selectedFilter;
 
+  // The pill (commitOnSettle) calls this only AFTER it has landed (PILL_SETTLE_MS after the last tap),
+  // so the heavy period maths + digit rolls below never run while the pill is still gliding. That
+  // overlap (old 220ms timer vs a ~350ms glide) was the Home pill jitter. Pill + numbers now update
+  // in one render.
   const handleFilterChange = useCallback((newFilter: Filter) => {
     if (newFilter === selectedFilterRef.current) return;
     selectedFilterRef.current = newFilter;
-
-    // 1. Immediately update pill indicator state on Frame 0 for instant, silky UI feedback
     setSelectedFilter(newFilter);
-
-    if (filterTimerRef.current) {
-      clearTimeout(filterTimerRef.current);
-    }
-
-    // 2. Micro-choreography (Apple/Revolut pattern):
-    // Defer heavy period calculations and number roll updates by 220ms so the UI-thread
-    // spring launch gets an unhindered 120 FPS path across all 3 slots with zero frame drops.
-    // Rapid sequential taps cancel intermediate timers, preventing intermediate slot-machine rolling numbers.
-    filterTimerRef.current = setTimeout(() => {
-      filterTimerRef.current = null;
-      setActiveFilter(newFilter);
-    }, FILTER_DECOUPLE_DELAY_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (filterTimerRef.current) {
-        clearTimeout(filterTimerRef.current);
-      }
-    };
+    setActiveFilter(newFilter);
   }, []);
 
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
@@ -362,20 +343,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses, isAutoRenew, isBudgetModeEnabled]
   );
   const todayBudget = isBudgetConfigured ? todayRecord.budget : 0;
-  // Calculate today's spent directly from expenses for today to guarantee 0-lag live reactivity
-  const todayLiveSpent = useMemo(() => {
-    const todayStr = todayKey;
-    let spent = 0;
-    for (let i = 0; i < expenses.length; i++) {
-      const e = expenses[i];
-      const cleanDate = e.expense_date?.split('T')[0]?.trim();
-      const cat = e.category_id ? catMap[e.category_id] : undefined;
-      if (cleanDate === todayStr && isCountedExpense(e, cat)) {
-        spent += Number(e.amount) || 0;
-      }
-    }
-    return round2(spent);
-  }, [expenses, catMap, todayKey]);
+  const spentByDate = useMemo(
+    () => spendingTotalsByDateKey(buildLedgerEntries(expenses, categories)),
+    [expenses, categories]
+  );
+  // Calculate today's spent directly from the ledger for guaranteed 0-lag live reactivity
+  const todayLiveSpent = spentByDate[todayKey] || 0;
 
   const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
   const todayBudgetStatus = calculateBudgetStatus(todayBudget, todayRecordSpent);
@@ -386,19 +359,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     () => getExternalDepositsInPeriod(gullakDeposits, activeFilter, referenceDate),
     [gullakDeposits, activeFilter, referenceDate]
   );
-
-  const spentByDate = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (let i = 0; i < expenses.length; i++) {
-      const e = expenses[i];
-      const cat = e.category_id ? catMap[e.category_id] : undefined;
-      if (!isCountedExpense(e, cat)) continue;
-      const cleanDate = e.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      map[cleanDate] = (map[cleanDate] || 0) + (Number(e.amount) || 0);
-    }
-    return map;
-  }, [expenses, catMap]);
 
   const cadencePeriodSummary = useMemo(() => {
     if (!isBudgetModeEnabled || budgetCadence === 'daily') return null;
@@ -696,6 +656,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             value={selectedFilter}
             onChange={handleFilterChange}
             options={FILTERS}
+            commitOnSettle
           />
         </View>
         <View style={styles.filterDateRow}>

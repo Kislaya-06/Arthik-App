@@ -35,6 +35,7 @@ export type HomeFilter = 'All' | 'Daily' | 'Weekly' | 'Monthly';
  * Provides an unhindered 120 FPS path for multi-slot travels (All <-> Monthly)
  * and debounces rapid sequential taps (Apple / Revolut pattern).
  */
+/** @deprecated Home no longer uses this (FIN-14): the pill reports after landing via `commitOnSettle` (`PILL_SETTLE_MS`). Kept so nothing importing it breaks. */
 export const FILTER_DECOUPLE_DELAY_MS = 220;
 
 export interface ExpenseDateItem {

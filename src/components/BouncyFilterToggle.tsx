@@ -7,6 +7,8 @@ export interface BouncyFilterToggleProps<T extends string> {
   onChange: (filter: T) => void;
   options: readonly T[];
   style?: any;
+  /** Report the change only after the pill lands (heavy screens). */
+  commitOnSettle?: boolean;
 }
 
 /**
@@ -17,6 +19,7 @@ export function BouncyFilterToggle<T extends string>({
   onChange,
   options,
   style,
+  commitOnSettle,
 }: BouncyFilterToggleProps<T>) {
   const segOptions = useMemo<SegmentedOption[]>(
     () =>
@@ -34,6 +37,7 @@ export function BouncyFilterToggle<T extends string>({
       onChange={(key) => onChange(key as T)}
       height={ControlHeight.standard}
       style={style}
+      commitOnSettle={commitOnSettle}
     />
   );
 }

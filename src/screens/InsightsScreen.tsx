@@ -281,6 +281,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               options={['Weekly', 'Monthly', 'Yearly']}
               selectedKey={period}
               onChange={(key) => handlePeriodChange(key as Period)}
+              commitOnSettle
               height={ControlHeight.standard}
             />
           </View>

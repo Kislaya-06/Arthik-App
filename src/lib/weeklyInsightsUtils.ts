@@ -1,7 +1,6 @@
 import { parseISO, format, differenceInCalendarDays, getDay, addDays } from 'date-fns';
-import { isCountedExpense } from './transactionUtils';
-import { sumSpendingBetweenDateKeys } from '../money/ledger';
-import { addDaysToDateKey } from '../money/dateKeys';
+import { sumSpendingBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
@@ -390,17 +389,12 @@ export function computeLargestSingleOutflow(
   const endStr = toDateStr(weekInterval.end);
 
   const weekExpenses: ExpenseLike[] = [];
+  const entries = buildLedgerEntries(expenses, categories);
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (!isCountedExpense(exp, cat)) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      weekExpenses.push(exp);
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startStr, endStr)) {
+      weekExpenses.push(expenses[i]);
     }
   }
 

@@ -65,6 +65,9 @@
         "version": "2.1.0",
         "title": "Split Expenses & Money Back 🤝",
         "highlights": [
+          "Liquid Pills & Motion Polish: Distance-aware two-edge pill physics with zero drift, no jitter, instant settle, and iOS landing tick",
+          "Squish Toggle: Tactile squish-and-slide on/off switches across all settings and forms with native UI-thread animation",
+          "Rolling Numbers: Silky 460ms soft-landing ease and left-to-right digit ripple across all financial balances",
           "Payback Review: Settling a friend's payback in AutoLog closes review immediately with accurate category restoration",
           "Unified Calculation Layer: Standardized daily budget rate based on true calendar days per month and single-pass ledger accounting across all screens",
           "AutoLog Review: Clean vertical spacing, emoji-free typography, default unchecked merchant preference, and instant self-transfer for incoming credits",

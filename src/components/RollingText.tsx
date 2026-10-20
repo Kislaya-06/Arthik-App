@@ -17,6 +17,7 @@ import { useIsFocused } from '@react-navigation/native';
 import {
   DigitRoll,
   ROLL_DURATION_MS,
+  ROLL_EASING,
   ROLL_STAGGER_MS,
   RollPlan,
   getWheelGlyphs,
@@ -39,7 +40,8 @@ function useSafeIsFocused(): boolean {
  * Reproduces the reference animation:
  *  - every digit of the changed number spins through 0-9 together and eases out onto its new value
  *  - a number that goes down rolls downward (new digits enter from the top); up rolls upward
- *  - symbols (₹ + − ,) and words never move; digits fade towards the top/bottom edge of the line
+ *  - symbols (₹ + − ,) and words never move
+ *  - neighbouring digits start 18ms apart (left to right) and land with a long soft ease-out
  *  - the whole thing runs on the native thread (no JS work per frame, no re-rendering)
  *
  * When nothing is changing it renders ONE plain <Text> (exactly like a normal label), so there is no cost
@@ -142,7 +144,7 @@ const DigitWheel: React.FC<DigitWheelProps> = React.memo(({ roll, fontSize, line
       toValue: endY,
       duration: ROLL_DURATION_MS,
       delay,
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      easing: Easing.bezier(ROLL_EASING[0], ROLL_EASING[1], ROLL_EASING[2], ROLL_EASING[3]),
       useNativeDriver: true,
     });
     move.start();
@@ -274,90 +276,64 @@ export const RollingText: React.FC<RollingTextProps> = ({
     [pureTextStyle, fontSize, lineHeight]
   );
 
-  // ── Detect a change and start a roll (layout effect: no frame of the new text before the wheels) ──
+  // ── Detect a change and start a roll (render-time planning: zero frame of new text before wheels) ──
+  const [prevText, setPrevText] = useState(text);
+  const [prevTrigger, setPrevTrigger] = useState(rollTrigger);
   const [active, setActive] = useState<ActiveRoll | null>(null);
-  const lastTextRef = useRef(text);
-  const lastTriggerRef = useRef(rollTrigger);
   const idRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useReduceMotion();
   const isFocused = useSafeIsFocused();
   const wasFocusedRef = useRef(false);
 
-  // A tab hidden by freezeOnBlur may never commit a "blurred" render, so wasFocusedRef could stay `true` and the
-  // return to the screen would not roll. React re-runs layout effects when a frozen tab is revealed (even with no
-  // dependency change), so this effect (declared BEFORE the one below, so it runs first) forgets the previous focus on
-  // mount and on every reveal.
+  // Synchronous roll planning on prop change: eliminates 1-frame flash of new text before wheels mount
+  if (text !== prevText || (rollTrigger !== undefined && prevTrigger !== undefined && rollTrigger !== prevTrigger)) {
+    const triggerChanged = rollTrigger !== undefined && prevTrigger !== undefined && rollTrigger !== prevTrigger;
+    setPrevText(text);
+    setPrevTrigger(rollTrigger);
+
+    if (animate && !reduceMotion && isFocused) {
+      const plan = planRoll(prevText, text, triggerChanged && prevText === text);
+      if (plan) {
+        const id = ++idRef.current;
+        setActive({ id, text, plan });
+      } else {
+        setActive(null);
+      }
+    } else {
+      setActive(null);
+    }
+  }
+
+  // Active roll auto-cleanup timer
+  useEffect(() => {
+    if (!active) return;
+    const rollCount = Object.keys(active.plan.rolls).length;
+    const timer = setTimeout(
+      () => setActive((cur) => (cur && cur.id === active.id ? null : cur)),
+      ROLL_DURATION_MS + ROLL_STAGGER_MS * rollCount + 80
+    );
+    return () => clearTimeout(timer);
+  }, [active?.id]);
+
+  // Tab focus entry handling (freezeOnBlur reveal / rollOnFocus)
   useLayoutEffect(() => {
     wasFocusedRef.current = false;
   }, []);
 
   useLayoutEffect(() => {
-    const prev = lastTextRef.current;
-    const triggerChanged = rollTrigger !== undefined && lastTriggerRef.current !== undefined && lastTriggerRef.current !== rollTrigger;
-    lastTriggerRef.current = rollTrigger;
     const justGainedFocus = !!rollOnFocus && isFocused && !wasFocusedRef.current;
     wasFocusedRef.current = isFocused;
+    if (!justGainedFocus || !animate || reduceMotion) return;
 
-    // If screen is in the background, keep last text in sync and avoid background animation
-    if (!isFocused) {
-      lastTextRef.current = text;
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
+    const zeroText = text.replace(/\d[\d,]*(?:\.\d+)?/g, '0');
+    if (zeroText !== text) {
+      const plan = planRoll(zeroText, text);
+      if (plan) {
+        const id = ++idRef.current;
+        setActive({ id, text, plan });
       }
-      setActive(null);
-      return;
     }
-
-    if (!animate || reduceMotion) {
-      lastTextRef.current = text;
-      setActive(null);
-      return;
-    }
-
-    // Determine what roll to plan:
-    // 1. Entering the screen (even if the value also changed while away): roll up from 0 to the value
-    // 2. Normal value change while the screen is visible: roll between prev and text (or force cycle if trigger changed)
-    let plan: RollPlan | null = null;
-    if (justGainedFocus) {
-      lastTextRef.current = text;
-      const zeroText = text.replace(/\d[\d,]*(?:\.\d+)?/g, '0');
-      if (zeroText !== text) {
-        plan = planRoll(zeroText, text);
-      }
-    } else if (prev !== text || triggerChanged) {
-      lastTextRef.current = text;
-      plan = planRoll(prev, text, triggerChanged && prev === text);
-    } else {
-      return;
-    }
-
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-
-    if (!plan) {
-      setActive(null);
-      return;
-    }
-
-    const id = ++idRef.current;
-    setActive({ id, text, plan });
-    const rollCount = Object.keys(plan.rolls).length;
-    timerRef.current = setTimeout(
-      () => setActive((cur) => (cur && cur.id === id ? null : cur)),
-      ROLL_DURATION_MS + ROLL_STAGGER_MS * rollCount + 80
-    );
-  }, [text, animate, reduceMotion, isFocused, rollOnFocus, rollTrigger]);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    []
-  );
+  }, [isFocused, rollOnFocus, animate, reduceMotion, text]);
 
   const onContainerLayout = (e: LayoutChangeEvent) => {
     if (fitWidth !== undefined) return;

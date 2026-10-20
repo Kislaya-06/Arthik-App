@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import {
-  startOfWeek, endOfWeek, subWeeks, addDays, differenceInCalendarDays,
+  startOfWeek, subWeeks, addDays, differenceInCalendarDays,
   isWithinInterval, parseISO, format,
 } from 'date-fns';
-import { isCountedExpense, isCountedIncome } from '../../lib/transactionUtils';
+import { isCountedIncome } from '../../lib/transactionUtils';
+import { buildLedgerEntries, spendingTotalsByDateKey, toDateKey, isDateKeyWithin } from '../../money';
 import { formatAmountWithCommas, round2 } from '../../lib/formatters';
 import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../../lib/chartUtils';
 import {
@@ -109,23 +110,31 @@ export function useInsightsData({
   // O(1) category lookup map to avoid repeated O(C) array scans per transaction
   const categoryMap = useMemo(() => buildCategoryMap(categories), [categories]);
 
+  // ─── Unified Money Ledger Entries ──────────────────────────────────────────
+  const ledgerEntries = useMemo(
+    () => buildLedgerEntries(expenses, categories),
+    [expenses, categories]
+  );
+
+  const spentTotalsByDate = useMemo(
+    () => spendingTotalsByDateKey(ledgerEntries),
+    [ledgerEntries]
+  );
+
   // ─── Earliest expense date bound ───────────────────────────────────────────
   // Scans non-income expenses to find the earliest recorded transaction date.
   // This ensures period navigation and pagination dots only exist for periods with real user activity.
   const earliestExpenseDate = useMemo<Date | null>(() => {
     let earliest: string | null = null;
-    for (const exp of expenses) {
-      if (!exp.expense_date) continue;
-      const cleanDate = exp.expense_date.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
-      if (!earliest || cleanDate < earliest) {
-        earliest = cleanDate;
+    for (let i = 0; i < ledgerEntries.length; i++) {
+      const entry = ledgerEntries[i];
+      if (entry.kind !== 'spending' || !entry.dateKey) continue;
+      if (!earliest || entry.dateKey < earliest) {
+        earliest = entry.dateKey;
       }
     }
     return earliest ? parseISO(earliest) : null;
-  }, [expenses, categoryMap]);
+  }, [ledgerEntries]);
 
   const minOff = useMemo(
     () => computeMinOffset(period, earliestExpenseDate),
@@ -172,26 +181,23 @@ export function useInsightsData({
 
   // ─── Expense aggregation ───────────────────────────────────────────────────
   const { currentTotal, categoryTotals } = useMemo(() => {
+    const startKey = toDateKey(currentInterval.start);
+    const endKey = toDateKey(currentInterval.end);
     let curr = 0;
     const catTotals: Record<string, number> = {};
 
-    for (const exp of expenses) {
-      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
-
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-
-      const date = parseISO(cleanDate);
-      if (isWithinInterval(date, currentInterval)) {
-        curr += exp.amount;
-        const key = exp.category_id || 'others';
-        catTotals[key] = (catTotals[key] || 0) + exp.amount;
+    for (let i = 0; i < ledgerEntries.length; i++) {
+      const entry = ledgerEntries[i];
+      if (entry.kind !== 'spending' || !entry.dateKey) continue;
+      if (isDateKeyWithin(entry.dateKey, startKey, endKey)) {
+        curr += entry.amountCountedAfterMoneyBack;
+        const key = entry.categoryId || 'others';
+        catTotals[key] = round2((catTotals[key] || 0) + entry.amountCountedAfterMoneyBack);
       }
     }
 
-    return { currentTotal: curr, categoryTotals: catTotals };
-  }, [expenses, categoryMap, currentInterval]);
+    return { currentTotal: round2(curr), categoryTotals: catTotals };
+  }, [ledgerEntries, currentInterval]);
 
   const sortedCategories = useMemo(() => {
     return Object.keys(categoryTotals)
@@ -220,38 +226,20 @@ export function useInsightsData({
       : new Date();
 
     const weekStart = startOfWeek(weekRef, { weekStartsOn: 1 });
-    const weekInterval = {
-      start: weekStart,
-      end: endOfWeek(weekRef, { weekStartsOn: 1 }),
-    };
 
     const data = weekDays.map((day, i) => {
       const dateObj = addDays(weekStart, i);
+      const dateStr = format(dateObj, 'yyyy-MM-dd');
       return {
         day,
-        dateStr: format(dateObj, 'yyyy-MM-dd'),
-        amount: 0,
+        dateStr,
+        amount: spentTotalsByDate[dateStr] || 0,
       };
     });
 
-    for (const exp of expenses) {
-      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
-
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-
-      const date = parseISO(cleanDate);
-      if (isWithinInterval(date, weekInterval)) {
-        let dayIndex = date.getDay() - 1;
-        if (dayIndex === -1) dayIndex = 6; // Sunday wraps to index 6
-        data[dayIndex].amount += exp.amount;
-      }
-    }
-
     const maxDay = data.reduce((max, d) => (d.amount > max.amount ? d : max), data[0]);
     return { weeklyData: data, maxWeekDay: maxDay.amount > 0 ? maxDay : null };
-  }, [expenses, categoryMap, period, offset]);
+  }, [spentTotalsByDate, period, offset]);
 
   // Monthly week-by-week cash flow (Money In vs Money Out)
   const monthlyCashFlowData = useMemo(() => {
@@ -560,18 +548,17 @@ export function useInsightsData({
   }, [period, budgetCadence, currentTotal, monthlyBudgetAmount]);
 
   const weekTransactionCount = useMemo(() => {
+    const startKey = toDateKey(currentInterval.start);
+    const endKey = toDateKey(currentInterval.end);
     let count = 0;
-    for (const exp of expenses) {
-      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+    for (let i = 0; i < ledgerEntries.length; i++) {
+      const entry = ledgerEntries[i];
+      if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startKey, endKey)) {
         count++;
       }
     }
     return count;
-  }, [expenses, categoryMap, currentInterval]);
+  }, [ledgerEntries, currentInterval]);
 
   const peakDayName = maxWeekDay?.day || 'Mon';
 
@@ -686,18 +673,17 @@ export function useInsightsData({
 
   const monthTransactionCount = useMemo(() => {
     if (period !== 'Monthly') return 0;
+    const startKey = toDateKey(currentInterval.start);
+    const endKey = toDateKey(currentInterval.end);
     let count = 0;
-    for (const exp of expenses) {
-      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+    for (let i = 0; i < ledgerEntries.length; i++) {
+      const entry = ledgerEntries[i];
+      if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startKey, endKey)) {
         count++;
       }
     }
     return count;
-  }, [period, expenses, categoryMap, currentInterval]);
+  }, [period, ledgerEntries, currentInterval]);
 
   const smartMonthlyTakeaway = useMemo(() => {
     const isOver = activeBudgetPool && period === 'Monthly' ? activeBudgetPool.isOver : monthlyBudgetHealth.isOverBudget;
@@ -895,18 +881,17 @@ export function useInsightsData({
 
   const yearTransactionCount = useMemo(() => {
     if (period !== 'Yearly') return 0;
+    const startKey = toDateKey(currentInterval.start);
+    const endKey = toDateKey(currentInterval.end);
     let count = 0;
-    for (const exp of expenses) {
-      const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
+    for (let i = 0; i < ledgerEntries.length; i++) {
+      const entry = ledgerEntries[i];
+      if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startKey, endKey)) {
         count++;
       }
     }
     return count;
-  }, [period, expenses, categoryMap, currentInterval]);
+  }, [period, ledgerEntries, currentInterval]);
 
   const gullakDepositsInYearCount = useMemo(() => {
     if (period !== 'Yearly') return 0;
