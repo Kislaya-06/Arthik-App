@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -315,26 +315,30 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
     extrapolate: 'clamp',
   });
 
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const getRouteIndex = useCallback(
-    (name: string) => state.routes.findIndex((r) => r.name === name),
-    [state.routes]
+    (name: string) => stateRef.current.routes.findIndex((r) => r.name === name),
+    []
   );
 
   const navigateTo = useCallback(
     (routeName: string, routeIndex: number) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
+      const currentState = stateRef.current;
       const event = navigation.emit({
         type: 'tabPress',
-        target: state.routes[routeIndex]?.key || '',
+        target: currentState.routes[routeIndex]?.key || '',
         canPreventDefault: true,
       });
 
-      if (state.index !== routeIndex && !event.defaultPrevented) {
+      if (currentState.index !== routeIndex && !event.defaultPrevented) {
         navigation.navigate(routeName);
       }
     },
-    [navigation, state.routes, state.index]
+    [navigation]
   );
 
   const handleAddExpense = useCallback(() => {

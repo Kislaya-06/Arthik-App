@@ -6,7 +6,7 @@
  */
 
 import { parseISO } from 'date-fns';
-import { toDateKey } from '../money/dateKeys';
+import { toDateKey, isDateKeyWithin } from '../money/dateKeys';
 
 export interface ExpenseLike {
   id: string;
@@ -41,6 +41,5 @@ export function toDateObj(d?: Date | number | string): Date {
 /**
  * Checks if a 'yyyy-MM-dd' date string falls within [start, end] inclusive.
  */
-export function isDateInBounds(dateStr: string, startStr: string, endStr: string): boolean {
-  return dateStr >= startStr && dateStr <= endStr;
-}
+export const isDateInBounds = isDateKeyWithin;
+export { isDateKeyWithin };

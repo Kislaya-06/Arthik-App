@@ -29,19 +29,38 @@ import { OtaUpdateModal } from './src/components/OtaUpdateModal';
 import { useOtaStore } from './src/store/otaStore';
 import { onBeforeSignOut } from './src/features/autoLog/service';
 
+const ConnectedOtaModal: React.FC = () => {
+  const visible = useOtaStore((s) => s.visible);
+  const info = useOtaStore((s) => s.info);
+  const isDownloading = useOtaStore((s) => s.isDownloading);
+  const downloadText = useOtaStore((s) => s.downloadText);
+  const error = useOtaStore((s) => s.error);
+  const applyUpdate = useOtaStore((s) => s.applyUpdate);
+  const hideUpdateModal = useOtaStore((s) => s.hideUpdateModal);
+
+  if (!visible) return null;
+
+  return (
+    <OtaUpdateModal
+      visible={visible}
+      updateInfo={info}
+      isDownloading={isDownloading}
+      downloadProgressText={downloadText}
+      error={error}
+      onUpdate={applyUpdate}
+      onDismiss={hideUpdateModal}
+      onRetry={applyUpdate}
+    />
+  );
+};
+
 export default function App() {
   const { colors, isDark } = useTheme();
   const setSession = useAuthStore((s) => s.setSession);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
-  const isAppLockEnabled = useAppLockStore((s) => s.isAppLockEnabled);
-  const isLocked = useAppLockStore((s) => s.isLocked);
   const initAppLock = useAppLockStore((s) => s.init);
   const lockApp = useAppLockStore((s) => s.lock);
-  const authenticateAppLock = useAppLockStore((s) => s.authenticate);
-  const currentUser = useAuthStore((s) => s.user);
-  const [currentRoute, setCurrentRoute] = useState<string>('Splash');
-  const ota = useOtaStore();
 
   const [fontsLoaded] = useFonts({
     Quicksand_400Regular,
@@ -186,16 +205,11 @@ export default function App() {
     initAppLock(useAuthStore.getState().user?.id);
 
     // AppState listener for auto-syncing and app lock (P0.3)
-    let authTimeout: NodeJS.Timeout | null = null;
     const appStateSub = AppState.addEventListener('change', (nextAppState) => {
       const loggedInUser = useAuthStore.getState().user;
       const { isAppLockEnabled: lockEnabled } = useAppLockStore.getState();
 
       if (nextAppState === 'background' || nextAppState === 'inactive') {
-        if (authTimeout) {
-          clearTimeout(authTimeout);
-          authTimeout = null;
-        }
         if (loggedInUser && lockEnabled) {
           lockApp();
         }
@@ -205,15 +219,6 @@ export default function App() {
           useExpenseStore.getState().syncPendingExpenses();
           useDailyBudgetStore.getState().uploadPendingDailyRecords();
         }
-        const isSplash = (navigationRef.getCurrentRoute()?.name || 'Splash') === 'Splash';
-        if (loggedInUser && lockEnabled && useAppLockStore.getState().isLocked && !isSplash) {
-          if (authTimeout) clearTimeout(authTimeout);
-          authTimeout = setTimeout(() => {
-            if (AppState.currentState === 'active' && useAppLockStore.getState().isLocked) {
-              authenticateAppLock();
-            }
-          }, 200);
-        }
       }
     });
 
@@ -221,7 +226,6 @@ export default function App() {
     const cleanupNetwork = useNetworkStore.getState().initNetworkListener();
 
     return () => {
-      if (authTimeout) clearTimeout(authTimeout);
       subscription.unsubscribe();
       appStateSub.remove();
       unregisterNotif();
@@ -257,30 +261,10 @@ export default function App() {
               highlights={updateRequirement.highlights}
             />
           ) : (
-            <AppNavigation
-              onReady={() => {
-                const route = navigationRef.getCurrentRoute()?.name || 'Splash';
-                setCurrentRoute(route);
-              }}
-              onStateChange={() => {
-                const route = navigationRef.getCurrentRoute()?.name || 'Splash';
-                setCurrentRoute(route);
-              }}
-            />
+            <AppNavigation />
           )}
-          {Boolean((currentUser || useAuthStore.getState().user) && isAppLockEnabled && isLocked && currentRoute !== 'Splash') && (
-            <AppLockOverlay />
-          )}
-          <OtaUpdateModal
-            visible={ota.visible}
-            updateInfo={ota.info}
-            isDownloading={ota.isDownloading}
-            downloadProgressText={ota.downloadText}
-            error={ota.error}
-            onUpdate={ota.applyUpdate}
-            onDismiss={ota.hideUpdateModal}
-            onRetry={ota.applyUpdate}
-          />
+          <AppLockOverlay />
+          <ConnectedOtaModal />
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}
             translucent={true}

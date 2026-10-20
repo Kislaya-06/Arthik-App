@@ -30,8 +30,6 @@ import {
   selfHealCorruptedRows,
 } from './selfHealing';
 import type { RemoteSavingsLogEntry } from './selfHealing';
-export { selfHealDefaultBudget, selfHealCorruptedRows };
-export type { RemoteSavingsLogEntry };
 
 // ---------------------------------------------------------------------------
 // Hydration Helpers (Step 7e)

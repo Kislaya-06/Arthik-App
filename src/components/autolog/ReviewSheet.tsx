@@ -64,8 +64,6 @@ const TYPE_OPTIONS: SegmentedOption[] = [
   { key: 'income', label: 'Income' },
 ];
 
-let chipGradCounter = 0;
-
 // ─── Animated Category Chip (Parity with ExpenseFormScreen) ──────────────────
 const CategoryChipItem: React.FC<{
   category: Category;
@@ -100,10 +98,7 @@ const CategoryChipItem: React.FC<{
     return getCategoryChipGradient(chipColor, isDark);
   }, [chipColor, isSelected, isDark, colors.textPrimary]);
 
-  const gradId = useMemo(() => {
-    chipGradCounter = (chipGradCounter + 1) % 1000000;
-    return `review_chip_grad_${(category.id || 'c').replace(/[^a-zA-Z0-9]/g, '')}_${chipGradCounter}`;
-  }, [category.id]);
+  const gradId = `review_chip_grad_${(category.id || 'default').replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <Pressable onPress={onSelect}>

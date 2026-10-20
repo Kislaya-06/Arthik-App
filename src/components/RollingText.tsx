@@ -229,7 +229,7 @@ interface ActiveRoll {
   plan: RollPlan;
 }
 
-export const RollingText: React.FC<RollingTextProps> = ({
+export const RollingText: React.FC<RollingTextProps> = React.memo(({
   text,
   style,
   minScale,
@@ -421,7 +421,9 @@ export const RollingText: React.FC<RollingTextProps> = ({
       </View>
     </View>
   );
-};
+});
+
+RollingText.displayName = 'RollingText';
 
 const styles = StyleSheet.create({
   row: {

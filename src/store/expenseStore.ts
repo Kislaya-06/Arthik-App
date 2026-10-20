@@ -70,8 +70,8 @@ let isSyncInProgress = false;
 let activeFetchSeq = 0;
 
 // P0.7: Exact network failure identification
-export { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
+export { isNetworkFailure, withTimeout };
 
 export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) => ({
   expenses: [],
@@ -319,26 +319,28 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
 
       if (fetchSeq !== activeFetchSeq) return;
 
-      // P0.5: Read pending deletes and updates from AsyncStorage
+      // P0.5: Read pending deletes, updates, and additions from AsyncStorage in one batch
       let pendingDeletes: string[] = [];
+      let pendingUpdates: PendingUpdate[] = [];
+      let pendingAdds: Expense[] = [];
+
       try {
-        const delStored = await AsyncStorage.getItem(getPendingDeletesKey(user.id));
-        if (delStored) {
-          const parsed: (string | { id: string })[] = JSON.parse(delStored);
+        const [delPair, updPair, addPair] = await AsyncStorage.multiGet([
+          getPendingDeletesKey(user.id),
+          getPendingUpdatesKey(user.id),
+          getPendingStorageKey(user.id),
+        ]);
+
+        if (delPair && delPair[1]) {
+          const parsed: (string | { id: string })[] = JSON.parse(delPair[1]);
           pendingDeletes = parsed.map((item) => (typeof item === 'string' ? item : item.id));
         }
-      } catch {}
-
-      let pendingUpdates: PendingUpdate[] = [];
-      try {
-        const updStored = await AsyncStorage.getItem(getPendingUpdatesKey(user.id));
-        if (updStored) pendingUpdates = JSON.parse(updStored);
-      } catch {}
-
-      let pendingAdds: Expense[] = [];
-      try {
-        const addStored = await AsyncStorage.getItem(getPendingStorageKey(user.id));
-        if (addStored) pendingAdds = JSON.parse(addStored);
+        if (updPair && updPair[1]) {
+          pendingUpdates = JSON.parse(updPair[1]);
+        }
+        if (addPair && addPair[1]) {
+          pendingAdds = JSON.parse(addPair[1]);
+        }
       } catch {}
 
       const pendingDeleteSet = new Set(pendingDeletes);

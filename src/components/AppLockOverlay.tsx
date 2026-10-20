@@ -4,16 +4,21 @@ import { StatusBar } from 'expo-status-bar';
 import { Lock, FingerprintPattern } from 'lucide-react-native';
 import { useTheme } from '../store/themeStore';
 import { useAppLockStore } from '../store/appLockStore';
+import { useAuthStore } from '../store/authStore';
+import { navigationRef } from '../navigation/navigationRef';
 import { Spacing, FontSize, FontFamily } from '../config/theme';
 
 export const AppLockOverlay: React.FC = () => {
   const { colors, isDark } = useTheme();
   const isAuthenticating = useAppLockStore((s) => s.isAuthenticating);
+  const isAppLockEnabled = useAppLockStore((s) => s.isAppLockEnabled);
+  const isLocked = useAppLockStore((s) => s.isLocked);
+  const user = useAuthStore((s) => s.user);
   const authenticate = useAppLockStore((s) => s.authenticate);
 
   useEffect(() => {
     // Only auto-trigger biometric prompt on appearance if app is in active foreground state
-    if (AppState.currentState === 'active') {
+    if (AppState.currentState === 'active' && isLocked) {
       const timer = setTimeout(() => {
         if (AppState.currentState === 'active' && useAppLockStore.getState().isLocked) {
           authenticate();
@@ -21,7 +26,16 @@ export const AppLockOverlay: React.FC = () => {
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [authenticate]);
+  }, [authenticate, isLocked]);
+
+  if (!user || !isAppLockEnabled || !isLocked) {
+    return null;
+  }
+
+  const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : 'Splash';
+  if (currentRoute === 'Splash') {
+    return null;
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Performance & Architecture — Re-render Elimination & Lean Utility Optimization (Findings 1–15) — OTA-safe
+### Performance & Quality — Root Re-render Elimination, I/O Batching & Callback Stabilization — OTA-safe
+
+- **Root Re-Render Elimination (`App.tsx`, `AppLockOverlay.tsx`)**: Removed `currentRoute` state and `onStateChange` listener from `App.tsx` that re-rendered the entire root tree on every screen push/pop/tab change. `AppLockOverlay` now self-guards its own visibility directly via `navigationRef`.
+- **OTA Modal Selector Isolation (`App.tsx`)**: Extracted `ConnectedOtaModal` with granular Zustand selectors, preventing `App.tsx` and all child navigation from re-rendering on background OTA download progress events.
+- **Search Query Debouncing (`HistoryScreen.tsx`)**: Debounced transaction filtering query by 150ms so rapid keystrokes remain instantaneous without running synchronous multi-property scans and daily groupings per character.
+- **Tab Bar Callback Stabilization (`BottomNavBar.tsx`)**: Stabilized `navigateTo` and `getRouteIndex` via `useRef(state)`, preventing all tab callbacks from re-instantiating on tab switches and preserving `React.memo(CapsuleTabItem)` crossfade performance.
+- **Hero Card & Header Memoization (`HomeScreen.tsx`)**: Memoized `onNavigateSavings`, `onOpenDetails`, and header navigation callbacks with `useCallback`, restoring `React.memo(BrandedHeroCard)` skip-render behavior.
+- **Rolling Number Memoization (`RollingText.tsx`)**: Wrapped `RollingText` in `React.memo`, skipping glyph width measurements and re-renders when parent cards update unrelated state.
+- **Batch Storage & Network I/O (`expenseStore.ts`, `categoryStore.ts`)**: Replaced 3 serial `AsyncStorage.getItem` calls with a single `AsyncStorage.multiGet` during expense hydration; converted sequential `for...await` Supabase category color updates to `Promise.allSettled`.
+- **Deterministic Gradient Identifiers (`ExpenseFormScreen.tsx`, `ReviewSheet.tsx`)**: Replaced global mutable counter `chipGradCounter` with deterministic category ID keys for SVG gradient definitions.
+- **Canonical Utility Reuse (`insightsCommon.ts`, `useMoneyWaterfall.ts`)**: Delegated `isDateInBounds` to `isDateKeyWithin` and aligned `useMoneyWaterfall` with `todayDateKey`.
+- **Tests**: 121 test files, 1,797 tests passing; `tsc --noEmit` 0 errors.
 
 - **Granular Zustand Selectors (Findings 1, 7)**: Subscribed screens (`BottomNavBar`, `AddEditCategoryScreen`, `ProfileScreen`, `ProfileSetupScreen`, `SplashScreen`, `AppLockOverlay`, `HomeScreen`) to individual primitive values instead of whole-store objects or unselected arrays, eliminating cascading re-renders across the app.
 - **Fast Early-Exit Splits Predicate (Finding 8, `splitLedger.ts`, `HomeScreen.tsx`)**: Replaced full `buildPeopleLedger(expenses)` scan on Home with `hasUnsettledSplitExpenses`, stopping on the first open allocation without building or sorting maps.

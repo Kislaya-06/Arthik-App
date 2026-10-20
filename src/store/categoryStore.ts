@@ -191,20 +191,18 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         set({ categories: updated, isFetched: true });
         await AsyncStorage.setItem(cacheKey, JSON.stringify(updated));
 
-        // Asynchronously update legacy categories in Supabase DB so they are permanently fixed
+        // Asynchronously update legacy categories in Supabase DB in parallel so they are permanently fixed
         if (changedCategories.length > 0 && !useNetworkStore.getState().isOffline) {
-          (async () => {
-            try {
-              for (const changed of changedCategories) {
-                if (changed.user_id && changed.id) {
-                  await supabase
-                    .from('categories')
-                    .update({ color: changed.color })
-                    .eq('id', changed.id);
-                }
-              }
-            } catch {}
-          })();
+          Promise.allSettled(
+            changedCategories
+              .filter((c) => c.user_id && c.id)
+              .map((c) =>
+                supabase
+                  .from('categories')
+                  .update({ color: c.color })
+                  .eq('id', c.id)
+              )
+          ).catch(() => {});
         }
       }
     } catch (e) {

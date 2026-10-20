@@ -291,6 +291,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setRefreshing(false);
   }, [loadData]);
 
+  const handleNavigateSavings = useCallback(() => {
+    navigation.navigate('Savings' as any);
+  }, [navigation]);
+
+  const handleOpenHeroDetails = useCallback(() => {
+    setShowHeroDetails(true);
+  }, []);
+
+  const handleNavigateLedger = useCallback(() => {
+    navigation.navigate('Ledger' as any);
+  }, [navigation]);
+
+  const handleNavigateNotifications = useCallback(() => {
+    navigation.navigate('Notifications' as any);
+  }, [navigation]);
+
+  const handleNavigateProfile = useCallback(() => {
+    navigation.navigate('Profile' as any);
+  }, [navigation]);
+
   const catMap = useMemo(() => {
     const m: Record<string, Category> = {};
     for (let i = 0; i < categories.length; i++) {
@@ -683,7 +703,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <View style={styles.headerActions}>
             <Pressable
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('Ledger' as any)}
+              onPress={handleNavigateLedger}
               accessibilityRole="button"
               accessibilityLabel="Ledger"
             >
@@ -692,14 +712,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </Pressable>
             <Pressable
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('Notifications' as any)}
+              onPress={handleNavigateNotifications}
             >
               <Bell size={20} color={colors.textPrimary} />
               {unreadCount > 0 && <View style={styles.badgeDot} />}
             </Pressable>
             <Pressable
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('Profile' as any)}
+              onPress={handleNavigateProfile}
             >
               <User size={20} color={colors.textPrimary} />
             </Pressable>
@@ -738,14 +758,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           cadencePeriodSummary={cadencePeriodSummary}
           colors={colors}
           isDark={isDark}
-          onNavigateSavings={() => navigation.navigate('Savings' as any)}
+          onNavigateSavings={handleNavigateSavings}
           periodIncome={periodIncome}
           remainingIncome={remainingIncome}
           remainingDeposits={remainingDeposits}
           isSpendingFromGullak={isSpendingFromGullak}
           gullakDrawnAmount={gullakDrawnAmount}
           carryNote={carryNote}
-          onOpenDetails={isBudgetModeEnabled ? () => setShowHeroDetails(true) : undefined}
+          onOpenDetails={isBudgetModeEnabled ? handleOpenHeroDetails : undefined}
         />
         {isBudgetModeEnabled ? (
           <Text style={[styles.heroHint, { color: colors.textMuted }]}>Tap the card for details</Text>

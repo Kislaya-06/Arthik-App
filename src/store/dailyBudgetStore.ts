@@ -191,11 +191,13 @@ import {
   fetchRemoteBudgetData,
   mergePendingPlanChanges,
   mergePendingPeriods,
-  selfHealDefaultBudget,
-  selfHealCorruptedRows,
   hydrateGullakDeposits,
   runHydrateFromSupabase,
 } from './dailyBudget/hydrate';
+import {
+  selfHealDefaultBudget,
+  selfHealCorruptedRows,
+} from './dailyBudget/selfHealing';
 export {
   waitForPersistHydration,
   readPendingSettings,

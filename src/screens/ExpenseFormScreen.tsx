@@ -56,8 +56,6 @@ const KEYPAD_ROWS = [
 ];
 
 // ─── Animated Category Chip ─────────────────────────────────────────────────
-let chipGradCounter = 0;
-
 const CategoryChipItem = React.memo<{
   category: Category;
   isSelected: boolean;
@@ -93,10 +91,7 @@ const CategoryChipItem = React.memo<{
     return getCategoryChipGradient(chipColor, isDark);
   }, [chipColor, isSelected, isDark, colors.textPrimary]);
 
-  const gradId = useMemo(() => {
-    chipGradCounter = (chipGradCounter + 1) % 1000000;
-    return `chip_grad_${(category.id || 'c').replace(/[^a-zA-Z0-9]/g, '')}_${chipGradCounter}`;
-  }, [category.id]);
+  const gradId = `chip_grad_${(category.id || 'default').replace(/[^a-zA-Z0-9]/g, '')}`;
 
   const pillRadius = chipHeight > 0 ? Math.round(chipHeight / 2) : 20;
 

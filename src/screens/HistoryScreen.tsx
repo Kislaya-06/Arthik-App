@@ -125,9 +125,15 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleScroll = useScrollDirection();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const sectionListRef = useRef<SectionList<HistoryItem, Section>>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 150);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Progressive section pagination: bounds initial mount to 4 days (sections),
   // expandable via "See More" button to eliminate Main UI thread frame drops
@@ -195,8 +201,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
       filteredExpenses = filteredExpenses.filter((e) => e.category_id === selectedCategoryId);
     }
 
-    if (searchQuery.trim()) {
-      const lowerQuery = searchQuery.toLowerCase();
+    if (debouncedQuery.trim()) {
+      const lowerQuery = debouncedQuery.toLowerCase();
       filteredExpenses = filteredExpenses.filter((e) => {
         const category = e.category_id ? categoryMap.get(e.category_id) : undefined;
         const categoryName = category?.name?.toLowerCase() || (e.type === 'income' ? 'money added' : '');
@@ -269,7 +275,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         data: sortedData,
       };
     });
-  }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, searchQuery, isBudgetModeEnabled]);
+  }, [expenses, gullakDeposits, categoryMap, selectedCategoryId, debouncedQuery, isBudgetModeEnabled]);
 
   // Sliced sections for progressive rendering
   const displayedSections = useMemo(() => {
@@ -501,7 +507,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     let title = 'No transactions yet';
     let subtitle = 'Your expenses will appear here once you add them.';
 
-    if (searchQuery.trim()) {
+    if (debouncedQuery.trim()) {
       IconComponent = SearchX;
       title = 'No results found';
       subtitle = 'Try adjusting your search to find what you are looking for.';
@@ -521,7 +527,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>{subtitle}</Text>
       </View>
     );
-  }, [searchQuery, selectedCategoryId, categoryMap, colors]);
+  }, [debouncedQuery, selectedCategoryId, categoryMap, colors]);
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
