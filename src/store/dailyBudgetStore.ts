@@ -58,6 +58,8 @@ import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure } from '../lib/networkUtils';
 import { round2 } from '../lib/formatters';
+import { calculateBudgetStatus } from '../money/budgetStatus';
+import { overspendFundingBetweenDates } from '../money/overspendFunding';
 
 import {
   buildCategoryClassifier,
@@ -555,14 +557,17 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         // pool that only pays after the budget is used up, so it must not delay the "limit exceeded" alert.
         if (get().isBudgetModeEnabled && get().budgetCadence === 'daily' && todayRecord.budget > 0) {
           const spendable = todayRecord.budget;
-          const ratio = spendable > 0 ? todaySpent / spendable : (todaySpent > 0 ? 1 : 0);
-          const remaining = Math.max(0, spendable - todaySpent);
+          const todayBudgetStatus = calculateBudgetStatus(spendable, todaySpent);
+          const ratio = todayBudgetStatus.budgetUsedRatio;
+          const remaining = todayBudgetStatus.budgetLeftUnspent;
           if (ratio >= 1) {
             if (get().lastExceededNotifiedDate !== todayStr) {
-              const over = Math.max(0, todaySpent - spendable);
-              const availIncome = get().getAvailableIncomeBalance();
-              const incomeCovered = Math.min(over, Math.max(0, availIncome));
-              const gullakCovered = Math.max(0, over - incomeCovered);
+              // Who paid the overspend comes from the money waterfall (WAT-001), never from a separate guess.
+              const { coveredByIncome: incomeCovered, coveredByGullak: gullakCovered } = overspendFundingBetweenDates(
+                runWaterfall({ records, expenses }),
+                todayStr,
+                todayStr
+              );
               notifyLimit({
                 id: `alert_exceeded_${todayStr}`,
                 kind: 'exceeded',
@@ -600,10 +605,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
             if (ratio >= 1) {
               if (get().lastPeriodExceededKey !== periodKey) {
-                const over = Math.max(0, summary.spent - summary.budget);
-                const availIncome = get().getAvailableIncomeBalance();
-                const incomeCovered = Math.min(over, Math.max(0, availIncome));
-                const gullakCovered = Math.max(0, over - incomeCovered);
+                // Who paid the overspend comes from the money waterfall (WAT-001), never from a separate guess.
+                const { coveredByIncome: incomeCovered, coveredByGullak: gullakCovered } = overspendFundingBetweenDates(
+                  runWaterfall({ records, expenses }),
+                  summary.periodStart,
+                  summary.periodEnd
+                );
                 notifyLimit({
                   id: `alert_exceeded_${periodKey}`,
                   kind: 'exceeded',

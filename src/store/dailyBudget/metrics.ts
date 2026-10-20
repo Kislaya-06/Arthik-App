@@ -3,6 +3,7 @@ import { useCategoryStore } from '../categoryStore';
 import { useAuthStore } from '../authStore';
 import { isCountedIncome } from '../../lib/transactionUtils';
 import { round2 } from '../../lib/formatters';
+import { todayDateKey } from '../../money/dateKeys';
 import { computeWaterfallFromState, WaterfallResult } from '../../lib/moneyWaterfall';
 import {
   buildBudgetPools,
@@ -43,7 +44,7 @@ export const registerMetricsStoreGetter = (getter: () => DailyBudgetState) => {
   storeGetter = getter;
 };
 
-export const getTodayDateStr = () => format(new Date(), 'yyyy-MM-dd');
+export const getTodayDateStr = () => todayDateKey();
 
 export const getUserCreatedAtLocalDate = (createdAt?: string | null): string | undefined => {
   if (!createdAt) return undefined;

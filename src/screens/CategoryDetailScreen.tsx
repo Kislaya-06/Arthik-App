@@ -17,7 +17,8 @@ import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { getCategoryIcon } from '../lib/iconUtils';
-import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
+import { isIncomeTransaction } from '../lib/transactionUtils';
+import { sumCountedSpending } from '../money/ledger';
 import { isDateInBounds } from '../lib/insightsCommon';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
@@ -56,11 +57,10 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
       .sort((a, b) => b.expense_date.localeCompare(a.expense_date)),
   [expenses, categoryId, startDate, endDate]);
 
-  const totalSpent = useMemo(() =>
-    categoryExpenses.reduce((sum, e) => {
-      return isCountedExpense(e, category) ? sum + e.amount : sum;
-    }, 0),
-  [categoryExpenses, category]);
+  const totalSpent = useMemo(
+    () => sumCountedSpending(categoryExpenses, category ? [category] : []),
+    [categoryExpenses, category]
+  );
 
   const renderItem = useCallback(({ item }: { item: Expense }) => {
     const isIncome = isIncomeTransaction(item, category);

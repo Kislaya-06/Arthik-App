@@ -3,7 +3,7 @@ import {
   startOfWeek, endOfWeek, subWeeks, addDays, differenceInCalendarDays,
   isWithinInterval, parseISO, format,
 } from 'date-fns';
-import { isIncomeTransaction, isExcludedFromTotals, isCountedIncome } from '../../lib/transactionUtils';
+import { isCountedExpense, isCountedIncome } from '../../lib/transactionUtils';
 import { formatAmountWithCommas, round2 } from '../../lib/formatters';
 import { computeMonthlyCashFlowData, computeYearlyGullakMilestones } from '../../lib/chartUtils';
 import {
@@ -119,7 +119,7 @@ export function useInsightsData({
       const cleanDate = exp.expense_date.split('T')[0]?.trim();
       if (!cleanDate) continue;
       const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
       if (!earliest || cleanDate < earliest) {
         earliest = cleanDate;
       }
@@ -177,7 +177,7 @@ export function useInsightsData({
 
     for (const exp of expenses) {
       const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -236,7 +236,7 @@ export function useInsightsData({
 
     for (const exp of expenses) {
       const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -563,7 +563,7 @@ export function useInsightsData({
     let count = 0;
     for (const exp of expenses) {
       const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
@@ -689,7 +689,7 @@ export function useInsightsData({
     let count = 0;
     for (const exp of expenses) {
       const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
@@ -898,7 +898,7 @@ export function useInsightsData({
     let count = 0;
     for (const exp of expenses) {
       const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {

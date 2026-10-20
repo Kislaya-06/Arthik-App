@@ -398,10 +398,11 @@ export interface TodayMetrics {
 export const calculateTodayMetrics = (todayRecord: DailyRecord): TodayMetrics => {
   const budget = round2(todayRecord.budget);
   const spent = round2(todayRecord.spent);
-  const remaining = Math.max(0, round2(budget - spent));
+  const cycle = calculateCycleFinancials({ scheduledBudget: budget, spent });
+  const remaining = cycle.remaining;
   const progressRatio = budget > 0 ? Math.min(spent / budget, 1) : 0;
-  const isOverBudget = budget > 0 && spent > budget;
-  const overAmount = isOverBudget ? round2(spent - budget) : 0;
+  const isOverBudget = cycle.isOverBudget;
+  const overAmount = cycle.overAmount;
   const saved = round2(todayRecord.saved);
 
   return {

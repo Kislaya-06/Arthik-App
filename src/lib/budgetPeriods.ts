@@ -26,10 +26,10 @@ import {
   addMonths,
   differenceInCalendarDays,
   eachDayOfInterval,
-  getDaysInMonth,
 } from 'date-fns';
 import { round2 } from './formatters';
 import { calculateCycleFinancials } from './budgetCalculations';
+import { monthlyAllowanceFromWeeklyBudget } from '../money/budgetAllowance';
 import {
   BudgetCadence,
   BudgetPlanChange,
@@ -567,9 +567,8 @@ export function getCurrentPeriodSummary(
   // If Weekly mode: Projected Monthly Budget based on actual calendar days in current month (28, 29, 30, or 31 days)
   let projectedMonthlyBudget: number | undefined;
   if (owner === 'weekly') {
-    const daysInMonth = getDaysInMonth(today);
-    const dailyAvg = fullAmount / 7;
-    projectedMonthlyBudget = Math.round(dailyAvg * daysInMonth);
+    // Same rule as every screen (BUD-009): a weekly budget is worth weekly / 7 per day, for each day of the month.
+    projectedMonthlyBudget = Math.round(monthlyAllowanceFromWeeklyBudget(fullAmount, todayStr));
   }
 
   return {

@@ -20,7 +20,11 @@ import {
   addDays,
   getDaysInMonth,
 } from 'date-fns';
-import { isIncomeTransaction, isExcludedFromTotals } from './transactionUtils';
+import { isCountedExpense } from './transactionUtils';
+import { sumSpendingBetweenDateKeys } from '../money/ledger';
+import { addDaysToDateKey } from '../money/dateKeys';
+import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
+import { calculateBudgetStatus } from '../money/budgetStatus';
 import { round2, formatAmountWithCommas } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -44,23 +48,7 @@ export function computeMonthlySpend(
   categories: Category[],
   monthInterval: MonthInterval
 ): number {
-  const startStr = toDateStr(monthInterval.start);
-  const endStr = toDateStr(monthInterval.end);
-
-  let total = 0;
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      total += exp.amount;
-    }
-  }
-  return round2(total);
+  return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(monthInterval.start), toDateStr(monthInterval.end));
 }
 
 // ─── 2. Effective Monthly Budget & Budget Health ───────────────────────────────
@@ -95,17 +83,15 @@ export function computeEffectiveMonthBudget(
     }
   }
 
-  let effectiveBudget = 0;
-  if (cadence === 'monthly') {
-    effectiveBudget = isPartialFirstMonth
-      ? round2((monthlyAmount / totalDays) * activeDays)
-      : monthlyAmount;
-  } else if (cadence === 'weekly') {
-    effectiveBudget = round2((weeklyAmount / 7) * activeDays);
-  } else {
-    // daily cadence
-    effectiveBudget = round2(dailyAmount * activeDays);
-  }
+  // One rule for every screen (BUD-009). The active days are the LAST `activeDays` days of the month.
+  const budgetPlan = {
+    cadence: cadence as 'daily' | 'weekly' | 'monthly',
+    dailyBudgetAmount: dailyAmount,
+    weeklyBudgetAmount: weeklyAmount,
+    monthlyBudgetAmount: monthlyAmount,
+  };
+  const firstActiveDateKey = addDaysToDateKey(endStr, -(activeDays - 1));
+  const effectiveBudget = round2(budgetAllowedBetweenDates(budgetPlan, firstActiveDateKey, endStr));
 
   return { effectiveBudget, activeDays, totalDays, isPartialFirstMonth };
 }
@@ -117,12 +103,13 @@ export function computeMonthlyBudgetHealth(
   monthBudget: number,
   monthSpent: number
 ): { remaining: number; overAmount: number; isOverBudget: boolean; ratio: number } {
-  const isOver = monthBudget > 0 && monthSpent > monthBudget;
-  const remaining = Math.max(0, round2(monthBudget - monthSpent));
-  const overAmount = isOver ? round2(monthSpent - monthBudget) : 0;
-  const ratio = monthBudget > 0 ? Math.min(1, round2(monthSpent / monthBudget)) : 0;
-
-  return { remaining, overAmount, isOverBudget: isOver, ratio };
+  const status = calculateBudgetStatus(monthBudget, monthSpent);
+  return {
+    remaining: status.budgetLeftUnspent,
+    overAmount: status.amountSpentOverBudget,
+    isOverBudget: status.isOverBudget,
+    ratio: round2(status.budgetUsedRatio),
+  };
 }
 
 /**
@@ -425,7 +412,7 @@ export function computeMonthlyComparison(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+    if (!isCountedExpense(exp, cat)) continue;
 
     if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
       currTotal += exp.amount;
@@ -538,7 +525,7 @@ export function computeMonthlyLargestOutflow(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+    if (!isCountedExpense(exp, cat)) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       txnCount++;
@@ -635,7 +622,7 @@ export function computeMonthlyCategoryShift(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+    if (!isCountedExpense(exp, cat)) continue;
 
     const key = exp.category_id || 'others';
 

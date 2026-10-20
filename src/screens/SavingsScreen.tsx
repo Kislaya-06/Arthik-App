@@ -19,10 +19,10 @@ import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { useExpenseStore } from '../store/expenseStore';
-import { useCategoryStore, Category } from '../store/categoryStore';
+import { useCategoryStore } from '../store/categoryStore';
 import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
 import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
-import { isIncomeTransaction, isExcludedFromTotals } from '../lib/transactionUtils';
+import { buildLedgerEntries, spendingTotalsByDateKey } from '../money/ledger';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { BudgetEditModal } from '../components/BudgetEditModal';
@@ -220,26 +220,10 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     overAmount,
   } = todayMetrics;
 
-  const catMap = useMemo(() => {
-    const m: Record<string, Category> = {};
-    for (let i = 0; i < categories.length; i++) {
-      m[categories[i].id] = categories[i];
-    }
-    return m;
-  }, [categories]);
-
-  const spentByDate = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (let i = 0; i < expenses.length; i++) {
-      const e = expenses[i];
-      const cat = e.category_id ? catMap[e.category_id] : undefined;
-      if (isIncomeTransaction(e, cat) || isExcludedFromTotals(e)) continue;
-      const cleanDate = e.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      map[cleanDate] = (map[cleanDate] || 0) + (Number(e.amount) || 0);
-    }
-    return map;
-  }, [expenses, catMap]);
+  const spentByDate = useMemo(
+    () => spendingTotalsByDateKey(buildLedgerEntries(expenses, categories)),
+    [expenses, categories]
+  );
 
   const todayKey = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 

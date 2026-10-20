@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Bug Fix — Friend's Payback No Longer Comes Back For Review (`ReviewSheet.tsx`, `moneyBack.ts`) — OTA-safe
+
+- **Problem**: tapping a person on the AutoLog review screen ("Aditya owes ₹X → Settle") did settle the split, but the same transaction came back for review ("Logged · choose a category"). Cause: the income was saved with no category, which marks the event `needsCategory`, and the settle path never cleared it. A payback has no category of its own, so nothing could ever clear it.
+- **Fix (`ReviewSheet.tsx`)**: `settleWith` now clears `needsCategory` (same option "Save and split" already used). While saving, the green footer button reads "Saving <person>'s payback · ₹X" instead of "Save as Income".
+- **Fix (`moneyBack.ts`)**: `convertIncomeToMoneyBack` now also closes any linked AutoLog event after the money-back row is saved, so settling from the transaction detail screen or a notification cannot leave a review behind either.
+- **Unchanged and now tested**: less money than owed clears the person's OLDEST open split first and each category gets back exactly the part for its own expense (`SPL-003`); manual settle from the ledger uses the same code; deleting the payback restores every category exactly.
+- **Docs**: canonical `SPL-005` point 5.
+- **Tests**: `tests/autoLogSettleReview.test.ts`, `tests/splitPartialPaybackCategories.test.ts`.
+
+### Architecture & Financial Integrity — One Calculation Layer (`src/money/`), One Monthly Rate (BUD-009), Alerts From the Waterfall (MNY-001) — OTA-safe
+
+- **New `src/money/` layer**: `dateKeys.ts` (one way to name a day), `ledger.ts` (rows cleaned once; `amountPaid` vs `amountCountedAfterMoneyBack`; per-day and per-range totals), `budgetAllowance.ts` (one per-day rate), `budgetStatus.ts` (left / over / ratio), `overspendFunding.ts` (who paid an overspend).
+- **`classifyTransaction`** added to `transactionUtils.ts`. `isCountedExpense` / `isCountedIncome` are now built on it. The 17 hand-written `isIncomeTransaction(...) || isExcludedFromTotals(...)` checks were replaced by `!isCountedExpense(...)` (weekly, monthly, yearly insights, `useInsightsData`, `SavingsScreen`).
+- **Duplicate loops removed**: `computeWeeklySpend`, `computeMonthlySpend`, `computeYearlySpend`, `SavingsScreen` spent-by-day and `CategoryDetailScreen` total now use the ledger. `SavingsScreen` and `CategoryDetailScreen` now round to paise like everywhere else.
+- **BUD-009 (intended number changes, monthly budget only)**: a monthly budget is spread over the real days of each month on every screen. Weekly insights no longer divide by 30 (3100/month: a week was 723.33, now 700). Yearly insights no longer divide by 365/12 (every full month is now exactly the monthly amount). Daily and weekly budgets are unchanged.
+- **Status formula unified**: weekly and monthly health, `calculateTodayMetrics`, cadence switch unspent, Home today-remaining and the budget-mode week card use `calculateBudgetStatus` / `calculateCycleFinancials`.
+- **Alert fix**: the "limit exceeded" alerts now read income/Gullak funding from the waterfall. Before, income already used by the same overspend was counted as "nothing left", so the alert could say Gullak paid everything.
+- **Date helpers**: `toDateStr`, `getTodayDateStr`, `todayString` now point to `src/money/dateKeys.ts` (names kept).
+- **Tests**: `tests/money/*` (dates, ledger, allowance, status, funding, alert regression, golden numbers). All existing tests pass unchanged.
+- **Docs**: canonical rules `BUD-009`, `MNY-001`, `NOT-001` point 3; `CODEBASE_GUIDE.md` section on `src/money/`.
+
 ### Financial Integrity & Lifecycle Alignment — HeroDetailsSheet All-Time Budget Preservation & Gullak Overdraft Hard-Cap (`heroDetails.ts`, `HomeScreen.tsx`) — OTA-safe
 
 - **All-Time Active Budget Preservation & Unspent Income Reconciliation (`heroDetails.ts`, `HomeScreen.tsx`)**:

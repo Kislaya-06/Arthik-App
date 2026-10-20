@@ -20,6 +20,8 @@ import { pickPrimaryChip } from '../lib/heroDetails';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { PeriodSummaryInfo } from '../lib/budgetPeriods';
 import { formatCadenceRolloverStrip } from '../lib/budgetModeUtils';
+import { monthlyAllowanceFromWeeklyBudget } from '../money/budgetAllowance';
+import { todayDateKey } from '../money/dateKeys';
 
 export type BrandedHeroCardProps = {
   primaryLabel: string;
@@ -204,7 +206,7 @@ export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
           return todayRecordSpent;
         }
         if (activeFilter === 'Monthly') {
-          return cadencePeriodSummary.projectedMonthlyBudget ?? Math.round((cadencePeriodSummary.budget / 7) * 31);
+          return cadencePeriodSummary.projectedMonthlyBudget ?? Math.round(monthlyAllowanceFromWeeklyBudget(cadencePeriodSummary.budget, todayDateKey()));
         }
       } else if (budgetCadence === 'monthly') {
         if (activeFilter === 'Monthly') {

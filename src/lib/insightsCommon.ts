@@ -5,7 +5,8 @@
  * Invariant: Real money only. Pure functions only. No React or side-effects.
  */
 
-import { parseISO, format } from 'date-fns';
+import { parseISO } from 'date-fns';
+import { toDateKey } from '../money/dateKeys';
 
 export interface ExpenseLike {
   id: string;
@@ -24,13 +25,7 @@ export type InsightTakeawayStatus = 'coral' | 'mint' | 'mintGreen' | 'neutral';
  * Normalizes Date, number timestamp, or ISO string into a canonical 'yyyy-MM-dd' string.
  */
 export function toDateStr(d: Date | number | string): string {
-  if (typeof d === 'number') {
-    return format(new Date(d), 'yyyy-MM-dd');
-  }
-  if (typeof d === 'string') {
-    return d.split('T')[0]?.trim() || '';
-  }
-  return format(d, 'yyyy-MM-dd');
+  return toDateKey(d);
 }
 
 /**

@@ -4,7 +4,7 @@
 > **Status:** ACTIVE — Governed by Owner Approval Protocol  
 > **Repository:** `Arthik-App` (this file lives at `docs/ARTHIK_CANONICAL_RULES.md`)  
 > **Initial Creation:** 2026-10-17  
-> **Last Updated:** 2026-10-18  
+> **Last Updated:** 2026-10-20  
 
 ---
 
@@ -106,6 +106,28 @@ This document is the **single authoritative canonical source of truth** for all 
   5. **Unknown / Paused State (Spendable <= 0 and Spent <= 0):** Status is set to `'unknown'` with 0 savings and no streak penalty.
 - **Code Enforcement:** `src/lib/budgetCalculations.ts`
 - **Verified By:** `tests/budgetCalculations.test.ts`
+
+#### `BUD-009`: One Daily Rate for Every Budget (`budgetAllowedBetweenDates`)
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-20)
+- **Canonical Definition:**
+  1. Every budget is turned into money per day: daily = the daily amount; weekly = weekly amount / 7; monthly = monthly amount / the number of days of the ACTUAL calendar month of that day (Oct 31, Nov 30, Feb 28 or 29).
+  2. A stretch of days is worth the sum of its days. A stretch that crosses two months uses each day's own month.
+  3. So a full calendar month is worth exactly the monthly amount, in every month, on every screen. A week of a 31-day month on a monthly budget of 3100 is worth 700.
+  4. Only days after the user joined and up to today get allowance (`budgetAllowedForActiveDays`).
+  5. Weekly, monthly and yearly insights, the month chart and the Home projected monthly budget all use this one function. Dividing a monthly budget by 30, or by 365/12, is forbidden.
+- **Code Enforcement:** `src/money/budgetAllowance.ts` (used by `weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts`, `chartUtils.ts`, `budgetPeriods.ts`, `BrandedHeroCard.tsx`)
+- **Verified By:** `tests/money/budgetAllowance.test.ts`, `tests/money/goldenNumbers.test.ts`
+
+#### `MNY-001`: Screens Read Totals, They Never Re-derive Them
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-20)
+- **Canonical Definition:**
+  1. A row is classified once by `classifyTransaction` (`spending`, `income`, `moneyBack`, `selfTransfer`). No screen combines `isIncomeTransaction` and `isExcludedFromTotals` by hand.
+  2. Per-day and per-range totals come from `src/money/ledger.ts`. The counted amount (`amountCountedAfterMoneyBack`) is what totals use; the paid amount (`amountPaid`) is what the database holds (`SPL-003`).
+  3. "Left / over / ratio" for one budget comes from `calculateBudgetStatus`, which sits on `calculateCycleFinancials` (`BUD-001`).
+  4. "Who paid the overspend" comes from the waterfall (`WAT-001`) through `overspendFundingBetweenDates`, never from a separate formula.
+  5. New money logic goes into `src/money/` with a test, not into a screen.
+- **Code Enforcement:** `src/money/*`, `src/lib/transactionUtils.ts`
+- **Verified By:** `tests/money/*.test.ts`
 
 #### `BAL-001`: Total Account Remaining Formula
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -304,8 +326,9 @@ This document is the **single authoritative canonical source of truth** for all 
   2. The app only ASKS ("Is this their payment?"). It never settles by itself.
   3. On the review screen and on an income's detail screen, every person who still owes money is always offered, name matches first.
   4. A phone notification can carry the question only while the app's data is loaded; otherwise the same question is on the transaction's detail screen.
-- **Code Enforcement:** `src/lib/splitLedger.ts` (`nameMatches`, `matchIncomingToPeople`), `src/features/autoLog/ledger.ts` (`moneyBackQuestionFor`), `src/components/autolog/ReviewSheet.tsx`, `src/components/split/MoneyBackSheet.tsx`
-- **Verified By:** `tests/splitLedger.test.ts`
+  5. **Tapping the person finishes the review.** The tap is the user's yes. The income is turned into a money-back row, oldest open split first (`SPL-003`), and every category gets back exactly the part that came back for its own expense. The Automatic Logging event is closed: it never asks for a category again, because a money-back row has none. The footer button reads "Saving <person>'s payback · ₹X" while this is saved.
+- **Code Enforcement:** `src/lib/splitLedger.ts` (`nameMatches`, `matchIncomingToPeople`), `src/features/autoLog/ledger.ts` (`moneyBackQuestionFor`), `src/components/autolog/ReviewSheet.tsx` (`settleWith`), `src/store/expense/moneyBack.ts` (`convertIncomeToMoneyBack`), `src/components/split/MoneyBackSheet.tsx`
+- **Verified By:** `tests/splitLedger.test.ts`, `tests/autoLogSettleReview.test.ts`, `tests/splitPartialPaybackCategories.test.ts`
 
 #### `SPL-006`: Refunds & Guards
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18; Solution 2 refined 2026-10-19)
@@ -462,7 +485,8 @@ This document is the **single authoritative canonical source of truth** for all 
      - Real-time Budget Exceeded alert (dispatched once per day upon exceeding daily allowance).
      - Cadence Carry Funding notification (drawdown alert informing user that today's budget is funded from carry).
      - Cadence Carry Gap prompt (alert informing user of remaining partial carry and required top-up).
-  3. **Funding-Ended Notice + Cutoff:** While an allocation carry funds the budget, one short funding message is sent per funded day/week/month. On the first unfunded day/week/month ONE "carried money has run out, add the money yourself" notice is sent (`carry_end_<date>`); then carry notifications permanently stop.
+  3. **Exceeded Alert Funding:** the "income paid X, Gullak paid Y" part of the Budget Exceeded alert (daily, weekly, monthly) is read from the money waterfall for the days of that day/period (`MNY-001`). It is never guessed from the income balance left now.
+  4. **Funding-Ended Notice + Cutoff:** While an allocation carry funds the budget, one short funding message is sent per funded day/week/month. On the first unfunded day/week/month ONE "carried money has run out, add the money yourself" notice is sent (`carry_end_<date>`); then carry notifications permanently stop.
 - **Code Enforcement:** `src/lib/budgetCalculations.ts`, `src/lib/budgetAlerts.ts`, `src/store/dailyBudget/rollover.ts`
 
 ---

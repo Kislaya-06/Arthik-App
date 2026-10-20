@@ -65,6 +65,8 @@
         "version": "2.1.0",
         "title": "Split Expenses & Money Back 🤝",
         "highlights": [
+          "Payback Review: Settling a friend's payback in AutoLog closes review immediately with accurate category restoration",
+          "Unified Calculation Layer: Standardized daily budget rate based on true calendar days per month and single-pass ledger accounting across all screens",
           "AutoLog Review: Clean vertical spacing, emoji-free typography, default unchecked merchant preference, and instant self-transfer for incoming credits",
           "Home Card Breakdown: Preserves active budget allowance & reconciles unspent income in All-time sheet with real piggy bank bounds",
           "History Screen: 4-day progressive pagination with 'See More' button for buttery-smooth, jitter-free category transitions",

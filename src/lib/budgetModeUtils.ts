@@ -7,6 +7,7 @@ import {
 } from 'date-fns';
 import { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord } from '../types';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
+import { calculateBudgetStatus } from '../money/budgetStatus';
 import {
   getPeriodBounds,
   getDateOwner,
@@ -269,7 +270,8 @@ export function buildWeeklyStreakCards(
 
       const plan = resolvePlanForDate(changes, todayStr);
       const budget = plan ? plan.amount : 0;
-      const isOver = spent > budget && budget > 0;
+      const weekStatus = calculateBudgetStatus(budget, spent);
+      const isOver = weekStatus.isOverBudget;
       const progressRatio = budget > 0 ? Math.min(1, spent / budget) : 0;
 
       cards.push({
@@ -278,7 +280,7 @@ export function buildWeeklyStreakCards(
         dateRange,
         isCurrentWeek: true,
         status: isOver ? 'over' : 'on_track',
-        amount: isOver ? round2(spent - budget) : round2(Math.max(0, budget - spent)),
+        amount: isOver ? weekStatus.amountSpentOverBudget : weekStatus.budgetLeftUnspent,
         budget,
         spent,
         badgeText: isOver ? '● Over' : '● On Track',

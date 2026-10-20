@@ -433,6 +433,9 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `weeklyInsightsData.test.ts` | Weekly day-by-day aggregations, daily averages, weekend vs weekday spend |
 | `yearlyInsightsData.test.ts` | 12-month calendar aggregation, annual savings, largest month-over-month increases |
 | `yearlyInsightsInflowDeposits.test.ts` | FIN-03: Annual and 12-month inflow deposit filtering, income double-counting prevention (GUL-004) |
+| `autoLogSettleReview.test.ts` | Payback review loop clearance on settle (ReviewSheet and moneyBack) |
+| `splitPartialPaybackCategories.test.ts` | Oldest split first settlement and category-exact payback restoration (SPL-003) |
+| `money/*.test.ts` | Canonical calculation layer tests: dateKeys, ledger, budgetAllowance (BUD-009), budgetStatus, overspendFunding |
 
 ---
 
@@ -456,3 +459,5 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0014](adr/0014-canonical-rules-and-implementation-status.md) | Canonical Rules File, Retired Split Feature, and CAR-001 / Pure Mode Status | Active |
 | [0015](adr/0015-ui-thread-reanimated-worklet-migration-and-render-optimizations.md) | UI-Thread Reanimated Worklet Migration and Render Optimizations | Active |
 | [0016](adr/0016-split-expenses-and-money-back.md) | Split Expenses, Money Back and Refunds | Active |
+| [0017](adr/0017-money-layer-and-payback-review.md) | Unified Money Layer and Payback Review Resolution | Active |
+

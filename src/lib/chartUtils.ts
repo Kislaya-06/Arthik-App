@@ -1,6 +1,7 @@
-import { format, parseISO, addDays, isAfter, differenceInCalendarDays } from 'date-fns';
+import { format, parseISO, addDays, isAfter } from 'date-fns';
 import { formatCompactCurrency, formatCurrency, round2 } from './formatters';
 import { isExcludedFromTotals } from './transactionUtils';
+import { budgetAllowedForActiveDays } from '../money/budgetAllowance';
 
 export interface SegmentInterpolation {
   inputRange: number[];
@@ -687,8 +688,6 @@ export function computeMonthlyCashFlowData(
 ): MonthlyCashFlowData {
   const weeks: MonthlyCashFlowWeek[] = [];
   const endDay = monthEnd.getDate();
-  const totalDaysInMonth = differenceInCalendarDays(monthEnd, monthStart) + 1;
-
   const weekRanges: Array<{ label: string; startDay: number; endDay: number }> = [
     { label: 'W1', startDay: 1, endDay: Math.min(7, endDay) },
     { label: 'W2', startDay: 8, endDay: Math.min(14, endDay) },
@@ -725,32 +724,13 @@ export function computeMonthlyCashFlowData(
     // Only elapsed days up to today receive operational liquidity; future weeks remain empty until reached.
     if (budgetConfig?.isBudgetMode) {
       const todayStr = format(referenceDate, 'yyyy-MM-dd');
-      let activeDaysInRange = 0;
-
-      let d = rangeStart;
-      while (!isAfter(d, rangeEnd)) {
-        const dStr = format(d, 'yyyy-MM-dd');
-        const isAfterCreated = !userCreatedAtStr || dStr >= userCreatedAtStr;
-        const isElapsed = dStr <= todayStr;
-
-        if (isAfterCreated && isElapsed) {
-          activeDaysInRange++;
-        }
-        d = addDays(d, 1);
-      }
-
-      if (activeDaysInRange > 0) {
-        let dailyRate = 0;
-        if (budgetConfig.cadence === 'monthly') {
-          dailyRate = (budgetConfig.monthlyBudgetAmount || 0) / totalDaysInMonth;
-        } else if (budgetConfig.cadence === 'weekly') {
-          dailyRate = (budgetConfig.weeklyBudgetAmount || 0) / 7;
-        } else {
-          // daily cadence (default)
-          dailyRate = budgetConfig.dailyBudgetAmount || 0;
-        }
-        weekIncome += Math.round(dailyRate * activeDaysInRange);
-      }
+      // One rule for every screen (BUD-009): only days after the user joined and up to today get allowance.
+      weekIncome += Math.round(
+        budgetAllowedForActiveDays(budgetConfig, startStr, endStr, {
+          userJoinedDateKey: userCreatedAtStr || null,
+          todayDateKey: todayStr,
+        })
+      );
     }
 
     // 2. Direct Income Transactions

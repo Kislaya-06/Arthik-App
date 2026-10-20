@@ -202,6 +202,20 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 
 ---
 
+## 7a. `src/money/`: ek sawaal, ek jawab
+
+Pehle har screen khud poochti thi "ye row kharcha hai?", "date kya hai?", "kitna bacha?". Ab ek hi jagah hai. Screen sirf padhti hai.
+
+| File | Kaam |
+|---|---|
+| `dateKeys.ts` | 'yyyy-MM-dd' naam ka ek tareeka. `toDateKey`, `todayDateKey`, din gine, mahine ke din |
+| `ledger.ts` | Row ek baar saaf. `amountPaid` (bank se gaya) aur `amountCountedAfterMoneyBack` (totals me ginta hai). Din-wise totals |
+| `budgetAllowance.ts` | Budget ka per-day rate (BUD-009). Monthly = monthly / us mahine ke asli din |
+| `budgetStatus.ts` | Bacha / over / bar kitna bhara. `calculateCycleFinancials` ke upar |
+| `overspendFunding.ts` | Overspend income ne bhara ya Gullak ne. Waterfall se |
+
+Rule: naya money logic yahin jayega, test ke saath (MNY-001).
+
 ## 7. Money engine: `src/lib/` file by file
 
 ### Transaction ki pehchaan

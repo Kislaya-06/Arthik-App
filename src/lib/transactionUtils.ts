@@ -31,13 +31,34 @@ export const isExcludedFromTotals = (item?: { transaction_class?: string | null 
 export const isCountedIncome = (
   item?: { type?: string; transaction_class?: string | null } | null,
   category?: { name?: string } | null
-): boolean => !isExcludedFromTotals(item) && isIncomeTransaction(item, category);
+): boolean => classifyTransaction(item, category) === 'income';
 
 /** Counts as money spent. Self-transfers (either leg) never do. */
 export const isCountedExpense = (
   item?: { type?: string; transaction_class?: string | null } | null,
   category?: { name?: string } | null
-): boolean => !isExcludedFromTotals(item) && !isIncomeTransaction(item, category);
+): boolean => classifyTransaction(item, category) === 'spending';
+
+/**
+ * What a row IS, from the money point of view. Exactly one answer per row (canonical rules TXN-001..TXN-004):
+ *  - 'spending'      : counts as money spent.
+ *  - 'income'        : counts as money earned.
+ *  - 'moneyBack'     : a friend's payback or a refund (class 'recovery'). Never income, never spending (SPL-003).
+ *  - 'selfTransfer'  : money moved between the user's own accounts. Never income, never spending (TXN-003).
+ * Every screen should ask THIS function (or isCountedExpense / isCountedIncome, which are built on it) instead of
+ * combining isIncomeTransaction and isExcludedFromTotals by hand.
+ */
+export type TransactionKind = 'spending' | 'income' | 'moneyBack' | 'selfTransfer';
+
+export const classifyTransaction = (
+  item?: { type?: string; transaction_class?: string | null } | null,
+  category?: { name?: string } | null
+): TransactionKind => {
+  const transactionClass = getTransactionClass(item);
+  if (transactionClass === 'self_transfer') return 'selfTransfer';
+  if (transactionClass === 'recovery') return 'moneyBack';
+  return isIncomeTransaction(item, category) ? 'income' : 'spending';
+};
 
 export const DEFAULT_INCOME_KEYWORDS = [
   'salary',

@@ -27,7 +27,10 @@ import {
   addDays,
   isAfter,
 } from 'date-fns';
-import { isIncomeTransaction, isExcludedFromTotals, isCountedIncome, isCountedExpense } from './transactionUtils';
+import { isCountedIncome, isCountedExpense } from './transactionUtils';
+import { sumSpendingBetweenDateKeys } from '../money/ledger';
+import { addDaysToDateKey } from '../money/dateKeys';
+import { budgetAllowedBetweenDates, budgetAllowedForActiveDays } from '../money/budgetAllowance';
 import { round2, formatCurrency } from './formatters';
 import { ExpenseLike, toDateStr, toDateObj, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -111,23 +114,7 @@ export function computeYearlySpend(
   categories: Category[],
   yearInterval: YearInterval
 ): number {
-  const startStr = toDateStr(yearInterval.start);
-  const endStr = toDateStr(yearInterval.end);
-
-  let total = 0;
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      total += exp.amount;
-    }
-  }
-  return round2(total);
+  return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(yearInterval.start), toDateStr(yearInterval.end));
 }
 
 // ─── 3. Fair Day-Matched Year-to-Date (YTD) Comparison ────────────────────────
@@ -179,7 +166,7 @@ export function computeYearlyComparison(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+    if (!isCountedExpense(exp, cat)) continue;
 
     if (isDateInBounds(cleanDate, currStartStr, currEndStr)) {
       currentTotal += exp.amount;
@@ -259,18 +246,10 @@ export function computeYearlyInflow(
       isPastYear
     );
 
-    const totalDaysInYear = differenceInCalendarDays(yearInterval.end, yearInterval.start) + 1;
-    let dailyRate = 0;
-
-    if (budgetConfig.cadence === 'monthly') {
-      dailyRate = (budgetConfig.monthlyBudgetAmount || 0) / (totalDaysInYear / 12);
-    } else if (budgetConfig.cadence === 'weekly') {
-      dailyRate = (budgetConfig.weeklyBudgetAmount || 0) / 7;
-    } else {
-      dailyRate = budgetConfig.dailyBudgetAmount || 0;
-    }
-
-    totalInflow += Math.round(dailyRate * activeDays);
+    // One rule for every screen (BUD-009): the active days end today (or at year end for a past year).
+    const lastActiveDateKey = isPastYear || endStr < todayStr ? endStr : todayStr;
+    const firstActiveDateKey = addDaysToDateKey(lastActiveDateKey, -(activeDays - 1));
+    totalInflow += Math.round(budgetAllowedBetweenDates(budgetConfig, firstActiveDateKey, lastActiveDateKey));
   }
 
   for (const exp of expenses) {
@@ -412,7 +391,7 @@ const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
  */
 export function compute12MonthCashFlow(
   yearStart: Date,
-  yearEnd: Date,
+  _yearEnd: Date,
   expenses: ExpenseLike[],
   categories: Category[],
   gullakDeposits: GullakDeposit[] = [],
@@ -435,8 +414,6 @@ export function compute12MonthCashFlow(
   let surplusMonthsCount = 0;
   let activeMonthsCount = 0;
 
-  const totalDaysInYear = differenceInCalendarDays(yearEnd, yearStart) + 1;
-
   for (let m = 0; m < 12; m++) {
     const mStart = startOfMonth(setMonth(yearStart, m));
     const mEnd = endOfMonth(setMonth(yearStart, m));
@@ -451,29 +428,13 @@ export function compute12MonthCashFlow(
 
     if (!isFuture) {
       if (budgetConfig?.isBudgetMode) {
-        let activeDaysInMonth = 0;
-        let d = mStart;
-        while (!isAfter(d, mEnd)) {
-          const dStr = toDateStr(d);
-          const isAfterCreated = !userCreatedAt || dStr >= toDateStr(userCreatedAt);
-          const isElapsed = dStr <= todayStr;
-          if (isAfterCreated && isElapsed) {
-            activeDaysInMonth++;
-          }
-          d = addDays(d, 1);
-        }
-
-        if (activeDaysInMonth > 0) {
-          let dailyRate = 0;
-          if (budgetConfig.cadence === 'monthly') {
-            dailyRate = (budgetConfig.monthlyBudgetAmount || 0) / (totalDaysInYear / 12);
-          } else if (budgetConfig.cadence === 'weekly') {
-            dailyRate = (budgetConfig.weeklyBudgetAmount || 0) / 7;
-          } else {
-            dailyRate = budgetConfig.dailyBudgetAmount || 0;
-          }
-          monthIncome += Math.round(dailyRate * activeDaysInMonth);
-        }
+        // One rule for every screen (BUD-009): only days after the user joined and up to today get allowance.
+        monthIncome += Math.round(
+          budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, {
+            userJoinedDateKey: userCreatedAt ? toDateStr(userCreatedAt) : null,
+            todayDateKey: todayStr,
+          })
+        );
       }
 
       for (const exp of expenses) {
@@ -622,17 +583,10 @@ export function computeAnnualBudgetDiscipline(
 
     if (activeDays <= 0) continue;
 
-    let dailyRate = 0;
-    const totalDaysInYear = differenceInCalendarDays(yearInterval.end, yearInterval.start) + 1;
-    if (budgetConfig.cadence === 'monthly') {
-      dailyRate = (budgetConfig.monthlyBudgetAmount || 0) / (totalDaysInYear / 12);
-    } else if (budgetConfig.cadence === 'weekly') {
-      dailyRate = (budgetConfig.weeklyBudgetAmount || 0) / 7;
-    } else {
-      dailyRate = budgetConfig.dailyBudgetAmount || 0;
-    }
-
-    const effectiveBudget = Math.round(dailyRate * activeDays);
+    // One rule for every screen (BUD-009).
+    const effectiveBudget = Math.round(
+      budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, { userJoinedDateKey: userCreatedStr || null })
+    );
 
     let monthSpend = 0;
     for (const exp of expenses) {
@@ -704,7 +658,7 @@ export function computeAnnualCapitalOutlier(
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
 
       if (exp.amount > maxAmount) {
         maxAmount = exp.amount;
@@ -809,7 +763,7 @@ export function computeAnnualCategoryTrajectory(
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+      if (!isCountedExpense(exp, cat)) continue;
 
       const catId = exp.category_id || 'others';
 

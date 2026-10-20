@@ -213,6 +213,8 @@ export const ReviewSheet: React.FC<Props> = ({
   const [remember, setRemember] = useState(false);
   const [amountText, setAmountText] = useState('');
   const [busy, setBusy] = useState(false);
+  /** The person whose payback is being saved right now (button label while saving). */
+  const [settlingWith, setSettlingWith] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
@@ -226,6 +228,7 @@ export const ReviewSheet: React.FC<Props> = ({
       setAmountText('');
       setError(null);
       setBusy(false);
+      setSettlingWith(null);
     }
   }, [visible, event?.id, event?.direction, event?.merchant, event?.sender]);
 
@@ -315,18 +318,23 @@ export const ReviewSheet: React.FC<Props> = ({
     );
   };
 
-  const settleWith = (personName: string) =>
-    run(async () => {
+  const settleWith = (personName: string) => {
+    setSettlingWith(personName);
+    return run(async () => {
+      // A payback has no category of its own: the money goes back to the categories of the expenses it settles
+      // (oldest first, SPL-003). So this review is finished now and must not ask for a category again.
       const logged = await classifyEvent(
         event,
         'income',
         null,
         false,
-        needsAmount ? amount ?? undefined : undefined
+        needsAmount ? amount ?? undefined : undefined,
+        { clearNeedsCategory: true }
       );
       if (!logged.expenseId) throw new Error('Could not log this payment. Please try again.');
       await convertIncomeToMoneyBack({ incomeId: logged.expenseId, kind: 'settlement', who: personName });
-    }, `${personName} paid back ${money(amount)}`);
+    }, `${personName} paid back ${money(amount)}`).finally(() => setSettlingWith(null));
+  };
 
   const logAndSplit = () => {
     if (needsAmount && !amount) {
@@ -770,6 +778,8 @@ export const ReviewSheet: React.FC<Props> = ({
               ? 'Teach Format'
               : categoryOnly
               ? 'Save Category'
+              : settlingWith
+              ? `Saving ${settlingWith}'s payback · ${money(amount)}`
               : type === 'income'
               ? `Save as Income · ${money(amount)}`
               : `Save as Expense · ${money(amount)}`

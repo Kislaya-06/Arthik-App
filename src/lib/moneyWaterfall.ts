@@ -20,7 +20,7 @@
  * (sorted by created_at, then id).
  */
 
-import { format } from 'date-fns';
+import { todayDateKey } from '../money/dateKeys';
 import { round2 } from './formatters';
 import {
   resolvePlanForDate,
@@ -441,4 +441,4 @@ export function summarizeScope(
   };
 }
 
-export const todayString = (d: Date = new Date()): string => format(d, 'yyyy-MM-dd');
+export const todayString = (d: Date = new Date()): string => todayDateKey(d);

@@ -78,6 +78,19 @@ export async function recordMoneyBack(p: RecordMoneyBackParams): Promise<MoneyBa
   return { plan, moneyBackId };
 }
 
+/**
+ * A money-back row never needs a category (its money goes back to the categories of the expenses it settles), so an
+ * Automatic Logging event linked to it must stop asking for one. Best-effort: Automatic Logging may not be available.
+ */
+async function finishLinkedAutoLogReview(moneyBackId: string): Promise<void> {
+  try {
+    const { reconcileExpenseSaved } = await import('../../features/autoLog/reviews');
+    await reconcileExpenseSaved(moneyBackId);
+  } catch {
+    // Best-effort only.
+  }
+}
+
 export interface ConvertToMoneyBackParams {
   /** An income row already in the app (for example one Automatic Logging created from a bank message). */
   incomeId: string;
@@ -113,7 +126,7 @@ export async function convertIncomeToMoneyBack(p: ConvertToMoneyBackParams): Pro
 
   await store.deleteExpense(income.id);
   try {
-    return await recordMoneyBack({
+    const result = await recordMoneyBack({
       kind: p.kind,
       who: p.who,
       amount,
@@ -125,6 +138,8 @@ export async function convertIncomeToMoneyBack(p: ConvertToMoneyBackParams): Pro
       id: income.id,
       note: income.note || undefined,
     });
+    await finishLinkedAutoLogReview(income.id);
+    return result;
   } catch (e) {
     await useExpenseStore.getState().addExpense(amount, null, income.note || '', mode, income.expense_date, 'income', { id: income.id });
     throw e;

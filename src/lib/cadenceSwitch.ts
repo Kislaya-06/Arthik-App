@@ -2,6 +2,7 @@ import { parseISO, addDays, format, differenceInCalendarDays } from 'date-fns';
 import { BudgetCadence } from '../types';
 import { getPeriodBounds } from './budgetPeriods';
 import { formatAmountWithCommas } from './formatters';
+import { calculateBudgetStatus } from '../money/budgetStatus';
 
 export type CadenceCarryMode = 'additive' | 'allocation';
 
@@ -250,8 +251,7 @@ export function buildCadenceSwitchPlan(params: {
   const tomorrow = addDays(parseISO(todayStr), 1);
   const effectiveFrom = format(tomorrow, 'yyyy-MM-dd');
 
-  const unspentRaw = currentBudget - currentSpent;
-  const unspentAmount = Math.max(0, Math.round(unspentRaw * 100) / 100);
+  const unspentAmount = calculateBudgetStatus(currentBudget, currentSpent).budgetLeftUnspent;
 
   const remainingDays = getRemainingDaysInCurrentPeriod(currentCadence, todayStr);
 

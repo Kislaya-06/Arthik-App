@@ -1,5 +1,9 @@
 import { parseISO, format, differenceInCalendarDays, getDay, addDays } from 'date-fns';
-import { isIncomeTransaction, isExcludedFromTotals } from './transactionUtils';
+import { isCountedExpense } from './transactionUtils';
+import { sumSpendingBetweenDateKeys } from '../money/ledger';
+import { addDaysToDateKey } from '../money/dateKeys';
+import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
+import { calculateBudgetStatus } from '../money/budgetStatus';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -29,23 +33,7 @@ export function computeWeeklySpend(
   categories: Category[],
   weekInterval: WeekInterval
 ): number {
-  const startStr = toDateStr(weekInterval.start);
-  const endStr = toDateStr(weekInterval.end);
-
-  let total = 0;
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      total += exp.amount;
-    }
-  }
-  return round2(total);
+  return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(weekInterval.start), toDateStr(weekInterval.end));
 }
 
 /**
@@ -83,10 +71,11 @@ export function computeEffectiveWeekBudget(
       ? round2((weeklyAmount / 7) * activeDays)
       : weeklyAmount;
   } else if (cadence === 'monthly') {
-    const mAmt = Number(monthlyAmount) || 0;
-    effectiveBudget = isPartialFirstWeek
-      ? round2((mAmt / 30) * activeDays)
-      : round2((mAmt / 30) * 7);
+    // One rule for every screen (BUD-009): each day is worth monthly / the days of ITS OWN calendar month.
+    // The active days are the LAST `activeDays` days of the week (the user joined mid-week).
+    const monthlyBudgetPlan = { cadence: 'monthly' as const, monthlyBudgetAmount: Number(monthlyAmount) || 0 };
+    const firstActiveDateKey = addDaysToDateKey(endStr, -(activeDays - 1));
+    effectiveBudget = round2(budgetAllowedBetweenDates(monthlyBudgetPlan, firstActiveDateKey, endStr));
   } else {
     // daily cadence
     effectiveBudget = round2(dailyAmount * activeDays);
@@ -102,12 +91,13 @@ export function computeBudgetHealth(
   weekBudget: number,
   weekSpent: number
 ): { remaining: number; overAmount: number; isOverBudget: boolean; ratio: number } {
-  const isOver = weekBudget > 0 && weekSpent > weekBudget;
-  const remaining = Math.max(0, round2(weekBudget - weekSpent));
-  const overAmount = isOver ? round2(weekSpent - weekBudget) : 0;
-  const ratio = weekBudget > 0 ? Math.min(1, round2(weekSpent / weekBudget)) : 0;
-
-  return { remaining, overAmount, isOverBudget: isOver, ratio };
+  const status = calculateBudgetStatus(weekBudget, weekSpent);
+  return {
+    remaining: status.budgetLeftUnspent,
+    overAmount: status.amountSpentOverBudget,
+    isOverBudget: status.isOverBudget,
+    ratio: round2(status.budgetUsedRatio),
+  };
 }
 
 /**
@@ -407,7 +397,7 @@ export function computeLargestSingleOutflow(
     if (!cleanDate) continue;
 
     const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+    if (!isCountedExpense(exp, cat)) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
       weekExpenses.push(exp);

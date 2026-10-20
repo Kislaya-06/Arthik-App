@@ -43,6 +43,7 @@ import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { round2 } from '../lib/formatters';
+import { calculateBudgetStatus } from '../money/budgetStatus';
 import { isIncomeTransaction, isCountedExpense } from '../lib/transactionUtils';
 import { getDisplayName } from '../lib/profileUtils';
 import { useTheme } from '../store/themeStore';
@@ -377,8 +378,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }, [expenses, catMap, todayKey]);
 
   const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
-  const todayRemaining = Math.max(0, round2(todayBudget - todayRecordSpent));
-  const isOverBudget = todayBudget > 0 && todayRecordSpent > todayBudget;
+  const todayBudgetStatus = calculateBudgetStatus(todayBudget, todayRecordSpent);
+  const todayRemaining = todayBudgetStatus.budgetLeftUnspent;
+  const isOverBudget = todayBudgetStatus.isOverBudget;
 
   const externalDepositsInPeriod = useMemo(
     () => getExternalDepositsInPeriod(gullakDeposits, activeFilter, referenceDate),
