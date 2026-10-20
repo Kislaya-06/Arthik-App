@@ -21,7 +21,7 @@ import {
   getDaysInMonth,
 } from 'date-fns';
 import { isCountedExpense } from './transactionUtils';
-import { sumSpendingBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
@@ -46,8 +46,12 @@ export interface MonthInterval {
 export function computeMonthlySpend(
   expenses: ExpenseLike[],
   categories: Category[],
-  monthInterval: MonthInterval
+  monthInterval: MonthInterval,
+  spentTotalsByDate?: Record<string, number>
 ): number {
+  if (spentTotalsByDate) {
+    return sumTotalsBetweenDateKeys(spentTotalsByDate, toDateStr(monthInterval.start), toDateStr(monthInterval.end));
+  }
   return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(monthInterval.start), toDateStr(monthInterval.end));
 }
 
@@ -378,7 +382,8 @@ export function computeMonthlyComparison(
   currentInterval: MonthInterval,
   previousInterval: MonthInterval,
   offset: number,
-  today: Date = new Date()
+  today: Date = new Date(),
+  spentTotalsByDate?: Record<string, number>
 ): MonthlyComparisonResult {
   const currentStartStr = toDateStr(currentInterval.start);
   const currentEndStr = toDateStr(currentInterval.end);
@@ -406,28 +411,34 @@ export function computeMonthlyComparison(
   let matchedPrevTotal = 0;
   let prevFullTotal = 0;
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
+  if (spentTotalsByDate) {
+    currTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, currentStartStr, matchedCurrentEndStr);
+    matchedPrevTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, matchedPrevEndStr);
+    prevFullTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, prevEndStr);
+  } else {
+    for (const exp of expenses) {
+      if (!exp.expense_date) continue;
+      const cleanDate = toDateStr(exp.expense_date);
+      if (!cleanDate) continue;
 
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (!isCountedExpense(exp, cat)) continue;
+      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      if (!isCountedExpense(exp, cat)) continue;
 
-    if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
-      currTotal += exp.amount;
+      if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
+        currTotal += exp.amount;
+      }
+      if (isDateInBounds(cleanDate, prevStartStr, matchedPrevEndStr)) {
+        matchedPrevTotal += exp.amount;
+      }
+      if (isDateInBounds(cleanDate, prevStartStr, prevEndStr)) {
+        prevFullTotal += exp.amount;
+      }
     }
-    if (isDateInBounds(cleanDate, prevStartStr, matchedPrevEndStr)) {
-      matchedPrevTotal += exp.amount;
-    }
-    if (isDateInBounds(cleanDate, prevStartStr, prevEndStr)) {
-      prevFullTotal += exp.amount;
-    }
+
+    currTotal = round2(currTotal);
+    matchedPrevTotal = round2(matchedPrevTotal);
+    prevFullTotal = round2(prevFullTotal);
   }
-
-  currTotal = round2(currTotal);
-  matchedPrevTotal = round2(matchedPrevTotal);
-  prevFullTotal = round2(prevFullTotal);
 
   if (currTotal === 0) {
     return {

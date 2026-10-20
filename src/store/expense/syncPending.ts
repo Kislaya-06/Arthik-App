@@ -175,11 +175,27 @@ export const syncPendingAdds = async (userId: string, _get: StoreGet, set: Store
         };
 
         // P0.4: upsert with onConflict: 'id', ignoreDuplicates: true
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('expenses')
           .upsert(payload, { onConflict: 'id', ignoreDuplicates: true })
           .select()
           .single();
+
+        // If rejected by database and category_id was set, retry once with category_id: null
+        // in case the category was deleted while offline. Real financial records must never be lost.
+        if (error && !isNetworkFailure(error) && payload.category_id) {
+          const fallbackPayload = { ...payload, category_id: null };
+          const fallback = await supabase
+            .from('expenses')
+            .upsert(fallbackPayload, { onConflict: 'id', ignoreDuplicates: true })
+            .select()
+            .single();
+          if (!fallback.error) {
+            error = null;
+            data = fallback.data;
+            item.category_id = null;
+          }
+        }
 
         if (error) {
           if (isNetworkFailure(error)) {
@@ -288,10 +304,21 @@ export const syncPendingUpdates = async (userId: string, _get: StoreGet, set: St
       }
 
       try {
-        const { error } = await supabase
+        let { error } = await supabase
           .from('expenses')
           .update(upd.payload)
           .eq('id', upd.id);
+
+        // If rejected by database and category_id was set, retry once with category_id: null
+        if (error && !isNetworkFailure(error) && upd.payload.category_id) {
+          const fallback = await supabase
+            .from('expenses')
+            .update({ ...upd.payload, category_id: null })
+            .eq('id', upd.id);
+          if (!fallback.error) {
+            error = null;
+          }
+        }
 
         if (error) {
           if (isNetworkFailure(error)) {

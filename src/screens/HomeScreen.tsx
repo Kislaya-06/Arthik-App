@@ -16,11 +16,13 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Bell, User, Users } from 'lucide-react-native';
-import { buildPeopleLedger } from '../lib/splitLedger';
+import { hasUnsettledSplitExpenses } from '../lib/splitLedger';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { AutoLogHomeBanner } from '../components/autolog/AutoLogHomeBanner';
 import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
+import { WelcomeBackGapModal } from '../components/WelcomeBackGapModal';
+import { findInactiveGapDays } from '../lib/gapFiller';
 import { PullToHistoryList, PullToHistoryListHandle } from '../components/PullToHistoryList';
 import { RefreshScrollShell } from '../components/RefreshScrollShell';
 import { getNavTopOffset } from '../lib/pullToHistoryPhysics';
@@ -206,6 +208,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const lastRenewedPeriodKey = useDailyBudgetStore((s) => s.lastRenewedPeriodKey);
   const setLastRenewedPeriodKey = useDailyBudgetStore((s) => s.setLastRenewedPeriodKey);
   const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
+  const dismissedGapDates = useDailyBudgetStore((s) => s.dismissedGapDates);
+  const saveGapDaysToGullak = useDailyBudgetStore((s) => s.saveGapDaysToGullak);
+  const dismissGapDays = useDailyBudgetStore((s) => s.dismissGapDays);
+  const [gapModalDismissed, setGapModalDismissed] = useState(false);
 
   // Align activeFilter to active cadence on mount or hydration if not yet switched
   const hasAlignedCadenceFilter = useRef(false);
@@ -219,8 +225,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [isBudgetModeEnabled, budgetCadence]);
 
-  const notifications = useNotificationStore((s) => s.notifications);
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+  const unreadCount = useNotificationStore((s) => s.notifications.filter((n) => !n.read).length);
 
   const lastFetchTime = useRef<number>(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -303,6 +308,57 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [user?.created_at]);
 
+  const gapDays = useMemo(() => {
+    if (gapModalDismissed) return [];
+    if (!isBudgetModeEnabled || !isAutoRenew || budgetCadence !== 'daily' || dailyBudgetAmount <= 0) {
+      return [];
+    }
+    return findInactiveGapDays({
+      todayStr: todayKey,
+      userCreatedAt: userCreatedAtStr,
+      planChanges,
+      dailyRecords,
+      expenses,
+      dismissedDates: dismissedGapDates,
+      isBudgetModeEnabled,
+      isAutoRenew,
+      dailyBudgetAmount,
+      lookbackDays: 7,
+    });
+  }, [
+    gapModalDismissed,
+    isBudgetModeEnabled,
+    isAutoRenew,
+    budgetCadence,
+    dailyBudgetAmount,
+    todayKey,
+    userCreatedAtStr,
+    planChanges,
+    dailyRecords,
+    expenses,
+    dismissedGapDates,
+  ]);
+
+  const shouldShowGapModal = gapDays.length > 0 && !gapModalDismissed;
+
+  const handleSaveGapDaysToGullak = useCallback(async () => {
+    if (gapDays.length === 0) return;
+    await saveGapDaysToGullak(gapDays);
+    setGapModalDismissed(true);
+  }, [gapDays, saveGapDaysToGullak]);
+
+  const handleAddExpenseForGap = useCallback((targetDate: string) => {
+    setGapModalDismissed(true);
+    navigation.navigate('AddExpense', { defaultDate: targetDate });
+  }, [navigation]);
+
+  const handleDismissGapModal = useCallback(() => {
+    setGapModalDismissed(true);
+    if (gapDays.length > 0) {
+      dismissGapDays(gapDays);
+    }
+  }, [gapDays, dismissGapDays]);
+
   const filtered = useMemo(
     () => filterExpenses(expenses, activeFilter, referenceDate),
     [expenses, activeFilter, referenceDate]
@@ -335,7 +391,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }, [displayName]);
 
   // Dot on the Ledger button while someone still owes money (SPL-002).
-  const ledgerOwed = useMemo(() => round2(buildPeopleLedger(expenses).reduce((sum, p) => sum + p.owed, 0)), [expenses]);
+  const hasUnsettledSplits = useMemo(() => hasUnsettledSplitExpenses(expenses), [expenses]);
 
   const isBudgetConfigured = isBudgetModeEnabled && isAutoRenew && dailyBudgetAmount > 0;
   const todayRecord = useMemo(
@@ -632,7 +688,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               accessibilityLabel="Ledger"
             >
               <Users size={20} color={colors.textPrimary} />
-              {ledgerOwed > 0 && <View style={styles.badgeDot} />}
+              {hasUnsettledSplits && <View style={styles.badgeDot} />}
             </Pressable>
             <Pressable
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -781,6 +837,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         title={heroDetailsTitle(activeFilter, isSameDay(referenceDate, new Date()))}
         subtitle={filterDateLabel}
         details={heroDetails}
+      />
+
+      <WelcomeBackGapModal
+        visible={shouldShowGapModal}
+        gapDates={gapDays}
+        dailyBudgetAmount={dailyBudgetAmount}
+        onSaveToGullak={handleSaveGapDaysToGullak}
+        onAddExpense={handleAddExpenseForGap}
+        onDismiss={handleDismissGapModal}
       />
     </View>
     </RefreshScrollShell>

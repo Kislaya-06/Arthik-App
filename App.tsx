@@ -142,7 +142,12 @@ export default function App() {
           return;
         }
 
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        if (event === 'TOKEN_REFRESHED') {
+          await setSession(session);
+          return;
+        }
+
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
           await setSession(session);
           if (session?.user?.id) {
             // Skip full hydration for INITIAL_SESSION during Splash — SplashScreen handles it.

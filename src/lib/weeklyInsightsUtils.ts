@@ -1,5 +1,5 @@
 import { parseISO, format, differenceInCalendarDays, getDay, addDays } from 'date-fns';
-import { sumSpendingBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
@@ -30,8 +30,12 @@ export interface DaySpendingData {
 export function computeWeeklySpend(
   expenses: ExpenseLike[],
   categories: Category[],
-  weekInterval: WeekInterval
+  weekInterval: WeekInterval,
+  spentTotalsByDate?: Record<string, number>
 ): number {
+  if (spentTotalsByDate) {
+    return sumTotalsBetweenDateKeys(spentTotalsByDate, toDateStr(weekInterval.start), toDateStr(weekInterval.end));
+  }
   return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(weekInterval.start), toDateStr(weekInterval.end));
 }
 
@@ -514,9 +518,10 @@ export function computeDayMatchedPreviousComparison(
   currentInterval: WeekInterval,
   previousInterval: WeekInterval,
   offset: number,
-  referenceNow: Date = new Date()
+  referenceNow: Date = new Date(),
+  spentTotalsByDate?: Record<string, number>
 ): DayMatchedComparisonResult {
-  const currentTotal = computeWeeklySpend(expenses, categories, currentInterval);
+  const currentTotal = computeWeeklySpend(expenses, categories, currentInterval, spentTotalsByDate);
 
   // In-progress current week: compare Mon–today against Mon–same weekday of previous week
   if (offset === 0) {
@@ -531,7 +536,7 @@ export function computeDayMatchedPreviousComparison(
       end: parseISO(prevMatchedEndStr),
     };
 
-    const prevMatchedTotal = computeWeeklySpend(expenses, categories, prevMatchedInterval);
+    const prevMatchedTotal = computeWeeklySpend(expenses, categories, prevMatchedInterval, spentTotalsByDate);
 
     if (prevMatchedTotal === 0) {
       return {
@@ -569,7 +574,7 @@ export function computeDayMatchedPreviousComparison(
   }
 
   // Past completed weeks: compare full 7 days vs full 7 days
-  const prevFullTotal = computeWeeklySpend(expenses, categories, previousInterval);
+  const prevFullTotal = computeWeeklySpend(expenses, categories, previousInterval, spentTotalsByDate);
 
   if (prevFullTotal === 0) {
     return {

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance & Architecture — Re-render Elimination & Lean Utility Optimization (Findings 1–15) — OTA-safe
+
+- **Granular Zustand Selectors (Findings 1, 7)**: Subscribed screens (`BottomNavBar`, `AddEditCategoryScreen`, `ProfileScreen`, `ProfileSetupScreen`, `SplashScreen`, `AppLockOverlay`, `HomeScreen`) to individual primitive values instead of whole-store objects or unselected arrays, eliminating cascading re-renders across the app.
+- **Fast Early-Exit Splits Predicate (Finding 8, `splitLedger.ts`, `HomeScreen.tsx`)**: Replaced full `buildPeopleLedger(expenses)` scan on Home with `hasUnsettledSplitExpenses`, stopping on the first open allocation without building or sorting maps.
+- **List & Component Memoization (Findings 2, 4, 5, 6, 11, 12, 13)**: Memoized `CategoryChipItem` (ExpenseForm), `BrandedHeroCard`, `CategoryRowItem` (ManageCategories), `CategoryExpenseItem` (CategoryDetail), `DualRingChart`, `ItemRowShell`, and savings sections (`SavingsHeader`, `SavingsHeroCard`, `BudgetHubSection`, `SavingsHistorySection`) with stable callback references to prevent FlatList and screen re-renders.
+- **ICU Formatter & Theme Cache (Findings 3, 15, `formatters.ts`, `AmountText.tsx`, `themeStore.ts`)**: Cached module-level `Intl.NumberFormat` instances in `formatters.ts` and `AmountText.tsx` to prevent per-render ICU engine instantiation in Hermes; pre-computed static `THEMES` in `themeStore.ts` to prevent per-render object allocations.
+- **Insights Pre-Calculated Totals (Finding 9, `useInsightsData.ts`, `weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts`)**: Reused precomputed `spentTotalsByDate` via `sumTotalsBetweenDateKeys` in weekly, monthly, and yearly comparisons instead of repeatedly re-building the ledger from scratch.
+- **Gesture Handler & State Memoization (Findings 10, 14, `useSavingsDashboard.ts`, `InsightsScreen.tsx`)**: Stabilized `PanResponder` using ref in `InsightsScreen`; wrapped `savedDaysCount` in `useMemo` in `useSavingsDashboard`.
+- **Tests**: 121 test files, 1,797 tests passing (including 2 new tests in `tests/splitLedger.test.ts`); `tsc --noEmit` 0 errors.
+
+### Feature & Polish — Smart Welcome Back Inactivity Gap-Filler Modal (`ROL-004`) — OTA-safe
+
+- **Zero-Spend Gap Filler (`gapFiller.ts`, `WelcomeBackGapModal.tsx`)**: When an active Daily budget user opens the app after 1 or more inactive days (where no expenses were recorded and no daily record exists), a sleek BottomSheet modal prompts the user with their total unspent daily allowance (capped at the last 7 calendar days to prevent phantom savings).
+- **1-Tap Save to Gullak (`saveGapDaysToGullak`)**: Tapping "Save to Gullak" creates finalized daily records for all inactive days (`spent: 0`, `saved: budget`, `status: 'saved'`), crediting both Gullak savings and Total Account Inflow accurately without any numerical drift, while advancing the savings streak and syncing to Supabase `daily_savings_log`.
+- **Backdating Shortcut ("I spent money")**: Directs the user to `ExpenseForm` with the oldest inactive date prefilled, allowing seamless logging of backdated expenses.
+- **Dismissal Persistence (`dismissGapDays`)**: Skipping or dismissing records the gap dates locally in AsyncStorage (`@arthik_dismissed_gap_dates_<userId>`) so users are never nagged repeatedly for the same dates.
+- **Tests**: `tests/gapFiller.test.ts` (12 tests covering detection, lookback boundary, account creation limit, dismissed dates, plan cadence isolation, and store actions). 121 test files, 1,794 tests pass; `tsc --noEmit` clean.
+
+### Reliability & Polish — Offline Sync Deleted Category Fallback, Token Refresh Storm Prevention, Chart Decimal Rounding — OTA-safe
+
+- **Offline Category Deletion Fallback (`syncPending.ts`)**: If an expense or update was created offline under a category that was later deleted before syncing, Supabase foreign key/RLS rejected the insert. `syncPendingAdds` and `syncPendingUpdates` now retry once with `category_id: null` before failing, ensuring real financial transactions are never dropped or purged from the user's active ledger.
+- **Token Refresh Storm Prevention (`App.tsx`)**: In the Supabase auth listener, `TOKEN_REFRESHED` events now cleanly update the session object without triggering a full re-fetch of all historical expenses, categories, and daily budgets, eliminating background UI loading flashes and redundant data transfer.
+- **Chart Floating-Point Precision (`chartUtils.ts`)**: Weekly aggregations in `computeMonthlyWeeksData` and `computeMonthlyCashFlowData` now apply `round2()` to summed spending and income amounts, eliminating JavaScript floating-point artifacts in monthly insight charts and tooltips.
+- **Tests**: `tests/expenseSyncPending.test.ts` (new test verifying deleted category fallback during offline sync). 120 test files, 1,782 tests pass; `tsc --noEmit` clean.
+
 ### Architecture & Performance — Insights & Home Screen Loop Consolidation onto Central Ledger (`src/money/`) — OTA-safe
 
 - **Unified Insights loops (`useInsightsData.ts`, `weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts`)**: Replaced manual `for...of expenses` loops in `useInsightsData` (category totals, 7-day weekly bar chart, and weekly/monthly/yearly transaction counts), `computeLargestSingleOutflow`, `computeMonthlyLargestOutflow`, `computeMonthlyCategoryShift`, `computeAnnualCapitalOutlier`, and `computeAnnualCategoryTrajectory` with `buildLedgerEntries` and `isDateKeyWithin`.

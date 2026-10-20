@@ -194,7 +194,17 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const initialDefaultDate = useMemo(() => {
+    const rawDefault = (route.params as { defaultDate?: string } | undefined)?.defaultDate;
+    if (rawDefault) {
+      try {
+        const parsed = parseISO(rawDefault);
+        if (!isNaN(parsed.getTime())) return parsed;
+      } catch {}
+    }
+    return new Date();
+  }, [route.params]);
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDefaultDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
   const [isSubmitting, setIsSubmitting] = useState(false);

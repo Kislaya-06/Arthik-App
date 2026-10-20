@@ -12,8 +12,8 @@ export interface CategoryRowItemProps {
   isLast?: boolean;
   colors: ThemeColors;
   isDark: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
@@ -26,6 +26,8 @@ export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
   onDelete,
 }) => {
   const IconComponent = getCategoryIcon(category.icon);
+  const handleEdit = React.useCallback(() => onEdit(category.id), [onEdit, category.id]);
+  const handleDelete = React.useCallback(() => onDelete(category.id), [onDelete, category.id]);
 
   return (
     <View
@@ -69,7 +71,7 @@ export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
               transform: [{ scale: pressed ? 0.92 : 1 }],
             }
           ]}
-          onPress={onEdit}
+          onPress={handleEdit}
           hitSlop={6}
           accessible
           accessibilityRole="button"
@@ -87,7 +89,7 @@ export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
               transform: [{ scale: pressed ? 0.92 : 1 }],
             }
           ]}
-          onPress={onDelete}
+          onPress={handleDelete}
           hitSlop={6}
           accessible
           accessibilityRole="button"

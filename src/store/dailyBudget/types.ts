@@ -54,8 +54,11 @@ export interface DailyBudgetState {
   lastPeriodExceededKey: string | null;
   lastPeriodRolloverKey: string | null;
   lastRenewedPeriodKey: string | null;
+  dismissedGapDates: string[];
 
   // Actions
+  saveGapDaysToGullak: (gapDates: string[]) => Promise<void>;
+  dismissGapDays: (gapDates: string[]) => Promise<void>;
   setDailyBudget: (amount: number) => void;
   scheduleNextDailyBudget: (amount: number) => void;
   cancelScheduledNextDailyBudget: () => void;

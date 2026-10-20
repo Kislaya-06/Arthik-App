@@ -92,6 +92,10 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
     );
   }, [isDeleting, isOffline, categoryExpenseCounts, deleteCategory, fetchCategories]);
 
+  const handleEdit = useCallback((id: string) => {
+    navigation.navigate('AddEditCategory', { categoryId: id });
+  }, [navigation]);
+
   const renderItem = useCallback(({ item, index }: { item: Category; index: number }) => {
     const count = categoryExpenseCounts[item.id] || 0;
     const isLast = index === categories.length - 1;
@@ -103,11 +107,11 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         isLast={isLast}
         colors={colors}
         isDark={isDark}
-        onEdit={() => navigation.navigate('AddEditCategory', { categoryId: item.id })}
-        onDelete={() => handleDelete(item.id)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
       />
     );
-  }, [categories, navigation, categoryExpenseCounts, handleDelete, colors, isDark]);
+  }, [categories.length, categoryExpenseCounts, handleEdit, handleDelete, colors, isDark]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>

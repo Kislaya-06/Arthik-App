@@ -8,7 +8,8 @@ import { Spacing, FontSize, FontFamily } from '../config/theme';
 
 export const AppLockOverlay: React.FC = () => {
   const { colors, isDark } = useTheme();
-  const { isAuthenticating, authenticate } = useAppLockStore();
+  const isAuthenticating = useAppLockStore((s) => s.isAuthenticating);
+  const authenticate = useAppLockStore((s) => s.authenticate);
 
   useEffect(() => {
     // Only auto-trigger biometric prompt on appearance if app is in active foreground state

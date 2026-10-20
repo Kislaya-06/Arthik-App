@@ -286,6 +286,23 @@ export function buildPeopleLedger(rows: LedgerRow[]): PersonLedger[] {
   return Array.from(people.values()).sort((a, b) => b.lastDate.localeCompare(a.lastDate) || a.name.localeCompare(b.name));
 }
 
+/** Fast early-exit check to determine if any split expense remains unsettled (SPL-002). */
+export function hasUnsettledSplitExpenses(rows: LedgerRow[]): boolean {
+  const splitRows = rows.filter((r) => isExpenseRow(r) && splitAllocationsOf(r).length > 0);
+  if (splitRows.length === 0) return false;
+  const recovered = recoveredByExpense(rows);
+  for (let i = 0; i < splitRows.length; i++) {
+    const row = splitRows[i];
+    const allocations = splitAllocationsOf(row);
+    for (let j = 0; j < allocations.length; j++) {
+      if (outstandingOnExpense(row, recovered, allocations[j].person) > 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /** Names for the suggestion chips: most recently used first. */
 export const knownPeopleNames = (rows: LedgerRow[]): string[] => buildPeopleLedger(rows).map((p) => p.name);
 

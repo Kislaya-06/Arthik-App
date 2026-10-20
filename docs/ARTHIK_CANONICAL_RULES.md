@@ -371,6 +371,19 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Code Enforcement:** `src/store/dailyBudget/rollover.ts` (`finalizePeriods`)
 - **Verified By:** `tests/dailyBudgetRollover.test.ts`
 
+#### `ROL-004`: Inactivity Gap-Filler & Zero-Spend Savings Confirmation (Option A)
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-21)
+- **Canonical Definition:**
+  When an active Daily cadence user returns after 1 or more inactive days (where no transactions were recorded and no daily record was created):
+  1. **Lookback Window & Scope:** Evaluates up to the last 7 calendar days on or after user registration that were governed by the `'daily'` cadence, where `isAutoRenew === true`, `isBudgetModeEnabled === true`, and `dailyBudgetAmount > 0`.
+  2. **Phantom Savings Protection:** The app never fabricates automatic zero-activity days silently. Instead, a Welcome Back BottomSheet Modal prompts the user upon app opening with explicit choices.
+  3. **User Confirmation Actions:**
+     - **"Save to Gullak"**: Creates finalized daily records for all confirmed inactive days with `budget = dailyBudgetAmount`, `spent = 0`, `saved = budget`, `status = 'saved'`, and `isFinalized = true`. Total Gullak savings, Inflow (Total Account Remaining), and streak metrics advance accurately and sync to Supabase `daily_savings_log`.
+     - **"I spent money"**: Navigates to `ExpenseForm` with the oldest gap date prefilled so the user can accurately record their backdated expenses.
+     - **"Skip for now" / Dismiss**: Records the gap dates as dismissed in local storage (`@arthik_dismissed_gap_dates_<userId>`), preventing phantom savings and avoiding repeated nagging.
+- **Code Enforcement:** `src/lib/gapFiller.ts` (`findInactiveGapDays`), `src/components/WelcomeBackGapModal.tsx`, `src/store/dailyBudgetStore.ts` (`saveGapDaysToGullak`, `dismissGapDays`), `src/screens/HomeScreen.tsx`
+- **Verified By:** `tests/gapFiller.test.ts`
+
 #### `HEA-001`: Legacy Default ₹500 Self-Healing
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
 - **Canonical Definition:**

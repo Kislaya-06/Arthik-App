@@ -47,7 +47,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, signOut, updateProfile, deleteAccount } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const profile = useAuthStore((s) => s.profile);
+  const signOut = useAuthStore((s) => s.signOut);
+  const updateProfile = useAuthStore((s) => s.updateProfile);
+  const deleteAccount = useAuthStore((s) => s.deleteAccount);
   const autoLogMode = useAutoLogStore((s) => s.mode);
   const autoLogAttention = useAutoLogStore((s) => s.attention);
   const autoLogPending = useAutoLogStore((s) => s.pendingCount);

@@ -283,7 +283,7 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
 // ─── Main Bottom Navigation Bar Component ───────────────────────────────────
 export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const { colors, isDark } = useTheme();
-  const { isVisible } = useNavBarStore();
+  const isVisible = useNavBarStore((s) => s.isVisible);
   const insets = useSafeAreaInsets();
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const translateY = useAnimatedValue(0);

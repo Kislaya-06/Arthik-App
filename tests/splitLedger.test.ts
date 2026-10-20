@@ -18,6 +18,7 @@ import {
   recoverySlices,
   cleanPersonName,
   personKey,
+  hasUnsettledSplitExpenses,
   type LedgerRow,
 } from '../src/lib/splitLedger';
 import { isCountedIncome, isCountedExpense, isExcludedFromTotals, getTransactionClass } from '../src/lib/transactionUtils';
@@ -317,3 +318,20 @@ describe('buildPersonSummaries (Ledger screen)', () => {
     expect(buildPersonSummaries([])).toEqual([]);
   });
 });
+
+describe('hasUnsettledSplitExpenses (fast check for HomeScreen badge)', () => {
+  it('returns false when no expenses exist or no expenses have splits', () => {
+    expect(hasUnsettledSplitExpenses([])).toBe(false);
+    const normalExpense: LedgerRow = { id: 'e1', amount: 150, type: 'expense', expense_date: '2026-10-01' };
+    expect(hasUnsettledSplitExpenses([normalExpense])).toBe(false);
+  });
+
+  it('returns true when there is an open split, and false once fully settled', () => {
+    const splitExpense: LedgerRow = { id: 's1', amount: 400, type: 'expense', expense_date: '2026-10-01', split_person: 'Aman', split_amount: 200 };
+    expect(hasUnsettledSplitExpenses([splitExpense])).toBe(true);
+
+    const settlement = back('rec1', 200, [{ expense_id: 's1', amount: 200 }], { recovery_person: 'Aman' });
+    expect(hasUnsettledSplitExpenses([splitExpense, settlement])).toBe(false);
+  });
+});
+

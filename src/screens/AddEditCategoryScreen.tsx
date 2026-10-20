@@ -38,7 +38,9 @@ const ICONS_GRID = [
 export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  const { categories, addCategory, updateCategory } = useCategoryStore();
+  const categories = useCategoryStore((s) => s.categories);
+  const addCategory = useCategoryStore((s) => s.addCategory);
+  const updateCategory = useCategoryStore((s) => s.updateCategory);
   const isOffline = useNetworkStore((s) => s.isOffline);
 
   const categoryId = route.params?.categoryId;

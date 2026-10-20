@@ -11,7 +11,7 @@ export interface SavingsHeaderProps {
   isDark: boolean;
 }
 
-export const SavingsHeader: React.FC<SavingsHeaderProps> = ({
+export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
   budgetCadence,
   effectiveStreak,
   onOpenStreakCalendar,
@@ -53,4 +53,4 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = ({
       </TouchableOpacity>
     </View>
   );
-};
+});

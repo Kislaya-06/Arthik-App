@@ -635,7 +635,7 @@ export function computeMonthlyWeeksData(
       dateStr: firstSpendingDate || startStr,
       startDate: startStr,
       endDate: endStr,
-      amount: sum,
+      amount: round2(sum),
       subLabel: `${range.startDay}–${range.endDay}`,
     });
   }
@@ -790,8 +790,8 @@ export function computeMonthlyCashFlowData(
     weeks.push({
       day: range.label,
       subLabel: `${range.startDay}–${range.endDay}`,
-      income: weekIncome,
-      spent: weekSpent,
+      income: round2(weekIncome),
+      spent: round2(weekSpent),
       dateStr: firstEventDate || startStr,
       startDate: startStr,
       endDate: endStr,

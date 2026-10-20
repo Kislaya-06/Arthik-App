@@ -23,7 +23,7 @@ export interface SavingsHeroCardProps {
   isDark: boolean;
 }
 
-export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = ({
+export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
   heroCardSize,
   setHeroCardSize,
   budgetCadence,
@@ -181,4 +181,4 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = ({
       </TouchableOpacity>
     </View>
   );
-};
+});

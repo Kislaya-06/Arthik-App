@@ -323,9 +323,10 @@ export function useInsightsData({
       currentInterval,
       previousInterval,
       offset,
-      new Date()
+      new Date(),
+      spentTotalsByDate
     );
-  }, [period, expenses, categories, currentInterval, previousInterval, offset]);
+  }, [period, expenses, categories, currentInterval, previousInterval, offset, spentTotalsByDate]);
 
   const monthlyComp = useMemo(() => {
     if (period !== 'Monthly') {
@@ -343,9 +344,10 @@ export function useInsightsData({
       currentInterval,
       previousInterval,
       offset,
-      new Date()
+      new Date(),
+      spentTotalsByDate
     );
-  }, [period, expenses, categories, currentInterval, previousInterval, offset]);
+  }, [period, expenses, categories, currentInterval, previousInterval, offset, spentTotalsByDate]);
 
   const yearlyActiveDays = useMemo(() => {
     if (period !== 'Yearly') return 365;
@@ -374,9 +376,10 @@ export function useInsightsData({
       previousInterval,
       offset,
       focusTime,
-      user?.created_at
+      user?.created_at,
+      spentTotalsByDate
     );
-  }, [period, expenses, categories, currentInterval, previousInterval, offset, focusTime, user?.created_at]);
+  }, [period, expenses, categories, currentInterval, previousInterval, offset, focusTime, user?.created_at, spentTotalsByDate]);
 
   const heroTrend = useMemo(() => {
     if (period === 'Weekly') {

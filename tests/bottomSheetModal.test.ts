@@ -116,3 +116,18 @@ describe('BottomSheetModal mount lifecycle (open/close animation)', () => {
     expect(rn.anims.length).toBe(0);
   });
 });
+
+describe('BottomSheetModal overshoot skirt & border invariants', () => {
+  it('anchors the sheet to viewport bottom with an overshoot skirt to prevent background bleed', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const src = fs.readFileSync(path.resolve(__dirname, '../src/components/ui/BottomSheetModal.tsx'), 'utf8');
+
+    // Must render the overshoot skirt view
+    expect(src).toMatch(/styles\.overshootSkirt/);
+    // Must zero out borderBottomWidth on sheetContainer to avoid dividing line
+    expect(src).toMatch(/borderBottomWidth:\s*0/);
+    // Must enable overflow visible so Android does not clip the skirt
+    expect(src).toMatch(/overflow:\s*['"]visible['"]/);
+  });
+});

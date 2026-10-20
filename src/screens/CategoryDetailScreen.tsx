@@ -24,6 +24,35 @@ import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../conf
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
 
+interface CategoryExpenseItemProps {
+  item: Expense;
+  category: ReturnType<typeof useCategoryStore.getState>['categories'][number] | undefined;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
+  onPress: (id: string) => void;
+}
+
+const CategoryExpenseItem: React.FC<CategoryExpenseItemProps> = React.memo(({
+  item,
+  category,
+  colors,
+  isDark,
+  onPress,
+}) => {
+  const isIncome = isIncomeTransaction(item, category);
+  const handlePress = useCallback(() => onPress(item.id), [onPress, item.id]);
+  return (
+    <TransactionRow
+      expense={item}
+      category={category}
+      isIncome={isIncome}
+      colors={colors}
+      isDark={isDark}
+      onPress={handlePress}
+    />
+  );
+});
+
 export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { categoryId, startDate, endDate, dateRangeLabel } = route.params;
   const insets = useSafeAreaInsets();
@@ -62,19 +91,19 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
     [categoryExpenses, category]
   );
 
-  const renderItem = useCallback(({ item }: { item: Expense }) => {
-    const isIncome = isIncomeTransaction(item, category);
-    return (
-      <TransactionRow
-        expense={item}
-        category={category}
-        isIncome={isIncome}
-        colors={colors}
-        isDark={isDark}
-        onPress={() => navigation.navigate('ExpenseDetail', { expenseId: item.id })}
-      />
-    );
-  }, [navigation, category, colors, isDark]);
+  const handleExpensePress = useCallback((id: string) => {
+    navigation.navigate('ExpenseDetail', { expenseId: id });
+  }, [navigation]);
+
+  const renderItem = useCallback(({ item }: { item: Expense }) => (
+    <CategoryExpenseItem
+      item={item}
+      category={category}
+      colors={colors}
+      isDark={isDark}
+      onPress={handleExpensePress}
+    />
+  ), [category, colors, isDark, handleExpensePress]);
 
   if (!category) {
     return (

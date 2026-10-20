@@ -366,6 +366,22 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
               </TouchableOpacity>
             </ScrollView>
           )}
+
+          {/* Bleed skirt: anchors the bottom of the sheet so spring overshoot never exposes the background underneath */}
+          <View
+            style={[
+              styles.overshootSkirt,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                borderLeftWidth: 1,
+                borderRightWidth: 1,
+                left: -1,
+                right: -1,
+              },
+            ]}
+            pointerEvents="none"
+          />
         </Animated.View>
       </View>
     </Modal>
@@ -389,6 +405,12 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     paddingHorizontal: Spacing.gutter,
     paddingTop: Spacing.group,
+    overflow: 'visible',
+  },
+  overshootSkirt: {
+    position: 'absolute',
+    bottom: -300,
+    height: 300,
   },
   handleBar: {
     width: 38,

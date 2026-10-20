@@ -248,6 +248,7 @@ Rule: naya money logic yahin jayega, test ke saath (MNY-001).
 | `budgetUtils.ts` | Phantom ₹500 rows pehchanna, hydrate ke waqt budget resolve karna, rollover budget |
 | `budgetModeUtils.ts` | Mode ke hisaab se kaunse tabs dikhein, subtitle/labels, streak cards |
 | `dateFilters.ts` | Date kisi period (day/week/month/all) mein hai ya nahi |
+| `gapFiller.ts` | Inactive zero-activity days pehchanna (7-day lookback cap), dismissed dates save karna (`ROL-004`) |
 
 ### Kharch ka funding aur display
 | File | Kya karti hai |

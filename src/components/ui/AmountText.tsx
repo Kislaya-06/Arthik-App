@@ -24,6 +24,15 @@ export interface AmountTextProps {
   rollOnFocus?: boolean;
 }
 
+const formatterDec2 = new Intl.NumberFormat('en-IN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const formatterDecMax2 = new Intl.NumberFormat('en-IN', {
+  maximumFractionDigits: 2,
+});
+
 /**
  * Standardized AmountText primitive for Arthik.
  * Enforces the Real-Money Invariant: every rupee has clear visual emphasis,
@@ -48,11 +57,10 @@ export const AmountText: React.FC<AmountTextProps> = ({
   const isPositive = direction === 'income' && numVal > 0;
   const absVal = Math.abs(numVal);
 
-  // Format with Indian grouping
-  const formattedNumber = absVal.toLocaleString('en-IN', {
-    minimumFractionDigits: showDecimals ? 2 : 0,
-    maximumFractionDigits: showDecimals ? 2 : (absVal % 1 !== 0 ? 2 : 0),
-  });
+  // Format with Indian grouping using module-level cached formatters
+  const formattedNumber = showDecimals
+    ? formatterDec2.format(absVal)
+    : formatterDecMax2.format(absVal);
 
   // Determine prefix
   let prefix = '₹';

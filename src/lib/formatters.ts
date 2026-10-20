@@ -6,6 +6,8 @@ import { format, isToday, isYesterday, parseISO } from 'date-fns';
  */
 export const round2 = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
 
+const inCurrencyFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+
 /**
  * Formats a number as Indian Rupee currency string.
  * Preserves decimals if present (up to 2 decimal places), otherwise formats as whole number.
@@ -15,7 +17,7 @@ export const formatCurrency = (n: number): string => {
   const val = Number(n) || 0;
   const isNeg = val < 0;
   const absVal = Math.abs(val);
-  const formatted = absVal.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const formatted = inCurrencyFormatter.format(absVal);
   return (isNeg ? '-₹' : '₹') + formatted;
 };
 

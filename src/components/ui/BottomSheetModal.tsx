@@ -72,6 +72,8 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   const initialSlide = Math.max(windowHeight || 800, 600);
   const slideAnim = useAnimatedValue(initialSlide);
   const fadeAnim = useAnimatedValue(0);
+  const flattenedContainerStyle = StyleSheet.flatten(containerStyle) as ViewStyle | undefined;
+  const sheetBgColor = flattenedContainerStyle?.backgroundColor || colors.card;
   const isFirstRender = useRef(true);
   // Guards the close animation's completion callback: if `visible` flips back to true while the close animation is
   // still in flight, that stale callback must NOT unmount the (now reopened) sheet.
@@ -145,7 +147,10 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
             {
               backgroundColor: colors.card,
               borderColor: colors.borderSubtle,
-              borderWidth: isDark ? 1 : 0,
+              borderTopWidth: isDark ? 1 : 0,
+              borderLeftWidth: isDark ? 1 : 0,
+              borderRightWidth: isDark ? 1 : 0,
+              borderBottomWidth: 0,
               paddingBottom: keyboardOpen ? Spacing.block : Math.max(insets.bottom, Spacing.block),
               transform: [{ translateY: slideAnim }],
             },
@@ -211,6 +216,25 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           )}
 
           {footer ? <View style={styles.footerContainer}>{footer}</View> : null}
+
+          {/* Bleed skirt: anchors the bottom of the sheet so spring overshoot never exposes the background underneath */}
+          {!keyboardOpen && (
+            <View
+              style={[
+                styles.overshootSkirt,
+                {
+                  backgroundColor: sheetBgColor,
+                  borderColor: colors.borderSubtle,
+                  borderLeftWidth: isDark ? 1 : 0,
+                  borderRightWidth: isDark ? 1 : 0,
+                  borderBottomWidth: 0,
+                  left: isDark ? -1 : 0,
+                  right: isDark ? -1 : 0,
+                },
+              ]}
+              pointerEvents="none"
+            />
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -232,6 +256,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.surface,
     paddingHorizontal: Spacing.gutter,
     maxHeight: '90%',
+    overflow: 'visible',
+  },
+  overshootSkirt: {
+    position: 'absolute',
+    bottom: -300,
+    height: 300,
   },
   headerRow: {
     flexDirection: 'row',

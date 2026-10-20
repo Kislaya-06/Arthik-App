@@ -21,7 +21,7 @@ export interface SavingsHistorySectionProps {
   isDark: boolean;
 }
 
-export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = ({
+export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = React.memo(({
   budgetCadence,
   filters,
   activeFilter,
@@ -113,4 +113,4 @@ export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = ({
       )}
     </>
   );
-};
+});

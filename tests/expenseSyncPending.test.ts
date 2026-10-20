@@ -652,4 +652,57 @@ describe('expenseSyncPending (Seam: syncPendingExpenses)', () => {
       }
     `);
   });
+
+  it('retries with category_id: null if database rejects an offline addition due to a deleted category', async () => {
+    const deletedCatId = 'c0000000-0000-4000-8000-000000000099';
+    const expenseWithDeletedCategory: Expense = {
+      id: 'e-offline-deleted-cat',
+      user_id: mockUser!.id,
+      amount: 450,
+      type: 'expense',
+      note: 'Dinner',
+      payment_mode: 'upi',
+      expense_date: '2026-10-20',
+      category_id: deletedCatId,
+      pending: true,
+    };
+
+    storageMap.set(PENDING_ADDS_KEY, JSON.stringify([expenseWithDeletedCategory]));
+    useExpenseStore.setState({ expenses: [expenseWithDeletedCategory] });
+
+    mockUpsert.mockImplementation((payload: any) => {
+      // First attempt with category_id fails (foreign key / RLS check)
+      if (payload.category_id === deletedCatId) {
+        return {
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'foreign key constraint violation: category does not exist' },
+            }),
+          }),
+        } as any;
+      }
+      // Retry with category_id: null succeeds
+      return {
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: { ...payload, pending: false },
+            error: null,
+          }),
+        }),
+      } as any;
+    });
+
+    await useExpenseStore.getState().syncPendingExpenses();
+
+    const remainingAdds = JSON.parse(storageMap.get(PENDING_ADDS_KEY) || '[]');
+    expect(remainingAdds).toHaveLength(0);
+
+    const storeExpenses = useExpenseStore.getState().expenses;
+    const synced = storeExpenses.find((e) => e.id === 'e-offline-deleted-cat');
+    expect(synced).toBeDefined();
+    expect(synced?.pending).toBe(false);
+    expect(synced?.category_id).toBeNull();
+  });
 });
+

@@ -553,6 +553,22 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Bleed skirt: anchors the bottom of the sheet so spring overshoot never exposes the background underneath */}
+          <View
+            style={[
+              styles.overshootSkirt,
+              {
+                backgroundColor: isDark ? '#141416' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                borderLeftWidth: 1,
+                borderRightWidth: 1,
+                left: -1,
+                right: -1,
+              },
+            ]}
+            pointerEvents="none"
+          />
         </Animated.View>
       </View>
     </Modal>
@@ -576,6 +592,12 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     maxHeight: '88%',
     paddingTop: Spacing.surface,
+    overflow: 'visible',
+  },
+  overshootSkirt: {
+    position: 'absolute',
+    bottom: -300,
+    height: 300,
   },
   headerRow: {
     flexDirection: 'row',

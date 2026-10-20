@@ -60,6 +60,7 @@ import { isNetworkFailure } from '../lib/networkUtils';
 import { round2 } from '../lib/formatters';
 import { calculateBudgetStatus } from '../money/budgetStatus';
 import { overspendFundingBetweenDates } from '../money/overspendFunding';
+import { getStoredDismissedGapDates, storeDismissedGapDates } from '../lib/gapFiller';
 
 import {
   buildCategoryClassifier,
@@ -271,6 +272,61 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       lastPeriodExceededKey: null,
       lastPeriodRolloverKey: null,
       lastRenewedPeriodKey: null,
+      dismissedGapDates: [],
+
+      saveGapDaysToGullak: async (gapDates: string[]) => {
+        if (!gapDates || gapDates.length === 0) return;
+        const records = { ...get().dailyRecords };
+        const baseBudget = get().dailyBudgetAmount;
+        let updated = false;
+
+        for (const d of gapDates) {
+          const extraCarry = dailyCarryExtraFor(d, get());
+          const budget = round2(baseBudget + extraCarry);
+          records[d] = {
+            date: d,
+            budget,
+            spent: 0,
+            saved: budget,
+            isFinalized: true,
+            status: 'saved',
+            needsUpload: true,
+          };
+          updated = true;
+        }
+
+        if (updated) {
+          const deposits = get().gullakDeposits;
+          const userCreatedAt = getUserCreatedAtStr();
+          const budgetPeriods = get().budgetPeriods;
+          const metrics = computeMetrics(
+            records,
+            deposits,
+            userCreatedAt,
+            budgetPeriods,
+            get().budgetCadence,
+            get().bestStreakByCadence
+          );
+          set({
+            dailyRecords: records,
+            ...metrics,
+          });
+
+          await get().uploadPendingDailyRecords();
+        }
+      },
+
+      dismissGapDays: async (gapDates: string[]) => {
+        if (!gapDates || gapDates.length === 0) return;
+        const current = get().dismissedGapDates || [];
+        const merged = Array.from(new Set([...current, ...gapDates]));
+        set({ dismissedGapDates: merged });
+
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          await storeDismissedGapDates(currentUser.id, gapDates);
+        }
+      },
 
       getTodayRecord: () => {
         const todayStr = getTodayDateStr();
@@ -842,6 +898,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       hydrateFromSupabase: async (userId: string) => {
+        const dismissed = await getStoredDismissedGapDates(userId);
+        if (dismissed && dismissed.length) {
+          set({ dismissedGapDates: dismissed });
+        }
         await runHydrateFromSupabase({
           get,
           set,
@@ -879,6 +939,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           lastPeriodExceededKey: null,
           lastPeriodRolloverKey: null,
           lastRenewedPeriodKey: null,
+          dismissedGapDates: [],
         });
         AsyncStorage.removeItem('arthik-daily-budget-storage-v2').catch(() => {});
         const prevUid = get().ownerUserId;

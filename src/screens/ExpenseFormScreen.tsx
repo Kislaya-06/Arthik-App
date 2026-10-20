@@ -58,14 +58,14 @@ const KEYPAD_ROWS = [
 // ─── Animated Category Chip ─────────────────────────────────────────────────
 let chipGradCounter = 0;
 
-const CategoryChipItem: React.FC<{
+const CategoryChipItem = React.memo<{
   category: Category;
   isSelected: boolean;
   isPlaceholder: boolean;
-  onSelect: () => void;
+  onSelect: (id: string) => void;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
-}> = ({ category, isSelected, isPlaceholder, onSelect, colors, isDark }) => {
+}>(({ category, isSelected, isPlaceholder, onSelect, colors, isDark }) => {
   const scale = useAnimatedValue(1);
   const [chipHeight, setChipHeight] = useState(0);
   const IconComp = getCategoryIcon(category.icon);
@@ -100,12 +100,14 @@ const CategoryChipItem: React.FC<{
 
   const pillRadius = chipHeight > 0 ? Math.round(chipHeight / 2) : 20;
 
+  const handlePress = useCallback(() => {
+    if (!isPlaceholder) onSelect(category.id);
+  }, [isPlaceholder, onSelect, category.id]);
+
   return (
     <Pressable
       disabled={isPlaceholder}
-      onPress={() => {
-        if (!isPlaceholder) onSelect();
-      }}
+      onPress={handlePress}
     >
       <Animated.View
         onLayout={(e) => {
@@ -161,7 +163,7 @@ const CategoryChipItem: React.FC<{
       </Animated.View>
     </Pressable>
   );
-};
+});
 
 export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const { colors, isDark } = useTheme();
@@ -552,9 +554,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                         category={cat}
                         isSelected={isSelected}
                         isPlaceholder={isPlaceholder}
-                        onSelect={() => {
-                          handleCategorySelect(cat.id);
-                        }}
+                        onSelect={handleCategorySelect}
                         colors={colors}
                         isDark={isDark}
                       />

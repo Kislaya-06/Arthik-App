@@ -474,6 +474,17 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
               </TouchableOpacity>
             </View>
           </ScrollView>
+
+          {/* Bleed skirt: anchors the bottom of the sheet so spring overshoot never exposes the background underneath */}
+          <View
+            style={[
+              styles.overshootSkirt,
+              {
+                backgroundColor: colors.card,
+              },
+            ]}
+            pointerEvents="none"
+          />
         </Animated.View>
       </View>
     </Modal>
@@ -498,6 +509,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BorderRadius.cardLarge,
     paddingTop: Spacing.group,
     paddingHorizontal: Spacing.gutter,
+    overflow: 'visible',
+  },
+  overshootSkirt: {
+    position: 'absolute',
+    bottom: -300,
+    left: 0,
+    right: 0,
+    height: 300,
   },
   scrollContent: {
     alignItems: 'center',

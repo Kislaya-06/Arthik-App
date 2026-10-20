@@ -65,6 +65,8 @@
         "version": "2.1.0",
         "title": "Split Expenses & Money Back 🤝",
         "highlights": [
+          "Welcome Back Savings: Smart gap-filler prompts to save unspent daily budget to Gullak after zero-activity days with 1-tap confirmation",
+          "Offline Reliability: Safe category fallback prevents dropped offline expenses, token refresh storm eliminated, and smooth chart decimals",
           "Liquid Pills & Motion Polish: Distance-aware two-edge pill physics with zero drift, no jitter, instant settle, and iOS landing tick",
           "Squish Toggle: Tactile squish-and-slide on/off switches across all settings and forms with native UI-thread animation",
           "Rolling Numbers: Silky 460ms soft-landing ease and left-to-right digit ripple across all financial balances",
@@ -100,7 +102,8 @@
           "Instant Cold Launch: Faster app startup with an optimized 500ms entrance",
           "Delightful Ticker Motion: Seamless digit roll animation across all filter switches including Mondays, with zero-lag background waterfall calculations",
           "Form Consistency: 'Transfer between accounts' now uses a sleek capsule pill with custom animated toggle matching the rest of the form",
-          "Sliding Income Toggle: 'What is this money?' upgraded to an executive sliding toggle with balanced vertical spacing and glitch-free alignment"
+          "Sliding Income Toggle: 'What is this money?' upgraded to an executive sliding toggle with balanced vertical spacing and glitch-free alignment",
+          "Instant Response: Re-render optimizations, memoized components, and instant ledger early-exit checks deliver fluid 60fps across Home, Savings, and Insights"
         ]
       }
     }

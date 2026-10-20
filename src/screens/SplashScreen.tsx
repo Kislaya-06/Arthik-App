@@ -69,7 +69,7 @@ const LOGO_PIECES: LogoPieceConfig[] = [
 ];
 
 export const SplashScreen: React.FC<Props> = ({ navigation }) => {
-  const { setSession } = useAuthStore();
+  const setSession = useAuthStore((s) => s.setSession);
   const { colors, isDark } = useTheme();
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);

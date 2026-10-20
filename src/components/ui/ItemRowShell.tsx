@@ -19,7 +19,7 @@ export interface ItemRowShellProps {
   phaseATranslateY?: Animated.AnimatedInterpolation<number> | Animated.Value;
 }
 
-export const ItemRowShell: React.FC<ItemRowShellProps> = ({
+const ItemRowShellBase: React.FC<ItemRowShellProps> = ({
   iconBadge,
   title,
   subtitle,
@@ -130,6 +130,8 @@ export const ItemRowShell: React.FC<ItemRowShellProps> = ({
     </View>
   );
 };
+
+export const ItemRowShell = React.memo(ItemRowShellBase);
 
 const styles = StyleSheet.create({
   pressableContainer: {

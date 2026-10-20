@@ -28,7 +28,7 @@ import {
   isAfter,
 } from 'date-fns';
 import { isCountedIncome, isCountedExpense } from './transactionUtils';
-import { sumSpendingBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates, budgetAllowedForActiveDays } from '../money/budgetAllowance';
 import { round2, formatCurrency } from './formatters';
@@ -112,8 +112,12 @@ export function computeAnnualDailyBurn(annualSpend: number, activeDaysInYear: nu
 export function computeYearlySpend(
   expenses: ExpenseLike[],
   categories: Category[],
-  yearInterval: YearInterval
+  yearInterval: YearInterval,
+  spentTotalsByDate?: Record<string, number>
 ): number {
+  if (spentTotalsByDate) {
+    return sumTotalsBetweenDateKeys(spentTotalsByDate, toDateStr(yearInterval.start), toDateStr(yearInterval.end));
+  }
   return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(yearInterval.start), toDateStr(yearInterval.end));
 }
 
@@ -140,7 +144,8 @@ export function computeYearlyComparison(
   previousInterval: YearInterval,
   offset: number,
   referenceDate: Date | number | string = new Date(),
-  userCreatedAt?: string | null
+  userCreatedAt?: string | null,
+  spentTotalsByDate?: Record<string, number>
 ): YearlyComparisonResult {
   const refDate = toDateObj(referenceDate);
   const currStartStr = toDateStr(currentInterval.start);
@@ -160,23 +165,28 @@ export function computeYearlyComparison(
     prevCutoffStr = toDateStr(cappedPrevDate);
   }
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
+  if (spentTotalsByDate) {
+    currentTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, currStartStr, currEndStr);
+    matchedPrevTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, prevCutoffStr);
+  } else {
+    for (const exp of expenses) {
+      if (!exp.expense_date) continue;
+      const cleanDate = toDateStr(exp.expense_date);
+      if (!cleanDate) continue;
 
-    const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-    if (!isCountedExpense(exp, cat)) continue;
+      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
+      if (!isCountedExpense(exp, cat)) continue;
 
-    if (isDateInBounds(cleanDate, currStartStr, currEndStr)) {
-      currentTotal += exp.amount;
-    } else if (isDateInBounds(cleanDate, prevStartStr, prevCutoffStr)) {
-      matchedPrevTotal += exp.amount;
+      if (isDateInBounds(cleanDate, currStartStr, currEndStr)) {
+        currentTotal += exp.amount;
+      } else if (isDateInBounds(cleanDate, prevStartStr, prevCutoffStr)) {
+        matchedPrevTotal += exp.amount;
+      }
     }
-  }
 
-  currentTotal = round2(currentTotal);
-  matchedPrevTotal = round2(matchedPrevTotal);
+    currentTotal = round2(currentTotal);
+    matchedPrevTotal = round2(matchedPrevTotal);
+  }
 
   const prevYearLabel = format(previousInterval.start, 'yyyy');
 

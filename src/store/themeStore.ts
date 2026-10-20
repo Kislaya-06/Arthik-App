@@ -52,6 +52,21 @@ Appearance.addChangeListener(({ colorScheme }: { colorScheme: ColorSchemeName })
   useThemeStore.getState().setSystemScheme(colorScheme === 'dark' ? 'dark' : 'light');
 });
 
+const THEMES = {
+  light: {
+    ...Theme,
+    colors: LightColors,
+  },
+  dark: {
+    ...Theme,
+    colors: DarkColors,
+  },
+  amoled: {
+    ...Theme,
+    colors: AmoledColors,
+  },
+};
+
 /**
  * Custom hook to consume the current theme and color tokens anywhere in the app.
  */
@@ -65,12 +80,8 @@ export const useTheme = () => {
   const isDark = effectiveScheme === 'dark' || effectiveScheme === 'amoled';
   const isAmoled = effectiveScheme === 'amoled';
 
-  let colors: ThemeColors = LightColors;
-  if (effectiveScheme === 'amoled') {
-    colors = AmoledColors;
-  } else if (effectiveScheme === 'dark') {
-    colors = DarkColors;
-  }
+  const theme = effectiveScheme === 'amoled' ? THEMES.amoled : effectiveScheme === 'dark' ? THEMES.dark : THEMES.light;
+  const colors: ThemeColors = theme.colors;
 
   return {
     colors,
@@ -78,10 +89,7 @@ export const useTheme = () => {
     isAmoled,
     themeMode,
     effectiveScheme,
-    theme: {
-      ...Theme,
-      colors,
-    },
+    theme,
     setThemeMode,
     toggleTheme,
   };

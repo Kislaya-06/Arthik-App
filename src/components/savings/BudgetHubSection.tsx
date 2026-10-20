@@ -41,7 +41,7 @@ export interface BudgetHubSectionProps {
   isScheduledSwitch?: boolean;
 }
 
-export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
+export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
   dashboard,
   allowanceCardSize,
   setAllowanceCardSize,
@@ -350,4 +350,4 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = ({
         </View>
     </View>
   );
-};
+});

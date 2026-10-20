@@ -107,7 +107,7 @@ export function buildNotchedCardPath(
   ].join(' ');
 }
 
-export const BrandedHeroCard: React.FC<BrandedHeroCardProps> = ({
+const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
   primaryLabel,
   primaryAmount,
   primarySubtext,
@@ -843,3 +843,5 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 });
+
+export const BrandedHeroCard = React.memo(BrandedHeroCardBase);

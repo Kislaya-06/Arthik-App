@@ -59,7 +59,7 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disable
 };
 
 export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
-  const { updateProfile } = useAuthStore();
+  const updateProfile = useAuthStore((s) => s.updateProfile);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);

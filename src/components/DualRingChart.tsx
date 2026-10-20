@@ -19,7 +19,7 @@ export interface DualRingChartProps {
   isDark?: boolean;
 }
 
-export const DualRingChart: React.FC<DualRingChartProps> = ({
+const DualRingChartBase: React.FC<DualRingChartProps> = ({
   income,
   spent,
   size = 98,
@@ -219,6 +219,8 @@ export const DualRingChart: React.FC<DualRingChartProps> = ({
     </Pressable>
   );
 };
+
+export const DualRingChart = React.memo(DualRingChartBase);
 
 const styles = StyleSheet.create({
   container: {

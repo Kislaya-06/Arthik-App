@@ -131,7 +131,10 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
   );
 
   // ─── Derived Allowance & Streak Metrics ───────────────────────────────────
-  const savedDaysCount = pastRecords.filter((r) => r.isFinalized && r.saved > 0).length;
+  const savedDaysCount = useMemo(
+    () => pastRecords.filter((r) => r.isFinalized && r.saved > 0).length,
+    [pastRecords]
+  );
 
   // Guard: if savedDaysCount === 0, streak and bestStreak must be 0.
   // Although calculateSavingsMetrics clamps this internally, this guard shields the UI

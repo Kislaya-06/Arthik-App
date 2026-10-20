@@ -207,27 +207,29 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   });
 
   // ─── Swipe gesture on hero card (horizontal swipe = period nav) ───────────
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        // Only claim the gesture if horizontal movement clearly dominates vertical
-        onMoveShouldSetPanResponder: (_, gs) =>
-          Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
-        onPanResponderRelease: (_, gs) => {
-          if (gs.dx < -40 && offset < 0) {
-            // Swipe left → go forward in time (toward current)
-            setSelectedCategoryId(null);
-            setOffset((o) => Math.min(o + 1, 0));
-          } else if (gs.dx > 40 && offset > minOff) {
-            // Swipe right → go back in time
-            setSelectedCategoryId(null);
-            setOffset((o) => Math.max(o - 1, minOff));
-          }
-        },
-      }),
-    [offset, minOff],
-  );
+  const navBoundsRef = useRef({ offset, minOff });
+  navBoundsRef.current = { offset, minOff };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      // Only claim the gesture if horizontal movement clearly dominates vertical
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
+      onPanResponderRelease: (_, gs) => {
+        const { offset: curOffset, minOff: curMinOff } = navBoundsRef.current;
+        if (gs.dx < -40 && curOffset < 0) {
+          // Swipe left → go forward in time (toward current)
+          setSelectedCategoryId(null);
+          setOffset((o) => Math.min(o + 1, 0));
+        } else if (gs.dx > 40 && curOffset > curMinOff) {
+          // Swipe right → go back in time
+          setSelectedCategoryId(null);
+          setOffset((o) => Math.max(o - 1, curMinOff));
+        }
+      },
+    })
+  ).current;
 
   const { width: windowWidth } = useWindowDimensions();
 
