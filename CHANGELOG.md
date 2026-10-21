@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Insights Cash Flow Animation & Blink Fix, Bottom Nav Symmetrical Spacing — OTA-safe
+
+- **Yearly Cash Flow Bi-Color Stacked Capsule (`YearlyCashFlowChart.tsx`)**: Replaced dual side-by-side 6px sticks with a single unified 14px stacked capsule inside a 20px dark track capsule. Smooth 5-stop gradient bridge with warm golden amber mid-shade (`#E5C9A1` / `#DFB88A`) organically blends Inflow and Outflow without sharp cut lines.
+- **Blink-Free Native Driver in Monthly Cash Flow (`CashFlowChart.tsx`)**: Switched vertical translation from `useNativeDriver: false` to `useNativeDriver: true`. Views are created with transform already initialized at track bottom on the native UI thread, completely eliminating the 1-frame layout flash on tab switch.
+- **Bouncy Spring Physics Parity (`SpendingFlowChart.tsx`, `CashFlowChart.tsx`, `InsightsScreen.tsx`)**: Synchronized all 7 day bars in Weekly Spending Flow under parent `animValue` with `triggerKey` (`${period}_${offset}_${focusSeq}`). Boosted Monthly spring tension to 70 and friction to 8 with `extrapolateLeft: 'clamp'` to match Weekly's physical bounce. Bars smoothly replay their rising animation whenever navigating weeks/months, switching periods, re-visiting the screen, or pulling to refresh. Yearly retains calm, non-bouncy spring motion (`tension: 60`, `friction: 9`).
+- **Bottom Nav Padding Symmetry (`BottomNavBar.tsx`)**: Added active-only animated `marginRight: 5` on the Insights tab capsule so that outer right padding symmetrically matches Home's outer left padding (~13.5px on both sides) without shifting any resting icon positions.
+- **No money logic touched**: No financial calculation, balance, or budget rule modified.
+- **Tests**: 126 test files, 1,855 tests passing; `tsc --noEmit` 0 errors.
+
 ### Payback Review — Choose the Person, Then Confirm; Remembered Income No Longer Swallows Paybacks — OTA-safe
 
 - **Problem**: on the Automatic Logging review sheet, the person who owed money (name matched the credit) was drawn in green like a selected option, while the footer still said "Save as Income · ₹X". Users pressed the green button and the friend's payback was saved as income instead of money back.

@@ -56,6 +56,7 @@ interface FlowBarColumnProps {
   colors: ThemeColors;
   gradStart: string;
   gradEnd: string;
+  animValue: Animated.Value;
   onPress?: () => void;
 }
 
@@ -68,24 +69,13 @@ const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
   colors,
   gradStart,
   gradEnd,
+  animValue,
   onPress,
 }) => {
-  const heightAnim = useAnimatedValue(targetHeight);
-
-  useEffect(() => {
-    // Value-to-value continuous transition without resetting to zero
-    Animated.spring(heightAnim, {
-      toValue: targetHeight,
-      tension: 70,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  }, [targetHeight, heightAnim]);
-
-  const animatedTranslateY = heightAnim.interpolate({
-    inputRange: [0, DEFAULT_TRACK_HEIGHT],
-    outputRange: [DEFAULT_TRACK_HEIGHT, 0],
-    extrapolate: 'clamp',
+  const animatedTranslateY = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetHeight],
+    extrapolateLeft: 'clamp',
   });
 
   return (
@@ -184,7 +174,19 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
   subTitle,
   trackWidth = DEFAULT_TRACK_WIDTH,
   onDayPress,
+  triggerKey,
 }) => {
+  const animValue = useAnimatedValue(0);
+
+  useEffect(() => {
+    animValue.setValue(0);
+    Animated.spring(animValue, {
+      toValue: 1,
+      tension: 70,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [triggerKey]);
   // Calculate highest amount in the set
   const maxAmount = useMemo(() => {
     return Math.max(...data.map((d) => d.amount), 0);
@@ -264,6 +266,7 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
               colors={colors}
               gradStart={gradStart}
               gradEnd={gradEnd}
+              animValue={animValue}
               onPress={() => onDayPress?.(d)}
             />
           );

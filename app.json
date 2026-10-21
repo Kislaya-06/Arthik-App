@@ -63,8 +63,11 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Responsive Bottom Nav & Payback Review 🤝",
+        "title": "Insights Cash Flow Motion & Nav Polish ✨",
         "highlights": [
+          "Insights Cash Flow: Unified single-capsule stacked bar with warm organic amber gradient bridge and bottom-to-top rising spring animation",
+          "Blink-Free Monthly & Weekly Sync: Eliminated 1-frame layout blink in Monthly cash flow with native driver, and unified responsive bouncy rising animations across all week/month navigations and tab re-visits",
+          "Balanced Bottom Navigation: Symmetrical active capsule padding between Home and Insights without shifting resting icon coordinates",
           "Responsive Bottom Nav: Concentric 48dp capsule geometry, larger bold typography, and responsive edge padding tailored for all screen sizes",
           "Payback Review: Choose the person then confirm settlement, with automatic hold for credits matching outstanding split balances",
           "Smoother Motion: Glitch-free splash that always opens from the centre, blink-free Home rings, and swipe down to close the Home card breakdown",

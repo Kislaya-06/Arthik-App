@@ -128,8 +128,11 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     await Promise.all([fetchExpenses(), fetchCategories()]);
   }, [fetchExpenses, fetchCategories]);
 
+  const [focusSeq, setFocusSeq] = useState(0);
+
   useFocusEffect(
     useCallback(() => {
+      setFocusSeq((s) => s + 1);
       loadData(false);
     }, [loadData]),
   );
@@ -137,6 +140,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData(true);
+    setFocusSeq((s) => s + 1);
     setRefreshing(false);
   }, [loadData]);
 
@@ -521,7 +525,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             onDayPress={(d) => {
               navigation.navigate('History', { targetDate: d.dateStr });
             }}
-            triggerKey={`${period}_${offset}`}
+            triggerKey={`${period}_${offset}_${focusSeq}`}
           />
         )}
 
@@ -543,7 +547,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 endDate: week.endDate,
               });
             }}
-            triggerKey={`${period}_${offset}`}
+            triggerKey={`${period}_${offset}_${focusSeq}`}
           />
         )}
 
@@ -566,7 +570,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   endDate: month.endDate,
                 });
               }}
-              triggerKey={`${period}_${offset}`}
+              triggerKey={`${period}_${offset}_${focusSeq}`}
             />
 
             {/* Annual Budget Discipline (Completed Months Only) */}

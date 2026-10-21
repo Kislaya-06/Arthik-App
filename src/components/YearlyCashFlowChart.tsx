@@ -34,9 +34,12 @@ export interface YearlyCashFlowChartProps {
 }
 
 const CHART_HEIGHT = 100;
-const BAR_WIDTH = 6;
-const BAR_GAP = 2;
-const BAR_RADIUS = 3;
+const TRACK_WIDTH = 20;
+const TRACK_RADIUS = 10;
+const BAR_WIDTH = 14;
+const BAR_RADIUS = 7;
+const BOTTOM_OFFSET = 3;
+const MAX_FILL_HEIGHT = CHART_HEIGHT - BOTTOM_OFFSET * 2;
 
 export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
   title = 'Cash Flow',
@@ -54,9 +57,9 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
     animValue.setValue(0);
     Animated.spring(animValue, {
       toValue: 1,
-      tension: 55,
-      friction: 8,
-      useNativeDriver: false,
+      tension: 60,
+      friction: 9,
+      useNativeDriver: true,
     }).start();
   }, [triggerKey]);
 
@@ -73,8 +76,12 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
   // Exact green matching Auto-Saved to Gullak (colors.mintGreen / colors.forestGreen)
   const inColor = isDark ? colors.mintGreen : colors.forestGreen;
 
-  // Safe ceiling for bar scaling
-  const effectiveMax = Math.max(maxAmount, 100);
+  // Safe ceiling for bar scaling (combined monthly activity across the year)
+  const maxActivity = Math.max(
+    ...months.map((m) => m.income + m.spent),
+    maxAmount,
+    100
+  );
 
   return (
     <View style={styles.container}>
@@ -131,16 +138,44 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
       <View style={styles.chartContainer}>
         <View style={styles.monthsRow}>
           {months.map((m) => {
-            const inRatio = Math.min(1, Math.max(0, m.income / effectiveMax));
-            const outRatio = Math.min(1, Math.max(0, m.spent / effectiveMax));
-
-            // Bar fill heights
-            const inHeight = m.income > 0 ? Math.max(4, Math.round(inRatio * (CHART_HEIGHT - 6))) : 0;
-            const outHeight = m.spent > 0 ? Math.max(4, Math.round(outRatio * (CHART_HEIGHT - 6))) : 0;
-
+            const totalActivity = m.income + m.spent;
             const isFuture = m.isFuture;
             const isCurrent = m.isCurrentMonth;
             const colOpacity = isFuture ? 0.28 : 1;
+
+            // Total height of the stacked pill bar
+            const totalHeight = totalActivity > 0
+              ? Math.max(6, Math.round((totalActivity / maxActivity) * MAX_FILL_HEIGHT))
+              : 0;
+
+            let inHeight = 0;
+            let outHeight = 0;
+
+            if (totalHeight > 0) {
+              if (m.income > 0 && m.spent > 0) {
+                // Both Inflow and Outflow exist: partition proportionally
+                inHeight = Math.max(3, Math.round((m.income / totalActivity) * totalHeight));
+                outHeight = totalHeight - inHeight;
+                if (outHeight < 3) {
+                  outHeight = 3;
+                  inHeight = Math.max(3, totalHeight - 3);
+                }
+              } else if (m.income > 0) {
+                inHeight = totalHeight;
+                outHeight = 0;
+              } else {
+                inHeight = 0;
+                outHeight = totalHeight;
+              }
+            }
+
+            const splitRatio = totalHeight > 0 ? outHeight / totalHeight : 0;
+
+            const animatedTranslateY = animValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [totalHeight + 10, 0],
+              extrapolate: 'clamp',
+            });
 
             return (
               <Pressable
@@ -155,55 +190,47 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
                   isCurrent ? ' Current month in progress.' : ''
                 }${isFuture ? ' Future upcoming month.' : ''}`}
               >
-                {/* Visual Dual Bars */}
-                <View style={[styles.barPodTrack, { backgroundColor: trackBg }]}>
-                  {/* Inflow Bar */}
-                  <View style={styles.barSlot}>
-                    {inHeight > 0 ? (
-                      <Svg width={BAR_WIDTH} height={inHeight}>
+                {/* Dark Outer Track Capsule */}
+                <View style={[styles.trackCapsule, { backgroundColor: trackBg }]}>
+                  {totalHeight > 0 && (
+                    <Animated.View
+                      style={{
+                        width: BAR_WIDTH,
+                        height: totalHeight,
+                        marginBottom: BOTTOM_OFFSET,
+                        transform: [{ translateY: animatedTranslateY }],
+                      }}
+                    >
+                      <Svg width={BAR_WIDTH} height={totalHeight}>
                         <Defs>
-                          <LinearGradient id={`gradIn_${m.monthIndex}`} x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={inGradStart} stopOpacity="1" />
-                            <Stop offset="1" stopColor={inGradEnd} stopOpacity="1" />
+                          <LinearGradient id={`gradPill_${m.monthIndex}`} x1="0" y1="0" x2="0" y2="1">
+                            {outHeight > 0 && inHeight > 0 ? [
+                              <Stop key="1" offset="0%" stopColor={outGradStart} />,
+                              <Stop key="2" offset={`${Math.max(0, splitRatio - 0.10) * 100}%`} stopColor={outGradEnd} />,
+                              <Stop key="3" offset={`${splitRatio * 100}%`} stopColor={isDark ? '#E5C9A1' : '#DFB88A'} />,
+                              <Stop key="4" offset={`${Math.min(1, splitRatio + 0.10) * 100}%`} stopColor={inGradStart} />,
+                              <Stop key="5" offset="100%" stopColor={inGradEnd} />,
+                            ] : outHeight > 0 ? [
+                              <Stop key="1" offset="0%" stopColor={outGradStart} />,
+                              <Stop key="2" offset="100%" stopColor={outGradEnd} />,
+                            ] : [
+                              <Stop key="1" offset="0%" stopColor={inGradStart} />,
+                              <Stop key="2" offset="100%" stopColor={inGradEnd} />,
+                            ]}
                           </LinearGradient>
                         </Defs>
                         <Rect
                           x="0"
                           y="0"
                           width={BAR_WIDTH}
-                          height={inHeight}
+                          height={totalHeight}
                           rx={BAR_RADIUS}
                           ry={BAR_RADIUS}
-                          fill={`url(#gradIn_${m.monthIndex})`}
+                          fill={`url(#gradPill_${m.monthIndex})`}
                         />
                       </Svg>
-                    ) : null}
-                  </View>
-
-                  <View style={{ width: BAR_GAP }} />
-
-                  {/* Outflow Bar */}
-                  <View style={styles.barSlot}>
-                    {outHeight > 0 ? (
-                      <Svg width={BAR_WIDTH} height={outHeight}>
-                        <Defs>
-                          <LinearGradient id={`gradOut_${m.monthIndex}`} x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={outGradStart} stopOpacity="1" />
-                            <Stop offset="1" stopColor={outGradEnd} stopOpacity="1" />
-                          </LinearGradient>
-                        </Defs>
-                        <Rect
-                          x="0"
-                          y="0"
-                          width={BAR_WIDTH}
-                          height={outHeight}
-                          rx={BAR_RADIUS}
-                          ry={BAR_RADIUS}
-                          fill={`url(#gradOut_${m.monthIndex})`}
-                        />
-                      </Svg>
-                    ) : null}
-                  </View>
+                    </Animated.View>
+                  )}
                 </View>
 
                 {/* Month Label with Active MTD indicator */}
@@ -301,21 +328,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 2,
   },
-  barPodTrack: {
-    width: (BAR_WIDTH * 2) + BAR_GAP + 6,
+  trackCapsule: {
+    width: TRACK_WIDTH,
     height: CHART_HEIGHT,
-    borderRadius: (BAR_WIDTH * 2 + BAR_GAP + 6) / 2,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    paddingBottom: 3,
-  },
-  barSlot: {
-    width: BAR_WIDTH,
-    height: '100%',
-    alignItems: 'center',
+    borderRadius: TRACK_RADIUS,
+    overflow: 'hidden',
     justifyContent: 'flex-end',
+    alignItems: 'center',
   },
+
   monthLabelContainer: {
     alignItems: 'center',
     marginTop: 6,

@@ -55,9 +55,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
     animValue.setValue(0);
     Animated.spring(animValue, {
       toValue: 1,
-      tension: 55,
+      tension: 70,
       friction: 8,
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
   }, [triggerKey]);
 
@@ -290,11 +290,13 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
           const animatedInTranslateY = animValue.interpolate({
             inputRange: [0, 1],
             outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetInHeight],
+            extrapolateLeft: 'clamp',
           });
 
           const animatedOutTranslateY = animValue.interpolate({
             inputRange: [0, 1],
             outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetOutHeight],
+            extrapolateLeft: 'clamp',
           });
 
           const weekNet = Math.round(w.income - w.spent);

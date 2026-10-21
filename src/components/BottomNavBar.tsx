@@ -44,6 +44,8 @@ const AnimatedIcon = ({
 };
 
 // ─── Expanding Active Capsule Tab Item ──────────────────────────────────────
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 interface CapsuleTabItemProps {
   icon: any;
   label: string;
@@ -53,6 +55,8 @@ interface CapsuleTabItemProps {
   labelMax: number;
   /** Width of the icon-only slot (44 on normal phones). */
   minWidth: number;
+  /** Optional animated right margin when active to balance wing padding (Insights). */
+  activeMarginRight?: number;
 }
 
 const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
@@ -62,6 +66,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   onPress,
   labelMax,
   minWidth,
+  activeMarginRight,
 }) => {
   const { isDark } = useTheme();
   const anim = useAnimatedValue(active ? 1 : 0);
@@ -140,13 +145,25 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   });
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       unstable_pressDelay={0}
       pressRetentionOffset={{ top: 20, bottom: 20, left: 16, right: 16 }}
-      style={[styles.tabPressable, { minWidth }]}
+      style={[
+        styles.tabPressable,
+        { minWidth },
+        activeMarginRight
+          ? {
+              marginRight: anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, activeMarginRight],
+                extrapolate: 'clamp',
+              }),
+            }
+          : null,
+      ]}
       hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
     >
       <Animated.View style={{ transform: [{ scale: pressScale }] }}>
@@ -186,7 +203,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
           </Animated.View>
         </Animated.View>
       </Animated.View>
-    </Pressable>
+    </AnimatedPressable>
   );
 });
 
@@ -445,6 +462,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
               label="Insights"
               active={state.index === getRouteIndex('Insights')}
               onPress={onPressInsights}
+              activeMarginRight={5}
             />
           </View>
         </View>
