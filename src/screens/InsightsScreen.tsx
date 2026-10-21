@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useScrollToTop } from '@react-navigation/native';
+import { useNavBarContentInset } from '../hooks/useNavBarMetrics';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -87,6 +88,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollDirection();
   const isFocused = useIsFocused();
+  // Bottom padding follows the responsive nav bar; tapping the active Insights tab scrolls back to the top.
+  const navBarInset = useNavBarContentInset();
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
 
   const [period, setPeriod] = useState<Period>('Weekly');
   // offset=0 → current period, negative → how many periods back
@@ -264,9 +269,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navBarInset }]}
         refreshControl={
           <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

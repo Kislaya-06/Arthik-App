@@ -30,7 +30,8 @@ import { DepositGullakModal } from '../components/DepositGullakModal';
 import { MoneyExplainerModal } from '../components/MoneyExplainerModal';
 import { PauseBudgetModal } from '../components/profile/PauseBudgetModal';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
-import { CompositeScreenProps } from '@react-navigation/native';
+import { CompositeScreenProps, useScrollToTop } from '@react-navigation/native';
+import { useNavBarContentInset } from '../hooks/useNavBarMetrics';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TabParamList, RootStackParamList } from '../types';
@@ -53,6 +54,10 @@ type SavingsScreenProps = CompositeScreenProps<
 // ─── Main Savings Screen ──────────────────────────────────────────────────────
 export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  // Bottom padding follows the responsive nav bar (+20 extra room, as before); tapping the active tab scrolls up.
+  const navBarInset = useNavBarContentInset(20);
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const { colors, isDark } = useTheme();
   const handleScroll = useScrollDirection();
 
@@ -374,12 +379,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
           {
             paddingTop: 16,
-            paddingBottom: insets.bottom + 120,
+            paddingBottom: navBarInset,
           },
         ]}
         showsVerticalScrollIndicator={false}

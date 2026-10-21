@@ -65,6 +65,7 @@
         "version": "2.1.0",
         "title": "Split Expenses & Money Back 🤝",
         "highlights": [
+          "Smoother Motion: Glitch-free splash that always opens from the centre, blink-free Home rings, and swipe down to close the Home card breakdown",
           "Engine Optimization: Root re-render elimination on tab/route changes, debounced search, batch I/O, and stabilized callbacks for 60/120 FPS performance",
           "Welcome Back Savings: Smart gap-filler prompts to save unspent daily budget to Gullak after zero-activity days with 1-tap confirmation",
           "Offline Reliability: Safe category fallback prevents dropped offline expenses, token refresh storm eliminated, and smooth chart decimals",

@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react';
-import { useIsFocused } from '@react-navigation/native';
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { NavigationContext, useIsFocused } from '@react-navigation/native';
 
 /** `useIsFocused` that also works outside a navigator (always true there). */
 export function useSafeIsFocused(): boolean {
@@ -36,4 +36,36 @@ export function useFocusEntryCount(): number {
   }, [isFocused]);
 
   return count;
+}
+
+/**
+ * Calls `onBlur` every time the screen loses focus (tab switch, a screen pushed on top, etc.).
+ *
+ * Uses the navigation event, not a render: with `freezeOnBlur` the "blurred" render of a tab is often never
+ * committed, but the event always fires. Safe outside a navigator (does nothing there).
+ */
+export function useScreenBlurListener(onBlur: () => void): void {
+  const navigation = useContext(NavigationContext);
+  const onBlurRef = useRef(onBlur);
+  onBlurRef.current = onBlur;
+
+  useEffect(() => {
+    if (!navigation) return;
+    return navigation.addListener('blur', () => onBlurRef.current());
+  }, [navigation]);
+}
+
+/**
+ * Calls `onFocus` every time the screen gains focus (navigation event, independent of renders and of
+ * `freezeOnBlur`). Safe outside a navigator (does nothing there).
+ */
+export function useScreenFocusListener(onFocus: () => void): void {
+  const navigation = useContext(NavigationContext);
+  const onFocusRef = useRef(onFocus);
+  onFocusRef.current = onFocus;
+
+  useEffect(() => {
+    if (!navigation) return;
+    return navigation.addListener('focus', () => onFocusRef.current());
+  }, [navigation]);
 }

@@ -310,7 +310,7 @@ The dual-engine divergence between `paymentUtils.ts` and `dailyBudgetStore.ts` (
 
 ### 4.2 Startup Window Sequencing & Residual Risk
 
-To close the failure window where categories were empty on cold start, startup initialization was resequenced into an authoritative hydration chain inside `src/screens/SplashScreen.tsx` (lines 343–355):
+To close the failure window where categories were empty on cold start, startup initialization was resequenced into an authoritative hydration chain inside `src/screens/SplashScreen.tsx` (`initAuthAndNavigate`, step 4):
 
 ```ts
 // Fixed startup hydration sequence for authenticated user:
@@ -393,7 +393,7 @@ graph TD
 
 ### 5.1 Consumers & Selectors
 
-1. **`src/screens/SplashScreen.tsx` (lines 348–355)**:
+1. **`src/screens/SplashScreen.tsx` (`initAuthAndNavigate`, step 4)**:
    - Calls `useDailyBudgetStore.getState().hydrateFromSupabase(activeUser.id)` during startup hydration chain after categories are cached.
 2. **`src/screens/HomeScreen.tsx`**:
    - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `getTodayRecord`, `dailyRecords`, `isBudgetModeEnabled`, `budgetCadence`

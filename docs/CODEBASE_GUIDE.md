@@ -100,7 +100,7 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
 - **Hal (`FIN-07`, `useExpenseForm.ts`, Rule `SPL-001`):** Odd split amounts (jaise ₹10 teen logon mein baantna) par floating-point division `3.333333...` se sum `10.00` se match nahi karta tha aur validation error aa jati thi. Ab exact integer paise distribution aur remainder absorption se ek-ek paise ka hisaab 100% exact match hota hai bina kisi save lockout ke.
 
 ### Samasya 14: "Splash screen par unnecessary 2.2s delay" (FIN-08)
-- **Hal (`FIN-08`, `SplashScreen.tsx`):** Hardcoded minimum delay ko 2200ms se ghata kar 500ms kiya gaya. Brand logo crisp dikhta hai aur app 1.5s pehle turant khulti hai.
+- **Hal (`FIN-08`, `SplashScreen.tsx`):** Hardcoded minimum delay hata diya gaya. Ab splash do UI-thread clocks par chalta hai (entrance 0.9s, exit 0.58s); exit tabhi shuru hota hai jab entrance poora ho chuka ho AUR agla screen pata ho. Bloom apni alag full-screen layer mein screen ke centre se khulta hai. Splash mint par khatam hota hai, `SplashCover` (`splashCoverStore.ts`) turant mint cover laga deta hai, route uske neeche badalta hai, aur Home layout hone ke baad cover dissolve hota hai.
 
 ### Samasya 15: "Daily aur Weekly pill ke beech amount same hone par rollover animation na aana" (FIN-09)
 - **Hal (`FIN-09`, `HomeScreen.tsx`, `BrandedHeroCard.tsx`, `RollingText.tsx`, `rollingText.ts`):** Mondays ko Daily aur Weekly balance numerical roop se same hota hai. Pehle identical amounts par animation skip ho jaata tha. Ab `rollTrigger` aur `forceSpin` se har pill switch par crisp digit roll animation trigger hota hai, aur waterfall calculation ko active filter se decouple karke instantaneous response diya gaya hai.
@@ -325,7 +325,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `otaStore.ts` | Expo OTA update check + modal |
 | `themeStore.ts` | Light/Dark/AMOLED theme (`useTheme`) |
 | `ambientStore.ts` | Ambient background on/off preference |
-| `navBarStore.ts` | Bottom nav bar dikhana/chhupana |
+| `navBarStore.ts` | Bottom nav bar dikhana/chhupana (geometry `lib/navBarLayout.ts` mein) |
 
 ---
 
@@ -368,7 +368,9 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `useExpenseForm.ts` | Form ka poora logic: amount keypad, validation, spending guard, self-transfer, save |
 | `useMoneyWaterfall.ts` | Component ke liye waterfall result (expenses + categories se) |
 | `useSavingsDashboard.ts` | Savings screen ka data |
-| `useFormKeyboard.ts`, `useFocusEntry.ts`, `useScrollDirection.ts` | Keyboard, screen focus, scroll ki disha |
+| `useFormKeyboard.ts`, `useFocusEntry.ts`, `useScrollDirection.ts` | Keyboard, screen focus (`useFocusEntryCount`, `useScreenBlurListener`), scroll ki disha |
+| `useNavBarMetrics.ts` | Phone ke hisaab se nav bar ka size (`useNavBarMetrics`) aur screens ki bottom padding (`useNavBarContentInset`) |
+| `useRingSweep.ts` | (focus-entry + `focus` event, dono se trigger) Home rings (`DualRingChart`, `DonutChart`) ka blink-free sweep: blur ke baad UI thread par 0, wapas aane par seedha sweep up |
 
 ---
 

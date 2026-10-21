@@ -1,5 +1,16 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing, Image, useAnimatedValue, ImageSourcePropType } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, Image, ImageSourcePropType, useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,10 +23,91 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
 import { useAppLockStore } from '../store/appLockStore';
+import { useSplashCoverStore } from '../store/splashCoverStore';
 import { Spacing, FontFamily, FontSize } from '../config/theme';
 import { supabase } from '../config/supabase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
+type Target = keyof RootStackParamList;
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ *  How this splash works (and why it can not glitch any more)
+ *
+ *  The old splash chained ~20 JS-driven animations (sequence/parallel/stagger) for the entrance and another chain
+ *  for the exit. The exit could start while the entrance was still running, so both fought over the same values:
+ *  the icon slid left in the middle of the green bloom, the tagline faded back in on top of the green, and the
+ *  timing depended on how busy the JS thread was with startup hydration.
+ *
+ *  Now there are just two CLOCKS (shared values, in ms) that run on the UI thread:
+ *    t   entrance clock  0 → ENTRANCE_MS
+ *    ex  exit clock      0 → EXIT_MS
+ *  Every visual is a pure function of those clocks (see the timelines below). Nothing is chained, so nothing can
+ *  fight, and a busy JS thread can not stretch or skip a step.
+ *
+ *  The exit starts only when BOTH are true: the entrance has finished AND the next screen is known.
+ *  The bloom lives in its own full-screen layer centred on the screen, painted above everything, so it always
+ *  grows from the centred icon and always covers the wordmark, tagline and dots.
+ *  The splash ends on solid mint, a mint cover (App.tsx) takes over, the route is swapped underneath it, and the
+ *  cover dissolves once the next screen has laid out (see splashCoverStore).
+ * ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ */
+
+const ENTRANCE_MS = 900;
+const EXIT_MS = 580;
+const ICON_SIZE = 80;
+/** Lockup geometry: icon (80) + wordmark box (160) = 240 wide, so the icon sits 80 left of centre when open. */
+const ROW_CENTER_SHIFT = 80;
+const WORDMARK_WIDTH = 160;
+
+// Entrance timeline (ms on clock `t`)
+const ICON_POP: [number, number] = [0, 260];
+const LINE_STARTS = [120, 185, 250];
+const LINE_MS = 200;
+const PUNCH: [number, number] = [440, 570];
+const LOCKUP: [number, number] = [500, 820];
+const WORDMARK_FADE: [number, number] = [500, 760];
+const TAGLINE: [number, number] = [620, 900];
+const DOTS_IN: [number, number] = [720, 900];
+
+// Exit timeline (ms on clock `ex`)
+const EX_TEXT_FADE: [number, number] = [0, 120];
+const EX_WORDMARK_FADE: [number, number] = [0, 140];
+const EX_LOCKUP_BACK: [number, number] = [0, 260];
+const EX_LINES_FADE: [number, number] = [180, 260];
+/** Bloom appears (fully hidden inside the mint icon card, so the switch is invisible) and grows. */
+const EX_BLOOM: [number, number] = [260, 580];
+
+// Loading dots: 3 pulses of 400ms, staggered by 130ms, then a 180ms rest (same rhythm as before).
+const DOT_CYCLE_MS = 840;
+const DOT_STAGGER_MS = 130;
+const DOT_PULSE_MS = 400;
+
+// ── Tiny worklet easing helpers ──
+const seg = (v: number, [a, b]: [number, number]) => {
+  'worklet';
+  if (v <= a) return 0;
+  if (v >= b) return 1;
+  return (v - a) / (b - a);
+};
+const outCubic = (x: number) => {
+  'worklet';
+  return 1 - Math.pow(1 - x, 3);
+};
+const outQuart = (x: number) => {
+  'worklet';
+  return 1 - Math.pow(1 - x, 4);
+};
+const inOutCubic = (x: number) => {
+  'worklet';
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+};
+const outBack = (x: number) => {
+  'worklet';
+  const c1 = 1.4;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+};
 
 interface LogoPieceConfig {
   source: ImageSourcePropType;
@@ -68,251 +160,164 @@ const LOGO_PIECES: LogoPieceConfig[] = [
   },
 ];
 
+/** One navy line of the logo: draws itself in along its own angle, fades out when the bloom starts. */
+const LogoPiece: React.FC<{ piece: LogoPieceConfig; index: number; t: SharedValue<number>; ex: SharedValue<number> }> = ({
+  piece,
+  index,
+  t,
+  ex,
+}) => {
+  const style = useAnimatedStyle(() => {
+    const start = LINE_STARTS[index];
+    const p = outQuart(seg(t.value, [start, start + LINE_MS]));
+    const appear = Math.min(1, p / 0.08);
+    const secondary = p < 0.35 ? 0.35 + (p / 0.35) * 0.65 : 1;
+    const transform = [
+      { rotate: piece.rotate },
+      { [piece.translateProp]: piece.translateFrom * (1 - p) },
+      { [piece.scalePrimaryProp]: 0.01 + 0.99 * p },
+      { [piece.scaleSecondaryProp]: secondary },
+      { rotate: piece.unrotate },
+    ];
+    return {
+      opacity: appear * (1 - seg(ex.value, EX_LINES_FADE)),
+      transform: transform as any,
+    };
+  });
+
+  return (
+    <Animated.View style={[styles.pieceContainer, piece.containerOffset, style]}>
+      <Image source={piece.source} style={[styles.pieceImage, piece.imageOffset]} resizeMode="contain" />
+    </Animated.View>
+  );
+};
+
+/** One loading dot: a soft pulse that travels 1 → 2 → 3 on a single repeating clock. */
+const Dot: React.FC<{ index: number; dots: SharedValue<number>; color: string; baseColor: string }> = ({
+  index,
+  dots,
+  color,
+  baseColor,
+}) => {
+  const style = useAnimatedStyle(() => {
+    const ms = dots.value * DOT_CYCLE_MS - index * DOT_STAGGER_MS;
+    let v = 0;
+    if (ms > 0 && ms < DOT_PULSE_MS) {
+      // 0 → 1 → 0, eased (half a sine wave)
+      v = Math.sin((ms / DOT_PULSE_MS) * Math.PI);
+    }
+    return { opacity: v, transform: [{ scale: 1 + 0.35 * v }] };
+  });
+
+  return (
+    <View style={styles.dotWrapper}>
+      <View style={[styles.dotBase, { backgroundColor: baseColor }]} />
+      <Animated.View style={[styles.dotActive, { backgroundColor: color }, style]} />
+    </View>
+  );
+};
+
 export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const setSession = useAuthStore((s) => s.setSession);
   const { colors, isDark } = useTheme();
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
+  const reduceMotion = useReducedMotion();
+  const { width, height } = useWindowDimensions();
 
-  // Icon initial entrance & punch (single native value avoids Fabric compound node race conditions)
-  const iconScale = useAnimatedValue(0.6);
-  const iconEntranceOpacity = useAnimatedValue(0);
+  // The two clocks + the dot loop clock
+  const t = useSharedValue(0);
+  const ex = useSharedValue(0);
+  const dots = useSharedValue(0);
 
-  // 3 line creation / draw progress values (0 -> 1)
-  const lineProgress = [
-    useAnimatedValue(0),
-    useAnimatedValue(0),
-    useAnimatedValue(0),
-  ];
-
-  // Icon starts dead-center (brandRowX: 80 -> 0), "Arthik" emerges from inside/behind icon (wordmarkSlideX: -160 -> 0)
-  const brandRowX = useAnimatedValue(80);
-  const wordmarkSlideX = useAnimatedValue(-160);
-  const wordmarkOpacity = useAnimatedValue(0);
-
-  // Tagline & dots animations
-  const taglineOpacity = useAnimatedValue(0);
-  const taglineTranslateY = useAnimatedValue(12);
-  const dotsOpacity = useAnimatedValue(0);
-
-  // Expanding Mint Circle for exit transition (bloom from centered icon)
-  const exitCircleScale = useAnimatedValue(1);
-  const exitCircleOpacity = useAnimatedValue(0);
-  const contentFadeOpacity = useAnimatedValue(1);
-
-  // Wave animation values for the 3 dots
-  const dotAnims = [
-    useAnimatedValue(0),
-    useAnimatedValue(0),
-    useAnimatedValue(0),
-  ];
-
-  const exitTimerRef = useRef<NodeJS.Timeout | null>(null);
-
+  // Scale that makes an 80pt circle cover the whole screen from its centre (with a little margin).
+  const bloomTarget = (Math.hypot(width, height) / ICON_SIZE) * 1.08;
+  const bloomScale = useSharedValue(bloomTarget);
   useEffect(() => {
-    // Helper to pulse a single dot (0 -> 1 -> 0)
-    const createDotPulse = (anim: Animated.Value) =>
-      Animated.sequence([
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim, {
-          toValue: 0,
-          duration: 200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]);
+    bloomScale.value = bloomTarget;
+  }, [bloomTarget, bloomScale]);
 
-    // Sequential wave animation for the 3 dots: 1st -> 2nd -> 3rd -> repeat
-    const dotWaveLoop = Animated.loop(
-      Animated.sequence([
-        Animated.stagger(130, dotAnims.map(createDotPulse)),
-        Animated.delay(180),
-      ])
-    );
+  const entranceDone = useRef(false);
+  const nextScreen = useRef<Target | null>(null);
+  const exitStarted = useRef(false);
+  const unmounted = useRef(false);
 
-    // Trigger return to center, then butter-smooth circular mint bloom from the centered icon, then navigate
-    const triggerExitAndNavigate = (targetScreen: keyof RootStackParamList) => {
-      dotWaveLoop.stop();
-
-      Animated.sequence([
-        // 1. Tagline and dots fade out quickly, icon glides back to center, wordmark retracts
-        Animated.parallel([
-          Animated.timing(taglineOpacity, {
-            toValue: 0,
-            duration: 150,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dotsOpacity, {
-            toValue: 0,
-            duration: 150,
-            useNativeDriver: true,
-          }),
-          Animated.timing(brandRowX, {
-            toValue: 80,
-            duration: 320,
-            easing: Easing.bezier(0.25, 1, 0.5, 1),
-            useNativeDriver: true,
-          }),
-          Animated.timing(wordmarkSlideX, {
-            toValue: -160,
-            duration: 320,
-            easing: Easing.bezier(0.25, 1, 0.5, 1),
-            useNativeDriver: true,
-          }),
-          Animated.timing(wordmarkOpacity, {
-            toValue: 0,
-            duration: 200,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]),
-
-        // 2. Native driver pause (60ms) to clearly perceive the centered icon
-        Animated.delay(60),
-
-        // 3. Butter-smooth circular mint bloom expanding outward from the centered icon (gentle ease-in-out)
-        Animated.parallel([
-          Animated.timing(exitCircleOpacity, {
-            toValue: 1,
-            duration: 60,
-            useNativeDriver: true,
-          }),
-          Animated.timing(exitCircleScale, {
-            toValue: 24,
-            duration: 500,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(contentFadeOpacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]),
-
-        // 4. Brief hold (80ms) on solid mint green before destination cross-fade
-        Animated.delay(80),
-      ]).start(() => {
-        if (targetScreen === 'AppTabs' && useAppLockStore.getState().isAppLockEnabled) {
-          useAppLockStore.getState().lock();
+  // ── Navigation after the bloom: cover on → swap route under it → cover dissolves when the next screen is ready ──
+  const finishExit = useCallback(
+    (target: Target) => {
+      if (unmounted.current) return;
+      if (target === 'AppTabs' && useAppLockStore.getState().isAppLockEnabled) {
+        useAppLockStore.getState().lock();
+      }
+      const cover = useSplashCoverStore.getState();
+      cover.show();
+      requestAnimationFrame(() => {
+        if (unmounted.current) {
+          useSplashCoverStore.getState().revealSoon();
+          return;
         }
-        navigation.replace(targetScreen as any);
+        navigation.replace(target as any);
+        useSplashCoverStore.getState().revealSoon();
       });
-    };
+    },
+    [navigation]
+  );
 
-    // 1. Entrance & Reveal Sequence
-    Animated.sequence([
-      // A. Center icon pops in with a smooth spring
-      Animated.parallel([
-        Animated.timing(iconEntranceOpacity, {
-          toValue: 1,
-          duration: 190,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.spring(iconScale, {
-          toValue: 1,
-          tension: 75,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]),
+  const tryExit = useCallback(() => {
+    if (exitStarted.current || unmounted.current) return;
+    if (!entranceDone.current || !nextScreen.current) return;
+    exitStarted.current = true;
+    const target = nextScreen.current;
 
-      // B. The 3 navy lines draw smoothly in place along their angles
-      Animated.stagger(
-        85,
-        lineProgress.map((anim) =>
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: 200,
-            easing: Easing.bezier(0.25, 1, 0.5, 1),
-            useNativeDriver: true,
-          })
-        )
-      ),
+    if (reduceMotion) {
+      cancelAnimation(dots);
+      ex.value = EXIT_MS;
+      finishExit(target);
+      return;
+    }
 
-      // C. Tactile spring punch — lines lock firmly into place!
-      Animated.sequence([
-        Animated.timing(iconScale, {
-          toValue: 1.08,
-          duration: 70,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.spring(iconScale, {
-          toValue: 1,
-          tension: 75,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]),
-
-      // Appreciation pause with icon in center (100ms)
-      Animated.delay(100),
-
-      // D. THE UPLATA MOVE: Icon moves from center to left, and "Arthik" emerges from behind the icon
-      Animated.parallel([
-        Animated.timing(brandRowX, {
-          toValue: 0,
-          duration: 380,
-          easing: Easing.bezier(0.2, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(wordmarkSlideX, {
-          toValue: 0,
-          duration: 380,
-          easing: Easing.bezier(0.2, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(wordmarkOpacity, {
-          toValue: 1,
-          duration: 280,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-
-      // E. Tagline "Apna kharcha, apna hisaab" fades and floats in smoothly
-      Animated.parallel([
-        Animated.timing(taglineOpacity, {
-          toValue: 1,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(taglineTranslateY, {
-          toValue: 0,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-
-      // F. Loading dots fade in
-      Animated.timing(dotsOpacity, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      dotWaveLoop.start();
+    ex.value = withTiming(EXIT_MS, { duration: EXIT_MS, easing: Easing.linear }, (finished) => {
+      if (finished) {
+        cancelAnimation(dots);
+        scheduleOnRN(finishExit, target);
+      }
     });
+  }, [reduceMotion, finishExit, ex, dots]);
 
+  const onEntranceDone = useCallback(() => {
+    entranceDone.current = true;
+    tryExit();
+  }, [tryExit]);
+
+  // ── Entrance (one clock) + dot loop ──
+  useEffect(() => {
+    if (reduceMotion) {
+      t.value = ENTRANCE_MS;
+      onEntranceDone();
+      return;
+    }
+    t.value = withTiming(ENTRANCE_MS, { duration: ENTRANCE_MS, easing: Easing.linear }, (finished) => {
+      if (finished) scheduleOnRN(onEntranceDone);
+    });
+    dots.value = withRepeat(withTiming(1, { duration: DOT_CYCLE_MS, easing: Easing.linear }), -1, false);
+    // Started once on mount by design: the clocks own the whole timeline.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Startup work: connectivity → session → offline restore → hydration (logic unchanged) ──
+  useEffect(() => {
     const initAuthAndNavigate = async () => {
-      const startTime = Date.now();
-      let nextScreen: keyof RootStackParamList = 'Onboarding';
+      let target: Target = 'Onboarding';
       try {
-        // 1. Immediately determine connectivity status on cold launch
+        // 1. Determine connectivity on cold launch (capped so a slow probe can not hold the splash)
         try {
-          await useNetworkStore.getState().checkConnectivity();
+          await Promise.race([
+            useNetworkStore.getState().checkConnectivity(),
+            new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+          ]);
         } catch (_) {}
 
-        // 2. Try to get Supabase session with a strict 2s timeout
+        // 2. Supabase session with a strict 2s timeout
         let activeUser: User | null = null;
         try {
           const sessionPromise = supabase.auth.getSession();
@@ -330,95 +335,113 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           useNetworkStore.getState().setOffline(true);
         }
 
-        // 3. Offline recovery: If session is null (offline, token expired, or network failed),
-        // restore the authenticated user & profile from local cache
+        // 3. Offline recovery: restore the authenticated user & profile from local cache
         if (!activeUser) {
           const restoredUser = await useAuthStore.getState().restoreOfflineSession();
-          if (restoredUser) {
-            activeUser = restoredUser;
-          }
+          if (restoredUser) activeUser = restoredUser;
         }
 
-        // 4. Fixed startup hydration sequence for authenticated user:
-        // loadPendingExpenses -> fetchCategories -> (fetchExpenses + hydrateFromSupabase + appLock.init)
-        // Aggregate 5s timeout: cache-first loads in fetchCategories/fetchExpenses ensure stores
-        // have data before this fires. Background fetches complete and update stores after navigation.
+        // 4. Startup hydration for an authenticated user (aggregate 5s cap; cache-first loads fill the stores)
         if (activeUser) {
+          const user = activeUser;
           const hydrationChain = async () => {
             await useExpenseStore.getState().loadPendingExpenses();
             await fetchCategories();
             await Promise.all([
               fetchExpenses(),
-              useDailyBudgetStore.getState().hydrateFromSupabase(activeUser.id),
-              useAppLockStore.getState().init(activeUser.id),
+              useDailyBudgetStore.getState().hydrateFromSupabase(user.id),
+              useAppLockStore.getState().init(user.id),
             ]);
           };
           try {
-            await Promise.race([
-              hydrationChain(),
-              new Promise<void>((resolve) => setTimeout(resolve, 5000)),
-            ]);
+            await Promise.race([hydrationChain(), new Promise<void>((resolve) => setTimeout(resolve, 5000))]);
           } catch (hydrationErr) {
             if (__DEV__) console.error('Startup hydration error:', hydrationErr);
           }
-          nextScreen = 'AppTabs';
+          target = 'AppTabs';
         } else {
           const hasSeen = await AsyncStorage.getItem('@arthik_has_seen_onboarding');
-          if (hasSeen === 'true') {
-            nextScreen = 'Auth';
-          }
+          if (hasSeen === 'true') target = 'Auth';
         }
       } catch (e) {
         if (__DEV__) console.error('Session retrieval error:', e);
       } finally {
-        // Crisp minimum viewing time (~500ms total) so logo pulse renders nicely while opening instantly
-        const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, 500 - elapsed);
-        exitTimerRef.current = setTimeout(() => {
-          triggerExitAndNavigate(nextScreen);
-        }, delay);
+        if (!unmounted.current) {
+          nextScreen.current = target;
+          tryExit();
+        }
       }
     };
 
     initAuthAndNavigate();
-
-    return () => {
-      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
-      dotWaveLoop.stop();
-    };
+    // Runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    return () => {
+      unmounted.current = true;
+      cancelAnimation(t);
+      cancelAnimation(ex);
+      cancelAnimation(dots);
+    };
+  }, [t, ex, dots]);
+
+  // ── Animated styles: pure functions of the clocks ──
+  const lockupOpen = (tv: number, exv: number) => {
+    'worklet';
+    const opened = outCubic(seg(tv, LOCKUP));
+    const closing = outCubic(seg(exv, EX_LOCKUP_BACK));
+    return opened * (1 - closing);
+  };
+
+  const brandRowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: ROW_CENTER_SHIFT * (1 - lockupOpen(t.value, ex.value)) }],
+  }));
+
+  const iconStyle = useAnimatedStyle(() => {
+    const pop = 0.6 + 0.4 * outBack(seg(t.value, ICON_POP));
+    const punch = 1 + 0.06 * Math.sin(seg(t.value, PUNCH) * Math.PI);
+    return { transform: [{ scale: pop * punch }] };
+  });
+
+  const wordmarkStyle = useAnimatedStyle(() => ({
+    opacity: outCubic(seg(t.value, WORDMARK_FADE)) * (1 - seg(ex.value, EX_WORDMARK_FADE)),
+    transform: [{ translateX: -WORDMARK_WIDTH * (1 - lockupOpen(t.value, ex.value)) }],
+  }));
+
+  const taglineStyle = useAnimatedStyle(() => {
+    const p = outCubic(seg(t.value, TAGLINE));
+    return {
+      opacity: p * (1 - seg(ex.value, EX_TEXT_FADE)),
+      transform: [{ translateY: 12 * (1 - p) }],
+    };
+  });
+
+  const dotsStyle = useAnimatedStyle(() => ({
+    opacity: seg(t.value, DOTS_IN) * (1 - seg(ex.value, EX_TEXT_FADE)),
+  }));
+
+  const bloomStyle = useAnimatedStyle(() => {
+    const started = ex.value >= EX_BLOOM[0];
+    const g = inOutCubic(seg(ex.value, EX_BLOOM));
+    return {
+      opacity: started ? 1 : 0,
+      transform: [{ scale: 1 + (bloomScale.value - 1) * g }],
+    };
+  });
+
+  const dotColor = isDark ? colors.mintGreen : colors.mintGreenDark;
+  const dotBaseColor = isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(26, 43, 76, 0.18)';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Main Content wrapper */}
       <View style={styles.contentContainer}>
-        {/* Brand Row: [Icon Anchor (Icon + Blooming Circle)] + [Emerging Wordmark] */}
-        <Animated.View
-          style={[
-            styles.brandRow,
-            {
-              transform: [{ translateX: brandRowX }],
-            },
-          ]}
-        >
-          {/* Icon Anchor: anchors the expanding circle directly to the icon */}
+        {/* Lockup: [icon card] + ["Arthik" wordmark emerging from behind it] */}
+        <Animated.View style={[styles.brandRow, brandRowStyle]}>
           <View style={styles.iconAnchor}>
-            {/* Expanding Mint Circle for Exit Transition: locked to the icon itself */}
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.exitCircle,
-                {
-                  backgroundColor: colors.mintGreen,
-                  opacity: exitCircleOpacity,
-                  transform: [{ scale: exitCircleScale }],
-                },
-              ]}
-            />
-
-            {/* Icon Container Card: Starts in dead center, slides left, returns to center */}
             <Animated.View
               style={[
                 styles.iconCard,
@@ -427,140 +450,41 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
                   borderWidth: isDark ? 1 : 0,
                   borderColor: colors.borderSubtle,
                   shadowColor: isDark ? '#000000' : '#1A2B4C',
-                  transform: [{ scale: iconScale }],
                 },
+                iconStyle,
               ]}
             >
-              {/* Inner lines container scaled from 112 -> 80 (fades out as circle expands) */}
-              <Animated.View style={[styles.linesScaleWrapper, { opacity: contentFadeOpacity }]}>
-                {LOGO_PIECES.map((piece, i) => {
-                  const progress = lineProgress[i];
-                  const transform: any[] = [
-                    { rotate: piece.rotate },
-                    {
-                      [piece.translateProp]: progress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [piece.translateFrom, 0],
-                      }),
-                    },
-                    {
-                      [piece.scalePrimaryProp]: progress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.01, 1],
-                      }),
-                    },
-                    {
-                      [piece.scaleSecondaryProp]: progress.interpolate({
-                        inputRange: [0, 0.35, 1],
-                        outputRange: [0.35, 1, 1],
-                      }),
-                    },
-                    { rotate: piece.unrotate },
-                  ];
-
-                  return (
-                    <Animated.View
-                      key={i}
-                      style={[
-                        styles.pieceContainer,
-                        piece.containerOffset,
-                        {
-                          opacity: progress.interpolate({
-                            inputRange: [0, 0.08, 1],
-                            outputRange: [0, 1, 1],
-                          }),
-                          transform,
-                        },
-                      ]}
-                    >
-                      <Image
-                        source={piece.source}
-                        style={[styles.pieceImage, piece.imageOffset]}
-                        resizeMode="contain"
-                      />
-                    </Animated.View>
-                  );
-                })}
-              </Animated.View>
+              <View style={styles.linesScaleWrapper}>
+                {LOGO_PIECES.map((piece, i) => (
+                  <LogoPiece key={i} piece={piece} index={i} t={t} ex={ex} />
+                ))}
+              </View>
             </Animated.View>
           </View>
 
-          {/* Wordmark Mask: "Arthik" emerges from directly behind the right edge of the icon */}
           <View style={styles.wordmarkClipBox}>
-            <Animated.View
-              style={[
-                styles.wordmarkInner,
-                {
-                  opacity: wordmarkOpacity,
-                  transform: [{ translateX: wordmarkSlideX }],
-                },
-              ]}
-            >
-              <Animated.Text
-                style={[
-                  styles.appName,
-                  {
-                    color: colors.textPrimary,
-                  },
-                ]}
-                numberOfLines={1}
-              >
+            <Animated.View style={[styles.wordmarkInner, wordmarkStyle]}>
+              <Animated.Text style={[styles.appName, { color: colors.textPrimary }]} numberOfLines={1}>
                 Arthik
               </Animated.Text>
             </Animated.View>
           </View>
         </Animated.View>
 
-        {/* Tagline "Apna kharcha, apna hisaab" */}
-        <Animated.Text
-          style={[
-            styles.tagline,
-            {
-              color: colors.textSecondary,
-              opacity: taglineOpacity,
-              transform: [{ translateY: taglineTranslateY }],
-            },
-          ]}
-        >
+        <Animated.Text style={[styles.tagline, { color: colors.textSecondary }, taglineStyle]}>
           Apna kharcha, apna hisaab
         </Animated.Text>
 
-        {/* Animated Sequential Dots (plenty of time to pulse) */}
-        <Animated.View style={[styles.dotsContainer, { opacity: dotsOpacity }]}>
-          {dotAnims.map((anim, index) => {
-            const scale = anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1, 1.35],
-            });
-
-            return (
-              <View key={index} style={styles.dotWrapper}>
-                {/* Inactive base dot */}
-                <View
-                  style={[
-                    styles.dotBase,
-                    {
-                      backgroundColor: isDark
-                        ? 'rgba(255, 255, 255, 0.22)'
-                        : 'rgba(26, 43, 76, 0.18)',
-                    },
-                  ]}
-                />
-                {/* Active green animated dot */}
-                <Animated.View
-                  style={[
-                    styles.dotActive,
-                    {
-                      backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark,
-                      opacity: anim,
-                      transform: [{ scale }],
-                    },
-                  ]}
-                />
-              </View>
-            );
-          })}
+        <Animated.View style={[styles.dotsContainer, dotsStyle]}>
+          {[0, 1, 2].map((i) => (
+            <Dot key={i} index={i} dots={dots} color={dotColor} baseColor={dotBaseColor} />
+          ))}
         </Animated.View>
+      </View>
+
+      {/* Bloom: its own full-screen layer, centred on the screen (= the centred icon), painted above everything. */}
+      <View style={styles.bloomLayer} pointerEvents="none">
+        <Animated.View style={[styles.bloomCircle, { backgroundColor: colors.mintGreen }, bloomStyle]} />
       </View>
     </View>
   );
@@ -571,57 +495,42 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
     overflow: 'hidden',
   },
   contentContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
     height: 84,
-    zIndex: 2,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
     height: 84,
   },
   iconAnchor: {
-    width: 80,
-    height: 80,
+    width: ICON_SIZE,
+    height: ICON_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
     zIndex: 3,
   },
-  exitCircle: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    zIndex: 10,
-  },
   iconCard: {
-    width: 80,
-    height: 80,
+    width: ICON_SIZE,
+    height: ICON_SIZE,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1A2B4C',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 5,
     overflow: 'hidden',
-    position: 'relative',
-    zIndex: 2,
   },
   linesScaleWrapper: {
     width: 112,
     height: 112,
-    transform: [{ scale: 80 / 112 }],
+    transform: [{ scale: ICON_SIZE / 112 }],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -638,20 +547,19 @@ const styles = StyleSheet.create({
     height: 112,
   },
   wordmarkClipBox: {
-    width: 160,
-    height: 80,
+    width: WORDMARK_WIDTH,
+    height: ICON_SIZE,
     overflow: 'hidden',
     justifyContent: 'center',
     zIndex: 2,
   },
   wordmarkInner: {
-    width: 160,
+    width: WORDMARK_WIDTH,
     paddingLeft: 16,
     justifyContent: 'center',
   },
   appName: {
     fontSize: 44,
-    color: '#1A2B4C',
     fontFamily: FontFamily.bold,
     letterSpacing: -0.5,
   },
@@ -659,7 +567,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 96,
     fontSize: FontSize.body,
-    color: '#8A8FA3',
     fontFamily: FontFamily.medium,
   },
   dotsContainer: {
@@ -674,7 +581,6 @@ const styles = StyleSheet.create({
     height: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
   dotBase: {
     width: 8,
@@ -686,5 +592,18 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  bloomLayer: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Above the icon card (elevation 5) on Android, whose z-order follows elevation.
+    elevation: 6,
+    zIndex: 10,
+  },
+  bloomCircle: {
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    borderRadius: ICON_SIZE / 2,
   },
 });

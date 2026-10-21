@@ -8,6 +8,7 @@ import {
   Animated,
   useAnimatedValue,
   AppState,
+  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
@@ -664,7 +665,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   // Where the floating nav pill starts. The list is clipped exactly here, so the pull-up footer
   // rises out from BEHIND the nav bar (same as Instagram's footer rising out from behind its input bar).
-  const navTopOffset = getNavTopOffset(insets.bottom);
+  const { width: windowWidth, fontScale } = useWindowDimensions();
+  const navTopOffset = getNavTopOffset(insets.bottom, windowWidth, fontScale);
 
   return (
     // Same native pull-to-refresh circle as History / Savings / Insights (see AppRefreshControl).

@@ -1,13 +1,15 @@
-import React, { useRef, useLayoutEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Pressable, useAnimatedValue } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import Animated, { useAnimatedProps } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
 import { useTheme } from '../store/themeStore';
 import { computeDualRingState } from '../lib/chartUtils';
 import { formatCompactCurrency } from '../lib/formatters';
-import { useFocusEntryCount } from '../hooks/useFocusEntry';
+import { useRingSweep } from '../hooks/useRingSweep';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const SWEEP_MS = 550;
 
 export interface DualRingChartProps {
   income: number;
@@ -39,61 +41,20 @@ const DualRingChartBase: React.FC<DualRingChartProps> = ({
     [income, spent]
   );
 
-  // Animation values for the progress sweeps (0 to 1)
-  const outerAnim = useAnimatedValue(0);
-  const innerAnim = useAnimatedValue(0);
+  // Both rings sweep up from empty on every visit to the screen, on the UI thread, without a blink on return
+  // (see useRingSweep for how the reset happens on the way out instead of on the way in).
+  const outerAnim = useRingSweep(state.outerProgress, SWEEP_MS);
+  const innerAnim = useRingSweep(state.innerProgress, SWEEP_MS);
 
-  // Both rings sweep up from 0 on every visit to the screen (layout effect: also re-runs when a frozen tab is revealed).
-  const entry = useFocusEntryCount();
-  const handledEntry = useRef(-1);
-
-  useLayoutEffect(() => {
-    if (handledEntry.current !== entry) {
-      handledEntry.current = entry;
-      outerAnim.setValue(0);
-      innerAnim.setValue(0);
-    }
-    const sweeps = Animated.parallel([
-      Animated.timing(outerAnim, {
-        toValue: state.outerProgress,
-        duration: 550,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        useNativeDriver: false,
-      }),
-      Animated.timing(innerAnim, {
-        toValue: state.innerProgress,
-        duration: 550,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        useNativeDriver: false,
-      }),
-    ]);
-    sweeps.start();
-    return () => sweeps.stop();
-  }, [state.outerProgress, state.innerProgress, outerAnim, innerAnim, entry]);
-
-  // Dashoffset interpolations
-  const outerOffset = outerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [cOuter, 0],
-  });
-
-  const innerOffset = innerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [cInner, 0],
-  });
-
-  // Fade out rounded stroke caps when progress is 0 to avoid zero-length dot artifact
-  const outerStrokeOpacity = outerAnim.interpolate({
-    inputRange: [0, 0.005, 1],
-    outputRange: [0, 1, 1],
-    extrapolate: 'clamp',
-  });
-
-  const innerStrokeOpacity = innerAnim.interpolate({
-    inputRange: [0, 0.005, 1],
-    outputRange: [0, 1, 1],
-    extrapolate: 'clamp',
-  });
+  // strokeDashoffset from progress; the rounded cap is hidden at 0 so no zero-length dot is drawn.
+  const outerProps = useAnimatedProps(() => ({
+    strokeDashoffset: cOuter * (1 - outerAnim.value),
+    strokeOpacity: Math.min(1, outerAnim.value / 0.005),
+  }));
+  const innerProps = useAnimatedProps(() => ({
+    strokeDashoffset: cInner * (1 - innerAnim.value),
+    strokeOpacity: Math.min(1, innerAnim.value / 0.005),
+  }));
 
   // Track colors with theme token
   const outerTrackColor = colors.mintGreenSoft;
@@ -143,9 +104,10 @@ const DualRingChartBase: React.FC<DualRingChartProps> = ({
           stroke={state.outerColor}
           strokeWidth={strokeWidth}
           strokeDasharray={`${cOuter} ${cOuter}`}
-          strokeDashoffset={outerOffset}
+          strokeDashoffset={cOuter}
           strokeLinecap="round"
-          strokeOpacity={outerStrokeOpacity}
+          strokeOpacity={0}
+          animatedProps={outerProps}
           fill="none"
           origin={`${center}, ${center}`}
           rotation="-90"
@@ -159,9 +121,10 @@ const DualRingChartBase: React.FC<DualRingChartProps> = ({
           stroke={state.innerColor}
           strokeWidth={strokeWidth}
           strokeDasharray={`${cInner} ${cInner}`}
-          strokeDashoffset={innerOffset}
+          strokeDashoffset={cInner}
           strokeLinecap="round"
-          strokeOpacity={innerStrokeOpacity}
+          strokeOpacity={0}
+          animatedProps={innerProps}
           fill="none"
           origin={`${center}, ${center}`}
           rotation="-90"

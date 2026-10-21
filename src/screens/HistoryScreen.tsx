@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useNavBarContentInset } from '../hooks/useNavBarMetrics';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -122,6 +123,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  // Bottom padding follows the responsive nav bar.
+  const navBarInset = useNavBarContentInset();
   const handleScroll = useScrollDirection();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,6 +132,17 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const sectionListRef = useRef<SectionList<HistoryItem, Section>>(null);
+  // Tapping the active History tab scrolls the list back to the top.
+  const scrollToTopRef = useRef({
+    scrollToTop: () => {
+      try {
+        sectionListRef.current?.getScrollResponder()?.scrollTo({ y: 0, animated: true });
+      } catch {
+        // List not ready / empty: nothing to scroll.
+      }
+    },
+  });
+  useScrollToTop(scrollToTopRef);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 150);
@@ -597,7 +611,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
             <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} topOffset={0} />
           }
           contentContainerStyle={[
-            { paddingBottom: insets.bottom + 100 },
+            { paddingBottom: navBarInset },
             displayedSections.length === 0 && { flexGrow: 1 },
           ]}
           stickySectionHeadersEnabled={false}

@@ -47,7 +47,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Screens** | UI render + dispatch store actions | `src/screens/**` (including `LedgerScreen.tsx`), `src/screens/insights/**`, `src/screens/autolog/**` |
 | **Stores** | Business logic, Supabase I/O, offline queues, derived state | `src/store/**`, `src/store/expense/**`, `src/store/dailyBudget/**` |
 | **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` (including `heroDetails.ts`, `splitLedger.ts`, `gapFiller.ts`, `streakCalendarData.ts`, `asyncStorageList.ts`) |
-| **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/split/**`, `src/components/profile/**`, `src/components/savings/**`, `HeroDetailsSheet.tsx`, `WelcomeBackGapModal.tsx` |
+| **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/split/**`, `src/components/profile/**`, `src/components/savings/**`, `HeroDetailsSheet.tsx`, `WelcomeBackGapModal.tsx`, `SplashCover.tsx` |
 | **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`, `useExpenseForm.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
 | **Tests** | Vitest unit tests (121 files, 1794 tests) | `tests/**` |
@@ -256,6 +256,8 @@ React Navigation v7 with:
   - **Pure Mode**: 4 tabs (`Home`, `History`, `AddExpensePlaceholder` [Add], `Insights`). Direct attempts to access `Savings` safely redirect to `Home`.
   - **Budget Mode**: 5 tabs (`Home`, `Savings`, `AddExpensePlaceholder` [Add], `History`, `Insights`) with smooth capsule bar transition.
 
+Cold start: `Splash` ends on solid mint, `useSplashCoverStore.show()` turns on the always-mounted mint `SplashCover` (App.tsx), `navigation.replace` swaps the route underneath, and `revealSoon()` dissolves the cover once the destination has laid out (hard cap 1.4s).
+
 All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`). Imperative navigation via `navigationRef`. Guard back actions with `navigation.canGoBack()`.
 
 ---
@@ -270,7 +272,7 @@ All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`).
 - **9.4 Home Pull-to-Refresh & Pull-to-History Physics (`PullToHistoryContainer`, `pullToHistoryPhysics.ts`)**: Replaces default scroll view with unified drag, momentum, and pull-up gestures. Calibrated Instagram Vanish-mode spring physics (stiffness 42, damping 11.6, ~0.88 damping ratio) with countdown progress ring. Pull-down uses unified native refresh circle (`AppRefreshControl`) with haptic feedback and throttle cooldown.
 - **9.5 Icons & Badges**: `lucide-react-native` (1.24+). Feature icons and badges strictly utilize `GradientIconBadge`.
 - **9.6 Charts**: `react-native-svg` (15.15) — Concentric Dual Ring chart, animated donut rings, and gradient flow bars.
-- **9.7 Safe Area & Bottom Nav**: `useSafeAreaInsets` from `react-native-safe-area-context`. Floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`.
+- **9.7 Safe Area & Bottom Nav**: `useSafeAreaInsets` from `react-native-safe-area-context`. Floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`. Floating expanding capsule tabs animate with smooth in-place label reveal and cross-fading icon layers.
 
 ---
 

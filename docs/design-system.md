@@ -194,7 +194,9 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - Fixed outer container height `ControlHeight.standard` (`48px`), stadium pill geometry (`BorderRadius.pill`), with clipping `overflow: 'hidden'` preserving rounded ends.
 
 ### Home Card Details Sheet & Hero Card Geometry (`BrandedHeroCard`)
-- `HeroDetailsSheet` is a `BottomSheetModal` with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens. The Home card is a `Pressable` and keeps exactly one primary chip.
+- `HeroDetailsSheet` is a `BottomSheetModal` (with `swipeToDismiss`: grab handle 40×5, drag follows the finger, backdrop lightens with the drag, closes past 28% of the sheet height or on a flick > 900pt/s, otherwise springs back) with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens.
+- Home rings (`DualRingChart`, `DonutChart`) sweep on the UI thread via `useRingSweep` and are emptied after the screen is left, never on return, so coming back to Home never blinks.
+- Splash: entrance/exit are single Reanimated clocks; the bloom is a full-screen centred layer above all splash content; handoff goes through the mint `SplashCover` (above the navigator, below the app-lock overlay). The Home card is a `Pressable` and keeps exactly one primary chip.
 - **Hero Card Subtext Chips Boundary Enclosure**: In `BrandedHeroCard`, `subtextContainer` is nested inside `topSection`, sharing the exact `paddingRight: podSize + GAP + 6` constraint to prevent chips from protruding into the top-right circular chart pod and SVG socket cutout.
 - **Fintech Gullak Alert Badges**: When money is drawn from Gullak, it renders as a dedicated alert badge (`gullakSpendingBadge`) with a `PiggyBankCoinIcon`, bold red typography (`#DC2626`), and `maxWidth: '100%'` with text truncation protection. If remaining income is zero, redundant `+₹0 income` chips are discarded in favor of the standalone Gullak chip.
 
@@ -256,3 +258,8 @@ Before declaring any UI task done, verify:
 - [ ] Interactive touch targets are $\ge 44\text{dp}$.
 - [ ] Sliding controls use `SegmentedControl` with proper contrast.
 - [ ] No regression or visual glitches on small screens ($< 360\text{dp}$).
+
+### Bottom Navigation (`BottomNavBar`)
+- Floating pill navigation bar with elevated center quick-add button and balanced layout.
+- Tabs: Expanding in-place capsule (`CapsuleTabItem`) with label reveal (`0 -> 50` width, `180ms` cubic ease-out) and dual-layer cross-fading icon (`textSecondary` to `mintGreen`).
+- Press feedback: `0.92` spring scale on press-in, springs back to `1.0` on release with light haptics.

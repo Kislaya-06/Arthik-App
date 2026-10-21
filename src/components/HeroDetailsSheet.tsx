@@ -24,7 +24,7 @@ export const HeroDetailsSheet: React.FC<HeroDetailsSheetProps> = ({ visible, onC
   const { colors, isDark } = useTheme();
 
   return (
-    <BottomSheetModal visible={visible} onClose={onClose} title={title} colors={colors} isDark={isDark}>
+    <BottomSheetModal visible={visible} onClose={onClose} title={title} colors={colors} isDark={isDark} swipeToDismiss>
       <View style={styles.wrap}>
         {/* ── Hero Spent Card (Primary Visual Anchor) ── */}
         <View style={[styles.heroCard, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}>

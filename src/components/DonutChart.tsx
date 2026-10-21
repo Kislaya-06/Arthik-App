@@ -1,9 +1,10 @@
-import React, { useRef, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, useAnimatedValue } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import Animated, { useAnimatedProps } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { ThemeColors, FontFamily } from '../config/theme';
 import { RollingText } from './RollingText';
-import { useFocusEntryCount } from '../hooks/useFocusEntry';
+import { useRingSweep } from '../hooks/useRingSweep';
 
 export type DonutProps = {
   spent: number;
@@ -47,42 +48,14 @@ const DonutChartBase: React.FC<DonutProps> = ({
   const targetSpentPercentage = hasData ? Math.round((spent / total) * 100) : 0;
   const isOverspent = hasData && spent > total;
 
-  const anim = useAnimatedValue(0);
-  // Counts every visit to the screen: the ring sweeps up from 0 on each one (like the number inside it).
-  const entry = useFocusEntryCount();
-  const handledEntry = useRef(-1);
+  // Sweeps up from empty on every visit, on the UI thread, without a blink on return (see useRingSweep).
+  const anim = useRingSweep(targetSpentRatio, 400);
 
-  // Layout effect on purpose: it also re-runs when a frozen tab is revealed, and starts before the first paint.
-  useLayoutEffect(() => {
-    if (handledEntry.current !== entry) {
-      handledEntry.current = entry;
-      anim.setValue(0);
-    }
-    const sweep = Animated.timing(anim, {
-      toValue: targetSpentRatio,
-      duration: 400,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      useNativeDriver: false,
-    });
-    sweep.start();
-    return () => {
-      sweep.stop();
-    };
-  }, [targetSpentRatio, anim, entry]);
-
-  // Interpolated stroke dashoffset for the spent (peach) arc
-  const spentOffset = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [CIRCUMFERENCE, 0],
-    extrapolate: 'clamp',
-  });
-
-  // Fade out rounded stroke caps when progress is 0 to avoid zero-length dot artifact
-  const spentOpacity = anim.interpolate({
-    inputRange: [0, 0.005, 1],
-    outputRange: [0, 1, 1],
-    extrapolate: 'clamp',
-  });
+  // strokeDashoffset from progress; the rounded cap is hidden at 0 so no zero-length dot is drawn.
+  const spentProps = useAnimatedProps(() => ({
+    strokeDashoffset: CIRCUMFERENCE * (1 - anim.value),
+    strokeOpacity: Math.min(1, anim.value / 0.005),
+  }));
 
   return (
     <View style={[styles.container, { width: SIZE, height: SIZE }]}>
@@ -122,9 +95,10 @@ const DonutChartBase: React.FC<DonutProps> = ({
             strokeWidth={STROKE_WIDTH}
             fill="none"
             strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-            strokeDashoffset={spentOffset}
+            strokeDashoffset={CIRCUMFERENCE}
             strokeLinecap="round"
-            strokeOpacity={spentOpacity}
+            strokeOpacity={0}
+            animatedProps={spentProps}
             transform={`rotate(-90 ${CENTER} ${CENTER})`}
           />
         )}

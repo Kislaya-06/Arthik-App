@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
-import { ActivityIndicator, StyleSheet, View, StatusBar, AppState } from 'react-native';
+import { StyleSheet, View, StatusBar, AppState } from 'react-native';
 import { AppNavigation, navigationRef, navigateTo } from './src/navigation';
 import { useTheme } from './src/store/themeStore';
 import { supabase } from './src/config/supabase';
@@ -25,6 +25,7 @@ import { resolveSavingsRoute } from './src/lib/budgetModeUtils';
 import { UpdateRequiredScreen } from './src/screens/UpdateRequiredScreen';
 import { useAppLockStore } from './src/store/appLockStore';
 import { AppLockOverlay } from './src/components/AppLockOverlay';
+import { SplashCover } from './src/components/SplashCover';
 import { OtaUpdateModal } from './src/components/OtaUpdateModal';
 import { useOtaStore } from './src/store/otaStore';
 import { onBeforeSignOut } from './src/features/autoLog/service';
@@ -236,12 +237,10 @@ export default function App() {
     };
   }, []);
 
+  // Fonts load in a few ms from the bundle. Show the plain splash background meanwhile (no spinner flash
+  // between the native splash and the animated Splash screen).
   if (!fontsLoaded) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.mintGreen} />
-      </View>
-    );
+    return <View style={[styles.container, { backgroundColor: colors.background }]} />;
   }
 
   return (
@@ -263,6 +262,8 @@ export default function App() {
           ) : (
             <AppNavigation />
           )}
+          {/* Splash → app handoff cover (above the navigator, below the lock overlay) */}
+          <SplashCover />
           <AppLockOverlay />
           <ConnectedOtaModal />
           <StatusBar
@@ -280,10 +281,5 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

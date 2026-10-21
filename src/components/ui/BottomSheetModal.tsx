@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,17 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Reanimated, {
+  Easing as REasing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
+import * as Haptics from 'expo-haptics';
 import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius } from '../../config/theme';
 
 export interface BottomSheetModalProps {
@@ -36,7 +47,22 @@ export interface BottomSheetModalProps {
    * content scroll, so nothing ends up hidden behind the keyboard. Off by default: other sheets are unchanged.
    */
   avoidKeyboard?: boolean;
+  /**
+   * Drag the sheet down with a finger to close it (with a grab handle on top). The sheet follows the finger 1:1,
+   * the backdrop lightens as it goes, and on release it either glides away (dragged far enough or flicked) or
+   * springs back. Off by default: other sheets are unchanged.
+   */
+  swipeToDismiss?: boolean;
 }
+
+// ── Swipe-to-dismiss tuning ──
+/** Fraction of the sheet's height past which a release closes the sheet. */
+const DISMISS_DISTANCE_RATIO = 0.28;
+/** A downward flick faster than this (pt/s) closes the sheet even if it was dragged only a little. */
+const DISMISS_VELOCITY = 900;
+/** The pan only takes over after this many points downwards, so taps and horizontal swipes stay untouched. */
+const DRAG_ACTIVATION_PX = 10;
+const SNAP_BACK_SPRING = { damping: 24, stiffness: 280, mass: 0.9 } as const;
 
 export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   visible,
@@ -51,6 +77,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   contentStyle,
   containerStyle,
   avoidKeyboard = false,
+  swipeToDismiss = false,
 }) => {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -122,121 +149,222 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
     }
   }, [visible, slideAnim, fadeAnim]);
 
+  // ── Swipe to dismiss (UI thread). dragY is applied on top of the open/close slide above. ──
+  const dragY = useSharedValue(0);
+  const sheetHeight = useSharedValue(Math.max(windowHeight * 0.5, 320));
+  const pastThreshold = useSharedValue(false);
+
+  // Every time the sheet opens it starts from rest (no left-over drag from the last close).
+  useEffect(() => {
+    if (visible) {
+      cancelAnimation(dragY);
+      dragY.value = 0;
+      pastThreshold.value = false;
+    }
+  }, [visible, dragY, pastThreshold]);
+
+  const lightTick = () => {
+    Haptics.selectionAsync().catch(() => {});
+  };
+
+  const pan = useMemo(() => Gesture.Pan()
+    .enabled(swipeToDismiss && !keyboardOpen)
+    .activeOffsetY(DRAG_ACTIVATION_PX)
+    .failOffsetX([-24, 24])
+    .onStart(() => {
+      cancelAnimation(dragY);
+    })
+    .onUpdate((e) => {
+      const t = e.translationY;
+      // Down: follows the finger 1:1. Up (past the resting point): a short, stiff rubber band.
+      dragY.value = t >= 0 ? t : -Math.min(18, Math.sqrt(-t) * 2);
+      const past = t > sheetHeight.value * DISMISS_DISTANCE_RATIO;
+      if (past !== pastThreshold.value) {
+        pastThreshold.value = past;
+        if (past) scheduleOnRN(lightTick);
+      }
+    })
+    .onEnd((e) => {
+      const far = e.translationY > sheetHeight.value * DISMISS_DISTANCE_RATIO;
+      const flicked = e.velocityY > DISMISS_VELOCITY && e.translationY > DRAG_ACTIVATION_PX * 2;
+      if (far || flicked) {
+        // Glide out at the speed of the finger (never slower than a crisp 260ms, never a jarring snap).
+        const remaining = Math.max(0, sheetHeight.value + 80 - dragY.value);
+        const speed = Math.max(e.velocityY, 1400);
+        const duration = Math.min(260, Math.max(140, (remaining / speed) * 1000));
+        dragY.value = withTiming(sheetHeight.value + 80, { duration, easing: REasing.out(REasing.cubic) });
+        scheduleOnRN(onClose);
+      } else {
+        dragY.value = withSpring(0, { ...SNAP_BACK_SPRING, velocity: e.velocityY });
+      }
+      pastThreshold.value = false;
+    }),
+    // Shared values are stable; the gesture is rebuilt only when its inputs change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [swipeToDismiss, keyboardOpen, onClose]
+  );
+
+  const dragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dragY.value }],
+  }));
+
+  // The backdrop lightens as the sheet is pulled down, so the drag feels physically connected to the dim.
+  const backdropDragStyle = useAnimatedStyle(() => {
+    const p = Math.max(0, Math.min(1, dragY.value / Math.max(1, sheetHeight.value)));
+    return { opacity: 1 - p * 0.9 };
+  });
+
   if (!isMounted) return null;
 
-  return (
-    <Modal visible={isMounted} transparent animationType="none" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <Animated.View
-          style={[
-            styles.backdrop,
-            {
-              opacity: fadeAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.55],
-              }),
-            },
-          ]}
-        >
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
-        </Animated.View>
+  const sheet = (
+    <Animated.View
+      onLayout={
+        swipeToDismiss
+          ? (e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h > 0) sheetHeight.value = h;
+            }
+          : undefined
+      }
+      style={[
+        styles.sheetContainer,
+        swipeToDismiss && styles.sheetContainerInDrag,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.borderSubtle,
+          borderTopWidth: isDark ? 1 : 0,
+          borderLeftWidth: isDark ? 1 : 0,
+          borderRightWidth: isDark ? 1 : 0,
+          borderBottomWidth: 0,
+          paddingBottom: keyboardOpen ? Spacing.block : Math.max(insets.bottom, Spacing.block),
+          transform: [{ translateY: slideAnim }],
+        },
+        swipeToDismiss && styles.sheetContainerWithHandle,
+        // Keyboard open: sit right above it and never be taller than the space that is left.
+        keyboardOpen && {
+          marginBottom: keyboardHeight,
+          maxHeight: Math.max(240, windowHeight - keyboardHeight - insets.top - Spacing.block),
+        },
+        containerStyle,
+      ]}
+    >
+      {/* Grab handle: tells the user the sheet can be pulled down */}
+      {swipeToDismiss && (
+        <View style={styles.handleZone} pointerEvents="none">
+          <View
+            style={[
+              styles.handle,
+              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(26, 43, 76, 0.18)' },
+            ]}
+          />
+        </View>
+      )}
 
-        <Animated.View
+      {/* Header Row */}
+      {(title || headerLeft || headerRight) && (
+        <View style={styles.headerRow}>
+          {headerLeft ? headerLeft : <View style={{ width: 36 }} />}
+          {title ? (
+            <Text
+              style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+          ) : null}
+          {headerRight ? (
+            headerRight
+          ) : (
+            <Pressable
+              style={[
+                styles.closeBtn,
+                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' },
+              ]}
+              onPress={onClose}
+              hitSlop={8}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Close sheet"
+            >
+              <X size={18} color={colors.textPrimary} />
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {avoidKeyboard ? (
+        <ScrollView
+          style={styles.contentContainer}
+          contentContainerStyle={contentStyle as any}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={[styles.contentContainer, contentStyle]}>{children}</View>
+      )}
+
+      {footer ? <View style={styles.footerContainer}>{footer}</View> : null}
+
+      {/* Bleed skirt: anchors the bottom of the sheet so spring overshoot never exposes the background underneath */}
+      {!keyboardOpen && (
+        <View
           style={[
-            styles.sheetContainer,
+            styles.overshootSkirt,
             {
-              backgroundColor: colors.card,
+              backgroundColor: sheetBgColor,
               borderColor: colors.borderSubtle,
-              borderTopWidth: isDark ? 1 : 0,
               borderLeftWidth: isDark ? 1 : 0,
               borderRightWidth: isDark ? 1 : 0,
               borderBottomWidth: 0,
-              paddingBottom: keyboardOpen ? Spacing.block : Math.max(insets.bottom, Spacing.block),
-              transform: [{ translateY: slideAnim }],
+              left: isDark ? -1 : 0,
+              right: isDark ? -1 : 0,
             },
-            // Keyboard open: sit right above it and never be taller than the space that is left.
-            keyboardOpen && {
-              marginBottom: keyboardHeight,
-              maxHeight: Math.max(240, windowHeight - keyboardHeight - insets.top - Spacing.block),
-            },
-            containerStyle,
           ]}
-        >
-          {/* Header Row */}
-          {(title || headerLeft || headerRight) && (
-            <View style={styles.headerRow}>
-              {headerLeft ? (
-                headerLeft
-              ) : (
-                <View style={{ width: 36 }} />
-              )}
-              {title ? (
-                <Text
-                  style={[
-                    styles.headerTitle,
-                    { color: colors.textPrimary, fontFamily: FontFamily.bold },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {title}
-                </Text>
-              ) : null}
-              {headerRight ? (
-                headerRight
-              ) : (
-                <Pressable
-                  style={[
-                    styles.closeBtn,
-                    { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' },
-                  ]}
-                  onPress={onClose}
-                  hitSlop={8}
-                  accessible
-                  accessibilityRole="button"
-                  accessibilityLabel="Close sheet"
-                >
-                  <X size={18} color={colors.textPrimary} />
-                </Pressable>
-              )}
-            </View>
-          )}
+          pointerEvents="none"
+        />
+      )}
+    </Animated.View>
+  );
 
-          {avoidKeyboard ? (
-            <ScrollView
-              style={styles.contentContainer}
-              contentContainerStyle={contentStyle as any}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
-              {children}
-            </ScrollView>
-          ) : (
-            <View style={[styles.contentContainer, contentStyle]}>{children}</View>
-          )}
+  const backdrop = (
+    <Animated.View
+      style={[
+        styles.backdrop,
+        {
+          opacity: fadeAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 0.55],
+          }),
+        },
+      ]}
+    >
+      <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+    </Animated.View>
+  );
 
-          {footer ? <View style={styles.footerContainer}>{footer}</View> : null}
+  if (!swipeToDismiss) {
+    return (
+      <Modal visible={isMounted} transparent animationType="none" onRequestClose={onClose}>
+        <View style={styles.modalOverlay}>
+          {backdrop}
+          {sheet}
+        </View>
+      </Modal>
+    );
+  }
 
-          {/* Bleed skirt: anchors the bottom of the sheet so spring overshoot never exposes the background underneath */}
-          {!keyboardOpen && (
-            <View
-              style={[
-                styles.overshootSkirt,
-                {
-                  backgroundColor: sheetBgColor,
-                  borderColor: colors.borderSubtle,
-                  borderLeftWidth: isDark ? 1 : 0,
-                  borderRightWidth: isDark ? 1 : 0,
-                  borderBottomWidth: 0,
-                  left: isDark ? -1 : 0,
-                  right: isDark ? -1 : 0,
-                },
-              ]}
-              pointerEvents="none"
-            />
-          )}
-        </Animated.View>
-      </View>
+  // Swipe-to-dismiss: gesture-handler needs its own root inside a Modal (Android).
+  return (
+    <Modal visible={isMounted} transparent animationType="none" onRequestClose={onClose}>
+      <GestureHandlerRootView style={styles.modalOverlay}>
+        <Reanimated.View style={[StyleSheet.absoluteFill, backdropDragStyle]}>{backdrop}</Reanimated.View>
+        <GestureDetector gesture={pan}>
+          <Reanimated.View style={[styles.dragWrapper, dragStyle]}>{sheet}</Reanimated.View>
+        </GestureDetector>
+      </GestureHandlerRootView>
     </Modal>
   );
 };
@@ -249,6 +377,27 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFill,
     backgroundColor: '#000000',
+  },
+  dragWrapper: {
+    width: '100%',
+    // The cap lives on the wrapper here (a % max-height on the sheet would resolve against an auto-height parent).
+    maxHeight: '90%',
+  },
+  sheetContainerInDrag: {
+    maxHeight: undefined,
+  },
+  sheetContainerWithHandle: {
+    paddingTop: Spacing.block,
+  },
+  handleZone: {
+    alignItems: 'center',
+    paddingBottom: Spacing.element,
+    marginTop: -4,
+  },
+  handle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
   },
   sheetContainer: {
     borderTopLeftRadius: BorderRadius.cardLarge,

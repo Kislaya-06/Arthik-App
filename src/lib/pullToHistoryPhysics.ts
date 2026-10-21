@@ -1,3 +1,4 @@
+import { getNavBarMetrics, getNavBarTop } from './navBarLayout';
 /**
  * pullToHistoryPhysics.ts
  *
@@ -59,19 +60,13 @@ export const FOOTER_PEEK = 11;
 /** Space above the first row. */
 export const LIST_TOP_PAD = 4;
 
-/** BottomNavBar: `bottom` offset of the floating pill. Mirrors BottomNavBar.tsx. */
-const NAV_BOTTOM_OFFSET_WITH_INSET = 6;
-const NAV_BOTTOM_OFFSET_NO_INSET = 20;
-/** BottomNavBar budget-mode pill height (tallest state). Mirrors BottomNavBar.tsx `pillBar.height`. */
-const NAV_PILL_HEIGHT = 68;
-
 /**
  * Distance (dp) from the bottom of the screen to the TOP edge of the floating nav pill.
  * The list is clipped exactly here so the footer appears to rise out from BEHIND the nav bar.
+ * Same responsive geometry as BottomNavBar (see navBarLayout.ts).
  */
-export function getNavTopOffset(insetBottom: number): number {
-  const bottomOffset = insetBottom > 0 ? insetBottom + NAV_BOTTOM_OFFSET_WITH_INSET : NAV_BOTTOM_OFFSET_NO_INSET;
-  return bottomOffset + NAV_PILL_HEIGHT;
+export function getNavTopOffset(insetBottom: number, windowWidth = 390, fontScale = 1): number {
+  return getNavBarTop(getNavBarMetrics(windowWidth, insetBottom, fontScale));
 }
 
 // ─── Geometry ────────────────────────────────────────────────────────────────

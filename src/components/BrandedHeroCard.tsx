@@ -136,6 +136,11 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
     height: 250,
   });
 
+  // The notched card is drawn from the measured size. Until the first layout we only have a guess, and the pod
+  // (absolutely positioned at the real right edge) would sit off the notch for a frame, then jump. So the card
+  // stays invisible until it has been measured once (a single frame on mount; never again afterwards).
+  const [measured, setMeasured] = useState(false);
+
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const isCadenceMode = isBudgetModeEnabled && budgetCadence !== 'daily';
@@ -144,6 +149,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     if (width > 0 && height > 0) {
+      setMeasured(true);
       setDimensions((prev) => {
         if (Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) {
           return prev;
@@ -415,7 +421,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
     <View style={styles.outerWrapper}>
       {/* ── Main Container (Measures Content). Tap opens the details sheet. ── */}
       <Pressable
-        style={styles.cardContainer}
+        style={[styles.cardContainer, !measured && styles.cardMeasuring]}
         onLayout={handleLayout}
         onPress={onOpenDetails}
         disabled={!onOpenDetails}
@@ -686,6 +692,9 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     minHeight: 160,
+  },
+  cardMeasuring: {
+    opacity: 0,
   },
   cardInner: {
     paddingVertical: 14,
