@@ -4,7 +4,7 @@
 > **Status:** ACTIVE — Governed by Owner Approval Protocol  
 > **Repository:** `Arthik-App` (this file lives at `docs/ARTHIK_CANONICAL_RULES.md`)  
 > **Initial Creation:** 2026-10-17  
-> **Last Updated:** 2026-10-20  
+> **Last Updated:** 2026-10-21  
 
 ---
 
@@ -320,15 +320,17 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Verified By:** `tests/splitMoneyBackStore.test.ts`
 
 #### `SPL-005`: Detecting Money Back From a Person (AutoLog & Review)
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18)
+- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18; points 5–7 changed and approved on 2026-10-21)
 - **Canonical Definition:**
   1. Order of matching an incoming credit to a person who owes money: (a) NAME and AMOUNT both match (amount equals their total or one open expense), then (b) NAME only (they may have paid half). An amount alone is never enough.
   2. The app only ASKS ("Is this their payment?"). It never settles by itself.
   3. On the review screen and on an income's detail screen, every person who still owes money is always offered, name matches first.
   4. A phone notification can carry the question only while the app's data is loaded; otherwise the same question is on the transaction's detail screen.
-  5. **Tapping the person finishes the review.** The tap is the user's yes. The income is turned into a money-back row, oldest open split first (`SPL-003`), and every category gets back exactly the part that came back for its own expense. The Automatic Logging event is closed: it never asks for a category again, because a money-back row has none. The footer button reads "Saving <person>'s payback · ₹X" while this is saved.
-- **Code Enforcement:** `src/lib/splitLedger.ts` (`nameMatches`, `matchIncomingToPeople`), `src/features/autoLog/ledger.ts` (`moneyBackQuestionFor`), `src/components/autolog/ReviewSheet.tsx` (`settleWith`), `src/store/expense/moneyBack.ts` (`convertIncomeToMoneyBack`), `src/components/split/MoneyBackSheet.tsx`
-- **Verified By:** `tests/splitLedger.test.ts`, `tests/autoLogSettleReview.test.ts`, `tests/splitPartialPaybackCategories.test.ts`
+  5. **Choosing a person never saves anything; the footer button does.** Nothing on the review screen is chosen automatically, not even a likely match (a matching name only gets a small "Likely match" tag, no highlight). Tapping a person chooses them (tapping again un-chooses) and the footer button changes from "Save as Income · ₹X" to "Settle with <person> · ₹X", so the user can see it will not be saved as income. Pressing that button is the user's yes: the income is turned into a money-back row, oldest open split first (`SPL-003`), and every category gets back exactly the part that came back for its own expense. The Automatic Logging event is closed: it never asks for a category again, because a money-back row has none. While it is saved the button reads "Saving <person>'s payback · ₹X".
+  6. **The button shows what will happen to the money.** The ₹X on the button is the part that settles: the smaller of the amount received and what the person owes. If more arrived than is owed, a one-line note above the button says "₹Y extra stays as income" (the extra is ordinary income, `SPL-004`); if less arrived, it says "<person> will still owe ₹Z". Names on the button and note are cut to 14 characters with an ellipsis so the button never overflows. While a person is chosen the category row and "Remember preference" are dimmed and unused (a payback has no category and a settle never remembers anything); switching the type to Expense clears the choice.
+  7. **A remembered "income" never swallows a payback.** A credit from a sender whose saved preference is "income" is normally logged automatically. If that sender matches a person who still owes money (point 1), it is NOT logged automatically: it goes to review (reason `type`) and the notification asks "<person> owes you ₹Y. Is this their payment?" instead of "Is this income or an expense?". Credits the parser already knows to be salary, interest or refund, and credits from people who owe nothing, are not affected. This check needs the app's data to be loaded (as in point 4); when it is not, the credit is logged as before and the question stays on the transaction's detail screen.
+- **Code Enforcement:** `src/lib/splitLedger.ts` (`nameMatches`, `matchIncomingToPeople`), `src/features/autoLog/ledger.ts` (`owingPersonMatchFor`, `moneyBackQuestionFor`), `src/lib/settleReview.ts` (`summarizeSettle`, `settleButtonLabel`, `settleNote`, `shortPersonName`), `src/components/autolog/ReviewSheet.tsx` (`pickedPersonKey`, `settleWith`), `src/features/autoLog/paybackGuard.ts` (`shouldHoldCreditForPayback`), `src/features/autoLog/engine.ts` (`paybackHoldQuestion`), `src/store/expense/moneyBack.ts` (`convertIncomeToMoneyBack`), `src/components/split/MoneyBackSheet.tsx`
+- **Verified By:** `tests/splitLedger.test.ts`, `tests/autoLogSettleReview.test.ts`, `tests/splitPartialPaybackCategories.test.ts`, `tests/settleReview.test.ts`, `tests/paybackGuard.test.ts`, `tests/autoLogPaybackHold.test.ts`
 
 #### `SPL-006`: Refunds & Guards
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18; Solution 2 refined 2026-10-19)

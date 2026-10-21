@@ -3,103 +3,77 @@ import {
   getNavBarMetrics,
   getNavBarTop,
   getNavContentInset,
-  layoutNavTabGroup,
-  getPurePillWidth,
-  expandedTabWidth,
-  NAV_TAB_COLLAPSED,
-  NAV_TAB_COLLAPSED_MIN,
+  NAV_BAR_HEIGHT,
   NAV_CONTENT_CLEARANCE,
+  NAV_LABEL_MAX,
+  NAV_PURE_BAR_HEIGHT,
+  NAV_PURE_FAB_GAP,
+  NAV_ACTIVE_PAD_X,
+  NAV_ICON_BOX,
+  NAV_LABEL_MARGIN,
+  NAV_CAPSULE_BORDER,
+  NAV_INACTIVE_PAD_X,
 } from '../src/lib/navBarLayout';
 
-describe('navBarLayout — responsive geometry', () => {
-  it('keeps the same visible float above any system navigation', () => {
+const activeW = (label: number) =>
+  NAV_ACTIVE_PAD_X * 2 + NAV_ICON_BOX + NAV_LABEL_MARGIN + label + NAV_CAPSULE_BORDER * 2;
+const inactiveW = NAV_INACTIVE_PAD_X * 2 + NAV_ICON_BOX + NAV_CAPSULE_BORDER * 2;
+
+const WIDTHS = [320, 360, 375, 393, 412, 430, 600, 1024];
+
+describe('navBarLayout — responsive spacing (original look and animation kept)', () => {
+  it('keeps the original pill heights', () => {
+    const m = getNavBarMetrics(390, 0);
+    expect(m.barHeight).toBe(68);
+    expect(m.pureBarHeight).toBe(58);
+  });
+
+  it('floats the same visible distance above any system navigation', () => {
     expect(getNavBarMetrics(390, 0).bottomGap).toBe(20); // no inset (old phones)
     expect(getNavBarMetrics(390, 16).bottomGap).toBe(24); // gesture nav
+    expect(getNavBarMetrics(390, 24).bottomGap).toBe(32);
     expect(getNavBarMetrics(390, 48).bottomGap).toBe(56); // 3-button nav
   });
 
-  it('scales the pill height with the screen, within 60..68', () => {
-    expect(getNavBarMetrics(320, 0).barHeight).toBe(60);
-    expect(getNavBarMetrics(390, 0).barHeight).toBe(63);
-    expect(getNavBarMetrics(480, 0).barHeight).toBe(68);
+  it('uses the original 16dp side margin on normal phones, a little less on tiny ones', () => {
+    expect(getNavBarMetrics(390, 0).sideMargin).toBe(16);
+    expect(getNavBarMetrics(412, 0).sideMargin).toBe(16);
+    expect(getNavBarMetrics(300, 0).sideMargin).toBe(12);
   });
 
-  it('adds room for large system fonts but caps the label scale', () => {
-    const m = getNavBarMetrics(390, 0, 2);
-    expect(m.labelScale).toBe(1.2);
-    expect(m.barHeight).toBe(67);
+  it('caps the bar at 400dp on tablets', () => {
+    expect(getNavBarMetrics(1024, 0).barWidth).toBe(400);
   });
 
-  it('caps the bar width on tablets and keeps side margins', () => {
-    const phone = getNavBarMetrics(360, 0);
-    expect(phone.barWidth).toBe(360 - phone.sideMargin * 2);
-    expect(getNavBarMetrics(1024, 0).barWidth).toBe(440);
+  it('normal phones keep the original 68dp center slot, 44dp tabs and 50dp label room', () => {
+    const m = getNavBarMetrics(430, 0);
+    expect(m.centerSlot).toBe(68);
+    expect(m.tabMinWidth).toBe(44);
+    expect(m.budgetLabelMax).toBe(NAV_LABEL_MAX);
   });
 
   it('content inset = bar top + clearance (+ extra)', () => {
     const m = getNavBarMetrics(390, 24);
-    expect(getNavBarTop(m)).toBe(32 + 63);
-    expect(getNavContentInset(m)).toBe(32 + 63 + NAV_CONTENT_CLEARANCE);
-    expect(getNavContentInset(m, 20)).toBe(32 + 63 + NAV_CONTENT_CLEARANCE + 20);
+    expect(getNavBarTop(m)).toBe(32 + NAV_BAR_HEIGHT);
+    expect(getNavContentInset(m)).toBe(32 + NAV_BAR_HEIGHT + NAV_CONTENT_CLEARANCE);
+    expect(getNavContentInset(m, 20)).toBe(32 + NAV_BAR_HEIGHT + NAV_CONTENT_CLEARANCE + 20);
   });
 
   it('falls back to a sane width when the window is not measured yet', () => {
-    expect(getNavBarMetrics(0, 0).barHeight).toBe(63);
-  });
-});
-
-describe('navBarLayout — tab group layout', () => {
-  it('grows only the active tab and keeps every tab inside the group', () => {
-    const slots = layoutNavTabGroup(150, [30, 40], 1);
-    expect(slots[0].width).toBeLessThanOrEqual(NAV_TAB_COLLAPSED);
-    expect(slots[0].width).toBeGreaterThanOrEqual(NAV_TAB_COLLAPSED_MIN);
-    expect(slots[0].showLabel).toBe(false);
-    expect(slots[1].showLabel).toBe(true);
-    const last = slots[slots.length - 1];
-    expect(last.x + last.width).toBeLessThanOrEqual(150 + 1e-9);
+    expect(getNavBarMetrics(0, 0).barWidth).toBe(getNavBarMetrics(390, 0).barWidth);
   });
 
-  it('spaces tabs evenly (equal gaps, edges included)', () => {
-    const slots = layoutNavTabGroup(200, [30, 30], 0);
-    const g1 = slots[0].x;
-    const g2 = slots[1].x - (slots[0].x + slots[0].width);
-    const g3 = 200 - (slots[1].x + slots[1].width);
-    expect(g1).toBeCloseTo(g2);
-    expect(g2).toBeCloseTo(g3);
+  it.each(WIDTHS)('budget wing never overflows at %idp wide (active tab + icon-only tab fit)', (w) => {
+    const m = getNavBarMetrics(w, 24);
+    const needed = Math.max(m.tabMinWidth, inactiveW) + activeW(m.budgetLabelMax);
+    expect(needed).toBeLessThanOrEqual(m.wingWidth);
+    // and a useful label room remains on every real phone
+    if (w >= 360) expect(m.budgetLabelMax).toBeGreaterThanOrEqual(40);
   });
 
-  it('shortens a long label instead of overflowing', () => {
-    const slots = layoutNavTabGroup(140, [20, 80], 1);
-    expect(slots[1].showLabel).toBe(true);
-    expect(slots[1].labelWidth).toBeLessThan(80);
-    expect(slots[1].x + slots[1].width).toBeLessThanOrEqual(140);
-  });
-
-  it('fits a full "Insights" label in a 360dp budget wing by tightening neighbours', () => {
-    const m = getNavBarMetrics(360, 0);
-    const wing = (m.barWidth - 8 - m.centerSlot) / 2;
-    const slots = layoutNavTabGroup(wing, [38, 45], 1);
-    expect(slots[1].labelWidth).toBe(45);
-    expect(slots[1].x + slots[1].width).toBeLessThanOrEqual(wing + 1e-9);
-  });
-
-  it('drops the label (icon-only highlight) on very narrow groups', () => {
-    const slots = layoutNavTabGroup(110, [20, 48], 1);
-    expect(slots[1].showLabel).toBe(false);
-    expect(slots[1].width).toBe(NAV_TAB_COLLAPSED);
-  });
-
-  it('no active tab → all icon-only', () => {
-    const slots = layoutNavTabGroup(200, [30, 30, 30], -1);
-    expect(slots.every((s) => !s.showLabel && s.width === NAV_TAB_COLLAPSED)).toBe(true);
-  });
-
-  it('pure pill fits the longest label and never collides with the add button', () => {
-    const m = getNavBarMetrics(390, 0);
-    const w = getPurePillWidth(m, [34, 42, 46]);
-    expect(w).toBeGreaterThanOrEqual(2 * NAV_TAB_COLLAPSED + expandedTabWidth(46));
-    expect(w + m.fabSize + 10).toBeLessThanOrEqual(m.barWidth);
-    const tiny = getNavBarMetrics(300, 0);
-    expect(getPurePillWidth(tiny, [200, 200, 200]) + tiny.fabSize + 10).toBeLessThanOrEqual(tiny.barWidth);
+  it.each(WIDTHS)('pure pill + add button fit the row at %idp wide', (w) => {
+    const m = getNavBarMetrics(w, 24);
+    expect(m.purePillWidth + NAV_PURE_FAB_GAP + NAV_PURE_BAR_HEIGHT).toBeLessThanOrEqual(m.barWidth);
+    expect(m.pureLabelMax).toBeLessThanOrEqual(NAV_LABEL_MAX);
   });
 });

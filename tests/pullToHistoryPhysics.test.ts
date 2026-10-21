@@ -31,11 +31,10 @@ const geo = (over: Partial<PullGeometry> = {}): PullGeometry => ({
 
 describe('pullToHistoryPhysics', () => {
   describe('getNavTopOffset', () => {
-    it('mirrors BottomNavBar (responsive bottom gap + pill height, see navBarLayout)', () => {
-      // 390dp wide phone: pill 63dp; gap = max(inset, 12) + 8
-      expect(getNavTopOffset(0)).toBe(12 + 8 + 63);
-      expect(getNavTopOffset(24)).toBe(24 + 8 + 63);
-      expect(getNavTopOffset(48, 412)).toBe(48 + 8 + 67);
+    it('mirrors BottomNavBar (responsive bottom gap + 68dp pill, see navBarLayout)', () => {
+      expect(getNavTopOffset(0)).toBe(12 + 8 + 68);
+      expect(getNavTopOffset(24)).toBe(24 + 8 + 68);
+      expect(getNavTopOffset(48, 412)).toBe(48 + 8 + 68);
     });
   });
 

@@ -257,6 +257,7 @@ Rule: naya money logic yahin jayega, test ke saath (MNY-001).
 | `transactionFunding.ts` | Ek kharch ke detail screen ka funding breakdown (waterfall se) |
 | `heroDetails.ts` | Home card tap details sheet (`HeroDetailsSheet`) ka breakdown: Budget pool, Money in / unspent, Gullak movement, Money back alag line par |
 | `splitLedger.ts` | Split expenses, repayments, multi-person debt & merchant refund attribution engine: `buildPeopleLedger`, `buildPersonSummaries`, settlements, `planRefund` (Solution 2 interactive recipient attribution: everyone / me / specific member with live balance preview), debt validation |
+| `settleReview.ts` | Review sheet "Paid back by someone?": settle ka hisaab (`summarizeSettle`), chhota button text aur note (`settleButtonLabel`, `settleNote`, `shortPersonName`) |
 | `homeCalculations.ts` | **Home ke hero card ka dimaag.** `calculatePeriodSummary` 4 filters (All/Daily/Weekly/Monthly) ka primary amount, label, subtext banata hai. Display ka copy bhi yahin se aata hai (jaan-boojhkar, taaki sab filters ek hi logic use karein). `PURE_DEFICIT_NOTE` wali auto-income budget chip ke income se bahar rakhta hai |
 | `vaultSpendingGuard.ts` | Spending guard ka hisaab: `canAddExpense` + `VAULT_GUARD_MESSAGE`. Pure Mode mein hamesha allowed |
 
@@ -369,7 +370,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `useMoneyWaterfall.ts` | Component ke liye waterfall result (expenses + categories se) |
 | `useSavingsDashboard.ts` | Savings screen ka data |
 | `useFormKeyboard.ts`, `useFocusEntry.ts`, `useScrollDirection.ts` | Keyboard, screen focus (`useFocusEntryCount`, `useScreenBlurListener`), scroll ki disha |
-| `useNavBarMetrics.ts` | Phone ke hisaab se nav bar ka size (`useNavBarMetrics`) aur screens ki bottom padding (`useNavBarContentInset`) |
+| `useNavBarMetrics.ts` | Phone ke hisaab se nav bar ki spacing (`useNavBarMetrics`) aur screens ki bottom padding (`useNavBarContentInset`) |
 | `useRingSweep.ts` | (focus-entry + `focus` event, dono se trigger) Home rings (`DualRingChart`, `DonutChart`) ka blink-free sweep: blur ke baad UI thread par 0, wapas aane par seedha sweep up |
 
 ---
@@ -404,7 +405,8 @@ Bank email (notification) ─┤   (personal sender, OTP, bina paise wale messag
 | `engine.ts` | Faisla karne wali pipeline |
 | `reviews.ts` | User ke faisle: classify, category, duplicate, ignore, transfer, single/bulk review discard (`discardEvent`, `discardAllPending`) |
 | `service.ts` | Setup, discovery, recovery, pause, sign-out, queue process, review clearing (`clearAllPendingReviews`), learned rules reset (`resetLearnedRules`) |
-| `ledger.ts` | Transaction banana/badalna; `isExceedingVaultLiquidity` (sirf Budget Mode mein review) |
+| `ledger.ts` | Transaction banana/badalna; `isExceedingVaultLiquidity` (sirf Budget Mode mein review); `owingPersonMatchFor` / `moneyBackQuestionFor` (kaun paisa dena hai) |
+| `paybackGuard.ts` | Remembered "income" wale sender se aaya credit, agar wo insaan abhi paisa dena hai, to seedha income nahi banta, review mein jaata hai (SPL-005 point 7) |
 | `db.ts` | Encrypted SQLite (SQLCipher), user ke hisaab se, key SecureStore mein, review dismissal (`dismissPendingEvent`, `clearAllPending`), learned rules reset (`resetLearnedRules`) |
 | `store.ts`, `types.ts`, `copy.ts`, `notify.ts`, `permissions.ts`, `background.ts`, `remote.ts`, `rollout.ts` | UI snapshot, types, text, notifications, permissions, background task, remote profile (message ka content nahi), beta rollout |
 

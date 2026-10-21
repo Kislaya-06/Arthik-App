@@ -112,7 +112,8 @@ export const ledger = {
   txs: new Map<string, Tx>(),
   manual: [] as Array<{ id: string; amount: number; type: 'expense' | 'income'; occurredAt: number }>,
   offline: false,
-  /** Open friend shares of the user (for "is this your friend's share of a split?"). */
+  /** People who still owe the user money (SPL-005): a credit whose sender contains `match` (case-insensitive) is theirs. */
+  owing: [] as Array<{ match: string; name: string; owed: number }>,
 };
 const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 export const fakeLedger = {
@@ -137,6 +138,15 @@ export const fakeLedger = {
   findManualLookalike: (amount: number, type: 'expense' | 'income', occurredAt: number) =>
     ledger.manual.find((m) => m.amount === amount && m.type === type && sameDay(m.occurredAt, occurredAt)),
   isExceedingVaultLiquidity: (_amount: number) => false,
+  owingPersonMatchFor: (amount: number | null, sender: string | null) => {
+    if (!amount || !sender) return null;
+    const hit = ledger.owing.find((p) => sender.toLowerCase().includes(p.match.toLowerCase()));
+    return hit ? { name: hit.name, owed: hit.owed } : null;
+  },
+  moneyBackQuestionFor: (amount: number | null, sender: string | null) => {
+    const hit = fakeLedger.owingPersonMatchFor(amount, sender);
+    return hit ? `${hit.name} owes you ₹${hit.owed}. Is this their payment?` : null;
+  },
   saveSelfTransferRule: async (_text: string) => true,
 };
 
@@ -171,6 +181,7 @@ export const resetEnv = () => {
   native.battery = true;
   ledger.txs.clear();
   ledger.manual = [];
+  ledger.owing = [];
   ledger.offline = false;
   remote.rows.clear();
   remote.ok = true;

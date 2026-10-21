@@ -260,6 +260,6 @@ Before declaring any UI task done, verify:
 - [ ] No regression or visual glitches on small screens ($< 360\text{dp}$).
 
 ### Bottom Navigation (`BottomNavBar`)
-- Floating pill navigation bar with elevated center quick-add button and balanced layout.
-- Tabs: Expanding in-place capsule (`CapsuleTabItem`) with label reveal (`0 -> 50` width, `180ms` cubic ease-out) and dual-layer cross-fading icon (`textSecondary` to `mintGreen`).
-- Press feedback: `0.92` spring scale on press-in, springs back to `1.0` on release with light haptics.
+- Look and animation are the original: Budget pill 68dp with a center + (48dp), Pure pill 196 x 58dp with a separate 58dp round + button; per-tab capsule (height 42, `rgba(184,224,200,0.22)` light / `0.16` dark) that fades in, label expanding 0 → room over 180ms, icon cross-fade to `mintGreen`, press scale spring (tension 70, friction 8) to 0.92 (tabs) / 0.88 (add).
+- Only SPACING is responsive, from `src/lib/navBarLayout.ts`: bottom gap `max(insetBottom, 12) + 8`; side margin `clamp(width × 0.04, 12, 16)`; bar width `min(width − 2 × margin, 400)`; center slot `clamp(width × 0.16, 56, 68)`; icon-only tab 44 (34 when the wing is short); active label room up to 50, reduced on narrow screens so the active capsule always fits its wing; labels follow the system font up to 1.15x and ellipsize.
+- Screens never hard-code bottom padding: use `useNavBarContentInset(extra)`.

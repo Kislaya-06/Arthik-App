@@ -65,8 +65,8 @@ export const LIST_TOP_PAD = 4;
  * The list is clipped exactly here so the footer appears to rise out from BEHIND the nav bar.
  * Same responsive geometry as BottomNavBar (see navBarLayout.ts).
  */
-export function getNavTopOffset(insetBottom: number, windowWidth = 390, fontScale = 1): number {
-  return getNavBarTop(getNavBarMetrics(windowWidth, insetBottom, fontScale));
+export function getNavTopOffset(insetBottom: number, windowWidth = 390): number {
+  return getNavBarTop(getNavBarMetrics(windowWidth, insetBottom));
 }
 
 // ─── Geometry ────────────────────────────────────────────────────────────────

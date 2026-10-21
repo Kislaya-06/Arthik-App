@@ -28,6 +28,7 @@ import { useExpenseStore } from '../../store/expenseStore';
 import { navigationRef } from '../../navigation/navigationRef';
 import { convertIncomeToMoneyBack } from '../../store/expense/moneyBack';
 import { buildPeopleLedger, matchIncomingToPeople } from '../../lib/splitLedger';
+import { settleButtonLabel, settleNote, settlingButtonLabel, summarizeSettle } from '../../lib/settleReview';
 import {
   classifyEvent,
   setEventCategory,
@@ -210,6 +211,12 @@ export const ReviewSheet: React.FC<Props> = ({
   const [busy, setBusy] = useState(false);
   /** The person whose payback is being saved right now (button label while saving). */
   const [settlingWith, setSettlingWith] = useState<string | null>(null);
+  /**
+   * The person the user CHOSE as the payer (SPL-005). Nothing is chosen automatically, not even a likely match:
+   * the footer button only turns into "Settle with …" after the user taps a person, and saving as income stays the
+   * default until then.
+   */
+  const [pickedPersonKey, setPickedPersonKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
@@ -224,6 +231,7 @@ export const ReviewSheet: React.FC<Props> = ({
       setError(null);
       setBusy(false);
       setSettlingWith(null);
+      setPickedPersonKey(null);
     }
   }, [visible, event?.id, event?.direction, event?.merchant, event?.sender]);
 
@@ -254,6 +262,12 @@ export const ReviewSheet: React.FC<Props> = ({
       : null
     : event?.amount ?? null;
 
+  // The chosen payer (only while this is an income and the person still owes money).
+  const pickedPerson =
+    type === 'income' && pickedPersonKey ? owingPeople.find((p) => p.key === pickedPersonKey) ?? null : null;
+  const settleSummary = pickedPerson ? summarizeSettle(pickedPerson.owed, amount) : null;
+  const settleHint = pickedPerson && settleSummary ? settleNote(pickedPerson.name, settleSummary, money) : null;
+
   if (!event) return null;
 
   const run = async (fn: () => Promise<void>, message: string) => {
@@ -274,6 +288,10 @@ export const ReviewSheet: React.FC<Props> = ({
     if (needsAmount && !amount) {
       setError('Enter the amount first.');
       return;
+    }
+    // A person was chosen: the footer button settles their payback (it is never saved as income).
+    if (pickedPerson && !discovery) {
+      return settleWith(pickedPerson.name);
     }
     if (categoryOnly) {
       if (!categoryId) {
@@ -574,6 +592,7 @@ export const ReviewSheet: React.FC<Props> = ({
               onChange={(k) => {
                 Haptics.selectionAsync().catch(() => {});
                 setType(k as 'expense' | 'income');
+                if (k !== 'income') setPickedPersonKey(null);
               }}
               height={ControlHeight.standard}
               activePillColor={type === 'expense' ? colors.peachCoral : colors.mintGreen}
@@ -585,7 +604,7 @@ export const ReviewSheet: React.FC<Props> = ({
         ) : null}
 
         {/* ── Category Section: Horizontal Scroll with Left/Right Fade Gradients ── */}
-        <View style={styles.categorySection}>
+        <View style={[styles.categorySection, pickedPerson && styles.dimmedSection]} pointerEvents={pickedPerson ? 'none' : 'auto'}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 0 }]}>CATEGORY</Text>
             {chosenCategory ? (
@@ -664,12 +683,14 @@ export const ReviewSheet: React.FC<Props> = ({
 
         {/* ── Remember Preference 48px Stadium Pill ── */}
         <Pressable
+          disabled={!!pickedPerson}
           onPress={() => {
             Haptics.selectionAsync().catch(() => {});
             setRemember((r) => !r);
           }}
           style={({ pressed }) => [
             styles.rememberPill,
+            pickedPerson && styles.dimmedSection,
             {
               backgroundColor: remember
                 ? isDark
@@ -702,38 +723,66 @@ export const ReviewSheet: React.FC<Props> = ({
           </Text>
         </Pressable>
 
-        {/* ── Paid back by someone (if income and people owe money) ── */}
+        {/* ── Paid back by someone (if income and people owe money) ──
+            Nothing here is selected by itself. A likely match only gets a small tag; the user taps a person to
+            choose them, and the footer button then settles instead of saving income (SPL-005). */}
         {owingPeople.length > 0 && type === 'income' ? (
           <View style={styles.section}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>PAID BACK BY SOMEONE?</Text>
             <View style={{ gap: Spacing.element }}>
-              {owingPeople.map((p) => (
-                <Pressable
-                  key={p.key}
-                  disabled={busy}
-                  onPress={() => settleWith(p.name)}
-                  style={({ pressed }) => [
-                    styles.owingRow,
-                    {
-                      borderColor: p.matched ? colors.mintGreenDark : colors.borderSubtle,
-                      backgroundColor: p.matched
-                        ? isDark
-                          ? 'rgba(184, 224, 200, 0.12)'
-                          : colors.mintGreenSoft
-                        : colors.cardSubtle,
-                    },
-                    pressed && { opacity: 0.75 },
-                  ]}
-                >
-                  <Text style={[styles.owingName, { color: colors.textPrimary }]}>
-                    {p.name}
-                    {p.matched ? ' · name matches' : ''}
-                  </Text>
-                  <Text style={[styles.owingOwed, { color: colors.mintGreenDark }]}>
-                    owes {money(p.owed)} → Settle
-                  </Text>
-                </Pressable>
-              ))}
+              {owingPeople.map((p) => {
+                const picked = pickedPersonKey === p.key;
+                return (
+                  <Pressable
+                    key={p.key}
+                    disabled={busy}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setError(null);
+                      setPickedPersonKey(picked ? null : p.key);
+                    }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: picked, disabled: busy }}
+                    accessibilityLabel={`${p.name}, owes ${money(p.owed)}${p.matched ? ', likely match' : ''}`}
+                    style={({ pressed }) => [
+                      styles.owingRow,
+                      {
+                        borderColor: picked ? colors.mintGreenDark : colors.borderSubtle,
+                        backgroundColor: picked
+                          ? isDark
+                            ? 'rgba(184, 224, 200, 0.12)'
+                            : colors.mintGreenSoft
+                          : colors.cardSubtle,
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Checkbox checked={picked} />
+                    <View style={styles.owingTextCol}>
+                      <Text
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        style={[styles.owingName, { color: colors.textPrimary }]}
+                      >
+                        {p.name}
+                      </Text>
+                      {p.matched ? (
+                        <View
+                          style={[
+                            styles.likelyTag,
+                            { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.14)' : colors.mintGreenSoft },
+                          ]}
+                        >
+                          <Text style={[styles.likelyTagText, { color: colors.mintGreenDark }]}>Likely match</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text numberOfLines={1} style={[styles.owingOwed, { color: colors.textSecondary }]}>
+                      owes {money(p.owed)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         ) : null}
@@ -767,14 +816,21 @@ export const ReviewSheet: React.FC<Props> = ({
 
     footer = (
       <View style={{ gap: Spacing.element }}>
+        {settleHint && !busy ? (
+          <Text numberOfLines={1} style={[styles.settleNote, { color: colors.textSecondary }]}>
+            {settleHint}
+          </Text>
+        ) : null}
         <AppButton
           label={
             discovery
               ? 'Teach Format'
+              : settlingWith && pickedPerson && settleSummary
+              ? settlingButtonLabel(pickedPerson.name, settleSummary.settles, money)
+              : pickedPerson && settleSummary
+              ? settleButtonLabel(pickedPerson.name, settleSummary.settles, money)
               : categoryOnly
               ? 'Save Category'
-              : settlingWith
-              ? `Saving ${settlingWith}'s payback · ${money(amount)}`
               : type === 'income'
               ? `Save as Income · ${money(amount)}`
               : `Save as Expense · ${money(amount)}`
@@ -782,7 +838,7 @@ export const ReviewSheet: React.FC<Props> = ({
           variant="primary"
           size="cta"
           loading={busy}
-          disabled={busy || (needsAmount && !amount) || (categoryOnly && !categoryId)}
+          disabled={busy || (needsAmount && !amount) || (categoryOnly && !categoryId && !pickedPerson)}
           onPress={handleSave}
         />
         <View style={styles.secondaryRow}>
@@ -1014,14 +1070,41 @@ const styles = StyleSheet.create({
     padding: Spacing.group,
     minHeight: 48,
   },
+  owingTextCol: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: Spacing.element + 2,
+    marginRight: Spacing.element,
+    gap: 3,
+    alignItems: 'flex-start',
+  },
   owingName: {
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
-    flex: 1,
+    maxWidth: '100%',
   },
   owingOwed: {
     fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
+    flexShrink: 0,
+  },
+  likelyTag: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  likelyTagText: {
+    fontSize: 10.5,
+    fontFamily: FontFamily.bold,
+    letterSpacing: 0.2,
+  },
+  settleNote: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.semibold,
+    textAlign: 'center',
+  },
+  dimmedSection: {
+    opacity: 0.4,
   },
   amountBox: {
     flexDirection: 'row',

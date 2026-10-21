@@ -13,9 +13,10 @@ import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { useNavBarStore } from '../store/navBarStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
-import { Spacing, FontFamily } from '../config/theme';
+import { FontFamily } from '../config/theme';
+import { useNavBarMetrics } from '../hooks/useNavBarMetrics';
+import { NAV_LABEL_MAX_FONT_SCALE } from '../lib/navBarLayout';
 import * as Haptics from 'expo-haptics';
 
 // ─── Dual-Layer Cross-Fading Icon ───────────────────────────────────────────
@@ -32,11 +33,11 @@ const AnimatedIcon = ({
     <View style={styles.iconWrapper}>
       {/* Inactive Icon layer */}
       <View style={styles.iconLayer}>
-        <Icon size={19} color={colors.textSecondary} />
+        <Icon size={20} color={colors.textSecondary} />
       </View>
       {/* Active Icon layer (Mint Green) */}
       <Animated.View style={[styles.iconLayer, { opacity: anim }]}>
-        <Icon size={19} color={colors.mintGreen} />
+        <Icon size={20} color={colors.mintGreen} />
       </Animated.View>
     </View>
   );
@@ -48,6 +49,10 @@ interface CapsuleTabItemProps {
   label: string;
   active: boolean;
   onPress: () => void;
+  /** Room for the label when active (responsive; 50 on normal phones). */
+  labelMax: number;
+  /** Width of the icon-only slot (44 on normal phones). */
+  minWidth: number;
 }
 
 const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
@@ -55,6 +60,8 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   label,
   active,
   onPress,
+  labelMax,
+  minWidth,
 }) => {
   const { isDark } = useTheme();
   const anim = useAnimatedValue(active ? 1 : 0);
@@ -110,7 +117,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   // Interpolated Label Width & Opacity (calibrated to prevent overflowing wings)
   const labelMaxWidth = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 50],
+    outputRange: [0, labelMax],
     extrapolate: 'clamp',
   });
 
@@ -122,13 +129,13 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
 
   const labelMarginLeft = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 4],
+    outputRange: [0, 5],
     extrapolate: 'clamp',
   });
 
   const paddingHorizontal = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [6, 8],
+    outputRange: [7, 11],
     extrapolate: 'clamp',
   });
 
@@ -139,7 +146,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
       onPressOut={handlePressOut}
       unstable_pressDelay={0}
       pressRetentionOffset={{ top: 20, bottom: 20, left: 16, right: 16 }}
-      style={styles.tabPressable}
+      style={[styles.tabPressable, { minWidth }]}
       hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
     >
       <Animated.View style={{ transform: [{ scale: pressScale }] }}>
@@ -162,12 +169,13 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
               marginLeft: labelMarginLeft,
               overflow: 'hidden',
               justifyContent: 'center',
-              alignItems: 'center',
-              height: 20,
+              height: 22,
             }}
           >
             <Text
               numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={NAV_LABEL_MAX_FONT_SCALE}
               style={[
                 styles.tabLabel,
                 { color: '#FFFFFF' },
@@ -284,7 +292,8 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
 export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const { colors, isDark } = useTheme();
   const isVisible = useNavBarStore((s) => s.isVisible);
-  const insets = useSafeAreaInsets();
+  // Responsive spacing for this phone (bottom gap above system navigation, margins, label room).
+  const m = useNavBarMetrics();
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const translateY = useAnimatedValue(0);
   const modeAnim = useAnimatedValue(isBudgetModeEnabled ? 1 : 0);
@@ -298,16 +307,16 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
     }).start();
   }, [isBudgetModeEnabled, modeAnim]);
 
-  const bottomOffset = insets.bottom > 0 ? insets.bottom + 6 : 20;
+  const bottomOffset = m.bottomGap;
 
   useEffect(() => {
     Animated.spring(translateY, {
-      toValue: isVisible ? 0 : 160 + insets.bottom,
+      toValue: isVisible ? 0 : 160 + m.bottomGap,
       useNativeDriver: true,
       bounciness: 0,
       speed: 14,
     }).start();
-  }, [isVisible, translateY, insets.bottom]);
+  }, [isVisible, translateY, m.bottomGap]);
 
   const opacity = translateY.interpolate({
     inputRange: [0, 150],
@@ -357,6 +366,8 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
         styles.outerContainer,
         {
           bottom: bottomOffset,
+          left: m.sideMargin,
+          right: m.sideMargin,
           transform: [{ translateY }],
           opacity,
         },
@@ -386,6 +397,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           style={[
             styles.pillBar,
             {
+              maxWidth: m.barWidth,
               backgroundColor: colors.navBarBg,
               borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.18)',
             },
@@ -394,12 +406,16 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           {/* Left Wing: Home & History */}
           <View style={styles.tabWing}>
             <CapsuleTabItem
+              labelMax={m.budgetLabelMax}
+              minWidth={m.tabMinWidth}
               icon={Home}
               label="Home"
               active={state.index === getRouteIndex('Home')}
               onPress={onPressHome}
             />
             <CapsuleTabItem
+              labelMax={m.budgetLabelMax}
+              minWidth={m.tabMinWidth}
               icon={Clock}
               label="History"
               active={state.index === getRouteIndex('History')}
@@ -408,19 +424,23 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           </View>
 
           {/* Center Zone: Locked at 50% */}
-          <View style={styles.centerContainer}>
+          <View style={[styles.centerContainer, { width: m.centerSlot }]}>
             <CenterAddButton onPress={handleAddExpense} />
           </View>
 
           {/* Right Wing: Savings & Insights */}
           <View style={styles.tabWing}>
             <CapsuleTabItem
+              labelMax={m.budgetLabelMax}
+              minWidth={m.tabMinWidth}
               icon={PiggyBankCoinIcon}
               label="Savings"
               active={state.index === getRouteIndex('Savings')}
               onPress={onPressSavings}
             />
             <CapsuleTabItem
+              labelMax={m.budgetLabelMax}
+              minWidth={m.tabMinWidth}
               icon={BarChart2}
               label="Insights"
               active={state.index === getRouteIndex('Insights')}
@@ -460,24 +480,31 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
             style={[
               styles.purePillBar,
               {
+                width: m.purePillWidth,
                 backgroundColor: colors.navBarBg,
                 borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.18)',
               },
             ]}
           >
             <CapsuleTabItem
+              labelMax={m.pureLabelMax}
+              minWidth={m.tabMinWidth}
               icon={Home}
               label="Home"
               active={state.index === getRouteIndex('Home')}
               onPress={onPressHome}
             />
             <CapsuleTabItem
+              labelMax={m.pureLabelMax}
+              minWidth={m.tabMinWidth}
               icon={Clock}
               label="History"
               active={state.index === getRouteIndex('History')}
               onPress={onPressHistory}
             />
             <CapsuleTabItem
+              labelMax={m.pureLabelMax}
+              minWidth={m.tabMinWidth}
               icon={BarChart2}
               label="Insights"
               active={state.index === getRouteIndex('Insights')}
@@ -496,8 +523,6 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    left: Spacing.block,
-    right: Spacing.block,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 99,
@@ -552,7 +577,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -581,8 +606,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   capsule: {
-    height: 42,
-    borderRadius: 21,
+    height: 48,
+    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -605,8 +630,8 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: FontFamily.bold,
-    fontSize: 11.5,
-    letterSpacing: 0.1,
+    fontSize: 13.5,
+    letterSpacing: 0.15,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },

@@ -14,7 +14,8 @@ import {
   isSameSourceDuplicate,
 } from './matching';
 import * as db from './db';
-import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor, isExceedingVaultLiquidity, moneyBackQuestionFor } from './ledger';
+import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor, isExceedingVaultLiquidity, moneyBackQuestionFor, owingPersonMatchFor } from './ledger';
+import { shouldHoldCreditForPayback } from './paybackGuard';
 import { notifyLogged, notifyNeedsReview } from './notify';
 import type { AutoLogEvent, EventOrigin, EventStatus, ParsedMessage, ReviewReason } from './types';
 
@@ -178,11 +179,33 @@ const reviewQuestion: Record<ReviewReason, string> = {
   exceeds_liquidity: 'Exceeds spending limit. Zero funds in Income & Gullak.',
 };
 
-const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: ProcessOptions) => {
+/**
+ * SPL-005: a remembered "income" for a sender must not swallow a friend's payback. When the credit comes from a
+ * person who still owes money, hold it for review (the settle choice lives there) instead of writing it as income.
+ * Returns the notification question when the credit is held, otherwise null.
+ */
+const paybackHoldQuestion = (
+  e: AutoLogEvent,
+  parsedCreditKind: ParsedMessage['creditKind'],
+  prefType: string | null | undefined
+): string | null => {
+  if (e.direction !== 'credit' || prefType !== 'income') return null;
+  const match = owingPersonMatchFor(e.amount, e.merchant);
+  const hold = shouldHoldCreditForPayback({
+    direction: e.direction,
+    prefType,
+    creditKind: parsedCreditKind,
+    hasOwingMatch: !!match,
+  });
+  if (!hold || !match) return null;
+  return moneyBackQuestionFor(e.amount, e.merchant) || `${match.name} owes you money. Is this their payment?`;
+};
+
+const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: ProcessOptions, question?: string) => {
   e.status = 'pending';
   e.reviewReason = reason;
   await db.insertEvent(e);
-  if (opts.notify) await notifyNeedsReview(e.id, e.amount, e.merchant, reviewQuestion[reason]);
+  if (opts.notify) await notifyNeedsReview(e.id, e.amount, e.merchant, question || reviewQuestion[reason]);
   return { status: e.status, eventId: e.id, reviewReason: reason, accountKey: e.accountKey };
 };
 
@@ -377,6 +400,10 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
 
   if (!type) return { ...(await finalizePending(e, 'type', opts)), isNewAccount };
 
+  // SPL-005: a remembered "income" must not swallow a friend's payback → ask in review instead.
+  const holdQuestion = paybackHoldQuestion(e, parsed.creditKind, pref?.type);
+  if (holdQuestion) return { ...(await finalizePending(e, 'type', opts, holdQuestion)), isNewAccount };
+
   // A manual entry that looks the same → ask, don't double count.
   const lookalike = findManualLookalike(e.amount, type, e.occurredAt, await autoExpenseIds());
   if (lookalike) return { ...(await finalizePending(e, 'possible_duplicate', opts)), isNewAccount };
@@ -540,6 +567,13 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
   else if (pref?.type === 'income' || pref?.type === 'expense') type = pref.type;
   if (!type) {
     const r = await finalizePending(e, 'type', opts);
+    await finishTakeOver();
+    return { ...r, isNewAccount };
+  }
+  // SPL-005: a remembered "income" must not swallow a friend's payback → ask in review instead.
+  const holdQuestion = paybackHoldQuestion(e, parsed.creditKind, pref?.type);
+  if (holdQuestion) {
+    const r = await finalizePending(e, 'type', opts, holdQuestion);
     await finishTakeOver();
     return { ...r, isNewAccount };
   }

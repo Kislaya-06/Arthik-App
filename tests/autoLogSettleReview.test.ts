@@ -45,13 +45,13 @@ describe('AutoLog: a friend\'s payback must not come back for review', () => {
     const [event] = await db.listPending();
     expect(event).toBeDefined();
 
-    // What the review sheet used to do when a person was tapped: no clearNeedsCategory.
+    // What the review sheet used to do when a person was settled: no clearNeedsCategory.
     const classified = await classifyEvent(event, 'income', null, false);
     expect(classified.needsCategory).toBe(true);
     expect(await db.countPending()).toBeGreaterThan(0);
   });
 
-  it('tapping a person: the review is finished and the pending count is 0', async () => {
+  it('settling with a chosen person (footer button): the review is finished and the pending count is 0', async () => {
     receiveSms(HDFC, hdfcCredit(300, 'aditya', 'REF901'), Date.now());
     await service.processQueue(U, { notify: false });
     const [event] = await db.listPending();

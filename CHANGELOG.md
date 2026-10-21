@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Payback Review — Choose the Person, Then Confirm; Remembered Income No Longer Swallows Paybacks — OTA-safe
+
+- **Problem**: on the Automatic Logging review sheet, the person who owed money (name matched the credit) was drawn in green like a selected option, while the footer still said "Save as Income · ₹X". Users pressed the green button and the friend's payback was saved as income instead of money back.
+- **Nothing is selected by itself any more (`ReviewSheet.tsx`)**: a name match only gets a small "Likely match" tag; rows look the same until tapped. Tapping a person selects them (check mark, mint outline), tapping again unselects. The row tap no longer saves anything.
+- **The footer button says what will happen**: with a person chosen it reads **"Settle with <person> · ₹X"** (instead of "Save as Income"), and "Saving <person>'s payback · ₹X" while saving. Pressing it settles (same `settleWith` / `convertIncomeToMoneyBack` path as before, `SPL-003`).
+- **More or less than owed is explained, never hidden**: a one-line note above the button says "₹200 extra stays as income" (`SPL-004`) or "<person> will still owe ₹300". The ₹X on the button is only the part that settles. Long names are cut to 14 characters with "…", so the button cannot break.
+- **Category and "Remember preference" are dimmed while a person is chosen** (a payback has no category and a settle never remembers anything). Switching the type to Expense clears the choice. If the amount still has to be typed, the button stays disabled until it is.
+- **Remembered income no longer swallows a payback (`engine.ts`, `paybackGuard.ts`, `ledger.ts`)**: if "income" was remembered for a sender and that sender matches a person who still owes money, the credit is NOT logged automatically; it goes to review and the notification asks "<person> owes you ₹Y. Is this their payment?". Salary / interest / refund credits and people who owe nothing behave as before. Needs the app's data to be loaded; when it is not, the credit is logged as before and the transaction screen asks the same question.
+- **Income detail screen unchanged** ("Yes, settle it" already confirms in `MoneyBackSheet` before saving).
+- **Canonical rules**: `SPL-005` points 5 (rewritten), 6 and 7 (new), approved by the owner on 2026-10-21; new ADR `0018`. No calculation, allocation or total changed.
+- **Tests**: new `tests/settleReview.test.ts` (17), `tests/paybackGuard.test.ts` (5), `tests/autoLogPaybackHold.test.ts` (7, real engine + db; checked by temporarily disabling the guard, 3 tests fail). `tsc --noEmit` 0 errors.
+
+### Bottom Nav — Responsive Padding on Every Phone (original look and animation kept) — OTA-safe
+
+- **Original animation restored**: the green capsule no longer slides between tabs. Each tab's capsule stays in its own place, fades in, the label expands inside it, and the icon bounces on press (same spring 70 / 8 and same 180ms timings as before). `BottomNavBar.tsx` is the original file with only spacing values made responsive.
+- **Responsive spacing only (`src/lib/navBarLayout.ts`, `useNavBarMetrics`)**: the bar floats the same visible distance above gesture / 3-button / no system navigation (`max(inset, 12) + 8`); side margin is 16 on normal phones and a little less on tiny ones; the center + slot, the icon-only tab width and the active label room are computed from the screen width, so the active capsule never overflows its wing. Normal phones keep the original 68dp center slot, 44dp tabs and 50dp label room. Labels follow the system font up to 1.15x and end with an ellipsis instead of overflowing.
+- **Pill sizes unchanged**: Budget pill 68dp, Pure pill 196 x 58dp with the 58dp add button, max width 400dp.
+- **One source of truth for bottom spacing**: History, Insights and Savings bottom padding and Home's pull-to-history clip line (`getNavTopOffset`) use the same metrics as the bar, so the last row never hides behind it and no random gap is left. Tapping the current tab still scrolls History, Insights and Savings to the top.
+- **No money logic touched.** Tests: `tests/navBarLayout.test.ts` (23, checks every width from 320 to 1024dp), `pullToHistoryPhysics` nav-offset test updated. 123 test files, 1,826 tests passing; `tsc --noEmit` 0 errors; Android bundle export OK.
+
 ### Motion Polish — Glitch-free Splash Handoff, Swipe-to-close Home Card Sheet, Blink-free Home Rings — OTA-safe
 
 - **Splash rewritten on two UI-thread clocks (`SplashScreen.tsx`)**: The entrance (0.9s) and exit (0.58s) are each a single Reanimated clock; every visual is a pure function of it, so the two can no longer overlap or fight. The exit starts only when the entrance has finished AND the next screen is known (the old fixed 500ms timer could cut the entrance short, which is why the animation sometimes played fully and sometimes not). The green bloom now lives in its own full-screen layer centred on the screen and painted above everything, so it always opens from the centred icon and always covers the wordmark, tagline and dots. Loading dots run on one repeating clock. Reduce-motion skips straight to navigation. The connectivity probe is capped at 1.5s; session / offline restore / hydration logic is unchanged.

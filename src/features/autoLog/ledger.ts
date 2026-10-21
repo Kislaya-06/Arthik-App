@@ -170,11 +170,16 @@ export const findManualLookalike = (
  * "is this their payment?". Needs the app's data, so it only works while the app is loaded; otherwise null and
  * the normal notification is used (the transaction screen still offers the same question).
  */
-export const moneyBackQuestionFor = (amount: number | null, sender: string | null): string | null => {
+export const owingPersonMatchFor = (amount: number | null, sender: string | null): { name: string; owed: number } | null => {
   if (!amount || !sender || !storeReady()) return null;
   const people = buildPeopleLedger(useExpenseStore.getState().expenses);
   const match = matchIncomingToPeople(people, { amount, sender })[0];
-  return match ? `${match.person.name} owes you ${formatCurrency(match.person.owed)}. Is this their payment?` : null;
+  return match ? { name: match.person.name, owed: match.person.owed } : null;
+};
+
+export const moneyBackQuestionFor = (amount: number | null, sender: string | null): string | null => {
+  const match = owingPersonMatchFor(amount, sender);
+  return match ? `${match.name} owes you ${formatCurrency(match.owed)}. Is this their payment?` : null;
 };
 
 export const saveSelfTransferRule = async (text: string): Promise<boolean> => {

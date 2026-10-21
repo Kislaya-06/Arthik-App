@@ -109,7 +109,7 @@ Each phase = one PR, each must end with: `tsc` 0 errors · all tests green · `e
 JS-thread animation → UI thread. Rule: **same duration, same easing, same start/end values**; only the engine changes.
 | File | Today | Target |
 |---|---|---|
-| ✅ DONE (Bottom Nav drop) `components/BottomNavBar.tsx` (CapsuleTabItem, `useNativeDriver:false`, 180ms) | animates layout props on JS | Reanimated `withTiming(…, {duration:180, easing: Easing.out(Easing.cubic)})`; animate `transform`/`opacity`, not width, where the look allows |
+| `components/BottomNavBar.tsx` (CapsuleTabItem, `useNativeDriver:false`, 180ms) | animates layout props on JS | Reanimated `withTiming(…, {duration:180, easing: Easing.out(Easing.cubic)})`; animate `transform`/`opacity`, not width, where the look allows |
 | `hooks/useFormKeyboard.ts` (4×, keypad 220/200ms) | height animated on JS → the form re-lays out every frame | Reanimated shared value + `translateY` of the keypad (layout stays fixed), or `useAnimatedStyle` height (runs layout on UI thread) |
 | `screens/insights/PeriodNavigator.tsx` (stretch-and-spring dots) | `left`/`width` springs on JS | Reanimated `withSequence(withTiming, withSpring)` with converted spring (`tension 100/friction 16` ≈ `stiffness 100, damping 16, mass 1`) |
 | `screens/SavingsScreen.tsx` (progress bar 500ms) | width % on JS | `scaleX` with `transformOrigin: 'left'` on UI thread |
@@ -382,8 +382,8 @@ Legend: **P1** do first (dead code / clear win) · **P2** smoothness or redundan
 ### `src/components/BehavioralInsightRow.tsx` — 174 lines · imported by 1 file(s)
 - **[P3 · surface]** Exported but only used inside this file: `BehavioralInsightRowProps`. Drop the `export` keyword (smaller public surface, lets the bundler/minifier inline). Zero behaviour change.
 
-### `src/components/BottomNavBar.tsx` — rewritten in the Bottom Nav drop
-- ✅ Done: Reanimated (UI thread), one sliding capsule, responsive geometry from `lib/navBarLayout.ts`, duplicated tab blocks replaced by one `TabItem` list, PressScale on UI thread.
+### `src/components/BottomNavBar.tsx` — 631 lines · imported by 1 file(s)
+- Spacing is now responsive (`lib/navBarLayout.ts`). The original animation was deliberately kept (per-tab capsule fade + label expand + icon press bounce), so the remaining items below still apply: the capsule fade is `useNativeDriver:false` (JS thread) and could move to Reanimated with the SAME curves; the two tab blocks (lines ~186–215 / ~235–264) could share one renderer.
 
 ### `src/components/BouncyCategoryFilter.tsx` — 361 lines · imported by 2 file(s)
 - **[P3 · surface]** Exported but only used inside this file: `FilterOption`. Drop the `export` keyword (smaller public surface, lets the bundler/minifier inline). Zero behaviour change.

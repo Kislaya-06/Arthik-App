@@ -272,7 +272,7 @@ All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`).
 - **9.4 Home Pull-to-Refresh & Pull-to-History Physics (`PullToHistoryContainer`, `pullToHistoryPhysics.ts`)**: Replaces default scroll view with unified drag, momentum, and pull-up gestures. Calibrated Instagram Vanish-mode spring physics (stiffness 42, damping 11.6, ~0.88 damping ratio) with countdown progress ring. Pull-down uses unified native refresh circle (`AppRefreshControl`) with haptic feedback and throttle cooldown.
 - **9.5 Icons & Badges**: `lucide-react-native` (1.24+). Feature icons and badges strictly utilize `GradientIconBadge`.
 - **9.6 Charts**: `react-native-svg` (15.15) — Concentric Dual Ring chart, animated donut rings, and gradient flow bars.
-- **9.7 Safe Area & Bottom Nav**: `useSafeAreaInsets` from `react-native-safe-area-context`. Floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`. Floating expanding capsule tabs animate with smooth in-place label reveal and cross-fading icon layers.
+- **9.7 Safe Area & Bottom Nav**: `useSafeAreaInsets` from `react-native-safe-area-context`. Floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`. All nav SPACING (bottom gap above system navigation, side margin, center + slot, label room) comes from `src/lib/navBarLayout.ts` via `useNavBarMetrics`; tab screens use `useNavBarContentInset()` for bottom padding and Home uses `getNavTopOffset(inset, width)`, so the bar and the content never disagree. The tab animation itself (per-tab capsule fade, label expand, icon press bounce) is unchanged.
 
 ---
 
@@ -467,4 +467,5 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0015](adr/0015-ui-thread-reanimated-worklet-migration-and-render-optimizations.md) | UI-Thread Reanimated Worklet Migration and Render Optimizations | Active |
 | [0016](adr/0016-split-expenses-and-money-back.md) | Split Expenses, Money Back and Refunds | Active |
 | [0017](adr/0017-money-layer-and-payback-review.md) | Unified Money Layer and Payback Review Resolution | Active |
+| [0018](adr/0018-settle-review-choose-then-confirm.md) | Payback Review: Choose the Person, Then Confirm | Active |
 
