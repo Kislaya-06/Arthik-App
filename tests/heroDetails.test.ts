@@ -41,21 +41,21 @@ describe('buildHeroDetails', () => {
     moneyBack: 300, gullakAdded: 120, gullakDrawn: 664.56, gullakNow: 50,
   };
 
-  it('Budget mode: budget, money in (money back on its own line) and Gullak', () => {
+  it('Budget mode: budget, money in and Gullak', () => {
     const d = buildHeroDetails(base);
     expect(d.sections.map((s) => s.id)).toEqual(['budget', 'money_in', 'gullak']);
     const budget = d.sections[0].rows;
     expect(budget.map((r) => r.amount)).toEqual([3400, 3400, 0]); // spent from budget is capped at the budget
     const moneyIn = d.sections[1].rows;
-    expect(moneyIn.find((r) => r.id === 'back')!.amount).toBe(300);
     expect(moneyIn.find((r) => r.id === 'received')!.amount).toBe(4499);
+    expect(moneyIn.find((r) => r.id === 'spent')!.amount).toBe(4397.5);
+    expect(moneyIn.find((r) => r.id === 'left')!.amount).toBe(101.5);
     expect(d.sections[2].rows.map((r) => r.id)).toEqual(['added', 'drawn', 'now']);
     expect(d.totalSpent).toBe(3842.06);
   });
 
-  it('hides "Money back" when nothing came back, and "In Gullak now" outside the All view', () => {
+  it('hides "In Gullak now" outside the All view', () => {
     const d = buildHeroDetails({ ...base, moneyBack: 0, gullakNow: null });
-    expect(d.sections[1].rows.some((r) => r.id === 'back')).toBe(false);
     expect(d.sections[2].rows.some((r) => r.id === 'now')).toBe(false);
   });
 
@@ -67,7 +67,7 @@ describe('buildHeroDetails', () => {
   it('Pure Mode: no budget block and no Gullak block (GUL-002)', () => {
     const d = buildHeroDetails({ ...base, isBudgetMode: false });
     expect(d.sections.map((s) => s.id)).toEqual(['money_in']);
-    expect(d.sections[0].rows.map((r) => r.id)).toEqual(['received', 'back']);
+    expect(d.sections[0].rows.map((r) => r.id)).toEqual(['received']);
   });
 
   it('no budget set: no budget block', () => {

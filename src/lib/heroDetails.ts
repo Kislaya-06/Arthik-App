@@ -121,8 +121,8 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
       id: 'budget',
       title: 'Budget',
       rows: [
-        { id: 'given', label: 'Budget given', amount: round2(i.budgetGiven) },
-        { id: 'used', label: 'Spent from budget', amount: round2(used) },
+        { id: 'given', label: 'Budget given', amount: round2(i.budgetGiven), tone: 'neutral' },
+        { id: 'used', label: 'Spent from budget', amount: round2(used), tone: 'bad' },
         { id: 'left', label: 'Budget left', amount: round2(budgetLeft), tone: 'good' },
       ],
     });
@@ -134,19 +134,24 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
   // Real money invariant: Money unspent cannot exceed money received
   const effectiveIncomeLeft = Math.min(round2(i.incomeReceived), Math.max(0, rawIncomeLeft));
 
-  const moneyIn: DetailRow[] = [{ id: 'received', label: 'Money received', amount: round2(i.incomeReceived) }];
-  if (i.isBudgetMode) moneyIn.push({ id: 'left', label: 'Still unspent', amount: round2(effectiveIncomeLeft), tone: 'good' });
-  if (i.moneyBack > 0) moneyIn.push({ id: 'back', label: 'Money back', amount: round2(i.moneyBack), tone: 'good' });
+  // Same shape as Budget: white (came in) -> red (spent) -> green (left).
+  // Money back is intentionally not shown here (it is never income and is already inside Total spent).
+  const moneyIn: DetailRow[] = [{ id: 'received', label: 'Money received', amount: round2(i.incomeReceived), tone: 'neutral' }];
+  if (i.isBudgetMode) {
+    const spentFromIncome = round2(Math.max(0, i.incomeReceived - effectiveIncomeLeft));
+    moneyIn.push({ id: 'spent', label: 'Spent from received', amount: spentFromIncome, tone: 'bad' });
+    moneyIn.push({ id: 'left', label: 'Still unspent', amount: round2(effectiveIncomeLeft), tone: 'good' });
+  }
   sections.push({ id: 'money_in', title: 'Money in', rows: moneyIn });
 
   if (i.isBudgetMode) {
     // Real money invariant: Money taken from Gullak cannot exceed money added to Gullak (no overdraft)
     const effectiveGullakDrawn = Math.min(round2(i.gullakDrawn), round2(i.gullakAdded));
     const gullak: DetailRow[] = [
-      { id: 'added', label: 'Added to Gullak', amount: round2(i.gullakAdded), tone: 'good' },
-      { id: 'drawn', label: 'Taken from Gullak', amount: round2(effectiveGullakDrawn), tone: effectiveGullakDrawn > 0 ? 'bad' : 'neutral' },
+      { id: 'added', label: 'Added to Gullak', amount: round2(i.gullakAdded), tone: 'neutral' },
+      { id: 'drawn', label: 'Taken from Gullak', amount: round2(effectiveGullakDrawn), tone: 'bad' },
     ];
-    if (i.gullakNow !== null) gullak.push({ id: 'now', label: 'In Gullak now', amount: round2(i.gullakNow) });
+    if (i.gullakNow !== null) gullak.push({ id: 'now', label: 'In Gullak now', amount: round2(i.gullakNow), tone: 'good' });
     sections.push({ id: 'gullak', title: 'Gullak', rows: gullak });
   }
 
