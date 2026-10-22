@@ -65,6 +65,7 @@
         "version": "2.1.0",
         "title": "Insights Cash Flow Motion & Nav Polish ✨",
         "highlights": [
+          "Ambient Nav Scrim & Soft Dissolve: Full-width gradient ambient scrim behind the floating nav bar and a 44dp ease-in scroll dissolve for recent transactions, eliminating harsh cutoffs when cards scroll under the navigation bar",
           "Insights Cash Flow: Unified single-capsule stacked bar with warm organic amber gradient bridge and bottom-to-top rising spring animation",
           "Blink-Free Monthly & Weekly Sync: Eliminated 1-frame layout blink in Monthly cash flow with native driver, and unified responsive bouncy rising animations across all week/month navigations and tab re-visits",
           "Balanced Bottom Navigation: Symmetrical active capsule padding between Home and Insights without shifting resting icon coordinates",

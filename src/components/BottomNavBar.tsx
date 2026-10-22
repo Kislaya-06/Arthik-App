@@ -9,6 +9,7 @@ import {
   useAnimatedValue,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { useNavBarStore } from '../store/navBarStore';
@@ -377,20 +378,48 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
   const onPressSavings = useCallback(() => navigateTo('Savings', getRouteIndex('Savings')), [navigateTo, getRouteIndex]);
   const onPressInsights = useCallback(() => navigateTo('Insights', getRouteIndex('Insights')), [navigateTo, getRouteIndex]);
 
+  const scrimHeight = m.bottomGap + m.barHeight + 28;
+
   return (
-    <Animated.View
-      style={[
-        styles.outerContainer,
-        {
-          bottom: bottomOffset,
-          left: m.sideMargin,
-          right: m.sideMargin,
-          transform: [{ translateY }],
-          opacity,
-        },
-      ]}
-      pointerEvents="box-none"
-    >
+    <>
+      {/* ── Ambient Bottom Scrim / Soft Gradient Dissolve ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.scrimContainer,
+          {
+            height: scrimHeight,
+            transform: [{ translateY }],
+            opacity,
+          },
+        ]}
+      >
+        <Svg height={scrimHeight} width="100%">
+          <Defs>
+            <SvgLinearGradient id="navBarScrim" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={colors.background} stopOpacity="0" />
+              <Stop offset="0.35" stopColor={colors.background} stopOpacity="0.4" />
+              <Stop offset="0.75" stopColor={colors.background} stopOpacity="0.9" />
+              <Stop offset="1" stopColor={colors.background} stopOpacity="1" />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height={scrimHeight} fill="url(#navBarScrim)" />
+        </Svg>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.outerContainer,
+          {
+            bottom: bottomOffset,
+            left: m.sideMargin,
+            right: m.sideMargin,
+            transform: [{ translateY }],
+            opacity,
+          },
+        ]}
+        pointerEvents="box-none"
+      >
       {/* ── Mode 2 (Budget ON): 5-Tab Unified Pill Bar ── */}
       <Animated.View
         style={[
@@ -535,10 +564,18 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
         </View>
       </Animated.View>
     </Animated.View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
+  scrimContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 90,
+  },
   outerContainer: {
     position: 'absolute',
     alignItems: 'center',

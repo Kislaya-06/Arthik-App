@@ -91,6 +91,8 @@ const COMMIT_RESET_DELAY_MS = 500;
 const FLING_MAX_IDLE_MS = 100;
 /** Height of the dissolve under the section header (unchanged look). */
 const TOP_FADE_HEIGHT = 24;
+/** Height of the soft dissolve at the bottom edge above the floating nav bar. */
+const BOTTOM_FADE_HEIGHT = 44;
 
 const vibrate = (ms: number) => {
   try {
@@ -179,6 +181,17 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
         pullDepth.interpolate({
           inputRange: [-10000, 10000],
           outputRange: [10000, -10000],
+        }),
+      [pullDepth]
+    );
+
+    // Soft dissolve fades out during a pull-up so the rising indicator is completely crisp and unmasked.
+    const bottomFadeOpacity = useMemo(
+      () =>
+        pullDepth.interpolate({
+          inputRange: [0, 16],
+          outputRange: [1, 0],
+          extrapolate: 'clamp',
         }),
       [pullDepth]
     );
@@ -419,6 +432,24 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
             <Rect x="0" y="0" width="100%" height={TOP_FADE_HEIGHT} fill="url(#portalFade)" />
           </Svg>
         </View>
+
+        {/* Dissolve at the bottom edge above the nav bar — rows fade out smoothly as they approach the bottom boundary */}
+        <Animated.View
+          style={[styles.bottomFade, { opacity: bottomFadeOpacity }]}
+          pointerEvents="none"
+        >
+          <Svg height={BOTTOM_FADE_HEIGHT} width="100%">
+            <Defs>
+              <SvgLinearGradient id="portalBottomFade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={colors.background} stopOpacity="0" />
+                <Stop offset="0.4" stopColor={colors.background} stopOpacity="0.35" />
+                <Stop offset="0.8" stopColor={colors.background} stopOpacity="0.85" />
+                <Stop offset="1" stopColor={colors.background} stopOpacity="1" />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height={BOTTOM_FADE_HEIGHT} fill="url(#portalBottomFade)" />
+          </Svg>
+        </Animated.View>
       </View>
     );
   }
@@ -450,6 +481,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: TOP_FADE_HEIGHT,
+    zIndex: 5,
+  },
+  bottomFade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: BOTTOM_FADE_HEIGHT,
     zIndex: 5,
   },
 });

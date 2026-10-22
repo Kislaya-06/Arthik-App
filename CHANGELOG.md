@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Bottom Navigation & Scroll Boundary Ambient Scrim Dissolve — OTA-safe
+
+- **Ambient Bottom Scrim (`BottomNavBar.tsx`)**: Rendered a full-width non-interactive (`pointerEvents="none"`) SVG gradient scrim behind the floating pill navigation bar across all tabs (`height = m.bottomGap + m.barHeight + 28`). Automatically animates with nav bar translation and opacity. Blends from transparent to `colors.background` so list items passing behind the pill bar dissolve gently without harsh cut-offs or peeking through the bottom gesture gap.
+- **Recent Transactions Bottom Scroll Dissolve (`PullToHistoryList.tsx`)**: Added a 44dp 4-stop ease-in SVG gradient fade overlay at the bottom of the home transaction list. Rows smoothly fade into the dark ambient background before reaching the boundary, eliminating the abrupt horizontal clipping line on scrolling transaction cards.
+- **Dynamic Pull-to-History Unmasking**: The bottom fade automatically interpolates from 1 to 0 over the first 16dp of pull-up depth, ensuring the "Pull for history" indicator and countdown ring rise completely unmasked and crisp.
+- **Zero Native Dependencies & Theme Reactive**: Uses existing `react-native-svg` and responds dynamically to Dark, Light, and AMOLED backgrounds.
+- **Tests**: `tests/navBarScrimAndFade.test.ts` (3 tests verifying geometry and pull interpolation). All relevant UI & nav layout unit tests pass; `tsc --noEmit` 0 errors.
+
 ### Insights Cash Flow Animation & Blink Fix, Bottom Nav Symmetrical Spacing — OTA-safe
 
 - **Yearly Cash Flow Bi-Color Stacked Capsule (`YearlyCashFlowChart.tsx`)**: Replaced dual side-by-side 6px sticks with a single unified 14px stacked capsule inside a 20px dark track capsule. Smooth 5-stop gradient bridge with warm golden amber mid-shade (`#E5C9A1` / `#DFB88A`) organically blends Inflow and Outflow without sharp cut lines.
