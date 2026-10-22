@@ -630,9 +630,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     const totalRemainingBalance = isOverBudgetPeriod ? 0 : primaryAmount;
     const unspentInflowLeft =
-      activeFilter === 'All' && totalRemainingBalance > (todayRemaining || 0)
-        ? Math.min(periodIncome, round2(totalRemainingBalance - (todayRemaining || 0)))
-        : (activeFilter === 'All' ? 0 : undefined);
+      activeFilter === 'All'
+        ? Math.min(periodIncome, Math.max(0, round2(totalRemainingBalance - (todayRemaining || 0) - (totalAccumulatedSavings || 0))))
+        : undefined;
 
     return buildHeroDetails({
       isBudgetMode: isBudgetModeEnabled,

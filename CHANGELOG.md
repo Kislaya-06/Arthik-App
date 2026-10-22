@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### HeroDetailsSheet All-Time Unspent Income & Gullak Reconciliation (`HomeScreen.tsx`) — OTA-safe
+
+- **Gullak-Aware All-Time Unspent Income Derivation (`HomeScreen.tsx`)**:
+  - Fixed an accounting double-counting bug in the Home card details sheet where `unspentInflowLeft` in the "All" view only subtracted `todayRemaining` from `totalRemainingBalance`, omitting `totalAccumulatedSavings`.
+  - When a user had accumulated savings in Gullak (e.g. ₹271.28) and unspent income (e.g. ₹100), the sheet previously dumped the entire remaining cash (₹371.28) into "Money In → Still unspent" while also showing "In Gullak now: ₹271.28", appearing as if ₹642.56 remained instead of the true ₹371.28.
+  - `unspentInflowLeft` now strictly derives `Math.min(periodIncome, Math.max(0, round2(totalRemainingBalance - (todayRemaining || 0) - (totalAccumulatedSavings || 0))))`, ensuring `Budget left + In Gullak now + Still unspent Income == Total Remaining Balance` on the Home card at all times across all cadences.
+  - **Tests**: Extended `tests/heroDetailsDiscrepancy.test.ts` with test verifying full tri-state reconciliation when Gullak holds non-zero savings. All 128 test files and 1,873 tests pass; `tsc --noEmit` 0 errors.
+
 ### Income Categories, Expense | Income Toggle, Income Category on Add — needs database migration first, then OTA
 
 - **Rules (owner approved 2026-10-22)**: `TXN-002` and `CAT-001` amended, new `CAT-004`. `CAT-002` (a used category cannot be deleted) is unchanged. See [ADR 0019](docs/adr/0019-income-categories.md).

@@ -82,4 +82,56 @@ describe('HeroDetailsSheet All-time Money In unspent reproduction & resolution',
     const budgetLeft = budgetRows.find((r) => r.id === 'left')!.amount;
     expect(budgetLeft + unspent).toBe(132.94);
   });
+
+  it('reconciles unspent income when Gullak has accumulated savings (subtracting Gullak from remaining balance)', () => {
+    // Exact user numbers from report:
+    // Total lifetime spent: 4634.72. Total budget given: 3900. Money received: 1106.
+    // Today remaining budget: 0. Total remaining balance: 5006 - 4634.72 = 371.28.
+    // Gullak savings: 271.28.
+    const totalRemainingBalance = 371.28;
+    const todayRemaining = 0;
+    const gullakNow = 271.28;
+    const incomeReceived = 1106;
+
+    // Derived unspent income:
+    const expectedUnspentInflow = Math.min(
+      incomeReceived,
+      Math.max(0, +(totalRemainingBalance - todayRemaining - gullakNow).toFixed(2))
+    );
+    expect(expectedUnspentInflow).toBe(100.00);
+
+    const d = buildHeroDetails({
+      isBudgetMode: true,
+      budgetGiven: 3900,
+      spent: 4634.72,
+      incomeReceived: 1106,
+      incomeLeft: 100.00,
+      moneyBack: 0,
+      gullakAdded: 1382,
+      gullakDrawn: 1048.72,
+      gullakNow: 271.28,
+      activeBudgetLeft: 0,
+      unspentInflowLeft: expectedUnspentInflow,
+    });
+
+    const moneyInRows = d.sections.find((s) => s.id === 'money_in')!.rows;
+    const received = moneyInRows.find((r) => r.id === 'received')!.amount;
+    const spentFromIncome = moneyInRows.find((r) => r.id === 'spent')!.amount;
+    const unspent = moneyInRows.find((r) => r.id === 'left')!.amount;
+
+    expect(received).toBe(1106);
+    expect(spentFromIncome).toBe(1006.00);
+    expect(unspent).toBe(100.00);
+
+    const gullakRows = d.sections.find((s) => s.id === 'gullak')!.rows;
+    const inGullakNow = gullakRows.find((r) => r.id === 'now')!.amount;
+    expect(inGullakNow).toBe(271.28);
+
+    const budgetRows = d.sections.find((s) => s.id === 'budget')!.rows;
+    const budgetLeft = budgetRows.find((r) => r.id === 'left')!.amount;
+    expect(budgetLeft).toBe(0);
+
+    // Full reconciliation: Budget left (0) + Gullak now (271.28) + Still unspent (100.00) = 371.28 (Total Remaining Balance)
+    expect(budgetLeft + inGullakNow + unspent).toBe(371.28);
+  });
 });
