@@ -218,6 +218,11 @@ A user-created category added via the category management interface (`is_default
 - *Code location*: `src/store/categoryStore.ts` (`addCategory`, `is_default: false`), `schema.sql` (`user_id = auth.uid()`)
 - *_Avoid_*: User Category, Personal Category
 
+**Category Kind**:
+The side a category belongs to: `'expense'` or `'income'` (`categories.kind`, default `'expense'`). It only decides which picker shows the category; direction always comes from the transaction's `type`. Rule `CAT-004`.
+- *Code location*: `src/store/categoryStore.ts` (`categoryKindOf`, `categoriesOfKind`), `schema.sql`, `supabase/migrations/20261022120000_income_categories.sql`
+- *_Avoid_*: Category Type (that word is the transaction `type`)
+
 **Category Placeholder**:
 A transient visual category array (`id: '1'` to `'7'`, `isPlaceholder: true`) rendered purely in memory as `DEFAULT_CATEGORIES` while real categories load from the database. These IDs are never selectable and never sent to Supabase.
 - *Code location*: `src/store/categoryStore.ts` (`DEFAULT_CATEGORIES`, `isPlaceholder: true`)

@@ -9,7 +9,7 @@ import { ArrowLeft, MoreHorizontal, Check } from 'lucide-react-native';
 import * as LucideIcons from 'lucide-react-native';
 
 import { RootStackParamList } from '../types';
-import { useCategoryStore } from '../store/categoryStore';
+import { useCategoryStore, CategoryKind, categoryKindOf } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import {
@@ -35,6 +35,14 @@ const ICONS_GRID = [
   'MoreHorizontal'
 ];
 
+// Icons that fit money coming in (CAT-004). Shown instead of the expense grid for income categories.
+const INCOME_ICONS_GRID = [
+  'Briefcase', 'Laptop', 'Percent', 'Gift', 'Wallet',
+  'TrendingUp', 'Landmark', 'Banknote', 'PiggyBank', 'HandCoins',
+  'Coins', 'Store', 'Award', 'Home', 'Users', 'DollarSign',
+  'MoreHorizontal'
+];
+
 export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -45,6 +53,14 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
 
   const categoryId = route.params?.categoryId;
   const isEditMode = !!categoryId;
+  const editedCategory = isEditMode ? categories.find((c) => c.id === categoryId) : undefined;
+  // A category never changes side: an edited one keeps its kind, a new one takes the tab it was added from.
+  const kind: CategoryKind = editedCategory
+    ? categoryKindOf(editedCategory)
+    : route.params?.kind === 'income'
+    ? 'income'
+    : 'expense';
+  const iconsGrid = kind === 'income' ? INCOME_ICONS_GRID : ICONS_GRID;
 
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
@@ -91,7 +107,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
       if (isEditMode && categoryId) {
         await updateCategory(categoryId, name.trim(), selectedIcon, selectedColor);
       } else {
-        await addCategory(name.trim(), selectedIcon, selectedColor);
+        await addCategory(name.trim(), selectedIcon, selectedColor, kind);
       }
 
       navigation.goBack();
@@ -115,7 +131,9 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-          {isEditMode ? 'Edit Category' : 'Add Category'}
+          {isEditMode
+            ? kind === 'income' ? 'Edit Income Category' : 'Edit Category'
+            : kind === 'income' ? 'Add Income Category' : 'Add Category'}
         </Text>
       </View>
 
@@ -164,7 +182,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         ]}>
           <TextInput
             style={[styles.textInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
-            placeholder="e.g. Groceries, Travel, Rent"
+            placeholder={kind === 'income' ? 'e.g. Salary, Freelance, Bonus' : 'e.g. Groceries, Travel, Rent'}
             placeholderTextColor={colors.textTertiary}
             value={name}
             onChangeText={setName}
@@ -177,7 +195,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
           CHOOSE ICON
         </Text>
         <View style={styles.iconGrid}>
-          {ICONS_GRID.map(iconName => {
+          {iconsGrid.map(iconName => {
             const IconComponent = (LucideIcons as any)[iconName] || MoreHorizontal;
             const isSelected = selectedIcon === iconName;
 

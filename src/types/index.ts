@@ -9,8 +9,8 @@ export type RootStackParamList = {
   ExpenseDetail: { expenseId: string };
   GullakDepositDetail: { depositId: string };
   CategoryDetail: { categoryId: string; startDate?: string; endDate?: string; dateRangeLabel?: string };
-  ManageCategories: undefined;
-  AddEditCategory: { categoryId?: string } | undefined;
+  ManageCategories: { kind?: 'expense' | 'income' } | undefined;
+  AddEditCategory: { categoryId?: string; kind?: 'expense' | 'income' } | undefined;
   Notifications: undefined;
   Ledger: undefined;
   Profile: undefined;

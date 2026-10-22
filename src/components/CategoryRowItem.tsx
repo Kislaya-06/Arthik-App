@@ -57,7 +57,7 @@ export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
           ]}
           numberOfLines={1}
         >
-          {expenseCount} {expenseCount === 1 ? 'expense' : 'expenses'}
+          {expenseCount} {expenseCount === 1 ? 'transaction' : 'transactions'}
         </Text>
       </View>
       <View style={styles.categoryActions}>

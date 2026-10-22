@@ -9,16 +9,23 @@ import { ArrowLeft, Plus } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { RootStackParamList } from '../types';
-import { useCategoryStore, Category } from '../store/categoryStore';
+import { useCategoryStore, Category, CategoryKind, categoriesOfKind } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import { CategoryRowItem } from '../components/CategoryRowItem';
-import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { Spacing, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
 
-export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
+// One screen for both sides (CAT-004): the toggle shows either expense or income categories, never both at once.
+const KIND_OPTIONS = [
+  { key: 'expense', label: 'Expense' },
+  { key: 'income', label: 'Income' },
+];
+
+export const ManageCategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const categories = useCategoryStore((s) => s.categories);
@@ -28,6 +35,8 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
   const isOffline = useNetworkStore((s) => s.isOffline);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [kind, setKind] = React.useState<CategoryKind>(route.params?.kind === 'income' ? 'income' : 'expense');
+  const visibleCategories = useMemo(() => categoriesOfKind(categories, kind), [categories, kind]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -62,7 +71,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
     if (count > 0) {
       Alert.alert(
         "Cannot Delete",
-        "This category has existing expenses. You must reassign or delete them first before deleting this category.",
+        "This category has existing transactions. You must reassign or delete them first before deleting this category.",
         [{ text: "OK" }]
       );
       return;
@@ -98,7 +107,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderItem = useCallback(({ item, index }: { item: Category; index: number }) => {
     const count = categoryExpenseCounts[item.id] || 0;
-    const isLast = index === categories.length - 1;
+    const isLast = index === visibleCategories.length - 1;
 
     return (
       <CategoryRowItem
@@ -111,7 +120,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         onDelete={handleDelete}
       />
     );
-  }, [categories.length, categoryExpenseCounts, handleEdit, handleDelete, colors, isDark]);
+  }, [visibleCategories.length, categoryExpenseCounts, handleEdit, handleDelete, colors, isDark]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
@@ -127,13 +136,23 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
       </View>
 
+      <SegmentedControl
+        options={KIND_OPTIONS}
+        selectedKey={kind}
+        onChange={(key) => setKind(key === 'income' ? 'income' : 'expense')}
+        height={ControlHeight.standard}
+        activePillColor={kind === 'expense' ? colors.peachCoral : colors.mintGreen}
+        activeTextColor={colors.forestGreen}
+        style={styles.kindToggle}
+      />
+
       <Text style={[styles.categoryCount, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-        {categories.length} {categories.length === 1 ? 'category' : 'categories'}
+        {visibleCategories.length} {kind} {visibleCategories.length === 1 ? 'category' : 'categories'}
       </Text>
 
       {/* Categories List */}
       <FlatList
-        data={categories}
+        data={visibleCategories}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
@@ -155,10 +174,10 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation }) => {
             transform: [{ scale: pressed ? 0.95 : 1 }],
           }
         ]}
-        onPress={() => navigation.navigate('AddEditCategory')}
+        onPress={() => navigation.navigate('AddEditCategory', { kind })}
         accessible
         accessibilityRole="button"
-        accessibilityLabel="Add category"
+        accessibilityLabel={kind === 'income' ? 'Add income category' : 'Add expense category'}
       >
         <Plus size={24} color={colors.forestGreen} />
       </Pressable>
@@ -181,6 +200,9 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.block,
     fontSize: FontSize.titleMedium,
     lineHeight: LineHeight.titleMedium,
+  },
+  kindToggle: {
+    marginTop: Spacing.block,
   },
   categoryCount: {
     marginTop: Spacing.block,

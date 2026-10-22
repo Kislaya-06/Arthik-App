@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Income Categories, Expense | Income Toggle, Income Category on Add — needs database migration first, then OTA
+
+- **Rules (owner approved 2026-10-22)**: `TXN-002` and `CAT-001` amended, new `CAT-004`. `CAT-002` (a used category cannot be deleted) is unchanged. See [ADR 0019](docs/adr/0019-income-categories.md).
+- **Database**: `categories.kind` (`'expense'` | `'income'`, default `'expense'`); `handle_new_user()` seeds 7 expense + 5 income categories; migration `20261022120000_income_categories.sql` gives existing users the 5 income categories once. **Run it BEFORE releasing the OTA.**
+- **Add income with the + button (`useExpenseForm.ts`, `ExpenseFormScreen.tsx`)**: the category row now shows for income too ("INCOME CATEGORY"), only income categories, first one pre-selected. Income cannot be saved without one. Money back and self transfers are unchanged (no category).
+- **Review sheet (`ReviewSheet.tsx`)**: income shows income categories, expense shows expense categories; switching clears the choice.
+- **Manage Categories (`ManageCategoriesScreen.tsx`)**: one page, `Expense | Income` toggle; the + button adds to the visible side. Income categories get their own icon set (`AddEditCategoryScreen.tsx`).
+- **"Added to balance" top-up** now saves under "Other Income" (or the first income category).
+- **Old data**: nothing is rewritten. Old incomes keep whatever category they had (none, or an expense one); on edit they ask for an income category.
+- **No money logic touched**: direction still comes only from `type`; no amount, balance, budget or waterfall changed.
+- **Docs**: `docs/ARTHIK_CANONICAL_RULES.md`, `docs/adr/0019-income-categories.md`, `docs/README.md`, `docs/architecture.md`, `docs/prd.md`, `docs/design-system.md`, `docs/AUTO_LOGGING.md`, `CONTEXT.md`, `app.json` OTA highlights.
+- **Tests**: new `tests/incomeCategories.test.ts`; `tests/useExpenseForm.test.ts` and `tests/categoryStore.test.ts` extended. 128 test files, 1,872 tests passing; `tsc --noEmit` 0 errors.
+
+### Review Sheet — Category Required, No More Review Loop — OTA-safe
+
+- **Problem**: on the Automatic Logging review sheet, saving an income (or expense) with the "None" category logged it with `needsCategory = true` (`engine.logEvent`), so it came straight back to review asking for a category. The review could never be finished.
+- **Fix (`ReviewSheet.tsx`)**: removed the "None" chip. "Save as Income" / "Save as Expense" / "Save Category" stay disabled until a category is picked; tapping Save without one shows "Please select a category." Settle with a person, Mark as self transfer, Save & split and Teach Format work exactly as before.
+- **Old stuck items**: items already saved with no category simply show as "Categorize" in review; picking a category closes them for good.
+- **No money logic touched**: no amount, balance, budget or canonical rule changed.
+- **Docs**: `docs/design-system.md`, `docs/AUTO_LOGGING.md`.
+- **Tests**: 127 test files, 1,858 tests passing.
+
 ### Bottom Navigation & Scroll Boundary Ambient Scrim Dissolve — OTA-safe
 
 - **Ambient Bottom Scrim (`BottomNavBar.tsx`)**: Rendered a full-width non-interactive (`pointerEvents="none"`) SVG gradient scrim behind the floating pill navigation bar across all tabs (`height = m.bottomGap + m.barHeight + 28`). Automatically animates with nav bar translation and opacity. Blends from transparent to `colors.background` so list items passing behind the pill bar dissolve gently without harsh cut-offs or peeking through the bottom gesture gap.

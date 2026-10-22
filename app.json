@@ -63,8 +63,10 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Insights Cash Flow Motion & Nav Polish ✨",
+        "title": "Income Categories & Smoother Review ✨",
         "highlights": [
+          "Income Categories: Income now has its own categories (Salary, Freelance, Interest, Gift, Other Income). Pick one when you add income, and manage both kinds from one screen with an Expense | Income toggle",
+          "Review Fix: Auto-logged transactions can no longer loop back to review. A category is required, so saving finishes the review for good",
           "Ambient Nav Scrim & Soft Dissolve: Full-width gradient ambient scrim behind the floating nav bar and a 44dp ease-in scroll dissolve for recent transactions, eliminating harsh cutoffs when cards scroll under the navigation bar",
           "Insights Cash Flow: Unified single-capsule stacked bar with warm organic amber gradient bridge and bottom-to-top rising spring animation",
           "Blink-Free Monthly & Weekly Sync: Eliminated 1-frame layout blink in Monthly cash flow with native driver, and unified responsive bouncy rising animations across all week/month navigations and tab re-visits",

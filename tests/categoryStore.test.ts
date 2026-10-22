@@ -195,6 +195,15 @@ describe('categoryStore (Seam: useCategoryStore)', () => {
       // After successful upsert, a full refetch is triggered to get authoritative server state
       expect(useCategoryStore.getState().isFetched).toBe(true);
     });
+
+    it('saves an expense category by default and an income category when asked (CAT-004)', async () => {
+      (mockSupabaseUpsert as any).mockClear();
+      await useCategoryStore.getState().addCategory('Groceries', 'ShoppingCart', '#00A699');
+      expect((mockSupabaseUpsert as any).mock.calls[0][0].kind).toBe('expense');
+      (mockSupabaseUpsert as any).mockClear();
+      await useCategoryStore.getState().addCategory('Bonus', 'Award', '#F59E0B', 'income');
+      expect((mockSupabaseUpsert as any).mock.calls[0][0].kind).toBe('income');
+    });
   });
 
   describe('Slice 5: Deleting Category & Orphan Prevention', () => {

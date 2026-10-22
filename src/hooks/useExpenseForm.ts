@@ -6,7 +6,12 @@ import { format, parseISO } from 'date-fns';
 
 import { RootStackParamList, VaultLiquidityInfo } from '../types';
 import { useExpenseStore } from '../store/expenseStore';
-import { useCategoryStore, Category } from '../store/categoryStore';
+import {
+  useCategoryStore,
+  Category,
+  categoriesOfKind,
+  FALLBACK_INCOME_CATEGORY_NAME,
+} from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { formatDate } from '../lib/formatters';
 import {
@@ -310,6 +315,17 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const hasPrefilled = useRef(false);
 
   const areCategoriesPlaceholder = !isCategoriesFetched || categories.some((c) => c.isPlaceholder);
+
+  // CAT-004: the form only offers categories of the side being saved (income categories for income).
+  const kindCategories = useMemo(
+    () => categoriesOfKind(categories, transactionType),
+    [categories, transactionType]
+  );
+  /** The selected category is a real category of the current side (an old income may still point at an expense one). */
+  const isSelectedCategoryValid = useMemo(
+    () => !!selectedCategoryId && kindCategories.some((c) => c.id === selectedCategoryId && !c.isPlaceholder),
+    [selectedCategoryId, kindCategories]
+  );
 
   // ─── Fetch categories on mount & on focus (e.g. returning from AddEditCategory) ───
   useEffect(() => {
@@ -688,15 +704,16 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     setSelectedDate(date);
   }, []);
 
-  // ─── Auto-select first real category for new expenses ────────────────────
+  // ─── Auto-select first real category of the current side for new transactions ──
+  // Switching Expense <-> Income on a new transaction picks the first category of the new side.
   useEffect(() => {
-    if (!isEdit && !selectedCategoryId && categories.length > 0) {
-      const firstReal = categories.find((c) => !c.isPlaceholder);
+    if (!isEdit && !isSelectedCategoryValid && kindCategories.length > 0) {
+      const firstReal = kindCategories.find((c) => !c.isPlaceholder);
       if (firstReal) {
         setSelectedCategoryId(firstReal.id);
       }
     }
-  }, [isEdit, selectedCategoryId, categories]);
+  }, [isEdit, isSelectedCategoryValid, kindCategories]);
 
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async (onSuccess?: () => Promise<void> | void) => {
@@ -706,7 +723,23 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     if (numAmount <= 0) return;
 
     const selfTransferNow = !isEdit && isSelfTransfer;
-    let categoryIdToSave = transactionType === 'income' || selfTransferNow ? null : selectedCategoryId;
+    // Income needs a category too (TXN-002 / CAT-004), except money that came back (it has no category, SPL-003),
+    // a self transfer, and an edited row that is not a normal income (money back / transfer keep no category).
+    const editedRow = isEdit && expenseId ? expenses.find((e) => e.id === expenseId) : undefined;
+    const editedClass = editedRow?.transaction_class ?? 'normal';
+    const incomeNeedsCategory =
+      transactionType === 'income' &&
+      !selfTransferNow &&
+      !(moneyBackVisible && moneyBackMode !== 'income') &&
+      (!isEdit || editedClass === 'normal');
+    let categoryIdToSave =
+      transactionType === 'income'
+        ? incomeNeedsCategory && isSelectedCategoryValid
+          ? selectedCategoryId
+          : null
+        : selfTransferNow
+        ? null
+        : selectedCategoryId;
 
     // Split: the user typed a split, so it must be valid before anything is saved.
     if (splitActive) {
@@ -791,6 +824,21 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
       }
       if (!categoryIdToSave) {
         Alert.alert('Category Required', 'Please select a category for this expense.');
+        return;
+      }
+    }
+
+    if (incomeNeedsCategory) {
+      if (areCategoriesPlaceholder) {
+        Alert.alert('Categories Loading', 'Please wait a moment for categories to finish loading.');
+        return;
+      }
+      if (kindCategories.length === 0) {
+        Alert.alert('No Income Category', 'Please create an income category first to add income.');
+        return;
+      }
+      if (!categoryIdToSave) {
+        Alert.alert('Category Required', 'Please select a category for this income.');
         return;
       }
     }
@@ -960,10 +1008,14 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     const incomeId = Crypto.randomUUID();
 
     try {
-      // 1. Record incoming funds to vault (real money deposit)
+      // 1. Record incoming funds to vault (real money deposit). It goes to "Other Income" (or the first income
+      //    category) so it never shows up without a category (CAT-004).
+      const incomeCats = categoriesOfKind(categories, 'income').filter((c) => !c.isPlaceholder);
+      const topUpCategoryId =
+        (incomeCats.find((c) => c.name === FALLBACK_INCOME_CATEGORY_NAME) ?? incomeCats[0])?.id ?? null;
       await addExpense(
         addedAmount,
-        null,
+        topUpCategoryId,
         'Added to balance',
         addedPaymentMode,
         dateStr,
@@ -1061,7 +1113,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     setShowVaultGuard,
     vaultLiquidity,
     isBudgetModeEnabled,
-    categories,
+    categories: kindCategories,
     isCategoriesLoading,
     areCategoriesPlaceholder,
     isCategoriesFetched,

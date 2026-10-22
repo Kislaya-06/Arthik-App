@@ -4,7 +4,7 @@
 > **Status:** ACTIVE — Governed by Owner Approval Protocol  
 > **Repository:** `Arthik-App` (this file lives at `docs/ARTHIK_CANONICAL_RULES.md`)  
 > **Initial Creation:** 2026-10-17  
-> **Last Updated:** 2026-10-21  
+> **Last Updated:** 2026-10-22  
 
 ---
 
@@ -34,10 +34,10 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Verified By:** `tests/incomeClassifier.test.ts`, `tests/transactionUtils.test.ts`
 
 #### `TXN-002`: Category Keywords Are an Inert Legacy Fallback
-- **Status:** `APPROVED AS-IS` (Owner decision on 2026-10-17)
+- **Status:** `AMENDED` (Owner decision on 2026-10-17; point 1 amended by owner on 2026-10-22 for income categories, `CAT-004`)
 - **Canonical Definition:**
   The explicit `type` field is the only authority for direction (`TXN-001`). Category-name keyword matching (`DEFAULT_INCOME_KEYWORDS`) exists only as an inert, dormant fallback for historical rows that have no `type` at all:
-  1. The user explicitly selects "Income" on the Add screen, which saves `type = 'income'` and sets `category_id = null`.
+  1. The user explicitly selects "Income" on the Add screen, which saves `type = 'income'` with the income category the user picked (`CAT-004`). A category never decides direction: an income with an income category named "Salary" is income because `type = 'income'`, not because of its name. Money that came back (`SPL-003`) and self transfers (`TXN-003`) are saved with `category_id = null`.
   2. AutoLog determines `type` directly from Credit vs Debit.
   3. The database makes `type` NOT NULL, so active accounting never reaches the keyword path.
   4. Keywords, notes and category names are never used to guess a transfer or any other class (`TXN-003`).
@@ -553,9 +553,9 @@ This document is the **single authoritative canonical source of truth** for all 
 ### Domain 9: CAT — Category Taxonomy, Deletion Integrity & Fallbacks
 
 #### `CAT-001`: Default System Categories Seeding
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
+- **Status:** `AMENDED` (Owner approved on 2026-10-17; income categories added by owner on 2026-10-22, `CAT-004`)
 - **Canonical Definition:**
-  1. Upon new user registration, the Supabase database trigger `handle_new_user()` automatically seeds 7 canonical default categories for the user profile:
+  1. Upon new user registration, the Supabase database trigger `handle_new_user()` automatically seeds 7 canonical default expense categories (`kind = 'expense'`) for the user profile:
      - Food & Drinks
      - Shopping
      - Transport
@@ -563,6 +563,7 @@ This document is the **single authoritative canonical source of truth** for all 
      - Entertainment
      - Health
      - Others
+  1a. It also seeds 5 default income categories (`kind = 'income'`): Salary, Freelance, Interest, Gift, Other Income. Users who signed up earlier get the same 5 once, from migration `20261022120000_income_categories.sql` (only if they have no income category yet).
   2. Seeded categories are immediately available offline and during first-time onboarding.
 - **Code Enforcement:** `schema.sql`, `src/store/categoryStore.ts`
 
@@ -580,6 +581,20 @@ This document is the **single authoritative canonical source of truth** for all 
   2. The foreign key constraint enforces `ON DELETE SET NULL`: the transaction's `category_id` is set to `NULL` while the amount, date, payment method, and description remain intact.
   3. Real money, total spent, and cashflow calculations are NEVER compromised or deleted by category changes.
 - **Code Enforcement:** `schema.sql`
+
+#### `CAT-004`: Expense and Income Categories
+- **Status:** `APPROVED` (Owner approved on 2026-10-22)
+- **Canonical Definition:**
+  1. Every category has a `kind`: `'expense'` or `'income'` (database `CHECK`, default `'expense'`). A row with no `kind` (old cache, placeholders) is an expense category. A category never changes side.
+  2. Expense pickers show only expense categories; income pickers show only income categories (Add / Edit screen, Automatic Logging review sheet).
+  3. A normal income needs a category, just like an expense: the Add screen will not save income without one, and the review sheet has no "None" option, so a reviewed transaction is never sent back to review for a category.
+  4. Money that came back (`SPL-003`) and self transfers (`TXN-003`) have no category and are never asked for one.
+  5. Money added from the "not enough money" guard (`SEC-001`, "Added to balance") is saved under "Other Income" (or the first income category if that one was renamed or removed). The Pure Mode auto-balance income (`PUR-001`) keeps `category_id = null`.
+  6. An old income that still points at an expense category (saved before income categories existed) keeps it until the user edits it; on edit, an income category must be picked.
+  7. A category's `kind` never changes money: direction comes only from `type` (`TXN-001`). Spending insights and category charts count only spending, so income categories never appear there.
+  8. Manage Categories is one screen with an Expense | Income toggle; deletion protection is unchanged (`CAT-002`).
+- **Code Enforcement:** `schema.sql`, `supabase/migrations/20261022120000_income_categories.sql`, `src/store/categoryStore.ts` (`categoryKindOf`, `categoriesOfKind`, `FALLBACK_INCOME_CATEGORY_NAME`), `src/hooks/useExpenseForm.ts` (`kindCategories`, `incomeNeedsCategory`), `src/components/autolog/ReviewSheet.tsx`, `src/screens/ManageCategoriesScreen.tsx`, `src/screens/AddEditCategoryScreen.tsx`
+- **Verified By:** `tests/incomeCategories.test.ts`, `tests/useExpenseForm.test.ts`, `tests/categoryStore.test.ts`
 
 ---
 

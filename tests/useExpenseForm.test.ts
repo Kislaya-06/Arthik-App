@@ -33,7 +33,9 @@ vi.mock('../src/store/categoryStore', async () => {
     loading: false,
     isFetched: true,
   });
-  return { useCategoryStore };
+  const categoryKindOf = (c: any) => (c?.kind === 'income' ? 'income' : 'expense');
+  const categoriesOfKind = (cats: any[], kind: string) => cats.filter((c) => categoryKindOf(c) === kind);
+  return { useCategoryStore, categoryKindOf, categoriesOfKind, FALLBACK_INCOME_CATEGORY_NAME: 'Other Income' };
 });
 vi.mock('expo-crypto', () => ({ randomUUID: () => '11111111-1111-4111-8111-111111111111' }));
 vi.mock('../src/store/transferRulesStore', async () => {
@@ -67,9 +69,12 @@ import { useExpenseStore } from '../src/store/expenseStore';
 import { useCategoryStore } from '../src/store/categoryStore';
 import { useDailyBudgetStore } from '../src/store/dailyBudgetStore';
 
-const CATS = [
+const CATS: any[] = [
   { id: 'c1', user_id: 'u', name: 'Food & Drinks', icon: 'Utensils', color: '#FF857A', is_default: true },
   { id: 'c2', user_id: 'u', name: 'Transport', icon: 'Car', color: '#4A90D9', is_default: true },
+  // Income categories (CAT-004). Expense categories above have no kind = expense (old rows).
+  { id: 'i1', user_id: 'u', name: 'Salary', icon: 'Briefcase', color: '#10B981', is_default: true, kind: 'income' },
+  { id: 'i2', user_id: 'u', name: 'Other Income', icon: 'Wallet', color: '#14B8A6', is_default: true, kind: 'income' },
 ];
 // Pure mode needs money in the vault before an expense can be added, so most tests start with income
 const INCOME: any = { id: 'inc', user_id: 'u', amount: 5000, type: 'income', category_id: null, payment_mode: 'upi', expense_date: '2026-10-01' };
@@ -433,16 +438,59 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
   });
 
   describe('income', () => {
-    it('is saved WITHOUT a category and needs none', async () => {
-      useCategoryStore.setState({ categories: [] });
+    it('offers only income categories and picks the first one (CAT-004)', () => {
+      const s = setup();
+      expect(s.r().categories.map((c: any) => c.id)).toEqual(['c1', 'c2']);
+      s.r().handleTypeChange('income');
+      expect(s.r().categories.map((c: any) => c.id)).toEqual(['i1', 'i2']);
+      expect(s.r().selectedCategoryId).toBe('i1');
+      s.r().handleTypeChange('expense');
+      expect(s.r().selectedCategoryId).toBe('c1');
+    });
+
+    it('is saved WITH the chosen income category (TXN-002)', async () => {
       const s = setup();
       s.r().handleTypeChange('income');
+      s.r().handleCategorySelect('i2');
       press(s, ['3', '0', '0', '0']);
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.addExpense).toHaveBeenCalledWith(3000, null, '', 'upi', '2026-10-04', 'income', expect.objectContaining({ transactionClass: 'normal', transferRuleId: null }));
+      expect(mocks.addExpense).toHaveBeenCalledWith(3000, 'i2', '', 'upi', '2026-10-04', 'income', expect.objectContaining({ transactionClass: 'normal', transferRuleId: null }));
       expect(mocks.alert).not.toHaveBeenCalled();
+    });
+
+    it('asks to create an income category when there is none', async () => {
+      useCategoryStore.setState({ categories: CATS.filter((c: any) => c.kind !== 'income') });
+      const s = setup();
+      s.r().handleTypeChange('income');
+      press(s, ['3', '0', '0']);
+      await act(async () => {
+        await s.r().handleSave();
+      });
+      expect(mocks.addExpense).not.toHaveBeenCalled();
+      expect(mocks.alert).toHaveBeenCalledWith('No Income Category', expect.any(String));
+    });
+
+    it('an old income pointing at an expense category asks for an income category on save', async () => {
+      useExpenseStore.setState({ expenses: [{ ...INCOME, id: 'old', category_id: 'c1' }] });
+      const s = setup(editRoute('old'));
+      expect(s.r().transactionType).toBe('income');
+      await act(async () => {
+        await s.r().handleSave();
+      });
+      expect(mocks.updateExpense).not.toHaveBeenCalled();
+      expect(mocks.alert).toHaveBeenCalledWith('Category Required', 'Please select a category for this income.');
+    });
+
+    it('money added from the "not enough money" guard goes to Other Income', async () => {
+      useExpenseStore.setState({ expenses: [] });
+      const s = setup();
+      press(s, ['1', '0', '0']);
+      await act(async () => {
+        await s.r().handleSaveWithIncome(500, 'upi');
+      });
+      expect(mocks.addExpense).toHaveBeenNthCalledWith(1, 500, 'i2', 'Added to balance', 'upi', '2026-10-04', 'income', expect.objectContaining({ transactionClass: 'normal' }));
     });
 
     it('is never blocked by the vault guard (that is how money gets in)', async () => {

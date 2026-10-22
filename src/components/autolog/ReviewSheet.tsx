@@ -11,14 +11,14 @@ import {
   Animated,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { ShieldCheck, Users, CircleOff, ArrowLeftRight } from 'lucide-react-native';
+import { ShieldCheck, Users, ArrowLeftRight } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AppButton } from '../ui/AppButton';
 import { SegmentedControl, SegmentedOption } from '../ui/SegmentedControl';
 import { Checkbox } from './AutoLogUi';
 import { useTheme } from '../../store/themeStore';
-import { useCategoryStore, Category } from '../../store/categoryStore';
+import { useCategoryStore, Category, categoriesOfKind } from '../../store/categoryStore';
 import { getCategoryIcon } from '../../lib/iconUtils';
 import { getCategoryChipGradient } from '../../lib/colorUtils';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../../config/theme';
@@ -137,61 +137,6 @@ const CategoryChipItem: React.FC<{
   );
 };
 
-// ─── "None" Category Chip ───────────────────────────────────────────────────
-const NoneChipItem: React.FC<{
-  isSelected: boolean;
-  onSelect: () => void;
-  colors: ReturnType<typeof useTheme>['colors'];
-  isDark: boolean;
-}> = ({ isSelected, onSelect, colors, isDark }) => {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (isSelected) {
-      Animated.sequence([
-        Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [isSelected, scale]);
-
-  return (
-    <Pressable onPress={onSelect}>
-      <Animated.View
-        style={[
-          styles.categoryChip,
-          isSelected
-            ? {
-                backgroundColor: isDark ? 'rgba(184, 224, 200, 0.16)' : colors.mintGreenSoft,
-                borderColor: colors.mintGreenDark,
-                borderWidth: 1.5,
-              }
-            : { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle },
-          { transform: [{ scale }] },
-        ]}
-      >
-        <CircleOff
-          size={15}
-          color={isSelected ? colors.mintGreenDark : colors.textSecondary}
-          strokeWidth={2.0}
-        />
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.categoryChipText,
-            {
-              color: isSelected ? colors.textPrimary : colors.textSecondary,
-              fontFamily: FontFamily.bold,
-            },
-          ]}
-        >
-          None
-        </Text>
-      </Animated.View>
-    </Pressable>
-  );
-};
-
 export const ReviewSheet: React.FC<Props> = ({
   visible,
   event,
@@ -251,7 +196,11 @@ export const ReviewSheet: React.FC<Props> = ({
     ];
   }, [allExpenses, event, discovery]);
 
-  const usableCategories = useMemo(() => categories.filter((c) => !c.isPlaceholder), [categories]);
+  // Only categories of the chosen side: income categories for income, expense categories for expenses (CAT-004).
+  const usableCategories = useMemo(
+    () => categoriesOfKind(categories.filter((c) => !c.isPlaceholder), type),
+    [categories, type]
+  );
   const chosenCategory = usableCategories.find((c) => c.id === categoryId);
   const account = event ? accountLabelFromKey(event.accountKey, accounts) : null;
   const needsAmount = !discovery && !!event && event.amount == null;
@@ -293,11 +242,13 @@ export const ReviewSheet: React.FC<Props> = ({
     if (pickedPerson && !discovery) {
       return settleWith(pickedPerson.name);
     }
-    if (categoryOnly) {
-      if (!categoryId) {
-        setError('Please select a category.');
-        return;
-      }
+    // Every saved transaction needs a category. Saving without one would log it with needsCategory = true
+    // and send it straight back to review, so the review could never be finished.
+    if (!discovery && !categoryId) {
+      setError('Please select a category.');
+      return;
+    }
+    if (categoryOnly && categoryId) {
       return run(() => setEventCategory(event, categoryId, remember), 'Category saved');
     }
     if (discovery) {
@@ -592,6 +543,8 @@ export const ReviewSheet: React.FC<Props> = ({
               onChange={(k) => {
                 Haptics.selectionAsync().catch(() => {});
                 setType(k as 'expense' | 'income');
+                // The chosen category belongs to the other side now, so it is cleared.
+                if (k !== type) setCategoryId(null);
                 if (k !== 'income') setPickedPersonKey(null);
               }}
               height={ControlHeight.standard}
@@ -621,18 +574,13 @@ export const ReviewSheet: React.FC<Props> = ({
               keyboardShouldPersistTaps="always"
               contentContainerStyle={styles.categoryList}
             >
-              {!categoryOnly ? (
-                <NoneChipItem
-                  isSelected={categoryId === null}
-                  onSelect={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setCategoryId(null);
-                  }}
-                  colors={colors}
-                  isDark={isDark}
-                />
+              {usableCategories.length === 0 ? (
+                <Text style={[styles.chosenLabel, { color: colors.textSecondary }]}>
+                  {type === 'income'
+                    ? 'No income categories yet. Add one in Manage Categories.'
+                    : 'No expense categories yet. Add one in Manage Categories.'}
+                </Text>
               ) : null}
-
               {usableCategories.map((cat: Category) => {
                 const isSelected = categoryId === cat.id;
                 return (
@@ -838,7 +786,7 @@ export const ReviewSheet: React.FC<Props> = ({
           variant="primary"
           size="cta"
           loading={busy}
-          disabled={busy || (needsAmount && !amount) || (categoryOnly && !categoryId && !pickedPerson)}
+          disabled={busy || (needsAmount && !amount) || (!discovery && !categoryId && !pickedPerson)}
           onPress={handleSave}
         />
         <View style={styles.secondaryRow}>

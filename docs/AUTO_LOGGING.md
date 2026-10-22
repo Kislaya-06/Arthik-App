@@ -58,7 +58,7 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Balance never an amount (§39) | `parser.extractAmount` + `RE_BALANCE_BEFORE` |
 | Future / mandate / collect / failed ≠ txn (§39) | `parser.RE_FUTURE`, `RE_FAILED` |
 | Never fuzzy-merge same source (§38.2) | `matching.isSameSourceDuplicate` (ref or identical text ≤2s only) |
-| SMS & Email Dual-Core Priority (§16, §40) | Bank SMS and Bank Email are Tier-1 authoritative sources. Confirmed transactions on tracked accounts auto-log immediately; unknown category logs with `needs_category = 1` for 1-tap review. |
+| SMS & Email Dual-Core Priority (§16, §40) | Bank SMS and Bank Email are Tier-1 authoritative sources. Confirmed transactions on tracked accounts auto-log immediately; unknown category logs with `needs_category = 1` for 1-tap review. On the review sheet a category is required to save (there is no "None" option) and only categories of the chosen side are shown (`CAT-004`), so a reviewed transaction never comes back asking for a category. |
 | Cross-Source Reconciliation (SMS ↔ Email) | When a payment generates both an SMS and an Email (or vice versa), they link together under "Why Logged" as a single transaction (`status = 'merged'`). |
 | Repeat Transactions Protected (§38.2) | Real separate payments (e.g. ₹25 spent again 20 min later) have distinct timestamps/references and are ALWAYS logged as separate expenses; never falsely deduplicated. |
 | Payment Apps Excluded (Option A) | Payment app push notifications (GPay/PhonePe) are skipped natively and in `service.processQueue` to prevent false duplicate reviews caused by missing bank account digits. |

@@ -8,6 +8,9 @@ import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 import { getNextCategoryColor } from '../config/theme';
 import { getStoredList, setStoredList } from '../lib/asyncStorageList';
 
+/** Which side a category belongs to (CAT-004). Rows saved before income categories existed have no kind = expense. */
+export type CategoryKind = 'expense' | 'income';
+
 export interface Category {
   id: string;
   user_id: string | null;
@@ -15,6 +18,7 @@ export interface Category {
   icon: string;
   color: string;
   is_default: boolean;
+  kind?: CategoryKind;
   isPlaceholder?: boolean;
   pending?: boolean; // true = queued offline, never reached Supabase yet
 }
@@ -24,12 +28,23 @@ interface CategoryState {
   loading: boolean;
   isFetched: boolean;
   fetchCategories: (force?: boolean) => Promise<void>;
-  addCategory: (name: string, icon: string, color: string) => Promise<void>;
+  addCategory: (name: string, icon: string, color: string, kind?: CategoryKind) => Promise<void>;
   updateCategory: (id: string, name: string, icon: string, color: string) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   syncPendingCategories: () => Promise<void>;
   resetCategories: () => void;
 }
+
+/** A category's kind. Missing or unknown = 'expense' (old rows, old cache, placeholders). */
+export const categoryKindOf = (cat?: { kind?: string | null } | null): CategoryKind =>
+  cat?.kind === 'income' ? 'income' : 'expense';
+
+/** Only the categories of one kind, in their original order. */
+export const categoriesOfKind = <T extends { kind?: string | null }>(cats: readonly T[], kind: CategoryKind): T[] =>
+  cats.filter((c) => categoryKindOf(c) === kind);
+
+/** Income category used when the user adds money from the "not enough money" guard (CAT-004). */
+export const FALLBACK_INCOME_CATEGORY_NAME = 'Other Income';
 
 let categoryDeleteCallback: ((id: string) => void) | null = null;
 export const registerCategoryDeleteCallback = (cb: (id: string) => void) => {
@@ -42,7 +57,7 @@ const getPendingCatAddsKey = (uid: string) => `@arthik_pending_cat_adds_${uid}`;
 const getPendingCatUpdatesKey = (uid: string) => `@arthik_pending_cat_updates_${uid}`;
 const getPendingCatDeletesKey = (uid: string) => `@arthik_pending_cat_deletes_${uid}`;
 
-type PendingCatAdd = { id: string; user_id: string; name: string; icon: string; color: string };
+type PendingCatAdd = { id: string; user_id: string; name: string; icon: string; color: string; kind?: CategoryKind };
 type PendingCatUpdate = { id: string; name: string; icon: string; color: string };
 
 const savePendingCatAdd = async (uid: string, cat: PendingCatAdd) => {
@@ -82,13 +97,13 @@ const savePendingCatDelete = async (uid: string, catId: string) => {
 // Display-only visual placeholder array shown before real categories load from Supabase.
 // IMPORTANT: These fake IDs ('1' through '7') are NEVER selectable and NEVER sent to Supabase.
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#FF857A', is_default: true, isPlaceholder: true },
-  { id: '2', user_id: null, name: 'Shopping', icon: 'ShoppingBag', color: '#EBAEE6', is_default: true, isPlaceholder: true },
-  { id: '3', user_id: null, name: 'Transport', icon: 'Car', color: '#4A90D9', is_default: true, isPlaceholder: true },
-  { id: '4', user_id: null, name: 'Bills & Utilities', icon: 'FileText', color: '#F4A460', is_default: true, isPlaceholder: true },
-  { id: '5', user_id: null, name: 'Entertainment', icon: 'Film', color: '#9988A1', is_default: true, isPlaceholder: true },
-  { id: '6', user_id: null, name: 'Health', icon: 'HeartPulse', color: '#E35336', is_default: true, isPlaceholder: true },
-  { id: '7', user_id: null, name: 'Others', icon: 'DollarSign', color: '#ADEBB3', is_default: true, isPlaceholder: true },
+  { id: '1', user_id: null, name: 'Food & Drinks', icon: 'Utensils', color: '#FF857A', is_default: true, kind: 'expense', isPlaceholder: true },
+  { id: '2', user_id: null, name: 'Shopping', icon: 'ShoppingBag', color: '#EBAEE6', is_default: true, kind: 'expense', isPlaceholder: true },
+  { id: '3', user_id: null, name: 'Transport', icon: 'Car', color: '#4A90D9', is_default: true, kind: 'expense', isPlaceholder: true },
+  { id: '4', user_id: null, name: 'Bills & Utilities', icon: 'FileText', color: '#F4A460', is_default: true, kind: 'expense', isPlaceholder: true },
+  { id: '5', user_id: null, name: 'Entertainment', icon: 'Film', color: '#9988A1', is_default: true, kind: 'expense', isPlaceholder: true },
+  { id: '6', user_id: null, name: 'Health', icon: 'HeartPulse', color: '#E35336', is_default: true, kind: 'expense', isPlaceholder: true },
+  { id: '7', user_id: null, name: 'Others', icon: 'DollarSign', color: '#ADEBB3', is_default: true, kind: 'expense', isPlaceholder: true },
 ];
 
 export const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
@@ -212,7 +227,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     }
   },
 
-  addCategory: async (name, icon, color) => {
+  addCategory: async (name, icon, color, kind = 'expense') => {
     const user = useAuthStore.getState().user;
     if (!user) return;
 
@@ -226,6 +241,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       icon,
       color: assignedColor,
       is_default: false,
+      kind,
       pending: true,
     };
 
@@ -233,7 +249,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     set((state) => ({ categories: [...state.categories, newCategory] }));
 
     if (useNetworkStore.getState().isOffline) {
-      await savePendingCatAdd(user.id, { id: newId, user_id: user.id, name, icon, color: assignedColor });
+      await savePendingCatAdd(user.id, { id: newId, user_id: user.id, name, icon, color: assignedColor, kind });
       // Keep pending category in cache so it survives restart
       try {
         const cacheKey = `@arthik_cached_categories_${user.id}`;
@@ -248,7 +264,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     try {
       const { error } = await supabase
         .from('categories')
-        .upsert({ id: newId, user_id: user.id, name, icon, color: assignedColor, is_default: false }, { onConflict: 'id' });
+        .upsert({ id: newId, user_id: user.id, name, icon, color: assignedColor, is_default: false, kind }, { onConflict: 'id' });
 
       if (error) throw error;
       set((state) => ({
@@ -257,7 +273,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       await get().fetchCategories(true);
     } catch (e: unknown) {
       if (isNetworkFailure(e)) {
-        await savePendingCatAdd(user.id, { id: newId, user_id: user.id, name, icon, color });
+        await savePendingCatAdd(user.id, { id: newId, user_id: user.id, name, icon, color, kind });
         return;
       }
       set((state) => ({ categories: state.categories.filter((c) => c.id !== newId) }));
@@ -413,7 +429,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       for (const cat of adds) {
         try {
           const { error } = await supabase.from('categories').upsert(
-            { id: cat.id, user_id: cat.user_id, name: cat.name, icon: cat.icon, color: cat.color, is_default: false },
+            { id: cat.id, user_id: cat.user_id, name: cat.name, icon: cat.icon, color: cat.color, is_default: false, kind: categoryKindOf(cat) },
             { onConflict: 'id', ignoreDuplicates: true }
           );
           if (!error) synced.push(cat.id);

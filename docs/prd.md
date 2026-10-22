@@ -113,9 +113,10 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| Default categories | 7 system-seeded categories per user on signup. |
+| Default categories | 7 expense + 5 income (Salary, Freelance, Interest, Gift, Other Income) system-seeded categories per user on signup (`CAT-001`). |
+| Income categories | Income needs a category too. Pickers show only the side being saved; Manage Categories has an Expense \| Income toggle (`CAT-004`). |
 | Custom categories | User-created with icon + color. |
-| Category deletion | Blocked if expenses are attached (orphan prevention). |
+| Category deletion | Blocked if transactions are attached (orphan prevention, `CAT-002`). |
 | Offline category cache | Available on cold start without network. |
 | Clean Canvas & Tactile List | Category management screen renders directly on the screen canvas with subtle dividers, full-height scroll clearance, and spring-scale press states. |
 

@@ -69,13 +69,14 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0016](adr/0016-split-expenses-and-money-back.md) | Split Expenses, Money Back and Refunds | Active |
 | [0017](adr/0017-money-layer-and-payback-review.md) | Unified Money Layer and Payback Review Resolution | Active |
 | [0018](adr/0018-settle-review-choose-then-confirm.md) | Payback Review: Choose the Person, Then Confirm | Active |
+| [0019](adr/0019-income-categories.md) | Income Categories and Required Category on Review | Active |
 
 ---
 
 ## 3. How to Add a New ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0018` (i.e. `0019`).
+2. Next available number after `0019` (i.e. `0020`).
 3. Standard sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the new ADR supersedes an older one, mark `## Status: Superseded by NNNN` in the old ADR.
 5. Register the new ADR in the table above and in `docs/architecture.md §13`.

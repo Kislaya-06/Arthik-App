@@ -69,6 +69,11 @@ CREATE TABLE IF NOT EXISTS public.categories (
 ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_name_len;
 ALTER TABLE public.categories ADD CONSTRAINT categories_name_len CHECK (char_length(btrim(name)) BETWEEN 1 AND 24);
 
+-- Category side (CAT-004): 'expense' categories for expenses, 'income' categories for income.
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'expense';
+ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_kind_valid;
+ALTER TABLE public.categories ADD CONSTRAINT categories_kind_valid CHECK (kind IN ('expense', 'income'));
+
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view default categories and their own" ON public.categories;
@@ -322,14 +327,19 @@ BEGIN
     )
     ON CONFLICT (user_id, effective_from) DO NOTHING;
 
-    INSERT INTO public.categories (user_id, name, icon, color, is_default) VALUES
-    (new.id, 'Food & Drinks', 'Utensils', '#FF857A', true),
-    (new.id, 'Shopping', 'ShoppingBag', '#EBAEE6', true),
-    (new.id, 'Transport', 'Car', '#4A90D9', true),
-    (new.id, 'Bills & Utilities', 'FileText', '#F4A460', true),
-    (new.id, 'Entertainment', 'Film', '#9988A1', true),
-    (new.id, 'Health', 'HeartPulse', '#E35336', true),
-    (new.id, 'Others', 'DollarSign', '#ADEBB3', true);
+    INSERT INTO public.categories (user_id, name, icon, color, is_default, kind) VALUES
+    (new.id, 'Food & Drinks', 'Utensils', '#FF857A', true, 'expense'),
+    (new.id, 'Shopping', 'ShoppingBag', '#EBAEE6', true, 'expense'),
+    (new.id, 'Transport', 'Car', '#4A90D9', true, 'expense'),
+    (new.id, 'Bills & Utilities', 'FileText', '#F4A460', true, 'expense'),
+    (new.id, 'Entertainment', 'Film', '#9988A1', true, 'expense'),
+    (new.id, 'Health', 'HeartPulse', '#E35336', true, 'expense'),
+    (new.id, 'Others', 'DollarSign', '#ADEBB3', true, 'expense'),
+    (new.id, 'Salary', 'Briefcase', '#10B981', true, 'income'),
+    (new.id, 'Freelance', 'Laptop', '#6366F1', true, 'income'),
+    (new.id, 'Interest', 'Percent', '#F59E0B', true, 'income'),
+    (new.id, 'Gift', 'Gift', '#F472B6', true, 'income'),
+    (new.id, 'Other Income', 'Wallet', '#14B8A6', true, 'income');
 
     RETURN NEW;
 END;

@@ -221,6 +221,8 @@ See [ADR 0008](adr/0008-unified-income-classification.md). Single function `isIn
 2. Check `item.type === 'expense'` → false
 3. Inert legacy fallback (rule `TXN-002`, only for old rows with no `type`; the database makes `type` NOT NULL): match `category.name` against `DEFAULT_INCOME_KEYWORDS`
 
+Categories have a side (`categories.kind` = `'expense'` | `'income'`, rule `CAT-004`, [ADR 0019](adr/0019-income-categories.md)). The side only decides which picker shows a category; it never decides direction. Helpers: `categoryKindOf`, `categoriesOfKind` in `src/store/categoryStore.ts`.
+
 Self-transfers are identified ONLY by `transaction_class === 'self_transfer'` (`TXN-003`); notes and category names are never used to guess one.
 
 **Split & money back (`SPL-001..SPL-006`)**: a third class, `transaction_class === 'recovery'`, marks money that came back for an expense already paid. It is excluded from income and expense totals like a self-transfer, and instead lists the expenses it went back to (`recovery_allocations`). `src/lib/splitLedger.ts` (pure) derives who owes what and plans settlements. Refunds on multi-person split expenses support interactive recipient attribution (Solution 2: `refund_target` in `recovery_allocations`), allowing proportional fair splits or targeted participant/user allocation so one person's settlement never falsely zeroes out another friend's debt. `src/store/expense/recoveryMiddleware.ts` wraps the expense store so that every write of `expenses` recomputes each expense's COUNTED amount (`amount paid − money back`); the paid amount stays in `gross_amount` (store-only, never sent to the database). Because the waterfall and day rollover already re-run on every expense change, money returns to its original budget day / income pool / Gullak with no extra source tracking. `src/store/expense/moneyBack.ts` records money back (and converts an already logged income); `src/store/expense/payload.ts` sends the new columns only when a row uses them.
@@ -349,7 +351,8 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `cadenceSwitch.test.ts` | Next-day switch planning, Additive vs Allocation carry-forward, capacity limits |
 | `canonicalStatusAndGuard.test.ts` | Canonical rule acceptance: BUD-008 missed status, SEC-001 digital vault spending guard |
 | `carryAllocationWeeklyMonthly.test.ts` | CAR-001 Mode B allocation carry-forward across weekly and monthly cadences |
-| `categoryStore.test.ts` | CRUD, ordering, user isolation, orphan prevention, sign-out reset |
+| `categoryStore.test.ts` | CRUD, ordering, user isolation, orphan prevention, sign-out reset, expense/income kind on add |
+| `incomeCategories.test.ts` | Category kind helpers, migration + schema seeding, Manage Categories toggle, review sheet requires a category (no "None") |
 | `chartUtils.test.ts` | SVG donut sweep calculations, flow bar coordinate mapping, color palettes |
 | `colorUtils.test.ts` | Dynamic hex resolution, contrast math, gradient pairs |
 | `dailyBudgetHydrate.test.ts` | Supabase hydration fast-path, persist-hydration gate, legacy row self-healing |
@@ -468,4 +471,5 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0016](adr/0016-split-expenses-and-money-back.md) | Split Expenses, Money Back and Refunds | Active |
 | [0017](adr/0017-money-layer-and-payback-review.md) | Unified Money Layer and Payback Review Resolution | Active |
 | [0018](adr/0018-settle-review-choose-then-confirm.md) | Payback Review: Choose the Person, Then Confirm | Active |
+| [0019](adr/0019-income-categories.md) | Income Categories and Required Category on Review | Active |
 

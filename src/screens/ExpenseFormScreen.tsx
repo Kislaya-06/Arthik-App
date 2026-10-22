@@ -501,13 +501,14 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {/* Category Selector (Expense mode only) — always visible */}
-        {transactionType === 'expense' && (
+        {/* Category Selector — expense categories for expenses, income categories for income (CAT-004).
+            Hidden while recording money that came back: that has no category of its own (SPL-003). */}
+        {(transactionType === 'expense' || !moneyBack.visible || moneyBack.mode === 'income') && (
           <View
           >
             <View style={styles.sectionLabelRow}>
               <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-                {isIncome ? 'INCOME SOURCE' : 'CATEGORY'}
+                {isIncome ? 'INCOME CATEGORY' : 'CATEGORY'}
               </Text>
               {(areCategoriesPlaceholder || isCategoriesLoading) && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -521,11 +522,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             {isCategoriesFetched && categories.length === 0 ? (
               <View style={[styles.emptyCategoriesContainer, { backgroundColor: colors.inputBg }]}>
                 <Text style={[styles.emptyCategoriesText, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
-                  No categories found. Create one to add an expense.
+                  {isIncome
+                    ? 'No income categories found. Create one to add income.'
+                    : 'No categories found. Create one to add an expense.'}
                 </Text>
                 <Pressable
                   style={[styles.createCategoryBtn, { backgroundColor: colors.mintGreen }]}
-                  onPress={() => (navigation as any).navigate('AddEditCategory')}
+                  onPress={() => (navigation as any).navigate('AddEditCategory', { kind: transactionType })}
                 >
                   <Text style={[styles.createCategoryBtnText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
                     + Create Category
@@ -557,7 +560,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                   })}
                   <Pressable
                     disabled={areCategoriesPlaceholder || isCategoriesLoading}
-                    onPress={() => navigation.navigate('ManageCategories')}
+                    onPress={() => navigation.navigate('ManageCategories', { kind: transactionType })}
                     hitSlop={8}
                     style={({ pressed }) => [
                       styles.categoryChip,
