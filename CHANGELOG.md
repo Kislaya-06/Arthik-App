@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Pure Mode nav bar + Home ring match Budget Mode, new accounts switch to Budget Mode on day one — OTA-safe
+
+- **Pure Mode bottom bar (`BottomNavBar.tsx`, `navBarLayout.ts`)**: the 3-tab pill now has the same height (68dp), radius (34), inner padding (6dp) and tab sizes as the Budget Mode pill, and the round + button next to it is the same 68dp (Pure Mode only; the Budget Mode centre + is unchanged). The pill width is the whole row minus the + button and the 10dp gap (it was a fixed 196dp, which squeezed the tabs and the active label). Tabs are spread evenly like the wings of the Budget pill. Still 3 tabs, same design.
+- **Pure Mode Home ring (`BrandedHeroCard.tsx`)**: Pure Mode shows the same single expense `DonutChart` ring as Budget Mode (pod 94, ring 82, same stroke, colours, `% SPENT` label). The income side is the full base ring, so it is always full; the ring fills with `spent / income` and turns red when spending is above income. The tap-to-toggle of the old ring is gone; the card tap still opens the details sheet. `DualRingChart.tsx` is deleted (`computeDualRingState` in `chartUtils.ts` and its tests are kept).
+- **New accounts switch Pure → Budget immediately on day one (`budgetPeriods.ts`, `planActions.ts`, `BudgetEditModal.tsx`)**: `BPR-002` #3 (onboarding exception) never worked for real accounts, because every account is created with one "Pure Mode" plan row, so the code saw "history" and scheduled the switch for tomorrow. New helpers `hasNeverEnabledBudgetMode` and `isFirstDayFirstEnable` (never enabled AND the account was created today) now drive `computeEffectiveFrom('enable')` and the modal's "Takes effect today" label. **Existing accounts are untouched**: after the first day, or once Budget Mode was ever on, every switch still takes effect tomorrow with the same reversal and notifications (`PUR-003`). No money calculation or database change.
+- **Rules (owner approved 2026-10-23)**: `BPR-002` #3 clarified (new account, first day only) and a one-line exception added to `PUR-003`.
+- **Tests**: `navBarLayout.test.ts` (68dp pill + button, pill fills the row, tabs fit), `budgetPeriods.test.ts` (new account day one is today; existing account that never used Budget Mode stays tomorrow; later enable tomorrow), `budgetModesStore.test.ts` (new account immediate, existing account tomorrow, the three older "re-enable tomorrow" tests now start from a user who had Budget Mode on before). 128 test files, 1,895 tests passing; `tsc --noEmit` 0 errors.
+- **Docs**: `docs/ARTHIK_CANONICAL_RULES.md`, `CONTEXT.md`, `docs/adr/0010-budget-cadence-periods.md`, `docs/design-system.md`, `docs/CODEBASE_GUIDE.md`, `docs/prd.md`, `docs/architecture.md`, `app.json` OTA highlights.
+
 ### HeroDetailsSheet All-Time Unspent Income & Gullak Reconciliation (`HomeScreen.tsx`) — OTA-safe
 
 - **Gullak-Aware All-Time Unspent Income Derivation (`HomeScreen.tsx`)**:
@@ -83,7 +92,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hero card measured before shown (`BrandedHeroCard.tsx`)**: The card stays invisible for its first (unmeasured) frame so the chart pod can never sit off the notch and jump.
 - **Swipe down to close the Home card sheet (`BottomSheetModal.tsx` `swipeToDismiss`, `HeroDetailsSheet.tsx`)**: The details sheet follows the finger 1:1 with a grab handle, the backdrop lightens as it is pulled, a light haptic tick marks the close point, and on release it glides away (dragged past 28% or flicked faster than 900pt/s) or springs back with the finger's velocity. Opt-in prop; every other sheet is unchanged.
 - **No money logic touched**: no calculation, rule or stored value changed (canonical rules unaffected).
-- **Optimisation plan (`docs/OPTIMISATION_PLAN.md`)**: whole-codebase audit (dead files/exports, copy-paste, JS-thread animations, render-cost patterns) with a phased, behaviour-preserving roadmap and per-file findings. Plan only; no code changed by it.
 - **Tests**: new `tests/splashCoverStore.test.ts` (6). 122 test files, 1,803 tests passing; `tsc --noEmit` 0 errors; Android bundle export OK.
 
 ### Performance & Quality — Root Re-render Elimination, I/O Batching & Callback Stabilization — OTA-safe

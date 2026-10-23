@@ -10,7 +10,6 @@ import {
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react-native';
 import { DonutChart } from './DonutChart';
-import { DualRingChart } from './DualRingChart';
 import { RollingText } from './RollingText';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ThemeColors, FontFamily, FontSize } from '../config/theme';
@@ -54,8 +53,7 @@ export type BrandedHeroCardProps = {
 // Corner & layout geometry constants
 const DEFAULT_WIDTH = 340;
 const CORNER_RADIUS = 24;
-const POD_SIZE_BUDGET = 94;
-const POD_SIZE_PURE = 98;
+const POD_SIZE = 94; // same chart pod in Budget Mode and Pure Mode
 const GAP = 8;
 
 /**
@@ -144,7 +142,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const isCadenceMode = isBudgetModeEnabled && budgetCadence !== 'daily';
-  const podSize = isBudgetModeEnabled ? POD_SIZE_BUDGET : POD_SIZE_PURE;
+  const podSize = POD_SIZE;
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -647,30 +645,25 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
               borderColor: cardBorderColor,
             },
           ]}
-          pointerEvents={isBudgetModeEnabled ? 'none' : 'auto'}
+          pointerEvents="none"
         >
-          {isBudgetModeEnabled ? (
-            <DonutChart
-              size={82}
-              strokeWidth={9.5}
-              spent={effectiveTargets.targetSpent}
-              total={Math.max(totalAvailable, effectiveTargets.targetSpent)}
-              colors={colors}
-              trackColor="rgba(255, 255, 255, 0.65)"
-              baseColor="rgba(255, 255, 255, 0.92)"
-              spentColor={effectiveIsOver ? '#EF4444' : '#E05A47'}
-              textColor={effectiveIsOver ? '#EF4444' : textColorPrimary}
-              subtextColor={textColorSecondary}
-              triggerKey={activeFilter}
-            />
-          ) : (
-            <DualRingChart
-              size={podSize}
-              income={effectiveTargets.targetIncome}
-              spent={effectiveTargets.targetSpent}
-              isDark={isDark}
-            />
-          )}
+          {/* One expense ring in BOTH modes: the income side is always the full base ring (spent / income). */}
+          <DonutChart
+            size={82}
+            strokeWidth={9.5}
+            spent={effectiveTargets.targetSpent}
+            total={Math.max(
+              isBudgetModeEnabled ? totalAvailable : effectiveTargets.targetIncome,
+              effectiveTargets.targetSpent
+            )}
+            colors={colors}
+            trackColor="rgba(255, 255, 255, 0.65)"
+            baseColor="rgba(255, 255, 255, 0.92)"
+            spentColor={effectiveIsOver ? '#EF4444' : '#E05A47'}
+            textColor={effectiveIsOver ? '#EF4444' : textColorPrimary}
+            subtextColor={textColorSecondary}
+            triggerKey={activeFilter}
+          />
         </View>
       </Pressable>
     </View>

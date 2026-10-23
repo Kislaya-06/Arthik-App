@@ -73,7 +73,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| Dynamic Hero Mode | **Pure Mode**: Concentric Dual Ring chart (Inflow vs. Outflow) with 1-tap cashflow/percentage toggle. **Budget Mode**: Branded Hero Card with dynamic pace suggestions. |
+| Dynamic Hero Mode | **Pure Mode**: the same single expense ring as Budget Mode (spent vs. income, income side always the full ring), with Inflow / Outflow figures on the card. **Budget Mode**: Branded Hero Card with dynamic pace suggestions. |
 | Cadence-Default Tab | App opens directly on the tab matching user's active cadence (`Daily` $\to$ Daily, `Weekly` $\to$ Weekly, `Monthly` $\to$ Monthly). |
 | Period filters | Daily, Weekly, Monthly, All — unified income, spent, and balance across all time horizons. |
 | Live today's spent | Updates instantly on every transaction without refresh. |

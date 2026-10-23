@@ -22,10 +22,10 @@ const inactiveW = NAV_INACTIVE_PAD_X * 2 + NAV_ICON_BOX + NAV_CAPSULE_BORDER * 2
 const WIDTHS = [320, 360, 375, 393, 412, 430, 600, 1024];
 
 describe('navBarLayout — responsive spacing (original look and animation kept)', () => {
-  it('keeps the original pill heights', () => {
+  it('budget pill and the round pure add button are both 68dp', () => {
     const m = getNavBarMetrics(390, 0);
     expect(m.barHeight).toBe(68);
-    expect(m.pureBarHeight).toBe(58);
+    expect(m.pureBarHeight).toBe(68);
   });
 
   it('floats the same visible distance above any system navigation', () => {
@@ -75,5 +75,18 @@ describe('navBarLayout — responsive spacing (original look and animation kept)
     const m = getNavBarMetrics(w, 24);
     expect(m.purePillWidth + NAV_PURE_FAB_GAP + NAV_PURE_BAR_HEIGHT).toBeLessThanOrEqual(m.barWidth);
     expect(m.pureLabelMax).toBeLessThanOrEqual(NAV_LABEL_MAX);
+  });
+
+  it.each(WIDTHS)('pure pill fills the row next to the add button at %idp wide (same as the budget pill)', (w) => {
+    const m = getNavBarMetrics(w, 24);
+    expect(m.purePillWidth + NAV_PURE_FAB_GAP + NAV_PURE_BAR_HEIGHT).toBe(m.barWidth);
+  });
+
+  it.each(WIDTHS)('pure pill fits two icon-only tabs + the active tab at %idp wide', (w) => {
+    const m = getNavBarMetrics(w, 24);
+    const content = m.purePillWidth - 2 - 12; // border 1 x 2, padding 6 x 2 (same as the budget pill)
+    const needed = 2 * Math.max(m.tabMinWidth, inactiveW) + activeW(m.pureLabelMax);
+    expect(needed).toBeLessThanOrEqual(content);
+    if (w >= 360) expect(m.pureLabelMax).toBeGreaterThanOrEqual(40);
   });
 });

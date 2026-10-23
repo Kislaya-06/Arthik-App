@@ -26,7 +26,9 @@ import { applyKeypadPress } from '../lib/amountKeypad';
 import {
   formatEffectiveFrom,
 } from '../lib/budgetModeUtils';
-import { computeEffectiveFrom, getPeriodBounds } from '../lib/budgetPeriods';
+import { computeEffectiveFrom, getPeriodBounds, isFirstDayFirstEnable } from '../lib/budgetPeriods';
+import { useAuthStore } from '../store/authStore';
+import { getUserCreatedAtLocalDate } from '../store/dailyBudget/metrics';
 import { computeSpentByDate } from '../lib/budgetCalculations';
 import { buildEligibleIncomeClassifier } from '../store/dailyBudget/classifiers';
 import { BudgetCadence } from '../types';
@@ -76,6 +78,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const setMonthlyBudget = useDailyBudgetStore((s) => s.setMonthlyBudget);
   const setBudgetCadence = useDailyBudgetStore((s) => s.setBudgetCadence);
   const setBudgetModeEnabled = useDailyBudgetStore((s) => s.setBudgetModeEnabled);
+  const userCreatedAt = useAuthStore((s) => s.user?.created_at);
   const cancelPendingPlanChange = useDailyBudgetStore((s) => s.cancelPendingPlanChange);
 
   // Local form state
@@ -201,10 +204,11 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   }, [spentByDate, todayStr]);
 
   // Compute effective date
-  const isFirstEnable = !isBudgetModeEnabled && (!planChanges || planChanges.length === 0);
+  const userCreatedAtStr = getUserCreatedAtLocalDate(userCreatedAt);
+  const isFirstEnable = !isBudgetModeEnabled && isFirstDayFirstEnable(planChanges, todayStr, userCreatedAtStr);
   const effectiveFromStr = useMemo(() => {
     if (!isBudgetModeEnabled) {
-      return computeEffectiveFrom('enable', todayStr, { changes: planChanges });
+      return computeEffectiveFrom('enable', todayStr, { changes: planChanges, userCreatedAtStr });
     }
     if (selectedCadence !== budgetCadence) {
       return computeEffectiveFrom('cadence_switch', todayStr, { currentOwner: budgetCadence });
@@ -225,6 +229,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   }, [
     isBudgetModeEnabled,
     planChanges,
+    userCreatedAtStr,
     selectedCadence,
     budgetCadence,
     todayStr,

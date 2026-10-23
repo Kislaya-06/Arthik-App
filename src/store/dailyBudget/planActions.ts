@@ -43,6 +43,7 @@ import {
 } from './classifiers';
 import {
   getTodayDateStr,
+  getUserCreatedAtLocalDate,
   isDailyOwnedDate,
   computeMetrics,
   computeTotalAccountRemaining,
@@ -350,7 +351,10 @@ export function handleSetBudgetModeEnabled(
 
   const effectiveFrom = options?.immediate
     ? todayStr
-    : computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr, { changes: get().planChanges });
+    : computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr, {
+        changes: get().planChanges,
+        userCreatedAtStr: getUserCreatedAtLocalDate(currentUser?.created_at),
+      });
 
   const cadence = options?.cadence || get().budgetCadence || 'daily';
   const amount = options?.amount !== undefined ? options.amount : (

@@ -157,21 +157,55 @@ export function getDateOwner(changes: BudgetPlanChange[], dateStr: string): Date
 }
 
 /**
+ * True when no plan change has EVER turned Budget Mode on (empty history, or only the "Pure Mode" row every new
+ * account is created with).
+ */
+export function hasNeverEnabledBudgetMode(changes?: BudgetPlanChange[] | null): boolean {
+  return !changes || !changes.some((c) => c.isEnabled);
+}
+
+/**
+ * The onboarding exception (BPR-002 #3): a NEW account turning Budget Mode on for the first time on its first day
+ * (the day it was created) starts immediately. Existing accounts are never affected: after day one, or once
+ * Budget Mode was ever on, a switch takes effect tomorrow as before.
+ */
+export function isFirstDayFirstEnable(
+  changes: BudgetPlanChange[] | null | undefined,
+  todayStr: string,
+  userCreatedAtStr?: string | null
+): boolean {
+  return !!userCreatedAtStr && userCreatedAtStr === todayStr && hasNeverEnabledBudgetMode(changes);
+}
+
+/**
  * 4a. Computes the effectiveFrom date for a plan change according to D3 rules:
  * - 'cadence_switch' -> tomorrow, EXCEPT when today's owner is 'paused' (first enable/re-enable) -> today
  * - 'weekly_amount'  -> next Monday
  * - 'monthly_amount' -> next 1st of month
  * - 'disable'        -> tomorrow (protects running-day budget & Gullak savings), except fresh onboarding (today)
- * - 'enable'         -> tomorrow (user sets fresh budget), except fresh onboarding (today)
+ * - 'enable'         -> tomorrow (user sets fresh budget), except a NEW account's first-ever enable on its first day (today, BPR-002 #3)
  */
 export function computeEffectiveFrom(
   kind: EffectiveFromKind,
   todayStr: string,
-  context?: { currentOwner?: DateOwner; changes?: BudgetPlanChange[] }
+  context?: { currentOwner?: DateOwner; changes?: BudgetPlanChange[]; userCreatedAtStr?: string | null }
 ): string {
   const d = parseISO(todayStr);
 
-  if (kind === 'disable' || kind === 'enable') {
+  if (kind === 'enable') {
+    // No plan history at all: starts today (as before).
+    if (!context?.changes || context.changes.length === 0) {
+      return todayStr;
+    }
+    // New account, first day, Budget Mode never on: starts today (BPR-002 #3). Every account gets a "Pure Mode"
+    // signup row, so that row is not "history". Existing accounts keep the tomorrow rule.
+    if (isFirstDayFirstEnable(context.changes, todayStr, context.userCreatedAtStr)) {
+      return todayStr;
+    }
+    return format(addDays(d, 1), 'yyyy-MM-dd');
+  }
+
+  if (kind === 'disable') {
     // Fresh user without any prior plan history starts immediately today.
     // Existing users toggle modes for the NEXT day so today's running budget and savings complete normally.
     const hasHistory = context?.changes && context.changes.length > 0;

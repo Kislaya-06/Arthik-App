@@ -593,14 +593,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Same height, radius and padding as the budget pill (pillBar); width comes from m.purePillWidth.
   purePillBar: {
-    width: 196,
-    height: 58,
-    borderRadius: 29,
+    height: 68,
+    borderRadius: 34,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    justifyContent: 'space-around',
+    paddingHorizontal: 6,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -614,9 +614,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   individualFab: {
-    width: 58,
-    height: 58,
-    borderRadius: 29, // Circle geometry: width / 2
+    width: 68,
+    height: 68,
+    borderRadius: 34, // Circle geometry: width / 2 (same size as the pure pill)
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 6 },

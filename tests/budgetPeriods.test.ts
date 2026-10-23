@@ -4,6 +4,8 @@ import {
   resolvePlanForDate,
   getDateOwner,
   computeEffectiveFrom,
+  hasNeverEnabledBudgetMode,
+  isFirstDayFirstEnable,
   upsertPendingChange,
   buildPeriodsToFinalize,
   getCurrentPeriodSummary,
@@ -262,6 +264,47 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
 
     it('"enable" applies today', () => {
       expect(computeEffectiveFrom('enable', '2026-10-05')).toBe('2026-10-05');
+    });
+
+    it('"enable" for a new account on its first day (only the signup Pure Mode row) applies today (BPR-002 #3)', () => {
+      const signupRow: BudgetPlanChange = {
+        id: 'seed', userId: 'u', effectiveFrom: '2026-10-01', isEnabled: false, cadence: 'daily', amount: 0,
+      } as BudgetPlanChange;
+      expect(
+        computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow], userCreatedAtStr: '2026-10-05' })
+      ).toBe('2026-10-05');
+    });
+
+    it('\"enable\" for an EXISTING account (created earlier) that never used Budget Mode stays tomorrow', () => {
+      const signupRow: BudgetPlanChange = {
+        id: 'seed', userId: 'u', effectiveFrom: '2026-10-01', isEnabled: false, cadence: 'daily', amount: 0,
+      } as BudgetPlanChange;
+      expect(
+        computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow], userCreatedAtStr: '2026-10-01' })
+      ).toBe('2026-10-06');
+      expect(computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow] })).toBe('2026-10-06');
+      expect(isFirstDayFirstEnable([signupRow], '2026-10-05', '2026-10-01')).toBe(false);
+      expect(isFirstDayFirstEnable([signupRow], '2026-10-05', '2026-10-05')).toBe(true);
+    });
+
+    it('"enable" after Budget Mode was ever on applies tomorrow', () => {
+      const history: BudgetPlanChange[] = [
+        { id: 'a', userId: 'u', effectiveFrom: '2026-10-01', isEnabled: false, cadence: 'daily', amount: 0 },
+        { id: 'b', userId: 'u', effectiveFrom: '2026-10-02', isEnabled: true, cadence: 'daily', amount: 300 },
+        { id: 'c', userId: 'u', effectiveFrom: '2026-10-04', isEnabled: false, cadence: 'daily', amount: 300 },
+      ] as BudgetPlanChange[];
+      expect(computeEffectiveFrom('enable', '2026-10-05', { changes: history, userCreatedAtStr: '2026-10-05' })).toBe('2026-10-06');
+    });
+
+    it('hasNeverEnabledBudgetMode: empty, signup-only and enabled histories', () => {
+      expect(hasNeverEnabledBudgetMode(undefined)).toBe(true);
+      expect(hasNeverEnabledBudgetMode([])).toBe(true);
+      expect(
+        hasNeverEnabledBudgetMode([{ id: 'a', userId: 'u', effectiveFrom: '2026-10-01', isEnabled: false, cadence: 'daily', amount: 0 }] as BudgetPlanChange[])
+      ).toBe(true);
+      expect(
+        hasNeverEnabledBudgetMode([{ id: 'a', userId: 'u', effectiveFrom: '2026-10-06', isEnabled: true, cadence: 'daily', amount: 200 }] as BudgetPlanChange[])
+      ).toBe(false);
     });
 
     it('"cadence_switch" when current owner is active applies tomorrow', () => {

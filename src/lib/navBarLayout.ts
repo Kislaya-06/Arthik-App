@@ -9,15 +9,13 @@
 
 /** Budget-mode pill height (the tallest state; Home's clip line and screen paddings use it). */
 export const NAV_BAR_HEIGHT = 68;
-/** Pure-mode pill + round add button height. */
-export const NAV_PURE_BAR_HEIGHT = 58;
-/** Pure-mode pill width (original design). */
-export const NAV_PURE_PILL_WIDTH = 196;
+/** Pure-mode round add button size: same as the pill next to it (NAV_BAR_HEIGHT). */
+export const NAV_PURE_BAR_HEIGHT = 68;
 export const NAV_PURE_FAB_GAP = 10;
 export const NAV_MAX_BAR_WIDTH = 400;
-/** Padding inside the budget pill (left/right), and the pure pill. */
+/** Padding inside the budget pill (left/right) and the pure pill (both pill styles use 6dp). */
 export const NAV_BUDGET_PAD_X = 4;
-export const NAV_PURE_PAD_X = 8;
+export const NAV_PURE_PAD_X = 6;
 /** Pill border (1dp each side). */
 export const NAV_PILL_BORDER = 1;
 /** Tab pieces (original design): capsule padding 6 (8 when active), icon 20, gap 4, border 1. */
@@ -53,7 +51,7 @@ export interface NavBarMetrics {
   /** Room for the active tab's label in the budget pill / in the pure pill. */
   budgetLabelMax: number;
   pureLabelMax: number;
-  /** Width of the pure-mode pill (never wider than the row allows next to the add button). */
+  /** Width of the pure-mode pill: the whole row minus the round add button and the gap. */
   purePillWidth: number;
 }
 
@@ -87,8 +85,8 @@ export function getNavBarMetrics(windowWidth: number, insetBottom: number): NavB
   }
   budgetLabelMax = clamp(Math.floor(budgetLabelMax), 0, NAV_LABEL_MAX);
 
-  // ── Pure pill: three tabs + round + button ──
-  const purePillWidth = Math.round(Math.min(NAV_PURE_PILL_WIDTH, barWidth - NAV_PURE_BAR_HEIGHT - NAV_PURE_FAB_GAP));
+  // ── Pure pill: three tabs (same height, padding and tab sizes as the budget pill) + round + button ──
+  const purePillWidth = Math.round(barWidth - NAV_PURE_BAR_HEIGHT - NAV_PURE_FAB_GAP);
   const pureContent = purePillWidth - NAV_PILL_BORDER * 2 - NAV_PURE_PAD_X * 2;
   const pureLabelMax = clamp(
     Math.floor(pureContent - 2 * tabMinWidth - activeTabWidth(0) - 2),

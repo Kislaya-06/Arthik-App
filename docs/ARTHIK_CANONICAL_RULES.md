@@ -203,7 +203,7 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Canonical Definition:**
   1. **Standard Modification (Spend > 0):** All budget allowance modifications and cadence switch plans take effect starting **Tomorrow at 00:00:00** (`effectiveFrom = tomorrow`) when spending has already occurred in the current period. The active calendar day concludes safely under the existing plan so historical day records, daily savings, and streak metrics are not disrupted mid-day.
   2. **Zero-Spend Immediate Adjustment Exception:** When ₹0 has been spent in the active cycle (`todaySpent === 0` for Daily, `currentWeekSpent === 0` for Weekly, `currentMonthSpent === 0` for Monthly), modifying the budget amount takes effect **IMMEDIATELY** for the current period (`effectiveFrom = todayStr`), with no need to wait for midnight or the next cycle. Any obsolete pending scheduled change is superseded and cleared.
-  3. **Onboarding Exception:** Enabling Budget Mode for the very first time from Pure Mode activates immediately on "Today".
+  3. **Onboarding Exception:** Enabling Budget Mode for the very first time from Pure Mode activates immediately on "Today", but ONLY for a NEW account on its first day (the day the account was created, Budget Mode never on before). The "Pure Mode" row every account is created with is not history. Existing accounts, and any later switch, always take effect tomorrow (`PUR-003`). Owner decision 2026-10-23.
 
 #### `CAR-001`: The Universal Carry-Forward Law (Supreme Owner Specification)
 - **Status:** `APPROVED BY OWNER (SUPREME SPECIFICATION)` (2026-10-17)
@@ -660,6 +660,7 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Canonical Definition:**
   1. **Next-Day Activation**:
      - Switching between Pure Mode and Budget Mode (Pure Mode → Budget Mode or Budget Mode → Pure Mode) takes effect from the **Next Day at 12:00 AM (00:00:00)** (`effectiveFrom = tomorrow`).
+     - **Exception (new accounts only):** a NEW account turning Budget Mode on for the first time on the day it was created switches immediately (`BPR-002` #3, owner decision 2026-10-23). Nothing changes for existing accounts.
      - This protects today's active running budget, daily/period records, and midnight Gullak savings from mid-day disruption.
      - Confirmation notifications are queued (`scheduled_budget_mode_${tomorrow}` or `scheduled_pure_mode_${tomorrow}`).
   2. **Same-Day Reversal Protection**:
@@ -684,4 +685,4 @@ With the owner's final approvals on 2026-10-17, this document represents the **s
 3. **Status Unification:** The codebase and database use one vocabulary: `'saved' | 'missed' | 'even' | 'unknown'` (plus the never-saved in-progress marker `'active'`).
 4. **Universal Carry-Forward Law:** Carry-over unspent money never double-counts in all-time inflow. Mode A adds to spendable target; Mode B funds days with ₹0 fresh cash needed from user.
 5. **AutoLog Privacy:** Dual bank sources (SMS + Email), payment app notifications dropped, zero-knowledge encrypted on-device SQLite database (SQLCipher) with hardware Keystore. Granular specs in [`docs/AUTO_LOGGING.md`](AUTO_LOGGING.md).
-6. **Mode Transition Scheduling (`PUR-003`):** Switching Pure Mode ↔ Budget Mode takes effect next day at 12:00 AM, protecting running budgets and midnight Gullak rollovers. Same-day reversal cleanly cancels pending schedules and inbox notices.
+6. **Mode Transition Scheduling (`PUR-003`):** Switching Pure Mode ↔ Budget Mode takes effect next day at 12:00 AM, protecting running budgets and midnight Gullak rollovers (only a new account's first-ever enable on its first day is immediate, `BPR-002` #3). Same-day reversal cleanly cancels pending schedules and inbox notices.

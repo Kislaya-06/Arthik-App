@@ -645,6 +645,15 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
         weeklyBudgetAmount: 7000,
         planChanges: [
           {
+            id: 'p-earlier-enabled',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-08-01',
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 1000,
+            createdAt: '2026-08-01T00:00:00Z',
+          },
+          {
             id: 'p-initial',
             userId: 'user_modes_test_1',
             effectiveFrom: '2026-09-01',
@@ -676,6 +685,66 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       );
     });
 
+    it('first time ever turning Budget Mode on, new account on its first day (only the signup Pure Mode row), starts today (BPR-002 #3)', () => {
+      mockUser = { id: 'user_modes_test_1', created_at: '2026-09-30T08:00:00' };
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'daily',
+        dailyBudgetAmount: 250,
+        planChanges: [
+          {
+            id: 'p-signup',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-30',
+            isEnabled: false,
+            cadence: 'daily',
+            amount: 0,
+            createdAt: '2026-09-30T00:00:00Z',
+          },
+        ],
+      });
+
+      mockAddNotification.mockClear();
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true, { cadence: 'daily', amount: 250 });
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.getPendingPlanChange()).toBeNull();
+      expect(mockAddNotification).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'scheduled_budget_mode_2026-10-01' })
+      );
+      mockUser = { id: 'user_modes_test_1', created_at: '2026-09-01T00:00:00Z' };
+    });
+
+    it('existing account that never used Budget Mode (created earlier) still schedules tomorrow', () => {
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_1',
+        hydratedForUserId: 'user_modes_test_1',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'daily',
+        dailyBudgetAmount: 250,
+        planChanges: [
+          {
+            id: 'p-signup',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-09-01',
+            isEnabled: false,
+            cadence: 'daily',
+            amount: 0,
+            createdAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      });
+
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true, { cadence: 'daily', amount: 250 });
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(false);
+      expect(state.getPendingPlanChange()?.effectiveFrom).toBe('2026-10-01');
+    });
+
     it('same-day reversal: flipping back to Pure Mode cancels scheduled Budget Mode and removes notification', () => {
       useDailyBudgetStore.setState({
         ownerUserId: 'user_modes_test_1',
@@ -684,6 +753,15 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
         budgetCadence: 'weekly',
         weeklyBudgetAmount: 7000,
         planChanges: [
+          {
+            id: 'p-earlier-enabled',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-08-01',
+            isEnabled: true,
+            cadence: 'weekly',
+            amount: 1000,
+            createdAt: '2026-08-01T00:00:00Z',
+          },
           {
             id: 'p-initial',
             userId: 'user_modes_test_1',
@@ -873,6 +951,15 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
         budgetCadence: 'daily',
         dailyBudgetAmount: 250,
         planChanges: [
+          {
+            id: 'p-earlier-enabled',
+            userId: 'user_modes_test_1',
+            effectiveFrom: '2026-08-01',
+            isEnabled: true,
+            cadence: 'daily',
+            amount: 1000,
+            createdAt: '2026-08-01T00:00:00Z',
+          },
           {
             id: 'p-initial',
             userId: 'user_modes_test_1',

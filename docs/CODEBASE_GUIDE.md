@@ -356,7 +356,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 - **Home/Hero:** `BrandedHeroCard` (bada hero card), `HeroDetailsSheet` (tap card breakdown), `RollingText` (digits ka animation), `ExpenseFundingCard`, `TransactionRow`, `PullToHistoryList` + `PullToHistoryIndicator`.
 - **Budget/Savings:** `BudgetEditModal`, `CadenceSwitchModal` (cadence switch + carry mode chunna), `PeriodRenewalModal`, `DepositGullakModal`, `StreakCalendarModal`, `StreakFlame`, `SavingsRecordRow`, `GullakDepositRow`, `VaultSpendingGuardModal`, `MoneyExplainerModal`, `components/savings/*`, `components/profile/PauseBudgetModal`.
 - **Split & Money Back:** `components/split/SplitExtras`, `components/split/MoneyBackExtras`, `components/split/MoneyBackSheet`, `components/split/SplitDetailCard`.
-- **Charts:** `CashFlowChart`, `YearlyCashFlowChart`, `SpendingFlowChart`, `DonutChart`, `DualRingChart`, `AnimatedCategoryDonut`, `BreathingStripShell` + Weekly/Monthly/Yearly strips, `YearlySavingsMilestoneCard`, `BehavioralInsightRow`.
+- **Charts:** `CashFlowChart`, `YearlyCashFlowChart`, `SpendingFlowChart`, `DonutChart` (Home ring in both modes), `AnimatedCategoryDonut`, `BreathingStripShell` + Weekly/Monthly/Yearly strips, `YearlySavingsMilestoneCard`, `BehavioralInsightRow`.
 - **Form:** `BouncyTypeToggle`, `BouncyPaymentToggle`, `BouncyCategoryFilter` (Reanimated UI-thread worklet slider, touch dispatch, zero-shift typography), `KeyButton`, `ui/KeypadGrid`, `CustomDatePickerModal`, `transfer/TransferExtras` (self-transfer switch), `transfer/TransferDetailCard`.
 - **App-wide:** `BottomNavBar`, `AmbientBackground`, `AppLockOverlay`, `OfflineBanner`, `SyncFailedBanner`, `OtaUpdateModal`, `ErrorBoundary`, `AppRefreshControl`, `RefreshScrollShell`.
 - **`components/ui/`:** design-system ke chhote tukde: `AppButton`, `AppInput`, `AmountText`, `SegmentedControl`, `BottomSheetModal`, `StatusBadge`, `ItemRowShell`, `AuthFormField`, `AuthMessageBanner`.
@@ -371,7 +371,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `useSavingsDashboard.ts` | Savings screen ka data |
 | `useFormKeyboard.ts`, `useFocusEntry.ts`, `useScrollDirection.ts` | Keyboard, screen focus (`useFocusEntryCount`, `useScreenBlurListener`), scroll ki disha |
 | `useNavBarMetrics.ts` | Phone ke hisaab se nav bar ki spacing (`useNavBarMetrics`) aur screens ki bottom padding (`useNavBarContentInset`) |
-| `useRingSweep.ts` | (focus-entry + `focus` event, dono se trigger) Home rings (`DualRingChart`, `DonutChart`) ka blink-free sweep: blur ke baad UI thread par 0, wapas aane par seedha sweep up |
+| `useRingSweep.ts` | (focus-entry + `focus` event, dono se trigger) Home ring (`DonutChart`) ka blink-free sweep: blur ke baad UI thread par 0, wapas aane par seedha sweep up |
 
 ---
 

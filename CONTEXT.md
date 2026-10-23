@@ -267,8 +267,8 @@ Credit or debit card transaction (`'card'`). Icon: `CreditCard` (lucide-react-na
 ### 7. Budget Modes & Multi-Cadence Periods
 
 **Pure Mode**:
-The default expense tracking mode (`isBudgetModeEnabled: false`) where users record expenses and income freely without spending limits or warnings. It only changes the screen: money is still accounted budget pool first, then income, then Gullak (ADR 0012). The bottom navigation renders 4 tabs (`Home`, `History`, `Add`, `Insights`) and the Home screen shows an Inflow/Outflow cashflow overview with a concentric `DualRingChart`.
-- *Code location*: `src/store/dailyBudgetStore.ts` (`isBudgetModeEnabled: false`), `src/components/BottomNavBar.tsx`, `src/components/DualRingChart.tsx`
+The default expense tracking mode (`isBudgetModeEnabled: false`) where users record expenses and income freely without spending limits or warnings. It only changes the screen: money is still accounted budget pool first, then income, then Gullak (ADR 0012). The bottom navigation renders 4 tabs (`Home`, `History`, `Add`, `Insights`) and the Home screen shows an Inflow/Outflow cashflow overview with the same single expense `DonutChart` ring as Budget Mode (the income side is the full base ring).
+- *Code location*: `src/store/dailyBudgetStore.ts` (`isBudgetModeEnabled: false`), `src/components/BottomNavBar.tsx`, `src/components/BrandedHeroCard.tsx`, `src/components/DonutChart.tsx`
 - *_Avoid_*: Free Mode, Basic Mode, No-Budget Mode
 
 **Budget Mode**:

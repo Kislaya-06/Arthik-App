@@ -13,7 +13,7 @@ Originally, Arthik was designed around a single financial model: a fixed daily s
 We established a comprehensive Multi-Cadence Budget Architecture governed by decisions D1 through D7:
 
 ### D1: Two High-Level Modes
-- **Pure Mode (`isBudgetModeEnabled: false`)**: The default for all new accounts. The bottom navigation bar renders 4 tabs (`Home`, `History`, `Add`, `Insights`). The Home screen showcases an executive Inflow/Outflow financial overview centered on a concentric `DualRingChart`. Direct navigation to the `'Savings'` screen is guarded by `resolveSavingsRoute` and safely falls back to `'Home'`.
+- **Pure Mode (`isBudgetModeEnabled: false`)**: The default for all new accounts. The bottom navigation bar renders 4 tabs (`Home`, `History`, `Add`, `Insights`). The Home screen showcases an executive Inflow/Outflow financial overview centered on the same single expense `DonutChart` ring as Budget Mode. Direct navigation to the `'Savings'` screen is guarded by `resolveSavingsRoute` and safely falls back to `'Home'`.
 - **Budget Mode (`isBudgetModeEnabled: true`)**: Activates spending allowances, Gullak savings rollovers, and a 5th navigation tab (`Savings`) with smooth entrance/exit animations.
 
 ### D2: Three Supported Cadences

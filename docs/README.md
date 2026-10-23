@@ -27,7 +27,6 @@ Every Markdown documentation file in this repository is cataloged below with its
 |---|---|---|
 | [`architecture.md`](architecture.md) | **System Architecture (v2.1.0)** — 11 layers, stores, offline-first queues, startup hydration, security, tests. | Master Architecture |
 | [`design-system.md`](design-system.md) | **Unified Design System & UI Specification** — canonical design contract, principles, token tables, component specs. | UI / Design Truth |
-| [`OPTIMISATION_PLAN.md`](OPTIMISATION_PLAN.md) | **Optimisation & Clean-up Plan** — whole-codebase audit (dead code, redundancy, JS-thread animations, render cost, startup time) with a phased, behaviour-preserving roadmap and per-file findings. | Engineering Roadmap |
 | [`AUTO_LOGGING.md`](AUTO_LOGGING.md) | **Automatic Logging Architecture (v2.0)** — Kotlin modules, SQLCipher encrypted SQLite, parsing, deduplication engine. | Auto-Log Engine |
 | [`notifications.md`](notifications.md) | **Notification Policy & Schedule Matrix** — max 1/day rule, evening nudge, Gullak reward, recaps, channels. | Notification Policy |
 | [`prd.md`](prd.md) | **Product Requirements Document (PRD)** — Indian cash+UPI problem statement, user personas, habit loops. | Product Baseline |
