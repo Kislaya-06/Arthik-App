@@ -86,7 +86,7 @@ export interface DailyBudgetState {
   // --- Multi-Cadence Actions & Selectors ---
   setBudgetModeEnabled: (
     enabled: boolean,
-    options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean }
+    options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean; autoRenew?: boolean }
   ) => void;
   setBudgetCadence: (
     cadence: BudgetCadence,

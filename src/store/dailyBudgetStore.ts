@@ -375,7 +375,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 
       setBudgetModeEnabled: (
         enabled: boolean,
-        options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean }
+        options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean; autoRenew?: boolean }
       ) => handleSetBudgetModeEnabled(get, set, enabled, options),
 
       setBudgetCadence: (

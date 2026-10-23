@@ -317,7 +317,7 @@ export function handleSetBudgetModeEnabled(
   get: () => DailyBudgetState,
   set: (partial: Partial<DailyBudgetState> | ((state: DailyBudgetState) => Partial<DailyBudgetState>)) => void,
   enabled: boolean,
-  options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean }
+  options?: { cadence?: BudgetCadence; amount?: number; immediate?: boolean; autoRenew?: boolean }
 ): void {
   const todayStr = getTodayDateStr();
   const currentUser = useAuthStore.getState().user;
@@ -454,7 +454,7 @@ export function handleSetBudgetModeEnabled(
       saved: 0,
       status: 'unknown',
     };
-  } else if (enabled && targetBudgetAmount > 0 && isDailyOwnedDate(updatedChanges, todayStr) && (!records[todayStr] || records[todayStr].budget === 0)) {
+  } else if (enabled && targetBudgetAmount > 0 && isDailyOwnedDate(updatedChanges, todayStr) && (!records[todayStr] || records[todayStr].budget === 0 || !records[todayStr].isFinalized)) {
     const budget = targetBudgetAmount;
     const spent = records[todayStr]?.spent || 0;
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
@@ -480,7 +480,9 @@ export function handleSetBudgetModeEnabled(
     get().bestStreakByCadence
   );
 
-  const autoRenew = enabled ? get().isAutoRenew : false;
+  const autoRenew = options?.autoRenew !== undefined
+    ? options.autoRenew
+    : (enabled ? (get().isBudgetModeEnabled ? get().isAutoRenew : true) : false);
 
   set({
     isBudgetModeEnabled: enabled,
@@ -498,6 +500,7 @@ export function handleSetBudgetModeEnabled(
     savePendingSettingsOffline(currentUser.id, {
       is_budget_mode_enabled: enabled,
       is_auto_renew: autoRenew,
+      ...(cadence === 'daily' && targetBudgetAmount > 0 ? { daily_budget: targetBudgetAmount } : {}),
     });
     savePendingPlanChangeOffline(currentUser.id, newChange);
 
@@ -506,11 +509,16 @@ export function handleSetBudgetModeEnabled(
       .update({
         is_budget_mode_enabled: enabled,
         is_auto_renew: autoRenew,
+        ...(cadence === 'daily' && targetBudgetAmount > 0 ? { daily_budget: targetBudgetAmount } : {}),
       })
       .eq('id', currentUser.id)
       .then(({ error }) => {
         if (!error) {
-          clearPendingSettingsOffline(currentUser.id, ['is_budget_mode_enabled', 'is_auto_renew']);
+          clearPendingSettingsOffline(currentUser.id, [
+            'is_budget_mode_enabled',
+            'is_auto_renew',
+            ...(cadence === 'daily' && targetBudgetAmount > 0 ? ['daily_budget' as const] : []),
+          ]);
         }
       });
 

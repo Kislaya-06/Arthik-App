@@ -107,6 +107,7 @@ vi.mock('../src/config/supabase', () => ({
     from: vi.fn(() => {
       const builder: any = {
         select: vi.fn(() => builder),
+        update: vi.fn(() => builder),
         eq: vi.fn(() => builder),
         order: vi.fn(() => builder),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),

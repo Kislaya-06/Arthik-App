@@ -66,7 +66,7 @@
         "title": "Income Categories & Smoother Review ✨",
         "highlights": [
           "Pure Mode Polish: The Pure Mode bottom bar features the same height, padding, and animations as the Budget bar with a compact 3-tab pill and 48dp FAB button, and the Home ring shows a single spent ring just like Budget Mode",
-          "Instant First Switch: New accounts and accounts with zero expenses that turn on Budget Mode start right away with their set amount, no waiting for tomorrow",
+          "Instant First Switch: New accounts and accounts with zero expenses that turn on Budget Mode start right away with their set amount and active daily budget on Home, no waiting for tomorrow",
           "Factory Reset on Account Delete: Deleting an account completely unlinks on-device encrypted AutoLog database, purges SecureStore keys, and clears local storage for a fresh start",
           "Profile Screen Polish: Streamlined Smart Budget & Gullak card styling on Profile screen with 44x44 icon container, crisp 16px bold title, and zero font squashing across all screen display scales",
           "Income Categories: Income now has its own categories (Salary, Freelance, Interest, Gift, Other Income). Pick one when you add income, and manage both kinds from one screen with an Expense | Income toggle",

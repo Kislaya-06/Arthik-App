@@ -939,6 +939,7 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       useDailyBudgetStore.getState().checkAndRollover();
 
       expect(useDailyBudgetStore.getState().isBudgetModeEnabled).toBe(true);
+      expect(useDailyBudgetStore.getState().isAutoRenew).toBe(true);
       expect(useDailyBudgetStore.getState().budgetCadence).toBe('weekly');
       expect(useDailyBudgetStore.getState().weeklyBudgetAmount).toBe(3500);
     });
@@ -1016,6 +1017,8 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       expect(st.dailyRecords['2026-10-23'].budget).toBe(100);
       expect(st.dailyRecords['2026-10-23'].status).toBe('active');
       expect(st.getPendingPlanChange()).toBeNull();
+      expect(st.isAutoRenew).toBe(true);
+      expect(useDailyBudgetStore.getState().getTodayRecord().budget).toBe(100);
     });
 
     it('BPR-002: fresh user with only income rows (0 expenses logged) activates Budget Mode immediately today', () => {
@@ -1055,6 +1058,8 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       expect(st.dailyRecords['2026-10-23'].budget).toBe(250);
       expect(st.dailyRecords['2026-10-23'].status).toBe('active');
       expect(st.getPendingPlanChange()).toBeNull();
+      expect(st.isAutoRenew).toBe(true);
+      expect(useDailyBudgetStore.getState().getTodayRecord().budget).toBe(250);
     });
   });
 });

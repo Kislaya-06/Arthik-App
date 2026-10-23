@@ -24,7 +24,10 @@ import type { Expense } from '../expense/types';
 import type { DailyBudgetState } from './types';
 import {
   savePendingBudgetPeriodOffline,
+  savePendingSettingsOffline,
+  clearPendingSettingsOffline,
 } from './pendingStorage';
+import { useAuthStore } from '../authStore';
 import { areExpensesLoaded } from './expenseBridge';
 import {
   getUserCreatedAtLocalDate,
@@ -105,12 +108,42 @@ export function applyScheduledPlanChanges(
             : { monthlyBudgetAmount: activePlanForToday.amount }
           : {};
 
+      const autoRenew = activePlanForToday.isEnabled
+        ? (get().isBudgetModeEnabled ? get().isAutoRenew : true)
+        : false;
+
       set({
         isBudgetModeEnabled: activePlanForToday.isEnabled,
-        isAutoRenew: activePlanForToday.isEnabled ? get().isAutoRenew : false,
+        isAutoRenew: autoRenew,
         budgetCadence: activePlanForToday.isEnabled ? activePlanForToday.cadence : get().budgetCadence,
         ...amountPatch,
       });
+
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        savePendingSettingsOffline(currentUser.id, {
+          is_budget_mode_enabled: activePlanForToday.isEnabled,
+          is_auto_renew: autoRenew,
+          ...(activePlanForToday.isEnabled && activePlanForToday.cadence === 'daily' && activePlanForToday.amount > 0
+            ? { daily_budget: activePlanForToday.amount }
+            : {}),
+        });
+        supabase
+          .from('profiles')
+          .update({
+            is_budget_mode_enabled: activePlanForToday.isEnabled,
+            is_auto_renew: autoRenew,
+            ...(activePlanForToday.isEnabled && activePlanForToday.cadence === 'daily' && activePlanForToday.amount > 0
+              ? { daily_budget: activePlanForToday.amount }
+              : {}),
+          })
+          .eq('id', currentUser.id)
+          .then(({ error }) => {
+            if (!error) {
+              clearPendingSettingsOffline(currentUser.id, ['is_budget_mode_enabled', 'is_auto_renew']);
+            }
+          });
+      }
       return true;
     }
   }

@@ -278,7 +278,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
         setMonthlyBudget(evaluatedAmount);
       }
       setBudgetCadence(selectedCadence);
-      setBudgetModeEnabled(true, { cadence: selectedCadence, amount: evaluatedAmount });
+      setBudgetModeEnabled(true, { cadence: selectedCadence, amount: evaluatedAmount, autoRenew: true });
       onClose();
       return;
     }

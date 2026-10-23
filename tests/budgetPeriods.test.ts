@@ -273,6 +273,12 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(
         computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow], userCreatedAtStr: '2026-10-05' })
       ).toBe('2026-10-05');
+      // If expenses exist (> 0), it schedules for tomorrow even on day one
+      expect(
+        computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow], userCreatedAtStr: '2026-10-05', totalExpenseCount: 1 })
+      ).toBe('2026-10-06');
+      expect(isFirstDayFirstEnable([signupRow], '2026-10-05', '2026-10-05', 1)).toBe(false);
+      expect(isFirstDayFirstEnable([signupRow], '2026-10-05', '2026-10-05', 0)).toBe(true);
     });
 
     it('\"enable\" for an EXISTING account (created earlier) that never used Budget Mode stays tomorrow when expenses exist, but activates today if 0 expenses logged', () => {

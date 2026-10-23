@@ -175,10 +175,13 @@ export function isFirstDayFirstEnable(
   userCreatedAtStr?: string | null,
   totalExpenseCount?: number
 ): boolean {
-  if (totalExpenseCount !== undefined && totalExpenseCount === 0 && hasNeverEnabledBudgetMode(changes)) {
-    return true;
+  if (!hasNeverEnabledBudgetMode(changes)) {
+    return false;
   }
-  return !!userCreatedAtStr && userCreatedAtStr === todayStr && hasNeverEnabledBudgetMode(changes);
+  if (totalExpenseCount !== undefined) {
+    return totalExpenseCount === 0;
+  }
+  return !!userCreatedAtStr && userCreatedAtStr === todayStr;
 }
 
 /**
