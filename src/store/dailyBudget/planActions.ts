@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { round2 } from '../../lib/formatters';
 import { supabase } from '../../config/supabase';

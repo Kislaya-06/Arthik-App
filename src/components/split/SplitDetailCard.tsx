@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { useTheme } from '../../store/themeStore';
 import type { Expense } from '../../store/expenseStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../../config/theme';

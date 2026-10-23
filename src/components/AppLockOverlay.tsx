@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Lock, FingerprintPattern } from 'lucide-react-native';
+import Lock from 'lucide-react-native/icons/lock';
+import FingerprintPattern from 'lucide-react-native/icons/fingerprint-pattern';
 import { useTheme } from '../store/themeStore';
 import { useAppLockStore } from '../store/appLockStore';
 import { useAuthStore } from '../store/authStore';

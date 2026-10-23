@@ -8,9 +8,22 @@ import {
   Easing,
   useAnimatedValue,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  interpolateColor,
+  Easing as REasing,
+  Extrapolation,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
-import { Home, Clock, BarChart2, Plus } from 'lucide-react-native';
+import Home from 'lucide-react-native/icons/house';
+import Clock from 'lucide-react-native/icons/clock';
+import BarChart2 from 'lucide-react-native/icons/chart-no-axes-column';
+import Plus from 'lucide-react-native/icons/plus';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { useNavBarStore } from '../store/navBarStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -23,12 +36,16 @@ import * as Haptics from 'expo-haptics';
 // ─── Dual-Layer Cross-Fading Icon ───────────────────────────────────────────
 const AnimatedIcon = ({
   icon: Icon,
-  anim,
+  progress,
 }: {
   icon: any;
-  anim: Animated.Value;
+  progress: SharedValue<number>;
 }) => {
   const { colors } = useTheme();
+
+  const activeIconStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+  }));
 
   return (
     <View style={styles.iconWrapper}>
@@ -37,15 +54,15 @@ const AnimatedIcon = ({
         <Icon size={20} color={colors.textSecondary} />
       </View>
       {/* Active Icon layer (Mint Green) */}
-      <Animated.View style={[styles.iconLayer, { opacity: anim }]}>
+      <Reanimated.View style={[styles.iconLayer, activeIconStyle]}>
         <Icon size={20} color={colors.mintGreen} />
-      </Animated.View>
+      </Reanimated.View>
     </View>
   );
 };
 
 // ─── Expanding Active Capsule Tab Item ──────────────────────────────────────
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const ReanimatedPressable = Reanimated.createAnimatedComponent(Pressable);
 
 interface CapsuleTabItemProps {
   icon: any;
@@ -70,17 +87,15 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   activeMarginRight,
 }) => {
   const { isDark } = useTheme();
-  const anim = useAnimatedValue(active ? 1 : 0);
+  const progress = useSharedValue(active ? 1 : 0);
   const pressScale = useAnimatedValue(1);
 
   useEffect(() => {
-    Animated.timing(anim, {
-      toValue: active ? 1 : 0,
+    progress.value = withTiming(active ? 1 : 0, {
       duration: 180,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [active]);
+      easing: REasing.out(REasing.cubic),
+    });
+  }, [active, progress]);
 
   const handlePressIn = () => {
     Animated.spring(pressScale, {
@@ -100,53 +115,29 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
     }).start();
   };
 
-  // Interpolated Capsule Background
-  const capsuleBg = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [
-      'rgba(184, 224, 200, 0)',
-      isDark ? 'rgba(184, 224, 200, 0.16)' : 'rgba(184, 224, 200, 0.22)',
-    ],
-    extrapolate: 'clamp',
-  });
+  const activeBg = isDark ? 'rgba(184, 224, 200, 0.16)' : 'rgba(184, 224, 200, 0.22)';
+  const activeBorder = isDark ? 'rgba(184, 224, 200, 0.3)' : 'rgba(184, 224, 200, 0.35)';
 
-  // Interpolated Capsule Border
-  const capsuleBorder = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [
-      'rgba(184, 224, 200, 0)',
-      isDark ? 'rgba(184, 224, 200, 0.3)' : 'rgba(184, 224, 200, 0.35)',
-    ],
-    extrapolate: 'clamp',
-  });
+  const capsuleStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(progress.value, [0, 1], ['rgba(184, 224, 200, 0)', activeBg]),
+    borderColor: interpolateColor(progress.value, [0, 1], ['rgba(184, 224, 200, 0)', activeBorder]),
+    paddingHorizontal: interpolate(progress.value, [0, 1], [7, 11], Extrapolation.CLAMP),
+  }), [activeBg, activeBorder]);
 
-  // Interpolated Label Width & Opacity (calibrated to prevent overflowing wings)
-  const labelMaxWidth = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, labelMax],
-    extrapolate: 'clamp',
-  });
+  const labelStyle = useAnimatedStyle(() => ({
+    maxWidth: interpolate(progress.value, [0, 1], [0, labelMax], Extrapolation.CLAMP),
+    opacity: interpolate(progress.value, [0, 0.35, 1], [0, 0, 1], Extrapolation.CLAMP),
+    marginLeft: interpolate(progress.value, [0, 1], [0, 5], Extrapolation.CLAMP),
+  }), [labelMax]);
 
-  const labelOpacity = anim.interpolate({
-    inputRange: [0, 0.35, 1],
-    outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const labelMarginLeft = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 5],
-    extrapolate: 'clamp',
-  });
-
-  const paddingHorizontal = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [7, 11],
-    extrapolate: 'clamp',
-  });
+  const wrapperStyle = useAnimatedStyle(() =>
+    activeMarginRight
+      ? { marginRight: interpolate(progress.value, [0, 1], [0, activeMarginRight], Extrapolation.CLAMP) }
+      : {}
+  , [activeMarginRight]);
 
   return (
-    <AnimatedPressable
+    <ReanimatedPressable
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -155,40 +146,28 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
       style={[
         styles.tabPressable,
         { minWidth },
-        activeMarginRight
-          ? {
-              marginRight: anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, activeMarginRight],
-                extrapolate: 'clamp',
-              }),
-            }
-          : null,
+        wrapperStyle,
       ]}
       hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
     >
       <Animated.View style={{ transform: [{ scale: pressScale }] }}>
-        <Animated.View
+        <Reanimated.View
           style={[
             styles.capsule,
-            {
-              backgroundColor: capsuleBg,
-              borderColor: capsuleBorder,
-              paddingHorizontal,
-            },
+            capsuleStyle,
           ]}
         >
-          <AnimatedIcon icon={icon} anim={anim} />
+          <AnimatedIcon icon={icon} progress={progress} />
 
-          <Animated.View
-            style={{
-              maxWidth: labelMaxWidth,
-              opacity: labelOpacity,
-              marginLeft: labelMarginLeft,
-              overflow: 'hidden',
-              justifyContent: 'center',
-              height: 22,
-            }}
+          <Reanimated.View
+            style={[
+              {
+                overflow: 'hidden',
+                justifyContent: 'center',
+                height: 22,
+              },
+              labelStyle,
+            ]}
           >
             <Text
               numberOfLines={1}
@@ -201,10 +180,10 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
             >
               {label}
             </Text>
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       </Animated.View>
-    </AnimatedPressable>
+    </ReanimatedPressable>
   );
 });
 

@@ -4,15 +4,20 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   Animated,
   Pressable,
   ScrollView,
   useAnimatedValue,
 } from 'react-native';
-import { Check, X, ArrowLeft, ChevronRight, Sparkles } from 'lucide-react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
+import Check from 'lucide-react-native/icons/check';
+import X from 'lucide-react-native/icons/x';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import Sparkles from 'lucide-react-native/icons/sparkles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
@@ -185,22 +190,22 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
           {/* Close / Back button in top corner */}
           <View style={styles.sheetTopRow}>
             {mode === 'edit' && isAutoRenew && (
-              <TouchableOpacity
+              <PressableOpacity
                 onPress={() => setMode('celebrate')}
                 style={[styles.circleBtn, { backgroundColor: colors.cardSubtle }]}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <ArrowLeft size={18} color={colors.textPrimary} />
-              </TouchableOpacity>
+              </PressableOpacity>
             )}
             <View style={{ flex: 1 }} />
-            <TouchableOpacity
+            <PressableOpacity
               onPress={onClose}
               style={[styles.circleBtn, { backgroundColor: colors.cardSubtle }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <X size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
 
           {mode === 'celebrate' ? (
@@ -243,7 +248,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
               {/* Actions */}
               <View style={styles.actionButtonsWrap}>
                 {/* Primary: Keep ₹X */}
-                <TouchableOpacity
+                <PressableOpacity
                   style={[styles.primaryCta, { backgroundColor: colors.mintGreen }]}
                   onPress={onConfirmKeep}
                   activeOpacity={0.8}
@@ -252,10 +257,10 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
                   <Text style={styles.primaryCtaText}>
                     {`Keep ₹${formatAmountWithCommas(String(budgetAmount))}`}
                   </Text>
-                </TouchableOpacity>
+                </PressableOpacity>
 
                 {/* Secondary: Change Budget */}
-                <TouchableOpacity
+                <PressableOpacity
                   style={[styles.secondaryCta, { borderColor: colors.border }]}
                   onPress={() => setMode('edit')}
                   activeOpacity={0.7}
@@ -264,7 +269,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
                     Change Budget
                   </Text>
                   <ChevronRight size={16} color={colors.textSecondary} />
-                </TouchableOpacity>
+                </PressableOpacity>
               </View>
             </View>
           ) : (
@@ -299,7 +304,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
               {/* Quick Presets */}
               <View style={styles.presetsRow}>
                 {presets.map((val) => (
-                  <TouchableOpacity
+                  <PressableOpacity
                     key={val}
                     style={[
                       styles.presetChip,
@@ -333,7 +338,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
                     >
                       {`₹${formatAmountWithCommas(String(val))}`}
                     </Text>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 ))}
               </View>
 
@@ -347,7 +352,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
               </View>
 
               {/* Confirm Button */}
-              <TouchableOpacity
+              <PressableOpacity
                 style={[
                   styles.primaryCta,
                   {
@@ -363,7 +368,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
                 <Text style={styles.primaryCtaText}>
                   {`Set ${formatCurrency(parseFloat(inputAmount) || 0)} Budget`}
                 </Text>
-              </TouchableOpacity>
+              </PressableOpacity>
             </ScrollView>
           )}
 

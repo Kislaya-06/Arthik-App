@@ -1,4 +1,7 @@
-import { parseISO, addDays, format, differenceInCalendarDays } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
+import { addDays } from 'date-fns/addDays';
+import { format } from 'date-fns/format';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { BudgetCadence } from '../types';
 import { getPeriodBounds } from './budgetPeriods';
 import { formatAmountWithCommas } from './formatters';

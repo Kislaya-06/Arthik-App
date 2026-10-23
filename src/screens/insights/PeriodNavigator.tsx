@@ -1,8 +1,19 @@
 import React, { useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Animated, Easing, useAnimatedValue,
+  View, Text, StyleSheet, Pressable,
 } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withSpring,
+  withDelay,
+  cancelAnimation,
+  Easing as REasing,
+} from 'react-native-reanimated';
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { Spacing, FontSize, FontFamily } from '../../config/theme';
 
 export interface PeriodNavigatorProps {
@@ -28,8 +39,8 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
   const DOT_SLOT = 14;
 
   // Elastic pill animation: independent left position and width values
-  const slideLeft = useAnimatedValue(activeDotIndex * DOT_SLOT);
-  const slideWidth = useAnimatedValue(16);
+  const slideLeft = useSharedValue(activeDotIndex * DOT_SLOT);
+  const slideWidth = useSharedValue(16);
   const prevIndex = useRef(activeDotIndex);
 
   useEffect(() => {
@@ -38,31 +49,39 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
     if (from === to) return;
     prevIndex.current = to;
 
-    slideLeft.stopAnimation();
-    slideWidth.stopAnimation();
+    cancelAnimation(slideLeft);
+    cancelAnimation(slideWidth);
 
     const distance = Math.abs(to - from);
     const maxStretch = 16 + distance * DOT_SLOT;
     const targetLeft = to * DOT_SLOT;
 
-    const springCfg = { tension: 100, friction: 16, useNativeDriver: false };
-    const timeCfg = { duration: 130, easing: Easing.out(Easing.quad), useNativeDriver: false };
+    const springCfg = { stiffness: 447.4, damping: 49, mass: 1 };
+    const timeCfg = { duration: 130, easing: REasing.out(REasing.quad) };
 
-    Animated.sequence([
-      to > from
-        ? Animated.timing(slideWidth, { toValue: maxStretch, ...timeCfg })
-        : Animated.parallel([
-            Animated.timing(slideLeft, { toValue: targetLeft, ...timeCfg }),
-            Animated.timing(slideWidth, { toValue: maxStretch, ...timeCfg }),
-          ]),
-      to > from
-        ? Animated.parallel([
-            Animated.spring(slideLeft, { toValue: targetLeft, ...springCfg }),
-            Animated.spring(slideWidth, { toValue: 16, ...springCfg }),
-          ])
-        : Animated.spring(slideWidth, { toValue: 16, ...springCfg }),
-    ]).start();
-  }, [activeDotIndex]);
+    if (to > from) {
+      // Moving right: width stretches first, then left springs forward while width shrinks
+      slideWidth.value = withSequence(
+        withTiming(maxStretch, timeCfg),
+        withSpring(16, springCfg)
+      );
+      slideLeft.value = withSequence(
+        withDelay(130, withSpring(targetLeft, springCfg))
+      );
+    } else {
+      // Moving left: left moves immediately, width stretches then shrinks
+      slideLeft.value = withTiming(targetLeft, timeCfg);
+      slideWidth.value = withSequence(
+        withTiming(maxStretch, timeCfg),
+        withSpring(16, springCfg)
+      );
+    }
+  }, [activeDotIndex, slideLeft, slideWidth]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    left: slideLeft.value,
+    width: slideWidth.value,
+  }));
 
   return (
     <View style={navStyles.container}>
@@ -133,14 +152,11 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
             );
           })}
           {/* Animated pill that stretches and snaps over the dots */}
-          <Animated.View
+          <Reanimated.View
             style={[
               navStyles.dot,
               navStyles.activePill,
-              {
-                left: slideLeft,
-                width: slideWidth,
-              },
+              pillStyle,
             ]}
           />
         </View>

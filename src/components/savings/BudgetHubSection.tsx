@@ -1,6 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { ChevronRight, Clock, X } from 'lucide-react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import Animated from 'react-native-reanimated';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import Clock from 'lucide-react-native/icons/clock';
+import X from 'lucide-react-native/icons/x';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { GradientIconBadge } from '../GradientIconBadge';
@@ -26,7 +30,8 @@ export interface BudgetHubSectionProps {
   cardTarget: number;
   cardIsOver: boolean;
   cardProgressRatio: number;
-  animatedProgressWidth: any;
+  animatedProgressStyle?: any;
+  animatedProgressWidth?: any;
   cadencePeriodSummary: any;
   handleCancelScheduled: () => void;
   pendingPlanChange: any;
@@ -52,6 +57,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
   cardTarget,
   cardIsOver,
   cardProgressRatio,
+  animatedProgressStyle,
   animatedProgressWidth,
   cadencePeriodSummary,
   handleCancelScheduled,
@@ -197,7 +203,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
 
             {/* Right Column: Highlighted Change Action Button */}
             <View style={styles.ucHeroRight}>
-              <TouchableOpacity
+              <PressableOpacity
                 onPress={() => openBudgetModal('recurring')}
                 activeOpacity={0.75}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -207,7 +213,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                   Change
                 </Text>
                 <ChevronRight size={13} color="#FFFFFF" strokeWidth={2.5} />
-              </TouchableOpacity>
+              </PressableOpacity>
             </View>
           </View>
 
@@ -224,9 +230,9 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
               style={[
                 styles.ucProgressFill,
                 {
-                  width: animatedProgressWidth,
                   backgroundColor: cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF',
                 },
+                animatedProgressStyle ?? (animatedProgressWidth ? { width: animatedProgressWidth } : undefined),
               ]}
             />
           </View>
@@ -258,9 +264,9 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                   Takes effect at 12:00 AM
                 </Text>
               </View>
-              <TouchableOpacity onPress={handleCancelScheduled} hitSlop={8}>
+              <PressableOpacity onPress={handleCancelScheduled} hitSlop={8}>
                 <X size={16} color="rgba(255, 255, 255, 0.8)" />
-              </TouchableOpacity>
+              </PressableOpacity>
             </View>
           )}
 
@@ -300,9 +306,9 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                     : 'Takes effect tomorrow at 12:00 AM · Tap ✕ to cancel'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={cancelPendingPlanChange} hitSlop={8}>
+              <PressableOpacity onPress={cancelPendingPlanChange} hitSlop={8}>
                 <X size={16} color="rgba(255, 255, 255, 0.8)" />
-              </TouchableOpacity>
+              </PressableOpacity>
             </View>
           )}
 

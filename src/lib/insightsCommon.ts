@@ -5,7 +5,7 @@
  * Invariant: Real money only. Pure functions only. No React or side-effects.
  */
 
-import { parseISO } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
 import { toDateKey, isDateKeyWithin } from '../money/dateKeys';
 
 export interface ExpenseLike {

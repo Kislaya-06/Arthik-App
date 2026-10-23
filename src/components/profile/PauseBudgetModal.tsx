@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Modal, Pressable, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Modal, Pressable, StyleSheet } from 'react-native';
+import { PressableOpacity } from '../ui/PressableOpacity';
 import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { MoneyHelpBadge } from '../MoneyExplainerModal';
 import { Spacing, FontSize, FontFamily, BorderRadius, ControlHeight } from '../../config/theme';
@@ -67,7 +68,7 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
             })()}
           </Text>
 
-          <TouchableOpacity
+          <PressableOpacity
             onPress={onOpenMoneyExplainer}
             style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.element, marginBottom: Spacing.group }}
             activeOpacity={0.7}
@@ -76,11 +77,11 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
             <Text style={{ marginLeft: 6, fontSize: FontSize.bodySmall, color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.bold }}>
               See what happens to your funds
             </Text>
-          </TouchableOpacity>
+          </PressableOpacity>
 
           {/* Action Buttons: Stacked to maintain pristine pill geometry, exact 48px height, and zero bulky distortion */}
           <View style={localStyles.modalActions}>
-            <TouchableOpacity
+            <PressableOpacity
               style={[localStyles.switchBtn, { backgroundColor: colors.coral }]}
               onPress={onTurnOff}
               activeOpacity={0.85}
@@ -90,9 +91,9 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
               <Text style={localStyles.switchBtnText}>
                 Switch to Pure Mode
               </Text>
-            </TouchableOpacity>
+            </PressableOpacity>
 
-            <TouchableOpacity
+            <PressableOpacity
               style={[
                 localStyles.cancelBtn,
                 {
@@ -108,7 +109,7 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
               <Text style={[localStyles.cancelBtnText, { color: colors.textPrimary }]}>
                 Cancel
               </Text>
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
         </Pressable>
       </Pressable>

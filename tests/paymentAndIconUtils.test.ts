@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('lucide-react-native', () => {
+const { baseIcons } = vi.hoisted(() => {
   const baseIcons: Record<string, any> = {
     Wallet: () => null,
     CreditCard: () => null,
@@ -8,7 +8,10 @@ vi.mock('lucide-react-native', () => {
     HelpCircle: () => null,
     Utensils: () => null,
   };
+  return { baseIcons };
+});
 
+vi.mock('lucide-react-native', () => {
   return new Proxy(baseIcons, {
     has: () => true,
     get: (target, prop: string) => {
@@ -20,12 +23,17 @@ vi.mock('lucide-react-native', () => {
   });
 });
 
+vi.mock('lucide-react-native/icons/wallet', () => ({ default: baseIcons.Wallet }));
+vi.mock('lucide-react-native/icons/credit-card', () => ({ default: baseIcons.CreditCard }));
+vi.mock('lucide-react-native/icons/square-check-big', () => ({ default: baseIcons.CheckSquare }));
+
 import {
   getPaymentIcon,
   getPaymentLabel,
 } from '../src/lib/paymentUtils';
 import { isIncomeTransaction } from '../src/lib/transactionUtils';
 import { getCategoryIcon } from '../src/lib/iconUtils';
+import { CATEGORY_ICONS } from '../src/lib/categoryIconRegistry';
 import * as LucideIcons from 'lucide-react-native';
 
 describe('paymentUtils & iconUtils (Category 3 Helpers)', () => {
@@ -84,12 +92,12 @@ describe('paymentUtils & iconUtils (Category 3 Helpers)', () => {
 
   describe('Slice 3: Icon Resolution Fallback (iconUtils)', () => {
     it('returns matching icon component for known icon names', () => {
-      expect(getCategoryIcon('Utensils')).toBe(LucideIcons.Utensils);
+      expect(getCategoryIcon('Utensils')).toBe(CATEGORY_ICONS.Utensils);
     });
 
     it('falls back to HelpCircle for unknown or misspelled icon names', () => {
-      expect(getCategoryIcon('NonExistentIconXYZ')).toBe(LucideIcons.HelpCircle);
-      expect(getCategoryIcon('')).toBe(LucideIcons.HelpCircle);
+      expect(getCategoryIcon('NonExistentIconXYZ')).toBe(CATEGORY_ICONS.HelpCircle);
+      expect(getCategoryIcon('')).toBe(CATEGORY_ICONS.HelpCircle);
     });
   });
 });

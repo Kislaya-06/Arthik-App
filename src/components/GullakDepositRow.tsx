@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 
 import { GullakDeposit } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';

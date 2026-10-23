@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
+import { PressableOpacity } from '../ui/PressableOpacity';
 import { StreakFlame } from '../StreakFlame';
 import { styles } from '../../screens/SavingsScreen.styles';
 
@@ -35,7 +36,7 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
       </View>
 
       {/* Streak Badge (Bonus Feature #2 - Tappable for Calendar) */}
-      <TouchableOpacity
+      <PressableOpacity
         activeOpacity={0.7}
         onPress={onOpenStreakCalendar}
         style={[
@@ -50,7 +51,7 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
         <Text style={[styles.streakBadgeText, { color: '#E05638' }]}>
           {effectiveStreak} {budgetCadence === 'weekly' ? (effectiveStreak === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (effectiveStreak === 1 ? 'Month' : 'Months') : (effectiveStreak === 1 ? 'Day' : 'Days')} Streak
         </Text>
-      </TouchableOpacity>
+      </PressableOpacity>
     </View>
   );
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Repeat } from 'lucide-react-native';
+import Repeat from 'lucide-react-native/icons/repeat';
 import { useTheme } from '../../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
 import { AnimatedToggle } from '../AnimatedToggle';

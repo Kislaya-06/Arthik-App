@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
-import { format } from 'date-fns';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import { format } from 'date-fns/format';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AppButton } from '../ui/AppButton';

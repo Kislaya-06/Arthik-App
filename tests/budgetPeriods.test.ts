@@ -15,7 +15,10 @@ import {
   StreakUnit,
 } from '../src/lib/budgetPeriods';
 import { BudgetPlanChange } from '../src/types';
-import { eachDayOfInterval, parseISO, format, differenceInCalendarDays } from 'date-fns';
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
+import { parseISO } from 'date-fns/parseISO';
+import { format } from 'date-fns/format';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 
 describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
   // =========================================================================

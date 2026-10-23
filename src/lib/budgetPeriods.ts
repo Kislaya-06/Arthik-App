@@ -14,19 +14,17 @@
  * - Zero-Proration Policy: budget is 100% active immediately without fractional day scaling.
  */
 
-import {
-  format,
-  parseISO,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  addDays,
-  subDays,
-  addMonths,
-  differenceInCalendarDays,
-  eachDayOfInterval,
-} from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { endOfWeek } from 'date-fns/endOfWeek';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { endOfMonth } from 'date-fns/endOfMonth';
+import { addDays } from 'date-fns/addDays';
+import { subDays } from 'date-fns/subDays';
+import { addMonths } from 'date-fns/addMonths';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import { round2 } from './formatters';
 import { calculateCycleFinancials } from './budgetCalculations';
 import { monthlyAllowanceFromWeeklyBudget } from '../money/budgetAllowance';

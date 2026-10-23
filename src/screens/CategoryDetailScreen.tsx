@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeft } from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { TransactionRow } from '../components/TransactionRow';

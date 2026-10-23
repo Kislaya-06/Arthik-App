@@ -4,15 +4,22 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   Animated,
   Pressable,
   ScrollView,
   useAnimatedValue,
 } from 'react-native';
-import { Check, X, AlertTriangle, ArrowRight, Sparkles } from 'lucide-react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
+import Check from 'lucide-react-native/icons/check';
+import X from 'lucide-react-native/icons/x';
+import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
+import ArrowRight from 'lucide-react-native/icons/arrow-right';
+import Sparkles from 'lucide-react-native/icons/sparkles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { format, parseISO, addDays, differenceInCalendarDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { addDays } from 'date-fns/addDays';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 
 import { useTheme } from '../store/themeStore';
 import { BudgetCadence } from '../types';
@@ -242,7 +249,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               </Text>
             </View>
 
-            <TouchableOpacity
+            <PressableOpacity
               style={[
                 styles.closeButton,
                 { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' },
@@ -253,7 +260,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               accessibilityLabel="Close"
             >
               <X size={18} color={colors.textPrimary} />
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
 
           <ScrollView
@@ -305,7 +312,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                 </Text>
 
                 {plan.validation.maxSafeWeeklyAmount !== undefined && (
-                  <TouchableOpacity
+                  <PressableOpacity
                     style={styles.safeActionPill}
                     activeOpacity={0.8}
                     onPress={() => handleApplySafeAmount(plan.validation.maxSafeWeeklyAmount!)}
@@ -314,11 +321,11 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     <Text style={styles.safeActionText}>
                       Set Safe Budget: {formatCurrency(plan.validation.maxSafeWeeklyAmount)}/week
                     </Text>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 )}
 
                 {plan.validation.maxSafeDailyAmount !== undefined && (
-                  <TouchableOpacity
+                  <PressableOpacity
                     style={styles.safeActionPill}
                     activeOpacity={0.8}
                     onPress={() => handleApplySafeAmount(plan.validation.maxSafeDailyAmount!)}
@@ -327,7 +334,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     <Text style={styles.safeActionText}>
                       Set Safe Budget: {formatCurrency(plan.validation.maxSafeDailyAmount)}/day
                     </Text>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 )}
               </View>
             )}
@@ -354,7 +361,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                 </View>
 
                 {/* Option 1: Add to Target Budget */}
-                <TouchableOpacity
+                <PressableOpacity
                   style={[
                     styles.modeOptionCard,
                     carryMode === 'additive' && styles.modeOptionCardActive,
@@ -406,10 +413,10 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     </Text>
                     {isToDaily ? '. Unused money goes to Gullak at night.' : ` (for ${targetPeriodInfo.remainingDays} days)`}
                   </Text>
-                </TouchableOpacity>
+                </PressableOpacity>
 
                 {/* Option 2: Keep target budget */}
-                <TouchableOpacity
+                <PressableOpacity
                   style={[
                     styles.modeOptionCard,
                     carryMode === 'allocation' && styles.modeOptionCardActive,
@@ -465,7 +472,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                       </>
                     )}
                   </Text>
-                </TouchableOpacity>
+                </PressableOpacity>
               </View>
             )}
 
@@ -492,7 +499,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actionRow}>
-            <TouchableOpacity
+            <PressableOpacity
               style={[
                 styles.cancelBtn,
                 {
@@ -506,9 +513,9 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               accessibilityLabel="Cancel"
             >
               <Text style={[styles.cancelText, { color: colors.textPrimary }]}>Cancel</Text>
-            </TouchableOpacity>
+            </PressableOpacity>
 
-            <TouchableOpacity
+            <PressableOpacity
               style={[
                 styles.confirmBtn,
                 {
@@ -551,7 +558,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               >
                 Switch to {targetLabel}
               </Text>
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
 
           {/* Bleed skirt: anchors the bottom of the sheet so spring overshoot never exposes the background underneath */}

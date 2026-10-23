@@ -3,12 +3,15 @@ import {
   Animated,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   useAnimatedValue,
 } from 'react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WifiOff, Wifi, X, RefreshCw } from 'lucide-react-native';
+import WifiOff from 'lucide-react-native/icons/wifi-off';
+import Wifi from 'lucide-react-native/icons/wifi';
+import X from 'lucide-react-native/icons/x';
+import RefreshCw from 'lucide-react-native/icons/refresh-cw';
 import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily } from '../config/theme';
@@ -124,13 +127,13 @@ export const OfflineBanner: React.FC = () => {
           </Text>
         </View>
 
-        <TouchableOpacity
+        <PressableOpacity
           style={styles.closeBtn}
           onPress={dismissBanner}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <X size={15} color={textColor} />
-        </TouchableOpacity>
+        </PressableOpacity>
       </View>
     </Animated.View>
   );

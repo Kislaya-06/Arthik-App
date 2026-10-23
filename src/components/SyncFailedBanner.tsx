@@ -3,12 +3,12 @@ import {
   Animated,
   StyleSheet,
   Text,
-  TouchableOpacity,
   Alert,
   useAnimatedValue,
 } from 'react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle } from 'lucide-react-native';
+import AlertCircle from 'lucide-react-native/icons/circle-alert';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily } from '../config/theme';
@@ -178,7 +178,7 @@ export const SyncFailedBanner: React.FC = () => {
         },
       ]}
     >
-      <TouchableOpacity
+      <PressableOpacity
         activeOpacity={0.85}
         onPress={handlePress}
         style={[
@@ -199,7 +199,7 @@ export const SyncFailedBanner: React.FC = () => {
         >
           {message}
         </Text>
-      </TouchableOpacity>
+      </PressableOpacity>
     </Animated.View>
   );
 };

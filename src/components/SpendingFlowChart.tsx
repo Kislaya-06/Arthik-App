@@ -8,7 +8,8 @@ import {
   useAnimatedValue,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import { TrendingUp, TrendingDown } from 'lucide-react-native';
+import TrendingUp from 'lucide-react-native/icons/trending-up';
+import TrendingDown from 'lucide-react-native/icons/trending-down';
 import {
   ThemeColors,
   FontFamily,

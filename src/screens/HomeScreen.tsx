@@ -3,20 +3,22 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Pressable,
   Animated,
   useAnimatedValue,
   AppState,
   useWindowDimensions,
 } from 'react-native';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { useFocusEffect } from '@react-navigation/native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Bell, User, Users } from 'lucide-react-native';
+import Bell from 'lucide-react-native/icons/bell';
+import User from 'lucide-react-native/icons/user';
+import Users from 'lucide-react-native/icons/users';
 import { hasUnsettledSplitExpenses } from '../lib/splitLedger';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
@@ -27,7 +29,16 @@ import { findInactiveGapDays } from '../lib/gapFiller';
 import { PullToHistoryList, PullToHistoryListHandle } from '../components/PullToHistoryList';
 import { RefreshScrollShell } from '../components/RefreshScrollShell';
 import { getNavTopOffset } from '../lib/pullToHistoryPhysics';
-import { format, parseISO, isValid, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameWeek, isSameMonth, isSameDay } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { isValid } from 'date-fns/isValid';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { endOfWeek } from 'date-fns/endOfWeek';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { endOfMonth } from 'date-fns/endOfMonth';
+import { isSameWeek } from 'date-fns/isSameWeek';
+import { isSameMonth } from 'date-fns/isSameMonth';
+import { isSameDay } from 'date-fns/isSameDay';
 import { HeroDetailsSheet } from '../components/HeroDetailsSheet';
 import { buildHeroDetails, heroDetailsTitle, moneyBackInRows, autoSavedInScope, withTillToday } from '../lib/heroDetails';
 import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
@@ -54,6 +65,7 @@ import { useTheme } from '../store/themeStore';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
 import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { perfMark, perfSummary } from '../lib/perfMarks';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
@@ -137,7 +149,7 @@ const HomeGullakItem = React.memo<HomeGullakItemProps>(({
   const handlePress = useCallback(() => onPress(deposit.id), [onPress, deposit.id]);
   return (
     <StaggerRow index={index}>
-      <TouchableOpacity
+      <PressableOpacity
         activeOpacity={0.75}
         onPress={handlePress}
       >
@@ -146,7 +158,7 @@ const HomeGullakItem = React.memo<HomeGullakItemProps>(({
           colors={colors}
           isDark={isDark}
         />
-      </TouchableOpacity>
+      </PressableOpacity>
     </StaggerRow>
   );
 });
@@ -671,7 +683,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   return (
     // Same native pull-to-refresh circle as History / Savings / Insights (see AppRefreshControl).
     <RefreshScrollShell refreshing={refreshing} onRefresh={onRefresh}>
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={() => {
+        perfMark('home_first_layout');
+        perfSummary();
+      }}
+    >
       <AmbientBackground />
       <StatusBar style={isDark ? 'light' : 'dark'} />
 

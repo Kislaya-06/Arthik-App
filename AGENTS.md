@@ -309,6 +309,10 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
   - HitSlop on adjacent segmented buttons must NEVER have horizontal overlap (zero horizontal hitSlop between neighboring segment buttons), but the outer edges must provide generous outer hitSlop (`left: 16` on the first option, `right: 16` on the last option) and `pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}` so long-distance thumb reaches across from the opposite end of the phone never drop taps or suffer micro-slide cancellations.
   - When hosted inside a `<ScrollView />`, the scroll view must specify `keyboardShouldPersistTaps="handled"` so taps on segment options are never swallowed or delayed.
 
+## 9.11 Category Icon Registry & Direct Icon Imports (OPT-01 / OPT-02 Invariant)
+- **Category Picker Icons**: Any new category icon added to the picker grids (`ICONS_GRID` or `INCOME_ICONS_GRID` in `src/screens/AddEditCategoryScreen.tsx`) MUST also be added to `CATEGORY_ICONS` in `src/lib/categoryIconRegistry.ts`, or it will render as a fallback question-mark icon (`HelpCircle`).
+- **Zero Lucide Barrel Imports**: Never use `import { ... } from 'lucide-react-native'` or `import * as LucideIcons`. Always import specific icons directly from `lucide-react-native/icons/<stem>`.
+
 ---
 
 # 10. Notifications

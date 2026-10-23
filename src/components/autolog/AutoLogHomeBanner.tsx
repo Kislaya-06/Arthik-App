@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, View } from 'react-native';
-import { Inbox, AlertTriangle, ChevronRight } from 'lucide-react-native';
+import Inbox from 'lucide-react-native/icons/inbox';
+import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { useTheme } from '../../store/themeStore';
 import { useAutoLogStore } from '../../features/autoLog/store';
 import { navigateTo } from '../../navigation/navigationRef';

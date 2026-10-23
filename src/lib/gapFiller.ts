@@ -1,4 +1,6 @@
-import { format, subDays, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
+import { parseISO } from 'date-fns/parseISO';
 import { isDailyOwnedDate } from '../store/dailyBudget/metrics';
 import { getStoredList, setStoredList } from './asyncStorageList';
 import type { DailyRecord } from './budgetCalculations';

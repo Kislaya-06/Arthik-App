@@ -87,21 +87,27 @@ export interface VisualState {
   pull: number;
 }
 
-const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+const clamp = (v: number, lo: number, hi: number): number => {
+  'worklet';
+  return Math.min(hi, Math.max(lo, v));
+};
 
 /** Max pull-up depth for a list that is `viewportHeight` dp tall. */
 export function getMaxTravel(viewportHeight: number): number {
+  'worklet';
   if (!(viewportHeight > 0)) return PULL_MAX_TRAVEL_MIN;
   return clamp(viewportHeight * PULL_VIEWPORT_RATIO, PULL_MAX_TRAVEL_MIN, PULL_MAX_TRAVEL_CAP);
 }
 
 /** Finger travel (dp) beyond the end that fills the pull completely. Chosen so the start is exactly 1:1. */
 export function getFingerTravel(maxTravel: number): number {
+  'worklet';
   return maxTravel * PULL_CURVE_EXPONENT;
 }
 
 /** Rubber-band curve: 1:1 at the start, getting stiffer, hard ceiling at `max`. */
 function resist(travel: number, max: number, exponent: number): number {
+  'worklet';
   if (travel <= 0 || max <= 0) return 0;
   const fingerTravel = max * exponent;
   const u = Math.min(1, travel / fingerTravel);
@@ -110,6 +116,7 @@ function resist(travel: number, max: number, exponent: number): number {
 
 /** Inverse of {@link resist}: finger travel that produces `depth`. */
 function unresist(depth: number, max: number, exponent: number): number {
+  'worklet';
   if (depth <= 0 || max <= 0) return 0;
   const p = Math.min(1, depth / max);
   const u = 1 - Math.pow(1 - p, 1 / exponent);
@@ -118,11 +125,13 @@ function unresist(depth: number, max: number, exponent: number): number {
 
 /** Pull-up depth (dp) for `travel` dp of finger movement past the end of the list. */
 export function pullDepthFromTravel(travel: number, maxTravel: number): number {
+  'worklet';
   return resist(travel, maxTravel, PULL_CURVE_EXPONENT);
 }
 
 /** Finger travel (dp) that corresponds to a pull-up depth. */
 export function travelFromPullDepth(depth: number, maxTravel: number): number {
+  'worklet';
   return unresist(depth, maxTravel, PULL_CURVE_EXPONENT);
 }
 
@@ -132,6 +141,7 @@ export function travelFromPullDepth(depth: number, maxTravel: number): number {
  * refresh control, the list never moves down). This maps it to what is drawn.
  */
 export function resolveVisualState(rawY: number, geo: PullGeometry): VisualState {
+  'worklet';
   if (rawY <= 0) {
     return { scroll: 0, pull: 0 };
   }
@@ -146,6 +156,7 @@ export function resolveVisualState(rawY: number, geo: PullGeometry): VisualState
 
 /** Inverse of {@link resolveVisualState} (used to catch the content mid-bounce). */
 export function rawYFromVisualState(v: VisualState, geo: PullGeometry): number {
+  'worklet';
   if (v.pull > 0) return geo.maxScroll + travelFromPullDepth(v.pull, geo.maxTravel);
   return clamp(v.scroll, 0, geo.maxScroll);
 }
@@ -155,6 +166,7 @@ export function rawYFromVisualState(v: VisualState, geo: PullGeometry): number {
  * (no "dead zone" after over-dragging past a hard edge).
  */
 export function clampRawY(rawY: number, geo: PullGeometry): number {
+  'worklet';
   // Top is a hard edge. Past the end, finger travel beyond what fully fills the pull changes nothing.
   const upper = geo.pullEnabled ? geo.maxScroll + getFingerTravel(geo.maxTravel) : geo.maxScroll;
   return clamp(rawY, 0, upper);
@@ -164,12 +176,14 @@ export function clampRawY(rawY: number, geo: PullGeometry): number {
 
 /** Pull progress 0..1 for a given depth. */
 export function getPullProgress(depth: number, maxTravel: number): number {
+  'worklet';
   if (!(maxTravel > 0)) return 0;
   return clamp(depth / maxTravel, 0, 1);
 }
 
 /** Armed state with hysteresis: arms at ARM_PROGRESS, disarms below DISARM_PROGRESS. */
 export function nextArmedState(wasArmed: boolean, progress: number): boolean {
+  'worklet';
   return wasArmed ? progress >= DISARM_PROGRESS : progress >= ARM_PROGRESS;
 }
 
@@ -190,6 +204,7 @@ export interface RingArc {
  * Draw order: full grey track, then this white arc on top.
  */
 export function getRingArc(progress: number, circumference: number): RingArc {
+  'worklet';
   const p = clamp(progress, 0, 1);
   const whiteLength = (1 - p) * circumference;
   return {
@@ -222,6 +237,7 @@ export type ReleaseDecision =
 
 /** What to do the moment the finger lifts. History only ever opens HERE, never while the finger is down. */
 export function decideRelease(input: ReleaseInput): ReleaseDecision {
+  'worklet';
   const { pull, armed, cancelled, scrollVelocity, maxScroll } = input;
 
   if (pull > EDGE_EPSILON) {

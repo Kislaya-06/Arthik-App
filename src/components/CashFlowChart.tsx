@@ -8,7 +8,8 @@ import {
   useAnimatedValue,
 } from 'react-native';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react-native';
+import ArrowUpRight from 'lucide-react-native/icons/arrow-up-right';
+import ArrowDownRight from 'lucide-react-native/icons/arrow-down-right';
 import {
   ThemeColors,
   FontFamily,

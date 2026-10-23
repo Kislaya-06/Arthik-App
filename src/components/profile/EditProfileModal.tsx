@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
-import { X, Check, Mail } from 'lucide-react-native';
+import X from 'lucide-react-native/icons/x';
+import Check from 'lucide-react-native/icons/check';
+import Mail from 'lucide-react-native/icons/mail';
 import { FontFamily } from '../../config/theme';
 import {
   clampNameInput,

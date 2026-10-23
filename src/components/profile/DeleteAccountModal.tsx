@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
-import { Trash2, X } from 'lucide-react-native';
+import Trash2 from 'lucide-react-native/icons/trash';
+import X from 'lucide-react-native/icons/x';
 import { Spacing, FontFamily } from '../../config/theme';
 
 export interface DeleteAccountModalProps {

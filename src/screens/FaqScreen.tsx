@@ -6,10 +6,19 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  ArrowLeft, Search, X, ChevronDown, ChevronUp,
-  HelpCircle, PiggyBank, Flame, Wallet, ShieldCheck, Calendar, Sparkles, Zap,
-} from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Search from 'lucide-react-native/icons/search';
+import X from 'lucide-react-native/icons/x';
+import ChevronDown from 'lucide-react-native/icons/chevron-down';
+import ChevronUp from 'lucide-react-native/icons/chevron-up';
+import HelpCircle from 'lucide-react-native/icons/circle-question-mark';
+import PiggyBank from 'lucide-react-native/icons/piggy-bank';
+import Flame from 'lucide-react-native/icons/flame';
+import Wallet from 'lucide-react-native/icons/wallet';
+import ShieldCheck from 'lucide-react-native/icons/shield-check';
+import Calendar from 'lucide-react-native/icons/calendar';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Zap from 'lucide-react-native/icons/zap';
 
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 import { useTheme } from '../store/themeStore';

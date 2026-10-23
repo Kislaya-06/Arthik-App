@@ -1,4 +1,6 @@
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format } from 'date-fns/format';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { endOfWeek } from 'date-fns/endOfWeek';
 
 export type FilterPeriod = 'day' | 'week' | 'month' | 'all';
 

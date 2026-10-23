@@ -4,14 +4,16 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   Animated,
   Pressable,
   ScrollView,
   ActivityIndicator,
   useAnimatedValue,
 } from 'react-native';
-import { ShieldAlert, Plus, X } from 'lucide-react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
+import ShieldAlert from 'lucide-react-native/icons/shield-alert';
+import Plus from 'lucide-react-native/icons/plus';
+import X from 'lucide-react-native/icons/x';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -195,7 +197,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
           </View>
 
           {/* Close Icon */}
-          <TouchableOpacity
+          <PressableOpacity
             style={[
               styles.closeButton,
               { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' },
@@ -207,7 +209,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
             accessibilityLabel="Close"
           >
             <X size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
+          </PressableOpacity>
 
           <ScrollView
             bounces={false}
@@ -259,7 +261,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                 const isSelected = evaluatedAddAmount === chipVal;
                 const isExact = idx === 0 && chipVal === expenseAmount;
                 return (
-                  <TouchableOpacity
+                  <PressableOpacity
                     key={`preset_${chipVal}_${idx}`}
                     style={[
                       styles.presetChip,
@@ -288,7 +290,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                     >
                       {isExact ? `Exact ₹${formatAmountWithCommas(String(chipVal))}` : `₹${formatAmountWithCommas(String(chipVal))}`}
                     </Text>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 );
               })}
             </View>
@@ -322,7 +324,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
             <View style={styles.paymentSection}>
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Add via</Text>
               <View style={styles.paymentPillGroup}>
-                <TouchableOpacity
+                <PressableOpacity
                   style={[
                     styles.paymentPill,
                     paymentMode === 'upi' && {
@@ -353,9 +355,9 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                   >
                     UPI
                   </Text>
-                </TouchableOpacity>
+                </PressableOpacity>
 
-                <TouchableOpacity
+                <PressableOpacity
                   style={[
                     styles.paymentPill,
                     paymentMode === 'cash' && {
@@ -386,7 +388,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                   >
                     Cash
                   </Text>
-                </TouchableOpacity>
+                </PressableOpacity>
               </View>
             </View>
 
@@ -417,7 +419,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
 
             {/* Actions */}
             <View style={styles.actionsContainer}>
-              <TouchableOpacity
+              <PressableOpacity
                 style={[
                   styles.primaryButton,
                   {
@@ -460,9 +462,9 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                     </Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </PressableOpacity>
 
-              <TouchableOpacity
+              <PressableOpacity
                 style={styles.cancelButton}
                 onPress={onClose}
                 disabled={isSubmitting}
@@ -471,7 +473,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                 <Text style={[styles.cancelButtonText, { color: colors.textMuted }]}>
                   Keep Editing / Cancel
                 </Text>
-              </TouchableOpacity>
+              </PressableOpacity>
             </View>
           </ScrollView>
 

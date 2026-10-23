@@ -14,22 +14,48 @@ const rn = vi.hoisted(() => ({
   anims: [] as Anim[],
 }));
 
-vi.mock('react-native', async () => {
+vi.mock('react-native-worklets', () => ({
+  scheduleOnRN: (fn: any, ...args: any[]) => fn(...args),
+}));
+
+vi.mock('react-native-reanimated', async () => {
   const rt = await import('./helpers/hookRuntime');
-  class AnimatedValue {
+  class SharedValue {
     value: number;
     constructor(v: number) {
       this.value = v;
     }
-    setValue(v: number) {
-      this.value = v;
-    }
   }
-  const make = (kind: 'timing' | 'spring') => (value: AnimatedValue, cfg: any) => ({
-    start: (done?: (r: { finished: boolean }) => void) => {
-      rn.anims.push({ kind, cfg: { ...cfg, target: value }, done, started: true });
+  return {
+    useSharedValue: (v: number) => rt.reactHooks.useRef(new SharedValue(v)).current,
+    withTiming: (toValue: number, cfg?: any, cb?: (finished: boolean) => void) => {
+      rn.anims.push({
+        kind: 'timing',
+        cfg: { toValue, ...cfg },
+        done: (r: { finished: boolean }) => cb?.(r.finished),
+        started: true,
+      });
+      return toValue;
     },
-  });
+    withSpring: (toValue: number, cfg?: any, cb?: (finished: boolean) => void) => {
+      rn.anims.push({
+        kind: 'spring',
+        cfg: { toValue, ...cfg },
+        done: (r: { finished: boolean }) => cb?.(r.finished),
+        started: true,
+      });
+      return toValue;
+    },
+    Easing: {
+      out: (f: unknown) => f,
+      cubic: 'cubic',
+      inOut: (f: unknown) => f,
+      ease: 'ease',
+    },
+  };
+});
+
+vi.mock('react-native', async () => {
   return {
     Keyboard: {
       addListener: (event: string, cb: () => void) => {
@@ -38,9 +64,7 @@ vi.mock('react-native', async () => {
       },
       dismiss: rn.dismiss,
     },
-    Animated: { timing: make('timing'), spring: make('spring') },
     Easing: { out: (f: unknown) => f, cubic: 'cubic' },
-    useAnimatedValue: (v: number) => rt.reactHooks.useRef(new AnimatedValue(v)).current,
   };
 });
 
@@ -76,7 +100,7 @@ describe('useFormKeyboard (the custom keypad and the system keyboard on the add 
     it('hideKeypad slides the keypad down over 200 ms and only then marks it hidden', () => {
       const { h } = newHook();
       h.result.current.hideKeypad();
-      expect(lastAnim().cfg).toMatchObject({ toValue: 0, duration: 200, useNativeDriver: false });
+      expect(lastAnim().cfg).toMatchObject({ toValue: 0, duration: 200 });
       expect(h.result.current.isKeypadVisible).toBe(true); // still visible while it animates
       finish(lastAnim());
       expect(h.result.current.isKeypadVisible).toBe(false);
@@ -103,7 +127,7 @@ describe('useFormKeyboard (the custom keypad and the system keyboard on the add 
       finish(lastAnim());
       h.result.current.showKeypad();
       expect(h.result.current.isKeypadVisible).toBe(true);
-      expect(lastAnim().cfg).toMatchObject({ toValue: 1, duration: 220, useNativeDriver: false });
+      expect(lastAnim().cfg).toMatchObject({ toValue: 1, duration: 220 });
     });
 
     it('showKeypad is blocked while the note field has focus', () => {
@@ -253,7 +277,7 @@ describe('useFormKeyboard (the custom keypad and the system keyboard on the add 
       const { h } = newHook();
       h.result.current.handleKeypadDragEnd(10, 0.1);
       expect(lastAnim().kind).toBe('spring');
-      expect(lastAnim().cfg).toMatchObject({ toValue: 1, tension: 70, friction: 8, useNativeDriver: false });
+      expect(lastAnim().cfg).toMatchObject({ toValue: 1, stiffness: 338.8, damping: 25, mass: 1 });
       expect(h.result.current.isKeypadVisible).toBe(true);
     });
 

@@ -1,8 +1,13 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, TextInput,
-  SectionList, TouchableOpacity,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  SectionList,
 } from 'react-native';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
 import { StatusBar } from 'expo-status-bar';
@@ -15,9 +20,18 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
-import { Search, Receipt, SearchX, FilterX, ChevronDown } from 'lucide-react-native';
+import Search from 'lucide-react-native/icons/search';
+import Receipt from 'lucide-react-native/icons/receipt';
+import SearchX from 'lucide-react-native/icons/search-x';
+import FilterX from 'lucide-react-native/icons/funnel-x';
+import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
-import { format, isToday, isYesterday, parseISO, isAfter, addDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { isToday } from 'date-fns/isToday';
+import { isYesterday } from 'date-fns/isYesterday';
+import { parseISO } from 'date-fns/parseISO';
+import { isAfter } from 'date-fns/isAfter';
+import { addDays } from 'date-fns/addDays';
 import * as Haptics from 'expo-haptics';
 import { TabParamList, RootStackParamList } from '../types';
 import { formatCurrency } from '../lib/formatters';
@@ -310,7 +324,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!hasMoreSections) return null;
 
     return (
-      <TouchableOpacity
+      <PressableOpacity
         style={[
           styles.seeMoreBtn,
           {
@@ -325,7 +339,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           See More
         </Text>
         <ChevronDown size={16} color={colors.textSecondary} />
-      </TouchableOpacity>
+      </PressableOpacity>
     );
   }, [hasMoreSections, isDark, colors, handleSeeMore]);
 

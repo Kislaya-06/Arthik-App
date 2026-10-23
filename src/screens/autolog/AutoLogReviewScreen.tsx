@@ -15,7 +15,8 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
-import { Inbox, Trash2 } from 'lucide-react-native';
+import Inbox from 'lucide-react-native/icons/inbox';
+import Trash2 from 'lucide-react-native/icons/trash';
 import { RootStackParamList } from '../../types';
 import { useTheme } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';

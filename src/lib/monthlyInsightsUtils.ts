@@ -14,12 +14,10 @@
  * Invariant: Real money only. Pure functions only. No React or side-effects.
  */
 
-import {
-  parseISO,
-  differenceInCalendarDays,
-  addDays,
-  getDaysInMonth,
-} from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
+import { addDays } from 'date-fns/addDays';
+import { getDaysInMonth } from 'date-fns/getDaysInMonth';
 import { isCountedExpense } from './transactionUtils';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';

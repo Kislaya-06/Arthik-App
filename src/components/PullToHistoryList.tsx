@@ -8,15 +8,23 @@ import React, {
   useState,
 } from 'react';
 import {
-  Animated,
   LayoutChangeEvent,
-  PanResponder,
-  PanResponderGestureState,
   StyleSheet,
   Vibration,
   View,
-  useAnimatedValue,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedReaction,
+  withSpring,
+  withDecay,
+  cancelAnimation,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { ThemeColors, Spacing } from '../config/theme';
 import { PullToHistoryIndicator, PULL_FOOTER_HEIGHT } from './PullToHistoryIndicator';
@@ -42,12 +50,12 @@ import {
  * Recent-transactions list with an Instagram "Vanish Mode"-style pull-up that opens History.
  *
  * WHY NOT A ScrollView?
- * On Android the native ScrollView steals the touch from any JS PanResponder as soon as the finger
+ * On Android the native ScrollView steals the touch from any JS gesture responder as soon as the finger
  * moves ~8dp, so a pull layered on top of it cannot be made reliable. This component owns the
- * whole vertical gesture instead (drag, momentum, pull-up) in one place.
+ * whole vertical gesture instead (drag, momentum, pull-up) in one place on the UI thread via RNGH + Reanimated.
  *
  * Pull-DOWN is deliberately NOT handled here: the list never moves down. A downward drag that starts
- * with the list at the top is left alone so the app-wide native refresh circle (AppRefreshControl,
+ * with the list at the top is left alone (via gesture fail) so the app-wide native refresh circle (AppRefreshControl,
  * hosted by RefreshScrollShell) takes it, exactly like History / Savings / Insights.
  *
  * Behaviour (measured from Instagram, see lib/pullToHistoryPhysics.ts):
@@ -71,16 +79,6 @@ export interface PullToHistoryListProps {
   pullEnabled: boolean;
   /** Called once, when the finger is lifted while the ring is full. */
   onCommit: () => void;
-}
-
-interface GestureState {
-  active: boolean;
-  /** Virtual scroll position at the moment the gesture was claimed. */
-  y0: number;
-  /** gestureState.dy at the moment the gesture was claimed (so the touch-slop does not make it jump). */
-  dyAtGrant: number;
-  armed: boolean;
-  lastMoveAt: number;
 }
 
 /** Vertical movement (dp) before the list claims the touch. Below this a tap still reaches the row. */
@@ -107,13 +105,9 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
     { children, colors, isDark, pullEnabled, onCommit },
     ref
   ) {
-    // ── Animated values (all JS-driven; the physics lives on the JS thread) ──────────────────────
-    const scrollY = useAnimatedValue(0); // in-bounds scroll offset (decay can overshoot; clamped for drawing)
-    const pullDepth = useAnimatedValue(0); // pull-up past the end (dp)
-
-    // Plain-number mirrors of the values above (Animated.Value has no public getter).
-    const scrollVal = useRef(0);
-    const pullVal = useRef(0);
+    // ── Reanimated Shared Values (all UI-thread driven) ─────────────────────────────────────────
+    const scrollY = useSharedValue(0); // in-bounds scroll offset (0..maxScroll)
+    const pullDepth = useSharedValue(0); // pull-up past the end (dp, 0..maxTravel)
 
     const [viewportH, setViewportH] = useState(0);
     const [rowsH, setRowsH] = useState(0);
@@ -122,128 +116,49 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
     const maxScroll = Math.max(0, LIST_TOP_PAD + rowsH + LIST_BOTTOM_GAP - viewportH);
     const maxTravel = getMaxTravel(viewportH);
 
-    const geoRef = useRef<PullGeometry>({ maxScroll, maxTravel, pullEnabled });
-    geoRef.current = { maxScroll, maxTravel, pullEnabled };
+    const maxScrollVal = useSharedValue(maxScroll);
+    const maxTravelVal = useSharedValue(maxTravel);
+    const pullEnabledVal = useSharedValue(pullEnabled);
 
-    // Always read the freshest props from the (created-once) PanResponder.
-    const latest = useRef({ onCommit });
-    latest.current = { onCommit };
+    const isGestureActive = useSharedValue(false);
+    const isArmed = useSharedValue(false);
+    const isCommitted = useSharedValue(false);
+    const isMomentumRunning = useSharedValue(false);
 
-    const gestureRef = useRef<GestureState>({ active: false, y0: 0, dyAtGrant: 0, armed: false, lastMoveAt: 0 });
-    const gesture = gestureRef;
+    const startTouchX = useSharedValue(0);
+    const startTouchY = useSharedValue(0);
+    const gestureY0 = useSharedValue(0);
+    const startTranslationY = useSharedValue(0);
+    const lastMoveAt = useSharedValue(0);
+
+    // Always keep latest onCommit callback in a ref so worklet schedules fresh handler
+    const latestOnCommit = useRef(onCommit);
+    latestOnCommit.current = onCommit;
+
+    const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Sync layout geometry to UI-thread shared values
+    useEffect(() => {
+      maxScrollVal.value = maxScroll;
+      maxTravelVal.value = maxTravel;
+      pullEnabledVal.value = pullEnabled;
+      if (!isGestureActive.value && scrollY.value > maxScroll) {
+        scrollY.value = maxScroll;
+      }
+    }, [maxScroll, maxTravel, pullEnabled, maxScrollVal, maxTravelVal, pullEnabledVal, isGestureActive, scrollY]);
 
     // The app-wide refresh circle must be OFF whenever this list owns the touch or is scrolled away from
     // the top (otherwise a downward scroll mid-list would be mistaken for a pull-to-refresh).
     const setRefreshLocked = useRefreshLock();
-    const refreshLockedRef = useRef(false);
-    const syncRefreshLock = useCallback(() => {
-      const locked = gestureRef.current.active || scrollVal.current > EDGE_EPSILON || pullVal.current > EDGE_EPSILON;
-      if (locked !== refreshLockedRef.current) {
-        refreshLockedRef.current = locked;
-        setRefreshLocked(locked);
+
+    useAnimatedReaction(
+      () => isGestureActive.value || scrollY.value > EDGE_EPSILON || pullDepth.value > EDGE_EPSILON,
+      (locked, prevLocked) => {
+        'worklet';
+        if (locked !== prevLocked) {
+          scheduleOnRN(setRefreshLocked, locked);
+        }
       }
-    }, [setRefreshLocked]);
-
-    const momentumRef = useRef(false);
-    const committedRef = useRef(false);
-    const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-      const a = scrollY.addListener(({ value }) => {
-        scrollVal.current = value;
-        syncRefreshLock();
-      });
-      const b = pullDepth.addListener(({ value }) => {
-        pullVal.current = value;
-        syncRefreshLock();
-      });
-      return () => {
-        scrollY.removeListener(a);
-        pullDepth.removeListener(b);
-      };
-    }, [scrollY, pullDepth, syncRefreshLock]);
-
-    // The scroll offset can never be drawn outside [0, maxScroll], even if a fling overshoots for a frame.
-    // Independent scroll and pull transforms — eliminates compound Animated.add node that causes
-    // Fabric disconnectAnimatedNodes / connectAnimatedNodes crashes on screen transitions.
-    const scrollTranslateY = useMemo(
-      () =>
-        scrollY.interpolate({
-          inputRange: [0, Math.max(maxScroll, 1)],
-          outputRange: [0, -maxScroll],
-          extrapolate: 'clamp',
-        }),
-      [scrollY, maxScroll]
-    );
-
-    const pullTranslateY = useMemo(
-      () =>
-        pullDepth.interpolate({
-          inputRange: [-10000, 10000],
-          outputRange: [10000, -10000],
-        }),
-      [pullDepth]
-    );
-
-    // Soft dissolve fades out during a pull-up so the rising indicator is completely crisp and unmasked.
-    const bottomFadeOpacity = useMemo(
-      () =>
-        pullDepth.interpolate({
-          inputRange: [0, 16],
-          outputRange: [1, 0],
-          extrapolate: 'clamp',
-        }),
-      [pullDepth]
-    );
-
-    // If rows/viewport change while resting (new transaction, rotation), keep the offset legal.
-    useEffect(() => {
-      if (!gesture.current.active && scrollVal.current > maxScroll) {
-        scrollY.setValue(maxScroll);
-      }
-    }, [maxScroll, scrollY]);
-
-    // ── Small animation helpers ─────────────────────────────────────────────────────────────────
-    const stopAll = useCallback(() => {
-      scrollY.stopAnimation();
-      pullDepth.stopAnimation();
-      momentumRef.current = false;
-    }, [scrollY, pullDepth]);
-
-    const springTo = useCallback((value: Animated.Value, toValue: number) => {
-      Animated.spring(value, {
-        toValue,
-        stiffness: RELEASE_SPRING.stiffness,
-        damping: RELEASE_SPRING.damping,
-        mass: RELEASE_SPRING.mass,
-        restDisplacementThreshold: 0.05,
-        restSpeedThreshold: 0.05,
-        useNativeDriver: false,
-      }).start();
-    }, []);
-
-    const startMomentum = useCallback(
-      (velocity: number) => {
-        const max = geoRef.current.maxScroll;
-        if (max <= 0) return;
-        momentumRef.current = true;
-        const id = scrollY.addListener(({ value }) => {
-          if (value >= max || value <= 0) {
-            scrollY.removeListener(id);
-            scrollY.stopAnimation();
-            scrollY.setValue(value >= max ? max : 0);
-          }
-        });
-        Animated.decay(scrollY, {
-          velocity,
-          deceleration: MOMENTUM_DECELERATION,
-          useNativeDriver: false,
-        }).start(() => {
-          scrollY.removeListener(id);
-          momentumRef.current = false;
-        });
-      },
-      [scrollY]
     );
 
     const reset = useCallback(() => {
@@ -251,135 +166,248 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
         clearTimeout(resetTimerRef.current);
         resetTimerRef.current = null;
       }
-      stopAll();
-      scrollY.setValue(0);
-      pullDepth.setValue(0);
-      gesture.current = { active: false, y0: 0, dyAtGrant: 0, armed: false, lastMoveAt: 0 };
-      committedRef.current = false;
-      syncRefreshLock();
-    }, [stopAll, scrollY, pullDepth, syncRefreshLock]);
+      cancelAnimation(scrollY);
+      cancelAnimation(pullDepth);
+      scrollY.value = 0;
+      pullDepth.value = 0;
+      isGestureActive.value = false;
+      isArmed.value = false;
+      isCommitted.value = false;
+      isMomentumRunning.value = false;
+      setRefreshLocked(false);
+    }, [scrollY, pullDepth, isGestureActive, isArmed, isCommitted, isMomentumRunning, setRefreshLocked]);
 
     useImperativeHandle(ref, () => ({ reset }), [reset]);
 
-    useEffect(
-      () => () => {
-        if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-        scrollY.stopAnimation();
-        pullDepth.stopAnimation();
-      },
-      [scrollY, pullDepth]
-    );
-
-    // ── Gesture ─────────────────────────────────────────────────────────────────────────────────
-    const finishGesture = useCallback(
-      (g: PanResponderGestureState | null, cancelled: boolean) => {
-        const state = gesture.current;
-        state.active = false;
-        syncRefreshLock(); // finger is up: the refresh circle may be re-enabled if the list is at the top
-        if (committedRef.current) return;
-
-        const geo = geoRef.current;
-        const props = latest.current;
-        const isFresh = g !== null && Date.now() - state.lastMoveAt <= FLING_MAX_IDLE_MS;
-
-        const decision = decideRelease({
-          pull: pullVal.current,
-          armed: state.armed,
-          cancelled,
-          scrollVelocity: isFresh && g ? -g.vy : 0,
-          maxScroll: geo.maxScroll,
-        });
-
-        switch (decision.kind) {
-          case 'commit':
-            // The finger is up and the ring was full: NOW open History.
-            committedRef.current = true;
-            props.onCommit();
-            resetTimerRef.current = setTimeout(reset, COMMIT_RESET_DELAY_MS);
-            break;
-          case 'pull-back':
-            springTo(pullDepth, 0);
-            break;
-          case 'momentum':
-            startMomentum(decision.velocity);
-            break;
-          default:
-            break;
+    useEffect(() => {
+      return () => {
+        if (resetTimerRef.current) {
+          clearTimeout(resetTimerRef.current);
         }
-      },
-      [pullDepth, springTo, startMomentum, reset, syncRefreshLock]
-    );
+        cancelAnimation(scrollY);
+        cancelAnimation(pullDepth);
+        setRefreshLocked(false);
+      };
+    }, [scrollY, pullDepth, setRefreshLocked]);
 
-    const panResponder = useMemo(
+    const handleCommit = useCallback(() => {
+      latestOnCommit.current();
+      resetTimerRef.current = setTimeout(reset, COMMIT_RESET_DELAY_MS);
+    }, [reset]);
+
+    // ── Gesture definition (RNGH Pan with manual activation) ────────────────────────────────────
+    const panGesture = useMemo(
       () =>
-        PanResponder.create({
-          onStartShouldSetPanResponder: () => false,
-          // Touching a moving / bouncing list catches it (like a native scroll view); a normal touch goes to the row.
-          onStartShouldSetPanResponderCapture: () =>
-            !committedRef.current && (momentumRef.current || pullVal.current > EDGE_EPSILON),
-          onMoveShouldSetPanResponder: () => false,
-          onMoveShouldSetPanResponderCapture: (_e, g) => {
-            if (committedRef.current) return false;
-            if (!(Math.abs(g.dy) > TOUCH_SLOP && Math.abs(g.dy) > Math.abs(g.dx))) return false;
-            // Finger moving DOWN while the list is already at the top: not ours. Leave it alone so the
-            // app-wide native refresh circle takes the gesture (the list itself never moves down).
-            const atTop = scrollVal.current <= EDGE_EPSILON && pullVal.current <= EDGE_EPSILON;
-            if (g.dy > 0 && atTop) return false;
-            return true;
-          },
-          onPanResponderTerminationRequest: () => false,
-          onShouldBlockNativeResponder: () => true,
+        Gesture.Pan()
+          .manualActivation(true)
+          .onTouchesDown((e, stateManager) => {
+            'worklet';
+            if (isCommitted.value) return;
+            if (e.allTouches.length === 0) return;
 
-          onPanResponderGrant: (_e, g) => {
-            stopAll();
-            const geo = geoRef.current;
+            startTouchX.value = e.allTouches[0].x;
+            startTouchY.value = e.allTouches[0].y;
+
+            // Touching a moving / bouncing list catches it (like a native scroll view); normal touch goes to row
+            if (isMomentumRunning.value || pullDepth.value > EDGE_EPSILON) {
+              cancelAnimation(scrollY);
+              cancelAnimation(pullDepth);
+              isMomentumRunning.value = false;
+
+              const geo: PullGeometry = {
+                maxScroll: maxScrollVal.value,
+                maxTravel: maxTravelVal.value,
+                pullEnabled: pullEnabledVal.value,
+              };
+              const visual = {
+                scroll: Math.min(geo.maxScroll, Math.max(0, scrollY.value)),
+                pull: pullDepth.value,
+              };
+              gestureY0.value = rawYFromVisualState(visual, geo);
+              startTranslationY.value = 0;
+              isArmed.value = nextArmedState(false, getPullProgress(visual.pull, geo.maxTravel));
+              lastMoveAt.value = Date.now();
+              isGestureActive.value = true;
+              stateManager.activate();
+            }
+          })
+          .onTouchesMove((e, stateManager) => {
+            'worklet';
+            if (isCommitted.value || isGestureActive.value) return;
+            if (e.allTouches.length === 0) return;
+
+            const dx = e.allTouches[0].x - startTouchX.value;
+            const dy = e.allTouches[0].y - startTouchY.value;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            if (absDy > TOUCH_SLOP && absDy > absDx) {
+              // Finger moving DOWN while the list is already at the top: not ours. Leave it alone so the
+              // app-wide native refresh circle takes the gesture (the list itself never moves down).
+              const atTop = scrollY.value <= EDGE_EPSILON && pullDepth.value <= EDGE_EPSILON;
+              if (dy > 0 && atTop) {
+                stateManager.fail();
+              } else {
+                stateManager.activate();
+              }
+            } else if (absDx > TOUCH_SLOP && absDx > absDy) {
+              stateManager.fail();
+            }
+          })
+          .onStart((e) => {
+            'worklet';
+            cancelAnimation(scrollY);
+            cancelAnimation(pullDepth);
+            isMomentumRunning.value = false;
+            isGestureActive.value = true;
+
+            const geo: PullGeometry = {
+              maxScroll: maxScrollVal.value,
+              maxTravel: maxTravelVal.value,
+              pullEnabled: pullEnabledVal.value,
+            };
             const visual = {
-              scroll: Math.min(geo.maxScroll, Math.max(0, scrollVal.current)),
-              pull: pullVal.current,
+              scroll: Math.min(geo.maxScroll, Math.max(0, scrollY.value)),
+              pull: pullDepth.value,
             };
-            gesture.current = {
-              active: true,
-              y0: rawYFromVisualState(visual, geo),
-              dyAtGrant: g.dy,
-              armed: nextArmedState(false, getPullProgress(visual.pull, geo.maxTravel)),
-              lastMoveAt: Date.now(),
+            gestureY0.value = rawYFromVisualState(visual, geo);
+            startTranslationY.value = e.translationY;
+            isArmed.value = nextArmedState(false, getPullProgress(visual.pull, geo.maxTravel));
+            lastMoveAt.value = Date.now();
+          })
+          .onUpdate((e) => {
+            'worklet';
+            if (!isGestureActive.value || isCommitted.value) return;
+
+            const geo: PullGeometry = {
+              maxScroll: maxScrollVal.value,
+              maxTravel: maxTravelVal.value,
+              pullEnabled: pullEnabledVal.value,
             };
-            syncRefreshLock(); // we own this touch now: switch the refresh circle off until the finger lifts
-          },
 
-          onPanResponderMove: (_e, g) => {
-            const state = gesture.current;
-            if (!state.active || committedRef.current) return;
-            const geo = geoRef.current;
-
-            // Finger up (dy < 0) => the virtual scroll position increases.
-            let rawY = state.y0 - (g.dy - state.dyAtGrant);
+            const deltaY = e.translationY - startTranslationY.value;
+            // Finger up (deltaY < 0) => the virtual scroll position increases.
+            let rawY = gestureY0.value - deltaY;
             const clamped = clampRawY(rawY, geo);
             if (clamped !== rawY) {
-              state.y0 += clamped - rawY; // no dead zone when the thumb reverses
+              gestureY0.value += clamped - rawY; // no dead zone when the thumb reverses
               rawY = clamped;
             }
 
             const v = resolveVisualState(rawY, geo);
-            scrollY.setValue(v.scroll);
-            pullDepth.setValue(v.pull);
-            state.lastMoveAt = Date.now();
+            scrollY.value = v.scroll;
+            pullDepth.value = v.pull;
+            lastMoveAt.value = Date.now();
 
-            const armedNow = nextArmedState(state.armed, getPullProgress(v.pull, geo.maxTravel));
-            if (armedNow !== state.armed) {
-              state.armed = armedNow;
-              if (armedNow) vibrate(15);
+            const armedNow = nextArmedState(isArmed.value, getPullProgress(v.pull, geo.maxTravel));
+            if (armedNow !== isArmed.value) {
+              isArmed.value = armedNow;
+              if (armedNow) {
+                scheduleOnRN(vibrate, 15);
+              }
             }
-          },
+          })
+          .onEnd((e) => {
+            'worklet';
+            isGestureActive.value = false;
+            if (isCommitted.value) return;
 
-          onPanResponderRelease: (_e, g) => finishGesture(g, false),
-          onPanResponderTerminate: (_e, g) => finishGesture(g, true),
-        }),
-      // Created once: every dependency is a stable ref / Animated.Value / memoised callback.
-      [finishGesture, stopAll, syncRefreshLock, scrollY, pullDepth]
+            const geo: PullGeometry = {
+              maxScroll: maxScrollVal.value,
+              maxTravel: maxTravelVal.value,
+              pullEnabled: pullEnabledVal.value,
+            };
+
+            const isFresh = Date.now() - lastMoveAt.value <= FLING_MAX_IDLE_MS;
+            // e.velocityY is in px/s; physics uses dp/ms.
+            // e.velocityY < 0 when finger flings up (scrolling towards end), so scrollVelocity = -e.velocityY / 1000.
+            const scrollVelocity = isFresh ? -e.velocityY / 1000 : 0;
+
+            const decision = decideRelease({
+              pull: pullDepth.value,
+              armed: isArmed.value,
+              cancelled: false,
+              scrollVelocity,
+              maxScroll: geo.maxScroll,
+            });
+
+            switch (decision.kind) {
+              case 'commit':
+                isCommitted.value = true;
+                scheduleOnRN(handleCommit);
+                break;
+              case 'pull-back':
+                pullDepth.value = withSpring(0, {
+                  stiffness: RELEASE_SPRING.stiffness,
+                  damping: RELEASE_SPRING.damping,
+                  mass: RELEASE_SPRING.mass,
+                });
+                break;
+              case 'momentum': {
+                const vel = -e.velocityY; // points/second for withDecay
+                isMomentumRunning.value = true;
+                scrollY.value = withDecay(
+                  {
+                    velocity: vel,
+                    deceleration: MOMENTUM_DECELERATION,
+                    clamp: [0, geo.maxScroll],
+                  },
+                  (finished) => {
+                    'worklet';
+                    if (finished) {
+                      isMomentumRunning.value = false;
+                    }
+                  }
+                );
+                break;
+              }
+              default:
+                break;
+            }
+          })
+          .onFinalize((_e, success) => {
+            'worklet';
+            isGestureActive.value = false;
+            if (!success && !isCommitted.value && pullDepth.value > 0) {
+              pullDepth.value = withSpring(0, {
+                stiffness: RELEASE_SPRING.stiffness,
+                damping: RELEASE_SPRING.damping,
+                mass: RELEASE_SPRING.mass,
+              });
+            }
+          }),
+      [
+        handleCommit,
+        isArmed,
+        isCommitted,
+        isGestureActive,
+        isMomentumRunning,
+        gestureY0,
+        lastMoveAt,
+        maxScrollVal,
+        maxTravelVal,
+        pullDepth,
+        pullEnabledVal,
+        scrollY,
+        startTouchX,
+        startTouchY,
+        startTranslationY,
+      ]
     );
 
-    // ── Layout ──────────────────────────────────────────────────────────────────────────────────
+    // ── Animated styles ─────────────────────────────────────────────────────────────────────────
+    const contentAnimatedStyle = useAnimatedStyle(() => {
+      const clampedScroll = Math.max(0, Math.min(maxScrollVal.value, scrollY.value));
+      return {
+        transform: [{ translateY: -clampedScroll - pullDepth.value }],
+      };
+    });
+
+    const bottomFadeAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(pullDepth.value, [0, 16], [1, 0], Extrapolation.CLAMP),
+    }));
+
+    // ── Layout measurement ──────────────────────────────────────────────────────────────────────
     const onRootLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
       setViewportH((prev) => (prev === h ? prev : h));
@@ -391,66 +419,68 @@ export const PullToHistoryList = forwardRef<PullToHistoryListHandle, PullToHisto
     }, []);
 
     return (
-      <View style={styles.root} onLayout={onRootLayout} {...panResponder.panHandlers}>
-        {/* Rows + footer: one rigid block that moves together */}
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              // Short lists: still push the footer just below the visible area so it is hidden at rest.
-              minHeight: viewportH + FOOTER_PEEK + PULL_FOOTER_HEIGHT,
-              transform: [{ translateY: scrollTranslateY }, { translateY: pullTranslateY }],
-            },
-          ]}
-        >
-          <View style={styles.rows} onLayout={onRowsLayout}>
-            {children}
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.root} onLayout={onRootLayout}>
+          {/* Rows + footer: one rigid block that moves together */}
+          <Animated.View
+            style={[
+              styles.content,
+              {
+                // Short lists: still push the footer just below the visible area so it is hidden at rest.
+                minHeight: viewportH + FOOTER_PEEK + PULL_FOOTER_HEIGHT,
+              },
+              contentAnimatedStyle,
+            ]}
+          >
+            <View style={styles.rows} onLayout={onRowsLayout}>
+              {children}
+            </View>
+
+            {pullEnabled && (
+              <>
+                <View style={styles.footerSpacer} />
+                <PullToHistoryIndicator
+                  pullDepth={pullDepth}
+                  maxTravel={maxTravel}
+                  colors={colors}
+                  isDark={isDark}
+                />
+              </>
+            )}
+          </Animated.View>
+
+          {/* Dissolve under the "Recent Transactions" header — rows fade out as they scroll up (unchanged look) */}
+          <View style={styles.topFade} pointerEvents="none">
+            <Svg height={TOP_FADE_HEIGHT} width="100%">
+              <Defs>
+                <SvgLinearGradient id="portalFade" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={colors.background} stopOpacity="1" />
+                  <Stop offset="1" stopColor={colors.background} stopOpacity="0" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height={TOP_FADE_HEIGHT} fill="url(#portalFade)" />
+            </Svg>
           </View>
 
-          {pullEnabled && (
-            <>
-              <View style={styles.footerSpacer} />
-              <PullToHistoryIndicator
-                pullDepthAnim={pullDepth}
-                maxTravel={maxTravel}
-                colors={colors}
-                isDark={isDark}
-              />
-            </>
-          )}
-        </Animated.View>
-
-        {/* Dissolve under the "Recent Transactions" header — rows fade out as they scroll up (unchanged look) */}
-        <View style={styles.topFade} pointerEvents="none">
-          <Svg height={TOP_FADE_HEIGHT} width="100%">
-            <Defs>
-              <SvgLinearGradient id="portalFade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={colors.background} stopOpacity="1" />
-                <Stop offset="1" stopColor={colors.background} stopOpacity="0" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height={TOP_FADE_HEIGHT} fill="url(#portalFade)" />
-          </Svg>
+          {/* Dissolve at the bottom edge above the nav bar — rows fade out smoothly as they approach the bottom boundary */}
+          <Animated.View
+            style={[styles.bottomFade, bottomFadeAnimatedStyle]}
+            pointerEvents="none"
+          >
+            <Svg height={BOTTOM_FADE_HEIGHT} width="100%">
+              <Defs>
+                <SvgLinearGradient id="portalBottomFade" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={colors.background} stopOpacity="0" />
+                  <Stop offset="0.4" stopColor={colors.background} stopOpacity="0.35" />
+                  <Stop offset="0.8" stopColor={colors.background} stopOpacity="0.85" />
+                  <Stop offset="1" stopColor={colors.background} stopOpacity="1" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height={BOTTOM_FADE_HEIGHT} fill="url(#portalBottomFade)" />
+            </Svg>
+          </Animated.View>
         </View>
-
-        {/* Dissolve at the bottom edge above the nav bar — rows fade out smoothly as they approach the bottom boundary */}
-        <Animated.View
-          style={[styles.bottomFade, { opacity: bottomFadeOpacity }]}
-          pointerEvents="none"
-        >
-          <Svg height={BOTTOM_FADE_HEIGHT} width="100%">
-            <Defs>
-              <SvgLinearGradient id="portalBottomFade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={colors.background} stopOpacity="0" />
-                <Stop offset="0.4" stopColor={colors.background} stopOpacity="0.35" />
-                <Stop offset="0.8" stopColor={colors.background} stopOpacity="0.85" />
-                <Stop offset="1" stopColor={colors.background} stopOpacity="1" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height={BOTTOM_FADE_HEIGHT} fill="url(#portalBottomFade)" />
-          </Svg>
-        </Animated.View>
-      </View>
+      </GestureDetector>
     );
   }
 );

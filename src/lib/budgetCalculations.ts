@@ -1,4 +1,8 @@
-import { format, subDays, parseISO, differenceInCalendarDays, addDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
+import { parseISO } from 'date-fns/parseISO';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
+import { addDays } from 'date-fns/addDays';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { round2 } from './formatters';
 import { isExcludedFromTotals } from './transactionUtils';

@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { Animated } from 'react-native';
-import { DollarSign, Wallet } from 'lucide-react-native';
-import { format, parseISO } from 'date-fns';
+import DollarSign from 'lucide-react-native/icons/dollar-sign';
+import Wallet from 'lucide-react-native/icons/wallet';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 import { Expense } from '../store/expenseStore';
 import { Category } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';

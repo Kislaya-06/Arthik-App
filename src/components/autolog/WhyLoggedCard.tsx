@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
-import { Zap, ChevronDown, ChevronUp, Flag } from 'lucide-react-native';
+import Zap from 'lucide-react-native/icons/zap';
+import ChevronDown from 'lucide-react-native/icons/chevron-down';
+import ChevronUp from 'lucide-react-native/icons/chevron-up';
+import Flag from 'lucide-react-native/icons/flag';
 import { useTheme } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { Spacing, FontSize, FontFamily, BorderRadius, LineHeight } from '../../config/theme';

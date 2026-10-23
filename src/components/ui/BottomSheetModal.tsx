@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   Pressable,
   Animated,
   useAnimatedValue,
@@ -15,7 +14,7 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import X from 'lucide-react-native/icons/x';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
   Easing as REasing,
@@ -29,6 +28,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import { scheduleOnRN } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
 import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius } from '../../config/theme';
+import { PressableOpacity } from './PressableOpacity';
 
 export interface BottomSheetModalProps {
   visible: boolean;
@@ -341,7 +341,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
         },
       ]}
     >
-      <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+      <PressableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
     </Animated.View>
   );
 

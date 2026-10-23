@@ -1,26 +1,26 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
-import {
-  ArrowLeft,
-  BellOff,
-  Sparkles,
-  AlertTriangle,
-  AlertCircle,
-  Coins,
-  CalendarDays,
-  Bell,
-  Trash2,
-  CheckCheck,
-} from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import BellOff from 'lucide-react-native/icons/bell-off';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
+import AlertCircle from 'lucide-react-native/icons/circle-alert';
+import Coins from 'lucide-react-native/icons/coins';
+import CalendarDays from 'lucide-react-native/icons/calendar-days';
+import Bell from 'lucide-react-native/icons/bell';
+import Trash2 from 'lucide-react-native/icons/trash';
+import CheckCheck from 'lucide-react-native/icons/check-check';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { useNotificationStore, AppNotification } from '../store/notificationStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { GradientIconBadge } from '../components/GradientIconBadge';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
@@ -150,12 +150,12 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
         {notifications.length > 0 && (
           <View style={styles.headerRightActions}>
-            <TouchableOpacity onPress={markAllAsRead} hitSlop={10} style={styles.actionBtn}>
+            <PressableOpacity onPress={markAllAsRead} hitSlop={10} style={styles.actionBtn}>
               <CheckCheck size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={clearNotifications} hitSlop={10} style={styles.actionBtn}>
+            </PressableOpacity>
+            <PressableOpacity onPress={clearNotifications} hitSlop={10} style={styles.actionBtn}>
               <Trash2 size={19} color={colors.textSecondary} />
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
         )}
       </View>
@@ -193,7 +193,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
             const timeAgo = getCompactTime(n.createdAt);
 
             return (
-              <TouchableOpacity
+              <PressableOpacity
                 key={n.id}
                 style={[
                   styles.notifRow,
@@ -246,7 +246,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                     {n.message}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </PressableOpacity>
             );
           })}
         </ScrollView>

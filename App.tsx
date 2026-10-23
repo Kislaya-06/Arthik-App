@@ -29,6 +29,9 @@ import { SplashCover } from './src/components/SplashCover';
 import { OtaUpdateModal } from './src/components/OtaUpdateModal';
 import { useOtaStore } from './src/store/otaStore';
 import { onBeforeSignOut } from './src/features/autoLog/service';
+import { perfMark } from './src/lib/perfMarks';
+
+perfMark('js_start');
 
 const ConnectedOtaModal: React.FC = () => {
   const visible = useOtaStore((s) => s.visible);
@@ -69,6 +72,10 @@ export default function App() {
     Quicksand_600SemiBold,
     Quicksand_700Bold,
   });
+
+  useEffect(() => {
+    if (fontsLoaded) perfMark('fonts_ready');
+  }, [fontsLoaded]);
 
   const [updateRequirement, setUpdateRequirement] = useState<VersionCheckResult>({
     isRequired: false,

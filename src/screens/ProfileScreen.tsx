@@ -8,10 +8,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  Tag, ChevronRight, Bell, Moon, Sun, Sparkles, Palette,
-  CircleAlert, LogOut, ArrowLeft, Trash2, ShieldCheck, HelpCircle, Waves, Zap, SquarePen
-} from 'lucide-react-native';
+import Tag from 'lucide-react-native/icons/tag';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import Bell from 'lucide-react-native/icons/bell';
+import Moon from 'lucide-react-native/icons/moon';
+import Sun from 'lucide-react-native/icons/sun';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Palette from 'lucide-react-native/icons/palette';
+import CircleAlert from 'lucide-react-native/icons/circle-alert';
+import LogOut from 'lucide-react-native/icons/log-out';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Trash2 from 'lucide-react-native/icons/trash';
+import ShieldCheck from 'lucide-react-native/icons/shield-check';
+import HelpCircle from 'lucide-react-native/icons/circle-question-mark';
+import Waves from 'lucide-react-native/icons/waves-horizontal';
+import Zap from 'lucide-react-native/icons/zap';
+import SquarePen from 'lucide-react-native/icons/square-pen';
 
 import Constants from 'expo-constants';
 import { Spacing, FontSize, FontFamily, ControlHeight } from '../config/theme';

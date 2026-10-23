@@ -10,8 +10,15 @@ import {
   Easing,
   useAnimatedValue,
 } from 'react-native';
-import { ChevronLeft, ChevronRight, X, CheckCircle2, AlertCircle } from 'lucide-react-native';
-import { format, parseISO, isToday as checkIsToday, eachDayOfInterval } from 'date-fns';
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import X from 'lucide-react-native/icons/x';
+import CheckCircle2 from 'lucide-react-native/icons/circle-check';
+import AlertCircle from 'lucide-react-native/icons/circle-alert';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { isToday as checkIsToday } from 'date-fns/isToday';
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import { useTheme } from '../store/themeStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';

@@ -9,7 +9,7 @@
  * `expense_date.split('T')[0]` was written 45 times. New code uses the functions below.
  * The old names still exist and now point here, so nothing that already works is affected.
  */
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 
 /** 'yyyy-MM-dd'. Example: '2026-10-20'. */
 export type DateKey = string;

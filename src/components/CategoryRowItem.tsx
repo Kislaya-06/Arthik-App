@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { SquarePen, Trash2 } from 'lucide-react-native';
+import SquarePen from 'lucide-react-native/icons/square-pen';
+import Trash2 from 'lucide-react-native/icons/trash';
 import { Category } from '../store/categoryStore';
 import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing, BorderRadius } from '../config/theme';
 import { getCategoryIcon } from '../lib/iconUtils';

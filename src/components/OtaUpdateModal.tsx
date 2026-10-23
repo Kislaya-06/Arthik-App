@@ -8,7 +8,10 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { Sparkles, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react-native';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import CheckCircle2 from 'lucide-react-native/icons/circle-check';
+import AlertCircle from 'lucide-react-native/icons/circle-alert';
+import RefreshCw from 'lucide-react-native/icons/refresh-cw';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 

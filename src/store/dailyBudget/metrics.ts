@@ -1,4 +1,5 @@
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 import { useCategoryStore } from '../categoryStore';
 import { useAuthStore } from '../authStore';
 import { isCountedIncome } from '../../lib/transactionUtils';

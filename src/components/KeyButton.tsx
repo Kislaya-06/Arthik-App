@@ -6,7 +6,7 @@ import {
   StyleSheet,
   useAnimatedValue,
 } from 'react-native';
-import { Delete } from 'lucide-react-native';
+import Delete from 'lucide-react-native/icons/delete';
 import { useTheme } from '../store/themeStore';
 import { BorderRadius, FontFamily } from '../config/theme';
 

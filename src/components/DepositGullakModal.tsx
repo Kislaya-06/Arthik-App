@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   Modal,
-  TouchableOpacity,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -13,7 +12,13 @@ import {
   Animated,
   useAnimatedValue,
 } from 'react-native';
-import { X, Check, ArrowLeft, Wallet, PlusCircle, ChevronRight } from 'lucide-react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
+import X from 'lucide-react-native/icons/x';
+import Check from 'lucide-react-native/icons/check';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Wallet from 'lucide-react-native/icons/wallet';
+import PlusCircle from 'lucide-react-native/icons/circle-plus';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 
@@ -255,7 +260,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity
+                <PressableOpacity
                   onPress={onClose}
                   hitSlop={12}
                   style={[
@@ -266,11 +271,11 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   ]}
                 >
                   <X size={18} color="#FFFFFF" />
-                </TouchableOpacity>
+                </PressableOpacity>
               </View>
 
               {/* Source Option 1: From Income */}
-              <TouchableOpacity
+              <PressableOpacity
                 style={styles.sourceRow}
                 onPress={() => {
                   setSource('income');
@@ -318,7 +323,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   </Text>
                 </View>
                 <ChevronRight size={18} color="rgba(255, 255, 255, 0.7)" strokeWidth={2.2} />
-              </TouchableOpacity>
+              </PressableOpacity>
 
               {/* Inset Hairline Divider */}
               <View
@@ -331,7 +336,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               />
 
               {/* Source Option 2: Add New Money */}
-              <TouchableOpacity
+              <PressableOpacity
                 style={styles.sourceRow}
                 onPress={() => {
                   setSource('external');
@@ -376,10 +381,10 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   </Text>
                 </View>
                 <ChevronRight size={18} color="rgba(255, 255, 255, 0.7)" strokeWidth={2.2} />
-              </TouchableOpacity>
+              </PressableOpacity>
 
               {/* Cancel Button */}
-              <TouchableOpacity
+              <PressableOpacity
                 style={[
                   styles.fullWidthCancelBtn,
                   {
@@ -393,7 +398,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 <Text style={[styles.modalCancelText, { color: '#FFFFFF' }]}>
                   Cancel
                 </Text>
-              </TouchableOpacity>
+              </PressableOpacity>
             </>
           ) : (
             /* STEP 2: ENTER AMOUNT & NOTE WITH IN-APP KEYPAD */
@@ -406,7 +411,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               {/* Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.titleWithIcon}>
-                  <TouchableOpacity
+                  <PressableOpacity
                     onPress={() => {
                       Keyboard.dismiss();
                       setStep('source');
@@ -421,7 +426,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     ]}
                   >
                     <ArrowLeft size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
+                  </PressableOpacity>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>
@@ -440,7 +445,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity
+                <PressableOpacity
                   onPress={onClose}
                   hitSlop={12}
                   style={[
@@ -451,7 +456,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   ]}
                 >
                   <X size={18} color="#FFFFFF" />
-                </TouchableOpacity>
+                </PressableOpacity>
               </View>
 
               {/* Source Info / Limit Banner */}
@@ -488,7 +493,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               </View>
 
               {/* Amount Display */}
-              <TouchableOpacity
+              <PressableOpacity
                 activeOpacity={0.8}
                 onPress={() => Keyboard.dismiss()}
                 style={[
@@ -542,12 +547,12 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                       : formatAmountWithCommas(amount) || '0'}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </PressableOpacity>
 
               {/* Preset Quick Chips */}
               <View style={styles.presetsRow}>
                 {PRESET_AMOUNTS.map((preset) => (
-                  <TouchableOpacity
+                  <PressableOpacity
                     key={preset}
                     onPress={() => handleChipPress(preset)}
                     activeOpacity={0.7}
@@ -562,10 +567,10 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     <Text style={[styles.presetChipText, { color: '#FFFFFF' }]}>
                       +₹{preset >= 1000 ? `${preset / 1000}k` : preset}
                     </Text>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 ))}
                 {source === 'income' && availableIncome > 0 && (
-                  <TouchableOpacity
+                  <PressableOpacity
                     onPress={handleMaxIncomePress}
                     activeOpacity={0.7}
                     style={[
@@ -579,7 +584,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     <Text style={[styles.presetChipText, { color: '#ADEBB3' }]}>
                       Max
                     </Text>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 )}
               </View>
 
@@ -611,7 +616,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
 
               {/* Actions */}
               <View style={styles.modalActionRow}>
-                <TouchableOpacity
+                <PressableOpacity
                   style={[
                     styles.modalCancelBtn,
                     {
@@ -628,9 +633,9 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   <Text style={[styles.modalCancelText, { color: '#FFFFFF' }]}>
                     Back
                   </Text>
-                </TouchableOpacity>
+                </PressableOpacity>
 
-                <TouchableOpacity
+                <PressableOpacity
                   style={[
                     styles.modalSaveBtn,
                     {
@@ -652,7 +657,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   >
                     Deposit
                   </Text>
-                </TouchableOpacity>
+                </PressableOpacity>
               </View>
             </ScrollView>
           )}

@@ -1,8 +1,17 @@
-import {
-  startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
-  subWeeks, subMonths, subYears, isBefore, startOfDay, format,
-  isSameMonth, isSameYear,
-} from 'date-fns';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { endOfWeek } from 'date-fns/endOfWeek';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { endOfMonth } from 'date-fns/endOfMonth';
+import { startOfYear } from 'date-fns/startOfYear';
+import { endOfYear } from 'date-fns/endOfYear';
+import { subWeeks } from 'date-fns/subWeeks';
+import { subMonths } from 'date-fns/subMonths';
+import { subYears } from 'date-fns/subYears';
+import { isBefore } from 'date-fns/isBefore';
+import { startOfDay } from 'date-fns/startOfDay';
+import { format } from 'date-fns/format';
+import { isSameMonth } from 'date-fns/isSameMonth';
+import { isSameYear } from 'date-fns/isSameYear';
 import { CATEGORY_PALETTE } from '../../config/theme';
 
 export type Period = 'Weekly' | 'Monthly' | 'Yearly';

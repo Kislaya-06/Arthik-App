@@ -111,7 +111,8 @@ import {
   getUserCreatedAtLocalDate,
   getUserCreatedAtStr,
 } from '../src/store/dailyBudgetStore';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
 
 describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
   const todayStr = format(new Date(), 'yyyy-MM-dd');

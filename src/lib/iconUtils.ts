@@ -1,14 +1,13 @@
 import React from 'react';
-import * as LucideIcons from 'lucide-react-native';
+import HelpCircle from 'lucide-react-native/icons/circle-question-mark';
+import { CATEGORY_ICONS } from './categoryIconRegistry';
 
 type IconComponent = React.FC<{ size: number; color: string; strokeWidth?: number }>;
 
 /**
  * Safely looks up a Lucide icon component by name string.
  * Falls back to HelpCircle if the icon name is not found.
- * Eliminates the need for @ts-ignore + (LucideIcons as any)[icon] across all screens.
  */
 export const getCategoryIcon = (iconName: string): IconComponent => {
-  const icon = (LucideIcons as Record<string, unknown>)[iconName];
-  return (icon as IconComponent) ?? LucideIcons.HelpCircle;
+  return (CATEGORY_ICONS[iconName] as unknown as IconComponent) ?? (HelpCircle as unknown as IconComponent);
 };

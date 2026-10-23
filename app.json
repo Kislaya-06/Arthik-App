@@ -63,8 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Income Categories & Smoother Review ✨",
+        "title": "Ultra-Smooth 60 FPS & Instant Cold Launch ⚡",
         "highlights": [
+          "Silky UI-Thread Motion: Bottom navigation capsules, numeric keypad slide, Insights donut sweep, period stretch dots, and savings progress bar now run directly on the UI thread with Reanimated and RNGH for stutter-free 60 FPS interactions",
+          "Consistent Native Press Feel: Upgraded buttons and pressables across 22 screens and modals to instant native touch response",
+          "Accelerated Cold Launch: Parallelized session verification, network connectivity checks, and Gullak hydration for faster startup",
+          "Lighter & Faster App: Streamlined icon loading and lazy navigation initialization reduce memory overhead and launch latency",
           "Pure Mode Polish: The Pure Mode bottom bar features the same height, padding, and animations as the Budget bar with a compact 3-tab pill and 48dp FAB button, and the Home ring shows a single spent ring just like Budget Mode",
           "Instant First Switch: New accounts and accounts with zero expenses that turn on Budget Mode start right away with their set amount and active daily budget on Home, no waiting for tomorrow",
           "Factory Reset on Account Delete: Deleting an account completely unlinks on-device encrypted AutoLog database, purges SecureStore keys, and clears local storage for a fresh start",

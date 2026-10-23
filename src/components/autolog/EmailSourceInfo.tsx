@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Lock } from 'lucide-react-native';
+import Lock from 'lucide-react-native/icons/lock';
 import { useTheme } from '../../store/themeStore';
 import { Spacing, FontSize, FontFamily } from '../../config/theme';
 import { Body, Bullet, Card, SectionLabel } from './AutoLogUi';

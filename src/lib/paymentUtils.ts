@@ -1,4 +1,6 @@
-import { Wallet, CheckSquare, CreditCard } from 'lucide-react-native';
+import Wallet from 'lucide-react-native/icons/wallet';
+import CheckSquare from 'lucide-react-native/icons/square-check-big';
+import CreditCard from 'lucide-react-native/icons/credit-card';
 import React from 'react';
 
 export type PaymentMode = 'cash' | 'upi' | 'card';

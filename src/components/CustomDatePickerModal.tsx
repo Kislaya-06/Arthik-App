@@ -7,8 +7,13 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
-import { format, isToday as checkIsToday, isYesterday as checkIsYesterday, isSameDay } from 'date-fns';
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import CalendarIcon from 'lucide-react-native/icons/calendar';
+import { format } from 'date-fns/format';
+import { isToday as checkIsToday } from 'date-fns/isToday';
+import { isYesterday as checkIsYesterday } from 'date-fns/isYesterday';
+import { isSameDay } from 'date-fns/isSameDay';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 

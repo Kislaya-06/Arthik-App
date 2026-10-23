@@ -4,14 +4,19 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   Alert,
   Animated,
   ScrollView,
   useAnimatedValue,
 } from 'react-native';
-import { X, Check, Clock } from 'lucide-react-native';
-import { format, parseISO, addDays, eachDayOfInterval } from 'date-fns';
+import { PressableOpacity } from './ui/PressableOpacity';
+import X from 'lucide-react-native/icons/x';
+import Check from 'lucide-react-native/icons/check';
+import Clock from 'lucide-react-native/icons/clock';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { addDays } from 'date-fns/addDays';
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import Svg, { Defs, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
@@ -459,7 +464,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                   onPress={() => setShowMoneyExplainer(true)}
                 />
               </View>
-              <TouchableOpacity
+              <PressableOpacity
                 onPress={onClose}
                 hitSlop={12}
                 style={[
@@ -470,7 +475,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 ]}
               >
                 <X size={18} color="#FFFFFF" />
-              </TouchableOpacity>
+              </PressableOpacity>
             </View>
 
             {/* Subtitle / Effective From Notice */}
@@ -498,7 +503,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                     {`${pendingChange.cadence.charAt(0).toUpperCase() + pendingChange.cadence.slice(1)} · ${formatCurrency(pendingChange.amount)} (${formatEffectiveFrom(pendingChange.effectiveFrom, todayStr, pendingChange.cadence)})`}
                   </Text>
                 </View>
-                <TouchableOpacity
+                <PressableOpacity
                   style={styles.cancelPendingBtn}
                   onPress={() => {
                     Alert.alert(
@@ -517,7 +522,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                   hitSlop={6}
                 >
                   <Text style={styles.cancelPendingText}>Cancel</Text>
-                </TouchableOpacity>
+                </PressableOpacity>
               </View>
             )}
 
@@ -572,7 +577,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
             {/* Actions: Cancel & Save */}
             <View style={styles.modalActionRow}>
-              <TouchableOpacity
+              <PressableOpacity
                 style={[
                   styles.modalCancelBtn,
                   {
@@ -586,9 +591,9 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 <Text style={[styles.modalCancelText, { color: '#FFFFFF' }]}>
                   Cancel
                 </Text>
-              </TouchableOpacity>
+              </PressableOpacity>
 
-              <TouchableOpacity
+              <PressableOpacity
                 style={[
                   styles.modalSaveBtn,
                   {
@@ -614,7 +619,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 >
                   Save Budget
                 </Text>
-              </TouchableOpacity>
+              </PressableOpacity>
             </View>
           </ScrollView>
         </Animated.View>

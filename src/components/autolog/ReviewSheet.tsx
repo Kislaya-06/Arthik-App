@@ -11,7 +11,9 @@ import {
   Animated,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { ShieldCheck, Users, ArrowLeftRight } from 'lucide-react-native';
+import ShieldCheck from 'lucide-react-native/icons/shield-check';
+import Users from 'lucide-react-native/icons/users';
+import ArrowLeftRight from 'lucide-react-native/icons/arrow-left-right';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AppButton } from '../ui/AppButton';

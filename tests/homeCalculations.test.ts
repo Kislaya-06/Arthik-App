@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { format, parseISO, subDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { subDays } from 'date-fns/subDays';
 import {
   calculatePeriodSummary,
   PeriodCalculationParams,

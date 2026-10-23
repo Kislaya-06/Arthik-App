@@ -5,7 +5,7 @@ import {
   resolveRolloverBudget,
   getBackdatedSpendingNotice,
 } from '../src/lib/budgetUtils';
-import { parseISO } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
 import type { BudgetPlanChange } from '../src/types';
 
 describe('shouldDeletePhantom500Day - Behavior Tests', () => {

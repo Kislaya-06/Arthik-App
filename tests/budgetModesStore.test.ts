@@ -126,7 +126,8 @@ import {
   savePendingPlanChangeOffline,
   savePendingSettingsOffline,
 } from '../src/store/dailyBudgetStore';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
 import { Expense } from '../src/store/expenseStore';
 
 describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {

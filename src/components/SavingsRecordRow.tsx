@@ -1,7 +1,13 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Sparkles, AlertCircle, Coins, ChevronRight } from 'lucide-react-native';
-import { format, isYesterday, parseISO } from 'date-fns';
+import { View, Text, StyleSheet } from 'react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import AlertCircle from 'lucide-react-native/icons/circle-alert';
+import Coins from 'lucide-react-native/icons/coins';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import { format } from 'date-fns/format';
+import { isYesterday } from 'date-fns/isYesterday';
+import { parseISO } from 'date-fns/parseISO';
 
 import { DailyRecord, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
@@ -167,7 +173,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   }, [isDeposit, isSaved, isMissed]);
 
   const isInteractive = Boolean(onPress || onDeleteDeposit);
-  const ContainerComponent = isInteractive ? TouchableOpacity : View;
+  const ContainerComponent = isInteractive ? PressableOpacity : View;
 
   return (
     <ContainerComponent

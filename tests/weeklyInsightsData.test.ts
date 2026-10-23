@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { parseISO, startOfWeek, endOfWeek } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { endOfWeek } from 'date-fns/endOfWeek';
 import {
   computeWeeklySpend,
   computeEffectiveWeekBudget,

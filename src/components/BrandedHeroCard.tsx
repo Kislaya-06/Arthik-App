@@ -3,12 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Pressable,
   LayoutChangeEvent,
 } from 'react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react-native';
+import ArrowDownLeft from 'lucide-react-native/icons/arrow-down-left';
+import ArrowUpRight from 'lucide-react-native/icons/arrow-up-right';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { DonutChart } from './DonutChart';
 import { RollingText } from './RollingText';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
@@ -610,7 +612,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
 
           {/* Daily Gullak Rollover Strip (Budget mode only) */}
           {showRollover && (
-            <TouchableOpacity
+            <PressableOpacity
               activeOpacity={0.75}
               onPress={onNavigateSavings}
               style={styles.rolloverStrip}
@@ -624,7 +626,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                 minScale={0.8}
               />
               <ChevronRight size={14} color={textColorSecondary} />
-            </TouchableOpacity>
+            </PressableOpacity>
           )}
           {showRollover && carryNote ? (
             <Text style={[styles.carryNote, { color: textColorPrimary }]} numberOfLines={1}>

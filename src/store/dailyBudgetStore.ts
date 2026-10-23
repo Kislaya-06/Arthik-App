@@ -191,6 +191,8 @@ import {
   fetchRemoteBudgetData,
   mergePendingPlanChanges,
   mergePendingPeriods,
+  fetchGullakDepositsRaw,
+  mergeGullakDeposits,
   hydrateGullakDeposits,
   runHydrateFromSupabase,
 } from './dailyBudget/hydrate';
@@ -207,6 +209,8 @@ export {
   mergePendingPeriods,
   selfHealDefaultBudget,
   selfHealCorruptedRows,
+  fetchGullakDepositsRaw,
+  mergeGullakDeposits,
   hydrateGullakDeposits,
   runHydrateFromSupabase,
 };

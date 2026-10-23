@@ -1,4 +1,6 @@
-import { format, subDays, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
+import { parseISO } from 'date-fns/parseISO';
 import { formatCurrency, round2 } from './formatters';
 import { resolvePlanForDate } from './budgetPeriods';
 import type { BudgetPlanChange } from '../types';

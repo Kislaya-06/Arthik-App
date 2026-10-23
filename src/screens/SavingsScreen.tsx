@@ -4,14 +4,20 @@ import {
   ScrollView,
   Animated,
   Alert,
-  Easing,
   useAnimatedValue,
 } from 'react-native';
+import {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency, round2 } from '../lib/formatters';
@@ -355,22 +361,19 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   }, [totalAccumulatedSavings, triggerPiggyBounce]);
 
 
-  const progressAnim = useAnimatedValue(0);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: cardIsOver ? 1 : Math.min(1, Math.max(0, cardProgressRatio)),
+    const target = cardIsOver ? 1 : Math.min(1, Math.max(0, cardProgressRatio));
+    progress.value = withTiming(target, {
       duration: 500,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [cardProgressRatio, cardIsOver, progressAnim]);
+    });
+  }, [cardProgressRatio, cardIsOver, progress]);
 
-  const animatedProgressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-    extrapolate: 'clamp',
-  });
+  const animatedProgressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
+  }));
 
 
   return (
@@ -434,7 +437,7 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
           cardTarget={cardTarget}
           cardIsOver={cardIsOver}
           cardProgressRatio={cardProgressRatio}
-          animatedProgressWidth={animatedProgressWidth}
+          animatedProgressStyle={animatedProgressStyle}
           cadencePeriodSummary={cadencePeriodSummary}
           handleCancelScheduled={handleCancelScheduled}
           pendingPlanChange={pendingPlanChange}

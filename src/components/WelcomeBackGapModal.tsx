@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { Sparkles, Plus, PiggyBank } from 'lucide-react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Plus from 'lucide-react-native/icons/plus';
+import PiggyBank from 'lucide-react-native/icons/piggy-bank';
 import * as Haptics from 'expo-haptics';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 
 import { BottomSheetModal } from './ui/BottomSheetModal';
 import { AppButton } from './ui/AppButton';
@@ -122,14 +126,14 @@ export const WelcomeBackGapModal: React.FC<WelcomeBackGapModalProps> = ({
             disabled={isSaving}
           />
 
-          <TouchableOpacity
+          <PressableOpacity
             onPress={onDismiss}
             disabled={isSaving}
             style={styles.skipButton}
             activeOpacity={0.7}
           >
             <Text style={[styles.skipText, { color: colors.textMuted }]}>Skip for now</Text>
-          </TouchableOpacity>
+          </PressableOpacity>
         </View>
       </View>
     </BottomSheetModal>

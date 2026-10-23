@@ -1,5 +1,7 @@
 import React from 'react';
-import { Wallet, CheckSquare, CreditCard } from 'lucide-react-native';
+import Wallet from 'lucide-react-native/icons/wallet';
+import CheckSquare from 'lucide-react-native/icons/square-check-big';
+import CreditCard from 'lucide-react-native/icons/credit-card';
 import { useTheme } from '../store/themeStore';
 import { ControlHeight } from '../config/theme';
 import { SegmentedControl, SegmentedOption } from './ui/SegmentedControl';

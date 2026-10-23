@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Calendar, ChevronDown } from 'lucide-react-native';
+import { View, Text } from 'react-native';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import Calendar from 'lucide-react-native/icons/calendar';
+import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { SavingsRecordRow } from '../SavingsRecordRow';
 import { ControlHeight } from '../../config/theme';
@@ -92,7 +94,7 @@ export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = React
           ))}
 
           {hasMoreRecords && (
-            <TouchableOpacity
+            <PressableOpacity
               style={[
                 styles.seeMoreBtn,
                 {
@@ -107,7 +109,7 @@ export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = React
                 See More
               </Text>
               <ChevronDown size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
+            </PressableOpacity>
           )}
         </>
       )}

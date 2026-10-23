@@ -274,21 +274,28 @@ export async function mergePendingPeriods(
 }
 
 
-export async function hydrateGullakDeposits(
+/** Network part only. Same query, same 3.5 s timeout. */
+export function fetchGullakDepositsRaw(userId: string) {
+  return withTimeout(
+    supabase
+      .from('gullak_deposits')
+      .select('id, amount, date, note, source, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    3500,
+    { data: null, error: new Error('timeout') }
+  );
+}
+
+/** Merge part: EXACTLY the old body of hydrateGullakDeposits after the await, unchanged. */
+export async function mergeGullakDeposits(
   userId: string,
-  localDeposits: GullakDeposit[]
+  localDeposits: GullakDeposit[],
+  raw: Awaited<ReturnType<typeof fetchGullakDepositsRaw>>
 ): Promise<GullakDeposit[]> {
   let resolvedDeposits = localDeposits || [];
   try {
-    const { data: depData, error: depError } = await withTimeout(
-      supabase
-        .from('gullak_deposits')
-        .select('id, amount, date, note, source, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false }),
-      3500,
-      { data: null, error: new Error('timeout') }
-    );
+    const { data: depData, error: depError } = raw;
 
     if (!depError && depData) {
       const serverDeposits: GullakDeposit[] = (depData as Array<{
@@ -308,7 +315,7 @@ export async function hydrateGullakDeposits(
       }));
 
       const serverIdSet = new Set(serverDeposits.map((d) => d.id));
-      const missingOnServer = localDeposits.filter((d) => !serverIdSet.has(d.id));
+      const missingOnServer = (localDeposits || []).filter((d) => !serverIdSet.has(d.id));
 
       if (missingOnServer.length > 0) {
         missingOnServer.forEach((m) => {
@@ -335,6 +342,19 @@ export async function hydrateGullakDeposits(
     if (__DEV__) console.log('Error hydrating gullak_deposits from Supabase:', depErr);
   }
   return resolvedDeposits;
+}
+
+/** Kept for any other caller: same behaviour as before. */
+export async function hydrateGullakDeposits(
+  userId: string,
+  localDeposits: GullakDeposit[]
+): Promise<GullakDeposit[]> {
+  try {
+    return await mergeGullakDeposits(userId, localDeposits, await fetchGullakDepositsRaw(userId));
+  } catch (depErr) {
+    if (__DEV__) console.log('Error hydrating gullak_deposits from Supabase:', depErr);
+    return localDeposits || [];
+  }
 }
 
 export interface HydrateContext {
@@ -372,7 +392,8 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       return;
     }
 
-    // 1. Fetch user profile, logs, plan changes, and budget periods in parallel with timeout
+    // 1. Fetch user profile, logs, plan changes, budget periods, and gullak deposits in parallel with timeout
+    const depositsRawPromise = fetchGullakDepositsRaw(userId).catch((e) => ({ data: null, error: e as Error }));
     const { profileData, logsData, plansData, periodsData } = await fetchRemoteBudgetData(userId);
 
     let resolvedBudget = get().dailyBudgetAmount;
@@ -567,8 +588,14 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       };
     }
 
-    // 2b. Fetch manual gullak deposits from Supabase with timeout
-    const resolvedDeposits = await hydrateGullakDeposits(userId, get().gullakDeposits || []);
+    // 2b. Merge manual gullak deposits from the parallel Supabase query
+    let resolvedDeposits: GullakDeposit[];
+    try {
+      resolvedDeposits = await mergeGullakDeposits(userId, get().gullakDeposits || [], await depositsRawPromise);
+    } catch (depErr) {
+      if (__DEV__) console.log('Error hydrating gullak_deposits from Supabase:', depErr);
+      resolvedDeposits = get().gullakDeposits || [];
+    }
 
     // 3. Recalculate metrics from combined records
     const metrics = computeMetrics(

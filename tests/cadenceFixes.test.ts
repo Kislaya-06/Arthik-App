@@ -118,7 +118,9 @@ vi.mock('../src/store/notificationStore', () => ({
 // Import store & helpers
 import { useDailyBudgetStore, registerExpensesLoadedGetter, registerExpenseGetter } from '../src/store/dailyBudgetStore';
 import { Expense } from '../src/store/expenseStore';
-import { format, addDays, parseISO } from 'date-fns';
+import { format } from 'date-fns/format';
+import { addDays } from 'date-fns/addDays';
+import { parseISO } from 'date-fns/parseISO';
 import { getCurrentPeriodSummary } from '../src/lib/budgetPeriods';
 import { calculatePeriodSummary, getCarryCoveredByDate } from '../src/lib/homeCalculations';
 import { dailyCarryForDate } from '../src/lib/budgetPeriods';

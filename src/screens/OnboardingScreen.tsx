@@ -1,12 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, FlatList } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions, FlatList } from 'react-native';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { useTheme } from '../store/themeStore';
-import { IndianRupee, Sparkles, Check } from 'lucide-react-native';
+import IndianRupee from 'lucide-react-native/icons/indian-rupee';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Check from 'lucide-react-native/icons/check';
 import Svg, { Circle, G } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -242,9 +245,9 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Skip Button */}
       {currentSlide.showSkip && (
-        <TouchableOpacity style={[styles.skipButton, { top: insets.top + Spacing.block }]} onPress={handlePressSkip} activeOpacity={0.7}>
+        <PressableOpacity style={[styles.skipButton, { top: insets.top + Spacing.block }]} onPress={handlePressSkip} activeOpacity={0.7}>
           <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip</Text>
-        </TouchableOpacity>
+        </PressableOpacity>
       )}
 
       {/* Main content Area (FlatList Swipe) */}
@@ -297,13 +300,13 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* CTA Action Button */}
-        <TouchableOpacity
+        <PressableOpacity
           style={[styles.button, { backgroundColor: colors.mint }]}
           onPress={handlePressNext}
           activeOpacity={0.8}
         >
           <Text style={[styles.buttonText, { color: colors.forestGreen }]}>{currentSlide.buttonLabel}</Text>
-        </TouchableOpacity>
+        </PressableOpacity>
       </View>
     </View>
   );

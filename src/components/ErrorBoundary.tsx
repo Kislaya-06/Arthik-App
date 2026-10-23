@@ -1,7 +1,9 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, DevSettings } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, DevSettings } from 'react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
 import * as Updates from 'expo-updates';
-import { AlertTriangle, RotateCcw } from 'lucide-react-native';
+import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
+import RotateCcw from 'lucide-react-native/icons/rotate-ccw';
 
 interface Props {
   children: ReactNode;
@@ -69,14 +71,14 @@ export class ErrorBoundary extends Component<Props, State> {
               </ScrollView>
             ) : null}
 
-            <TouchableOpacity
+            <PressableOpacity
               style={styles.reloadBtn}
               onPress={this.handleReload}
               activeOpacity={0.8}
             >
               <RotateCcw size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.reloadBtnText}>Reload App</Text>
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
         </View>
       );

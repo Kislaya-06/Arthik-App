@@ -1,4 +1,7 @@
-import { format, parseISO, addDays, isAfter } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { addDays } from 'date-fns/addDays';
+import { isAfter } from 'date-fns/isAfter';
 import { formatCompactCurrency, formatCurrency, round2 } from './formatters';
 import { isExcludedFromTotals } from './transactionUtils';
 import { budgetAllowedForActiveDays } from '../money/budgetAllowance';

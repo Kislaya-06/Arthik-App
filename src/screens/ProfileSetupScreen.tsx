@@ -13,7 +13,10 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { ArrowLeft, ArrowRight, Camera, User } from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import ArrowRight from 'lucide-react-native/icons/arrow-right';
+import Camera from 'lucide-react-native/icons/camera';
+import User from 'lucide-react-native/icons/user';
 import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCategoryStore } from '../store/categoryStore';

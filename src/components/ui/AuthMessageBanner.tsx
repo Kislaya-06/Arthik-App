@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet, Pressable, Animated } from 'react-native';
-import { AlertCircle, X } from 'lucide-react-native';
+import AlertCircle from 'lucide-react-native/icons/circle-alert';
+import X from 'lucide-react-native/icons/x';
 import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius } from '../../config/theme';
 
 export interface AuthMessageBannerProps {

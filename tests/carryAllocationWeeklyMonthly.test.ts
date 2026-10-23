@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { format, parseISO, addDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { addDays } from 'date-fns/addDays';
 
 vi.useFakeTimers({ toFake: ['Date'] });
 vi.setSystemTime(new Date('2026-11-02T12:00:00'));

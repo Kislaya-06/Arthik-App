@@ -26,6 +26,7 @@ import { useAppLockStore } from '../store/appLockStore';
 import { useSplashCoverStore } from '../store/splashCoverStore';
 import { Spacing, FontFamily, FontSize } from '../config/theme';
 import { supabase } from '../config/supabase';
+import { perfMark } from '../lib/perfMarks';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 type Target = keyof RootStackParamList;
@@ -256,6 +257,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           useSplashCoverStore.getState().revealSoon();
           return;
         }
+        perfMark('splash_exit');
         navigation.replace(target as any);
         useSplashCoverStore.getState().revealSoon();
       });
@@ -309,31 +311,30 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     const initAuthAndNavigate = async () => {
       let target: Target = 'Onboarding';
       try {
-        // 1. Determine connectivity on cold launch (capped so a slow probe can not hold the splash)
-        try {
-          await Promise.race([
-            useNetworkStore.getState().checkConnectivity(),
-            new Promise<void>((resolve) => setTimeout(resolve, 1500)),
-          ]);
-        } catch (_) {}
-
-        // 2. Supabase session with a strict 2s timeout
-        let activeUser: User | null = null;
-        try {
-          const sessionPromise = supabase.auth.getSession();
-          const sessionTimeout = new Promise<{ data: { session: null }; error: AuthError | Error | null }>((resolve) =>
+        // 1+2. Run connectivity check and session read in parallel (capped at 1.5s and 2s)
+        const connectivity = Promise.race([
+          useNetworkStore.getState().checkConnectivity(),
+          new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+        ]).catch(() => {});
+        const sessionRace = Promise.race([
+          supabase.auth.getSession(),
+          new Promise<{ data: { session: null }; error: AuthError | Error | null }>((resolve) =>
             setTimeout(() => resolve({ data: { session: null }, error: new Error('Session timeout') }), 2000)
-          );
-          const { data, error } = await Promise.race([sessionPromise, sessionTimeout]);
-          if (data?.session) {
-            await setSession(data.session);
-            activeUser = data.session.user;
-          } else if (error && isNetworkFailure(error)) {
-            useNetworkStore.getState().setOffline(true);
-          }
-        } catch (_) {
+          ),
+        ]).catch((e) => ({ data: { session: null }, error: e as Error, thrown: true as const }));
+
+        await connectivity; // connectivity result applied first, exactly as before
+        let activeUser: User | null = null;
+        const res = await sessionRace; // then the session result
+        if ('thrown' in res) {
+          useNetworkStore.getState().setOffline(true);
+        } else if (res.data?.session) {
+          await setSession(res.data.session);
+          activeUser = res.data.session.user;
+        } else if (res.error && isNetworkFailure(res.error)) {
           useNetworkStore.getState().setOffline(true);
         }
+        perfMark('session_ready');
 
         // 3. Offline recovery: restore the authenticated user & profile from local cache
         if (!activeUser) {
@@ -358,6 +359,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           } catch (hydrationErr) {
             if (__DEV__) console.error('Startup hydration error:', hydrationErr);
           }
+          perfMark('hydration_done');
           target = 'AppTabs';
         } else {
           const hasSeen = await AsyncStorage.getItem('@arthik_has_seen_onboarding');

@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import type { SharedValue } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedReaction } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing } from '../config/theme';
 import { getPullProgress, getRingArc, nextArmedState } from '../lib/pullToHistoryPhysics';
 
@@ -11,7 +14,7 @@ import { getPullProgress, getRingArc, nextArmedState } from '../lib/pullToHistor
  *
  *  - Ring is a countdown: fully white at 0%, a grey track eats it clockwise from 12 o'clock.
  *  - At 100% the whole ring and the label flip to the accent colour in a single frame (no fade).
- *  - Progress is read from `pullDepthAnim` (dp) / `maxTravel`, so ring and movement never disagree.
+ *  - Progress is read from `pullDepth` (dp) / `maxTravel`, so ring and movement never disagree.
  */
 
 // Circle geometry (literal sizes per AGENTS.md 9.3). Outer diameter 24dp, 2dp stroke.
@@ -27,8 +30,10 @@ const PROGRESS_STEPS = 240;
 export const PULL_FOOTER_HEIGHT = RING_SIZE + Spacing.row + LineHeight.caption;
 
 export interface PullToHistoryIndicatorProps {
-  /** Current pull-up depth in dp (0 at rest). */
-  pullDepthAnim: Animated.Value;
+  /** Current pull-up depth in dp (0 at rest) as a Reanimated SharedValue. */
+  pullDepth?: SharedValue<number>;
+  /** Legacy Animated.Value fallback. */
+  pullDepthAnim?: Animated.Value;
   /** Depth (dp) that corresponds to 100%. */
   maxTravel: number;
   colors: ThemeColors;
@@ -36,6 +41,7 @@ export interface PullToHistoryIndicatorProps {
 }
 
 export const PullToHistoryIndicator: React.FC<PullToHistoryIndicatorProps> = ({
+  pullDepth,
   pullDepthAnim,
   maxTravel,
   colors,
@@ -44,8 +50,36 @@ export const PullToHistoryIndicator: React.FC<PullToHistoryIndicatorProps> = ({
   const [progress, setProgress] = useState(0);
   const [armed, setArmed] = useState(false);
   const armedRef = useRef(false);
+  const armedShared = useSharedValue(false);
 
+  // UI-thread reaction when Reanimated SharedValue is provided
+  useAnimatedReaction(
+    () => {
+      'worklet';
+      if (!pullDepth) return { q: 0, nextArmed: false };
+      const p = getPullProgress(pullDepth.value, maxTravel);
+      const q = Math.round(p * PROGRESS_STEPS) / PROGRESS_STEPS;
+      const nextArmed = nextArmedState(armedShared.value, p);
+      if (nextArmed !== armedShared.value) {
+        armedShared.value = nextArmed;
+      }
+      return { q, nextArmed };
+    },
+    (curr, prev) => {
+      'worklet';
+      if (!prev || curr.q !== prev.q) {
+        scheduleOnRN(setProgress, curr.q);
+      }
+      if (!prev || curr.nextArmed !== prev.nextArmed) {
+        scheduleOnRN(setArmed, curr.nextArmed);
+      }
+    },
+    [pullDepth, maxTravel]
+  );
+
+  // Legacy fallback for Animated.Value
   useEffect(() => {
+    if (!pullDepthAnim || pullDepth) return;
     const id = pullDepthAnim.addListener(({ value }) => {
       const p = getPullProgress(value, maxTravel);
       const q = Math.round(p * PROGRESS_STEPS) / PROGRESS_STEPS;
@@ -60,7 +94,7 @@ export const PullToHistoryIndicator: React.FC<PullToHistoryIndicatorProps> = ({
     return () => {
       pullDepthAnim.removeListener(id);
     };
-  }, [pullDepthAnim, maxTravel]);
+  }, [pullDepthAnim, pullDepth, maxTravel]);
 
   const armedColor = isDark ? colors.mintGreen : colors.mintGreenDark;
   const arc = getRingArc(progress, RING_CIRCUMFERENCE);

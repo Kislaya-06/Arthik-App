@@ -23,7 +23,10 @@
  * the user's data changes, so a scheduled message is cancelled the moment it stops being true.
  */
 
-import { addDays, endOfMonth, endOfWeek, format } from 'date-fns';
+import { addDays } from 'date-fns/addDays';
+import { endOfMonth } from 'date-fns/endOfMonth';
+import { endOfWeek } from 'date-fns/endOfWeek';
+import { format } from 'date-fns/format';
 import { formatCurrency } from './formatters';
 
 // ─── Types ───────────────────────────────────────────────────────────────────

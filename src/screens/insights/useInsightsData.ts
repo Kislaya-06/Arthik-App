@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
-import {
-  startOfWeek, subWeeks, addDays, differenceInCalendarDays,
-  isWithinInterval, parseISO, format,
-} from 'date-fns';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { subWeeks } from 'date-fns/subWeeks';
+import { addDays } from 'date-fns/addDays';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
+import { isWithinInterval } from 'date-fns/isWithinInterval';
+import { parseISO } from 'date-fns/parseISO';
+import { format } from 'date-fns/format';
 import { isCountedIncome } from '../../lib/transactionUtils';
 import { buildLedgerEntries, spendingTotalsByDateKey, toDateKey, isDateKeyWithin } from '../../money';
 import { formatAmountWithCommas, round2 } from '../../lib/formatters';

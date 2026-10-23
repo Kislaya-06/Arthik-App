@@ -4,7 +4,6 @@ import {
   Text,
   Modal,
   StyleSheet,
-  TouchableOpacity,
   Pressable,
   ScrollView,
   Animated,
@@ -13,18 +12,17 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { PressableOpacity } from './ui/PressableOpacity';
 import Svg, { Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
-import {
-  X,
-  CheckCircle2,
-  ShieldCheck,
-  Calendar,
-  Coins,
-  Wallet,
-  Sparkles,
-  Clock,
-  Lock,
-} from 'lucide-react-native';
+import X from 'lucide-react-native/icons/x';
+import CheckCircle2 from 'lucide-react-native/icons/circle-check';
+import ShieldCheck from 'lucide-react-native/icons/shield-check';
+import Calendar from 'lucide-react-native/icons/calendar';
+import Coins from 'lucide-react-native/icons/coins';
+import Wallet from 'lucide-react-native/icons/wallet';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Clock from 'lucide-react-native/icons/clock';
+import Lock from 'lucide-react-native/icons/lock';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
@@ -82,7 +80,7 @@ export const MoneyHelpBadge: React.FC<MoneyHelpBadgeProps> = ({
 
   return (
     <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, style]}>
-      <TouchableOpacity
+      <PressableOpacity
         onPress={onPress}
         activeOpacity={0.75}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -129,7 +127,7 @@ export const MoneyHelpBadge: React.FC<MoneyHelpBadgeProps> = ({
         >
           !
         </Text>
-      </TouchableOpacity>
+      </PressableOpacity>
     </Animated.View>
   );
 };
@@ -283,13 +281,13 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
               </Text>
             </View>
 
-            <TouchableOpacity
+            <PressableOpacity
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={[styles.closeBtn, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}
             >
               <X size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
 
           <Text

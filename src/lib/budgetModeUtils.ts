@@ -1,10 +1,8 @@
-import {
-  format,
-  parseISO,
-  differenceInCalendarDays,
-  subWeeks,
-  eachDayOfInterval,
-} from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
+import { subWeeks } from 'date-fns/subWeeks';
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord } from '../types';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
 import { calculateBudgetStatus } from '../money/budgetStatus';

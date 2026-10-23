@@ -1,4 +1,5 @@
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
 import { round2 } from '../../lib/formatters';
 import { supabase } from '../../config/supabase';
 import {

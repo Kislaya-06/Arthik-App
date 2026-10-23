@@ -2,17 +2,23 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import {
   ScrollView,
   Keyboard,
-  Animated,
-  Easing,
   LayoutChangeEvent,
-  useAnimatedValue,
 } from 'react-native';
+import {
+  useSharedValue,
+  withTiming,
+  withSpring,
+  Easing as REasing,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 export interface UseFormKeyboardReturn {
   scrollRef: React.RefObject<ScrollView | null>;
   isKeypadVisible: boolean;
   isKeyboardOpen: boolean;
-  keypadAnim: Animated.Value;
+  keypad: SharedValue<number>;
+  keypadAnim: SharedValue<number>;
   handleAmountPress: () => void;
   handleNoteLayout: (e: LayoutChangeEvent) => void;
   handleNoteFocus: () => void;
@@ -34,7 +40,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   const activeSplitY = useRef(0);
 
   // Keypad animation value: 1 = fully visible, 0 = collapsed/hidden downwards
-  const keypadAnim = useAnimatedValue(1);
+  const keypad = useSharedValue(1);
   const isKeypadVisibleRef = useRef(true);
   const isKeyboardOpenRef = useRef(false);
   const isNoteFocusedRef = useRef(false);
@@ -48,37 +54,38 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     if (isNoteFocusedRef.current) return;
     isKeypadVisibleRef.current = true;
     setIsKeypadVisible(true);
-    Animated.timing(keypadAnim, {
-      toValue: 1,
+    keypad.value = withTiming(1, {
       duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [keypadAnim]);
+      easing: REasing.out(REasing.cubic),
+    });
+  }, [keypad]);
 
   const hideKeypad = useCallback(() => {
     if (!isKeypadVisibleRef.current) return;
     isKeypadVisibleRef.current = false;
-    Animated.timing(keypadAnim, {
-      toValue: 0,
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      if (finished) {
-        setIsKeypadVisible(false);
+    keypad.value = withTiming(
+      0,
+      {
+        duration: 200,
+        easing: REasing.out(REasing.cubic),
+      },
+      (finished) => {
+        'worklet';
+        if (finished) {
+          scheduleOnRN(setIsKeypadVisible, false);
+        }
       }
-    });
-  }, [keypadAnim]);
+    );
+  }, [keypad]);
 
   const handleKeypadDrag = useCallback(
     (dy: number) => {
       if (!isKeypadVisibleRef.current) return;
       // Map drag distance down (0 to 258) to normalized progress (1 to 0)
       const progress = Math.max(0, Math.min(1, 1 - dy / 258));
-      keypadAnim.setValue(progress);
+      keypad.value = progress;
     },
-    [keypadAnim]
+    [keypad]
   );
 
   const handleKeypadDragEnd = useCallback(
@@ -87,27 +94,29 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
       if (dy > 30 || vy > 0.35) {
         // Drag confirmed: smoothly continue closing to 0
         isKeypadVisibleRef.current = false;
-        Animated.timing(keypadAnim, {
-          toValue: 0,
-          duration: 180,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
-        }).start(({ finished }) => {
-          if (finished) {
-            setIsKeypadVisible(false);
+        keypad.value = withTiming(
+          0,
+          {
+            duration: 180,
+            easing: REasing.out(REasing.cubic),
+          },
+          (finished) => {
+            'worklet';
+            if (finished) {
+              scheduleOnRN(setIsKeypadVisible, false);
+            }
           }
-        });
+        );
       } else {
         // Drag cancelled: spring back to open using AGENTS.md 9.7 physics
-        Animated.spring(keypadAnim, {
-          toValue: 1,
-          tension: 70,
-          friction: 8,
-          useNativeDriver: false,
-        }).start();
+        keypad.value = withSpring(1, {
+          stiffness: 338.8,
+          damping: 25,
+          mass: 1,
+        });
       }
     },
-    [keypadAnim]
+    [keypad]
   );
 
   // ─── Keyboard listeners ───────────────────────────────────────────────────
@@ -211,7 +220,8 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     scrollRef,
     isKeypadVisible,
     isKeyboardOpen,
-    keypadAnim,
+    keypad,
+    keypadAnim: keypad,
     handleAmountPress,
     handleNoteLayout,
     handleNoteFocus,

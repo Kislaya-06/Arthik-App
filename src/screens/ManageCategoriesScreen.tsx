@@ -5,7 +5,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ArrowLeft, Plus } from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Plus from 'lucide-react-native/icons/plus';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { RootStackParamList } from '../types';

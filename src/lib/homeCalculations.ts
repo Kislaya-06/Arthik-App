@@ -17,7 +17,11 @@
  * remains pure, deterministic, and 100% unit-testable in isolation without React or UI dependencies.
  */
 
-import { format, parseISO, startOfWeek, startOfMonth, eachDayOfInterval } from 'date-fns';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import { formatCurrency, round2 } from './formatters';
 import { DailyRecord, calculateCycleFinancials } from './budgetCalculations';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';

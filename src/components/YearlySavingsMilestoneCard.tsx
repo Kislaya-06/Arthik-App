@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Trophy, Calendar, ChevronRight } from 'lucide-react-native';
+import Trophy from 'lucide-react-native/icons/trophy';
+import Calendar from 'lucide-react-native/icons/calendar';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
 import {

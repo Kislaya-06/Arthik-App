@@ -6,17 +6,15 @@ vi.mock('lucide-react-native', () => ({
   CheckSquare: () => null,
 }));
 
-import {
-  parseISO,
-  isWithinInterval,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  startOfYear,
-  endOfYear,
-  format,
-} from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
+import { isWithinInterval } from 'date-fns/isWithinInterval';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { endOfWeek } from 'date-fns/endOfWeek';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { endOfMonth } from 'date-fns/endOfMonth';
+import { startOfYear } from 'date-fns/startOfYear';
+import { endOfYear } from 'date-fns/endOfYear';
+import { format } from 'date-fns/format';
 import { isIncomeTransaction } from '../src/lib/transactionUtils';
 import { computeMonthlyCashFlowData } from '../src/lib/chartUtils';
 

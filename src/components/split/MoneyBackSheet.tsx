@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
-import { Check } from 'lucide-react-native';
+import Check from 'lucide-react-native/icons/check';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AppButton } from '../ui/AppButton';

@@ -5,8 +5,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ArrowLeft, MoreHorizontal, Check } from 'lucide-react-native';
-import * as LucideIcons from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import MoreHorizontal from 'lucide-react-native/icons/ellipsis';
+import Check from 'lucide-react-native/icons/check';
+import { CATEGORY_ICONS } from '../lib/categoryIconRegistry';
 
 import { RootStackParamList } from '../types';
 import { useCategoryStore, CategoryKind, categoryKindOf } from '../store/categoryStore';
@@ -28,7 +30,7 @@ export { CATEGORY_PALETTE };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEditCategory'>;
 
-const ICONS_GRID = [
+export const ICONS_GRID = [
   'Coffee', 'Truck', 'ShoppingBag', 'Video', 'Activity',
   'FileText', 'GraduationCap', 'Send', 'Home', 'ShoppingCart',
   'Move', 'Gift', 'CupSoda', 'Music', 'Users', 'DollarSign',
@@ -36,7 +38,7 @@ const ICONS_GRID = [
 ];
 
 // Icons that fit money coming in (CAT-004). Shown instead of the expense grid for income categories.
-const INCOME_ICONS_GRID = [
+export const INCOME_ICONS_GRID = [
   'Briefcase', 'Laptop', 'Percent', 'Gift', 'Wallet',
   'TrendingUp', 'Landmark', 'Banknote', 'PiggyBank', 'HandCoins',
   'Coins', 'Store', 'Award', 'Home', 'Users', 'DollarSign',
@@ -119,7 +121,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
   };
 
   const isSaveEnabled = name.trim().length > 0 && selectedIcon !== null;
-  const PreviewIconComponent = selectedIcon ? (LucideIcons as any)[selectedIcon] || MoreHorizontal : MoreHorizontal;
+  const PreviewIconComponent = selectedIcon ? CATEGORY_ICONS[selectedIcon] ?? MoreHorizontal : MoreHorizontal;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
@@ -196,7 +198,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
         </Text>
         <View style={styles.iconGrid}>
           {iconsGrid.map(iconName => {
-            const IconComponent = (LucideIcons as any)[iconName] || MoreHorizontal;
+            const IconComponent = CATEGORY_ICONS[iconName] ?? MoreHorizontal;
             const isSelected = selectedIcon === iconName;
 
             return (

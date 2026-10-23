@@ -10,7 +10,8 @@ import {
   StyleProp,
   TextInputProps,
 } from 'react-native';
-import { ChevronRight, X } from 'lucide-react-native';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import X from 'lucide-react-native/icons/x';
 import { useTheme } from '../../store/themeStore';
 import { ControlHeight, BorderRadius, FontSize, FontFamily, LineHeight, Spacing } from '../../config/theme';
 

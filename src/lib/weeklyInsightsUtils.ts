@@ -1,4 +1,8 @@
-import { parseISO, format, differenceInCalendarDays, getDay, addDays } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
+import { format } from 'date-fns/format';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
+import { getDay } from 'date-fns/getDay';
+import { addDays } from 'date-fns/addDays';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates } from '../money/budgetAllowance';

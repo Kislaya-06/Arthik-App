@@ -1,4 +1,5 @@
-import { format, formatDistanceToNowStrict } from 'date-fns';
+import { format } from 'date-fns/format';
+import { formatDistanceToNowStrict } from 'date-fns/formatDistanceToNowStrict';
 import { formatCurrency } from '../../lib/formatters';
 import type { AutoLogEvent, AutoLogMode, ReviewReason, TrackedAccount } from './types';
 

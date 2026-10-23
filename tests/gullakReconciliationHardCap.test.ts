@@ -105,7 +105,8 @@ vi.mock('../src/store/notificationStore', () => ({
 import { useDailyBudgetStore, registerExpenseGetter } from '../src/store/dailyBudgetStore';
 import { calculateSavingsMetrics, DailyRecord } from '../src/lib/budgetCalculations';
 import { Expense } from '../src/store/expenseStore';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
 
 describe('Gullak Reconciliation & Real-Money Invariant Hard Cap', () => {
   const TODAY_STR = '2026-10-10';

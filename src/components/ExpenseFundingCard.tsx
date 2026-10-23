@@ -6,7 +6,11 @@ import { formatCurrency } from '../lib/formatters';
 import { GradientIconBadge } from './GradientIconBadge';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { ExpenseFundingBreakdown } from '../lib/transactionFunding';
-import { Calendar, Wallet, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react-native';
+import Calendar from 'lucide-react-native/icons/calendar';
+import Wallet from 'lucide-react-native/icons/wallet';
+import AlertCircle from 'lucide-react-native/icons/circle-alert';
+import CheckCircle2 from 'lucide-react-native/icons/circle-check';
+import Sparkles from 'lucide-react-native/icons/sparkles';
 
 export const ExpenseFundingCard: React.FC<{ funding: ExpenseFundingBreakdown }> = ({ funding }) => {
   const { colors, isDark } = useTheme();

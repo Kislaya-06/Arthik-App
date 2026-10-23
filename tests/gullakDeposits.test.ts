@@ -110,7 +110,7 @@ import {
   getExternalDepositsInPeriod,
   PeriodCalculationParams,
 } from '../src/lib/homeCalculations';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 
 describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
   const todayStr = format(new Date(), 'yyyy-MM-dd');

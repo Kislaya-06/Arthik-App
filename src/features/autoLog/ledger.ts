@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '../../config/supabase';
 import { useAuthStore } from '../../store/authStore';

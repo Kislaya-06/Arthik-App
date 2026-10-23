@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseISO } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
 import {
   computeActiveDaysInYear,
   computeAnnualDailyBurn,

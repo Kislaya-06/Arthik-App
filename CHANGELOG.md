@@ -7,6 +7,174 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Consistent Native Press Feel Everywhere (OPT-17) — OTA-safe
+
+- **Replaced `TouchableOpacity` with Drop-in `PressableOpacity` across the Entire App (`src/components/ui/PressableOpacity.tsx`)**:
+  - Created reusable, forwardRef-capable `PressableOpacity` component wrapping React Native `Pressable` with instant native pressed opacity feedback (default `activeOpacity = 0.2`).
+  - Systematically replaced `TouchableOpacity` across all 22 caller files (`ErrorBoundary`, `ui/BottomSheetModal`, `SyncFailedBanner`, `profile/PauseBudgetModal`, `PeriodRenewalModal`, `CadenceSwitchModal`, `MoneyExplainerModal`, `BrandedHeroCard`, `DepositGullakModal`, `BudgetEditModal`, `SavingsRecordRow`, `WelcomeBackGapModal`, `savings/SavingsHistorySection`, `savings/BudgetHubSection`, `savings/SavingsHeader`, `savings/SavingsHeroCard`, `VaultSpendingGuardModal`, `OfflineBanner`, `screens/HomeScreen`, `screens/NotificationsScreen`, `screens/HistoryScreen`, `screens/OnboardingScreen`).
+  - Preserved every custom `activeOpacity` value (0.7, 0.8, 0.85, 1.0), `hitSlop`, `onPress`, `disabled`, and accessibility role properties.
+  - Replaced legacy 150ms JS-driven opacity fade animations with instant native touch response, matching the feel of modern Android/iOS system controls.
+  - `git grep -n "TouchableOpacity" src` now returns 0 occurrences across the entire project.
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/pressableOpacity.test.ts` (3 unit tests asserting 0 occurrences of `TouchableOpacity` in `src/`, `PressableOpacity` export & implementation, and import adoption across all 22 former caller files). All 141 test files, 1,949 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-17 marked complete).
+
+### UI-Thread Pull-to-History Gesture & Physics (OPT-16) — OTA-safe
+
+- **Offloaded Pull-to-History List Gesture & Physics to RNGH + Reanimated (`src/components/PullToHistoryList.tsx`, `src/lib/pullToHistoryPhysics.ts`, `src/components/PullToHistoryIndicator.tsx`)**:
+  - Replaced legacy `PanResponder`, `useAnimatedValue`, and core `Animated` (`useNativeDriver: false`) with `react-native-gesture-handler` (`Gesture.Pan()`) and `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `useAnimatedReaction`, `withSpring`, `withDecay`).
+  - Added `'worklet';` directives to all pure math functions in `pullToHistoryPhysics.ts` (`clamp`, `getMaxTravel`, `getFingerTravel`, `resist`, `unresist`, `pullDepthFromTravel`, `travelFromPullDepth`, `resolveVisualState`, `rawYFromVisualState`, `clampRawY`, `getPullProgress`, `nextArmedState`, `getRingArc`, `decideRelease`), executing complex rubber-band and countdown math directly on the UI thread.
+  - Implemented `manualActivation(true)` in `Gesture.Pan()` preserving exact touch slop (`TOUCH_SLOP = 6`), touch capture mid-flight (catching moving momentum/bouncing lists), and top-edge native refresh control handover (`dy > 0` at top immediately fails gesture so parent `RefreshScrollShell` takes pull-to-refresh).
+  - Ported in-bounds momentum fling to Reanimated `withDecay` (`MOMENTUM_DECELERATION = 0.997`, clamped to `[0, maxScroll]`), release bounce to native spring physics (`stiffness: 42, damping: 11.6, mass: 1`), and ring countdown to UI-thread shared value.
+  - Replaced manual `Animated.addListener` for `useRefreshLock` with UI-thread `useAnimatedReaction` bridging to React state only on boolean lock changes.
+  - Updated `PullToHistoryIndicator` to support `pullDepth?: SharedValue<number>` via `useAnimatedReaction` (240 quantized steps) while maintaining backward compatibility with legacy `pullDepthAnim`.
+  - Preserved imperative handle `ref.current.reset()` consumed by `HomeScreen`.
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/pullToHistoryReanimated.test.ts` (5 unit tests verifying complete elimination of `PanResponder`, `useNativeDriver: false`, and `Animated.decay`, preservation of Instagram physics constants, and Reanimated/RNGH wiring). All 140 test files, 1,946 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-16 marked complete).
+
+### UI-Thread Insights Period Swipe (OPT-15) — OTA-safe
+
+- **Offloaded Insights Hero Card Period Navigation to RNGH Gesture.Pan (`src/screens/InsightsScreen.tsx`)**:
+  - Replaced legacy `PanResponder` and `panHandlers` with `react-native-gesture-handler` (`Gesture.Pan()`), running gesture tracking directly on the UI thread.
+  - Implemented `manualActivation(true)` preserving horizontal dominance gating (`|dx| > 12 && |dx| > |dy| * 1.5`) while instantly failing vertical movements (`|dy| > 12`) to keep parent `ScrollView` vertical scrolling completely uninhibited.
+  - Safely bridged period navigation updates (`onSwipeEnd`) to the React Native thread via `scheduleOnRN` from `react-native-worklets`.
+  - Completely eliminates JS-thread touch responder lag during rapid horizontal period switching.
+  - Preserved exact period navigation thresholds (`dx < -40` forward, `dx > 40` backward, clamped to `minOff`).
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/insightsPeriodSwipeRngh.test.ts` (5 unit tests verifying RNGH primitives, complete elimination of `PanResponder`, gesture activation thresholds, and `scheduleOnRN` bridge). All 139 test files, 1,941 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-15 marked complete).
+
+### UI-Thread Insights Category Donut Sweep (OPT-14) — OTA-safe
+
+- **Offloaded Insights Category Donut Sweep to Reanimated Worklets (`src/components/AnimatedCategoryDonut.tsx`)**:
+  - Ported 750ms category donut sweep animation from React Native core `Animated` (`useNativeDriver: false`) to `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedProps`, `withTiming` 750ms bezier).
+  - Switched SVG mask animated circle to `Reanimated.createAnimatedComponent(Circle)` with `strokeDashoffset` driven directly on the UI thread via `animatedProps`.
+  - Bridges sweep completion to React Native state via `scheduleOnRN` from `react-native-worklets` to safely remove the mask once the entrance animation concludes.
+  - Eliminates JS-thread animation stutter when switching Insights periods or when category aggregations and chart geometries are computing.
+  - Preserved center summary fade (`useNativeDriver: true`), slice selection interactivity, and exact easing curve (`REasing.bezier(0.25, 0.1, 0.25, 1)`).
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/animatedCategoryDonutReanimated.test.ts` (6 unit tests verifying Reanimated & Worklet primitives, elimination of `useNativeDriver: false` and `sweepAnim`, 750ms bezier timing, `useAnimatedProps` mask binding, and `scheduleOnRN` bridge). All 138 test files, 1,936 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-14 marked complete).
+
+### UI-Thread Savings Progress Bar (OPT-13) — OTA-safe
+
+- **Offloaded Savings Allowance Card Progress Bar to Reanimated Worklets (`src/screens/SavingsScreen.tsx`, `src/components/savings/BudgetHubSection.tsx`)**:
+  - Ported savings allowance card progress bar from React Native core `Animated` (`useNativeDriver: false`) to `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withTiming` 500ms out-cubic).
+  - Switched `BudgetHubSection` progress bar container to `<Animated.View>` from `react-native-reanimated`, eliminating JS-thread interpolation and layout calculations during progress bar animations.
+  - Keeps progress bar fills buttery-smooth at 60fps on the UI thread without dropping frames when mounting the Savings tab or reloading waterfall and period totals.
+  - Preserved exact 500ms duration, out-cubic easing (`Easing.out(Easing.cubic)`), clamping logic (`cardIsOver ? 1 : Math.min(1, Math.max(0, cardProgressRatio))`), and over-budget coral status styling.
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/savingsProgressBarReanimated.test.ts` (4 unit tests verifying Reanimated primitives, elimination of `useNativeDriver: false` and core Animated, 500ms out-cubic timing, and clamping logic). All 137 test files, 1,930 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-13 marked complete).
+
+### UI-Thread Insights Period Dots (OPT-12) — OTA-safe
+
+- **Offloaded Period Navigator Elastic Dots to Reanimated Worklets (`src/screens/insights/PeriodNavigator.tsx`)**:
+  - Ported elastic period dot indicator (`slideLeft` and `slideWidth`) from React Native core `Animated` (`useNativeDriver: false`) to `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withSequence`, `withTiming`, `withSpring`, `cancelAnimation`).
+  - Stretches pill with 130ms quad easing (`REasing.out(REasing.quad)`) followed by native spring physics (`stiffness: 447.4`, `damping: 49`, `mass: 1`) directly on the UI thread.
+  - Eliminates dot animation stuttering during rapid period switching when charts and financial summaries are recomputing on the JS thread.
+  - Preserved exact slot geometry (`DOT_SLOT = 14`), stretch physics (`16 + distance * DOT_SLOT`), direction-aware stretch sequence, and ghost dot emergence progression.
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/periodNavigatorReanimated.test.ts` (4 unit tests verifying Reanimated primitives, complete elimination of `useNativeDriver: false` and core Animated, and exact easing/spring constants). All 136 test files, 1,926 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-12 marked complete).
+
+### UI-Thread Keypad & Save Button Morph (OPT-11) — OTA-safe
+
+- **Offloaded Numeric Keypad & Save Button Morph to Reanimated + RNGH (`src/hooks/useFormKeyboard.ts`, `src/screens/ExpenseFormScreen.tsx`)**:
+  - Ported numeric keypad slide transitions (258px height, opacity, translateY, save button top margin) and drag-to-dismiss gesture from React Native core `Animated` (`useNativeDriver: false`) and `PanResponder` to `react-native-reanimated` worklets and `react-native-gesture-handler` (`Gesture.Pan()`).
+  - Replaced JS-thread button width and tick reveal animation with `useAnimatedStyle`, `withTiming` 180ms in-out ease, and native spring physics (`stiffness: 356.9`, `damping: 19`, `mass: 1`).
+  - Keypad drag follows finger tracking 1:1 on the UI thread at 60fps via worklet calculations without bridging events back to the JS thread during motion.
+  - Completely eliminates form layout jitter on opening/closing the keypad or saving transactions.
+  - Preserved all exact design constants (258px height, 220ms in, 200ms out, 180ms dismiss, 450ms save hold, note focus rules).
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/expenseFormReanimated.test.ts` (5 automated tests verifying Reanimated & RNGH imports, complete elimination of `PanResponder` and `useNativeDriver: false`, exact durations, and spring constants). Updated `tests/useFormKeyboard.test.ts` (all 24 tests passing). All 135 test files, 1,922 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-11 marked complete).
+
+### UI-Thread Bottom Navigation Bar Capsule (OPT-10) — OTA-safe
+
+- **Offloaded Active Tab Capsule Animations to Reanimated Worklets (`src/components/BottomNavBar.tsx`)**:
+  - Ported `CapsuleTabItem` and its cross-fading `AnimatedIcon` from React Native core `Animated` (`useNativeDriver: false`) to `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withTiming` 180ms cubic, `interpolateColor`, `interpolate`).
+  - Switched tab wrapper to `Reanimated.createAnimatedComponent(Pressable)`, moving capsule background color, border color, horizontal padding (7↔11px), label expansion (0↔labelMax), label opacity, and margin interpolation to the native UI thread.
+  - Eliminates 180ms of JS-thread layout animation and frame drops on every tab switch, ensuring instant and responsive tab navigation even when mounting heavy screen trees.
+  - Preserved exact design tokens, easing curve (`REasing.out(REasing.cubic)`), 180ms duration, and native spring press-in bounce scale.
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/bottomNavBarReanimated.test.ts` (4 unit tests verifying Reanimated primitives, elimination of `useNativeDriver: false`, 180ms cubic duration, and exact interpolation ranges). All 134 test files, 1,917 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-10 marked complete).
+
+### Parallel Gullak Deposits Hydration (OPT-06) — OTA-safe
+
+- **Concurrent Budget & Deposits Remote Hydration (`src/store/dailyBudget/hydrate.ts`, `dailyBudgetStore.ts`)**:
+  - Decomposed `hydrateGullakDeposits` into pure network fetch (`fetchGullakDepositsRaw`) and local merge logic (`mergeGullakDeposits`).
+  - Initiated the `gullak_deposits` network query in parallel with `fetchRemoteBudgetData` (`profiles`, `daily_savings_log`, `budget_plan_changes`, `budget_periods`) at the start of remote hydration rather than running it serially ~200 lines later.
+  - Eliminates one extra sequential network round trip (150–400 ms on mobile connections) during cold boot startup hydration and pull-to-refresh.
+  - Maintained late evaluation of `get().gullakDeposits` at the merge step so in-flight user deposits created during hydration are never lost or overwritten.
+  - No money calculation, database query, timeout cap (3.5s), or merge/upload logic touched.
+  - **Tests**: Added `tests/gullakParallelHydration.test.ts` (4 unit tests validating query dispatch order, raw query structure, merge logic, and store integration). All 133 test files, 1,913 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-06 marked complete).
+
+### Parallel Connectivity Probe & Session Read at Startup (OPT-05) — OTA-safe
+
+- **Concurrent Cold-Start Network Evaluation (`src/screens/SplashScreen.tsx`)**:
+  - Parallelized the 1.5s network connectivity probe (`checkConnectivity()`) with the 2.0s Supabase session resolution (`supabase.auth.getSession()`) in `SplashScreen.tsx` instead of awaiting them serially.
+  - On slow or high-latency network connections, prevents up to 1.5s of unnecessary sequential waiting before hydration begins, cutting time-to-session (`session_ready`) significantly.
+  - Preserved original state application order: connectivity result is awaited and applied first, followed by session evaluation, maintaining offline state invariants and local cache fallback without change.
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/splashParallelProbes.test.ts` (4 unit tests validating all connectivity/session permutations, network failures, and thrown exceptions). All 132 test files, 1,909 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-05 marked complete).
+
+### Lazy Loading for Rarely Used Screens (OPT-04) — OTA-safe
+
+- **Deferred Screen Module Evaluation via React Navigation `getComponent` (`src/navigation/index.tsx`)**:
+  - Converted 18 secondary and rarely visited screens (`ResetPassword`, `ProfileSetup`, `GullakDepositDetail`, `CategoryDetail`, `ManageCategories`, `AddEditCategory`, `Notifications`, `Ledger`, `Profile`, `Faq`, and all 8 `AutoLog*` screens) from eager static imports to deferred `getComponent` loaders.
+  - Eliminated evaluation of ~18 screen bundles, their module-level StyleSheets, and associated helper imports at cold start. Hermes now evaluates these modules on-demand only when a user navigates to them for the first time.
+  - Eager hot paths (`Splash`, `Onboarding`, `Auth`, `AppTabs` with its 4 tabs, `ExpenseFormScreen` for Add/Edit, `ExpenseDetail`, `Savings`) remain strictly eager for zero-latency instant transitions.
+  - Preserved all native stack screen options (`gestureEnabled: false` on `AutoLogSetup` / `AutoLogWelcomeBack`, `animation: 'fade_from_bottom'` on `AutoLogIntro` / `AutoLogWelcomeBack`) and deep linking paths.
+  - No money logic or financial calculation touched.
+  - **Tests**: Added `tests/navigationLazyLoading.test.ts` (3 automated tests validating exports, lazy loading contracts, and option preservation). All 131 test files, 1,905 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-04 marked complete).
+
+### Direct Single-Function date-fns Imports (OPT-03) — OTA-safe
+
+- **Eliminated Barrel Imports for `date-fns` Sub-paths (`date-fns/<function>`)**:
+  - Rewrote 44 source files in `src/` and 17 test suites in `tests/` from barrel imports (`import { format, parseISO } from 'date-fns'`) to official direct function imports (`import { format } from 'date-fns/format'`, `import { parseISO } from 'date-fns/parseISO'`).
+  - Metro modules bundled dropped from 2,309 to 2,074 (-235 unused modules eliminated).
+  - Production Hermes bytecode dropped from 6.24 MB to 6.01 MB (-237 KB / cumulative -2.06 MB / -25.5% reduction from baseline).
+  - Zero barrel imports from `date-fns` remain across the entire repository (`src/`, `App.tsx`, `tests/`).
+  - **Tests**: All 130 test files, 1,902 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-03 marked complete).
+
+### Category Icon Registry & Zero-Barrel Bundling (OPT-02) — OTA-safe
+
+- **Eliminated Dynamic `import * as LucideIcons` Barrel via Static Category Icon Registry (`categoryIconRegistry.ts`, `iconUtils.ts`, `AddEditCategoryScreen.tsx`)**:
+  - Created `src/lib/categoryIconRegistry.ts` registering all 36 category icons used in production, historical grids, and default seeds as static direct imports.
+  - Replaced barrel `LucideIcons[iconName]` lookups in `iconUtils.ts` and `AddEditCategoryScreen.tsx` with static registry lookup falling back to `HelpCircle` / `MoreHorizontal`.
+  - Fully unblocked tree-shaking: Hermes production bytecode dropped from **8.07 MB to 6.24 MB (-1.92 MB / -22.7%)**, eliminating 1,741 unused modules from the bundle.
+  - Added repository convention in `AGENTS.md` (§9.11) requiring new category picker icons to be declared in `categoryIconRegistry.ts`.
+  - **Tests**: Added `tests/categoryIconRegistry.test.ts` (4 unit tests). All 130 test files, 1,902 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-02 marked complete), `AGENTS.md` (§9.11).
+
+### Direct Static Lucide Icon Imports (OPT-01) — OTA-safe
+
+- **Eliminated Barrel Imports for Static Lucide Icons (`lucide-react-native/icons/*`)**:
+  - Rewrote 70 source files across screens, components, and utilities from barrel imports (`import { Icon } from 'lucide-react-native'`) to direct single-icon imports (`import Icon from 'lucide-react-native/icons/<icon>'`).
+  - Added module declaration in `src/types/lucide-icons.d.ts` and test stub mapping in `vitest.config.mjs` (`tests/__stubs__/createLucideIcon.ts`).
+  - Dynamically resolved icons in `iconUtils.ts` and `AddEditCategoryScreen.tsx` are preserved intact for the upcoming Category Icon Registry (OPT-02).
+  - No money logic or visual UI rendering touched.
+  - **Tests**: All 129 test files, 1,898 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (OPT-01 marked complete).
+
+### Baseline Performance & Bundle Measurements (Phase M: M1 & M2) — OTA-safe
+
+- **Startup Timing & Bundle Size Baselines (`perfMarks.ts`, `docs/optimisation.md`)**:
+  - Added zero-cost dev-only timing helper `src/lib/perfMarks.ts` using `performance.now()`. In release builds every function call is a dead-code no-op.
+  - Added baseline checkpoint marks at JS start (`js_start`), font load (`fonts_ready`), session resolution (`session_ready`), hydration completion (`hydration_done`), splash exit (`splash_exit`), and root Home layout (`home_first_layout` with console summary).
+  - Recorded 3-run cold-start startup average: `fonts_ready` +166ms, `session_ready` +1,345ms, `hydration_done` +2,461ms, `splash_exit` +3,080ms, `home_first_layout` +3,928ms.
+  - Recorded production bundle size baseline: Hermes bytecode (`.hbc`) **8.07 MB** (8,458,487 B), minified JS **5.65 MB**, 4,050 modules. Confirmed `lucide-react-native` accounts for **1,619.1 KB** (14.8% of source) and `date-fns` accounts for **507.2 KB** (4.6%).
+  - No money logic or user-facing behavior touched.
+  - **Tests**: Added `tests/perfMarks.test.ts`. 129 test files, 1,898 tests passing; `tsc --noEmit` 0 errors.
+  - **Docs**: `docs/optimisation.md` (M1 & M2 completed with baseline tables).
+
 ### Pure Mode nav bar + Home ring match Budget Mode, zero-expense accounts switch to Budget Mode on day one, and factory-clean account wipe — OTA-safe
 
 - **Factory-Clean Data Wipe on Account Delete (`authStore.ts`)**:

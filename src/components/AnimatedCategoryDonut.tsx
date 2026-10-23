@@ -1,11 +1,19 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Pressable, useAnimatedValue } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedProps,
+  withTiming,
+  cancelAnimation,
+  Easing as REasing,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Circle, Path, Defs, Mask, G } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
 import { prepareCategoryBlockSegments } from '../lib/chartUtils';
 import { formatCurrency } from '../lib/formatters';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 
 export interface AnimatedCategoryDonutProps {
   categories: Array<{ id: string; name: string; amount: number; percentage: number; color?: string }>;
@@ -49,10 +57,14 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
   const selectedId = propSelectedId !== undefined ? propSelectedId : internalSelectedId;
 
-  // Smooth clockwise sweep animation driver (0 to 1)
-  const sweepAnim = useAnimatedValue(0);
+  // Smooth clockwise sweep animation driver (0 to 1) on the UI thread
+  const sweep = useSharedValue(0);
   const centerOpacity = useAnimatedValue(1);
   const [isSweeping, setIsSweeping] = useState(true);
+
+  const animatedMaskProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - Math.max(0, Math.min(1, sweep.value))),
+  }));
 
   // Prepare modern annular sector segments with flat radial dividers & rounded corners
   const preparedSegments = useMemo(
@@ -72,7 +84,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   // Trigger smooth round sweep on mount, on period change, and on screen focus
   useEffect(() => {
     if (!isFocused) {
-      sweepAnim.setValue(0);
+      sweep.value = 0;
       centerOpacity.setValue(0);
       setIsSweeping(false);
       return;
@@ -84,34 +96,35 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
       setInternalSelectedId(null);
     }
     setIsSweeping(true);
-    sweepAnim.setValue(0);
+    sweep.value = 0;
     centerOpacity.setValue(0.3);
 
-    const animation = Animated.parallel([
-      Animated.timing(sweepAnim, {
-        toValue: 1,
-        duration: 750,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        useNativeDriver: false,
-      }),
-      Animated.timing(centerOpacity, {
-        toValue: 1,
-        duration: 350,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]);
-
-    animation.start(({ finished }) => {
-      if (finished) {
-        setIsSweeping(false);
-      }
+    const centerAnim = Animated.timing(centerOpacity, {
+      toValue: 1,
+      duration: 350,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
     });
+    centerAnim.start();
+
+    sweep.value = withTiming(
+      1,
+      {
+        duration: 750,
+        easing: REasing.bezier(0.25, 0.1, 0.25, 1),
+      },
+      (finished) => {
+        if (finished) {
+          scheduleOnRN(setIsSweeping, false);
+        }
+      }
+    );
 
     return () => {
-      animation.stop();
+      cancelAnimation(sweep);
+      centerAnim.stop();
     };
-  }, [isFocused, triggerKey, sweepAnim, centerOpacity, onSelectCategory]);
+  }, [isFocused, triggerKey, sweep, centerOpacity, onSelectCategory]);
 
   const selectedCategory = useMemo(() => {
     if (!selectedId) return null;
@@ -173,11 +186,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
                 stroke="#FFFFFF"
                 strokeWidth={strokeWidth + 4}
                 strokeDasharray={`${circumference} ${circumference}`}
-                strokeDashoffset={sweepAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [circumference, 0],
-                  extrapolate: 'clamp',
-                })}
+                animatedProps={animatedMaskProps}
                 strokeLinecap="butt"
                 fill="none"
                 rotation={-90}

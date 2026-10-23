@@ -2,16 +2,30 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  ActivityIndicator, Animated, PanResponder, useAnimatedValue,
+  ActivityIndicator, Animated, useAnimatedValue,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  interpolate,
+  Easing as REasing,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
-import {
-  ArrowLeft, Calendar, ChevronRight, Plus, Check, AlertTriangle,
-} from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Calendar from 'lucide-react-native/icons/calendar';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import Plus from 'lucide-react-native/icons/plus';
+import Check from 'lucide-react-native/icons/check';
+import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { CustomDatePickerModal } from '../components/CustomDatePickerModal';
@@ -170,7 +184,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     scrollRef,
     isKeypadVisible,
     isKeyboardOpen,
-    keypadAnim,
+    keypad,
     handleAmountPress,
     handleNoteLayout,
     handleNoteFocus,
@@ -179,7 +193,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     handleSplitFocus,
     showKeypad,
     hideKeypad,
-    handleKeypadDrag,
     handleKeypadDragEnd,
   } = useFormKeyboard();
 
@@ -257,26 +270,25 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const [buttonFullWidth, setButtonFullWidth] = useState<number>(0);
   const [isMorphing, setIsMorphing] = useState<boolean>(false);
   const [showTick, setShowTick] = useState<boolean>(false);
-  const morphAnim = useAnimatedValue(0);
-  const tickScale = useAnimatedValue(0);
+  const morph = useSharedValue(0);
+  const tickScale = useSharedValue(0);
   const buttonHeight = isKeyboardOpen ? 50 : ControlHeight.cta;
 
   const isButtonGreen = isSaveEnabled || isSubmitting || isMorphing || showTick;
 
-  const animatedButtonWidth = useMemo(() => {
-    return morphAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [buttonFullWidth || 350, buttonHeight],
-    });
-  }, [morphAnim, buttonFullWidth, buttonHeight]);
+  const morphStyle = useAnimatedStyle(() => ({
+    width: buttonFullWidth > 0
+      ? interpolate(morph.value, [0, 1], [buttonFullWidth, buttonHeight], Extrapolation.CLAMP)
+      : '100%',
+  }), [buttonFullWidth, buttonHeight]);
 
-  const textOpacity = useMemo(() => {
-    return morphAnim.interpolate({
-      inputRange: [0, 0.25],
-      outputRange: [1, 0],
-      extrapolate: 'clamp',
-    });
-  }, [morphAnim]);
+  const textOpacityStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(morph.value, [0, 0.25], [1, 0], Extrapolation.CLAMP),
+  }));
+
+  const tickScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: tickScale.value }],
+  }));
 
   const onSavePress = useCallback(async () => {
     if (!isSaveEnabled) {
@@ -301,21 +313,26 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
         // 1. Button smoothly contracts into green circle (never turning grey)
         await new Promise<void>((resolve) => {
-          Animated.timing(morphAnim, {
-            toValue: 1,
-            duration: 180,
-            useNativeDriver: false,
-          }).start(() => resolve());
+          morph.value = withTiming(
+            1,
+            {
+              duration: 180,
+              easing: REasing.inOut(REasing.ease),
+            },
+            () => {
+              'worklet';
+              scheduleOnRN(resolve);
+            }
+          );
         });
 
         // 2. Tick appears with bouncy spring inside the green circle
         setShowTick(true);
-        Animated.spring(tickScale, {
-          toValue: 1,
-          tension: 75,
-          friction: 6,
-          useNativeDriver: true,
-        }).start();
+        tickScale.value = withSpring(1, {
+          stiffness: 356.9,
+          damping: 19,
+          mass: 1,
+        });
 
         // 3. Keep green circle + tick visible for a brief moment ("bahut kam time ke liye")
         await new Promise((resolve) => setTimeout(resolve, 450));
@@ -323,66 +340,61 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     } catch {
       setIsMorphing(false);
       setShowTick(false);
-      morphAnim.setValue(0);
-      tickScale.setValue(0);
+      morph.value = 0;
+      tickScale.value = 0;
     }
-  }, [isSaveEnabled, triggerErrorShake, handleSave, hideKeypad, morphAnim, tickScale]);
+  }, [isSaveEnabled, triggerErrorShake, handleSave, hideKeypad, morph, tickScale]);
 
-  // Keypad-only interpolations — category stays always visible (no animation)
-  const {
-    keypadHeight,
-    keypadOpacity,
-    keypadTranslateY,
-    saveButtonMarginTop,
-  } = useMemo(() => {
-    return {
-      keypadHeight: keypadAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 258],
-        extrapolate: 'clamp',
-      }),
-      keypadOpacity: keypadAnim.interpolate({
-        inputRange: [0, 0.4, 1],
-        outputRange: [0, 0.6, 1],
-        extrapolate: 'clamp',
-      }),
-      keypadTranslateY: keypadAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [30, 0],
-        extrapolate: 'clamp',
-      }),
-      saveButtonMarginTop: keypadAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 14],
-        extrapolate: 'clamp',
-      }),
-    };
-  }, [keypadAnim]);
+  // Keypad & Save Button Reanimated styles
+  const keypadAnimatedStyle = useAnimatedStyle(() => ({
+    height: interpolate(keypad.value, [0, 1], [0, 258], Extrapolation.CLAMP),
+    opacity: interpolate(keypad.value, [0, 0.4, 1], [0, 0.6, 1], Extrapolation.CLAMP),
+    transform: [{ translateY: interpolate(keypad.value, [0, 1], [30, 0], Extrapolation.CLAMP) }],
+  }));
 
-  // PanResponder to slide the keyboard down with a finger gesture
-  const panResponder = useMemo(
+  const saveButtonWrapperStyle = useAnimatedStyle(() => ({
+    marginTop: isKeyboardOpen ? 0 : interpolate(keypad.value, [0, 1], [0, 14], Extrapolation.CLAMP),
+  }), [isKeyboardOpen]);
+
+  // RNGH Pan gesture to slide the keypad down with a finger gesture
+  const touchStart = useSharedValue({ x: 0, y: 0 });
+
+  const keypadPan = useMemo(
     () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, gestureState) => {
-          return (
-            gestureState.dy > 8 &&
-            Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2
-          );
-        },
-        onPanResponderMove: (_, gestureState) => {
-          if (gestureState.dy > 0) {
-            handleKeypadDrag(gestureState.dy);
+      Gesture.Pan()
+        .enabled(isKeypadVisible)
+        .manualActivation(true)
+        .onTouchesDown((e) => {
+          'worklet';
+          const t = e.allTouches[0];
+          if (t) {
+            touchStart.value = { x: t.x, y: t.y };
           }
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          handleKeypadDragEnd(gestureState.dy, gestureState.vy);
-        },
-        onPanResponderTerminate: () => {
-          handleKeypadDragEnd(0, 0);
-        },
-      }),
-    [handleKeypadDrag, handleKeypadDragEnd]
+        })
+        .onTouchesMove((e, state) => {
+          'worklet';
+          const t = e.allTouches[0];
+          if (!t) return;
+          const dx = t.x - touchStart.value.x;
+          const dy = t.y - touchStart.value.y;
+          if (dy > 8 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+            state.activate();
+          } else if (Math.abs(dx) > 12) {
+            state.fail();
+          }
+        })
+        .onUpdate((e) => {
+          'worklet';
+          if (e.translationY > 0) {
+            const progress = Math.max(0, Math.min(1, 1 - e.translationY / 258));
+            keypad.value = progress;
+          }
+        })
+        .onEnd((e) => {
+          'worklet';
+          scheduleOnRN(handleKeypadDragEnd, e.translationY, e.velocityY / 1000);
+        }),
+    [isKeypadVisible, keypad, handleKeypadDragEnd, touchStart]
   );
 
   const showSuggestions = isNoteFocused && noteSuggestions.length > 0;
@@ -850,55 +862,57 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           },
         ]}
       >
-        <Animated.View
-          {...panResponder.panHandlers}
-          pointerEvents={isKeypadVisible ? 'auto' : 'none'}
-          style={{
-            height: keypadHeight,
-            opacity: keypadOpacity,
-            transform: [{ translateY: keypadTranslateY }],
-            overflow: 'hidden',
-          }}
-        >
-          {/* ── Keypad Drag Handle Bar (Slide down to dismiss) ── */}
-          <Pressable
-            hitSlop={{ top: 8, bottom: 12, left: 30, right: 30 }}
-            onPress={hideKeypad}
-            style={styles.keypadHandleBar}
-            accessibilityLabel="Dismiss keypad"
-            accessibilityRole="button"
+        <GestureDetector gesture={keypadPan}>
+          <Reanimated.View
+            pointerEvents={isKeypadVisible ? 'auto' : 'none'}
+            style={[
+              {
+                overflow: 'hidden',
+              },
+              keypadAnimatedStyle,
+            ]}
           >
-            <View style={[styles.keypadHandle, { backgroundColor: colors.border }]} />
-          </Pressable>
+            {/* ── Keypad Drag Handle Bar (Slide down to dismiss) ── */}
+            <Pressable
+              hitSlop={{ top: 8, bottom: 12, left: 30, right: 30 }}
+              onPress={hideKeypad}
+              style={styles.keypadHandleBar}
+              accessibilityLabel="Dismiss keypad"
+              accessibilityRole="button"
+            >
+              <View style={[styles.keypadHandle, { backgroundColor: colors.border }]} />
+            </Pressable>
 
-          <View style={styles.keypadGrid}>
-            {KEYPAD_ROWS.map((row, rIdx) => (
-              <View key={rIdx} style={styles.keypadRow}>
-                {row.map((item) => (
-                  <KeyButton key={item} item={item} onPress={handleKeyPress} />
-                ))}
-              </View>
-            ))}
-          </View>
-        </Animated.View>
+            <View style={styles.keypadGrid}>
+              {KEYPAD_ROWS.map((row, rIdx) => (
+                <View key={rIdx} style={styles.keypadRow}>
+                  {row.map((item) => (
+                    <KeyButton key={item} item={item} onPress={handleKeyPress} />
+                  ))}
+                </View>
+              ))}
+            </View>
+          </Reanimated.View>
+        </GestureDetector>
 
-        <Animated.View
+        <Reanimated.View
           onLayout={(e) => {
             const w = e.nativeEvent.layout.width;
             if (w > 0 && !isMorphing && w !== buttonFullWidth) {
               setButtonFullWidth(w);
             }
           }}
-          style={{
-            marginTop: isKeyboardOpen ? 0 : saveButtonMarginTop,
-            alignItems: 'center',
-            width: '100%',
-          }}
+          style={[
+            {
+              alignItems: 'center',
+              width: '100%',
+            },
+            saveButtonWrapperStyle,
+          ]}
         >
-          <Animated.View
+          <Reanimated.View
             style={[
               {
-                width: buttonFullWidth > 0 ? animatedButtonWidth : '100%',
                 height: buttonHeight,
                 borderRadius: BorderRadius.pill,
                 alignSelf: 'center',
@@ -907,6 +921,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 borderWidth: !isButtonGreen ? 1 : 0,
               },
               isButtonGreen ? styles.saveButtonEnabled : null,
+              morphStyle,
             ]}
           >
             <Pressable
@@ -924,18 +939,17 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               ]}
             >
               {showTick ? (
-                <Animated.View style={{ transform: [{ scale: tickScale }] }}>
+                <Reanimated.View style={tickScaleStyle}>
                   <Check size={26} color={colors.forestGreen} strokeWidth={2.8} />
-                </Animated.View>
+                </Reanimated.View>
               ) : isSubmitting && !isMorphing ? (
                 <ActivityIndicator size="small" color={colors.forestGreen} />
               ) : (
-                <Animated.Text
+                <Reanimated.Text
                   numberOfLines={1}
                   style={[
                     styles.saveButtonText,
                     {
-                      opacity: textOpacity,
                       color: isDivisionByZero
                         ? colors.danger
                         : isButtonGreen
@@ -943,6 +957,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                         : colors.textMuted,
                       fontFamily: FontFamily.bold,
                     },
+                    textOpacityStyle,
                   ]}
                 >
                   {isDivisionByZero
@@ -950,11 +965,11 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                     : isEdit
                     ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
                     : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
-                </Animated.Text>
+                </Reanimated.Text>
               )}
             </Pressable>
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       </View>
     </KeyboardAvoidingView>
   );

@@ -12,7 +12,8 @@ import { Expense } from '../src/store/expenseStore';
 import { Category } from '../src/store/categoryStore';
 import { DailyRecord, GullakDeposit } from '../src/store/dailyBudgetStore';
 import { BudgetPeriodRecord } from '../src/types';
-import { parseISO, isWithinInterval } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
+import { isWithinInterval } from 'date-fns/isWithinInterval';
 import { isIncomeTransaction, isExcludedFromTotals } from '../src/lib/transactionUtils';
 
 

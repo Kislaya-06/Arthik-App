@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
-import { ArrowLeft, Check, ChevronRight, AlertTriangle } from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Check from 'lucide-react-native/icons/check';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
 import { useTheme } from '../../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
 

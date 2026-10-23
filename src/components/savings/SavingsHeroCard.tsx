@@ -1,6 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { Trophy, Sparkles, Plus } from 'lucide-react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import Trophy from 'lucide-react-native/icons/trophy';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Plus from 'lucide-react-native/icons/plus';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { GradientIconBadge } from '../GradientIconBadge';
@@ -100,7 +103,7 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
             />
           </View>
         </View>
-        <TouchableOpacity
+        <PressableOpacity
           activeOpacity={0.75}
           onPress={triggerPiggyBounce}
           style={[styles.heroIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}
@@ -108,7 +111,7 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
           <Animated.View style={{ transform: [{ scale: heroPiggyScale }] }}>
             <PiggyBankCoinIcon size={28} color="#FFFFFF" />
           </Animated.View>
-        </TouchableOpacity>
+        </PressableOpacity>
       </View>
 
       {/* Large currency amount using canonical AmountText */}
@@ -162,7 +165,7 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
       </View>
 
       {/* Action: Deposit into Gullak */}
-      <TouchableOpacity
+      <PressableOpacity
         style={[
           styles.depositCtaBtn,
           {
@@ -178,7 +181,7 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
         <Text style={[styles.depositCtaBtnText, { color: '#5B21B6' }]}>
           Deposit to Gullak
         </Text>
-      </TouchableOpacity>
+      </PressableOpacity>
     </View>
   );
 });

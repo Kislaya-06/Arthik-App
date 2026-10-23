@@ -1,6 +1,9 @@
 import React, { useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
-import { Users, Plus, X, User } from 'lucide-react-native';
+import Users from 'lucide-react-native/icons/users';
+import Plus from 'lucide-react-native/icons/plus';
+import X from 'lucide-react-native/icons/x';
+import User from 'lucide-react-native/icons/user';
 import { useTheme } from '../../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
 import { formatCurrency } from '../../lib/formatters';

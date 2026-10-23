@@ -1,8 +1,11 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, PanResponder,
+  View, Text, StyleSheet, Pressable, ScrollView,
   useWindowDimensions,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSharedValue } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
 import { StatusBar } from 'expo-status-bar';
@@ -13,14 +16,16 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import {
-  TrendingUp, TrendingDown,
-  ChevronRight, ChevronDown, ChevronUp,
-  ShoppingBag, Sparkles, Flame,
-} from 'lucide-react-native';
-import {
-  parseISO, format,
-} from 'date-fns';
+import TrendingUp from 'lucide-react-native/icons/trending-up';
+import TrendingDown from 'lucide-react-native/icons/trending-down';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import ChevronDown from 'lucide-react-native/icons/chevron-down';
+import ChevronUp from 'lucide-react-native/icons/chevron-up';
+import ShoppingBag from 'lucide-react-native/icons/shopping-bag';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Flame from 'lucide-react-native/icons/flame';
+import { parseISO } from 'date-fns/parseISO';
+import { format } from 'date-fns/format';
 import {
   Period,
   CHART_COLORS,
@@ -215,30 +220,55 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     user,
   });
 
-  // ─── Swipe gesture on hero card (horizontal swipe = period nav) ───────────
+  // ─── Swipe gesture on hero card (horizontal swipe = period nav via RNGH) ──
   const navBoundsRef = useRef({ offset, minOff });
   navBoundsRef.current = { offset, minOff };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      // Only claim the gesture if horizontal movement clearly dominates vertical
-      onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
-      onPanResponderRelease: (_, gs) => {
-        const { offset: curOffset, minOff: curMinOff } = navBoundsRef.current;
-        if (gs.dx < -40 && curOffset < 0) {
-          // Swipe left → go forward in time (toward current)
-          setSelectedCategoryId(null);
-          setOffset((o) => Math.min(o + 1, 0));
-        } else if (gs.dx > 40 && curOffset > curMinOff) {
-          // Swipe right → go back in time
-          setSelectedCategoryId(null);
-          setOffset((o) => Math.max(o - 1, curMinOff));
-        }
-      },
-    })
-  ).current;
+  const onSwipeEnd = useCallback((dx: number) => {
+    const { offset: curOffset, minOff: curMinOff } = navBoundsRef.current;
+    if (dx < -40 && curOffset < 0) {
+      // Swipe left → go forward in time (toward current)
+      setSelectedCategoryId(null);
+      setOffset((o) => Math.min(o + 1, 0));
+    } else if (dx > 40 && curOffset > curMinOff) {
+      // Swipe right → go back in time
+      setSelectedCategoryId(null);
+      setOffset((o) => Math.max(o - 1, curMinOff));
+    }
+  }, []);
+
+  const touchStart = useSharedValue({ x: 0, y: 0 });
+
+  const swipeGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .manualActivation(true)
+        .onTouchesDown((e) => {
+          'worklet';
+          if (e.allTouches.length > 0) {
+            touchStart.value = {
+              x: e.allTouches[0].absoluteX,
+              y: e.allTouches[0].absoluteY,
+            };
+          }
+        })
+        .onTouchesMove((e, state) => {
+          'worklet';
+          if (e.allTouches.length === 0) return;
+          const dx = e.allTouches[0].absoluteX - touchStart.value.x;
+          const dy = e.allTouches[0].absoluteY - touchStart.value.y;
+          if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            state.activate();
+          } else if (Math.abs(dy) > 12) {
+            state.fail();
+          }
+        })
+        .onEnd((e) => {
+          'worklet';
+          scheduleOnRN(onSwipeEnd, e.translationX);
+        }),
+    [onSwipeEnd, touchStart]
+  );
 
   const { width: windowWidth } = useWindowDimensions();
 
@@ -300,16 +330,16 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* ── Total Spend Hero Card (swipeable) ── */}
-        <View
-          {...panResponder.panHandlers}
-          style={[
-            styles.heroCard,
-            {
-              borderWidth: 1,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(60, 35, 35, 0.10)',
-            },
-          ]}
-        >
+        <GestureDetector gesture={swipeGesture}>
+          <View
+            style={[
+              styles.heroCard,
+              {
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(60, 35, 35, 0.10)',
+              },
+            ]}
+          >
           {/* Gradient Background */}
           <View style={[StyleSheet.absoluteFill, { borderRadius: BorderRadius.cardLarge, overflow: 'hidden' }]}>
             <Svg width="100%" height="100%">
@@ -418,6 +448,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             }}
           />
         </View>
+        </GestureDetector>
 
         {/* ── Weekly Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Weekly' && (

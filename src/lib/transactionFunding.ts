@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import { Expense } from '../store/expenseStore';
 import { Category } from '../store/categoryStore';
 import { DailyRecord } from './budgetCalculations';

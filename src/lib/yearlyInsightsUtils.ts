@@ -16,17 +16,15 @@
  * Invariant: Real money only. Pure functions only. No React or side-effects.
  */
 
-import {
-  parseISO,
-  format,
-  differenceInCalendarDays,
-  startOfMonth,
-  endOfMonth,
-  endOfYear,
-  setMonth,
-  addDays,
-  isAfter,
-} from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
+import { format } from 'date-fns/format';
+import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { endOfMonth } from 'date-fns/endOfMonth';
+import { endOfYear } from 'date-fns/endOfYear';
+import { setMonth } from 'date-fns/setMonth';
+import { addDays } from 'date-fns/addDays';
+import { isAfter } from 'date-fns/isAfter';
 import { isCountedIncome, isCountedExpense } from './transactionUtils';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';

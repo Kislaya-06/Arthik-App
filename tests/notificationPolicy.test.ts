@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import {
   PlanContext,
   PlannedNotification,

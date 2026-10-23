@@ -12,7 +12,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import { Download, Sparkles, ShieldCheck, ArrowRight, PackageCheck, RefreshCw, Zap } from 'lucide-react-native';
+import Download from 'lucide-react-native/icons/download';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import ShieldCheck from 'lucide-react-native/icons/shield-check';
+import ArrowRight from 'lucide-react-native/icons/arrow-right';
+import PackageCheck from 'lucide-react-native/icons/package-check';
+import RefreshCw from 'lucide-react-native/icons/refresh-cw';
+import Zap from 'lucide-react-native/icons/zap';
 import {
   Spacing,
   BorderRadius,
