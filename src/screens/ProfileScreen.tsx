@@ -522,7 +522,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               ]}
             >
               <PiggyBankCoinIcon
-                size={26}
+                size={22}
                 color={colors.textPrimary}
               />
             </View>
@@ -532,8 +532,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <Text
                   style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
                   numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.88}
                 >
                   Smart Budget & Gullak
                 </Text>

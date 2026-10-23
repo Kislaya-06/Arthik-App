@@ -718,7 +718,8 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       mockUser = { id: 'user_modes_test_1', created_at: '2026-09-01T00:00:00Z' };
     });
 
-    it('existing account that never used Budget Mode (created earlier) still schedules tomorrow', () => {
+    it('existing account that never used Budget Mode (created earlier with expenses) still schedules tomorrow', () => {
+      registerExpenseGetter(() => [{ id: 'e1', amount: 50, expense_date: '2026-09-15', type: 'expense' } as any]);
       useDailyBudgetStore.setState({
         ownerUserId: 'user_modes_test_1',
         hydratedForUserId: 'user_modes_test_1',
@@ -980,6 +981,80 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       expect(pending?.cadence).toBe('monthly');
       expect(pending?.amount).toBe(15000);
       expect(pending?.effectiveFrom).toBe('2026-10-01');
+    });
+
+    it('BPR-002: fresh user with 0 expenses activates Budget Mode immediately today and reflects amount without waiting for tomorrow', () => {
+      vi.setSystemTime(new Date('2026-10-23T12:00:00'));
+      registerExpenseGetter(() => []); // 0 expenses
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_fresh',
+        hydratedForUserId: 'user_modes_test_fresh',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'daily',
+        dailyBudgetAmount: 0,
+        planChanges: [
+          {
+            id: 'p-signup',
+            userId: 'user_modes_test_fresh',
+            effectiveFrom: '2026-10-20',
+            isEnabled: false,
+            cadence: 'daily',
+            amount: 0,
+            createdAt: '2026-10-20T00:00:00Z',
+          },
+        ],
+        dailyRecords: {},
+      });
+
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true, { cadence: 'daily', amount: 100 });
+
+      const st = useDailyBudgetStore.getState();
+      expect(st.isBudgetModeEnabled).toBe(true);
+      expect(st.dailyBudgetAmount).toBe(100);
+      expect(st.budgetCadence).toBe('daily');
+      expect(st.dailyRecords['2026-10-23']).toBeDefined();
+      expect(st.dailyRecords['2026-10-23'].budget).toBe(100);
+      expect(st.dailyRecords['2026-10-23'].status).toBe('active');
+      expect(st.getPendingPlanChange()).toBeNull();
+    });
+
+    it('BPR-002: fresh user with only income rows (0 expenses logged) activates Budget Mode immediately today', () => {
+      vi.setSystemTime(new Date('2026-10-23T12:00:00'));
+      // Only income and self-transfer rows logged (0 counted expenses)
+      registerExpenseGetter(() => [
+        { id: 'inc1', amount: 25000, expense_date: '2026-10-21', type: 'income', category: 'Salary' } as any,
+        { id: 'st1', amount: 5000, expense_date: '2026-10-22', type: 'expense', transaction_class: 'self_transfer' } as any,
+      ]);
+      useDailyBudgetStore.setState({
+        ownerUserId: 'user_modes_test_income_only',
+        hydratedForUserId: 'user_modes_test_income_only',
+        isBudgetModeEnabled: false,
+        budgetCadence: 'daily',
+        dailyBudgetAmount: 0,
+        planChanges: [
+          {
+            id: 'p-signup',
+            userId: 'user_modes_test_income_only',
+            effectiveFrom: '2026-10-20',
+            isEnabled: false,
+            cadence: 'daily',
+            amount: 0,
+            createdAt: '2026-10-20T00:00:00Z',
+          },
+        ],
+        dailyRecords: {},
+      });
+
+      useDailyBudgetStore.getState().setBudgetModeEnabled(true, { cadence: 'daily', amount: 250 });
+
+      const st = useDailyBudgetStore.getState();
+      expect(st.isBudgetModeEnabled).toBe(true);
+      expect(st.dailyBudgetAmount).toBe(250);
+      expect(st.budgetCadence).toBe('daily');
+      expect(st.dailyRecords['2026-10-23']).toBeDefined();
+      expect(st.dailyRecords['2026-10-23'].budget).toBe(250);
+      expect(st.dailyRecords['2026-10-23'].status).toBe('active');
+      expect(st.getPendingPlanChange()).toBeNull();
     });
   });
 });

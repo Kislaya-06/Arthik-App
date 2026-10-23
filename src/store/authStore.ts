@@ -256,16 +256,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (__DEV__) console.error('Error cancelling notifications on delete:', err);
       }
 
-      // Clean up all AsyncStorage keys for this user (pending, cache, failed, etc.)
+      // Clean up on-device AutoLog SQLite database & SecureStore keys
       try {
-        await AsyncStorage.removeItem('@arthik_cached_user');
-        const allKeys = await AsyncStorage.getAllKeys();
-        const userKeys = allKeys.filter((k) => k.includes(userId));
-        if (userKeys.length > 0) {
-          await AsyncStorage.multiRemove(userKeys);
-        }
+        const { deleteLocalData } = await import('../features/autoLog/db');
+        await deleteLocalData(userId);
       } catch (err) {
-        if (__DEV__) console.error('Error removing user AsyncStorage keys:', err);
+        if (__DEV__) console.error('Error deleting AutoLog local db on delete:', err);
+      }
+      try {
+        const SecureStore = await import('expo-secure-store');
+        await SecureStore.deleteItemAsync('arthik_autolog_db_key_v1').catch(() => {});
+        await SecureStore.deleteItemAsync(`arthik_autolog_dismiss_${userId}`).catch(() => {});
+      } catch (err) {
+        if (__DEV__) console.error('Error removing SecureStore keys on delete:', err);
+      }
+
+      // Clean up ALL local key-value storage (AsyncStorage) so device is factory-clean
+      try {
+        await AsyncStorage.clear();
+      } catch (err) {
+        if (__DEV__) console.error('Error clearing AsyncStorage on delete:', err);
       }
 
       // Trigger local store cleanup and sign out locally

@@ -499,7 +499,7 @@ With the introduction of Budget Modes, the store orchestrates two high-level tra
   - Supports user-selectable cadences: `'daily'`, `'weekly'`, `'monthly'`.
 
 ### 8.2 Plan Changes Timeline & Next-Day Scheduling (`src/lib/budgetPeriods.ts`, `PUR-003`)
-- Toggling between Pure Mode and Budget Mode schedules the change for **tomorrow at 12:00 AM (00:00:00)** (`effectiveFrom = tomorrowStr`), protecting today's running budget and midnight Gullak rollover.
+- Toggling between Pure Mode and Budget Mode schedules the change for **tomorrow at 12:00 AM (00:00:00)** (`effectiveFrom = tomorrowStr`), protecting today's running budget and midnight Gullak rollover (exception: first-time enablement for new accounts on day one or accounts with 0 logged expenses activates immediately on today, `BPR-002` #3).
 - **Same-Day Reversal Protection**: If the user toggles back on the same day (reverting the scheduled change), `handleCancelPendingPlanChange` cancels the pending change, removes the scheduled notification, and cleanly keeps the app in its current active mode with zero glitches.
 - `buildPlanSlices(planChanges, todayStr, userCreatedAtStr)` divides the user's timeline into non-overlapping active slices `[activeStart, activeEnd]`, preventing double-counting across cadence transitions.
 - **Non-Prorated Budget Allocation (ADR 0011 Zero-Proration Policy)**: Mid-period cadence switches and new plan activations NEVER scale down or prorate the user's entered budget. The user-entered amount represents 100% real cash allocated into their active spending pool. Pacing previews are purely informational.

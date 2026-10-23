@@ -349,11 +349,13 @@ export function handleSetBudgetModeEnabled(
     balancePureDeficitIfNeeded(get, todayStr);
   }
 
+  const totalExpenseCount = getCurrentExpenses().filter((e) => isCountedExpense(e)).length;
   const effectiveFrom = options?.immediate
     ? todayStr
     : computeEffectiveFrom(enabled ? 'enable' : 'disable', todayStr, {
         changes: get().planChanges,
         userCreatedAtStr: getUserCreatedAtLocalDate(currentUser?.created_at),
+        totalExpenseCount,
       });
 
   const cadence = options?.cadence || get().budgetCadence || 'daily';
@@ -443,6 +445,7 @@ export function handleSetBudgetModeEnabled(
   }
 
   const records = { ...get().dailyRecords };
+  const targetBudgetAmount = options?.amount !== undefined && options.amount > 0 ? options.amount : (amount || get().dailyBudgetAmount);
 
   if (!enabled && records[todayStr] && !records[todayStr].isFinalized) {
     records[todayStr] = {
@@ -451,8 +454,8 @@ export function handleSetBudgetModeEnabled(
       saved: 0,
       status: 'unknown',
     };
-  } else if (enabled && get().dailyBudgetAmount > 0 && isDailyOwnedDate(updatedChanges, todayStr) && (!records[todayStr] || records[todayStr].budget === 0)) {
-    const budget = get().dailyBudgetAmount;
+  } else if (enabled && targetBudgetAmount > 0 && isDailyOwnedDate(updatedChanges, todayStr) && (!records[todayStr] || records[todayStr].budget === 0)) {
+    const budget = targetBudgetAmount;
     const spent = records[todayStr]?.spent || 0;
     const isEligibleIncomeFn = buildEligibleIncomeClassifier();
     const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
@@ -482,6 +485,10 @@ export function handleSetBudgetModeEnabled(
   set({
     isBudgetModeEnabled: enabled,
     isAutoRenew: autoRenew,
+    budgetCadence: cadence,
+    dailyBudgetAmount: cadence === 'daily' ? targetBudgetAmount : get().dailyBudgetAmount,
+    weeklyBudgetAmount: cadence === 'weekly' ? targetBudgetAmount : get().weeklyBudgetAmount,
+    monthlyBudgetAmount: cadence === 'monthly' ? targetBudgetAmount : get().monthlyBudgetAmount,
     planChanges: updatedChanges,
     dailyRecords: records,
     ...metrics,

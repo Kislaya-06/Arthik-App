@@ -172,8 +172,12 @@ export function hasNeverEnabledBudgetMode(changes?: BudgetPlanChange[] | null): 
 export function isFirstDayFirstEnable(
   changes: BudgetPlanChange[] | null | undefined,
   todayStr: string,
-  userCreatedAtStr?: string | null
+  userCreatedAtStr?: string | null,
+  totalExpenseCount?: number
 ): boolean {
+  if (totalExpenseCount !== undefined && totalExpenseCount === 0 && hasNeverEnabledBudgetMode(changes)) {
+    return true;
+  }
   return !!userCreatedAtStr && userCreatedAtStr === todayStr && hasNeverEnabledBudgetMode(changes);
 }
 
@@ -183,12 +187,17 @@ export function isFirstDayFirstEnable(
  * - 'weekly_amount'  -> next Monday
  * - 'monthly_amount' -> next 1st of month
  * - 'disable'        -> tomorrow (protects running-day budget & Gullak savings), except fresh onboarding (today)
- * - 'enable'         -> tomorrow (user sets fresh budget), except a NEW account's first-ever enable on its first day (today, BPR-002 #3)
+ * - 'enable'         -> tomorrow (user sets fresh budget), except a NEW account or 0-expense account's first-ever enable (today, BPR-002 #3)
  */
 export function computeEffectiveFrom(
   kind: EffectiveFromKind,
   todayStr: string,
-  context?: { currentOwner?: DateOwner; changes?: BudgetPlanChange[]; userCreatedAtStr?: string | null }
+  context?: {
+    currentOwner?: DateOwner;
+    changes?: BudgetPlanChange[];
+    userCreatedAtStr?: string | null;
+    totalExpenseCount?: number;
+  }
 ): string {
   const d = parseISO(todayStr);
 
@@ -197,9 +206,9 @@ export function computeEffectiveFrom(
     if (!context?.changes || context.changes.length === 0) {
       return todayStr;
     }
-    // New account, first day, Budget Mode never on: starts today (BPR-002 #3). Every account gets a "Pure Mode"
+    // New account, first day, or 0 expenses logged: starts today (BPR-002 #3). Every account gets a "Pure Mode"
     // signup row, so that row is not "history". Existing accounts keep the tomorrow rule.
-    if (isFirstDayFirstEnable(context.changes, todayStr, context.userCreatedAtStr)) {
+    if (isFirstDayFirstEnable(context.changes, todayStr, context.userCreatedAtStr, context.totalExpenseCount)) {
       return todayStr;
     }
     return format(addDays(d, 1), 'yyyy-MM-dd');

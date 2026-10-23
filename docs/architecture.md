@@ -179,7 +179,7 @@ Entered budgets are **never scaled down or prorated** due to mid-cycle starts or
 - **Projected Monthly Budget**: `(weeklyBudget / 7) * daysInMonth`
 
 ### 6.3 Next-Day Mode & Cadence Switching (`PUR-003`) & Carry-Forward Engine
-- Switching cadences as well as toggling between Pure Mode and Budget Mode takes effect **tomorrow at 12:00 AM (00:00:00)** (`computeEffectiveFrom`), allowing today's budget and transactions to conclude cleanly under the active plan.
+- Switching cadences as well as toggling between Pure Mode and Budget Mode takes effect **tomorrow at 12:00 AM (00:00:00)** (`computeEffectiveFrom`), allowing today's budget and transactions to conclude cleanly under the active plan. Exception: new accounts on day one or any account with 0 expenses logged enable Budget Mode immediately on "Today" (`BPR-002` #3).
 - **Same-Day Reversal Protection (`PUR-003`)**: If a user switches modes (scheduled for tomorrow) and toggles back on the same day, the pending switch is immediately cancelled (`handleCancelPendingPlanChange`), scheduled notifications are removed, and the app seamlessly remains in its currently active mode with zero glitches.
 - **Pure Mode Hero Card Details Guard**: In Pure Mode, Hero Card tap is disabled and "Tap the card for details" hint is hidden (`GUL-002`).
 - **Zero Mid-Cycle Gullak Dumps (Golden Invariant)**: Mid-cycle cadence switching carries unspent funds forward into the new cadence rather than prematurely dumping them into Gullak (`amountSaved = 0`).
@@ -243,7 +243,7 @@ See [ADR 0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md).
 - **Keys**: Only `anon` key in bundle. Never `service_role`.
 - **RLS**: Every table enforces `user_id = auth.uid()` on all operations.
 - **Provisioning**: Default profile + categories created via `SECURITY DEFINER` trigger `handle_new_user()`.
-- **Account deletion**: Delegated to Supabase Edge Function `delete-user-account` (requires `service_role` which is never client-side).
+- **Account deletion**: Delegated to Supabase Edge Function `delete-user-account` (requires `service_role` which is never client-side), followed by complete device data wipe (unlinking local encrypted AutoLog SQLCipher database, purging SecureStore keys, and `AsyncStorage.clear()`).
 - **Deep links**: All auth deep links parsed and validated in `src/lib/authLinkHandler.ts`. Session fixation guard prevents switching accounts via crafted deep links.
 - **Biometric App Lock**: `expo-local-authentication`. Preference stored in AsyncStorage (global + per-user key). Authentication required to toggle on or off.
 - **Android backup**: Disabled (`allowBackup: false` in `app.json`) to prevent AsyncStorage extraction via `adb backup`.

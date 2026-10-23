@@ -74,6 +74,7 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Reset Learned Rules | `AutoLogCenterScreen.tsx` + `db.resetLearnedRules`: clears `merchant_prefs` and `rules` back to factory clean slate without touching tracked accounts or past transaction ledger history. |
 | Vault Spending Guard (ADR 0011) | `ledger.isExceedingVaultLiquidity` → `exceeds_liquidity` review (zero funds in Income & Gullak with amount > budget blocks silent deficit creation) |
 | Data loss ≠ silent restore (§30–36) | `service.evaluateEntry`: no local DB + `autolog_profiles.enabled` → re-setup |
+| Account Deletion Factory Wipe | `authStore.deleteAccount`: physically unlinks encrypted SQLite DB (`deleteLocalData(userId)`), purges SecureStore encryption keys, and executes `AsyncStorage.clear()`. |
 | Clear cache keeps state (§36) | DB lives in app data, not cache |
 
 ## 6. Storage

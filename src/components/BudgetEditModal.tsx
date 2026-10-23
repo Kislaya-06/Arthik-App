@@ -32,6 +32,7 @@ import { getUserCreatedAtLocalDate } from '../store/dailyBudget/metrics';
 import { computeSpentByDate } from '../lib/budgetCalculations';
 import { buildEligibleIncomeClassifier } from '../store/dailyBudget/classifiers';
 import { BudgetCadence } from '../types';
+import { isCountedExpense } from '../lib/transactionUtils';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { CadenceSwitchModal } from './CadenceSwitchModal';
@@ -204,11 +205,12 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   }, [spentByDate, todayStr]);
 
   // Compute effective date
+  const totalExpenseCount = useMemo(() => expenses.filter((e) => isCountedExpense(e)).length, [expenses]);
   const userCreatedAtStr = getUserCreatedAtLocalDate(userCreatedAt);
-  const isFirstEnable = !isBudgetModeEnabled && isFirstDayFirstEnable(planChanges, todayStr, userCreatedAtStr);
+  const isFirstEnable = !isBudgetModeEnabled && isFirstDayFirstEnable(planChanges, todayStr, userCreatedAtStr, totalExpenseCount);
   const effectiveFromStr = useMemo(() => {
     if (!isBudgetModeEnabled) {
-      return computeEffectiveFrom('enable', todayStr, { changes: planChanges, userCreatedAtStr });
+      return computeEffectiveFrom('enable', todayStr, { changes: planChanges, userCreatedAtStr, totalExpenseCount });
     }
     if (selectedCadence !== budgetCadence) {
       return computeEffectiveFrom('cadence_switch', todayStr, { currentOwner: budgetCadence });
@@ -230,6 +232,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     isBudgetModeEnabled,
     planChanges,
     userCreatedAtStr,
+    totalExpenseCount,
     selectedCadence,
     budgetCadence,
     todayStr,

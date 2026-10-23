@@ -275,16 +275,26 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       ).toBe('2026-10-05');
     });
 
-    it('\"enable\" for an EXISTING account (created earlier) that never used Budget Mode stays tomorrow', () => {
+    it('\"enable\" for an EXISTING account (created earlier) that never used Budget Mode stays tomorrow when expenses exist, but activates today if 0 expenses logged', () => {
       const signupRow: BudgetPlanChange = {
         id: 'seed', userId: 'u', effectiveFrom: '2026-10-01', isEnabled: false, cadence: 'daily', amount: 0,
       } as BudgetPlanChange;
+      // When expenses exist (> 0) or totalExpenseCount not provided, existing account schedules tomorrow
+      expect(
+        computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow], userCreatedAtStr: '2026-10-01', totalExpenseCount: 3 })
+      ).toBe('2026-10-06');
       expect(
         computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow], userCreatedAtStr: '2026-10-01' })
       ).toBe('2026-10-06');
       expect(computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow] })).toBe('2026-10-06');
       expect(isFirstDayFirstEnable([signupRow], '2026-10-05', '2026-10-01')).toBe(false);
       expect(isFirstDayFirstEnable([signupRow], '2026-10-05', '2026-10-05')).toBe(true);
+
+      // BPR-002 #3 Zero-Expense exception: when account has 0 expenses logged, it activates today immediately!
+      expect(
+        computeEffectiveFrom('enable', '2026-10-05', { changes: [signupRow], userCreatedAtStr: '2026-10-01', totalExpenseCount: 0 })
+      ).toBe('2026-10-05');
+      expect(isFirstDayFirstEnable([signupRow], '2026-10-05', '2026-10-01', 0)).toBe(true);
     });
 
     it('"enable" after Budget Mode was ever on applies tomorrow', () => {

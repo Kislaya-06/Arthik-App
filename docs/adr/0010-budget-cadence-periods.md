@@ -23,7 +23,7 @@ Budget Mode supports three distinct cadences:
 - **Monthly**: Calendar months starting on the 1st and ending on the last day of each month.
 
 ### D3: Effective from Tomorrow for Plan Changes
-To prevent retroactive churn, maintain financial discipline, and preserve current-period progress, any change to a user's budget amount or cadence takes effect starting **tomorrow at 12:00 AM** (or the next period boundary). First-time enablement from Pure Mode takes effect immediately ("Today"). Users can review and cancel pending scheduled changes at any time prior to midnight.
+To prevent retroactive churn, maintain financial discipline, and preserve current-period progress, any change to a user's budget amount or cadence takes effect starting **tomorrow at 12:00 AM** (or the next period boundary). First-time enablement from Pure Mode for new accounts on day one or accounts with 0 logged expenses takes effect immediately ("Today", `BPR-002` #3). Users can review and cancel pending scheduled changes at any time prior to midnight.
 
 ### D4: Proration for Mid-Period Switches [SUPERSEDED BY ADR 0011]
 > **Status:** Superseded by [ADR 0011 (Zero-Proration Policy and Digital Vault Spending Guard)](0011-zero-proration-and-digital-vault-spending-guard.md).

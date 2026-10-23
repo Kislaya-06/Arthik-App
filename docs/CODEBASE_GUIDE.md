@@ -66,7 +66,7 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
   - Pure Mode mein kharch kabhi block nahi hota, minus bhi ja sakta hai (SEC-001).
   - Pure Mode mein period khatam ho to bacha paisa **income nahi banta**, koi message nahi aata. Wo chhupa "pureLeftover" rehta hai (PUR-002). Pure mein kharch hone par pehle leftover, phir income, phir Gullak.
   - Pure se Budget Mode mein aate waqt agar Remaining minus hai, to utni **auto-income** jud jaati hai (note: `Auto-balance (Pure Mode deficit)`), aur ek notification aati hai (PUR-001). Ye income Home ke budget-chip wale income mein nahi dikhti, par Total Income mein dikhti hai.
-  - Pure aur Budget Mode switch kal 12:00 AM se schedule hota hai taaki aaj ka running budget aur midnight Gullak rollover safely conclude hon (PUR-003). Agar usi din toggle wapas kar dein, to switch aur notification cancel ho jaate hain aur app bina glitch ke chalte rehta hai (same-day reversal protection).
+  - Pure aur Budget Mode switch kal 12:00 AM se schedule hota hai taaki aaj ka running budget aur midnight Gullak rollover safely conclude hon (PUR-003). Par naye account ya 0 expense waale account ke liye Budget Mode pehli baar on karte hi aaj se turant activate ho jaata hai (BPR-002 #3). Agar usi din toggle wapas kar dein, to switch aur notification cancel ho jaate hain aur app bina glitch ke chalte rehta hai (same-day reversal protection).
 
 ### Samasya 6: "Ek hi cheez 'income' ya 'expense' kaise tay ho?"
 - **Hal:** `type` field hi sab kuch tay karta hai (TXN-001). Category ke naam se andaza nahi lagta (keyword fallback sirf purani rows ke liye, jo ab practically use nahi hoti, TXN-002).
