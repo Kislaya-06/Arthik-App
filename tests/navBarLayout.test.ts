@@ -7,7 +7,9 @@ import {
   NAV_CONTENT_CLEARANCE,
   NAV_LABEL_MAX,
   NAV_PURE_BAR_HEIGHT,
+  NAV_PURE_FAB_SIZE,
   NAV_PURE_FAB_GAP,
+  NAV_PURE_PILL_WIDTH,
   NAV_ACTIVE_PAD_X,
   NAV_ICON_BOX,
   NAV_LABEL_MARGIN,
@@ -22,10 +24,10 @@ const inactiveW = NAV_INACTIVE_PAD_X * 2 + NAV_ICON_BOX + NAV_CAPSULE_BORDER * 2
 const WIDTHS = [320, 360, 375, 393, 412, 430, 600, 1024];
 
 describe('navBarLayout — responsive spacing (original look and animation kept)', () => {
-  it('budget pill and the round pure add button are both 68dp', () => {
+  it('budget pill and pure pill both have height 68dp', () => {
     const m = getNavBarMetrics(390, 0);
-    expect(m.barHeight).toBe(68);
-    expect(m.pureBarHeight).toBe(68);
+    expect(m.barHeight).toBe(NAV_BAR_HEIGHT);
+    expect(m.pureBarHeight).toBe(NAV_PURE_BAR_HEIGHT);
   });
 
   it('floats the same visible distance above any system navigation', () => {
@@ -71,22 +73,22 @@ describe('navBarLayout — responsive spacing (original look and animation kept)
     if (w >= 360) expect(m.budgetLabelMax).toBeGreaterThanOrEqual(40);
   });
 
-  it.each(WIDTHS)('pure pill + add button fit the row at %idp wide', (w) => {
+  it.each(WIDTHS)('pure pill + 48dp add button fit comfortably in the row at %idp wide', (w) => {
     const m = getNavBarMetrics(w, 24);
-    expect(m.purePillWidth + NAV_PURE_FAB_GAP + NAV_PURE_BAR_HEIGHT).toBeLessThanOrEqual(m.barWidth);
+    expect(m.purePillWidth + NAV_PURE_FAB_GAP + NAV_PURE_FAB_SIZE).toBeLessThanOrEqual(m.barWidth);
     expect(m.pureLabelMax).toBeLessThanOrEqual(NAV_LABEL_MAX);
   });
 
-  it.each(WIDTHS)('pure pill fills the row next to the add button at %idp wide (same as the budget pill)', (w) => {
+  it.each(WIDTHS)('pure pill is sized for 3 tabs (216dp) on standard phones', (w) => {
     const m = getNavBarMetrics(w, 24);
-    expect(m.purePillWidth + NAV_PURE_FAB_GAP + NAV_PURE_BAR_HEIGHT).toBe(m.barWidth);
+    if (w >= 360) expect(m.purePillWidth).toBe(NAV_PURE_PILL_WIDTH);
   });
 
   it.each(WIDTHS)('pure pill fits two icon-only tabs + the active tab at %idp wide', (w) => {
     const m = getNavBarMetrics(w, 24);
-    const content = m.purePillWidth - 2 - 12; // border 1 x 2, padding 6 x 2 (same as the budget pill)
+    const content = m.purePillWidth - 2 - 12; // border 1 x 2, padding 6 x 2 (same as budget pill)
     const needed = 2 * Math.max(m.tabMinWidth, inactiveW) + activeW(m.pureLabelMax);
     expect(needed).toBeLessThanOrEqual(content);
-    if (w >= 360) expect(m.pureLabelMax).toBeGreaterThanOrEqual(40);
+    if (w >= 360) expect(m.pureLabelMax).toBe(NAV_LABEL_MAX);
   });
 });

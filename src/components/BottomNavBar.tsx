@@ -300,7 +300,7 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
           },
         ]}
       >
-        <Plus size={24} color={colors.forestGreen} strokeWidth={2.8} />
+        <Plus size={22} color={colors.forestGreen} strokeWidth={2.8} />
       </Animated.View>
     </Pressable>
   );
@@ -610,19 +610,20 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   individualFabWrapper: {
+    height: 68,
     alignItems: 'center',
     justifyContent: 'center',
   },
   individualFab: {
-    width: 68,
-    height: 68,
-    borderRadius: 34, // Circle geometry: width / 2 (same size as the pure pill)
+    width: 48,
+    height: 48,
+    borderRadius: 24, // Same 48dp circular size as the budget mode center add button
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 6,
   },
   pillBar: {
     width: '100%',

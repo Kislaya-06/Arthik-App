@@ -9,9 +9,13 @@
 
 /** Budget-mode pill height (the tallest state; Home's clip line and screen paddings use it). */
 export const NAV_BAR_HEIGHT = 68;
-/** Pure-mode round add button size: same as the pill next to it (NAV_BAR_HEIGHT). */
+/** Pure-mode pill height: same 68dp as budget mode. */
 export const NAV_PURE_BAR_HEIGHT = 68;
+/** Pure-mode round add button size: same 48dp size as the center add button in budget mode. */
+export const NAV_PURE_FAB_SIZE = 48;
 export const NAV_PURE_FAB_GAP = 10;
+/** Pure-mode 3-tab pill width tailored for 3 tabs (Home, History, Insights). */
+export const NAV_PURE_PILL_WIDTH = 216;
 export const NAV_MAX_BAR_WIDTH = 400;
 /** Padding inside the budget pill (left/right) and the pure pill (both pill styles use 6dp). */
 export const NAV_BUDGET_PAD_X = 4;
@@ -85,8 +89,10 @@ export function getNavBarMetrics(windowWidth: number, insetBottom: number): NavB
   }
   budgetLabelMax = clamp(Math.floor(budgetLabelMax), 0, NAV_LABEL_MAX);
 
-  // ── Pure pill: three tabs (same height, padding and tab sizes as the budget pill) + round + button ──
-  const purePillWidth = Math.round(barWidth - NAV_PURE_BAR_HEIGHT - NAV_PURE_FAB_GAP);
+  // ── Pure pill: three tabs (same 68dp height and tab styling as budget pill) + 48dp round + button ──
+  const purePillWidth = Math.round(
+    Math.min(NAV_PURE_PILL_WIDTH, barWidth - NAV_PURE_FAB_SIZE - NAV_PURE_FAB_GAP)
+  );
   const pureContent = purePillWidth - NAV_PILL_BORDER * 2 - NAV_PURE_PAD_X * 2;
   const pureLabelMax = clamp(
     Math.floor(pureContent - 2 * tabMinWidth - activeTabWidth(0) - 2),
