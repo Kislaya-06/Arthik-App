@@ -216,8 +216,8 @@ export function AppNavigation({
 
         {/* Sub pages stack */}
         {/* Create/edit flows open from the bottom ("this is a task"), like Google Pay and Splitwise. */}
-        <Stack.Screen name="AddExpense" component={ExpenseFormScreen as React.ComponentType<NativeStackScreenProps<RootStackParamList, 'AddExpense'>>} options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="EditExpense" component={ExpenseFormScreen as React.ComponentType<NativeStackScreenProps<RootStackParamList, 'EditExpense'>>} options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="AddExpense" component={ExpenseFormScreen as React.ComponentType<NativeStackScreenProps<RootStackParamList, 'AddExpense'>>} options={{ animation: 'slide_from_bottom', animationDuration: 250 }} />
+        <Stack.Screen name="EditExpense" component={ExpenseFormScreen as React.ComponentType<NativeStackScreenProps<RootStackParamList, 'EditExpense'>>} options={{ animation: 'slide_from_bottom', animationDuration: 250 }} />
         <Stack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
         <Stack.Screen name="GullakDepositDetail" getComponent={() => require('../screens/GullakDepositDetailScreen').GullakDepositDetailScreen} />
         <Stack.Screen name="CategoryDetail" getComponent={() => require('../screens/CategoryDetailScreen').CategoryDetailScreen} />

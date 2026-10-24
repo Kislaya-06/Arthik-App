@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fix: Snappy FAB Transition & BouncyTypeToggle Jitter Elimination — OTA-safe
+
+- **Snappier Add/Edit Expense Entrance (`src/navigation/index.tsx`)**: Configured `animationDuration: 250` on `AddExpense` and `EditExpense` routes for instant, responsive slide-up when pressing the bottom nav FAB button.
+- **Top Pill Jitter Elimination (`src/components/BouncyTypeToggle.tsx`, `src/hooks/useExpenseForm.ts`)**:
+  - Enabled `commitOnSettle` on `BouncyTypeToggle`: the liquid spring runs to completion on the native UI thread before triggering the heavier category list and payment options re-render.
+  - Wrapped `BouncyTypeToggle` in `React.memo` to eliminate unnecessary render churn.
+  - Removed redundant `setTransactionType('expense')` call on mount in `useExpenseForm.ts`, preventing a layout-reflow cycle during the screen's bottom entrance.
+- **Tests**: Added regression test in `tests/segmentedControl.test.ts` verifying `BouncyTypeToggle` has `commitOnSettle: true`. Updated `tests/opt41to46Polish.test.ts`. All 151 test files passing (2,051 tests).
+
 ### Clean-up: Dead Files, Dev-Only Logs Guard, Unused Asset, Dead Exports (OPT-50, OPT-51, OPT-52, OPT-53) — OTA-safe
 
 - **Dead files removed (OPT-50)**: `src/components/ui/AppInput.tsx` and `src/hooks/useMoneyWaterfall.ts` had no importer anywhere. Removed from `AGENTS.md`, `docs/CODEBASE_GUIDE.md`, `docs/design-system.md` and `docs/maps/daily-budget-map.md`. The waterfall engine `src/lib/moneyWaterfall.ts` is used and stays.

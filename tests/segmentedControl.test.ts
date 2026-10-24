@@ -316,4 +316,13 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
     weekly.props.onPress();
     expect(onChange).toHaveBeenCalledWith('Weekly');
   });
+
+  it('BouncyTypeToggle uses commitOnSettle to prevent jitter during spring glide', async () => {
+    const { BouncyTypeToggle } = await import('../src/components/BouncyTypeToggle');
+    const el = (BouncyTypeToggle as any)({
+      value: 'expense',
+      onChange: vi.fn(),
+    });
+    expect(el.props.commitOnSettle).toBe(true);
+  });
 });

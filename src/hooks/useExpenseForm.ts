@@ -349,7 +349,6 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     if (hasPrefilled.current) return;
 
     if (!isEdit || !expenseId) {
-      setTransactionType('expense');
       hasPrefilled.current = true;
       return;
     }

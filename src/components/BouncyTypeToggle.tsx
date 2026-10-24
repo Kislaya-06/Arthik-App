@@ -18,7 +18,7 @@ const TYPE_OPTIONS: SegmentedOption[] = [
  * Standardized BouncyTypeToggle, consolidated to use the canonical SegmentedControl primitive.
  * Enforces ControlHeight.row (56) matching the Date Picker trigger and standard form input row height.
  */
-export const BouncyTypeToggle: React.FC<BouncyTypeToggleProps> = ({
+export const BouncyTypeToggle: React.FC<BouncyTypeToggleProps> = React.memo(({
   value,
   onChange,
   style,
@@ -37,9 +37,10 @@ export const BouncyTypeToggle: React.FC<BouncyTypeToggleProps> = ({
       activeTextColor={colors.forestGreen}
       backgroundColor={colors.inputBg}
       fontSize={FontSize.body}
+      commitOnSettle
       style={style}
     />
   );
-};
+});
 
 export default BouncyTypeToggle;

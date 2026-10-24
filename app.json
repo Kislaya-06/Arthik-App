@@ -65,7 +65,7 @@
         "version": "2.1.0",
         "title": "Ultra-Smooth 60 FPS & Instant Cold Launch ⚡",
         "highlights": [
-          "Add Expense Slides Up: Adding or editing an expense now opens from the bottom like a quick task, and large system fonts no longer break badges, pills, keypad keys and calendar days",
+          "Instant Add Expense & Jitter-Free Toggles: Snappy bottom slide-up entrance, and Expense | Income toggle glides with zero jitter and full 60 FPS motion",
           "Smoother History: Long transaction lists scroll with less memory and fewer blank gaps, in History and in each category's transaction list",
           "Fresher Home: When you come back to the app after a few minutes, Home quietly refreshes so expenses added on another device show up without pulling, and screens skip needless redraws",
           "Silky UI-Thread Motion: Bottom navigation capsules, numeric keypad slide, Insights donut sweep, period stretch dots, and savings progress bar now run directly on the UI thread with Reanimated and RNGH for stutter-free 60 FPS interactions",
