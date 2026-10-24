@@ -79,10 +79,14 @@ const CategoryChipItem = React.memo<{
   isDark: boolean;
 }>(({ category, isSelected, isPlaceholder, onSelect, colors, isDark }) => {
   const scale = useAnimatedValue(1);
-  const [chipHeight, setChipHeight] = useState(0);
+  const isFirstMount = useRef(true);
   const IconComp = getCategoryIcon(category.icon);
 
   useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
     if (isSelected) {
       Animated.sequence([
         Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
@@ -107,8 +111,6 @@ const CategoryChipItem = React.memo<{
 
   const gradId = `chip_grad_${(category.id || 'default').replace(/[^a-zA-Z0-9]/g, '')}`;
 
-  const pillRadius = chipHeight > 0 ? Math.round(chipHeight / 2) : 20;
-
   const handlePress = useCallback(() => {
     if (!isPlaceholder) onSelect(category.id);
   }, [isPlaceholder, onSelect, category.id]);
@@ -119,12 +121,6 @@ const CategoryChipItem = React.memo<{
       onPress={handlePress}
     >
       <Animated.View
-        onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          if (h > 0 && h !== chipHeight) {
-            setChipHeight(h);
-          }
-        }}
         style={[
           styles.categoryChip,
           isSelected
@@ -148,8 +144,8 @@ const CategoryChipItem = React.memo<{
               y={0}
               width="100%"
               height="100%"
-              rx={pillRadius}
-              ry={pillRadius}
+              rx={20}
+              ry={20}
               fill={`url(#${gradId})`}
             />
           </Svg>
@@ -294,6 +290,12 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     if (!isSaveEnabled) {
       triggerErrorShake();
       return;
+    }
+    const needsCategory =
+      !isSelfTransfer &&
+      !(transactionType === 'income' && moneyBack.visible && moneyBack.mode !== 'income');
+    if (needsCategory && !selectedCategoryId) {
+      triggerErrorShake();
     }
     try {
       await handleSave(async () => {
@@ -1060,6 +1062,7 @@ const styles = StyleSheet.create({
 
   categoryScrollContainer: {
     position: 'relative',
+    minHeight: 44,
     marginBottom: Spacing.block,
   },
   categoryList: {

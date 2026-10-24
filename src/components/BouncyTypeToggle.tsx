@@ -9,10 +9,6 @@ export interface BouncyTypeToggleProps {
   style?: any;
 }
 
-const TYPE_OPTIONS: SegmentedOption[] = [
-  { key: 'expense', label: 'Expense' },
-  { key: 'income', label: 'Income' },
-];
 
 /**
  * Standardized BouncyTypeToggle, consolidated to use the canonical SegmentedControl primitive.
@@ -24,16 +20,18 @@ export const BouncyTypeToggle: React.FC<BouncyTypeToggleProps> = React.memo(({
   style,
 }) => {
   const { colors } = useTheme();
-  const isExpense = value === 'expense';
-  const activePillColor = isExpense ? colors.peachCoral : colors.mintGreen;
+
+  const typeOptions = React.useMemo<SegmentedOption[]>(() => [
+    { key: 'expense', label: 'Expense', activePillColor: colors.peachCoral },
+    { key: 'income', label: 'Income', activePillColor: colors.mintGreen },
+  ], [colors.peachCoral, colors.mintGreen]);
 
   return (
     <SegmentedControl
-      options={TYPE_OPTIONS}
+      options={typeOptions}
       selectedKey={value}
       onChange={(key) => onChange(key as 'expense' | 'income')}
       height={ControlHeight.row}
-      activePillColor={activePillColor}
       activeTextColor={colors.forestGreen}
       backgroundColor={colors.inputBg}
       fontSize={FontSize.body}

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Animated, {
   cancelAnimation,
+  interpolateColor,
   useSharedValue,
   useAnimatedStyle,
   useReducedMotion,
@@ -37,6 +38,7 @@ export interface SegmentedOption {
   label: string;
   badge?: string | number;
   icon?: React.ComponentType<{ size: number; color: string }> | ((props: { size: number; color: string }) => React.ReactNode);
+  activePillColor?: string;
 }
 
 export interface SegmentedControlProps {
@@ -381,15 +383,41 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
   const resolvedActiveText = activeTextColor ?? colors.forestGreen;
   const resolvedInactiveText = inactiveTextColor ?? colors.textSecondary;
 
+  const { hasOptionColors, colorInputRange, colorOutputRange } = useMemo(() => {
+    const hasAny = normalizedOptions.some((opt) => !!opt.activePillColor);
+    if (!hasAny || normalizedOptions.length === 0) {
+      return { hasOptionColors: false, colorInputRange: [0, 1], colorOutputRange: [resolvedPillBg, resolvedPillBg] };
+    }
+    const input: number[] = [];
+    const output: string[] = [];
+    normalizedOptions.forEach((opt, idx) => {
+      input.push(idx);
+      output.push(opt.activePillColor ?? resolvedPillBg);
+    });
+    if (input.length === 1) {
+      input.push(1);
+      output.push(output[0]);
+    }
+    return { hasOptionColors: true, colorInputRange: input, colorOutputRange: output };
+  }, [normalizedOptions, resolvedPillBg]);
+
   const animatedHighlightStyle = useAnimatedStyle(() => {
     // Never thinner than a dot, never inverted, even if springs cross on a frantic re-tap.
     const raw = pillRight.value - pillLeft.value;
     const width = Math.max(8, raw);
+    const bg = hasOptionColors && optionWidth > 0
+      ? interpolateColor(
+          pillLeft.value / optionWidth,
+          colorInputRange,
+          colorOutputRange
+        )
+      : resolvedPillBg;
     return {
       width,
       // Hidden until placed (both edges still at their initial 0), so it can never flash as a dot.
       opacity: raw > 1 ? 1 : 0,
       transform: [{ translateX: pillLeft.value }],
+      backgroundColor: bg,
     };
   });
 
@@ -426,7 +454,6 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
               styles.sliderPill,
               animatedHighlightStyle,
               {
-                backgroundColor: resolvedPillBg,
                 borderRadius: Math.max(4, borderRadius - 2),
               },
             ]}

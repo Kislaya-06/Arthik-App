@@ -9,12 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fix: Snappy FAB Transition & BouncyTypeToggle Jitter Elimination — OTA-safe
 
-- **Snappier Add/Edit Expense Entrance (`src/navigation/index.tsx`)**: Configured `animationDuration: 250` on `AddExpense` and `EditExpense` routes for instant, responsive slide-up when pressing the bottom nav FAB button.
-- **Top Pill Jitter Elimination (`src/components/BouncyTypeToggle.tsx`, `src/hooks/useExpenseForm.ts`)**:
+- **Fast Native Add/Edit Expense Entrance (`src/navigation/index.tsx`)**: Configured `animation: 'fade_from_bottom'` on `AddExpense` and `EditExpense` routes for a blisteringly fast 210ms native bottom entrance (replacing the 500ms full-screen slide from bottom).
+- **Top Pill Jitter & Delayed Color Snap Elimination (`src/components/BouncyTypeToggle.tsx`, `src/components/ui/SegmentedControl.tsx`, `src/hooks/useExpenseForm.ts`)**:
+  - Added UI-thread real-time `interpolateColor` on `SegmentedControl` using `activePillColor` per option: pill color smoothly and continuously cross-fades between Coral and Mint on the native UI thread as it glides, eliminating the delayed color snap on settle.
   - Enabled `commitOnSettle` on `BouncyTypeToggle`: the liquid spring runs to completion on the native UI thread before triggering the heavier category list and payment options re-render.
   - Wrapped `BouncyTypeToggle` in `React.memo` to eliminate unnecessary render churn.
   - Removed redundant `setTransactionType('expense')` call on mount in `useExpenseForm.ts`, preventing a layout-reflow cycle during the screen's bottom entrance.
-- **Tests**: Added regression test in `tests/segmentedControl.test.ts` verifying `BouncyTypeToggle` has `commitOnSettle: true`. Updated `tests/opt41to46Polish.test.ts`. All 151 test files passing (2,051 tests).
+- **Category Selection Intent & Zero Auto-Select (`src/hooks/useExpenseForm.ts`, `src/screens/ExpenseFormScreen.tsx`)**:
+  - Removed auto-selection of the first category (`Shopping` / `Salary`): new transactions and type switches now start with `selectedCategoryId: null`, requiring intentional user selection and preventing accidental categorization.
+  - Eliminated the post-render auto-select `useEffect`, completely removing the secondary synchronous re-render pass and preventing screen flicker/blink.
+  - Added `minHeight: 44` to `categoryScrollContainer` for stable layout without reflow jolt when category arrays swap.
+  - Added form validation in `ExpenseFormScreen.tsx`: tapping Save without choosing a category triggers a friendly alert and error shake instead of silently saving under an arbitrary default.
+  - Preserved authentic liquid stretch-and-settle spring motion on `SegmentedControl`.
+- **Tests**: Added regression tests in `tests/segmentedControl.test.ts` and `tests/useExpenseForm.test.ts`. Updated `tests/opt41to46Polish.test.ts`. All 151 test files passing (2,054 tests).
 
 ### Clean-up: Dead Files, Dev-Only Logs Guard, Unused Asset, Dead Exports (OPT-50, OPT-51, OPT-52, OPT-53) — OTA-safe
 

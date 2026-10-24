@@ -7,6 +7,7 @@ vi.mock('react', async () => {
   const mockEffect = vi.fn();
   const mockCallback = (fn: any) => fn;
   const mockMemo = (comp: any) => comp;
+  const mockUseMemo = (fn: any) => fn();
   const mockStartTransition = (fn: any) => fn();
   return {
     ...actual,
@@ -16,6 +17,7 @@ vi.mock('react', async () => {
       useState: mockState,
       useEffect: mockEffect,
       useCallback: mockCallback,
+      useMemo: mockUseMemo,
       memo: mockMemo,
       startTransition: mockStartTransition,
     },
@@ -23,6 +25,7 @@ vi.mock('react', async () => {
     useState: mockState,
     useEffect: mockEffect,
     useCallback: mockCallback,
+    useMemo: mockUseMemo,
     memo: mockMemo,
     startTransition: mockStartTransition,
   };
@@ -36,6 +39,7 @@ vi.mock('react-native-reanimated', () => {
   const withSequence = (...anims: any[]) => anims[anims.length - 1];
   const cancelAnimation = () => {};
   const useReducedMotion = () => false;
+  const interpolateColor = (_val: any, _in: any[], out: any[]) => out?.[0] ?? '#000000';
 
   return {
     default: {
@@ -48,6 +52,7 @@ vi.mock('react-native-reanimated', () => {
     withTiming,
     withSequence,
     cancelAnimation,
+    interpolateColor,
     Easing: {
       out: (fn: any) => fn,
       quad: 'quad',
@@ -106,6 +111,7 @@ vi.mock('../src/store/themeStore', () => {
     cardSubtle: '#F1F5F9',
     borderSubtle: '#E2E8F0',
     mintGreen: '#B8E0C8',
+    peachCoral: '#FF7B6B',
     forestGreen: '#1A2B4C',
     textSecondary: '#64748B',
     mintGreenDark: '#65A882',
@@ -324,5 +330,33 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
       onChange: vi.fn(),
     });
     expect(el.props.commitOnSettle).toBe(true);
+  });
+
+  it('BouncyTypeToggle passes per-option activePillColor for real-time glide color interpolation', async () => {
+    const { BouncyTypeToggle } = await import('../src/components/BouncyTypeToggle');
+    const el = (BouncyTypeToggle as any)({
+      value: 'expense',
+      onChange: vi.fn(),
+    });
+    expect(el.props.options).toHaveLength(2);
+    expect(el.props.options[0].activePillColor).toBeDefined();
+    expect(el.props.options[1].activePillColor).toBeDefined();
+    // Expense is Coral, Income is Mint
+    expect(el.props.options[0].key).toBe('expense');
+    expect(el.props.options[1].key).toBe('income');
+  });
+
+  it('SegmentedControl gracefully handles options with custom activePillColor', () => {
+    const onChange = vi.fn();
+    const el = SegmentedControl({
+      options: [
+        { key: 'expense', label: 'Expense', activePillColor: '#FF7B6B' },
+        { key: 'income', label: 'Income', activePillColor: '#B8E0C8' },
+      ],
+      selectedKey: 'expense',
+      onChange,
+    }) as any;
+    expect(el.type).toBeTruthy();
+    expect(el.props.children[1].props.children).toHaveLength(2);
   });
 });

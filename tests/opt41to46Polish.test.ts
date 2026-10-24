@@ -131,14 +131,14 @@ describe('OPT-44: haptics follow the map', () => {
 describe('OPT-46: Add / Edit expense open from the bottom', () => {
   const src = read('src/navigation/index.tsx');
 
-  it('AddExpense and EditExpense use slide_from_bottom', () => {
-    expect(src).toMatch(/name="AddExpense"[^\n]*options=\{\{ animation: 'slide_from_bottom'/);
-    expect(src).toMatch(/name="EditExpense"[^\n]*options=\{\{ animation: 'slide_from_bottom'/);
+  it('AddExpense and EditExpense open from the bottom with fast fade_from_bottom', () => {
+    expect(src).toMatch(/name="AddExpense"[^\n]*options=\{\{ animation: 'fade_from_bottom'/);
+    expect(src).toMatch(/name="EditExpense"[^\n]*options=\{\{ animation: 'fade_from_bottom'/);
   });
 
   it('every other screen keeps the default slide_from_right', () => {
     expect(src).toMatch(/screenOptions=\{\{\s*headerShown: false,\s*animation: 'slide_from_right',/);
-    expect((src.match(/slide_from_bottom/g) ?? []).length).toBe(2);
+    expect((src.match(/fade_from_bottom/g) ?? []).length).toBe(4);
   });
 
   it('ExpenseDetail still opens from the right', () => {

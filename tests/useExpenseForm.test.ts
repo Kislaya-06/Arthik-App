@@ -86,10 +86,16 @@ const navigation = () => {
 const addRoute = { name: 'AddExpense' } as any;
 const editRoute = (expenseId = 'e1') => ({ name: 'EditExpense', params: { expenseId } }) as any;
 
-const setup = (route: any = addRoute, nav: any = navigation()) => {
+const setup = (route: any = addRoute, nav: any = navigation(), defaultCategory: string | null = null) => {
   const h = renderHook(() => useExpenseForm({ route, navigation: nav }));
+  if (defaultCategory) {
+    act(() => {
+      h.result.current.handleCategorySelect(defaultCategory);
+    });
+  }
   return { h, nav, r: () => h.result.current };
 };
+const setupWithCategory = (route: any = addRoute, nav: any = navigation(), catId = 'c1') => setup(route, nav, catId);
 const press = (h: ReturnType<typeof setup>, keys: string[]) => keys.forEach((k) => h.r().handleKeyPress(k));
 
 describe('useExpenseForm (the add / edit income-expense form)', () => {
@@ -155,11 +161,11 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       expect(nav.unsubscribe).toHaveBeenCalledTimes(1);
     });
 
-    it('pre-selects the first REAL category (never a placeholder)', () => {
+    it('leaves category unselected (null) until the user explicitly chooses one', () => {
       useCategoryStore.setState({
         categories: [{ ...CATS[0], id: 'ph', isPlaceholder: true }, ...CATS],
       });
-      expect(setup().r().selectedCategoryId).toBe('c1');
+      expect(setup().r().selectedCategoryId).toBeNull();
     });
 
     it('selects nothing while only placeholders exist', () => {
@@ -283,7 +289,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       const order: string[] = [];
       const nav = navigation();
       nav.goBack.mockImplementation(() => order.push('goBack'));
-      const s = setup(addRoute, nav);
+      const s = setupWithCategory(addRoute, nav);
       press(s, ['9']);
       await act(async () => {
         await s.r().handleSave(async () => {
@@ -294,7 +300,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     });
 
     it('uses the calculated result, not the typed expression', async () => {
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1', '0', '+', '5']);
       await act(async () => {
         await s.r().handleSave();
@@ -303,7 +309,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     });
 
     it('turns a long note into at most 50 words and 250 characters', async () => {
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['5']);
       s.r().handleNoteChange(Array.from({ length: 50 }, () => 'abcdefghij').join(' ')); // 50 words, 549 characters
       await act(async () => {
@@ -315,7 +321,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     });
 
     it('with a calculation and an empty note, writes the calculation as the note ("Breakdown: ...")', async () => {
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1', '0', '+', '5']);
       const clean = evaluateExpression(s.r().amount).cleanExpression;
       await act(async () => {
@@ -326,7 +332,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     });
 
     it('a note the user typed is never replaced by the breakdown', async () => {
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1', '0', '+', '5']);
       s.r().handleNoteChange('Tea and snacks');
       await act(async () => {
@@ -336,7 +342,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     });
 
     it('does nothing when the amount is zero or a division by zero', async () => {
-      const s = setup();
+      const s = setupWithCategory();
       await act(async () => {
         await s.r().handleSave();
       });
@@ -351,7 +357,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     it('a second tap while saving is ignored (no double expense)', async () => {
       let release!: () => void;
       mocks.addExpense.mockImplementationOnce(() => new Promise<void>((res) => { release = res; }));
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['7']);
       const first = s.r().handleSave();
       expect(s.r().isSubmitting).toBe(true);
@@ -365,7 +371,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     it('if saving fails the user sees the error, and can try again', async () => {
       mocks.addExpense.mockRejectedValueOnce(new Error('Network down'));
       const nav = navigation();
-      const s = setup(addRoute, nav);
+      const s = setupWithCategory(addRoute, nav);
       press(s, ['7']);
       await act(async () => {
         await s.r().handleSave();
@@ -378,7 +384,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
 
     it('an error without a message gets a friendly default', async () => {
       mocks.addExpense.mockRejectedValueOnce({});
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['7']);
       await act(async () => {
         await s.r().handleSave();
@@ -388,6 +394,15 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
   });
 
   describe('expense validation', () => {
+    it('blocks save and asks for a category when user does not pick one on a new expense', async () => {
+      const s = setup();
+      press(s, ['1', '0', '0']);
+      await act(async () => {
+        await s.r().handleSave();
+      });
+      expect(mocks.alert).toHaveBeenCalledWith('Category Required', 'Please select a category for this expense.');
+      expect(mocks.addExpense).not.toHaveBeenCalled();
+    });
     it('asks the user to wait while categories are still loading', async () => {
       useCategoryStore.setState({ isFetched: false });
       const s = setup();
@@ -438,14 +453,16 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
   });
 
   describe('income', () => {
-    it('offers only income categories and picks the first one (CAT-004)', () => {
+    it('offers only income categories and leaves category unselected until user chooses (CAT-004)', () => {
       const s = setup();
       expect(s.r().categories.map((c: any) => c.id)).toEqual(['c1', 'c2']);
       s.r().handleTypeChange('income');
       expect(s.r().categories.map((c: any) => c.id)).toEqual(['i1', 'i2']);
+      expect(s.r().selectedCategoryId).toBeNull();
+      s.r().handleCategorySelect('i1');
       expect(s.r().selectedCategoryId).toBe('i1');
       s.r().handleTypeChange('expense');
-      expect(s.r().selectedCategoryId).toBe('c1');
+      expect(s.r().selectedCategoryId).toBeNull();
     });
 
     it('is saved WITH the chosen income category (TXN-002)', async () => {
@@ -497,6 +514,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       useExpenseStore.setState({ expenses: [] });
       const s = setup();
       s.r().handleTypeChange('income');
+      s.r().handleCategorySelect('i1');
       press(s, ['5', '0', '0']);
       await act(async () => {
         await s.r().handleSave();
@@ -509,7 +527,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
   describe('Digital Vault Spending Guard (you can not spend money that does not exist)', () => {
     it('Pure mode, no money at all: an expense is allowed (SEC-001 amend)', async () => {
       useExpenseStore.setState({ expenses: [] });
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1', '0', '0']);
       expect(s.r().vaultLiquidity.canAddExpense).toBe(true);
       await act(async () => {
@@ -523,7 +541,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       useExpenseStore.setState({
         expenses: [INCOME, { id: 'x', user_id: 'u', amount: 5000, type: 'expense', category_id: 'c1', payment_mode: 'upi', expense_date: '2026-10-02' }],
       });
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1']);
       expect(s.r().vaultLiquidity.canAddExpense).toBe(true);
       await act(async () => {
@@ -534,7 +552,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     });
 
     it('Pure mode with income logged: allowed', async () => {
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1', '0', '0']);
       expect(s.r().vaultLiquidity.canAddExpense).toBe(true);
       await act(async () => {
@@ -547,7 +565,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     it('Budget mode: the allowance alone is enough, even with no income', async () => {
       useExpenseStore.setState({ expenses: [] });
       useDailyBudgetStore.setState({ isBudgetModeEnabled: true, budgetCadence: 'daily', dailyBudgetAmount: 500 });
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1', '0', '0']);
       await act(async () => {
         await s.r().handleSave();
@@ -558,7 +576,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     it('Budget mode with no allowance and no income is blocked; the guard can be closed again', async () => {
       useExpenseStore.setState({ expenses: [] });
       useDailyBudgetStore.setState({ isBudgetModeEnabled: true, budgetCadence: 'daily', dailyBudgetAmount: 0 });
-      const s = setup();
+      const s = setupWithCategory();
       press(s, ['1']);
       await act(async () => {
         await s.r().handleSave();
@@ -572,7 +590,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
     it('money in the Gullak (external deposits) counts as available in Budget mode', async () => {
       useExpenseStore.setState({ expenses: [] });
       useDailyBudgetStore.setState({ isBudgetModeEnabled: true, dailyBudgetAmount: 0, gullakDeposits: [{ amount: 400 }, { amount: 100 }] as any });
-      const s = setup();
+      const s = setupWithCategory();
       expect(s.r().vaultLiquidity.totalVaultLiquidity).toBe(500);
       press(s, ['5']);
       await act(async () => {

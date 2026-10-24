@@ -402,6 +402,9 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
         }
       }
       setTransactionType(type);
+      if (!isEdit) {
+        setSelectedCategoryId(null);
+      }
       // Auto-fallback: Card is excluded in Add Money mode
       if (type === 'income' && paymentMode === 'card') {
         setPaymentMode('upi');
@@ -704,16 +707,6 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     setSelectedDate(date);
   }, []);
 
-  // ─── Auto-select first real category of the current side for new transactions ──
-  // Switching Expense <-> Income on a new transaction picks the first category of the new side.
-  useEffect(() => {
-    if (!isEdit && !isSelectedCategoryValid && kindCategories.length > 0) {
-      const firstReal = kindCategories.find((c) => !c.isPlaceholder);
-      if (firstReal) {
-        setSelectedCategoryId(firstReal.id);
-      }
-    }
-  }, [isEdit, isSelectedCategoryValid, kindCategories]);
 
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async (onSuccess?: () => Promise<void> | void) => {

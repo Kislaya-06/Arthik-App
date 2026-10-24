@@ -226,7 +226,7 @@ Built only from existing tokens and primitives (no new tokens): `SplitExtras` (s
 ## 10. Animation & Motion Physics
 
 - **Apple WWDC-Calibrated Springs:** `BouncyCategoryFilter` uses a critically damped spring (`stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`). `SegmentedControl` uses the two-edge liquid pill springs from `src/lib/segmentedMotion.ts` (see `<SegmentedControl />` above).
-- **Create flows open from the bottom:** `AddExpense` and `EditExpense` use `slide_from_bottom` (a task you finish or cancel, like Google Pay and Splitwise); every detail page keeps `slide_from_right`.
+- **Create flows open from the bottom:** `AddExpense` and `EditExpense` use `fade_from_bottom` (rises quickly from the bottom and fades in, snappy task entrance like Google Pay and Splitwise); every detail page keeps `slide_from_right`.
 - **Never animate a screen while its pill glides:** heavy re-renders wait for the pill to land (`commitOnSettle`, `PILL_SETTLE_MS`).
 - **Hardware-Accelerated Transform Sliding:** Sliding highlight pills animate exclusively via `translateX` (anchored at `left: 0`) and width, avoiding layout properties (`left`, `top`, `margin`) to guarantee 60/120fps motion without native Yoga relayout passes.
 - **Tactile Press Feedback:** Interactive items scale to `0.93–0.94` on `onPressIn`, springing back with `friction: 4` (`damping: 12, stiffness: 200`) on `onPressOut`, accompanied by light haptics (`expo-haptics`).
