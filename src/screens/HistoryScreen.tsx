@@ -5,8 +5,10 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  SectionList,
+  LayoutChangeEvent,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import type { FlashListRef } from '@shopify/flash-list';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
@@ -45,19 +47,20 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-export type HistoryItem =
-  | { kind: 'expense'; data: Expense; date: string; created_at: string }
-  | { kind: 'gullak'; data: GullakDeposit; date: string; created_at: string };
+export type { HistoryItem } from '../lib/historyRows';
+type Section = HistorySection;
 
-interface Section {
-  title: string;
-  dateStr: string;
-  totalSpent: number;
-  totalIncome: number;
-  data: HistoryItem[];
-}
+/** Must match `emptyContainer.marginTop` in the styles below. */
+const EMPTY_STATE_TOP_MARGIN = 64;
+
+const historyKeyExtractor = (row: HistoryRow): string => row.key;
+/** Header rows and the two item kinds are recycled separately (they look different). */
+const historyItemType = (row: HistoryRow): string => row.type;
+
 
 import { TransactionRow } from '../components/TransactionRow';
+import { buildHistoryRows, buildHeaderRowIndexes } from '../lib/historyRows';
+import type { HistoryItem, HistoryRow, HistorySection } from '../lib/historyRows';
 import { GullakDepositRow } from '../components/GullakDepositRow';
 
 interface TransactionRowItemProps {
@@ -145,12 +148,12 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const sectionListRef = useRef<SectionList<HistoryItem, Section>>(null);
+  const listRef = useRef<FlashListRef<HistoryRow>>(null);
   // Tapping the active History tab scrolls the list back to the top.
   const scrollToTopRef = useRef({
     scrollToTop: () => {
       try {
-        sectionListRef.current?.getScrollResponder()?.scrollTo({ y: 0, animated: true });
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
       } catch {
         // List not ready / empty: nothing to scroll.
       }
@@ -315,6 +318,18 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const hasMoreSections = filteredAndGroupedExpenses.length > visibleSectionCount;
 
+  // Flat rows for FlashList. `displayedSections` is always a prefix of the full list of days, so the
+  // header row index of day k is the same in the paginated rows and in the full list.
+  const rows = useMemo(() => buildHistoryRows(displayedSections), [displayedSections]);
+  const headerRowIndexBySection = useMemo(
+    () => buildHeaderRowIndexes(filteredAndGroupedExpenses),
+    [filteredAndGroupedExpenses]
+  );
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const headerRowIndexRef = useRef(headerRowIndexBySection);
+  headerRowIndexRef.current = headerRowIndexBySection;
+
   const handleSeeMore = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setVisibleSectionCount((prev) => prev + PAGE_SIZE_SECTIONS);
@@ -347,8 +362,48 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const targetStartDate = route.params?.startDate;
   const targetEndDate = route.params?.endDate;
 
-  const targetIndexRef = useRef<number>(-1);
+  // Day (section index) the date-jump wants to scroll to once its rows are mounted.
+  const pendingScrollSectionRef = useRef<number | null>(null);
+  const pendingScrollAttemptsRef = useRef(0);
+  // A jump that could not finish in this time is dropped, so it can never fire later by surprise.
+  const pendingScrollExpiresAtRef = useRef(0);
   const lastHandledKeyRef = useRef<string>('');
+
+  const tryPendingScroll = useCallback(() => {
+    const sectionIndex = pendingScrollSectionRef.current;
+    if (sectionIndex === null) return;
+    if (Date.now() > pendingScrollExpiresAtRef.current) {
+      pendingScrollSectionRef.current = null;
+      return;
+    }
+    const list = listRef.current;
+    const rowIndex = headerRowIndexRef.current[sectionIndex];
+    // Rows of that day are not mounted yet (See More window still growing): wait for the next rows update.
+    if (!list || rowIndex === undefined || rowIndex >= rowsRef.current.length) return;
+    pendingScrollSectionRef.current = null;
+    try {
+      list.scrollToIndex({ index: rowIndex, animated: true, viewPosition: 0 }).catch(() => {
+        if (pendingScrollAttemptsRef.current < 20) {
+          pendingScrollAttemptsRef.current += 1;
+          pendingScrollSectionRef.current = sectionIndex;
+          setTimeout(tryPendingScroll, 80);
+        }
+      });
+    } catch {
+      if (pendingScrollAttemptsRef.current < 20) {
+        pendingScrollAttemptsRef.current += 1;
+        pendingScrollSectionRef.current = sectionIndex;
+        setTimeout(tryPendingScroll, 80);
+      }
+    }
+  }, []);
+
+  // When the visible window grows to include the jump target, finish the scroll.
+  useEffect(() => {
+    if (pendingScrollSectionRef.current === null) return;
+    const timer = setTimeout(tryPendingScroll, 60);
+    return () => clearTimeout(timer);
+  }, [rows, tryPendingScroll]);
 
   const filteredAndGroupedExpensesRef = useRef(filteredAndGroupedExpenses);
   useEffect(() => {
@@ -384,7 +439,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     const performScroll = () => {
       attempts++;
       const sections = filteredAndGroupedExpensesRef.current;
-      if (!sectionListRef.current || !sections || sections.length === 0) {
+      if (!listRef.current || !sections || sections.length === 0) {
         if (attempts < maxAttempts) {
           setTimeout(performScroll, 50);
         }
@@ -436,20 +491,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         setVisibleSectionCount((prev) => Math.max(prev, targetIndex + 5));
       }
 
-      if (targetIndex >= 0 && sectionListRef.current) {
-        targetIndexRef.current = targetIndex;
-        try {
-          sectionListRef.current.scrollToLocation({
-            sectionIndex: targetIndex,
-            itemIndex: 0,
-            animated: true,
-            viewPosition: 0,
-          });
-        } catch {
-          if (attempts < maxAttempts) {
-            setTimeout(performScroll, 80);
-          }
-        }
+      if (targetIndex >= 0 && listRef.current) {
+        pendingScrollSectionRef.current = targetIndex;
+        pendingScrollAttemptsRef.current = 0;
+        pendingScrollExpiresAtRef.current = Date.now() + 4000;
+        tryPendingScroll();
       }
     };
 
@@ -458,7 +504,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     return () => {
       clearTimeout(timer);
     };
-  }, [targetDate, targetStartDate, targetEndDate]);
+  }, [targetDate, targetStartDate, targetEndDate, tryPendingScroll]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => {
     let text = '';
@@ -530,6 +576,22 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   }, [categoryMap, handleItemPress, handleGullakPress, colors]);
 
+  const renderRow = useCallback(({ item: row }: { item: HistoryRow }) => {
+    if (row.type === 'header') return renderSectionHeader({ section: row.section });
+    return renderItem({ item: row.item });
+  }, [renderSectionHeader, renderItem]);
+
+  // Rows only re-render when data or this value changes, so list every non-data input of renderRow.
+  const listExtraData = useMemo(() => ({ colors, isDark, categoryMap }), [colors, isDark, categoryMap]);
+
+  // The empty state used to fill the list through flexGrow on the content container, which FlashList
+  // does not support. Give it the same height by measuring the list area instead.
+  const [listHeight, setListHeight] = useState(0);
+  const handleListLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    setListHeight((prev) => (prev === h ? prev : h));
+  }, []);
+
   const renderEmptyState = useCallback(() => {
     let IconComponent = Receipt;
     let title = 'No transactions yet';
@@ -547,7 +609,13 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     return (
-      <View style={styles.emptyContainer}>
+      <View
+        style={[
+          styles.emptyContainer,
+          // Same area the old flexGrow content container gave it: list height minus nav inset minus top margin.
+          { minHeight: Math.max(0, listHeight - navBarInset - EMPTY_STATE_TOP_MARGIN), opacity: listHeight > 0 ? 1 : 0 },
+        ]}
+      >
         <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
           <IconComponent size={32} color={colors.textSecondary} />
         </View>
@@ -555,7 +623,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>{subtitle}</Text>
       </View>
     );
-  }, [debouncedQuery, selectedCategoryId, categoryMap, colors]);
+  }, [debouncedQuery, selectedCategoryId, categoryMap, colors, listHeight, navBarInset]);
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -601,44 +669,29 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         {/* Transaction List */}
-        <SectionList
-          ref={sectionListRef}
-          sections={displayedSections}
-          keyExtractor={(item) => `${item.kind}-${item.data.id}`}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          showsVerticalScrollIndicator={false}
-          onScrollToIndexFailed={() => {
-            setTimeout(() => {
-              if (targetIndexRef.current >= 0 && sectionListRef.current) {
-                sectionListRef.current.scrollToLocation({
-                  sectionIndex: targetIndexRef.current,
-                  itemIndex: 0,
-                  animated: true,
-                  viewPosition: 0,
-                });
-              }
-            }, 80);
-          }}
-          refreshControl={
-            // List starts below the fixed header + filters, so no status-bar offset here.
-            <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} topOffset={0} />
-          }
-          contentContainerStyle={[
-            { paddingBottom: navBarInset },
-            displayedSections.length === 0 && { flexGrow: 1 },
-          ]}
-          stickySectionHeadersEnabled={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={32}
-          initialNumToRender={12}
-          maxToRenderPerBatch={10}
-          windowSize={21}
-          updateCellsBatchingPeriod={50}
-          ListFooterComponent={renderFooter}
-          removeClippedSubviews={false}
-          ListEmptyComponent={renderEmptyState}
-        />
+        <View style={styles.listArea} onLayout={handleListLayout}>
+          <FlashList
+            ref={listRef}
+            data={rows}
+            keyExtractor={historyKeyExtractor}
+            getItemType={historyItemType}
+            renderItem={renderRow}
+            extraData={listExtraData}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              // List starts below the fixed header + filters, so no status-bar offset here.
+              <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} topOffset={0} />
+            }
+            contentContainerStyle={{ paddingBottom: navBarInset }}
+            // A new transaction added at the very top must show up at the top (same as SectionList),
+            // not push the list down to keep the old first row in place.
+            maintainVisibleContentPosition={{ disabled: true }}
+            onScroll={handleScroll}
+            scrollEventThrottle={32}
+            ListFooterComponent={renderFooter}
+            ListEmptyComponent={renderEmptyState}
+          />
+        </View>
 
       </View>
     </View>
@@ -652,6 +705,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: Spacing.gutter,
+  },
+  listArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -722,7 +778,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.section,
-    marginTop: 64,
+    marginTop: EMPTY_STATE_TOP_MARGIN,
   },
   iconCircle: {
     width: 80,

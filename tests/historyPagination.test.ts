@@ -37,7 +37,7 @@ describe('HistoryScreen 4-Day Progressive Pagination & "See More" Behavior', () 
     expect(historySrc).toMatch(/<ChevronDown/);
   });
 
-  it('hooks renderFooter into SectionList ListFooterComponent and does NOT use automatic onEndReached', () => {
+  it('hooks renderFooter into the list ListFooterComponent and does NOT use automatic onEndReached', () => {
     expect(historySrc).toMatch(/ListFooterComponent=\{renderFooter\}/);
     expect(historySrc).not.toMatch(/onEndReached=\{/);
     expect(historySrc).not.toMatch(/onEndReachedThreshold=/);

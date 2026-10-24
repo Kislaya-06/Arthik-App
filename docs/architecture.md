@@ -366,6 +366,16 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `expenseStore.test.ts` | Offline queues (create/update/delete), optimistic pending, reconnect sync |
 | `expenseSyncPending.test.ts` | Offline pending expense synchronization, retry logic, error classification |
 | `fetchExpensesTimeout.test.ts` | FIN-05: Range pagination per-page timeout scaling, retry resilience, cancellation guard, and NetInfo connectivity validation |
+| `fetchExpensesNoChange.test.ts` | OPT-20: same server data par `expenses` array wahi rehta hai aur cache dobara nahi likhta; badla hua ya naya row phir bhi pakda jaata hai |
+| `expenseListEquality.test.ts` | OPT-20: `sameExpenseList` (same list, ek field badla, row add, reorder, nested `split_allocations`) |
+| `expenseCacheMemo.test.ts` | OPT-20: cache memo (pehli write hamesha hoti hai, same key + same JSON par skip, forget) |
+| `opt21AutoLogShallow.test.ts` | OPT-21: AutoLog Center/Info screens poora store subscribe nahi karte (`useShallow`) |
+| `opt22HomeResumeRefresh.test.ts` | OPT-22: Home 5 min se zyada background rehne par resume par chup-chaap refresh karta hai |
+| `historyRows.test.ts` | OPT-30: History rows (header + items), keys, aur date-jump header index (See More window ke andar/bahar) |
+| `opt30HistoryFlashList.test.ts` | OPT-30/31: FlashList JS-only hai, History ka scroll-to-top / date jump / empty state / pull-to-refresh wiring, CategoryDetail FlashList |
+| `reduceMotionStore.test.ts` | OPT-43: shared reduce-motion store (startup value, OS answer, live change, ek hi subscription, OS fail hone par bhi safe) |
+| `opt41to46Polish.test.ts` | OPT-41..46: Skeleton rules aur AutoLog use, large-text caps, ek reduce-motion source, haptics map, Add/Edit expense neeche se khulna |
+| `opt50to53Cleanup.test.ts` | OPT-50..53: dead files/exports/asset ab bhi gone hain, kisi ka reference nahi, har `console.*` dev-only hai (guard scan), paise ke functions aur PUR-001 notification bachi hain |
 | `financialCorrectnessMatrix.test.ts` | 16-scenario financial matrix: zero proration, switches, mutations, boundary math |
 | `formatters.test.ts` | `formatCurrency`, `formatAmountWithCommas`, `round2`, Indian numbering |
 | `granularCategorySelectors.test.ts` | Granular Zustand store selector isolation in CategoryDetail and ManageCategories screens, rerender prevention |

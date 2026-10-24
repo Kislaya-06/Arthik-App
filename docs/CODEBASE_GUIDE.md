@@ -313,6 +313,8 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `payload.ts` | Split / money-back columns sirf tab bhejta hai jab row unhe use kare (SQL chalne se pehle bhi normal expenses chalte hain) |
 | `recoveryMiddleware.ts` | Har `expenses` write par counted amount dobara nikaalta hai (SPL-003) |
 | `moneyBack.ts` | Money back / refund record karna, aur logged income ko money back me badalna (SPL-003..006) |
+| `src/lib/expenseListEquality.ts` | `sameExpenseList(a, b)`: do lists ka content barabar ho to `true` (OPT-20). `fetchExpenses` isse same array rakhta hai jab server ka data wahi hai |
+| `src/lib/expenseCacheMemo.ts` | Har cache key par last likha JSON yaad rakhta hai, taaki same JSON dobara disk par na likha jaye (OPT-20). `fetchExpenses` aur `syncPending.ts` dono isse update karte hain |
 
 ### Baaki stores
 | Store | Kaam |
@@ -338,13 +340,14 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `ExpenseFormScreen.tsx` (1152 lines) | Kharch/income add aur edit. Logic `useExpenseForm.ts` mein. Spending guard yahin se chalta hai |
 | `ExpenseDetailScreen.tsx` | Ek transaction ki detail + funding card + split repayments |
 | `LedgerScreen.tsx` | Split expenses ledger: who owes what, multi-person settlements, person detail modal |
-| `HistoryScreen.tsx` | Transactions ki list aur filters. Memoized `categoryFilterOptions`, tuned SectionList virtualization (`initialNumToRender: 12`, `maxToRenderPerBatch: 10`) |
+| `HistoryScreen.tsx` | Transactions ki list aur filters. Memoized `categoryFilterOptions`. List ab FlashList v2 hai (OPT-30): rows recycle hoti hain, din ke hisaab se header row + item rows `src/lib/historyRows.ts` banata hai. 4-din "See More" pagination wahi hai |
+| `src/lib/historyRows.ts` | History ke types (`HistoryItem`, `HistorySection`, `HistoryRow`) aur `buildHistoryRows`, `buildHeaderRowIndexes` (date jump ke liye header row ka index) |
 | `SavingsScreen.tsx` (+ `.styles.ts`) | Budget hub, Gullak, streaks, deposits. Components `components/savings/*` |
 | `InsightsScreen.tsx` + `screens/insights/` | Weekly/Monthly/Yearly insights. Data `useInsightsData.ts` with memoized $O(1)$ category lookup map (`buildCategoryMap`) |
 | `ProfileScreen.tsx` | Profile, settings, budget pause, app lock, AutoLog entry |
 | `AuthScreen`, `ResetPasswordScreen`, `ProfileSetupScreen`, `OnboardingScreen`, `SplashScreen` | Login, password reset, shuruaati flow |
 | `NotificationsScreen.tsx` | In-app notification inbox |
-| `ManageCategoriesScreen`, `AddEditCategoryScreen`, `CategoryDetailScreen` | Categories ka kaam. Fine-grained Zustand selectors se unrelated store churn isolation |
+| `ManageCategoriesScreen`, `AddEditCategoryScreen`, `CategoryDetailScreen` | Categories ka kaam. Fine-grained Zustand selectors se unrelated store churn isolation. `CategoryDetailScreen` ki list FlashList hai (OPT-31) |
 | `GullakDepositDetailScreen.tsx` | Ek Gullak deposit ki detail |
 | `FaqScreen.tsx`, `UpdateRequiredScreen.tsx` | FAQ, zaroori update |
 | `screens/autolog/*` | AutoLog: Center (reset learned rules), Setup, Review (pending - swipe to delete & bulk clear), Accounts, Email, Info/Privacy, Intro, WelcomeBack |
@@ -359,7 +362,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 - **Charts:** `CashFlowChart`, `YearlyCashFlowChart`, `SpendingFlowChart`, `DonutChart` (Home ring in both modes), `AnimatedCategoryDonut`, `BreathingStripShell` + Weekly/Monthly/Yearly strips, `YearlySavingsMilestoneCard`, `BehavioralInsightRow`.
 - **Form:** `BouncyTypeToggle`, `BouncyPaymentToggle`, `BouncyCategoryFilter` (Reanimated UI-thread worklet slider, touch dispatch, zero-shift typography), `KeyButton`, `ui/KeypadGrid`, `CustomDatePickerModal`, `transfer/TransferExtras` (self-transfer switch), `transfer/TransferDetailCard`.
 - **App-wide:** `BottomNavBar`, `AmbientBackground`, `AppLockOverlay`, `OfflineBanner`, `SyncFailedBanner`, `OtaUpdateModal`, `ErrorBoundary`, `AppRefreshControl`, `RefreshScrollShell`.
-- **`components/ui/`:** design-system ke chhote tukde: `AppButton`, `AppInput`, `AmountText`, `SegmentedControl`, `BottomSheetModal`, `StatusBadge`, `ItemRowShell`, `AuthFormField`, `AuthMessageBanner`.
+- **`components/ui/`:** design-system ke chhote tukde: `AppButton`, `AmountText`, `SegmentedControl`, `BottomSheetModal`, `StatusBadge`, `ItemRowShell`, `AuthFormField`, `AuthMessageBanner`, `Skeleton` (grey placeholder jahan content load ho raha hai, OPT-41). Chhote fixed shapes (badge, pill, keypad key, calendar day) ka text `maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}` (`src/lib/fontScale.ts`, 1.3) se bandha hai (OPT-42).
 - **`components/autolog/`:** `ReviewSheet` (pending review ka sawal-jawab), `WhyLoggedCard`, `AutoLogHomeBanner`, `AutoLogGate`, `EmailSourceInfo`, `AutoLogUi`.
 - **Config:** `src/config/theme.ts` (colors, spacing, fonts, `CATEGORY_PALETTE`), `src/config/supabase.ts`.
 
@@ -367,9 +370,9 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | Hook | Kaam |
 |---|---|
 | `useExpenseForm.ts` | Form ka poora logic: amount keypad, validation, spending guard, self-transfer, save |
-| `useMoneyWaterfall.ts` | Component ke liye waterfall result (expenses + categories se) |
 | `useSavingsDashboard.ts` | Savings screen ka data |
 | `useFormKeyboard.ts`, `useFocusEntry.ts`, `useScrollDirection.ts` | Keyboard, screen focus (`useFocusEntryCount`, `useScreenBlurListener`), scroll ki disha |
+| `useReduceMotion.ts` | App ka ek hi "reduce motion" hook (OPT-43): OS setting live follow karta hai, ek shared subscription (`src/lib/reduceMotionStore.ts`), `AmbientBackground`, `RollingText` aur `Skeleton` yahi use karte hain |
 | `useNavBarMetrics.ts` | Phone ke hisaab se nav bar ki spacing (`useNavBarMetrics`) aur screens ki bottom padding (`useNavBarContentInset`) |
 | `useRingSweep.ts` | (focus-entry + `focus` event, dono se trigger) Home ring (`DonutChart`) ka blink-free sweep: blur ke baad UI thread par 0, wapas aane par seedha sweep up |
 

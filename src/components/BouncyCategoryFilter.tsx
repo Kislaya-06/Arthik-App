@@ -20,6 +20,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors } from '../config/theme';
+import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
 
 const PILL_PADDING = 4; // inset between outer pill edge and sliding highlight
 const TOGGLE_HEIGHT = ControlHeight.standard;
@@ -119,6 +120,7 @@ const FilterItem = React.memo<FilterItemProps>(({
           {/* Invisible bold placeholder reserves stable width to eliminate onLayout font-shift churn */}
           <Text
             numberOfLines={1}
+            maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
             style={[styles.label, styles.hiddenPlaceholder, { fontFamily: FontFamily.bold }]}
             aria-hidden
           >
@@ -126,6 +128,7 @@ const FilterItem = React.memo<FilterItemProps>(({
           </Text>
           <Animated.Text
             numberOfLines={1}
+            maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
             style={[
               styles.label,
               styles.visibleLabel,

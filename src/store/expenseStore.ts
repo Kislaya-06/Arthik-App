@@ -55,6 +55,8 @@ export {
 };
 
 import { extraColumnsFor } from './expense/payload';
+import { sameExpenseList } from '../lib/expenseListEquality';
+import { isExpenseCacheUnchanged, rememberExpenseCache, forgetExpenseCache } from '../lib/expenseCacheMemo';
 import { withRecoveries } from './expense/recoveryMiddleware';
 import { deleteBlockReason } from '../lib/splitLedger';
 
@@ -86,6 +88,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
 
   resetExpenses: () => {
     activeFetchSeq++;
+    forgetExpenseCache();
     set({ expenses: [], loading: false, isExpensesLoaded: false, transactionType: 'expense', failedSyncItems: [] });
   },
 
@@ -364,10 +367,20 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         });
 
       const combined = [...activePendingAdds, ...reconciledFetched];
-      set({ expenses: combined, isExpensesLoaded: true });
+      // Keep the same array when nothing changed, so screens do not re-render or recompute for nothing.
+      if (sameExpenseList(get().expenses, combined)) {
+        if (!get().isExpensesLoaded) set({ isExpensesLoaded: true });
+      } else {
+        set({ expenses: combined, isExpensesLoaded: true });
+      }
 
-      // Cache expenses for offline resilience
-      await AsyncStorage.setItem(getCachedStorageKey(user.id), JSON.stringify(reconciledFetched));
+      // Cache expenses for offline resilience (skip the disk write when it would be identical)
+      const cacheStorageKey = getCachedStorageKey(user.id);
+      const cacheJson = JSON.stringify(reconciledFetched);
+      if (!isExpenseCacheUnchanged(cacheStorageKey, cacheJson)) {
+        await AsyncStorage.setItem(cacheStorageKey, cacheJson);
+        rememberExpenseCache(cacheStorageKey, cacheJson);
+      }
       useDailyBudgetStore.getState().syncWithExpenses(combined);
     } catch (e: unknown) {
       if (fetchSeq !== activeFetchSeq) return;

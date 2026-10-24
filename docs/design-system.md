@@ -80,6 +80,13 @@ Typography is set exclusively in **Quicksand** via `@expo-google-fonts/quicksand
 
 ---
 
+### Large System Font Safety (OPT-42)
+- Text in a container that can grow must simply grow: use `minHeight`, not a fixed `height`.
+- Text inside a **fixed-size shape** (status badge, segmented/category pill, keypad key, calendar day cell, short fixed-height button) sets `maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}` (`src/lib/fontScale.ts`, `1.3`). At normal and moderately large fonts (up to 1.3x) nothing changes; above that the shape keeps its size and the text stops growing.
+- Bottom navigation labels keep their own cap (`NAV_LABEL_MAX_FONT_SCALE`, `1.15`).
+- Never use `allowFontScaling={false}` to fix clipping (only the digit layers of `RollingText` do, because they are measured glyph by glyph).
+- A pill with an invisible width placeholder (`BouncyCategoryFilter`) puts the SAME cap on the placeholder and the visible label, so the width stays exact.
+
 ## 5. Financial Number Hierarchy
 
 Every financial figure in Arthik represents **real money**. Numbers must be clearly prioritised so the user's eye immediately grasps their financial state.
@@ -160,11 +167,9 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
 1. **`<AppButton />`**:
    - Variants: `primary`, `secondary`, `destructive`, `outline`, `ghost`.
    - Standard height `ControlHeight.standard` (`48px`), pill or `BorderRadius.md` geometry, haptic feedback on press.
-2. **`<AppInput />`**:
-   - Height `ControlHeight.row` (`56px`), `BorderRadius.md` (`12px`), background `colors.inputBg`, clear label hierarchy.
-3. **`<AmountText />`**:
+2. **`<AmountText />`**:
    - Shared wrapper ensuring consistent `₹` symbol placement, font sizing, and optional rolling digit animations.
-4. **`<SegmentedControl />`**:
+3. **`<SegmentedControl />`**:
    - Container height 48px, deep text contrast.
    - **Liquid pill** (`src/lib/segmentedMotion.ts`): the pill's left and right edges ride two springs on the UI thread. The edge in the direction of travel uses `LEADING_EDGE_SPRING` (`stiffness 700, damping 46`), the back edge `trailingSpringFor(slots)` (`stiffness 420 + 80 per extra slot`, 0.97 of critical damping), so the pill stretches while it moves and lands at its exact width (under 1px overshoot). The trailing edge is distance-aware on purpose: with one fixed spring an All -> Monthly jump stretched the pill to 1.56x (a blob); now it is about 19% / 28% / 29% for 1 / 2 / 3 slots and every jump lands in about 285ms. Width is animated, never `scaleX`, so the round corners never squash.
    - **Label colour follows the pill**: each label is drawn twice (inactive colour + active colour on top). The top copy's *opacity* follows the pill's live centre (`labelActiveProgress`). Opacity on a View is a cheap GPU property, so this does not bring back the per-frame `setTextColor` cost removed in FIN-13.
@@ -172,19 +177,19 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - **Labels**: each label is drawn twice; the inactive-colour copy fades out (`inactiveLabelOpacity`) as the active copy fades in, so no grey fringe shows around the active text.
    - **Haptics**: selection tick only when the selection really changes (like `UISegmentedControl`); on iOS also a soft impact when the pill lands. Android gets the single tick only (no double buzz). Honours OS reduce-motion (snap, no stretch, no wait).
    - **`commitOnSettle`**: heavy screens (Home, Insights, Savings history) receive `onChange` at `PILL_COMMIT_MS` (200ms) after the last tap when the pill is 95%+ arrived, seamlessly overlapping the pill's soft deceleration with screen content transitions (rolling numbers, card layout). Soft landing tick fires at `PILL_SETTLE_MS` (320ms). Rapid taps debounce clean. Cheap forms (Cash/UPI, Profile) report at once.
-5. **`<GradientIconBadge />`**:
+4. **`<GradientIconBadge />`**:
    - Mandatory for all category icons, feature badges, and Gullak/PiggyBank symbols. Pre-configured gradient pairs.
-6. **`<RollingText />`**:
+5. **`<RollingText />`**:
    - Vertical odometer-style digit rolling animations on amount updates and screen focus across Home, Savings, and Insights.
    - Zero-flash planning: rolls are planned synchronously during render on frame 0, mounting `DigitWheel`s immediately from the old value to the new value with zero frames of static new text leaking to the display.
    - Feel (`src/lib/rollingText.ts`): `ROLL_DURATION_MS` 460, `ROLL_EASING` `(0.22, 1, 0.36, 1)` long soft landing, `ROLL_STAGGER_MS` 18 (left-to-right ripple). No per-glyph opacity animation on purpose: it would add hundreds of animated nodes per roll on Home.
-7. **`<AnimatedToggle />`** (the only on/off switch; no native `<Switch />` anywhere):
+6. **`<AnimatedToggle />`** (the only on/off switch; no native `<Switch />` anywhere):
    - "Squish" motion from `src/lib/toggleMotion.ts`, all on the UI thread (Reanimated): fast and fluid slide (`SLIDE_SPRING` stiffness 720, damping 44) with subtle press cushion (`PRESS_STRETCH_FACTOR` 0.25) so the thumb does not awkwardly elongate in place before moving. During the slide the thumb is longest mid-trip (front edge leads, back edge lags, `sin(pi * progress)`), then lands with a tiny squash.
    - One clamped slide spring (`SLIDE_SPRING`), so the thumb never pokes past the track end. The resting edge stays on the track end while pressed, so the stretch always grows toward the middle.
    - Thumb and ON/OFF text cross-fade over `colorDuration` (200ms) using layer **opacity**, never per-frame colour interpolation (FIN-13 rule). Selection haptic on every change. Honours OS reduce-motion (instant, no stretch).
    - Resting look is unchanged (1px border, 2.5/3px padding, same thumb size and travel for 50x26, 52x26 and 58x30). Public props unchanged; optional `stretch`, `colorDuration`, `pressScale`, `haptics`.
    - Controlled: the thumb moves only when `value` changes, so a handler that refuses the change keeps the switch where it was.
-8. **`<BouncyCategoryFilter />`**:
+7. **`<BouncyCategoryFilter />`**:
    - Horizontal category filter pill bar for `HistoryScreen`.
    - UI-thread `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withSpring`, `cancelAnimation`).
    - Hardware-accelerated transform-only animation (`transform: [{ translateX: pillX.value }]`, static `left: 0`), preventing per-frame Android native relayout passes.
@@ -192,6 +197,12 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - Synchronous touch-driven dispatch (`handleSelect` launches animation immediately on touch before `onChange` state updates).
    - Zero-shift typography architecture: invisible bold placeholder (`hiddenPlaceholder` with `opacity: 0`, `FontFamily.bold`) locks tab width across medium/bold active weight transitions.
    - Fixed outer container height `ControlHeight.standard` (`48px`), stadium pill geometry (`BorderRadius.pill`), with clipping `overflow: 'hidden'` preserving rounded ends.
+
+8. **`<Skeleton />`** (`src/components/ui/Skeleton.tsx`, motion numbers in `src/lib/skeletonMotion.ts`):
+   - A `colors.cardSubtle` placeholder shape (width, height, radius; default radius `BorderRadius.pill`) for content that is still loading.
+   - Gentle opacity pulse on the UI thread (`0.55` to `1`, `700ms` each way, forever). With reduce motion ON it does not pulse and rests at `0.8`.
+   - **Rule:** use it only where it replaces a block of content (a list, a card, a grid), shaped like what will replace it. Keep `ActivityIndicator` inside buttons, next to a short label (for example the month label of the streak calendar, "Loading categories..."), and for operations that report progress (scanning, recovering). Never hide data that is already on screen behind a skeleton.
+   - The screen that shows a skeleton labels the group for screen readers (`accessibilityLabel`, `accessibilityState={{ busy: true }}`); the shapes themselves are hidden.
 
 ### Home Card Details Sheet & Hero Card Geometry (`BrandedHeroCard`)
 - `HeroDetailsSheet` is a `BottomSheetModal` (with `swipeToDismiss`: grab handle 40×5, drag follows the finger, backdrop lightens with the drag, closes past 28% of the sheet height or on a flick > 900pt/s, otherwise springs back) with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens.
@@ -215,17 +226,32 @@ Built only from existing tokens and primitives (no new tokens): `SplitExtras` (s
 ## 10. Animation & Motion Physics
 
 - **Apple WWDC-Calibrated Springs:** `BouncyCategoryFilter` uses a critically damped spring (`stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`). `SegmentedControl` uses the two-edge liquid pill springs from `src/lib/segmentedMotion.ts` (see `<SegmentedControl />` above).
+- **Create flows open from the bottom:** `AddExpense` and `EditExpense` use `slide_from_bottom` (a task you finish or cancel, like Google Pay and Splitwise); every detail page keeps `slide_from_right`.
 - **Never animate a screen while its pill glides:** heavy re-renders wait for the pill to land (`commitOnSettle`, `PILL_SETTLE_MS`).
 - **Hardware-Accelerated Transform Sliding:** Sliding highlight pills animate exclusively via `translateX` (anchored at `left: 0`) and width, avoiding layout properties (`left`, `top`, `margin`) to guarantee 60/120fps motion without native Yoga relayout passes.
 - **Tactile Press Feedback:** Interactive items scale to `0.93–0.94` on `onPressIn`, springing back with `friction: 4` (`damping: 12, stiffness: 200`) on `onPressOut`, accompanied by light haptics (`expo-haptics`).
-- **Reduced Motion:** When `useReduceMotion()` is true, disable animations and use immediate snapping.
+- **Reduced Motion:** When `useReduceMotion()` (`src/hooks/useReduceMotion.ts`) is true, disable animations and use immediate snapping. It is the one app-wide hook: live (follows the OS setting while the app is open), one shared subscription (`src/lib/reduceMotionStore.ts`), and it starts from the value the system had when the app started, so there is no wrong first frame. Reanimated animations (`withTiming`, `withSpring`) already follow the system setting by default (`reduceMotion: ReduceMotion.System`), so no per-animation option is needed. `SegmentedControl`, `AnimatedToggle`, `useRingSweep` and `SplashScreen` still read Reanimated's `useReducedMotion()` (the same system value at startup).
+
+### Haptics map (OPT-44)
+Haptics have a fixed meaning. Never add a haptic to scrolling or to every keypad key (the small keypad of the Vault guard keeps the one it has today).
+
+| Event | Haptic |
+|---|---|
+| Tab change | `impactAsync(Light)` in `BottomNavBar` (deliberate choice, kept) |
+| Pill / segment change, toggle, picker or chip step | `selectionAsync()` |
+| Primary button press (+ add) | `impactAsync(Medium)` |
+| Save success (expense, deposit, budget, setup) | `notificationAsync(Success)` |
+| Blocked action, validation error, guard sheet | `notificationAsync(Warning)` or `(Error)` |
+| Destructive confirm (delete) | `impactAsync(Heavy)` once, on confirm |
+| Swipe reveal | `impactAsync(Light)` |
+Every call ends with `.catch(() => {})`.
 
 ---
 
 ## 11. Empty, Loading, and Error States
 
 Every data surface must cleanly handle 4 foundational states:
-1. **Loading State:** Subtle shimmering skeletons or spinners using `colors.cardSubtle`; avoid full-screen blocking spinners where partial skeleton UI is possible.
+1. **Loading State:** `<Skeleton />` shapes (`colors.cardSubtle`, UI-thread pulse) where content is replaced; `ActivityIndicator` only inside buttons, next to a short label, or for progress of an operation. Avoid full-screen blocking spinners where partial skeleton UI is possible.
 2. **Empty State:** Friendly vector icon (`GradientIconBadge`), clear headline, single-line explanation, and a prominent CTA button.
 3. **Error State:** Non-intrusive alert banner or inline card with retry action.
 4. **Offline State:** Persistent non-blocking banner (`OfflineBanner`); all cached items remain readable and interactive.

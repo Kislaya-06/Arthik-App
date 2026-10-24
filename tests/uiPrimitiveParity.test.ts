@@ -101,28 +101,44 @@ describe('BreathingStripShell: unified black capsule with green text styling par
   });
 });
 
-describe('HistoryScreen virtualization: initial batch and batch size parity', () => {
+describe('HistoryScreen virtualization: FlashList recycling and 4-day pagination parity (OPT-30)', () => {
   const historySrc = read('src/screens/HistoryScreen.tsx');
 
-  it('SectionList uses initialNumToRender 12 to prevent JS thread stalls on filter transitions', () => {
-    expect(historySrc).toMatch(/initialNumToRender=\{12\}/);
+  it('uses FlashList, not SectionList, with a flat rows array', () => {
+    expect(historySrc).toMatch(/from '@shopify\/flash-list'/);
+    expect(historySrc).toMatch(/<FlashList/);
+    expect(historySrc).not.toMatch(/<SectionList/);
+    expect(historySrc).toMatch(/data=\{rows\}/);
   });
 
-  it('SectionList uses maxToRenderPerBatch 10 to batch subsequent offscreen rows smoothly', () => {
-    expect(historySrc).toMatch(/maxToRenderPerBatch=\{10\}/);
+  it('drops the SectionList batching props that FlashList replaces', () => {
+    expect(historySrc).not.toMatch(/initialNumToRender=/);
+    expect(historySrc).not.toMatch(/maxToRenderPerBatch=/);
+    expect(historySrc).not.toMatch(/windowSize=/);
+    expect(historySrc).not.toMatch(/removeClippedSubviews=/);
   });
 
-  it('SectionList preserves windowSize 21 for smooth bidirectional scrolling', () => {
-    expect(historySrc).toMatch(/windowSize=\{21\}/);
+  it('recycles header, expense and gullak rows separately', () => {
+    expect(historySrc).toMatch(/getItemType=\{historyItemType\}/);
   });
 
-  it('SectionList uses progressive 4-day section pagination with "See More" button to prevent main thread frame drops', () => {
+  it('keeps progressive 4-day section pagination with the "See More" footer', () => {
     expect(historySrc).toMatch(/INITIAL_SECTION_COUNT\s*=\s*4/);
     expect(historySrc).toMatch(/PAGE_SIZE_SECTIONS\s*=\s*4/);
-    expect(historySrc).toMatch(/sections=\{displayedSections\}/);
+    expect(historySrc).toMatch(/buildHistoryRows\(displayedSections\)/);
     expect(historySrc).toMatch(/ListFooterComponent=\{renderFooter\}/);
     expect(historySrc).toMatch(/handleSeeMore/);
     expect(historySrc).toMatch(/seeMoreBtn/);
+  });
+
+  it('keeps the custom pull-to-refresh, scroll-direction nav bar hide and 32 ms scroll throttle', () => {
+    expect(historySrc).toMatch(/<AppRefreshControl refreshing=\{refreshing\} onRefresh=\{onRefresh\} topOffset=\{0\} \/>/);
+    expect(historySrc).toMatch(/onScroll=\{handleScroll\}/);
+    expect(historySrc).toMatch(/scrollEventThrottle=\{32\}/);
+  });
+
+  it('does not shift the list when a row is added at the top (same as SectionList)', () => {
+    expect(historySrc).toMatch(/maintainVisibleContentPosition=\{\{ disabled: true \}\}/);
   });
 });
 

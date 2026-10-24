@@ -75,17 +75,6 @@ const openFresh = async (name: string, key: string) => {
   return db;
 };
 
-/** Returns true if a local Automatic Logging database file exists for this user. */
-export const localDbExists = async (userId: string): Promise<boolean> => {
-  try {
-    const db = await openDb(userId);
-    const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM meta WHERE key = 'setup_complete'");
-    return row?.value === '1';
-  } catch {
-    return false;
-  }
-};
-
 export const openDb = async (userId: string): Promise<SQLite.SQLiteDatabase> => {
   if (current && current.userId === userId) return current.db;
   if (opening) {

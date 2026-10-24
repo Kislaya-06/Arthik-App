@@ -9,6 +9,7 @@ import { useTheme } from '../../store/themeStore';
 import { Spacing, FontSize, FontFamily } from '../../config/theme';
 import { Body, Bullet, Card, CheckLine, ScreenHeader, SectionLabel, StatusDot } from '../../components/autolog/AutoLogUi';
 import { useAutoLogStore } from '../../features/autoLog/store';
+import { useShallow } from 'zustand/react/shallow';
 import { accountLabel, modeCopy, relative, STATE_COPY } from '../../features/autoLog/copy';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogInfo'>;
@@ -17,7 +18,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogInfo'>;
 export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  const s = useAutoLogStore();
+  const s = useAutoLogStore(
+    useShallow((st) => ({ accounts: st.accounts, attention: st.attention, health: st.health, lastChecked: st.lastChecked, mode: st.mode })),
+  );
   const section = route.params?.section ?? 'how';
   const tracked = s.accounts.filter((a) => a.tracked);
   const copy = modeCopy(s.mode, s.attention);

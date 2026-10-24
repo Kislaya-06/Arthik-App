@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, FlatList,
+  View, Text, StyleSheet, Pressable,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -23,6 +24,8 @@ import { isDateInBounds } from '../lib/insightsCommon';
 import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
+
+const categoryExpenseKey = (item: Expense): string => item.id;
 
 interface CategoryExpenseItemProps {
   item: Expense;
@@ -104,6 +107,9 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
       onPress={handleExpensePress}
     />
   ), [category, colors, isDark, handleExpensePress]);
+
+  // Rows only re-render when data or this value changes, so list every non-data input of renderItem.
+  const listExtraData = useMemo(() => ({ category, colors, isDark }), [category, colors, isDark]);
 
   if (!category) {
     return (
@@ -206,15 +212,15 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
           </Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={categoryExpenses}
-          keyExtractor={(item) => item.id}
+          keyExtractor={categoryExpenseKey}
           renderItem={renderItem}
+          extraData={listExtraData}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section },
-          ]}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section }}
+          // Same as before: a row added at the top shows at the top, the list does not shift.
+          maintainVisibleContentPosition={{ disabled: true }}
         />
       )}
     </View>
@@ -326,8 +332,6 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.titleMedium,
     marginTop: Spacing.section,
     marginBottom: Spacing.block,
-  },
-  listContent: {
   },
 
   // Empty

@@ -6,7 +6,7 @@ export type PressableOpacityProps = Omit<PressableProps, 'style'> & {
   activeOpacity?: number;
 };
 
-/** Drop-in for TouchableOpacity: same default activeOpacity (0.2), but Pressable-based for instant native feedback. */
+/** Drop-in pressable component: same default activeOpacity (0.2), but Pressable-based for instant native feedback. */
 export const PressableOpacity = forwardRef<View, PressableOpacityProps>(
   ({ style, activeOpacity = 0.2, ...rest }, ref) => (
     <Pressable

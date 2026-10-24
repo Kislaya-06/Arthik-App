@@ -119,7 +119,7 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
 | `EventQueue.kt`, `ArthikAutoLogModule.kt` | `email_enabled` switch |
 | `parser.ts` | `parseEmail`, `resolveEmailSender`, `extractTxnTime` |
 | `matching.ts` | `identityScore`, `decideIdentity`, `IDENTITY_WINDOW_MS` |
-| `engine.ts` | `processEmail`, `findIdentity`, email checks in `processSms` / `processNotification` |
+| `engine.ts` | `processEmail`, `findIdentity`, email checks in `processSms` |
 | `service.ts` | `setEmailEnabled`, `isEmailEnabled`, `emailSupported`, queue type `email` |
 | `screens/autolog/AutoLogEmailScreen.tsx`, `components/autolog/EmailSourceInfo.tsx` | UI |
 | `tests/autoLogEmail.test.ts` | 32 tests |

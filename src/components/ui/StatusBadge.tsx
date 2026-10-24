@@ -1,4 +1,5 @@
 import React from 'react';
+import { FIXED_SHAPE_MAX_FONT_SCALE } from '../../lib/fontScale';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { useTheme } from '../../store/themeStore';
 import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing } from '../../config/theme';
@@ -79,6 +80,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       {icon ? <View style={styles.iconContainer}>{icon}</View> : null}
       <Text
         numberOfLines={1}
+        maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
         style={[
           styles.labelText,
           {

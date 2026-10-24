@@ -65,7 +65,7 @@ supabase/               # migrations/ (budget modes, autolog_profiles, release f
 modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
                         # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
 src/
-├── components/   ui/ (AppButton, AppInput, AmountText, SegmentedControl, BottomSheetModal, …),
+├── components/   ui/ (AppButton, AmountText, SegmentedControl, BottomSheetModal, …),
 │                 profile/ (PauseBudgetModal, EditProfileModal, DeleteAccountModal, styles),
 │                 savings/ (SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, styles),
 │                 transfer/ (TransferExtras, TransferDetailCard),
@@ -78,7 +78,7 @@ src/
 ├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background,
 │                 notify, permissions, remote, store, copy, types)
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
-├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts, useMoneyWaterfall.ts
+├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,

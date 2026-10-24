@@ -109,7 +109,8 @@ const ReviewCardItem = React.memo<ReviewCardItemProps>(({
   };
 
   const handleCardDelete = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // Destructive confirm: one Heavy tap (haptics map, design-system.md).
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     translateX.set(
       withTiming(-450, { duration: 200, easing: EASE_OUT }, (finished) => {
         if (finished) {

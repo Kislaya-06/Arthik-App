@@ -419,12 +419,10 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
   return { status: e.status, eventId: e.id, accountKey: e.accountKey, isNewAccount };
 };
 
-// ─── Notifications (live only — fast preview, never logged alone) ──────────
-
-export const processNotification = async (_raw: RawNotification, _opts: ProcessOptions): Promise<ProcessResult> => {
-  // Option A: Payment-app notifications are excluded in favor of authoritative Bank SMS and Bank Email.
-  return { status: 'skipped' };
-};
+// ─── Payment-app notifications are NOT processed (Option A) ─────────────────
+// Bank SMS and Bank Email are the only sources; GPay/PhonePe/Paytm pushes are skipped in
+// `service.processQueue` (they lack the bank account digits and cause false duplicate reviews).
+// See docs/AUTO_LOGGING.md.
 
 // ─── Email notifications (v2.1, live only) ──────────────────────────────────
 

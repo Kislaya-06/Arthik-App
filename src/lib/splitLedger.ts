@@ -303,9 +303,6 @@ export function hasUnsettledSplitExpenses(rows: LedgerRow[]): boolean {
   return false;
 }
 
-/** Names for the suggestion chips: most recently used first. */
-export const knownPeopleNames = (rows: LedgerRow[]): string[] => buildPeopleLedger(rows).map((p) => p.name);
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Matching an incoming payment to a person (SPL-005)
 // ─────────────────────────────────────────────────────────────────────────────

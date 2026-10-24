@@ -1,6 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   Animated,
   Easing,
   LayoutChangeEvent,
@@ -25,6 +24,7 @@ import {
   splitRollingStyles,
 } from '../lib/rollingText';
 import { getAdvanceEm, getMaxDigitEm, measureTextWidth } from '../lib/quicksandMetrics';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 function useSafeIsFocused(): boolean {
   try {
@@ -74,44 +74,6 @@ export interface RollingTextProps {
   rollOnFocus?: boolean;
   /** Optional trigger key (e.g. active filter/tab name); when it changes, forces a full cycle roll even if text is identical. */
   rollTrigger?: string | number;
-}
-
-// ─── OS "reduce motion" (shared by every instance) ───────────────────────────
-
-let reduceMotionValue = false;
-let reduceMotionInit = false;
-const reduceMotionListeners = new Set<(v: boolean) => void>();
-
-function initReduceMotion() {
-  if (reduceMotionInit) return;
-  reduceMotionInit = true;
-  try {
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((v) => {
-        reduceMotionValue = v;
-        reduceMotionListeners.forEach((l) => l(v));
-      })
-      .catch(() => {});
-    AccessibilityInfo.addEventListener('reduceMotionChanged', (v) => {
-      reduceMotionValue = v;
-      reduceMotionListeners.forEach((l) => l(v));
-    });
-  } catch {
-    // best effort
-  }
-}
-
-function useReduceMotion(): boolean {
-  const [value, setValue] = useState(reduceMotionValue);
-  useEffect(() => {
-    initReduceMotion();
-    reduceMotionListeners.add(setValue);
-    setValue(reduceMotionValue);
-    return () => {
-      reduceMotionListeners.delete(setValue);
-    };
-  }, []);
-  return value;
 }
 
 // ─── One spinning digit ──────────────────────────────────────────────────────

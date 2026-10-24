@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Clean-up: Dead Files, Dev-Only Logs Guard, Unused Asset, Dead Exports (OPT-50, OPT-51, OPT-52, OPT-53) — OTA-safe
+
+- **Dead files removed (OPT-50)**: `src/components/ui/AppInput.tsx` and `src/hooks/useMoneyWaterfall.ts` had no importer anywhere. Removed from `AGENTS.md`, `docs/CODEBASE_GUIDE.md`, `docs/design-system.md` and `docs/maps/daily-budget-map.md`. The waterfall engine `src/lib/moneyWaterfall.ts` is used and stays.
+- **Release logs (OPT-51)**: verified that all 91 `console.*` calls are already dev-only (no change needed). A new test scans the source and fails if a future log is not behind `__DEV__`.
+- **Unused asset removed (OPT-52)**: `assets/google.png` (107 KB), referenced nowhere.
+- **Dead exports removed (OPT-53)**: `localDbExists`, `processNotification` (stub, reason kept as a comment), `ProrationPreview`, `InsightTakeawayStatus`, `pureDeficitBalancedCopy`, `GLYPH_STRIP`, `knownPeopleNames`, `PRESS_IN_SPRING`, `DailyBudgetGet`, `DailyBudgetSet`. Money code (`src/money/`, `dailyBudgetAllowanceOnDate`, `incomeTotalsByDateKey`) untouched.
+- **No behaviour change, no money logic touched.** Nothing the user can see, so no `highlights` line.
+- **Tests**: Added `tests/opt50to53Cleanup.test.ts` (22 tests). All 151 test files, 2,050 tests passing; `tsc --noEmit` 0 errors; `expo export --platform android` builds.
+- **Docs**: `docs/optimisation.md`, `docs/CODEBASE_GUIDE.md`, `docs/design-system.md`, `docs/AUTO_LOGGING.md`, `docs/maps/daily-budget-map.md`, `docs/architecture.md`, `AGENTS.md`.
+
+### Polish: Skeletons, Large Text, One Reduce-Motion Source, Haptics Map, Add Expense From the Bottom (OPT-41, OPT-42, OPT-43, OPT-44, OPT-46) — OTA-safe
+
+- **Skeleton placeholder (OPT-41, new `src/components/ui/Skeleton.tsx`, `src/lib/skeletonMotion.ts`)**: grey `cardSubtle` shape with a UI-thread opacity pulse (0.55 to 1, 700 ms); still at 0.8 when motion is reduced; hidden from screen readers (the screen labels the group). Used where a spinner replaced a whole card: the result card of AutoLog setup (labelled "Finishing setup"). All other spinners were read one by one and kept on purpose (buttons, next to a short label, operation progress). The streak calendar keeps its small spinner because its grid already shows local data while the server answer refines it.
+- **Large system font safety (OPT-42, `src/lib/fontScale.ts`)**: text inside fixed-size shapes is capped at 1.3x (`StatusBadge`, `SegmentedControl` label and badge, `BouncyCategoryFilter` pill, `KeyButton`, streak calendar and date picker day cells and weekday letters, date picker Cancel/Done). Nothing changes up to 1.3x system font. `allowFontScaling={false}` is not used.
+- **One reduce-motion source (OPT-43, new `src/hooks/useReduceMotion.ts`, `src/lib/reduceMotionStore.ts`)**: one live hook with one shared OS subscription; starts from the system value at app start so there is no wrong first frame. `AmbientBackground` and `RollingText` had their own copies and now use it. Reanimated's own `useReducedMotion` was not re-exported because it never updates after app start.
+- **Haptics map (OPT-44)**: Vault guard payment pills and amount chips now give a selection tick (was a Light impact); deleting an AutoLog review gives one Heavy tap (was Medium); missing `.catch` added on the Vault guard haptics. Map written into `docs/design-system.md`. No new haptics added.
+- **Add / Edit expense open from the bottom (OPT-46, first point, `src/navigation/index.tsx`)**: `slide_from_bottom` for `AddExpense` and `EditExpense` only. Closing plays the same motion in reverse. All other screens unchanged.
+- **Not built, on purpose**: OPT-40 (instant save), OPT-45 (midnight today), OPT-46 hide-amounts toggle: all to be done later.
+- **No money logic touched.**
+- **Tests**: Added `tests/reduceMotionStore.test.ts` and `tests/opt41to46Polish.test.ts` (31 tests). All 150 test files, 2,028 tests passing; `tsc --noEmit` 0 errors; `expo export --platform android` builds.
+- **Docs**: `docs/optimisation.md` (statuses), `docs/design-system.md` (Skeleton, large-font rule, reduce motion, haptics map, create-flow transition, loading state), `docs/CODEBASE_GUIDE.md`, `docs/architecture.md`.
+
+### Recycling Lists: History and Category Detail on FlashList (OPT-30, OPT-31) — OTA-safe
+
+- **History uses FlashList v2 (OPT-30, `src/screens/HistoryScreen.tsx`, new `src/lib/historyRows.ts`)**:
+  - `SectionList` replaced with `FlashList` (already installed, JS-only; the installed package has no `android/` or `ios/` folder). Rows are recycled, so long histories use less memory and fast flings show fewer blank areas.
+  - Each day becomes one header row followed by its item rows (`buildHistoryRows`). Item keys are unchanged (`expense-<id>`, `gullak-<id>`); header keys are `header-<date>`. Header, expense and Gullak rows are recycled separately.
+  - Kept exactly: the 4-day "See More" pagination, grouping, sort order, search, category filter, Gullak rows in Budget Mode, custom pull-to-refresh (`AppRefreshControl`), nav-bar hide/show on scroll, bottom padding for the nav bar, and tab re-tap scroll-to-top.
+  - Date jump (opened from Home/Insights with a date): scrolls to the day's header row, animated. If the day is still hidden behind "See More" the list first grows the visible window and finishes the scroll when the rows are mounted. A jump that cannot finish is dropped after 4 s, so it never fires later by surprise.
+  - Empty state keeps its centred, full-height layout. FlashList does not support `flexGrow` on its content container, so the height is measured from the list area (same value as before: list height minus nav inset minus the 64 top margin) and the empty state is hidden for the single frame before the first measurement.
+  - A transaction added at the very top still appears at the top; FlashList's scroll-position keeping is turned off to match the old behaviour.
+  - Rows re-render on theme or category change through `extraData`.
+  - No money logic touched.
+- **Category Detail uses FlashList (OPT-31, `src/screens/CategoryDetailScreen.tsx`)**: `FlatList` replaced with `FlashList` (same keys, same rows, same bottom padding, same "no list shift" behaviour). Other lists were checked and left alone: Notifications (capped at 50), Ledger, Savings history (already paginated), Manage Categories, Onboarding, category filter pills.
+- **Bundle**: Hermes bytecode grew about 0.2 MB (6.3 to 6.5 MB) because FlashList code is now used.
+- **Tests**: Added `tests/historyRows.test.ts` and `tests/opt30HistoryFlashList.test.ts` (26 tests). Rewrote the four SectionList-specific checks in `tests/uiPrimitiveParity.test.ts` for FlashList (same intent: pagination, footer, refresh, scroll throttle). All 148 test files, 1,997 tests passing; `tsc --noEmit` 0 errors; `expo export --platform android` builds.
+- **Docs**: `docs/optimisation.md` (OPT-30, OPT-31 marked done), `docs/CODEBASE_GUIDE.md`, `docs/architecture.md`.
+
+### Fewer Useless Re-renders: Expenses, AutoLog, Home Resume (OPT-20, OPT-21, OPT-22) — OTA-safe
+
+- **Expenses list is kept when nothing changed (OPT-20, `src/store/expenseStore.ts`)**:
+  - New pure helper `src/lib/expenseListEquality.ts` (`sameExpenseList`) compares two lists row by row, including nested values such as `split_allocations`.
+  - On the network-success path of `fetchExpenses()`, if the freshly merged list equals what is already in the store, the same array is kept (only `isExpensesLoaded` is set if needed). Home, History, Insights and Savings no longer re-render or recompute the money waterfall for a refresh that brought nothing new. If anything differs, the list is replaced exactly as before.
+  - The expense cache JSON is written to AsyncStorage only when it differs from the last JSON written for that user key. New `src/lib/expenseCacheMemo.ts` holds that memory; `fetchExpenses()` and `src/store/expense/syncPending.ts` both update it, and `resetExpenses()` clears it on sign-out.
+  - The two cache-load paths (first launch and offline fallback) are unchanged on purpose: they can run while a list is on screen, so the guard was not added there.
+  - `syncWithExpenses` still runs after every fetch as before.
+  - No money logic touched.
+- **AutoLog Center and How-it-works screens subscribe only to what they show (OPT-21)**: `AutoLogCenterScreen.tsx` and `AutoLogInfoScreen.tsx` use `useAutoLogStore(useShallow(...))` with the exact fields they read, so they no longer re-render on every unrelated AutoLog store change. Variable name `s` kept, so the screens look and behave the same.
+- **Home refreshes quietly after a long time away (OPT-22, `src/screens/HomeScreen.tsx`)**: when the app returns to the foreground and the last fetch is more than 5 minutes old, Home calls `loadData(false)` (read-only, still behind the existing 60 s throttle). Skipped when midnight was crossed, because that branch already force-refreshes, so there is no double fetch. Midnight behaviour is unchanged.
+- **Tests**: Added `tests/expenseListEquality.test.ts`, `tests/expenseCacheMemo.test.ts`, `tests/fetchExpensesNoChange.test.ts`, `tests/opt21AutoLogShallow.test.ts`, `tests/opt22HomeResumeRefresh.test.ts` (22 tests). All 146 test files, 1,971 tests passing; `tsc --noEmit` 0 errors; `expo export --platform android` builds.
+- **Docs**: `docs/optimisation.md` (OPT-20, OPT-21, OPT-22 marked done; OPT-23 marked deferred by owner (to be done later)), `docs/CODEBASE_GUIDE.md`, `docs/architecture.md`.
+
 ### Consistent Native Press Feel Everywhere (OPT-17) — OTA-safe
 
 - **Replaced `TouchableOpacity` with Drop-in `PressableOpacity` across the Entire App (`src/components/ui/PressableOpacity.tsx`)**:

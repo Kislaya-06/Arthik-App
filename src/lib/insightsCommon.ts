@@ -19,8 +19,6 @@ export interface ExpenseLike {
   transaction_class?: string | null;
 }
 
-export type InsightTakeawayStatus = 'coral' | 'mint' | 'mintGreen' | 'neutral';
-
 /**
  * Normalizes Date, number timestamp, or ISO string into a canonical 'yyyy-MM-dd' string.
  */

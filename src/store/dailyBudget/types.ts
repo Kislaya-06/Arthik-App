@@ -106,11 +106,3 @@ export interface DailyBudgetState {
   setLastRenewedPeriodKey: (key: string) => Promise<void>;
 }
 
-export type DailyBudgetGet = () => DailyBudgetState;
-export type DailyBudgetSet = (
-  partial:
-    | DailyBudgetState
-    | Partial<DailyBudgetState>
-    | ((state: DailyBudgetState) => DailyBudgetState | Partial<DailyBudgetState>),
-  replace?: boolean | undefined
-) => void;

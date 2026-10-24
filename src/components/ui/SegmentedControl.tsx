@@ -30,6 +30,7 @@ import {
   pillEdgesFor,
 } from '../../lib/segmentedMotion';
 import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight } from '../../config/theme';
+import { FIXED_SHAPE_MAX_FONT_SCALE } from '../../lib/fontScale';
 
 export interface SegmentedOption {
   key: string;
@@ -134,6 +135,7 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
     <Text
         key="text"
         numberOfLines={1}
+        maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
         style={[
           styles.optionLabel,
           {
@@ -170,7 +172,7 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
         {option.badge ? (
           <View style={styles.badgeWrapper} pointerEvents="none">
             <View style={[styles.badgePill, { backgroundColor: colors.mintGreenDark }]}>
-              <Text style={styles.badgeText}>{option.badge}</Text>
+              <Text style={styles.badgeText} maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}>{option.badge}</Text>
             </View>
           </View>
         ) : null}

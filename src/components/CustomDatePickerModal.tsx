@@ -16,6 +16,7 @@ import { isYesterday as checkIsYesterday } from 'date-fns/isYesterday';
 import { isSameDay } from 'date-fns/isSameDay';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
 
 interface CustomDatePickerModalProps {
   visible: boolean;
@@ -267,6 +268,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
             {DAYS_OF_WEEK.map((d, index) => (
               <View key={index} style={styles.dayOfWeekCell}>
                 <Text
+                  maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
                   style={[
                     styles.dayOfWeekText,
                     { color: colors.textMuted, fontFamily: FontFamily.bold },
@@ -308,6 +310,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                     ]}
                   >
                     <Text
+                      maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
                       style={[
                         styles.dayText,
                         {
@@ -343,6 +346,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               ]}
             >
               <Text
+                maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
                 style={[
                   styles.cancelButtonText,
                   { color: colors.textSecondary, fontFamily: FontFamily.bold },
@@ -364,6 +368,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               ]}
             >
               <Text
+                maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
                 style={[
                   styles.confirmButtonText,
                   { color: '#1A2B4C', fontFamily: FontFamily.bold },

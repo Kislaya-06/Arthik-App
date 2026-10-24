@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Animated, AppState, Easing, Image, StyleSheet, View, useWindowDimensions, useAnimatedValue } from 'react-native';
+import { Animated, AppState, Easing, Image, StyleSheet, View, useWindowDimensions, useAnimatedValue } from 'react-native';
 import Svg, { Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
@@ -31,6 +31,7 @@ import {
 } from '../lib/ambientBackground';
 import { GRAIN_TILE_URI } from '../lib/ambientGrain';
 import { WIND_SPRITE_URI } from '../lib/ambientWind';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 /**
  * Light across the TOP of a screen (see lib/ambientBackground.ts for the design): a tinted glow strongest at the very top,
@@ -60,22 +61,6 @@ function useAppActive(): boolean {
     return () => sub.remove();
   }, []);
   return active;
-}
-
-function useReduceMotion(): boolean {
-  const [reduce, setReduce] = useState(false);
-  useEffect(() => {
-    let on = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((v) => on && setReduce(v))
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
-    return () => {
-      on = false;
-      sub.remove();
-    };
-  }, []);
-  return reduce;
 }
 
 interface GustState {

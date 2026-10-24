@@ -109,8 +109,6 @@ export interface UnproratedPacingInfo {
   proratedAmount: number; // backwards-compatible alias to fullBudget
 }
 
-export type ProrationPreview = UnproratedPacingInfo;
-
 export function getUnproratedPacingPreview(
   targetCadence: BudgetCadence,
   amount: number,

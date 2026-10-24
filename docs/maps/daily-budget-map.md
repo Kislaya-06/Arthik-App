@@ -388,7 +388,7 @@ graph TD
     DBS --> ES["expenseStore.ts & syncPending.ts"]
     DBS --> AL["features/autoLog/ledger.ts"]
     DBS --> AS["store/authStore.ts"]
-    DBS --> HOOKS["useSavingsDashboard.ts & useMoneyWaterfall.ts"]
+    DBS --> HOOKS["useSavingsDashboard.ts"]
 ```
 
 ### 5.1 Consumers & Selectors
@@ -424,8 +424,8 @@ graph TD
     - `savingsStreak`, `bestStreak`, `dailyRecords`, `bestStreakByCadence`.
 14. **`src/components/BudgetEditModal.tsx` & `src/components/DepositGullakModal.tsx`**:
     - Mutates allowance amounts and registers manual Gullak deposits.
-15. **`src/hooks/useSavingsDashboard.ts` & `src/hooks/useMoneyWaterfall.ts`**:
-    - Encapsulates reactive dashboard selectors, cadence metrics, and Money Waterfall drawdowns.
+15. **`src/hooks/useSavingsDashboard.ts`**:
+    - Encapsulates reactive dashboard selectors and cadence metrics. (The Money Waterfall is computed by `src/lib/moneyWaterfall.ts`, called directly by `HomeScreen`, `SavingsScreen`, `metrics.ts` and others; the unused `useMoneyWaterfall` hook was removed in OPT-50.)
 16. **`src/store/expenseStore.ts` & `src/store/expense/syncPending.ts`**:
     - `registerExpenseGetter`, `syncWithExpenses(...)`, `uploadPendingDailyRecords()`.
 17. **`src/features/autoLog/ledger.ts`**:

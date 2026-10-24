@@ -23,6 +23,7 @@ import { Spacing, FontSize, FontFamily, LineHeight, BorderRadius } from '../../c
 import { AppButton } from '../../components/ui/AppButton';
 import { BetaPill, Body, Card, CheckLine, NavRow, ScreenHeader, SectionLabel, StatusDot } from '../../components/autolog/AutoLogUi';
 import { useAutoLogStore } from '../../features/autoLog/store';
+import { useShallow } from 'zustand/react/shallow';
 import * as service from '../../features/autoLog/service';
 import { fetchRemoteProfile } from '../../features/autoLog/remote';
 import { openBatterySettings } from '../../features/autoLog/permissions';
@@ -34,7 +35,9 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const userId = useAuthStore((s) => s.user?.id);
-  const s = useAutoLogStore();
+  const s = useAutoLogStore(
+    useShallow((st) => ({ accounts: st.accounts, attention: st.attention, emailEnabled: st.emailEnabled, health: st.health, lastChecked: st.lastChecked, loaded: st.loaded, mode: st.mode, pendingCount: st.pendingCount, recent: st.recent, refresh: st.refresh, supported: st.supported, today: st.today })),
+  );
   const [busy, setBusy] = useState(false);
   const [devMsg, setDevMsg] = useState<string | null>(null);
 

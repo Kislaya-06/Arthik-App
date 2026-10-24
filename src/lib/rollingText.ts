@@ -38,7 +38,6 @@ export const SPIN_UNCHANGED_DIGITS = true;
 
 /** 11-glyph wheel strip (0-9 + wrap-around 0) */
 export const GLYPHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0] as const;
-export const GLYPH_STRIP = GLYPHS.join('\n');
 
 /**
  * Deterministic glyph sequence for a single digit roll.

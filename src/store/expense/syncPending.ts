@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../config/supabase';
 import { isNetworkFailure } from '../../lib/networkUtils';
+import { rememberExpenseCache } from '../../lib/expenseCacheMemo';
 import { useDailyBudgetStore } from '../dailyBudgetStore';
 import { useCategoryStore } from '../categoryStore';
 import {
@@ -430,6 +431,9 @@ export const flushSideQueues = async (userId: string, get: StoreGet): Promise<vo
 
   // Cache updated confirmed expenses for offline resiliency
   const confirmedExpenses = get().expenses.filter((e) => !e.pending && !e.id.startsWith('temp_'));
-  await AsyncStorage.setItem(getCachedStorageKey(userId), JSON.stringify(confirmedExpenses));
+  const confirmedCacheKey = getCachedStorageKey(userId);
+  const confirmedCacheJson = JSON.stringify(confirmedExpenses);
+  await AsyncStorage.setItem(confirmedCacheKey, confirmedCacheJson);
+  rememberExpenseCache(confirmedCacheKey, confirmedCacheJson); // keep the skip-identical-write memory honest
   useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
 };

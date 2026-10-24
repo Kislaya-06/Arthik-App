@@ -828,6 +828,7 @@ Android instead of a 150 ms JS fade. Mention that in the CHANGELOG.
 ## Phase 3 — Data flow and re-renders
 
 ### OPT-20. Do not replace the expenses list when nothing changed
+**Status:** ✅ Done 24 Oct 2026 — Added `src/lib/expenseListEquality.ts` and `src/lib/expenseCacheMemo.ts`; `fetchExpenses()` keeps the same `expenses` array and skips the identical cache write when server data is unchanged; `syncPending.ts` updates the same cache memo; cache-load paths left untouched (they can run while a list is on screen). Added `tests/expenseListEquality.test.ts` and `tests/fetchExpensesNoChange.test.ts`.
 **Problem found:** `src/store/expenseStore.ts` → `fetchExpenses()` downloads all rows (pages of `BATCH_SIZE`), merges
 pending queues, then **always** calls `set({ expenses: combined })` and **always** writes the full JSON cache to
 AsyncStorage. Home calls it on focus (60 s throttle), on pull-to-refresh, on app foreground across midnight; App.tsx on
@@ -891,6 +892,7 @@ rows → the `expenses` reference is the same object after the second call.
 from a no-change fetch. Add an expense on another device → pull to refresh → it appears (change still detected).
 
 ### OPT-21. AutoLog screens: stop subscribing to the whole store
+**Status:** ✅ Done 24 Oct 2026 — `AutoLogCenterScreen` and `AutoLogInfoScreen` now read only the fields they use via `useShallow`; added `tests/opt21AutoLogShallow.test.ts`.
 **Files:** `src/screens/autolog/AutoLogCenterScreen.tsx` (`const s = useAutoLogStore();`) and
 `src/screens/autolog/AutoLogInfoScreen.tsx` (same). A whole-store subscription re-renders the screen on **every**
 change of any AutoLog field (and AutoLogCenter polls every 20 s).
@@ -904,6 +906,7 @@ Keep the variable name `s` so the JSX does not change. Functions read from the s
 **Check:** AutoLog Center shows the same data; "Last checked" still updates.
 
 ### OPT-22. Refresh quietly when the app comes back after a while (multi-device freshness)
+**Status:** ✅ Done 24 Oct 2026 — Home refreshes with `loadData(false)` on resume after 5+ minutes away (skipped when midnight was crossed, since that branch already force-fetches); added `tests/opt22HomeResumeRefresh.test.ts`.
 **Problem found:** when the app returns to the foreground, `App.tsx` only flushes the offline queue. Home only refetches
 on **focus** (tab change) or across midnight. If the user adds an expense on another device (or the web), then opens
 the phone app that was in the background, Home shows old data until they pull to refresh. Google Pay, Splitwise, and
@@ -921,6 +924,7 @@ Because of OPT-20, a no-change refresh costs nothing on screen. Do OPT-20 first.
 Background 1 minute → no extra fetch (check the network log in dev).
 
 ### OPT-23. ⚠️ OWNER GATE — Batch AsyncStorage writes of persisted stores
+**Status:** ⏸️ Deferred by owner (24 Oct 2026) — to be done later. Not built. Still needs an explicit "yes" to the crash-inside-250 ms trade-off below before any code is written.
 **Problem found:** `dailyBudgetStore` and `notificationStore` use zustand `persist` with `createJSONStorage(() => AsyncStorage)`
 and no write batching. Every `set()` serialises the **whole** store (daily records, deposits, plan changes, periods,
 metrics) and writes it to disk. A single expense save triggers several sets in a row (optimistic add, sync, server
@@ -941,6 +945,7 @@ Tests: write → read back from memory immediately; flush writes exactly once; r
 ## Phase 4 — Lists
 
 ### OPT-30. History: `SectionList` → `FlashList` v2
+**Status:** ✅ Done 24 Oct 2026 — `HistoryScreen` now uses FlashList v2 with flat header/item rows (`src/lib/historyRows.ts`). Verified FlashList 2.0.2 has no `android/` or `ios/` folder (JS-only). Kept: 4-day "See More" pagination, custom pull-to-refresh, nav-bar hide on scroll, tab re-tap scroll-to-top, date jump (waits until the day is mounted, drops itself after 4 s), empty state centring (measured height instead of `flexGrow`), no list shift when a row is added at the top (`maintainVisibleContentPosition` disabled). Rows are stateless, so recycling is safe. Bundle grew ~0.2 MB (6.3 → 6.5 MB Hermes) because FlashList is now actually used. Added `tests/historyRows.test.ts`, `tests/opt30HistoryFlashList.test.ts`; rewrote the SectionList-specific checks in `tests/uiPrimitiveParity.test.ts`.
 **Problem found:** `src/screens/HistoryScreen.tsx` renders all transactions with `SectionList`
 (`initialNumToRender 12`, `maxToRenderPerBatch 10`, `windowSize 21`). For accounts with 1,000+ rows, `SectionList`
 mounts and keeps many row views; fast scrolling shows blank areas and memory grows. `@shopify/flash-list` **2.0.2 is
@@ -1006,6 +1011,7 @@ fast fling top→bottom→top (no blank rows that stay), search, filter by categ
 search result, light/dark. Compare memory in Android Studio profiler before/after (optional).
 
 ### OPT-31. Other long lists (only if they can be long)
+**Status:** ✅ Done 24 Oct 2026 — `CategoryDetailScreen` (the only unbounded list) moved from `FlatList` to FlashList with the same keys, rows and bottom padding. `NotificationsScreen` (capped at 50), `LedgerScreen`, `SavingsScreen` history section (already paginated), `ManageCategoriesScreen`, `OnboardingScreen`, `BouncyCategoryFilter` intentionally left as they are.
 Check `CategoryDetailScreen` (all transactions of one category, can be long) and `NotificationsScreen` (capped at 50
 by `notificationStore`, so leave it). If `CategoryDetailScreen` uses `FlatList`/`ScrollView` + `.map` for unbounded
 data, move it to `FlashList` the same way (simpler: no sections). `ManageCategoriesScreen`, `OnboardingScreen`,
@@ -1016,6 +1022,7 @@ data, move it to `FlashList` the same way (simpler: no sections). `ManageCategor
 ## Phase 5 — Perceived speed and polish (big-app patterns)
 
 ### OPT-40. ⚠️ OWNER GATE — Instant save (close the form before the server answers)
+**Status:** ⏸️ Deferred by owner (24 Oct 2026) — to be done later. Not built; needs the owner's explicit "yes" and a canonical rule first.
 **Problem found:** `useExpenseForm.handleSave` → `await addExpense(...)`. `expenseStore.addExpense` updates the list
 optimistically at once (good) but then **awaits the Supabase upsert** before returning. The form shows the morph + tick
 and closes only after that. On slow 4G this is 1–3 s of a spinning button, even though the expense is already in the
@@ -1030,6 +1037,7 @@ it from the queue (existing sync path); on a real validation error roll back as 
 without it.
 
 ### OPT-41. Skeletons instead of spinners for content loading
+**Status:** ✅ Done 24 Oct 2026 — Added `src/components/ui/Skeleton.tsx` (+ `src/lib/skeletonMotion.ts`): `cardSubtle` shape, UI-thread opacity pulse 0.55↔1 at 700 ms, still at 0.8 with reduce motion. Every one of the 14 spinner sites was read and classified. Used at ONE place: the result card in `AutoLogSetupScreen` (spinner replaced a whole card). Kept as spinners on purpose: buttons and modal confirm buttons; `StreakCalendarModal` (the grid already shows local data while the server answer refines it, a skeleton would hide data that is on screen; the small spinner sits next to the month label); `ExpenseFormScreen` "Loading categories..." (short label, and the chips already show placeholders); `ProfileScreen` (delete button only); AutoLog scan spinner (stands in for the Continue button, and is an operation) and recovery spinner (under a progress bar). Added `tests/opt41to46Polish.test.ts`.
 **Problem found:** 30 `ActivityIndicator` uses. Spinners inside buttons are fine (keep: `AppButton`, save buttons,
 modal confirm buttons). Spinners that replace **content** while data loads make the app feel slower than it is.
 Big apps show grey placeholder shapes (skeletons) of the coming layout.
@@ -1046,6 +1054,7 @@ Big apps show grey placeholder shapes (skeletons) of the coming layout.
 **Must not change:** when loading starts/ends; the data shown after.
 
 ### OPT-42. Large text safety pass (accessibility, like Apple/Google review)
+**Status:** ✅ Done 24 Oct 2026 (code part) — Added `FIXED_SHAPE_MAX_FONT_SCALE = 1.3` in `src/lib/fontScale.ts` and applied it to text inside fixed-size shapes: `StatusBadge`, `SegmentedControl` (label + badge), `BouncyCategoryFilter` (placeholder and visible label, same cap), `KeyButton`, `StreakCalendarModal` (day numbers, weekday letters), `CustomDatePickerModal` (day numbers, weekday letters, Cancel, Done). Safe by construction: at font sizes up to 1.3x nothing changes. **Still to do on a phone (needs the largest system font):** the walk-through of every screen from step 1; anything it finds goes into a new task, not into this one. No `allowFontScaling={false}` was added.
 **Problem found:** only 9 places set `maxFontSizeMultiplier`. Users in India often set a large system font. Fixed-height
 containers (pills, chips, nav, cards, keypad keys, hero amounts) can clip or overlap.
 **Do:**
@@ -1057,6 +1066,7 @@ containers (pills, chips, nav, cards, keypad keys, hero amounts) can clip or ove
 **Must not change:** layout at normal font size (take screenshots at default size before/after; must be identical).
 
 ### OPT-43. One reduce-motion source
+**Status:** ✅ Done 24 Oct 2026 — New `src/hooks/useReduceMotion.ts` + `src/lib/reduceMotionStore.ts`. Deviation from the text above, on purpose: Reanimated's `useReducedMotion()` only returns the value the system had when the app STARTED (it never updates), so re-exporting it would have made `AmbientBackground` stop reacting when the user switches "Remove animations" while the app is open. The shared hook is live and starts from Reanimated's startup value. `AmbientBackground` and `RollingText` (which had its own copy) now use it, as does `Skeleton`. Passing `reduceMotion: ReduceMotion.System` to each animation was skipped: it is already Reanimated's default. `SegmentedControl`, `AnimatedToggle`, `useRingSweep`, `SplashScreen` keep Reanimated's startup-value hook (same system value; moving them would need their mocked tests rewritten for no visible gain). Added `tests/reduceMotionStore.test.ts`.
 **Problem found:** `AmbientBackground.tsx` has its own `useReduceMotion()` (AccessibilityInfo), Reanimated has
 `useReducedMotion()`, some animations check, some do not.
 **Do:** create `src/hooks/useReduceMotion.ts` that re-exports Reanimated's `useReducedMotion` (single source), replace
@@ -1066,6 +1076,7 @@ the local copy in `AmbientBackground.tsx`, and for every Reanimated `withTiming/
 their final values).
 
 ### OPT-44. Haptics map (consistency)
+**Status:** ✅ Done 24 Oct 2026 — All 43 haptic calls audited. Fixed the ones that broke the map: `VaultSpendingGuardModal` payment pills (UPI/Cash) and amount chips `impactAsync(Light)` → `selectionAsync()`; `AutoLogReviewScreen` "Delete review" `impactAsync(Medium)` → `Heavy`. Added the missing `.catch(() => {})` on the Vault guard haptic calls. Kept on purpose: tab change Light and add button Medium (`BottomNavBar`), the Vault guard keypad key (exists today), `SegmentedControl` selection + soft landing tick, History "See More" Light. No new haptics were added (the map says fix, not add). Map written into `docs/design-system.md` ("Haptics map").
 **Today:** `selectionAsync` ×22, `impactAsync` ×10, `notificationAsync` ×7 — mostly right. Big apps use haptics with
 fixed meaning. Audit every call against this map and fix only the ones that break it:
 | Event | Haptic |
@@ -1079,6 +1090,7 @@ Write the final table into `docs/design-system.md` (Haptics section). Never add 
 (keypad: check what it does today and keep it).
 
 ### OPT-45. Keep "today" right while the app stays open past midnight (UI only)
+**Status:** ⏸️ Deferred by owner (24 Oct 2026) — to be done later. Not built; needs the owner's explicit "yes" (touches the day-change path that `ROL-*` depends on).
 **Problem found:** `HomeScreen` updates `todayKey` on focus, foreground, and pull-to-refresh. If the app is open and in
 front at 23:59 and the user keeps looking at Home, it shows yesterday's "Daily" numbers until they leave and come back.
 **⚠️ OWNER GATE** because a new day also triggers rollover/Gullak logic elsewhere (`ROL-*`). The safe UI-only version:
@@ -1088,6 +1100,7 @@ schedule a `setTimeout` to the next local midnight (+1 s) that calls the **same*
 Ask the owner before building.
 
 ### OPT-46. Design suggestion for the owner (do not build without a yes)
+**Status:** ◑ Partly done 24 Oct 2026 — (1) *Add Expense opens from the bottom*: DONE, `AddExpense` and `EditExpense` use `animation: 'slide_from_bottom'` in `src/navigation/index.tsx` (all other screens keep `slide_from_right`; the form's keypad is already open on mount, so there is no second motion). (2) *Hide amounts toggle*: deferred by owner, to be done later.
 - **Add Expense opens from the bottom.** Today `AddExpense` uses `slide_from_right` like a detail page. Money apps
   (Google Pay "Pay", Splitwise "Add expense", Apple Wallet) open "create" flows from the bottom, which tells the user
   "this is a task, swipe down to cancel". Option: `options={{ animation: 'slide_from_bottom' }}` for `AddExpense` and
@@ -1099,6 +1112,7 @@ Ask the owner before building.
 ## Phase 6 — Clean-up (zero risk)
 
 ### OPT-50. Delete dead files
+**Status:** ✅ Done 24 Oct 2026 — Re-verified with a repo-wide search (src, tests, docs, native module): zero imports. Deleted `src/components/ui/AppInput.tsx` and `src/hooks/useMoneyWaterfall.ts`. Removed them from `AGENTS.md` (repo map), `docs/CODEBASE_GUIDE.md`, `docs/design-system.md` (the `<AppInput />` primitive entry; list renumbered) and `docs/maps/daily-budget-map.md` (the map claimed `useSavingsDashboard` also did the waterfall; the waterfall engine is `src/lib/moneyWaterfall.ts`, used directly by Home, Savings and others, and was kept). Added `tests/opt50to53Cleanup.test.ts`.
 Verify each has zero imports, then delete:
 ```bash
 grep -rn "ui/AppInput'" src tests App.tsx        # must be empty
@@ -1109,6 +1123,7 @@ Remove both from `docs/CODEBASE_GUIDE.md` and the `AGENTS.md` repo map if they a
 (`src/lib/moneyWaterfall.ts` is used — keep it.)
 
 ### OPT-51. Release-build logs
+**Status:** ✅ Done 24 Oct 2026 — No code change was needed: all 91 `console.*` calls in `src`, `App.tsx`, `index.ts` are already dev-only. The "known ones" in the text above are already guarded (`expenseBridge.ts`, `notificationService.ts` are inside `if (__DEV__)`; the Gullak/plan/rollover `console.error` calls are in `else if (__DEV__)` branches; `perfMarks.ts` returns early when not `__DEV__`). Instead of changing working code, a guard test now scans every file and fails if any new `console.*` is not dev-only (mutation-tested). Error handling untouched.
 Run `grep -rn "console\.\(log\|warn\|info\|debug\|error\)" src App.tsx` and open each hit. Every call must be inside
 `if (__DEV__)` (directly, or the enclosing block). Known ones to check: `src/store/dailyBudget/expenseBridge.ts`
 (`console.warn`), `src/lib/notificationService.ts` (`console.log` "Native module not found"), the `console.error`
@@ -1116,10 +1131,12 @@ calls in `planActions.ts`, `rollover.ts`, `dailyBudgetStore.ts` (Gullak insert/d
 that are not guarded. Do not delete error handling, only the logging.
 
 ### OPT-52. Unused repo asset
+**Status:** ✅ Done 24 Oct 2026 — Deleted `assets/google.png` (107 KB). Nothing referenced it (`app.json` uses `logo.png`; the Google button is `GoogleIcon.tsx`). It was never in the app bundle, so the OTA/bundle size does not change; the repo gets smaller. `virustotal-scan.png` kept (README).
 `assets/google.png` (107 KB) is referenced nowhere (`grep -rn "google.png" .` excluding node_modules → nothing; the
 Google button uses `GoogleIcon.tsx`). Delete it. **Keep** `assets/virustotal-scan.png` (used by `README.md`).
 
 ### OPT-53. Dead exports
+**Status:** ✅ Done 24 Oct 2026 — Each of the 9 names was searched across the whole repo (src, tests, docs, native module): only its own definition remained, so the whole symbol was removed (the project's `noUnusedLocals` would reject an un-exported unused one): `localDbExists`, `processNotification` (a stub that always returned `skipped`; the Option A reason is kept as a comment and in `docs/AUTO_LOGGING.md`), `ProrationPreview`, `InsightTakeawayStatus`, `pureDeficitBalancedCopy` (unused duplicate of the PUR-001 notification text; the live notification is built in `planActions.ts` and its test still passes), `GLYPH_STRIP`, `knownPeopleNames`, `PRESS_IN_SPRING`, `DailyBudgetGet`/`DailyBudgetSet`. Not touched: `dailyBudgetAllowanceOnDate`, `incomeTotalsByDateKey`, anything in `src/money/`, and the look-alike `getProrationPreview` (still used by tests). Found, not fixed: `RawNotification` (exported interface in `engine.ts`) is now used nowhere; it was not in the list, so it stays.
 These exports were found used nowhere in the app or tests (audit of 21 Oct 2026, re-check before touching):
 
 | Export | File (verified 23 Oct 2026, only hit = its own definition) |

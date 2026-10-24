@@ -17,6 +17,7 @@ import { useTheme } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { Spacing, FontSize, FontFamily, LineHeight, BorderRadius } from '../../config/theme';
 import { AppButton } from '../../components/ui/AppButton';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { GradientIconBadge } from '../../components/GradientIconBadge';
 import { BetaPill, Body, Bullet, Card, Checkbox, Heading, ProgressBar, Reassurance, ScreenHeader, SectionLabel, StepDots } from '../../components/autolog/AutoLogUi';
 import { ReviewSheet } from '../../components/autolog/ReviewSheet';
@@ -622,7 +623,14 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           </Card>
         </>
       ) : (
-        <View style={styles.waiting}><ActivityIndicator color={colors.mintGreenDark} /></View>
+        // Stands in for the result card while setup finishes: same shape as what replaces it (OPT-41).
+        <View accessible accessibilityRole="progressbar" accessibilityLabel="Finishing setup" accessibilityState={{ busy: true }}>
+          <Card>
+            <Skeleton height={14} width="60%" />
+            <Skeleton height={14} width="80%" style={{ marginTop: Spacing.group }} />
+            <Skeleton height={14} width="45%" style={{ marginTop: Spacing.group }} />
+          </Card>
+        </View>
       );
       footer = finalCounts ? <AppButton label="Done" size="cta" onPress={() => navigation.popTo('AutoLogCenter')} /> : null;
       break;

@@ -42,8 +42,6 @@ export const MIN_THUMB_RATIO = 0.92;
 
 /** Slide: fast & snappy critically damped + clamped, so the thumb glides across quickly and never pokes past the track end. */
 export const SLIDE_SPRING = { stiffness: 720, damping: 44, mass: 1, overshootClamping: true } as const;
-/** Press stretch in: fast. */
-export const PRESS_IN_SPRING = { stiffness: 700, damping: 34, mass: 1 } as const;
 /** Press stretch out: a hair underdamped so the thumb lands with a tiny squash (under 1px). */
 export const PRESS_OUT_SPRING = { stiffness: 420, damping: 25, mass: 1 } as const;
 /** Track "lift" while pressed. */

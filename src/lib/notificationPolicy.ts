@@ -429,13 +429,6 @@ export function budgetResumedCopy(cadence: 'weekly' | 'monthly', remaining: numb
   };
 }
 
-export function pureDeficitBalancedCopy(deficit: number): Copy {
-  return {
-    title: 'Pure Mode deficit balanced',
-    body: `You spent ₹${deficit} more than you had in Pure Mode. We added ₹${deficit} to Total Income so everything is balanced.`,
-  };
-}
-
 export function budgetUpdatedCopy(amount: number): Copy {
   return { title: 'Daily budget updated', body: `${money(amount)} per day is active from today.` };
 }

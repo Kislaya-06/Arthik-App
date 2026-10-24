@@ -164,6 +164,9 @@ const HomeGullakItem = React.memo<HomeGullakItemProps>(({
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
+/** App must have been away this long before Home quietly refreshes on resume. */
+const HOME_RESUME_STALE_MS = 5 * 60_000;
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
@@ -241,6 +244,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const unreadCount = useNotificationStore((s) => s.notifications.filter((n) => !n.read).length);
 
   const lastFetchTime = useRef<number>(0);
+  // Mirror of todayKey for the AppState listener (its closure would otherwise see an old value).
+  const todayKeyRef = useRef(todayKey);
+  todayKeyRef.current = todayKey;
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async (force = false) => {
@@ -279,6 +285,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         const nowKey = format(new Date(), 'yyyy-MM-dd');
+        const crossedMidnight = todayKeyRef.current !== nowKey;
         setTodayKey((prev) => {
           if (prev !== nowKey) {
             loadData(true);
@@ -286,6 +293,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           }
           return prev;
         });
+        // Multi-device freshness: coming back after a while, quietly refresh (read-only; throttled by loadData).
+        if (!crossedMidnight && Date.now() - lastFetchTime.current > HOME_RESUME_STALE_MS) {
+          loadData(false);
+        }
       }
     });
     return () => sub.remove();

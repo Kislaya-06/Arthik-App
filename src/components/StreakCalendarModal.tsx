@@ -30,6 +30,7 @@ import { computeCalendarConnections } from '../lib/budgetPeriods';
 import { StreakFlame } from './StreakFlame';
 import { styles } from './StreakCalendarModal.styles';
 import { DayLogData, mapRemoteRowsToDayLog } from '../lib/streakCalendarData';
+import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
 
 interface StreakCalendarModalProps {
   visible: boolean;
@@ -472,6 +473,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                 {DAYS_OF_WEEK.map((d, index) => (
                   <View key={index} style={styles.dayOfWeekCell}>
                     <Text
+                      maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
                       style={[
                         styles.dayOfWeekText,
                         { color: colors.textMuted },
@@ -579,6 +581,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                         ]}
                       >
                         <Text
+                          maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
                           style={[
                             styles.dayText,
                             {

@@ -9,6 +9,7 @@ import {
 import Delete from 'lucide-react-native/icons/delete';
 import { useTheme } from '../store/themeStore';
 import { BorderRadius, FontFamily } from '../config/theme';
+import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
 
 interface KeyButtonProps {
   item: string;
@@ -86,6 +87,7 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSi
           />
         ) : (
           <Text
+            maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
             style={[
               styles.keyText,
               {

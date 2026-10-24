@@ -132,14 +132,14 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
   const canSave = isAmountSufficient && !isSubmitting;
 
   const handleKeyPress = useCallback((val: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setAmountStr((prev) =>
       applyKeypadPress(prev, val, { maxIntegerDigits: 8, maxDecimals: 2 })
     );
   }, []);
 
   const handleSelectChip = useCallback((val: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.selectionAsync().catch(() => {});
     setAmountStr(String(val));
   }, []);
 
@@ -337,7 +337,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                     },
                   ]}
                   onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Haptics.selectionAsync().catch(() => {});
                     setPaymentMode('upi');
                   }}
                   activeOpacity={0.7}
@@ -370,7 +370,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                     },
                   ]}
                   onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Haptics.selectionAsync().catch(() => {});
                     setPaymentMode('cash');
                   }}
                   activeOpacity={0.7}
