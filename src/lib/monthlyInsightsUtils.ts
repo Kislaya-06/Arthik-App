@@ -124,7 +124,7 @@ export function computeMonthlySafeDailyPace(
 ): number {
   if (remaining <= 0) return 0;
   const safeElapsed = Math.min(totalDays, Math.max(1, elapsedDays));
-  const daysLeft = Math.max(1, totalDays - safeElapsed);
+  const daysLeft = Math.max(1, totalDays - safeElapsed + 1);
   return Math.round(remaining / daysLeft);
 }
 

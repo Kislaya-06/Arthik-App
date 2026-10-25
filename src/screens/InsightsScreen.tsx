@@ -457,7 +457,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               isBudgetMode={isBudgetModeEnabled}
               safeDailyPace={safeDailyPace}
               isCurrentWeek={offset === 0}
-              remainingDays={Math.max(0, 7 - elapsedDaysInWeek)}
+              remainingDays={offset === 0 ? Math.max(1, 7 - elapsedDaysInWeek + 1) : 0}
               transactionCount={weekTransactionCount}
               totalWeekSavings={weeklyGullak.totalSaved}
               savedDaysCount={weeklyGullak.savedDaysCount}

@@ -100,7 +100,7 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
       <View style={navStyles.row}>
         <Pressable
           onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
+            Haptics.selectionAsync().catch(() => { });
             onPrev();
           }}
           disabled={isAtOldest}
@@ -140,7 +140,7 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
 
         <Pressable
           onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
+            Haptics.selectionAsync().catch(() => { });
             onNext();
           }}
           disabled={isAtCurrent}

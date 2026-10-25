@@ -19,15 +19,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Split Expenses & Money Back 🤝',
+    title: ota?.title || 'Insights Safe Daily Pace & Briefing Dock Polish 📊',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
+          'Safe Daily Spending Pace Precision: Today is now accurately counted as an active day in Weekly and Monthly Insights',
+          'Insights Briefing Dock: Unified dual-tile financial summary for Safe Daily Pace and Auto-Saved Gullak with instant one-tap navigation to Savings',
+          'History Gesture Polish: Eliminated button underlay blink during screen transitions for buttery-smooth swipe-to-delete',
           'Split an expense with a friend and see exactly what they owe you',
           'When a friend pays you back, it is no longer counted as income',
-          'Refunds go back to the expense they belong to',
-          'New Ledger button on Home: see who owes you, what was paid back and what is settled',
-          'Tap the Home card for a full breakdown of budget, money in and Gullak',
         ],
   };
 };

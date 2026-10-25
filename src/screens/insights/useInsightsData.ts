@@ -153,8 +153,8 @@ export function useInsightsData({
     const pLabel = offset === 0
       ? (period === 'Weekly' ? 'Total Spent This Week' : period === 'Monthly' ? 'Total Spent This Month' : 'Total Spent This Year')
       : offset === -1
-      ? (period === 'Weekly' ? 'Total Spent Last Week' : period === 'Monthly' ? 'Total Spent Last Month' : 'Total Spent Last Year')
-      : 'Total Spent';
+        ? (period === 'Weekly' ? 'Total Spent Last Week' : period === 'Monthly' ? 'Total Spent Last Month' : 'Total Spent Last Year')
+        : 'Total Spent';
 
     // Navigator main label, e.g. "This Week" / "Last Week" / "15 – 21 Sep"
     const dLabel = buildDateLabel(period, offset);
@@ -169,7 +169,7 @@ export function useInsightsData({
       dateLabel: dLabel,
       subLabel: sLabel,
     };
-  // focusTime: included so labels stay fresh after midnight without a full refetch
+    // focusTime: included so labels stay fresh after midnight without a full refetch
   }, [period, offset, focusTime]);
 
   // ─── Pagination dots ───────────────────────────────────────────────────────
@@ -442,7 +442,7 @@ export function useInsightsData({
   const monthlyRemainingDays = useMemo(() => {
     if (offset < 0) return 0;
     const totalDays = differenceInCalendarDays(currentInterval.end, currentInterval.start) + 1;
-    return Math.max(0, totalDays - elapsedDaysInMonth);
+    return Math.max(1, totalDays - elapsedDaysInMonth + 1);
   }, [offset, currentInterval, elapsedDaysInMonth]);
 
   const monthlyEffectiveBudget = useMemo(() => {

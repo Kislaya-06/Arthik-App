@@ -44,11 +44,11 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
       ? isOverBudget
         ? 'Budget exceeded · spend cautiously'
         : addedIncome > 0
-        ? `Boosted by ₹${formatAmountWithCommas(String(addedIncome))} income · ${remainingDays}d left`
-        : `${remainingDaysLabel} left to pace safely`
+          ? `Boosted by ₹${formatAmountWithCommas(String(addedIncome))} income · ${remainingDays}d left`
+          : `${remainingDaysLabel} left to pace safely`
       : isOverBudget
-      ? 'Finalized · Over budget'
-      : 'Finalized · Within budget'
+        ? 'Finalized · Over budget'
+        : 'Finalized · Within budget'
     : `Across ${transactionCount} logged ${transactionCount === 1 ? 'transaction' : 'transactions'}`;
 
   return (
@@ -83,11 +83,10 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
           `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
         pillVariant: 'neutral',
         onPress: onPressSavings,
-        accessibilityLabel: `Gullak savings this month: ${
-          totalMonthSavings > 0
+        accessibilityLabel: `Gullak savings this month: ${totalMonthSavings > 0
             ? `+${formatCurrency(totalMonthSavings)}`
             : formatCurrency(0)
-        } across ${savedPillLabel || `${savedDaysCount} saved days`}. Tap to open Savings.`,
+          } across ${savedPillLabel || `${savedDaysCount} saved days`}. Tap to open Savings.`,
       }}
     />
   );

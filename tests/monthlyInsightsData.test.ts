@@ -80,9 +80,15 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(health.isOverBudget).toBe(false);
       expect(health.ratio).toBe(0.7);
 
-      // On day 15 of 31 days -> 16 days left
+      // On day 1 of 31 days -> 31 days remaining (1..31)
+      expect(computeMonthlySafeDailyPace(3100, 1, 31)).toBe(100); // 3100 / 31
+
+      // On day 15 of 31 days -> 17 days remaining (15..31)
       const safePace = computeMonthlySafeDailyPace(6000, 15, 31);
-      expect(safePace).toBe(375); // 6000 / 16
+      expect(safePace).toBe(353); // 6000 / 17
+
+      // On day 31 of 31 days -> 1 day remaining (31)
+      expect(computeMonthlySafeDailyPace(100, 31, 31)).toBe(100); // 100 / 1
 
       // Over budget test
       const overHealth = computeMonthlyBudgetHealth(20000, 22500);

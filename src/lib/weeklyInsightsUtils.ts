@@ -114,8 +114,9 @@ export function computeBudgetHealth(
  * @param elapsedDays Number of days that have elapsed in the week so far (1 for Monday, 7 for Sunday).
  */
 export function computeSafeDailyPace(remaining: number, elapsedDays: number): number {
+  if (remaining <= 0) return 0;
   const safeElapsed = Math.min(7, Math.max(1, elapsedDays));
-  const daysLeft = Math.max(1, 7 - safeElapsed);
+  const daysLeft = Math.max(1, 7 - safeElapsed + 1);
   return Math.round(remaining / daysLeft);
 }
 

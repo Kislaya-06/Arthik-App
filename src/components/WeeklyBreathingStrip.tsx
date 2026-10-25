@@ -49,11 +49,11 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
       ? isOverBudget
         ? 'Budget exceeded\nspend cautiously'
         : addedIncome > 0
-        ? `Boosted by ₹${formatAmountWithCommas(String(addedIncome))} income · ${remainingDays}d left`
-        : `${remainingDaysLabel} left to pace safely`
+          ? `Boosted by ₹${formatAmountWithCommas(String(addedIncome))} income · ${remainingDays}d left`
+          : `${remainingDaysLabel} left to pace safely`
       : isOverBudget
-      ? 'Finalized · Over budget'
-      : 'Finalized · Within budget'
+        ? 'Finalized · Over budget'
+        : 'Finalized · Within budget'
     : `Across ${transactionCount} logged ${transactionCount === 1 ? 'transaction' : 'transactions'}`;
 
   const isMonthlyCadence = isBudgetMode && budgetCadence === 'monthly';
@@ -61,43 +61,42 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
   const rightTileConfig =
     isMonthlyCadence && monthlyBudgetShare
       ? {
-          label: 'MONTH BUDGET SHARE',
-          value: `${monthlyBudgetShare.percentage}%`,
-          valueColor:
-            monthlyBudgetShare.status !== 'on_track'
-              ? isDark
-                ? colors.peachCoral
-                : '#E05638'
-              : colors.textPrimary,
-          pillText: monthlyBudgetShare.pillText,
-          pillVariant: monthlyBudgetShare.status === 'on_track' ? ('mint' as const) : ('neutral' as const),
-          subtext: monthlyBudgetShare.subtext,
-          onPress: onPressSavings,
-          accessibilityLabel: `Monthly budget share: ${monthlyBudgetShare.percentage}%. ${monthlyBudgetShare.subtext}.`,
-        }
+        label: 'MONTH BUDGET SHARE',
+        value: `${monthlyBudgetShare.percentage}%`,
+        valueColor:
+          monthlyBudgetShare.status !== 'on_track'
+            ? isDark
+              ? colors.peachCoral
+              : '#E05638'
+            : colors.textPrimary,
+        pillText: monthlyBudgetShare.pillText,
+        pillVariant: monthlyBudgetShare.status === 'on_track' ? ('mint' as const) : ('neutral' as const),
+        subtext: monthlyBudgetShare.subtext,
+        onPress: onPressSavings,
+        accessibilityLabel: `Monthly budget share: ${monthlyBudgetShare.percentage}%. ${monthlyBudgetShare.subtext}.`,
+      }
       : {
-          label: 'AUTO-SAVED TO GULLAK',
-          value:
-            totalWeekSavings > 0
-              ? `+${formatCurrency(totalWeekSavings)}`
-              : formatCurrency(0),
-          valueColor:
-            totalWeekSavings > 0
-              ? isDark
-                ? colors.mintGreen
-                : colors.forestGreen
-              : colors.textPrimary,
-          pillText:
-            savedPillLabel ||
-            `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
-          pillVariant: 'neutral' as const,
-          onPress: onPressSavings,
-          accessibilityLabel: `Gullak savings this week: ${
-            totalWeekSavings > 0
-              ? `+${formatCurrency(totalWeekSavings)}`
-              : formatCurrency(0)
+        label: 'AUTO-SAVED TO GULLAK',
+        value:
+          totalWeekSavings > 0
+            ? `+${formatCurrency(totalWeekSavings)}`
+            : formatCurrency(0),
+        valueColor:
+          totalWeekSavings > 0
+            ? isDark
+              ? colors.mintGreen
+              : colors.forestGreen
+            : colors.textPrimary,
+        pillText:
+          savedPillLabel ||
+          `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
+        pillVariant: 'neutral' as const,
+        onPress: onPressSavings,
+        accessibilityLabel: `Gullak savings this week: ${totalWeekSavings > 0
+            ? `+${formatCurrency(totalWeekSavings)}`
+            : formatCurrency(0)
           } across ${savedPillLabel || `${savedDaysCount} saved days`}. Tap to open Savings.`,
-        };
+      };
 
   return (
     <BreathingStripShell

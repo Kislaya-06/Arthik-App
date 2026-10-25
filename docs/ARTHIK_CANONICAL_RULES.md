@@ -419,8 +419,8 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
 - **Canonical Definition:**
   The breathing strip across Weekly and Monthly Insights dynamically computes the safe spending cushion per remaining day:
-  1. **Weekly Safe Daily Pace:** `Math.round(remainingWeeklyBudget / Math.max(1, remainingDaysThroughSunday))`
-  2. **Monthly Safe Daily Pace:** `Math.round(remainingMonthlyBudget / Math.max(1, remainingDaysInMonth))`
+  1. **Weekly Safe Daily Pace:** `Math.round(remainingWeeklyBudget / Math.max(1, remainingDaysThroughSunday))`, where `remainingDaysThroughSunday = 7 - elapsedDays + 1` explicitly includes the current active day (e.g. 7 days on Monday through Sunday).
+  2. **Monthly Safe Daily Pace:** `Math.round(remainingMonthlyBudget / Math.max(1, remainingDaysInMonth))`, where `remainingDaysInMonth = totalDaysInMonth - elapsedDays + 1` explicitly includes the current active day.
   3. **Display:** Rendered on both `WeeklyBreathingStrip` and `MonthlyBreathingStrip` as:
      *"Safe daily spending pace: ₹X per day with Y days remaining."*
 - **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`

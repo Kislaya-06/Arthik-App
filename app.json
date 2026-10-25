@@ -63,8 +63,11 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Ultra-Smooth 60 FPS & Instant Cold Launch ⚡",
+        "title": "Insights Safe Daily Pace & Briefing Dock Polish 📊",
         "highlights": [
+          "Safe Daily Spending Pace Precision: Today is now accurately counted as an active day in Weekly and Monthly Insights, giving you a true daily spending cushion (e.g. full 7 days on Monday) to pace safely without premature divisor loss",
+          "Insights Briefing Dock: Unified dual-tile financial summary for Safe Daily Pace and Auto-Saved Gullak with instant one-tap navigation to Savings",
+          "History Gesture Polish: Eliminated button underlay blink during screen transitions for buttery-smooth swipe-to-delete",
           "App-Wide Financial Microcopy & UX Clarity: Streamlined labels and prompts into crisp, jargon-free layman language across Home, Savings, History, Insights, and Expense forms while keeping all-time financial records rock-solid",
           "Single-Card Gullak Deposits & UI Clarity: Added ultra-snappy swipe-to-delete in History, persistent offline & sync header status in Home, crisp cadence cancellation dialogs, unified Insights tabs layout, and silky spring transitions on Gullak deposits",
           "Fluid Transitions & Layout Polish: Added silky spring gliding to onboarding pagination dots, butter-smooth 180° chevron rotation & card expansion in Ledger, gentle 180ms dissolve exit on App Lock, height/fade transitions on AutoLog Home banner, entrance animation parity in Notifications, and spring settlement with error message disclosure in Profile modals",

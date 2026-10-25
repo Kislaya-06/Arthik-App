@@ -94,10 +94,20 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       expect(health.ratio).toBe(1);
     });
 
-    it('calculates safe daily spending pace', () => {
-      // Wednesday: 3 days elapsed, 4 days left
+    it('calculates safe daily spending pace including current day through Sunday', () => {
+      // Monday: 1 day elapsed, 7 days remaining through Sunday
+      expect(computeSafeDailyPace(700, 1)).toBe(100); // 700 / 7
+
+      // Wednesday: 3 days elapsed, 5 days remaining (Wed..Sun)
       const pace = computeSafeDailyPace(1200, 3);
-      expect(pace).toBe(300); // 1200 / 4
+      expect(pace).toBe(240); // 1200 / 5
+
+      // Sunday: 7 days elapsed, 1 day remaining (Sun)
+      expect(computeSafeDailyPace(100, 7)).toBe(100); // 100 / 1
+
+      // Zero or negative remaining budget
+      expect(computeSafeDailyPace(0, 3)).toBe(0);
+      expect(computeSafeDailyPace(-200, 3)).toBe(0);
     });
   });
 
