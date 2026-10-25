@@ -121,9 +121,9 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
       id: 'budget',
       title: 'Budget',
       rows: [
-        { id: 'given', label: 'Budget given', amount: round2(i.budgetGiven), tone: 'neutral' },
+        { id: 'given', label: 'Total budget', amount: round2(i.budgetGiven), tone: 'neutral' },
         { id: 'used', label: 'Spent from budget', amount: round2(used), tone: 'bad' },
-        { id: 'left', label: 'Budget left', amount: round2(budgetLeft), tone: 'good' },
+        { id: 'left', label: 'Remaining budget', amount: round2(budgetLeft), tone: 'good' },
       ],
     });
   }
@@ -136,11 +136,11 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
 
   // Same shape as Budget: white (came in) -> red (spent) -> green (left).
   // Money back is intentionally not shown here (it is never income and is already inside Total spent).
-  const moneyIn: DetailRow[] = [{ id: 'received', label: 'Money received', amount: round2(i.incomeReceived), tone: 'neutral' }];
+  const moneyIn: DetailRow[] = [{ id: 'received', label: 'Income received', amount: round2(i.incomeReceived), tone: 'neutral' }];
   if (i.isBudgetMode) {
     const spentFromIncome = round2(Math.max(0, i.incomeReceived - effectiveIncomeLeft));
-    moneyIn.push({ id: 'spent', label: 'Spent from received', amount: spentFromIncome, tone: 'bad' });
-    moneyIn.push({ id: 'left', label: 'Still unspent', amount: round2(effectiveIncomeLeft), tone: 'good' });
+    moneyIn.push({ id: 'spent', label: 'Spent from income', amount: spentFromIncome, tone: 'bad' });
+    moneyIn.push({ id: 'left', label: 'Unspent income', amount: round2(effectiveIncomeLeft), tone: 'good' });
   }
   sections.push({ id: 'money_in', title: 'Money in', rows: moneyIn });
 
@@ -148,10 +148,10 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
     // Real money invariant: Money taken from Gullak cannot exceed money added to Gullak (no overdraft)
     const effectiveGullakDrawn = Math.min(round2(i.gullakDrawn), round2(i.gullakAdded));
     const gullak: DetailRow[] = [
-      { id: 'added', label: 'Added to Gullak', amount: round2(i.gullakAdded), tone: 'neutral' },
-      { id: 'drawn', label: 'Taken from Gullak', amount: round2(effectiveGullakDrawn), tone: 'bad' },
+      { id: 'added', label: 'Saved to Gullak', amount: round2(i.gullakAdded), tone: 'neutral' },
+      { id: 'drawn', label: 'Withdrawn from Gullak', amount: round2(effectiveGullakDrawn), tone: 'bad' },
     ];
-    if (i.gullakNow !== null) gullak.push({ id: 'now', label: 'In Gullak now', amount: round2(i.gullakNow), tone: 'good' });
+    if (i.gullakNow !== null) gullak.push({ id: 'now', label: 'Gullak balance', amount: round2(i.gullakNow), tone: 'good' });
     sections.push({ id: 'gullak', title: 'Gullak', rows: gullak });
   }
 
@@ -161,7 +161,7 @@ export function buildHeroDetails(i: HeroDetailsInput): HeroDetails {
 /** Title of the sheet, e.g. "This week" / "All time". */
 export const heroDetailsTitle = (filter: 'All' | 'Daily' | 'Weekly' | 'Monthly', isToday: boolean): string => {
   if (filter === 'All') return 'All time';
-  if (filter === 'Daily') return isToday ? 'Today' : 'That day';
+  if (filter === 'Daily') return isToday ? 'Today' : 'Selected day';
   return filter === 'Weekly' ? 'This week' : 'This month';
 };
 

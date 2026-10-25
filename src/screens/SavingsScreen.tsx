@@ -20,6 +20,7 @@ import { AppRefreshControl } from '../components/AppRefreshControl';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
 import { formatCurrency, round2 } from '../lib/formatters';
 import { Motion } from '../config/theme';
@@ -134,26 +135,46 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   }, [isScheduledSwitch, totalAccumulatedSavings, effectiveBestStreak, setBudgetModeEnabled]);
 
   const handleCancelPendingPlan = useCallback(() => {
-    Alert.alert(
-      'Discard Scheduled Switch?',
-      pendingPlanChange?.isEnabled
-        ? 'Do you want to stay in Pure Mode and discard the scheduled activation of Smart Budget & Gullak?'
-        : 'Do you want to keep Smart Budget & Gullak active and discard the scheduled switch to Pure Mode?',
-      [
-        { text: 'Keep Scheduled', style: 'cancel' },
-        {
-          text: 'Discard Switch',
-          style: 'destructive',
-          onPress: () => cancelPendingPlanChange(),
+    if (!pendingPlanChange) return;
+
+    let title = 'Discard Scheduled Switch?';
+    let message = 'Your scheduled plan change will be cancelled.';
+    let destructiveLabel = 'Discard';
+
+    if (!isBudgetModeEnabled && pendingPlanChange.isEnabled) {
+      title = 'Cancel Budget Activation?';
+      message = "Smart Budget won't activate tomorrow. You'll stay in Pure Mode.";
+      destructiveLabel = 'Cancel Activation';
+    } else if (isBudgetModeEnabled && !pendingPlanChange.isEnabled) {
+      title = 'Stay in Budget Mode?';
+      message = 'Your scheduled switch to Pure Mode will be cancelled.';
+      destructiveLabel = 'Stay in Budget';
+    } else if (isBudgetModeEnabled && pendingPlanChange.isEnabled) {
+      const targetCadence = pendingPlanChange.cadence.charAt(0).toUpperCase() + pendingPlanChange.cadence.slice(1);
+      const currentCadenceLabel = budgetCadence.charAt(0).toUpperCase() + budgetCadence.slice(1);
+
+      title = 'Discard Scheduled Switch?';
+      message = `Your upcoming ${targetCadence} budget (${formatCurrency(pendingPlanChange.amount)}) will be cancelled. Your current ${currentCadenceLabel} budget remains active.`;
+      destructiveLabel = 'Discard Switch';
+    }
+
+    Alert.alert(title, message, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: destructiveLabel,
+        style: 'destructive',
+        onPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          cancelPendingPlanChange();
         },
-      ]
-    );
-  }, [cancelPendingPlanChange, pendingPlanChange]);
+      },
+    ]);
+  }, [cancelPendingPlanChange, pendingPlanChange, isBudgetModeEnabled, budgetCadence]);
 
   const handleDeleteDeposit = useCallback((id: string, amount: number) => {
     Alert.alert(
       'Withdraw from Gullak',
-      `Are you sure you want to withdraw ${formatCurrency(amount)} back to your spending balance?`,
+      `Return ${formatCurrency(amount)} to your spending balance?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -325,11 +346,11 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   // Scheduled budget cancellation handler
   const handleCancelScheduled = useCallback(() => {
     Alert.alert(
-      'Cancel Scheduled Budget',
-      'Are you sure you want to cancel the scheduled budget change for tomorrow?',
+      "Discard Tomorrow's Budget?",
+      'Your scheduled budget change will be removed.',
       [
-        { text: 'No', style: 'cancel' },
-        { text: 'Yes, Cancel', style: 'destructive', onPress: cancelScheduledNextDailyBudget },
+        { text: 'Keep', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: cancelScheduledNextDailyBudget },
       ]
     );
   }, [cancelScheduledNextDailyBudget]);

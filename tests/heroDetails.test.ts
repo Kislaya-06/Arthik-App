@@ -182,7 +182,7 @@ describe('period helpers', () => {
   it('titles and the "till today" date line', () => {
     expect(heroDetailsTitle('All', true)).toBe('All time');
     expect(heroDetailsTitle('Daily', true)).toBe('Today');
-    expect(heroDetailsTitle('Daily', false)).toBe('That day');
+    expect(heroDetailsTitle('Daily', false)).toBe('Selected day');
     expect(heroDetailsTitle('Weekly', true)).toBe('This week');
     expect(withTillToday('12–18 Oct', 'Weekly', true, '18 Oct')).toBe('12–18 Oct · till today');
     expect(withTillToday('1–31 Oct 2026', 'Monthly', true, '18 Oct')).toBe('1–31 Oct 2026 · till 18 Oct');

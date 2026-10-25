@@ -452,14 +452,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Weekly Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Weekly' && (
           <View style={{ marginTop: Spacing.surface }}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: 0 },
-              ]}
-            >
-              {offset === 0 ? 'Till Now This Week' : 'Week Summary'}
-            </Text>
             <WeeklyBreathingStrip
               takeaway={smartTakeaway}
               isBudgetMode={isBudgetModeEnabled}
@@ -485,14 +477,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Monthly Financial Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Monthly' && (
           <View style={{ marginTop: Spacing.surface }}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: 0 },
-              ]}
-            >
-              {offset === 0 ? 'Till Now This Month' : 'Month Summary'}
-            </Text>
             <MonthlyBreathingStrip
               takeaway={smartMonthlyTakeaway}
               isBudgetMode={isBudgetModeEnabled}
@@ -516,14 +500,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Yearly Financial Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Yearly' && (
           <View style={{ marginTop: Spacing.surface }}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: colors.textPrimary, fontFamily: FontFamily.bold, marginTop: 0 },
-              ]}
-            >
-              {offset === 0 ? 'Till Now This Year' : 'Year Summary'}
-            </Text>
             <YearlyBreathingStrip
               takeaway={smartYearlyTakeaway}
               netCashFlow={yearlyNetCashFlow.netCashFlow}
@@ -545,45 +521,49 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ── Weekly Spending Flow Section ── */}
         {period === 'Weekly' && (
-          <SpendingFlowChart
-            title="Spending Flow"
-            data={weeklyData}
-            maxDay={maxWeekDay}
-            isDark={isDark}
-            colors={colors}
-            subTitle={peakDaysSubtitle}
-            onDayPress={(d) => {
-              navigation.navigate('History', { targetDate: d.dateStr });
-            }}
-            triggerKey={`${period}_${offset}_${focusSeq}`}
-          />
+          <View style={{ marginTop: Spacing.surface }}>
+            <SpendingFlowChart
+              title="Spending Flow"
+              data={weeklyData}
+              maxDay={maxWeekDay}
+              isDark={isDark}
+              colors={colors}
+              subTitle={peakDaysSubtitle}
+              onDayPress={(d) => {
+                navigation.navigate('History', { targetDate: d.dateStr });
+              }}
+              triggerKey={`${period}_${offset}_${focusSeq}`}
+            />
+          </View>
         )}
 
         {/* ── Monthly Dual-Bar Cash Flow Section (Money In vs Money Out) ── */}
         {period === 'Monthly' && (
-          <CashFlowChart
-            title="Cash Flow"
-            subTitle={monthlyPeakWeek.text || format(currentInterval.start, 'MMMM yyyy')}
-            data={monthlyCashFlowData.weeks}
-            maxAmount={monthlyCashFlowData.maxAmount}
-            totalIncome={monthlyCashFlowData.totalIncome}
-            totalSpent={monthlyCashFlowData.totalSpent}
-            isDark={isDark}
-            colors={colors}
-            onWeekPress={(week) => {
-              navigation.navigate('History', {
-                targetDate: week.dateStr,
-                startDate: week.startDate,
-                endDate: week.endDate,
-              });
-            }}
-            triggerKey={`${period}_${offset}_${focusSeq}`}
-          />
+          <View style={{ marginTop: Spacing.surface }}>
+            <CashFlowChart
+              title="Cash Flow"
+              subTitle={monthlyPeakWeek.text || format(currentInterval.start, 'MMMM yyyy')}
+              data={monthlyCashFlowData.weeks}
+              maxAmount={monthlyCashFlowData.maxAmount}
+              totalIncome={monthlyCashFlowData.totalIncome}
+              totalSpent={monthlyCashFlowData.totalSpent}
+              isDark={isDark}
+              colors={colors}
+              onWeekPress={(week) => {
+                navigation.navigate('History', {
+                  targetDate: week.dateStr,
+                  startDate: week.startDate,
+                  endDate: week.endDate,
+                });
+              }}
+              triggerKey={`${period}_${offset}_${focusSeq}`}
+            />
+          </View>
         )}
 
         {/* ── Yearly 12-Month Cash Flow Section ── */}
         {period === 'Yearly' && (
-          <View>
+          <View style={{ marginTop: Spacing.surface }}>
             <YearlyCashFlowChart
               title="12-Month Cash Flow"
               subTitle={yearlyCashFlowData.chartSubtitle}
@@ -774,7 +754,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   <BehavioralInsightRow
                     icon={largestOutflow.categoryIcon ? getCategoryIcon(largestOutflow.categoryIcon) : ShoppingBag}
                     badgeColor={largestOutflow.categoryColor}
-                    title="LARGEST SINGLE PURCHASE"
+                    title="Largest Purchase"
                     headline={`${formatCurrency(largestOutflow.expense.amount)} · ${largestOutflow.expense.notes || largestOutflow.categoryName}`}
                     detail={
                       largestOutflow.expense.notes && largestOutflow.expense.notes.trim() !== largestOutflow.categoryName
@@ -809,7 +789,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   <BehavioralInsightRow
                     icon={monthlyLargestOutflow.categoryIcon ? getCategoryIcon(monthlyLargestOutflow.categoryIcon) : ShoppingBag}
                     badgeColor={monthlyLargestOutflow.categoryColor}
-                    title="LARGEST SINGLE PURCHASE"
+                    title="Largest Purchase"
                     headline={`${formatCurrency(monthlyLargestOutflow.expense.amount)} · ${monthlyLargestOutflow.expense.notes || monthlyLargestOutflow.categoryName}`}
                     detail={
                       monthlyLargestOutflow.expense.notes && monthlyLargestOutflow.expense.notes.trim() !== monthlyLargestOutflow.categoryName
@@ -830,7 +810,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     <BehavioralInsightRow
                       icon={monthlyCategoryShift.isIncrease ? TrendingUp : TrendingDown}
                       badgeColor={monthlyCategoryShift.isIncrease ? (isDark ? '#F59682' : '#E06D53') : (isDark ? '#7CD49A' : '#3DA862')}
-                      title={monthlyCategoryShift.isIncrease ? 'LARGEST SPENDING INCREASE' : 'LARGEST SPENDING DROP'}
+                      title={monthlyCategoryShift.isIncrease ? 'Top Spending Increase' : 'Top Spending Drop'}
                       headline={`${monthlyCategoryShift.isIncrease ? '+' : '−'}${formatCurrency(monthlyCategoryShift.absDelta)} in ${monthlyCategoryShift.categoryName}`}
                       detail={`${monthlyCategoryShift.shiftPercent}% vs ${offset === 0 ? 'same days last month' : 'last month'} · Total ${formatCurrency(monthlyCategoryShift.currentAmount)}`}
                       pillText={`${monthlyCategoryShift.isIncrease ? '+' : '−'}${monthlyCategoryShift.shiftPercent}%`}
@@ -844,7 +824,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     <BehavioralInsightRow
                       icon={monthlyCategoryShift.categoryIcon ? getCategoryIcon(monthlyCategoryShift.categoryIcon) : ShoppingBag}
                       badgeColor={monthlyCategoryShift.categoryColor}
-                      title="PRIMARY EXPENSE DRIVER"
+                      title="Top Expense Driver"
                       headline={`${monthlyCategoryShift.categoryName} · ${formatCurrency(monthlyCategoryShift.currentAmount)}`}
                       detail={`Across ${monthlyCategoryShift.txnCount} ${monthlyCategoryShift.txnCount === 1 ? 'transaction' : 'transactions'} this month`}
                       pillText={`${monthlyCategoryShift.percentageOfTotal}% of month`}
@@ -863,7 +843,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   <BehavioralInsightRow
                     icon={yearlyCapitalOutlier.categoryIcon ? getCategoryIcon(yearlyCapitalOutlier.categoryIcon) : ShoppingBag}
                     badgeColor={yearlyCapitalOutlier.categoryColor}
-                    title="LARGEST SINGLE PURCHASE"
+                    title="Largest Purchase"
                     headline={`${formatCurrency(yearlyCapitalOutlier.expense.amount)} · ${yearlyCapitalOutlier.expense.notes || yearlyCapitalOutlier.categoryName}`}
                     detail={
                       yearlyCapitalOutlier.expense.notes && yearlyCapitalOutlier.expense.notes.trim() !== yearlyCapitalOutlier.categoryName
@@ -884,9 +864,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     <BehavioralInsightRow
                       icon={yearlyCategoryTrajectory.isIncrease ? TrendingUp : TrendingDown}
                       badgeColor={yearlyCategoryTrajectory.isIncrease ? (isDark ? '#F59682' : '#E06D53') : (isDark ? '#7CD49A' : '#3DA862')}
-                      title={yearlyCategoryTrajectory.isIncrease ? 'LARGEST H2 SPEND INCREASE' : 'LARGEST H2 SPEND DROP'}
+                      title={yearlyCategoryTrajectory.isIncrease ? 'Top 2nd-Half Increase' : 'Top 2nd-Half Drop'}
                       headline={`${yearlyCategoryTrajectory.isIncrease ? '+' : '−'}${formatCurrency(yearlyCategoryTrajectory.absDelta)} in ${yearlyCategoryTrajectory.categoryName}`}
-                      detail={`${yearlyCategoryTrajectory.shiftPercent}% shift vs H1 · Total ${formatCurrency(yearlyCategoryTrajectory.annualAmount)}`}
+                      detail={`${yearlyCategoryTrajectory.shiftPercent}% shift vs 1st half · Total ${formatCurrency(yearlyCategoryTrajectory.annualAmount)}`}
                       pillText={`${yearlyCategoryTrajectory.isIncrease ? '+' : '−'}${yearlyCategoryTrajectory.shiftPercent}%`}
                       pillColor={yearlyCategoryTrajectory.isIncrease ? (isDark ? '#F5A97F' : '#E06D53') : colors.mintGreen}
                       onPress={() => {

@@ -204,6 +204,14 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - **Rule:** use it only where it replaces a block of content (a list, a card, a grid), shaped like what will replace it. Keep `ActivityIndicator` inside buttons, next to a short label (for example the month label of the streak calendar, "Loading categories..."), and for operations that report progress (scanning, recovering). Never hide data that is already on screen behind a skeleton.
    - The screen that shows a skeleton labels the group for screen readers (`accessibilityLabel`, `accessibilityState={{ busy: true }}`); the shapes themselves are hidden.
 
+9. **`<SwipeableHistoryRow />`** (`src/components/SwipeableHistoryRow.tsx`):
+   - Native gesture-driven swipeable container for transaction and Gullak feed items in `HistoryScreen`.
+   - Built on `react-native-gesture-handler` (`Gesture.Pan()`) with strict directional activation thresholds (`activeOffsetX([-10, 10])`, `failOffsetY([-8, 8])`) guaranteeing uninterrupted vertical scrolling in `@shopify/flash-list`.
+   - Apple Fluid Interfaces architecture: `contextX` tracking to eliminate touch-start jumps, exponential momentum projection (`project(velocityX, 0.992)`), progressive rubber-banding (`rubberband(overshoot, ACTION_WIDTH * 1.4, 0.45)`), and ultra-snappy velocity handoff springs (`mass: 0.6, damping: 22, stiffness: 320`).
+   - Dynamic expanding underlay (`Math.max(ACTION_WIDTH, -translateX.value)`) eliminating empty gaps during overswipe, accompanied by choreographed scale/opacity transitions and press compression (`scale: 0.92`).
+   - Multi-row coordination (`isOpen`, `onSwipeOpen`, `onSwipeClose`) ensuring at most one row remains revealed at any moment across the feed.
+   - Reveals a brand-aligned underlay action button (`colors.peachCoral` / `#F4B8AE` background with high-contrast `colors.forestGreen` / `#1A2B4C` icon and text) with tactile haptic feedback (`Haptics.ImpactFeedbackStyle.Light` on snap open, `Medium` on destructive press) and explicit confirmation dialog, protecting against accidental deletions.
+
 ### Home Card Details Sheet & Hero Card Geometry (`BrandedHeroCard`)
 - `HeroDetailsSheet` is a `BottomSheetModal` (with `swipeToDismiss`: grab handle 40×5, drag follows the finger, backdrop lightens with the drag, closes past 28% of the sheet height or on a flick > 900pt/s, otherwise springs back) with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens.
 - The Home ring (`DonutChart`, used in BOTH Budget Mode and Pure Mode) sweeps on the UI thread via `useRingSweep` and are emptied after the screen is left, never on return, so coming back to Home never blinks.

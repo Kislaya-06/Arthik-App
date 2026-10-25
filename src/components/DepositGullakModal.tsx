@@ -368,7 +368,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.sourceDesc, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                    Use tracked earnings. Keeps your All budget unchanged.
+                    Use available income. Doesn't affect your active budget.
                   </Text>
                 </View>
                 <ChevronRight size={18} color="rgba(255, 255, 255, 0.7)" strokeWidth={2.2} />
@@ -426,7 +426,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     </View>
                   </View>
                   <Text style={[styles.sourceDesc, { color: 'rgba(255, 255, 255, 0.75)' }]}>
-                    Fresh cash, bonus, or savings. Adds to your available balance.
+                    From bank account or cash. Adds directly to Gullak.
                   </Text>
                 </View>
                 <ChevronRight size={18} color="rgba(255, 255, 255, 0.7)" strokeWidth={2.2} />

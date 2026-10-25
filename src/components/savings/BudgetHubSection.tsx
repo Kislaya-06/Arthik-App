@@ -246,7 +246,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
               {cadencePeriodSummary?.carriedOverAmount &&
               cadencePeriodSummary.carriedOverAmount > 0 &&
               cadencePeriodSummary.carryMode === 'additive'
-                ? `pool (${formatCurrency(cadencePeriodSummary.baseBudget || cardBudget - cadencePeriodSummary.carriedOverAmount)} + ${formatCurrency(cadencePeriodSummary.carriedOverAmount)} carried)`
+                ? `budget (incl. ${formatCurrency(cadencePeriodSummary.carriedOverAmount)} carry-over)`
                 : 'budget'}
             </Text>
           </View>
@@ -289,7 +289,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                   ]}
                 >
                   {pendingPlanChange.isEnabled
-                    ? `Tomorrow: Switch to ${pendingPlanChange.cadence.toUpperCase()} (${formatCurrency(pendingPlanChange.amount)})`
+                    ? `Tomorrow: Switch to ${pendingPlanChange.cadence.charAt(0).toUpperCase() + pendingPlanChange.cadence.slice(1)} (${formatCurrency(pendingPlanChange.amount)})`
                     : 'Tomorrow: Switching to Pure Mode'}
                 </Text>
                 <Text
@@ -300,7 +300,9 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                 >
                   {pendingPlanChange.isEnabled
                     ? pendingPlanChange.carriedOverAmount && pendingPlanChange.carriedOverAmount > 0
-                      ? `${formatCurrency(pendingPlanChange.carriedOverAmount)} carried forward (${pendingPlanChange.carryMode === 'additive' ? 'Additive' : 'Allocation'})`
+                      ? pendingPlanChange.carryMode === 'additive'
+                        ? `+${formatCurrency(pendingPlanChange.carriedOverAmount)} carry-over added to new budget`
+                        : `${formatCurrency(pendingPlanChange.carriedOverAmount)} counted towards new budget`
                       : 'Takes effect tomorrow at 12:00 AM'
                     : 'Takes effect tomorrow at 12:00 AM · Tap ✕ to cancel'}
                 </Text>

@@ -6,6 +6,7 @@ import {
   Pressable,
   TextInput,
   LayoutChangeEvent,
+  Alert,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import type { FlashListRef } from '@shopify/flash-list';
@@ -73,54 +74,107 @@ import { TransactionRow } from '../components/TransactionRow';
 import { buildHistoryRows, buildHeaderRowIndexes } from '../lib/historyRows';
 import type { HistoryItem, HistoryRow, HistorySection } from '../lib/historyRows';
 import { GullakDepositRow } from '../components/GullakDepositRow';
+import { SwipeableHistoryRow } from '../components/SwipeableHistoryRow';
 
 interface TransactionRowItemProps {
   item: Expense;
   category?: Category;
   onPress: (id: string) => void;
+  onDelete: (expense: Expense) => void;
   colors: ThemeColors;
+  isOpen: boolean;
+  onSwipeOpen: () => void;
+  onSwipeClose: () => void;
 }
 
-const TransactionRowItem = React.memo<TransactionRowItemProps>(({ item, category, onPress, colors }) => {
+const TransactionRowItem = React.memo<TransactionRowItemProps>(({
+  item,
+  category,
+  onPress,
+  onDelete,
+  colors,
+  isOpen,
+  onSwipeOpen,
+  onSwipeClose,
+}) => {
   const isIncome = isIncomeTransaction(item, category);
   const handlePress = useCallback(() => {
     onPress(item.id);
   }, [onPress, item.id]);
 
+  const handleDelete = useCallback(() => {
+    onDelete(item);
+  }, [onDelete, item]);
+
   return (
-    <TransactionRow
-      expense={item}
-      category={category}
-      isIncome={isIncome}
+    <SwipeableHistoryRow
+      onDelete={handleDelete}
       colors={colors}
       isDark={colors.isDark}
-      onPress={handlePress}
-    />
+      isOpen={isOpen}
+      onSwipeOpen={onSwipeOpen}
+      onSwipeClose={onSwipeClose}
+    >
+      <TransactionRow
+        expense={item}
+        category={category}
+        isIncome={isIncome}
+        colors={colors}
+        isDark={colors.isDark}
+        onPress={handlePress}
+      />
+    </SwipeableHistoryRow>
   );
 });
 
 interface GullakRowItemProps {
   item: GullakDeposit;
   onPress: (id: string) => void;
+  onDelete: (deposit: GullakDeposit) => void;
   colors: ThemeColors;
+  isOpen: boolean;
+  onSwipeOpen: () => void;
+  onSwipeClose: () => void;
 }
 
-const GullakRowItem = React.memo<GullakRowItemProps>(({ item, onPress, colors }) => {
+const GullakRowItem = React.memo<GullakRowItemProps>(({
+  item,
+  onPress,
+  onDelete,
+  colors,
+  isOpen,
+  onSwipeOpen,
+  onSwipeClose,
+}) => {
   const handlePress = useCallback(() => {
     onPress(item.id);
   }, [onPress, item.id]);
 
+  const handleDelete = useCallback(() => {
+    onDelete(item);
+  }, [onDelete, item]);
+
   return (
-    <Pressable
-      onPress={handlePress}
-      android_ripple={{ color: colors.cardSubtle, borderless: false }}
+    <SwipeableHistoryRow
+      onDelete={handleDelete}
+      deleteLabel="Withdraw"
+      colors={colors}
+      isDark={colors.isDark}
+      isOpen={isOpen}
+      onSwipeOpen={onSwipeOpen}
+      onSwipeClose={onSwipeClose}
     >
-      <GullakDepositRow
-        deposit={item}
-        colors={colors}
-        isDark={colors.isDark}
-      />
-    </Pressable>
+      <Pressable
+        onPress={handlePress}
+        android_ripple={{ color: colors.cardSubtle, borderless: false }}
+      >
+        <GullakDepositRow
+          deposit={item}
+          colors={colors}
+          isDark={colors.isDark}
+        />
+      </Pressable>
+    </SwipeableHistoryRow>
   );
 });
 
@@ -216,9 +270,11 @@ const EmptyStateView: React.FC<EmptyStateViewProps> = React.memo(({
 export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const expenses = useExpenseStore((s) => s.expenses);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
+  const deleteExpense = useExpenseStore((s) => s.deleteExpense);
   const categories = useCategoryStore((s) => s.categories);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -688,25 +744,90 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation.navigate('GullakDepositDetail', { depositId });
   }, [navigation]);
 
+  const handleDeleteExpense = useCallback((expense: Expense) => {
+    const isIncome = expense.type === 'income';
+    const title = isIncome ? 'Delete Income?' : 'Delete Expense?';
+    const message = `Delete this ${formatCurrency(expense.amount)} transaction?`;
+
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteExpense(expense.id);
+          useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+        },
+      },
+    ]);
+  }, [deleteExpense]);
+
+  const handleDeleteGullak = useCallback((deposit: GullakDeposit) => {
+    Alert.alert(
+      'Withdraw from Gullak?',
+      `Return ${formatCurrency(deposit.amount)} to your spending balance?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Withdraw',
+          style: 'destructive',
+          onPress: async () => {
+            await removeGullakDeposit(deposit.id);
+          },
+        },
+      ]
+    );
+  }, [removeGullakDeposit]);
+
+  const [activeSwipeId, setActiveSwipeId] = useState<string | null>(null);
+
+  const handleSwipeOpen = useCallback((id: string) => {
+    setActiveSwipeId(id);
+  }, []);
+
+  const handleSwipeClose = useCallback((id: string) => {
+    setActiveSwipeId((current) => (current === id ? null : current));
+  }, []);
+
   const renderItem = useCallback(({ item }: { item: HistoryItem }) => {
     if (item.kind === 'gullak') {
+      const depositId = item.data.id;
       return (
         <GullakRowItem
           item={item.data}
           onPress={handleGullakPress}
+          onDelete={handleDeleteGullak}
           colors={colors}
+          isOpen={activeSwipeId === depositId}
+          onSwipeOpen={() => handleSwipeOpen(depositId)}
+          onSwipeClose={() => handleSwipeClose(depositId)}
         />
       );
     }
+    const expenseId = item.data.id;
     return (
       <TransactionRowItem
         item={item.data}
         category={item.data.category_id ? categoryMap.get(item.data.category_id) : undefined}
         onPress={handleItemPress}
+        onDelete={handleDeleteExpense}
         colors={colors}
+        isOpen={activeSwipeId === expenseId}
+        onSwipeOpen={() => handleSwipeOpen(expenseId)}
+        onSwipeClose={() => handleSwipeClose(expenseId)}
       />
     );
-  }, [categoryMap, handleItemPress, handleGullakPress, colors]);
+  }, [
+    categoryMap,
+    handleItemPress,
+    handleDeleteExpense,
+    handleGullakPress,
+    handleDeleteGullak,
+    colors,
+    activeSwipeId,
+    handleSwipeOpen,
+    handleSwipeClose,
+  ]);
 
   const renderRow = useCallback(({ item: row }: { item: HistoryRow }) => {
     if (row.type === 'header') return renderSectionHeader({ section: row.section });
@@ -714,7 +835,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [renderSectionHeader, renderItem]);
 
   // Rows only re-render when data or this value changes, so list every non-data input of renderRow.
-  const listExtraData = useMemo(() => ({ colors, isDark, categoryMap }), [colors, isDark, categoryMap]);
+  const listBaseExtraData = useMemo(() => ({ colors, isDark, categoryMap }), [colors, isDark, categoryMap]);
+  const listExtraData = useMemo(
+    () => ({ ...listBaseExtraData, activeSwipeId }),
+    [listBaseExtraData, activeSwipeId]
+  );
 
   // The empty state used to fill the list through flexGrow on the content container, which FlashList
   // does not support. Give it the same height by measuring the list area instead.
@@ -741,10 +866,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     } else if (selectedCategoryId) {
       const catName = categoryMap.get(selectedCategoryId)?.name || 'this category';
       IconComponent = FilterX;
-      title = 'No expenses found';
-      subtitle = `There are no expenses in the ${catName} category yet. They will appear here once you add them!`;
+      title = `No Expenses in ${catName}`;
+      subtitle = 'Transactions in this category will appear here.';
       actionButton = {
-        label: 'Show All Categories',
+        label: 'Show All',
         onPress: () => setSelectedCategoryId(null),
       };
     }

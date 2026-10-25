@@ -400,7 +400,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.alert).toHaveBeenCalledWith('Category Required', 'Please select a category for this expense.');
+      expect(mocks.alert).toHaveBeenCalledWith('Select a Category', 'Choose a category to log this expense.');
       expect(mocks.addExpense).not.toHaveBeenCalled();
     });
     it('asks the user to wait while categories are still loading', async () => {
@@ -421,7 +421,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.alert).toHaveBeenCalledWith('No Category', expect.any(String));
+      expect(mocks.alert).toHaveBeenCalledWith('No Categories Found', expect.any(String));
       expect(mocks.addExpense).not.toHaveBeenCalled();
     });
 
@@ -435,7 +435,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.alert).toHaveBeenCalledWith('Category Required', expect.any(String));
+      expect(mocks.alert).toHaveBeenCalledWith('Select a Category', expect.any(String));
       expect(mocks.updateExpense).not.toHaveBeenCalled();
     });
 
@@ -486,7 +486,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
         await s.r().handleSave();
       });
       expect(mocks.addExpense).not.toHaveBeenCalled();
-      expect(mocks.alert).toHaveBeenCalledWith('No Income Category', expect.any(String));
+      expect(mocks.alert).toHaveBeenCalledWith('No Income Categories', expect.any(String));
     });
 
     it('an old income pointing at an expense category asks for an income category on save', async () => {
@@ -497,7 +497,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
         await s.r().handleSave();
       });
       expect(mocks.updateExpense).not.toHaveBeenCalled();
-      expect(mocks.alert).toHaveBeenCalledWith('Category Required', 'Please select a category for this income.');
+      expect(mocks.alert).toHaveBeenCalledWith('Select a Category', 'Choose a category for this income.');
     });
 
     it('money added from the "not enough money" guard goes to Other Income', async () => {

@@ -788,11 +788,11 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     }
     // Money back: a friend paying back or a refund needs a person / an expense to go back to.
     if (moneyBackVisible && moneyBackMode === 'friend' && !cleanPersonName(moneyBackPerson)) {
-      Alert.alert('Who paid back?', 'Choose the person who paid you back.');
+      Alert.alert('Select Person', 'Please choose who sent you this money back.');
       return;
     }
     if (moneyBackVisible && moneyBackMode === 'refund' && (!refundExpenseId || !cleanPersonName(refundWho))) {
-      Alert.alert('Refund', 'Add who sent the refund and choose the expense it is for.');
+      Alert.alert('Refund Details Needed', 'Select who issued the refund and the matching expense.');
       return;
     }
 
@@ -812,11 +812,11 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
         return;
       }
       if (categories.length === 0) {
-        Alert.alert('No Category', 'Please create a category first to add an expense.');
+        Alert.alert('No Categories Found', 'Create a category before adding an expense.');
         return;
       }
       if (!categoryIdToSave) {
-        Alert.alert('Category Required', 'Please select a category for this expense.');
+        Alert.alert('Select a Category', 'Choose a category to log this expense.');
         return;
       }
     }
@@ -827,11 +827,11 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
         return;
       }
       if (kindCategories.length === 0) {
-        Alert.alert('No Income Category', 'Please create an income category first to add income.');
+        Alert.alert('No Income Categories', 'Create an income category before adding income.');
         return;
       }
       if (!categoryIdToSave) {
-        Alert.alert('Category Required', 'Please select a category for this income.');
+        Alert.alert('Select a Category', 'Choose a category for this income.');
         return;
       }
     }

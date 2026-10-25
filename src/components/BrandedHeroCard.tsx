@@ -184,7 +184,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
           return cadencePeriodSummary.isOver ? 'Over this week' : 'Left this week';
         }
         if (activeFilter === 'Daily') {
-          return "Today's Spent";
+          return "Spent Today";
         }
         if (activeFilter === 'Monthly') {
           return 'Projected Monthly Spend';
@@ -194,10 +194,10 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
           return cadencePeriodSummary.isOver ? 'Over this month' : 'Left this month';
         }
         if (activeFilter === 'Weekly') {
-          return 'Suggested Weekly Pace';
+          return 'Weekly Target';
         }
         if (activeFilter === 'Daily') {
-          return "Today's Spent";
+          return "Spent Today";
         }
       }
     }
@@ -258,22 +258,22 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
             ? `Weekly budget exceeded by ₹${formatAmountWithCommas(String(cadencePeriodSummary.overBy))}`
-            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} daily target`;
+            : `Target: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day to stay on track`;
         }
         if (activeFilter === 'Monthly') {
-          return `Based on ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}/wk pace for calendar month`;
+          return `Projected from your ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}/week budget`;
         }
       } else if (budgetCadence === 'monthly') {
         if (activeFilter === 'Monthly') {
           return `Spent ₹${formatAmountWithCommas(String(cadencePeriodSummary.spent))} of ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}`;
         }
         if (activeFilter === 'Weekly') {
-          return `to stay within ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))} monthly budget`;
+          return `Weekly target to stay within ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}/month`;
         }
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
             ? `Monthly budget exceeded by ₹${formatAmountWithCommas(String(cadencePeriodSummary.overBy))}`
-            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} daily target`;
+            : `Target: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day to stay on track`;
         }
       }
     }

@@ -163,8 +163,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       const restoreMessage =
         dateOwner === 'daily'
-          ? `Deleting this ${formatCurrency(expense.amount)} expense on ${formattedDate} will return ${formatCurrency(expense.amount)} to that day's budget and update your Gullak savings accordingly.\n\nDo you want to continue?`
-          : `Deleting this ${formatCurrency(expense.amount)} expense on ${formattedDate} will restore ${formatCurrency(expense.amount)} back to your available spending pool.\n\nDo you want to continue?`;
+          ? `Delete this past expense? ${formatCurrency(expense.amount)} will return to that day's budget and Gullak savings.`
+          : `Delete this past expense? ${formatCurrency(expense.amount)} will return to your spending balance.`;
 
       Alert.alert(
         'Delete Past Expense',
@@ -198,10 +198,10 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       const title = isPastDate ? 'Delete Past Income' : 'Delete Income';
       const message =
         deficit > 0
-          ? `Deleting this ${formatCurrency(expense.amount)} income on ${formattedDate} will also reduce ${formatCurrency(deficit)} from your Gullak savings (funded by this income).\n\nDo you want to continue?`
+          ? `Delete this past income? ${formatCurrency(deficit)} will also be deducted from Gullak since it was funded by this income.`
           : isPastDate
-          ? `Deleting this ${formatCurrency(expense.amount)} income on ${formattedDate} will reduce your total available income balance.\n\nAre you sure you want to delete?`
-          : `Are you sure you want to delete this income transaction?`;
+          ? `Delete this past income? Your available income balance will decrease by ${formatCurrency(expense.amount)}.`
+          : `Delete this income transaction?`;
 
       Alert.alert(title, message, [
         { text: 'Cancel', style: 'cancel' },
@@ -223,7 +223,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
     Alert.alert(
       'Delete Expense',
-      `Are you sure you want to delete this expense?`,
+      `Delete this ${formatCurrency(expense.amount)} expense?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

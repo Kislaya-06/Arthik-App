@@ -19,6 +19,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Bell from 'lucide-react-native/icons/bell';
 import User from 'lucide-react-native/icons/user';
 import Users from 'lucide-react-native/icons/users';
+import WifiOff from 'lucide-react-native/icons/wifi-off';
+import RefreshCw from 'lucide-react-native/icons/refresh-cw';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { hasUnsettledSplitExpenses } from '../lib/splitLedger';
 import { TransactionRow } from '../components/TransactionRow';
@@ -54,6 +56,7 @@ import { useExpenseStore, Expense } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useNetworkStore } from '../store/networkStore';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
@@ -176,6 +179,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const categories = useCategoryStore((s) => s.categories);
   const insets = useSafeAreaInsets();
   const showNavBar = useNavBarStore((s) => s.showNavBar);
+  const isOffline = useNetworkStore((s) => s.isOffline);
+  const isSyncing = useNetworkStore((s) => s.isSyncing);
+  const pendingSyncCount = useMemo(() => expenses.filter((e) => e.pending).length, [expenses]);
 
   // Instagram-style pull-up-to-History lives entirely inside PullToHistoryList.
   const listRef = useRef<PullToHistoryListHandle>(null);
@@ -762,6 +768,46 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Network & Offline Status Indicator (Visibility of System Status) */}
+        {(isOffline || isSyncing) && (
+          <View
+            style={[
+              styles.networkStatusPill,
+              {
+                backgroundColor: isOffline
+                  ? (isDark ? 'rgba(255, 122, 110, 0.12)' : 'rgba(255, 122, 110, 0.08)')
+                  : (isDark ? 'rgba(184, 224, 200, 0.15)' : 'rgba(184, 224, 200, 0.20)'),
+                borderColor: isOffline
+                  ? (isDark ? 'rgba(255, 122, 110, 0.30)' : 'rgba(255, 122, 110, 0.22)')
+                  : (isDark ? 'rgba(184, 224, 200, 0.35)' : 'rgba(184, 224, 200, 0.30)'),
+              },
+            ]}
+            accessible
+            accessibilityRole="alert"
+            accessibilityLabel={
+              isOffline
+                ? `You are offline. ${pendingSyncCount > 0 ? `${pendingSyncCount} changes saved locally.` : 'Changes will sync when connected.'}`
+                : 'Syncing changes with cloud...'
+            }
+          >
+            {isOffline ? (
+              <>
+                <WifiOff size={13} color={isDark ? '#FF8A80' : '#D32F2F'} strokeWidth={2.2} />
+                <Text style={[styles.networkStatusText, { color: isDark ? '#FF8A80' : '#D32F2F' }]}>
+                  Offline · {pendingSyncCount > 0 ? `${pendingSyncCount} saved locally` : 'Changes saved locally'}
+                </Text>
+              </>
+            ) : (
+              <>
+                <RefreshCw size={13} color={isDark ? colors.mintGreen : colors.mintGreenDark} strokeWidth={2.2} />
+                <Text style={[styles.networkStatusText, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
+                  Syncing changes...
+                </Text>
+              </>
+            )}
+          </View>
+        )}
+
         {/* Segmented Filter Toggle */}
         <View style={styles.filterToggleWrapper}>
           <BouncyFilterToggle
@@ -804,7 +850,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           onOpenDetails={isBudgetModeEnabled ? handleOpenHeroDetails : undefined}
         />
         {isBudgetModeEnabled ? (
-          <Text style={[styles.heroHint, { color: colors.textMuted }]}>Tap card to see full budget breakdown</Text>
+          <Text style={[styles.heroHint, { color: colors.textMuted }]}>Tap for budget breakdown</Text>
         ) : null}
 
         {/* Automatic Logging: only visible when something needs review/attention */}
@@ -988,6 +1034,22 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#EF4444',
+  },
+  networkStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 8,
+    marginBottom: -2,
+  },
+  networkStatusText: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.semibold,
   },
 
   // Filter toggle

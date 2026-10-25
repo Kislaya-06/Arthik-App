@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### UI/UX Polish & Financial Clarity (Phase 1 Audit Implementation) — OTA-safe
 
+- **App-Wide UX Copy & Microcopy Clarity Overhaul (`clarify` Skill Implementation)**:
+  - **HomeScreen & BrandedHeroCard**:
+    - Replaced ambiguous metric labels (`"Today's Spent"` → `"Spent Today"`, `"Suggested Weekly Pace"` → `"Weekly Target"`).
+    - Removed confusing athletic jargon and incomplete phrasing (`"Based on ₹X/wk pace for calendar month"` → `"Projected from your ₹X/week budget"`, `"of ~₹X daily target"` → `"Target: ~₹X/day to stay on track"`, `"to stay within ₹X monthly budget"` → `"Weekly target to stay within ₹X/month"`).
+    - Tightened hero card footer hint from `"Tap card to see full budget breakdown"` down to `"Tap for budget breakdown"` (4 words, highly scannable).
+    - Re-labeled hero detail breakdown sheet to standard professional accounting terms (`"Total Budget"`, `"Remaining Budget"`, `"Income Received"`, `"Spent from Income"`, `"Unspent Income"`, `"Saved to Gullak"`, `"Withdrawn from Gullak"`, `"Gullak Balance"`), and replaced informal `"That day"` with `"Selected day"`.
+  - **SavingsScreen & Budget Hub**:
+    - Eliminated confusing jargon in budget carry bar (`"pool (₹X + ₹Y carried)"` → `"budget (incl. ₹Y carry-over)"`).
+    - Standardized scheduled switch banner to title case (`"Tomorrow: Switch to Weekly (₹X)"`) and translated internal math modes to plain layman English (`"+₹X carry-over added to new budget"` vs `"₹X counted towards new budget"`).
+    - Clarified Gullak deposit source options in `DepositGullakModal` (`"Use available income. Doesn't affect your active budget."` / `"From bank account or cash. Adds directly to Gullak."`).
+    - Tightened Pure Mode pause modal explanation to crisp, direct phrasing (`"Your ₹X remaining budget stays active for this week. You can switch back anytime."`).
+  - **InsightsScreen Visual Hierarchy**:
+    - Converted all shouting all-caps card titles to clean Title Case (`"Largest Purchase"`, `"Top Spending Increase"`, `"Top Spending Drop"`, `"Top Expense Driver"`).
+    - Replaced corporate financial reporting jargon `"H2"` with accessible layman phrasing (`"Top 2nd-Half Increase"`, `"shift vs 1st half"`).
+  - **HistoryScreen Empty State**:
+    - Replaced wordy category empty state with concise, action-focused copy (`"No Expenses in [Category]"`, `"Transactions in this category will appear here."`, action button: `"Show All"`).
+  - **Expense Form & Validation Alerts (`useExpenseForm`)**:
+    - Replaced informal/verbose alert prompts with crisp, actionable titles and instructions (`"Select Person"`, `"Refund Details Needed"`, `"No Categories Found"`, `"No Income Categories"`, `"Select a Category"`).
+  - **Expense Detail & Deletion Dialogs (`ExpenseDetailScreen`)**:
+    - Replaced 28-word legalistic warning paragraphs with concise 14-word consequence confirmations (`"Delete this past expense? ₹X will return to that day's budget and Gullak savings."`, `"Delete this ₹X expense?"`).
+  - **Profile & Logout Sync Warnings**:
+    - Streamlined pending sync logout warnings to direct, clear consequences (`"X changes haven't synced yet. Logging out will pause syncing until you log back in."`).
+
+- **HomeScreen Persistent Offline & Sync Status Indicator (`src/screens/HomeScreen.tsx`)**:
+  - Implemented an accessible live status pill directly beneath the header greeting displaying real-time connectivity status (`"Offline · X saved locally"` with WifiOff icon / `"Syncing changes..."` with RefreshCw icon), satisfying Nielsen Usability Heuristic 1 (Visibility of System Status).
+- **HistoryScreen Native Swipe-to-Delete Gesture (`src/components/SwipeableHistoryRow.tsx`, `src/screens/HistoryScreen.tsx`)**:
+  - Built gesture-driven left swipe for transactions and Gullak deposits using `react-native-gesture-handler` (`activeOffsetX([-10, 10])`, `failOffsetY([-8, 8])`) with Apple Fluid Interfaces architecture.
+  - Implemented `contextX` tracking to prevent touch-start jumping, exponential momentum projection (`project(velocityX, 0.992)`), velocity handoff, and ultra-snappy spring physics (`mass: 0.6, damping: 22, stiffness: 320`) matching iOS Mail & Telegram responsiveness.
+  - Added dynamic expanding underlay with signature transaction coral fill (`colors.peachCoral` / `#F4B8AE`) and deep contrast icon/text (`colors.forestGreen` / `#1A2B4C`), eliminating gaps during overswipe, alongside choreographed button icon scale/opacity transitions, active press compression (`scale: 0.92`), and multi-row coordination guaranteeing at most one row remains revealed at any time.
+  - Reveals an underlay delete button that triggers tactile haptics (`Light` on open, `Medium` on press) and confirmation dialog (`Alert.alert`), allowing power users to delete mistaken transactions without navigating away (satisfying Nielsen Heuristic 7).
+- **SavingsScreen Crisp Cadence Cancellation & Recovery Dialogs (`src/screens/SavingsScreen.tsx`, `HistoryScreen.tsx`, `GullakDepositDetailScreen.tsx`)**:
+  - Re-authored verbose cancellation and withdrawal alerts following professional UX copywriting guidelines (`clarify` skill): trimmed legalistic paragraphs down to single crisp sentences (under 15 words) with clear action buttons (`Keep` vs `Discard Switch` / `Withdraw`), eliminating cognitive fatigue while maintaining 100% financial clarity (Nielsen Heuristic 9: Error Recovery).
+- **InsightsScreen Layout Topology & Rhythm Harmonization (`src/screens/InsightsScreen.tsx`)**:
+  - Standardized the visual hierarchy across Weekly, Monthly, and Yearly tabs by removing redundant period titles (`"Till Now This Week"`, etc.) and anchoring the Flow Charts symmetrically beneath the Breathing Strip, eliminating visual jumping and cognitive re-orientation friction (Section 5 Item 3 [P2]).
+
 - **Deposit to Gullak Spring Pop & Seamless Card Gradient (`src/components/DepositGullakModal.tsx`, `DepositGullakModal.styles.ts`)**:
   - Eliminated the horizontal cut-off line and 1-frame transition blink by utilizing synchronous native vector scaling (`viewBox="0 0 100 100"`, `preserveAspectRatio="none"`, `style={StyleSheet.absoluteFill}`) without asynchronous React state delays or layout unmounts, ensuring the violet gradient instantly and smoothly spans 100% of the card frame on the initial native draw pass.
   - Set opacity floor to 0.35 (`outputRange: [0.35, 1]`) during step transitions so content never drops to pure transparent, and softened row press feedback (`activeOpacity={0.85}`).

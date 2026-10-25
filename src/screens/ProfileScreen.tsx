@@ -209,7 +209,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       if (!isOffline) {
         Alert.alert(
           'Unsynced Data',
-          `${pendingCount} entries have not synced yet. If you log out now, they will not sync until you log back in.`,
+          `${pendingCount} ${pendingCount === 1 ? 'change hasn\'t' : 'changes haven\'t'} synced yet. Logging out will pause syncing until you log back in.`,
           [
             { text: 'Cancel', style: 'cancel' },
             {
@@ -231,7 +231,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         Alert.alert(
           'Unsynced Data',
-          `${pendingCount} entries have not synced yet and you are currently offline. If you log out now, they will not sync until you log back in.`,
+          `${pendingCount} ${pendingCount === 1 ? 'change hasn\'t' : 'changes haven\'t'} synced yet and you are currently offline. Logging out will pause syncing until you log back in.`,
           [
             { text: 'Cancel', style: 'cancel' },
             {
