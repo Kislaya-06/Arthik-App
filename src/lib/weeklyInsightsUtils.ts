@@ -543,10 +543,16 @@ export function computeDayMatchedPreviousComparison(
     const prevMatchedTotal = computeWeeklySpend(expenses, categories, prevMatchedInterval, spentTotalsByDate);
 
     if (prevMatchedTotal === 0) {
+      const label = daysFromMon === 0
+        ? 'First day of the week'
+        : currentTotal === 0
+        ? 'No spending yet this week'
+        : 'No prev week data';
+
       return {
         percentageChange: null,
-        isIncrease: true,
-        trendLabel: 'First week of tracking',
+        isIncrease: currentTotal > 0,
+        trendLabel: label,
       };
     }
 

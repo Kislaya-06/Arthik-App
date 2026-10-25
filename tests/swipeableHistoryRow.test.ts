@@ -46,4 +46,15 @@ describe('SwipeableHistoryRow Physics & Snappy Architecture', () => {
     expect(componentCode).toContain('const deleteBgColor = colors.peachCoral;');
     expect(componentCode).toContain('const deleteContentColor = colors.forestGreen;');
   });
+
+  it('suppresses underlay resting opacity and avoids Android elevation leaks during tab transitions', () => {
+    // Opacity is 0 at rest (translateX = 0) and fades in during drag
+    expect(componentCode).toContain('[-12, 0]');
+    expect(componentCode).toContain('[1, 0]');
+    // deleteBtn has no Android elevation to prevent hardware composite pass leaks through foreground
+    expect(componentCode).not.toContain('elevation: 2');
+    // underlay and foreground have explicit zIndex separation
+    expect(componentCode).toContain('zIndex: 1');
+    expect(componentCode).toContain('zIndex: 2');
+  });
 });

@@ -55,6 +55,7 @@ supabase/.temp/
 .agent/
 .agents/
 .scratch/
+.impeccable/
 
 # Local-only documentation & scripts
 /CODEBASE_EXPLAINER.md

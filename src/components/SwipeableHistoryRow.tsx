@@ -164,8 +164,16 @@ export const SwipeableHistoryRow: React.FC<SwipeableHistoryRowProps> = ({
   // Dynamic underlay expansion (fills revealed space if user overswipes)
   const animatedUnderlayStyle = useAnimatedStyle(() => {
     const w = Math.max(ACTION_WIDTH, -translateX.value);
+    // Strictly zero opacity when closed/resting at 0; fades in only when finger drags left
+    const opacity = interpolate(
+      translateX.value,
+      [-12, 0],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
     return {
       width: w,
+      opacity,
     };
   });
 
@@ -267,6 +275,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingRight: 6,
     paddingLeft: 4,
+    zIndex: 1,
   },
   deleteBtn: {
     width: '100%',
@@ -274,11 +283,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
   },
   actionContent: {
     alignItems: 'center',
@@ -292,5 +296,6 @@ const styles = StyleSheet.create({
   },
   foreground: {
     width: '100%',
+    zIndex: 2,
   },
 });

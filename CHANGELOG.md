@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **HistoryScreen Swipe-to-Delete Underlay Ghosting Fix (`SwipeableHistoryRow.tsx`)**:
+  - Eliminated the brief orange button flash/blink observed during tab transitions (Home ↔ History / Insights) by clamping the underlay's resting opacity to 0% when closed (`[-12, 0] -> [1, 0]`) and removing Android hardware `elevation: 2` and drop-shadows from the background delete button.
+  - Added explicit stacking context (`zIndex: 1` on underlay, `zIndex: 2` on foreground) so the Android compositor never elevates the background delete action above the resting transaction card during screen fade transitions.
+- **Insights Screen Hero Consolidation (`InsightsScreen.tsx`, `weeklyInsightsUtils.ts`)**:
+  - Consolidated duplicate breathing strips and the separate hero card into an integrated glassmorphic 2-column dock (`Safe Daily Pace` / `Net Cash Flow` + `Auto-Saved Gullak` / `Month Share` with direct one-tap navigation to Savings).
+  - Fixed an issue where the hero trend badge displayed `"First week of tracking"` for existing users on Mondays if there was no day-matched spending base from the previous week; updated to accurately display `"First day of the week"` on Monday, or `"No spending yet this week"` / `"No prev week data"` as appropriate.
+
 ### UI/UX Polish & Financial Clarity (Phase 1 Audit Implementation) — OTA-safe
 
 - **App-Wide UX Copy & Microcopy Clarity Overhaul (`clarify` Skill Implementation)**:

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('react-native', () => ({
   Platform: { OS: 'android' },
@@ -102,6 +102,15 @@ describe('Vault Spending Guard & Zero-Spend Immediate Budget Update', () => {
   });
 
   describe('Zero-Spend Immediate Budget Update (Daily, Weekly, Monthly)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-19T10:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     function createMockState(partial: Partial<DailyBudgetState> = {}): DailyBudgetState {
       return {
         dailyBudgetAmount: 500,

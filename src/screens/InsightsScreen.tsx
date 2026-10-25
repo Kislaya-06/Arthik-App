@@ -340,113 +340,113 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               },
             ]}
           >
-          {/* Gradient Background */}
-          <View style={[StyleSheet.absoluteFill, { borderRadius: BorderRadius.cardLarge, overflow: 'hidden' }]}>
-            <Svg width="100%" height="100%">
-              <Defs>
-                <LinearGradient id="heroGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-                  <Stop offset="0%" stopColor="#F07167" />
-                  <Stop offset="100%" stopColor="#FED0A8" />
-                </LinearGradient>
-              </Defs>
-              <Rect width="100%" height="100%" fill="url(#heroGradient)" />
-            </Svg>
-          </View>
+            {/* Gradient Background */}
+            <View style={[StyleSheet.absoluteFill, { borderRadius: BorderRadius.cardLarge, overflow: 'hidden' }]}>
+              <Svg width="100%" height="100%">
+                <Defs>
+                  <LinearGradient id="heroGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <Stop offset="0%" stopColor="#F07167" />
+                    <Stop offset="100%" stopColor="#FED0A8" />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#heroGradient)" />
+              </Svg>
+            </View>
 
-          {/* Decorative background circles */}
-          <View style={[styles.heroCircle1, { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]} />
-          <View style={[styles.heroCircle2, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
+            {/* Decorative background circles */}
+            <View style={[styles.heroCircle1, { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]} />
+            <View style={[styles.heroCircle2, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
 
-          <Text
-            style={styles.heroLabel}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.85}
-          >
-            {periodLabel}
-          </Text>
+            <Text
+              style={styles.heroLabel}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              {periodLabel}
+            </Text>
 
-          <View style={styles.heroAmountRow}>
-            <AmountText
-              role="hero"
-              value={currentTotal}
-              color="#2D1E1E"
-              showDecimals={currentTotal % 1 !== 0}
-              rolling
+            <View style={styles.heroAmountRow}>
+              <AmountText
+                role="hero"
+                value={currentTotal}
+                color="#2D1E1E"
+                showDecimals={currentTotal % 1 !== 0}
+                rolling
+              />
+            </View>
+
+            {/* Integrated Budget Progress & Pool Context (Weekly & Monthly in Budget Mode) */}
+            {isBudgetModeEnabled && activeBudgetPool && activeBudgetPool.baseBudget > 0 && (
+              <View style={styles.heroProgressSection}>
+                <View style={styles.heroProgressTrack}>
+                  <View
+                    style={[
+                      styles.heroProgressFill,
+                      {
+                        width: `${Math.round(activeBudgetPool.progressRatio * 100)}%`,
+                        backgroundColor: activeBudgetPool.isOver ? '#D32F2F' : '#3E2723',
+                      },
+                    ]}
+                  />
+                </View>
+
+                <Text style={[styles.heroProgressText, { fontFamily: FontFamily.medium }]} numberOfLines={2}>
+                  {activeBudgetPool.statusText}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.heroComparisonRow}>
+              <View style={styles.trendBadge}>
+                {heroTrend.percentageChange !== null ? (
+                  heroTrend.isIncrease
+                    ? <TrendingUp size={12} color="#3E2723" />
+                    : <TrendingDown size={12} color="#3E2723" />
+                ) : null}
+                <Text style={[
+                  styles.trendText,
+                  { color: '#3E2723' },
+                ]}>
+                  {heroTrend.trendLabel}
+                </Text>
+              </View>
+              {period === 'Monthly' && monthlyDailyBurnPace > 0 && (
+                <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
+                  <Text style={[styles.trendText, { color: '#3E2723' }]}>
+                    ₹{monthlyDailyBurnPace}/day avg
+                  </Text>
+                </View>
+              )}
+              {period === 'Yearly' && yearlyDailyBurn > 0 && (
+                <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
+                  <Text style={[styles.trendText, { color: '#3E2723' }]}>
+                    ₹{formatAmountWithCommas(String(yearlyDailyBurn))}/day avg
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Period navigator: arrows + date label + pagination dots */}
+            <PeriodNavigator
+              key={period}
+              dateLabel={dateLabel}
+              subLabel={subLabel}
+              offset={offset}
+              minOffset={minOff}
+              dotCount={dotCount}
+              activeDotIndex={activeDotIndex}
+              hasPrevData={hasPrevData}
+              onPrev={() => {
+                setSelectedCategoryId(null);
+                setOffset((o) => Math.max(o - 1, minOff));
+              }}
+              onNext={() => {
+                setSelectedCategoryId(null);
+                setOffset((o) => Math.min(o + 1, 0));
+              }}
             />
           </View>
-
-          {/* Integrated Budget Progress & Pool Context (Weekly & Monthly in Budget Mode) */}
-          {isBudgetModeEnabled && activeBudgetPool && activeBudgetPool.baseBudget > 0 && (
-            <View style={styles.heroProgressSection}>
-              <View style={styles.heroProgressTrack}>
-                <View
-                  style={[
-                    styles.heroProgressFill,
-                    {
-                      width: `${Math.round(activeBudgetPool.progressRatio * 100)}%`,
-                      backgroundColor: activeBudgetPool.isOver ? '#D32F2F' : '#3E2723',
-                    },
-                  ]}
-                />
-              </View>
-
-              <Text style={[styles.heroProgressText, { fontFamily: FontFamily.medium }]} numberOfLines={2}>
-                {activeBudgetPool.statusText}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.heroComparisonRow}>
-            <View style={styles.trendBadge}>
-              {heroTrend.percentageChange !== null ? (
-                heroTrend.isIncrease
-                  ? <TrendingUp size={12} color="#3E2723" />
-                  : <TrendingDown size={12} color="#3E2723" />
-              ) : null}
-              <Text style={[
-                styles.trendText,
-                { color: '#3E2723' },
-              ]}>
-                {heroTrend.trendLabel}
-              </Text>
-            </View>
-            {period === 'Monthly' && monthlyDailyBurnPace > 0 && (
-              <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
-                <Text style={[styles.trendText, { color: '#3E2723' }]}>
-                  ₹{monthlyDailyBurnPace}/day avg
-                </Text>
-              </View>
-            )}
-            {period === 'Yearly' && yearlyDailyBurn > 0 && (
-              <View style={[styles.trendBadge, { backgroundColor: 'rgba(60, 35, 35, 0.06)' }]}>
-                <Text style={[styles.trendText, { color: '#3E2723' }]}>
-                  ₹{formatAmountWithCommas(String(yearlyDailyBurn))}/day avg
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Period navigator: arrows + date label + pagination dots */}
-          <PeriodNavigator
-            key={period}
-            dateLabel={dateLabel}
-            subLabel={subLabel}
-            offset={offset}
-            minOffset={minOff}
-            dotCount={dotCount}
-            activeDotIndex={activeDotIndex}
-            hasPrevData={hasPrevData}
-            onPrev={() => {
-              setSelectedCategoryId(null);
-              setOffset((o) => Math.max(o - 1, minOff));
-            }}
-            onNext={() => {
-              setSelectedCategoryId(null);
-              setOffset((o) => Math.min(o + 1, 0));
-            }}
-          />
-        </View>
         </GestureDetector>
 
         {/* ── Weekly Breathing Strip (Dual Clean Tiles) ── */}

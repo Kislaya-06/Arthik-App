@@ -261,19 +261,21 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       expect(res.trendLabel).toBe('20% vs previous Wednesday');
     });
 
-    it('returns first week label if no previous week data exists', () => {
+    it('returns first day of the week label if on Monday with no previous week data', () => {
       const expenses: ExpenseLike[] = [
         { id: 'c1', amount: 500, expense_date: '2026-09-21', category_id: 'cat-food', payment_mode: 'upi' },
       ];
+      const monday = new Date('2026-09-21T12:00:00.000Z');
       const res = computeDayMatchedPreviousComparison(
         expenses,
         mockCategories,
         weekInterval,
         prevWeekInterval,
-        0
+        0,
+        monday
       );
       expect(res.percentageChange).toBeNull();
-      expect(res.trendLabel).toBe('First week of tracking');
+      expect(res.trendLabel).toBe('First day of the week');
     });
 
     it('uses currency amount difference instead of misleading 1000%+ percentage when previous base is < ₹100', () => {
