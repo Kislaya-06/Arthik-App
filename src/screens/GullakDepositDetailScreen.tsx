@@ -49,12 +49,12 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
 
   const handleDelete = () => {
     Alert.alert(
-      'Remove Deposit',
-      `Are you sure you want to remove ${formatCurrency(deposit.amount)} from your Gullak?`,
+      'Withdraw from Gullak',
+      `Are you sure you want to withdraw ${formatCurrency(deposit.amount)} back to your spending balance?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Withdraw',
           style: 'destructive',
           onPress: () => {
             removeGullakDeposit(deposit.id);

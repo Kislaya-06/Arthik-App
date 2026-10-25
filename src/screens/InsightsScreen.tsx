@@ -706,7 +706,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={[styles.expandCategoriesText, { color: colors.mintGreen, fontFamily: FontFamily.bold }]}>
                   {showAllCategories
                     ? 'Show less'
-                    : `+ View ${bottomCategories.length} more ${bottomCategories.length === 1 ? 'category' : 'categories'}`}
+                    : `View ${bottomCategories.length} more ${bottomCategories.length === 1 ? 'category' : 'categories'}`}
                 </Text>
                 {showAllCategories ? (
                   <ChevronUp size={14} color={colors.mintGreen} />

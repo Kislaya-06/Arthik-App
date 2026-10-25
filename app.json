@@ -65,6 +65,7 @@
         "version": "2.1.0",
         "title": "Ultra-Smooth 60 FPS & Instant Cold Launch ⚡",
         "highlights": [
+          "Single-Card Gullak Deposits & UI Clarity: Redesigned Gullak Deposit flow into a single unified card with tactile 46px keypad buttons, silky spring pop transitions, seamless full-card violet gradient, and zero-blink smoothness, alongside clear withdrawal dialogs and discoverable pull-up indicators across Home and History",
           "Fluid Transitions & Layout Polish: Added silky spring gliding to onboarding pagination dots, butter-smooth 180° chevron rotation & card expansion in Ledger, gentle 180ms dissolve exit on App Lock, height/fade transitions on AutoLog Home banner, entrance animation parity in Notifications, and spring settlement with error message disclosure in Profile modals",
           "Instant Balance Readability & Fast Odometer Settle: Eliminated spinning delay on screen entry so numbers appear instantly rock-solid, and accelerated balance odometer settling to a crisp 240ms with unchanged digit stability",
           "Native 60 FPS Pull-to-History: Migrated footer countdown ring to native UI-thread Reanimated worklets, eliminating up to 240 React re-renders during gestures for a buttery-smooth swipe up to History",

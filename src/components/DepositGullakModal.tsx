@@ -61,7 +61,6 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [showExplainer, setShowExplainer] = useState(false);
-  const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isCelebrating, setIsCelebrating] = useState(false);
   const celebrationScale = useAnimatedValue(0.8);
   const celebrationOpacity = useAnimatedValue(0);
@@ -72,10 +71,11 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
     setStep(nextStep);
     if (!reduceMotion) {
       stepAnim.setValue(0);
-      Animated.timing(stepAnim, {
+      Animated.spring(stepAnim, {
         toValue: 1,
-        duration: 180,
-        easing: Easing.bezier(0.23, 1, 0.32, 1),
+        stiffness: Motion.springs.sheet.stiffness,
+        damping: Motion.springs.sheet.damping,
+        mass: Motion.springs.sheet.mass,
         useNativeDriver: true,
       }).start();
     }
@@ -237,19 +237,14 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               opacity: sheetAnim,
             },
           ]}
-          onLayout={(e) => {
-            const { width, height } = e.nativeEvent.layout;
-            if (width > 0 && height > 0 && (width !== modalSize.width || height !== modalSize.height)) {
-              setModalSize({ width, height });
-            }
-          }}
         >
           {/* Violet Gradient Backdrop matching Gullak Hero Card */}
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <Svg
-              key={`deposit_modal_${modalSize.width}_${modalSize.height}`}
-              width={modalSize.width || '100%'}
-              height={modalSize.height ? modalSize.height + 6 : '100%'}
+              width="100%"
+              height="100%"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
               style={StyleSheet.absoluteFill}
             >
               <Defs>
@@ -258,13 +253,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   <Stop offset="100%" stopColor="#581C87" />
                 </SvgLinearGradient>
               </Defs>
-              <Rect
-                x="0"
-                y="0"
-                width={modalSize.width || '100%'}
-                height={modalSize.height ? modalSize.height + 6 : '100%'}
-                fill="url(#depositModalGrad)"
-              />
+              <Rect x="0" y="0" width="100" height="100" fill="url(#depositModalGrad)" />
             </Svg>
           </View>
 
@@ -272,15 +261,30 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
             /* STEP 1: SELECT SOURCE */
             <Animated.View
               style={{
-                opacity: reduceMotion ? 1 : stepAnim,
-                transform: [{
-                  translateX: reduceMotion
-                    ? 0
-                    : stepAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [isForward ? 20 : -20, 0],
-                      }),
-                }],
+                opacity: reduceMotion
+                  ? 1
+                  : stepAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.35, 1],
+                    }),
+                transform: [
+                  {
+                    scale: reduceMotion
+                      ? 1
+                      : stepAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.98, 1],
+                        }),
+                  },
+                  {
+                    translateY: reduceMotion
+                      ? 0
+                      : stepAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [isForward ? -8 : 8, 0],
+                        }),
+                  },
+                ],
               }}
             >
               {/* Header */}
@@ -326,7 +330,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   setSource('income');
                   goToStep('amount');
                 }}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
               >
                 <GradientIconBadge size={48} color="#4CAF7D" isDark={isDark}>
                   {({ iconColor }) => <Wallet size={22} color={iconColor} strokeWidth={2.2} />}
@@ -387,7 +391,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   setSource('external');
                   goToStep('amount');
                 }}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
               >
                 <GradientIconBadge size={48} color="#3B82F6" isDark={isDark}>
                   {({ iconColor }) => <PlusCircle size={22} color={iconColor} strokeWidth={2.2} />}
@@ -449,22 +453,36 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
             /* STEP 2: ENTER AMOUNT & NOTE WITH IN-APP KEYPAD */
             <Animated.View
               style={{
-                flex: 1,
-                opacity: reduceMotion ? 1 : stepAnim,
-                transform: [{
-                  translateX: reduceMotion
-                    ? 0
-                    : stepAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [isForward ? 20 : -20, 0],
-                      }),
-                }],
+                width: '100%',
+                opacity: reduceMotion
+                  ? 1
+                  : stepAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.35, 1],
+                    }),
+                transform: [
+                  {
+                    scale: reduceMotion
+                      ? 1
+                      : stepAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.98, 1],
+                        }),
+                  },
+                  {
+                    translateY: reduceMotion
+                      ? 0
+                      : stepAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [isForward ? 8 : -8, 0],
+                        }),
+                  },
+                ],
               }}
             >
               <ScrollView
-                showsVerticalScrollIndicator={false}
                 bounces={false}
-                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
               >
                 {/* Header */}
@@ -475,252 +493,246 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                         Keyboard.dismiss();
                         goToStep('source');
                       }}
-                    hitSlop={8}
+                      hitSlop={8}
+                      style={[
+                        styles.stepBackBtn,
+                        {
+                          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                          borderColor: 'rgba(255, 255, 255, 0.2)',
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Back to source selection"
+                    >
+                      <ArrowLeft size={16} color="#FFFFFF" />
+                    </PressableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>
+                          {source === 'income' ? 'From Income' : 'Add New Money'}
+                        </Text>
+                        <MoneyHelpBadge
+                          size={18}
+                          style={{ marginLeft: Spacing.element }}
+                          onPress={() => setShowExplainer(true)}
+                        />
+                      </View>
+                      <Text style={[styles.modalSubtitle, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+                        {source === 'income'
+                          ? 'Moving tracked income into Gullak'
+                          : 'Adding external funds to Gullak'}
+                      </Text>
+                    </View>
+                  </View>
+                  <PressableOpacity
+                    onPress={onClose}
+                    hitSlop={12}
                     style={[
-                      styles.stepBackBtn,
+                      styles.closeBtn,
                       {
                         backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
                       },
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close deposit dialog"
                   >
-                    <ArrowLeft size={16} color="#FFFFFF" />
+                    <X size={18} color="#FFFFFF" />
                   </PressableOpacity>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>
-                        {source === 'income' ? 'From Income' : 'Add New Money'}
-                      </Text>
-                      <MoneyHelpBadge
-                        size={18}
-                        style={{ marginLeft: Spacing.element }}
-                        onPress={() => setShowExplainer(true)}
-                      />
-                    </View>
-                    <Text style={[styles.modalSubtitle, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-                      {source === 'income'
-                        ? 'Moving tracked income into Gullak'
-                        : 'Adding external funds to Gullak'}
-                    </Text>
-                  </View>
                 </View>
-                <PressableOpacity
-                  onPress={onClose}
-                  hitSlop={12}
-                  style={[
-                    styles.closeBtn,
-                    {
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    },
-                  ]}
-                >
-                  <X size={18} color="#FFFFFF" />
-                </PressableOpacity>
-              </View>
 
-              {/* Source Info / Limit Banner */}
-              <View
-                style={[
-                  styles.infoBanner,
-                  {
-                    backgroundColor: isExceedingIncome
-                      ? 'rgba(239, 68, 68, 0.25)'
-                      : 'rgba(255, 255, 255, 0.12)',
-                    borderColor: isExceedingIncome
-                      ? '#EF4444'
-                      : 'rgba(255, 255, 255, 0.2)',
-                    borderWidth: 1,
-                  },
-                ]}
-              >
-                <Text
+                {/* Source Info / Limit Banner */}
+                <View
                   style={[
-                    styles.infoBannerText,
+                    styles.infoBanner,
                     {
-                      color: isExceedingIncome
-                        ? '#FCA5A5'
-                        : '#FFFFFF',
+                      backgroundColor: isExceedingIncome
+                        ? 'rgba(239, 68, 68, 0.25)'
+                        : 'rgba(255, 255, 255, 0.12)',
+                      borderColor: isExceedingIncome
+                        ? '#EF4444'
+                        : 'rgba(255, 255, 255, 0.2)',
+                      borderWidth: 1,
                     },
                   ]}
                 >
-                  {source === 'income'
-                    ? (isExceedingIncome
-                        ? `Amount exceeds available income (${formatCurrency(availableIncome)})`
-                        : `Available income to deposit: ${formatCurrency(availableIncome)}`)
-                    : 'This deposit will also increase your available balance.'}
-                </Text>
-              </View>
-
-              {/* Amount Display */}
-              <PressableOpacity
-                activeOpacity={0.8}
-                onPress={() => Keyboard.dismiss()}
-                style={[
-                  styles.modalInputRow,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                    borderColor: isExceedingIncome ? '#EF4444' : 'rgba(255, 255, 255, 0.2)',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.modalCurrencySign,
-                    {
-                      color: isExceedingIncome
-                        ? '#FCA5A5'
-                        : '#ADEBB3',
-                    },
-                  ]}
-                >
-                  ₹
-                </Text>
-                <View style={styles.amountDisplayWrap}>
-                  {hasOperator && (
-                    <Text
-                      numberOfLines={1}
-                      ellipsizeMode="head"
-                      style={[styles.expressionSubText, { color: 'rgba(255, 255, 255, 0.75)' }]}
-                    >
-                      {formattedExpression}
-                    </Text>
-                  )}
                   <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
                     style={[
-                      styles.modalAmountText,
+                      styles.infoBannerText,
                       {
-                        color: isDivisionByZero
-                          ? '#FCA5A5'
-                          : isExceedingIncome
+                        color: isExceedingIncome
                           ? '#FCA5A5'
                           : '#FFFFFF',
                       },
                     ]}
                   >
-                    {isDivisionByZero
-                      ? '—'
-                      : hasOperator
-                      ? formatAmountWithCommas(evaluatedAmount.toString()) || '0'
-                      : formatAmountWithCommas(amount) || '0'}
+                    {source === 'income'
+                      ? (isExceedingIncome
+                          ? `Amount exceeds available income (${formatCurrency(availableIncome)})`
+                          : `Available income to deposit: ${formatCurrency(availableIncome)}`)
+                      : 'This deposit will also increase your available balance.'}
                   </Text>
                 </View>
-              </PressableOpacity>
 
-              {/* Preset Quick Chips */}
-              <View style={styles.presetsRow}>
-                {PRESET_AMOUNTS.map((preset) => (
-                  <PressableOpacity
-                    key={preset}
-                    onPress={() => handleChipPress(preset)}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.presetChip,
-                      {
-                        backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.presetChipText, { color: '#FFFFFF' }]}>
-                      +₹{preset >= 1000 ? `${preset / 1000}k` : preset}
-                    </Text>
-                  </PressableOpacity>
-                ))}
-                {source === 'income' && availableIncome > 0 && (
-                  <PressableOpacity
-                    onPress={handleMaxIncomePress}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.presetChip,
-                      {
-                        backgroundColor: 'rgba(173, 235, 179, 0.2)',
-                        borderColor: 'rgba(173, 235, 179, 0.45)',
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.presetChipText, { color: '#ADEBB3' }]}>
-                      Max
-                    </Text>
-                  </PressableOpacity>
-                )}
-              </View>
-
-              {/* Note Input */}
-              <TextInput
-                style={[
-                  styles.noteInput,
-                  {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                    color: '#FFFFFF',
-                  },
-                ]}
-                value={note}
-                onChangeText={setNote}
-                placeholder="Note (e.g. Festival gift, Cash savings)"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                maxLength={50}
-              />
-
-              {/* In-App Custom Keypad */}
-              <KeypadGrid
-                onKeyPress={handleKeyPress}
-                hasOperators
-                buttonHeight={46}
-                fontSize={20}
-                style={{ marginBottom: Spacing.block }}
-              />
-
-              {/* Actions */}
-              <View style={styles.modalActionRow}>
+                {/* Amount Display */}
                 <PressableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => Keyboard.dismiss()}
                   style={[
-                    styles.modalCancelBtn,
+                    styles.modalInputRow,
+                    {
+                      backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                      borderColor: isExceedingIncome ? '#EF4444' : 'rgba(255, 255, 255, 0.2)',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modalCurrencySign,
+                      {
+                        color: isExceedingIncome
+                          ? '#FCA5A5'
+                          : '#ADEBB3',
+                      },
+                    ]}
+                  >
+                    ₹
+                  </Text>
+                  <View style={styles.amountDisplayWrap}>
+                    {hasOperator && (
+                      <Text
+                        numberOfLines={1}
+                        ellipsizeMode="head"
+                        style={[styles.expressionSubText, { color: 'rgba(255, 255, 255, 0.75)' }]}
+                      >
+                        {formattedExpression}
+                      </Text>
+                    )}
+                    <Text
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      style={[
+                        styles.modalAmountText,
+                        {
+                          color: isDivisionByZero
+                            ? '#FCA5A5'
+                            : isExceedingIncome
+                            ? '#FCA5A5'
+                            : '#FFFFFF',
+                        },
+                      ]}
+                    >
+                      {isDivisionByZero
+                        ? '—'
+                        : hasOperator
+                        ? formatAmountWithCommas(evaluatedAmount.toString()) || '0'
+                        : formatAmountWithCommas(amount) || '0'}
+                    </Text>
+                  </View>
+                </PressableOpacity>
+
+                {/* Preset Quick Chips */}
+                <View style={styles.presetsRow}>
+                  {PRESET_AMOUNTS.map((preset) => (
+                    <PressableOpacity
+                      key={preset}
+                      onPress={() => handleChipPress(preset)}
+                      activeOpacity={0.7}
+                      style={[
+                        styles.presetChip,
+                        {
+                          backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                          borderColor: 'rgba(255, 255, 255, 0.2)',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.presetChipText, { color: '#FFFFFF' }]}>
+                        +₹{preset >= 1000 ? `${preset / 1000}k` : preset}
+                      </Text>
+                    </PressableOpacity>
+                  ))}
+                  {source === 'income' && availableIncome > 0 && (
+                    <PressableOpacity
+                      onPress={handleMaxIncomePress}
+                      activeOpacity={0.7}
+                      style={[
+                        styles.presetChip,
+                        {
+                          backgroundColor: 'rgba(173, 235, 179, 0.2)',
+                          borderColor: 'rgba(173, 235, 179, 0.45)',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.presetChipText, { color: '#ADEBB3' }]}>
+                        Max
+                      </Text>
+                    </PressableOpacity>
+                  )}
+                </View>
+
+                {/* Note Input */}
+                <TextInput
+                  style={[
+                    styles.noteInput,
                     {
                       backgroundColor: 'rgba(255, 255, 255, 0.12)',
                       borderColor: 'rgba(255, 255, 255, 0.2)',
+                      color: '#FFFFFF',
                     },
                   ]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    goToStep('source');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.modalCancelText, { color: '#FFFFFF' }]}>
-                    Back
-                  </Text>
-                </PressableOpacity>
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="Note (e.g. Festival gift, Cash savings)"
+                  placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                  maxLength={50}
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
 
+                {/* In-App Custom Keypad */}
+                <KeypadGrid
+                  onKeyPress={handleKeyPress}
+                  hasOperators
+                  buttonHeight={46}
+                  fontSize={20}
+                  gap={6}
+                  style={{ marginBottom: Spacing.surface }}
+                />
+
+                {/* Single Full-Width Primary Action */}
                 <PressableOpacity
                   style={[
-                    styles.modalSaveBtn,
+                    styles.fullWidthSaveBtn,
                     {
-                      backgroundColor: isValidAmount ? '#FFFFFF' : 'rgba(255, 255, 255, 0.12)',
-                      borderColor: isValidAmount ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)',
-                      opacity: isValidAmount ? 1 : 0.5,
+                      backgroundColor: isValidAmount ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)',
+                      borderColor: isValidAmount ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)',
+                      opacity: isValidAmount ? 1 : 0.6,
                     },
                   ]}
                   onPress={handleDeposit}
                   disabled={!isValidAmount}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isValidAmount
+                      ? `Deposit ${formatCurrency(evaluatedAmount)} to Gullak`
+                      : 'Deposit to Gullak'
+                  }
                 >
-                  <Check size={18} color={isValidAmount ? '#5B21B6' : 'rgba(255, 255, 255, 0.4)'} />
+                  <Check size={18} color={isValidAmount ? '#581C87' : 'rgba(255, 255, 255, 0.4)'} />
                   <Text
                     style={[
-                      styles.modalSaveText,
-                      { color: isValidAmount ? '#5B21B6' : 'rgba(255, 255, 255, 0.4)' },
+                      styles.fullWidthSaveText,
+                      { color: isValidAmount ? '#581C87' : 'rgba(255, 255, 255, 0.4)' },
                     ]}
                   >
-                    Deposit
+                    {isValidAmount
+                      ? `Deposit ${formatCurrency(evaluatedAmount)}`
+                      : 'Deposit to Gullak'}
                   </Text>
                 </PressableOpacity>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        )}
+              </ScrollView>
+            </Animated.View>
+          )}
 
           {/* ── Celebration Overlay (Coin Drop & Piggy Bounce) ── */}
           {isCelebrating && (
@@ -737,14 +749,20 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
               pointerEvents="auto"
             >
               <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                <Svg width="100%" height="100%">
+                <Svg
+                  width="100%"
+                  height="100%"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  style={StyleSheet.absoluteFill}
+                >
                   <Defs>
                     <SvgLinearGradient id="celebModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                       <Stop offset="0%" stopColor="#8B5CF6" />
                       <Stop offset="100%" stopColor="#581C87" />
                     </SvgLinearGradient>
                   </Defs>
-                  <Rect width="100%" height="100%" fill="url(#celebModalGrad)" />
+                  <Rect x="0" y="0" width="100" height="100" fill="url(#celebModalGrad)" />
                 </Svg>
               </View>
               <View style={[styles.celebrationCircle, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>

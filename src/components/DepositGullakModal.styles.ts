@@ -1,5 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 
 export const styles = StyleSheet.create({
   modalOverlay: {
@@ -14,7 +14,7 @@ export const styles = StyleSheet.create({
     maxWidth: 420,
     maxHeight: '92%',
     borderRadius: BorderRadius.cardLarge,
-    padding: Spacing.surface,
+    padding: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -65,8 +65,8 @@ export const styles = StyleSheet.create({
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.block,
+    alignItems: 'center',
+    marginBottom: Spacing.group,
   },
   titleWithIcon: {
     flexDirection: 'row',
@@ -87,9 +87,10 @@ export const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   modalSubtitle: {
-    fontSize: FontSize.bodySmall,
+    fontSize: 13,
     fontFamily: FontFamily.medium,
-    marginTop: Spacing.nano,
+    lineHeight: 18,
+    marginTop: 2,
   },
   closeBtn: {
     width: 32,
@@ -143,23 +144,24 @@ export const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   fullWidthCancelBtn: {
-    height: 50,
+    height: 52,
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.surface,
+    marginTop: Spacing.block,
   },
   infoBanner: {
     borderRadius: BorderRadius.input,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.element + 2,
-    marginBottom: Spacing.element + 2,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: Spacing.group,
   },
   infoBannerText: {
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.medium,
     textAlign: 'center',
+    lineHeight: 18,
   },
   modalInputRow: {
     flexDirection: 'row',
@@ -167,11 +169,11 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.block,
-    height: ControlHeight.row,
-    marginBottom: Spacing.element,
+    height: 52,
+    marginBottom: Spacing.element + 2,
   },
   modalCurrencySign: {
-    fontSize: FontSize.cta,
+    fontSize: 24,
     fontFamily: FontFamily.bold,
     marginRight: Spacing.micro,
   },
@@ -185,13 +187,13 @@ export const styles = StyleSheet.create({
     marginBottom: 1,
   },
   modalAmountText: {
-    fontSize: FontSize.cta,
+    fontSize: 28,
     fontFamily: FontFamily.bold,
   },
   presetsRow: {
     flexDirection: 'row',
-    gap: Spacing.micro,
-    marginBottom: Spacing.element,
+    gap: 6,
+    marginBottom: Spacing.element + 2,
   },
   presetChip: {
     flex: 1,
@@ -202,17 +204,30 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   presetChipText: {
-    fontSize: FontSize.bodySmall,
+    fontSize: 13,
     fontFamily: FontFamily.bold,
   },
   noteInput: {
     borderWidth: 1,
     borderRadius: BorderRadius.input,
-    paddingHorizontal: Spacing.block,
+    paddingHorizontal: 16,
     height: 44,
-    fontSize: FontSize.bodySmall,
+    fontSize: 14,
     fontFamily: FontFamily.medium,
-    marginBottom: Spacing.element + 2,
+    marginBottom: Spacing.group,
+  },
+  fullWidthSaveBtn: {
+    height: 52,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  fullWidthSaveText: {
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
   },
   modalActionRow: {
     flexDirection: 'row',

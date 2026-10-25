@@ -27,6 +27,7 @@ import Receipt from 'lucide-react-native/icons/receipt';
 import SearchX from 'lucide-react-native/icons/search-x';
 import FilterX from 'lucide-react-native/icons/funnel-x';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
+import X from 'lucide-react-native/icons/x';
 import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format } from 'date-fns/format';
 import { isToday } from 'date-fns/isToday';
@@ -152,6 +153,10 @@ interface EmptyStateViewProps {
   isReady: boolean;
   colors: ThemeColors;
   reduceMotion: boolean;
+  actionButton?: {
+    label: string;
+    onPress: () => void;
+  };
 }
 
 const EmptyStateView: React.FC<EmptyStateViewProps> = React.memo(({
@@ -162,6 +167,7 @@ const EmptyStateView: React.FC<EmptyStateViewProps> = React.memo(({
   isReady,
   colors,
   reduceMotion,
+  actionButton,
 }) => {
   const anim = useSharedValue(0);
 
@@ -191,6 +197,18 @@ const EmptyStateView: React.FC<EmptyStateViewProps> = React.memo(({
       </View>
       <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{title}</Text>
       <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>{subtitle}</Text>
+      {actionButton && (
+        <PressableOpacity
+          onPress={actionButton.onPress}
+          style={[styles.emptyActionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+          accessibilityRole="button"
+          accessibilityLabel={actionButton.label}
+        >
+          <Text style={[styles.emptyActionText, { color: colors.mintGreen, fontFamily: FontFamily.semibold }]}>
+            {actionButton.label}
+          </Text>
+        </PressableOpacity>
+      )}
     </Animated.View>
   );
 });
@@ -710,16 +728,25 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     let IconComponent = Receipt;
     let title = 'No transactions yet';
     let subtitle = 'Your expenses will appear here once you add them.';
+    let actionButton: { label: string; onPress: () => void } | undefined = undefined;
 
     if (debouncedQuery.trim()) {
       IconComponent = SearchX;
-      title = 'No results found';
-      subtitle = 'Try adjusting your search to find what you are looking for.';
+      title = 'No matching transactions';
+      subtitle = `We couldn't find any expenses matching "${debouncedQuery.trim()}". Check spelling or clear your search.`;
+      actionButton = {
+        label: 'Clear Search',
+        onPress: () => setSearchQuery(''),
+      };
     } else if (selectedCategoryId) {
       const catName = categoryMap.get(selectedCategoryId)?.name || 'this category';
       IconComponent = FilterX;
       title = 'No expenses found';
       subtitle = `There are no expenses in the ${catName} category yet. They will appear here once you add them!`;
+      actionButton = {
+        label: 'Show All Categories',
+        onPress: () => setSelectedCategoryId(null),
+      };
     }
 
     return (
@@ -731,6 +758,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         isReady={listHeight > 0}
         colors={colors}
         reduceMotion={reduceMotion}
+        actionButton={actionButton}
       />
     );
   }, [debouncedQuery, selectedCategoryId, categoryMap, colors, listHeight, navBarInset, reduceMotion]);
@@ -771,6 +799,17 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
                   onChangeText={setSearchQuery}
                   autoFocus={isSearchVisible}
                 />
+                {searchQuery.length > 0 && (
+                  <Pressable
+                    onPress={() => setSearchQuery('')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear search text"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.searchClearBtn}
+                  >
+                    <X size={16} color={colors.textSecondary} />
+                  </Pressable>
+                )}
               </View>
             </Animated.View>
           </Animated.View>
@@ -916,6 +955,25 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.bodySmall,
     fontFamily: FontFamily.medium,
     textAlign: 'center',
+  },
+  emptyActionButton: {
+    marginTop: Spacing.block,
+    paddingVertical: Spacing.element,
+    paddingHorizontal: Spacing.surface,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyActionText: {
+    fontSize: FontSize.bodySmall,
+    lineHeight: LineHeight.bodySmall,
+  },
+  searchClearBtn: {
+    padding: Spacing.micro,
+    marginLeft: Spacing.micro,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   seeMoreBtn: {
     flexDirection: 'row',

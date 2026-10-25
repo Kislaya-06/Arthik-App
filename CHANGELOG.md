@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### UI/UX Polish & Financial Clarity (Phase 1 Audit Implementation) — OTA-safe
+
+- **Deposit to Gullak Spring Pop & Seamless Card Gradient (`src/components/DepositGullakModal.tsx`, `DepositGullakModal.styles.ts`)**:
+  - Eliminated the horizontal cut-off line and 1-frame transition blink by utilizing synchronous native vector scaling (`viewBox="0 0 100 100"`, `preserveAspectRatio="none"`, `style={StyleSheet.absoluteFill}`) without asynchronous React state delays or layout unmounts, ensuring the violet gradient instantly and smoothly spans 100% of the card frame on the initial native draw pass.
+  - Set opacity floor to 0.35 (`outputRange: [0.35, 1]`) during step transitions so content never drops to pure transparent, and softened row press feedback (`activeOpacity={0.85}`).
+  - Replaced horizontal sliding transform (`translateX`) and `LayoutAnimation` with unified native spring pop physics (`Motion.springs.sheet`, scale `0.98 -> 1.0` and translateY `8 -> 0`), completely eliminating jitter when navigating to amount or tapping Back.
+  - Aligned card and keypad sizing directly with Daily Allowance's `BudgetEditModal`: 46px tactile keypad buttons (`buttonHeight={46}`, `fontSize={20}`, `gap={6}`), 52px amount row (`fontSize: 28`), 44px note input, 52px full-width save button, and 20px card padding.
+  - Embedded non-blocking `<ScrollView>` for safe rendering across varying device heights with zero internal scrolling on standard viewports.
+
+- **HomeScreen Accessibility & Navigation Affordance (`src/screens/HomeScreen.tsx`)**:
+  - Added TalkBack `accessibilityRole="button"` and context-rich `accessibilityLabel` attributes to Notifications (`"Notifications, X unread"`) and Profile (`"Profile and settings"`) action buttons.
+  - Added visible discoverability pill button in Recent Transactions header (`Swipe up or tap →`) that navigates directly to History while teaching users the pull-up gesture.
+  - Clarified hero hint microcopy from `"Tap the card for details"` to `"Tap card to see full budget breakdown"`, and clarified empty transactions state.
+- **BrandedHeroCard Daily Target Microcopy (`src/components/BrandedHeroCard.tsx`)**:
+  - Replaced ambiguous athletic jargon `"suggested pace"` with precise financial microcopy `"daily target"` (`"Daily target: ~₹X/day to stay on track"`).
+- **HistoryScreen Search UX & Empty State Recovery (`src/screens/HistoryScreen.tsx`)**:
+  - Added one-tap clear (`X`) button inside search container when query is entered.
+  - Upgraded empty search & category filter states with actionable one-tap recovery buttons (`"Clear Search"`, `"Show All Categories"`).
+- **SavingsScreen & Gullak Deposit Withdrawal Dialogs (`src/screens/SavingsScreen.tsx`, `src/screens/GullakDepositDetailScreen.tsx`, `src/components/savings/SavingsHistorySection.tsx`)**:
+  - Clarified deposit removal dialogs to `"Withdraw from Gullak"` with explicit outcome confirmation: `"Are you sure you want to withdraw ₹X back to your spending balance?"`.
+  - Clarified scheduled plan switch cancellation from double-negative alert to clear discard prompt.
+  - Enhanced `"See More"` button in Savings History to show remaining record count (`"See More (X more)"`) with accessible label.
+- **InsightsScreen Categories Expansion (`src/screens/InsightsScreen.tsx`)**:
+  - Cleaned up redundant `+` in category expansion toggle (`"View X more categories"`).
+
 ### Performance & Motion: Plans 001–006 Fluid Transitions & Layout Polish — OTA-safe
 
 - **Plan 001: Onboarding Carousel Dot Spring Glide (`src/screens/OnboardingScreen.tsx`)**:

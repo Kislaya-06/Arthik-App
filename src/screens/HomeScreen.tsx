@@ -19,6 +19,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Bell from 'lucide-react-native/icons/bell';
 import User from 'lucide-react-native/icons/user';
 import Users from 'lucide-react-native/icons/users';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { hasUnsettledSplitExpenses } from '../lib/splitLedger';
 import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
@@ -736,7 +737,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleNavigateLedger}
               accessibilityRole="button"
-              accessibilityLabel="Ledger"
+              accessibilityLabel={hasUnsettledSplits ? "Split ledger, unsettled expenses" : "Split ledger"}
             >
               <Users size={20} color={colors.textPrimary} />
               {hasUnsettledSplits && <View style={styles.badgeDot} />}
@@ -744,6 +745,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Pressable
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleNavigateNotifications}
+              accessibilityRole="button"
+              accessibilityLabel={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
             >
               <Bell size={20} color={colors.textPrimary} />
               {unreadCount > 0 && <View style={styles.badgeDot} />}
@@ -751,6 +754,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Pressable
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleNavigateProfile}
+              accessibilityRole="button"
+              accessibilityLabel="Profile and settings"
             >
               <User size={20} color={colors.textPrimary} />
             </Pressable>
@@ -799,7 +804,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           onOpenDetails={isBudgetModeEnabled ? handleOpenHeroDetails : undefined}
         />
         {isBudgetModeEnabled ? (
-          <Text style={[styles.heroHint, { color: colors.textMuted }]}>Tap the card for details</Text>
+          <Text style={[styles.heroHint, { color: colors.textMuted }]}>Tap card to see full budget breakdown</Text>
         ) : null}
 
         {/* Automatic Logging: only visible when something needs review/attention */}
@@ -808,6 +813,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         {/* ── Recent Transactions Header (Anchored Boundary / Viewport Entrance) ── */}
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Transactions</Text>
+          {recentTx.length > 0 && (
+            <PressableOpacity
+              onPress={handleCommitToHistory}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="View full transaction history"
+              style={styles.historyAffordanceBtn}
+            >
+              <Text style={[styles.historyAffordanceText, { color: colors.mintGreen, fontFamily: FontFamily.semibold }]}>
+                Swipe up or tap
+              </Text>
+              <ChevronRight size={13} color={colors.mintGreen} style={{ marginLeft: 2 }} />
+            </PressableOpacity>
+          )}
         </View>
         <View
           style={[
@@ -828,7 +847,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         >
           {recentTx.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No transactions yet — tap + to add one!</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No expenses today. Tap + below to add your first expense.</Text>
             </View>
           ) : (
             <View style={styles.recentTxViewport}>
@@ -1020,6 +1039,17 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.titleMedium,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
+  },
+  historyAffordanceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  historyAffordanceText: {
+    fontSize: FontSize.caption,
+    lineHeight: LineHeight.caption,
+    fontFamily: FontFamily.semibold,
   },
   viewportSlotLine: {
     height: StyleSheet.hairlineWidth,

@@ -104,9 +104,11 @@ export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = React
               ]}
               onPress={onSeeMore}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Show ${unifiedList.length - visibleUnifiedList.length} more records`}
             >
               <Text style={[styles.seeMoreText, { color: colors.textPrimary }]}>
-                See More
+                {`See More (${unifiedList.length - visibleUnifiedList.length} more)`}
               </Text>
               <ChevronDown size={16} color={colors.textSecondary} />
             </PressableOpacity>

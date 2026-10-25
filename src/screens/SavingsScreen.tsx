@@ -135,14 +135,14 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
   const handleCancelPendingPlan = useCallback(() => {
     Alert.alert(
-      'Cancel Scheduled Switch?',
+      'Discard Scheduled Switch?',
       pendingPlanChange?.isEnabled
-        ? 'Do you want to stay in Pure Mode and cancel activating Smart Budget & Gullak tomorrow?'
-        : 'Do you want to keep Smart Budget & Gullak and cancel switching to Pure Mode tomorrow?',
+        ? 'Do you want to stay in Pure Mode and discard the scheduled activation of Smart Budget & Gullak?'
+        : 'Do you want to keep Smart Budget & Gullak active and discard the scheduled switch to Pure Mode?',
       [
         { text: 'Keep Scheduled', style: 'cancel' },
         {
-          text: 'Cancel Switch',
+          text: 'Discard Switch',
           style: 'destructive',
           onPress: () => cancelPendingPlanChange(),
         },
@@ -152,12 +152,12 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
   const handleDeleteDeposit = useCallback((id: string, amount: number) => {
     Alert.alert(
-      'Remove Deposit',
-      `Are you sure you want to remove ${formatCurrency(amount)} from your Gullak?`,
+      'Withdraw from Gullak',
+      `Are you sure you want to withdraw ${formatCurrency(amount)} back to your spending balance?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Withdraw',
           style: 'destructive',
           onPress: () => removeGullakDeposit(id),
         },

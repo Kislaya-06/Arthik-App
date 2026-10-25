@@ -258,7 +258,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
             ? `Weekly budget exceeded by ₹${formatAmountWithCommas(String(cadencePeriodSummary.overBy))}`
-            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} suggested pace`;
+            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} daily target`;
         }
         if (activeFilter === 'Monthly') {
           return `Based on ₹${formatAmountWithCommas(String(cadencePeriodSummary.budget))}/wk pace for calendar month`;
@@ -273,7 +273,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
             ? `Monthly budget exceeded by ₹${formatAmountWithCommas(String(cadencePeriodSummary.overBy))}`
-            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} suggested pace`;
+            : `of ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))} daily target`;
         }
       }
     }
@@ -306,8 +306,8 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
         }
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
-            ? `Weekly budget exceeded · 0 daily pace remaining`
-            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day`;
+            ? `Weekly budget exceeded · 0 daily target remaining`
+            : `Daily target: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day to stay on track`;
         }
         if (activeFilter === 'Monthly') {
           return `Weekly budget active · ${cadencePeriodSummary.remainingDays} days left this week`;
@@ -317,12 +317,12 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
           return formatCadenceRolloverStrip(cadencePeriodSummary, 'monthly');
         }
         if (activeFilter === 'Weekly') {
-          return `${cadencePeriodSummary.remainingDays} days left in month · ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day pace`;
+          return `${cadencePeriodSummary.remainingDays} days left in month · ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day target`;
         }
         if (activeFilter === 'Daily') {
           return cadencePeriodSummary.isOver
-            ? `Monthly budget exceeded · 0 daily pace remaining`
-            : `Suggested daily pace: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day`;
+            ? `Monthly budget exceeded · 0 daily target remaining`
+            : `Daily target: ~₹${formatAmountWithCommas(String(cadencePeriodSummary.suggestedDailyPace))}/day to stay on track`;
         }
       }
       return formatCadenceRolloverStrip(cadencePeriodSummary, budgetCadence);
