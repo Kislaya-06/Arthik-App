@@ -1,5 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, AppState } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing as REasing,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { StatusBar } from 'expo-status-bar';
 import Lock from 'lucide-react-native/icons/lock';
 import FingerprintPattern from 'lucide-react-native/icons/fingerprint-pattern';
@@ -7,15 +14,46 @@ import { useTheme } from '../store/themeStore';
 import { useAppLockStore } from '../store/appLockStore';
 import { useAuthStore } from '../store/authStore';
 import { navigationRef } from '../navigation/navigationRef';
-import { Spacing, FontSize, FontFamily } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
+import { Spacing, FontSize, FontFamily, Motion } from '../config/theme';
 
 export const AppLockOverlay: React.FC = () => {
   const { colors, isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
   const isAuthenticating = useAppLockStore((s) => s.isAuthenticating);
   const isAppLockEnabled = useAppLockStore((s) => s.isAppLockEnabled);
   const isLocked = useAppLockStore((s) => s.isLocked);
   const user = useAuthStore((s) => s.user);
   const authenticate = useAppLockStore((s) => s.authenticate);
+
+  const [shouldRender, setShouldRender] = useState(isLocked);
+  const opacityVal = useSharedValue(1);
+  const scaleVal = useSharedValue(1);
+
+  useEffect(() => {
+    if (isLocked) {
+      setShouldRender(true);
+      opacityVal.value = 1;
+      scaleVal.value = 1;
+    } else if (shouldRender) {
+      if (reduceMotion) {
+        setShouldRender(false);
+        return;
+      }
+      opacityVal.value = withTiming(0, {
+        duration: Motion.duration.snappy,
+        easing: REasing.bezier(0.23, 1, 0.32, 1),
+      }, (finished) => {
+        if (finished) {
+          scheduleOnRN(setShouldRender, false);
+        }
+      });
+      scaleVal.value = withTiming(1.03, {
+        duration: Motion.duration.snappy,
+        easing: REasing.bezier(0.23, 1, 0.32, 1),
+      });
+    }
+  }, [isLocked, shouldRender, reduceMotion, opacityVal, scaleVal]);
 
   useEffect(() => {
     // Only auto-trigger biometric prompt on appearance if app is in active foreground state
@@ -29,7 +67,7 @@ export const AppLockOverlay: React.FC = () => {
     }
   }, [authenticate, isLocked]);
 
-  if (!user || !isAppLockEnabled || !isLocked) {
+  if (!user || !isAppLockEnabled || !shouldRender) {
     return null;
   }
 
@@ -38,8 +76,20 @@ export const AppLockOverlay: React.FC = () => {
     return null;
   }
 
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    opacity: opacityVal.value,
+    transform: [{ scale: scaleVal.value }],
+  }));
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <Animated.View
+      pointerEvents={isLocked ? 'auto' : 'none'}
+      style={[
+        styles.container,
+        { backgroundColor: colors.background },
+        animatedContainerStyle,
+      ]}
+    >
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.content}>
@@ -92,7 +142,7 @@ export const AppLockOverlay: React.FC = () => {
           </Text>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 

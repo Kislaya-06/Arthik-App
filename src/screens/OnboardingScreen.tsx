@@ -1,12 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions, FlatList } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, Motion } from '../config/theme';
 import { useTheme } from '../store/themeStore';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import IndianRupee from 'lucide-react-native/icons/indian-rupee';
 import Sparkles from 'lucide-react-native/icons/sparkles';
 import Check from 'lucide-react-native/icons/check';
@@ -178,9 +184,47 @@ const Slide2Combined = ({ colors }: { colors: ThemeColors }) => (
   </View>
 );
 
+const OnboardingPaginationDot: React.FC<{
+  isActive: boolean;
+  activeColor: string;
+  inactiveColor: string;
+  reduceMotion: boolean;
+}> = React.memo(({ isActive, activeColor, inactiveColor, reduceMotion }) => {
+  const targetWidth = isActive ? 28 : 8;
+  const targetOpacity = isActive ? 1.0 : 0.4;
+  const widthVal = useSharedValue(targetWidth);
+  const opacityVal = useSharedValue(targetOpacity);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      widthVal.value = targetWidth;
+      opacityVal.value = targetOpacity;
+      return;
+    }
+    widthVal.value = withSpring(targetWidth, Motion.springs.settle);
+    opacityVal.value = withSpring(targetOpacity, Motion.springs.settle);
+  }, [isActive, targetWidth, targetOpacity, reduceMotion, widthVal, opacityVal]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    width: widthVal.value,
+    opacity: opacityVal.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.dotBase,
+        { backgroundColor: isActive ? activeColor : inactiveColor },
+        animatedStyle,
+      ]}
+    />
+  );
+});
+
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const { colors, isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
 
   const flatListRef = useRef<FlatList>(null);
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
@@ -276,27 +320,19 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.block }]}>
         {/* Pagination indicators */}
         <View style={styles.paginationRow}>
-          {slides.map((_, index) => {
-            const isActive = index === currentIndex;
-            return (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  isActive
-                    ? [styles.activeDot, { backgroundColor: colors.mint }]
-                    : [
-                        styles.inactiveDot,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(255, 255, 255, 0.35)'
-                            : 'rgba(26, 43, 76, 0.22)',
-                        },
-                      ],
-                ]}
-              />
-            );
-          })}
+          {slides.map((_, index) => (
+            <OnboardingPaginationDot
+              key={index}
+              isActive={index === currentIndex}
+              activeColor={colors.mint}
+              inactiveColor={
+                isDark
+                  ? 'rgba(255, 255, 255, 0.35)'
+                  : 'rgba(26, 43, 76, 0.22)'
+              }
+              reduceMotion={reduceMotion}
+            />
+          ))}
         </View>
 
         {/* CTA Action Button */}
@@ -372,18 +408,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: Spacing.section,
   },
-  dot: {
+  dotBase: {
+    height: 8,
+    borderRadius: 4,
     marginHorizontal: 5,
-  },
-  activeDot: {
-    width: 28,
-    height: 8,
-    borderRadius: 4,
-  },
-  inactiveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
   button: {
     width: '100%',

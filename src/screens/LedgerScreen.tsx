@@ -4,24 +4,61 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
-import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import Users from 'lucide-react-native/icons/users';
 import Check from 'lucide-react-native/icons/check';
 import CheckCheck from 'lucide-react-native/icons/check-check';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Easing as REasing,
+  LinearTransition,
+  FadeIn,
+  FadeOut,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { RootStackParamList } from '../types';
 import { useTheme } from '../store/themeStore';
 import { useExpenseStore } from '../store/expenseStore';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { buildPersonSummaries, type LedgerSplitLine, type PersonSummary } from '../lib/splitLedger';
 import { formatCurrency, round2 } from '../lib/formatters';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { SettleExpenseSheet, type SettleExpenseTarget } from '../components/split/SettleExpenseSheet';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, Motion } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Ledger'>;
+
+const ChevronRotator: React.FC<{ isOpen: boolean; color: string; reduceMotion: boolean }> = React.memo(
+  ({ isOpen, color, reduceMotion }) => {
+    const progress = useSharedValue(isOpen ? 1 : 0);
+
+    useEffect(() => {
+      if (reduceMotion) {
+        progress.value = isOpen ? 1 : 0;
+        return;
+      }
+      progress.value = withTiming(isOpen ? 1 : 0, {
+        duration: Motion.duration.snappy,
+        easing: REasing.bezier(0.23, 1, 0.32, 1),
+      });
+    }, [isOpen, reduceMotion, progress]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 180])}deg` }],
+    }));
+
+    return (
+      <Animated.View style={animatedStyle}>
+        <ChevronDown size={18} color={color} />
+      </Animated.View>
+    );
+  }
+);
 
 const day = (iso: string): string => {
   try {
@@ -38,6 +75,7 @@ const day = (iso: string): string => {
 export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
   const expenses = useExpenseStore((s) => s.expenses);
   const people = useMemo(() => buildPersonSummaries(expenses), [expenses]);
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -136,7 +174,11 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
               const hasUnsettled = !p.isSettled && p.splits.some((s) => !s.isSettled);
 
               return (
-                <View key={p.key} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                <Animated.View
+                  key={p.key}
+                  layout={reduceMotion ? undefined : LinearTransition.duration(Motion.duration.snappy)}
+                  style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
+                >
                   <Pressable
                     onPress={() => setOpenKey(open ? null : p.key)}
                     style={styles.personRow}
@@ -157,11 +199,15 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                         <Text style={[styles.owed, { color: colors.coral }]}>{formatCurrency(p.owed)}</Text>
                       )}
                     </View>
-                    {open ? <ChevronUp size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
+                    <ChevronRotator isOpen={open} color={colors.textSecondary} reduceMotion={reduceMotion} />
                   </Pressable>
 
                   {open ? (
-                    <View style={[styles.details, { borderTopColor: colors.borderSubtle }]}>
+                    <Animated.View
+                      entering={reduceMotion ? undefined : FadeIn.duration(160)}
+                      exiting={reduceMotion ? undefined : FadeOut.duration(120)}
+                      style={[styles.details, { borderTopColor: colors.borderSubtle }]}
+                    >
                       {/* Expenses Section Header with Settle All shortcut */}
                       <View style={styles.sectionHeaderRow}>
                         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>EXPENSES</Text>
@@ -262,9 +308,9 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                           </Pressable>
                         ))
                       )}
-                    </View>
+                    </Animated.View>
                   ) : null}
-                </View>
+                </Animated.View>
               );
             })}
           </>

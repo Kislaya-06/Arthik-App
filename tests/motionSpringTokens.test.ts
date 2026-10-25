@@ -277,6 +277,62 @@ describe('Finding 11 Invariant: Asymmetric Press and Release Tactile Physics', (
   });
 });
 
+describe('Plans 001-006 Motion Invariants: Fluid Transitions and State Disclosures', () => {
+  const readComponent = (relPath: string) =>
+    fs.readFileSync(path.resolve(__dirname, '..', relPath), 'utf-8');
+
+  it('Plan 001: OnboardingScreen uses OnboardingPaginationDot with Motion.springs.settle and useReduceMotion', () => {
+    const src = readComponent('src/screens/OnboardingScreen.tsx');
+    expect(src).toContain('OnboardingPaginationDot');
+    expect(src).toContain('Motion.springs.settle');
+    expect(src).toContain('useReduceMotion()');
+  });
+
+  it('Plan 002: LedgerScreen uses ChevronRotator and LinearTransition for accordion with reduceMotion guard', () => {
+    const src = readComponent('src/screens/LedgerScreen.tsx');
+    expect(src).toContain('ChevronRotator');
+    expect(src).toContain('Motion.duration.snappy');
+    expect(src).toContain('LinearTransition.duration');
+    expect(src).toContain('useReduceMotion()');
+  });
+
+  it('Plan 003: AppLockOverlay uses withTiming dissolve exit with Motion.duration.snappy and pointerEvents', () => {
+    const src = readComponent('src/components/AppLockOverlay.tsx');
+    expect(src).toContain('shouldRender');
+    expect(src).toContain('Motion.duration.snappy');
+    expect(src).toContain('pointerEvents={isLocked ? \'auto\' : \'none\'}');
+    expect(src).toContain('useReduceMotion()');
+  });
+
+  it('Plan 004: AutoLogHomeBanner uses LinearTransition, FadeIn, FadeOut, and useReduceMotion', () => {
+    const src = readComponent('src/components/autolog/AutoLogHomeBanner.tsx');
+    expect(src).toContain('LinearTransition.duration(Motion.duration.standard)');
+    expect(src).toContain('FadeIn.duration(Motion.duration.snappy)');
+    expect(src).toContain('FadeOut.duration(Motion.duration.snappy)');
+    expect(src).toContain('useReduceMotion()');
+  });
+
+  it('Plan 005: NotificationsScreen uses NotificationsEmptyState with Motion.duration.snappy and useReduceMotion', () => {
+    const src = readComponent('src/screens/NotificationsScreen.tsx');
+    expect(src).toContain('NotificationsEmptyState');
+    expect(src).toContain('Motion.duration.snappy');
+    expect(src).toContain('useReduceMotion()');
+  });
+
+  it('Plan 006: DeleteAccountModal and EditProfileModal use Motion.springs.settle and error layout transitions', () => {
+    const deleteSrc = readComponent('src/components/profile/DeleteAccountModal.tsx');
+    expect(deleteSrc).toContain('Motion.springs.settle');
+    expect(deleteSrc).toContain('LinearTransition.duration');
+    expect(deleteSrc).toContain('useReduceMotion()');
+
+    const editSrc = readComponent('src/components/profile/EditProfileModal.tsx');
+    expect(editSrc).toContain('Motion.springs.settle');
+    expect(editSrc).toContain('LinearTransition.duration');
+    expect(editSrc).toContain('useReduceMotion()');
+  });
+});
+
+
 
 
 

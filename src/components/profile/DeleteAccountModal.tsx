@@ -1,8 +1,19 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  Easing as REasing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from 'react-native-reanimated';
 import Trash2 from 'lucide-react-native/icons/trash';
 import X from 'lucide-react-native/icons/x';
-import { Spacing, FontFamily } from '../../config/theme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
+import { Spacing, FontFamily, Motion } from '../../config/theme';
 
 export interface DeleteAccountModalProps {
   visible: boolean;
@@ -35,6 +46,34 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   isDark,
   styles,
 }) => {
+  const reduceMotion = useReduceMotion();
+  const cardScale = useSharedValue(reduceMotion ? 1 : 0.95);
+  const cardTranslateY = useSharedValue(reduceMotion ? 0 : 12);
+  const cardOpacity = useSharedValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    if (visible) {
+      if (reduceMotion) {
+        cardScale.value = 1;
+        cardTranslateY.value = 0;
+        cardOpacity.value = 1;
+        return;
+      }
+      cardScale.value = withSpring(1, Motion.springs.settle);
+      cardTranslateY.value = withSpring(0, Motion.springs.settle);
+      cardOpacity.value = withTiming(1, { duration: 160, easing: REasing.bezier(0.23, 1, 0.32, 1) });
+    } else {
+      cardScale.value = 0.95;
+      cardTranslateY.value = 12;
+      cardOpacity.value = 0;
+    }
+  }, [visible, reduceMotion, cardScale, cardTranslateY, cardOpacity]);
+
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }, { translateY: cardTranslateY.value }],
+    opacity: cardOpacity.value,
+  }));
+
   return (
     <Modal
       visible={visible}
@@ -50,9 +89,8 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
           if (!isDeleting) onClose();
         }}
       >
-        <Pressable
-          style={[styles.modalCard, { backgroundColor: colors.card, borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FEE2E2' }]}
-          onPress={() => {}}
+        <Animated.View
+          style={[styles.modalCard, { backgroundColor: colors.card, borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FEE2E2' }, cardAnimatedStyle]}
         >
           {/* Warning Icon Badge */}
           <View style={[styles.deleteWarningIconWrap, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2' }]}>
@@ -100,9 +138,15 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
           />
 
           {deleteEmailError ? (
-            <Text style={[styles.deleteErrorText, { color: '#DC2626', fontFamily: FontFamily.medium }]}>
-              {deleteEmailError}
-            </Text>
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeIn.duration(160)}
+              exiting={reduceMotion ? undefined : FadeOut.duration(120)}
+              layout={reduceMotion ? undefined : LinearTransition.duration(180)}
+            >
+              <Text style={[styles.deleteErrorText, { color: '#DC2626', fontFamily: FontFamily.medium }]}>
+                {deleteEmailError}
+              </Text>
+            </Animated.View>
           ) : null}
 
           <View style={styles.modalActions}>
@@ -134,7 +178,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
               )}
             </Pressable>
           </View>
-        </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );

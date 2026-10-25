@@ -15,19 +15,76 @@ import Bell from 'lucide-react-native/icons/bell';
 import Trash2 from 'lucide-react-native/icons/trash';
 import CheckCheck from 'lucide-react-native/icons/check-check';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Easing as REasing,
+} from 'react-native-reanimated';
 import { useTheme } from '../store/themeStore';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useNotificationStore, AppNotification } from '../store/notificationStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
-import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily, LineHeight, Motion } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
+
+const NotificationsEmptyState: React.FC<{
+  colors: any;
+  reduceMotion: boolean;
+}> = React.memo(({ colors, reduceMotion }) => {
+  const anim = useSharedValue(0);
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      anim.value = 1;
+      return;
+    }
+    anim.value = 0;
+    anim.value = withTiming(1, {
+      duration: Motion.duration.snappy,
+      easing: REasing.bezier(0.23, 1, 0.32, 1),
+    });
+  }, [reduceMotion, anim]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: anim.value,
+    transform: [{ scale: interpolate(anim.value, [0, 1], [0.96, 1]) }],
+  }));
+
+  return (
+    <Animated.View style={[styles.emptyContainer, animatedStyle]}>
+      <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
+        <BellOff size={32} color={colors.textSecondary} />
+      </View>
+      <Text
+        style={[
+          styles.emptyTitle,
+          { color: colors.textPrimary, fontFamily: FontFamily.bold },
+        ]}
+      >
+        No new notifications
+      </Text>
+      <Text
+        style={[
+          styles.emptySubtitle,
+          { color: colors.textSecondary, fontFamily: FontFamily.medium },
+        ]}
+      >
+        Budget updates, balance alerts, and savings celebrations will appear here.
+      </Text>
+    </Animated.View>
+  );
+});
 
 export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
 
   const notifications = useNotificationStore((s) => s.notifications);
   const markAsRead = useNotificationStore((s) => s.markAsRead);
@@ -162,27 +219,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Content */}
       {notifications.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
-            <BellOff size={32} color={colors.textSecondary} />
-          </View>
-          <Text
-            style={[
-              styles.emptyTitle,
-              { color: colors.textPrimary, fontFamily: FontFamily.bold },
-            ]}
-          >
-            No new notifications
-          </Text>
-          <Text
-            style={[
-              styles.emptySubtitle,
-              { color: colors.textSecondary, fontFamily: FontFamily.medium },
-            ]}
-          >
-            Budget updates, balance alerts, and savings celebrations will appear here.
-          </Text>
-        </View>
+        <NotificationsEmptyState colors={colors} reduceMotion={reduceMotion} />
       ) : (
         <ScrollView
           style={styles.scroll}

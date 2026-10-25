@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance & Motion: Plans 001–006 Fluid Transitions & Layout Polish — OTA-safe
+
+- **Plan 001: Onboarding Carousel Dot Spring Glide (`src/screens/OnboardingScreen.tsx`)**:
+  - Replaced abrupt width snapping (`8px` to `28px`) on onboarding carousel pagination with Reanimated `withSpring(targetWidth, Motion.springs.settle)` and active opacity interpolation. Bound to `useReduceMotion()`.
+- **Plan 002: Split Ledger Accordion & Chevron Rotation (`src/screens/LedgerScreen.tsx`)**:
+  - Replaced instantaneous chevron flip and hard card layout snap with smooth 180° rotation via `withTiming(..., 180ms)` and `LinearTransition.duration(180)` card height expansion with `FadeIn`/`FadeOut` details reveal. Bound to `useReduceMotion()`.
+- **Plan 003: Biometric App Lock Dissolve Exit (`src/components/AppLockOverlay.tsx`)**:
+  - Replaced hard unmount cut with 180ms smooth dissolve exit (`opacity: 1 -> 0`, subtle `scale: 1.0 -> 1.03`), using `scheduleOnRN` to unmount cleanly while immediately disabling pointer events. Bound to `useReduceMotion()`.
+- **Plan 004: AutoLog Home Banner Transition (`src/components/autolog/AutoLogHomeBanner.tsx`)**:
+  - Wrapped dynamic home banner mount/unmount and text state changes in `LinearTransition.duration(240)` and `FadeIn`/`FadeOut` (180ms), eliminating jarring hero card layout jumps. Bound to `useReduceMotion()`.
+- **Plan 005: Notifications Empty State Entrance Parity (`src/screens/NotificationsScreen.tsx`)**:
+  - Added coordinated `opacity: 0 -> 1` and `scale: 0.96 -> 1.0` entrance (180ms `Motion.duration.snappy`, `curves.easeOut`) to the notifications empty state, matching History, Ledger, and AutoLog empty state standards. Bound to `useReduceMotion()`.
+- **Plan 006: Profile Modals Spring Settlement & Error Message Disclosure (`src/components/profile/DeleteAccountModal.tsx`, `src/components/profile/EditProfileModal.tsx`)**:
+  - Added physical spring card settlement (`scale: 0.95 -> 1.0`, `translateY: 12 -> 0`, `opacity: 0 -> 1` via `Motion.springs.settle`) to Edit Profile and Delete Account modals matching Budget and Gullak modal standards.
+  - Wrapped validation error text in `Animated.View` with `LinearTransition.duration(180)` and `FadeIn.duration(160)` to prevent harsh button displacement. Bound to `useReduceMotion()`.
+- **Regression Invariant Tests (`tests/motionSpringTokens.test.ts`)**:
+  - Added 6 dedicated invariant tests verifying Plans 001–006 implementation, tokens, transitions, and `useReduceMotion` compliance.
+
 ### Performance & Motion: Asymmetric Press and Release Tactile Physics (Finding 11) — OTA-safe
 
 - **Mechanical Tactile Snap on Touch Release (`src/config/theme.ts`, `src/components/ui/AppButton.tsx`, `src/components/BrandedHeroCard.tsx`, `src/components/savings/SavingsHeroCard.tsx`, `src/components/ui/ItemRowShell.tsx`, `src/components/BottomNavBar.tsx`, `src/components/autolog/ReviewSheet.tsx`)**:

@@ -65,6 +65,7 @@
         "version": "2.1.0",
         "title": "Ultra-Smooth 60 FPS & Instant Cold Launch ⚡",
         "highlights": [
+          "Fluid Transitions & Layout Polish: Added silky spring gliding to onboarding pagination dots, butter-smooth 180° chevron rotation & card expansion in Ledger, gentle 180ms dissolve exit on App Lock, height/fade transitions on AutoLog Home banner, entrance animation parity in Notifications, and spring settlement with error message disclosure in Profile modals",
           "Instant Balance Readability & Fast Odometer Settle: Eliminated spinning delay on screen entry so numbers appear instantly rock-solid, and accelerated balance odometer settling to a crisp 240ms with unchanged digit stability",
           "Native 60 FPS Pull-to-History: Migrated footer countdown ring to native UI-thread Reanimated worklets, eliminating up to 240 React re-renders during gestures for a buttery-smooth swipe up to History",
           "Instant Add Expense & Fluid Toggles: Snappy 210ms bottom entrance, real-time UI-thread color interpolation on Expense | Income pill with zero jitter, and unselected-by-default category intent preventing accidental categorization",

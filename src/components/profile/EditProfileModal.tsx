@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  Easing as REasing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from 'react-native-reanimated';
 import X from 'lucide-react-native/icons/x';
 import Check from 'lucide-react-native/icons/check';
 import Mail from 'lucide-react-native/icons/mail';
-import { FontFamily } from '../../config/theme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
+import { FontFamily, Motion } from '../../config/theme';
 import {
   clampNameInput,
   calculateNameLength,
@@ -40,6 +51,34 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   isDark,
   styles,
 }) => {
+  const reduceMotion = useReduceMotion();
+  const cardScale = useSharedValue(reduceMotion ? 1 : 0.95);
+  const cardTranslateY = useSharedValue(reduceMotion ? 0 : 12);
+  const cardOpacity = useSharedValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    if (visible) {
+      if (reduceMotion) {
+        cardScale.value = 1;
+        cardTranslateY.value = 0;
+        cardOpacity.value = 1;
+        return;
+      }
+      cardScale.value = withSpring(1, Motion.springs.settle);
+      cardTranslateY.value = withSpring(0, Motion.springs.settle);
+      cardOpacity.value = withTiming(1, { duration: 160, easing: REasing.bezier(0.23, 1, 0.32, 1) });
+    } else {
+      cardScale.value = 0.95;
+      cardTranslateY.value = 12;
+      cardOpacity.value = 0;
+    }
+  }, [visible, reduceMotion, cardScale, cardTranslateY, cardOpacity]);
+
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }, { translateY: cardTranslateY.value }],
+    opacity: cardOpacity.value,
+  }));
+
   const [limitError, setLimitError] = useState<string | null>(null);
   const [firstNameError, setFirstNameError] = useState<string | null>(null);
 
@@ -91,7 +130,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]} onPress={onClose}>
-        <Pressable style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => {}}>
+        <Animated.View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }, cardAnimatedStyle]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>Edit Profile</Text>
           <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>First Name</Text>
           <TextInput
@@ -129,15 +168,26 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           />
 
           {/* Feedback & Character Count Row */}
-          <View style={styles.modalCounterRow}>
+          <Animated.View
+            layout={reduceMotion ? undefined : LinearTransition.duration(180)}
+            style={styles.modalCounterRow}
+          >
             {limitError ? (
-              <Text style={[styles.modalErrorText, { color: colors.coral || colors.danger, fontFamily: FontFamily.medium }]}>
+              <Animated.Text
+                entering={reduceMotion ? undefined : FadeIn.duration(160)}
+                exiting={reduceMotion ? undefined : FadeOut.duration(120)}
+                style={[styles.modalErrorText, { color: colors.coral || colors.danger, fontFamily: FontFamily.medium }]}
+              >
                 {limitError}
-              </Text>
+              </Animated.Text>
             ) : firstNameError ? (
-              <Text style={[styles.modalErrorText, { color: colors.coral || colors.danger, fontFamily: FontFamily.medium }]}>
+              <Animated.Text
+                entering={reduceMotion ? undefined : FadeIn.duration(160)}
+                exiting={reduceMotion ? undefined : FadeOut.duration(120)}
+                style={[styles.modalErrorText, { color: colors.coral || colors.danger, fontFamily: FontFamily.medium }]}
+              >
                 {firstNameError}
-              </Text>
+              </Animated.Text>
             ) : (
               <View style={{ flex: 1 }} />
             )}
@@ -152,7 +202,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             >
               {totalLen}/{MAX_PROFILE_NAME_LENGTH}
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Registered Account Email (Read-Only) */}
           {userEmail ? (
@@ -204,7 +254,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               <Text style={[styles.modalSaveText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>Save</Text>
             </Pressable>
           </View>
-        </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
