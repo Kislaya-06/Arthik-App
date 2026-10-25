@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import Delete from 'lucide-react-native/icons/delete';
 import { useTheme } from '../store/themeStore';
-import { BorderRadius, FontFamily } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
+import { BorderRadius, FontFamily, Motion } from '../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
 
 interface KeyButtonProps {
@@ -20,19 +21,32 @@ interface KeyButtonProps {
 
 /**
  * Shared numeric keypad button used by AddExpenseScreen, EditExpenseScreen, and modals.
- * Includes a spring press-in/press-out animation.
+ * Includes crisp, zero-oscillation press-in/press-out feedback with reduceMotion support.
  * Pass item="backspace" to render the delete icon.
  */
 const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSize }) => {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const scale = useAnimatedValue(1);
 
   const handlePressIn = () => {
-    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
+    if (reduceMotion) return;
+    Animated.spring(scale, {
+      toValue: Motion.scale.press,
+      tension: Motion.springs.keypad.tension,
+      friction: Motion.springs.keypad.friction,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+    if (reduceMotion) return;
+    Animated.spring(scale, {
+      toValue: 1,
+      tension: Motion.springs.keypad.tension,
+      friction: Motion.springs.keypad.friction,
+      useNativeDriver: true,
+    }).start();
   };
 
   const isBackspace = item === 'backspace';

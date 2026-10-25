@@ -48,8 +48,12 @@ const DEFAULT_TRACK_HEIGHT = 130;
 const DEFAULT_TRACK_WIDTH = 32;
 const MIN_FILL_HEIGHT = 28;
 
+import { useReduceMotion } from '../hooks/useReduceMotion';
+
 interface FlowBarColumnProps {
   item: SpendingDayData;
+  index: number;
+  totalBars?: number;
   targetHeight: number;
   trackWidth: number;
   isPeak: boolean;
@@ -57,12 +61,15 @@ interface FlowBarColumnProps {
   colors: ThemeColors;
   gradStart: string;
   gradEnd: string;
-  animValue: Animated.Value;
+  triggerKey?: string | number;
+  reduceMotion: boolean;
   onPress?: () => void;
 }
 
 const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
   item,
+  index,
+  totalBars,
   targetHeight,
   trackWidth,
   isPeak,
@@ -70,9 +77,32 @@ const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
   colors,
   gradStart,
   gradEnd,
-  animValue,
+  triggerKey,
+  reduceMotion,
   onPress,
 }) => {
+  const animValue = useAnimatedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      animValue.setValue(1);
+      return;
+    }
+    animValue.setValue(0);
+    const delay = totalBars && totalBars > 0
+      ? Math.min(index * (100 / totalBars), 100)
+      : Math.min(index * 14, 100);
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.spring(animValue, {
+        toValue: 1,
+        tension: 110,
+        friction: 12,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [triggerKey, index, totalBars, reduceMotion]);
+
   const animatedTranslateY = animValue.interpolate({
     inputRange: [0, 1],
     outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetHeight],
@@ -177,17 +207,7 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
   onDayPress,
   triggerKey,
 }) => {
-  const animValue = useAnimatedValue(0);
-
-  useEffect(() => {
-    animValue.setValue(0);
-    Animated.spring(animValue, {
-      toValue: 1,
-      tension: 70,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  }, [triggerKey]);
+  const reduceMotion = useReduceMotion();
   // Calculate highest amount in the set
   const maxAmount = useMemo(() => {
     return Math.max(...data.map((d) => d.amount), 0);
@@ -247,7 +267,7 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
 
       {/* ── Capsule Columns ── */}
       <View style={styles.chartContainer}>
-        {data.map((d) => {
+        {data.map((d, idx) => {
           const isPeak = maxDay?.day === d.day && d.amount > 0;
           const targetHeight = calculatePillFillHeight(
             d.amount,
@@ -260,6 +280,8 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
             <FlowBarColumn
               key={d.day}
               item={d}
+              index={idx}
+              totalBars={data.length}
               targetHeight={targetHeight}
               trackWidth={trackWidth}
               isPeak={isPeak}
@@ -267,7 +289,8 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
               colors={colors}
               gradStart={gradStart}
               gradEnd={gradEnd}
-              animValue={animValue}
+              triggerKey={triggerKey}
+              reduceMotion={reduceMotion}
               onPress={() => onDayPress?.(d)}
             />
           );

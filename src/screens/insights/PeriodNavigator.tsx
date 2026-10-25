@@ -14,7 +14,9 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import ChevronLeft from 'lucide-react-native/icons/chevron-left';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import * as Haptics from 'expo-haptics';
 import { Spacing, FontSize, FontFamily } from '../../config/theme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 export interface PeriodNavigatorProps {
   dateLabel: string;
@@ -41,6 +43,7 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
   // Elastic pill animation: independent left position and width values
   const slideLeft = useSharedValue(activeDotIndex * DOT_SLOT);
   const slideWidth = useSharedValue(16);
+  const reduceMotion = useReduceMotion();
   const prevIndex = useRef(activeDotIndex);
 
   useEffect(() => {
@@ -52,9 +55,16 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
     cancelAnimation(slideLeft);
     cancelAnimation(slideWidth);
 
+    const targetLeft = to * DOT_SLOT;
+
+    if (reduceMotion) {
+      slideLeft.value = targetLeft;
+      slideWidth.value = 16;
+      return;
+    }
+
     const distance = Math.abs(to - from);
     const maxStretch = 16 + distance * DOT_SLOT;
-    const targetLeft = to * DOT_SLOT;
 
     const springCfg = { stiffness: 447.4, damping: 49, mass: 1 };
     const timeCfg = { duration: 130, easing: REasing.out(REasing.quad) };
@@ -69,14 +79,15 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
         withDelay(130, withSpring(targetLeft, springCfg))
       );
     } else {
-      // Moving left: left moves immediately, width stretches then shrinks
-      slideLeft.value = withTiming(targetLeft, timeCfg);
+      // Moving left: leading edge (left) springs forward immediately with spring deceleration,
+      // while width stretches to keep trailing edge anchored, then shrinks back
+      slideLeft.value = withSpring(targetLeft, springCfg);
       slideWidth.value = withSequence(
         withTiming(maxStretch, timeCfg),
         withSpring(16, springCfg)
       );
     }
-  }, [activeDotIndex, slideLeft, slideWidth]);
+  }, [activeDotIndex, slideLeft, slideWidth, reduceMotion]);
 
   const pillStyle = useAnimatedStyle(() => ({
     left: slideLeft.value,
@@ -88,10 +99,20 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
       {/* Arrow row */}
       <View style={navStyles.row}>
         <Pressable
-          onPress={onPrev}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            onPrev();
+          }}
           disabled={isAtOldest}
           hitSlop={12}
-          style={[navStyles.arrowBtn, isAtOldest && navStyles.arrowDisabled]}
+          style={({ pressed }) => [
+            navStyles.arrowBtn,
+            isAtOldest && navStyles.arrowDisabled,
+            pressed && !isAtOldest && {
+              opacity: 0.7,
+              transform: [{ scale: reduceMotion ? 1 : 0.92 }],
+            },
+          ]}
         >
           <ChevronLeft size={16} color={isAtOldest ? 'rgba(60,35,35,0.25)' : '#2D1E1E'} />
         </Pressable>
@@ -118,10 +139,20 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
         </View>
 
         <Pressable
-          onPress={onNext}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            onNext();
+          }}
           disabled={isAtCurrent}
           hitSlop={12}
-          style={[navStyles.arrowBtn, isAtCurrent && navStyles.arrowDisabled]}
+          style={({ pressed }) => [
+            navStyles.arrowBtn,
+            isAtCurrent && navStyles.arrowDisabled,
+            pressed && !isAtCurrent && {
+              opacity: 0.7,
+              transform: [{ scale: reduceMotion ? 1 : 0.92 }],
+            },
+          ]}
         >
           <ChevronRight size={16} color={isAtCurrent ? 'rgba(60,35,35,0.25)' : '#2D1E1E'} />
         </Pressable>
@@ -192,6 +223,7 @@ export const navStyles = StyleSheet.create({
   activePill: {
     position: 'absolute',
     top: 0,
+    left: 0,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#2D1E1E',

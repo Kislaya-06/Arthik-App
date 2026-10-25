@@ -5,10 +5,12 @@ import {
   StyleSheet,
   Modal,
   Animated,
+  Easing,
   Pressable,
   ScrollView,
   useAnimatedValue,
 } from 'react-native';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { PressableOpacity } from './ui/PressableOpacity';
 import Check from 'lucide-react-native/icons/check';
 import X from 'lucide-react-native/icons/x';
@@ -29,7 +31,7 @@ import {
 } from '../lib/cadenceSwitch';
 import { getPeriodBounds } from '../lib/budgetPeriods';
 import { formatCurrency } from '../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, Motion } from '../config/theme';
 
 export interface CadenceSwitchModalProps {
   visible: boolean;
@@ -74,6 +76,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
   }, [visible, initialTargetAmount]);
 
   const [isMounted, setIsMounted] = useState(visible);
+  const reduceMotion = useReduceMotion();
   const slideAnim = useAnimatedValue(500);
   const fadeAnim = useAnimatedValue(0);
   const isFirstRender = useRef(true);
@@ -86,36 +89,50 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
 
     if (visible) {
       setIsMounted(true);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 70,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (reduceMotion) {
+        fadeAnim.setValue(1);
+        slideAnim.setValue(0);
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            stiffness: Motion.springs.sheet.stiffness,
+            damping: Motion.springs.sheet.damping,
+            mass: Motion.springs.sheet.mass,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 500,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      if (reduceMotion) {
+        fadeAnim.setValue(0);
+        slideAnim.setValue(500);
         setIsMounted(false);
-      });
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 160,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 500,
+            duration: 180,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setIsMounted(false);
+        });
+      }
     }
-  }, [visible, slideAnim, fadeAnim]);
+  }, [visible, slideAnim, fadeAnim, reduceMotion]);
 
   const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [visible]);
 

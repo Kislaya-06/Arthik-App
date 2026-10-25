@@ -6,6 +6,7 @@ import {
   Modal,
   Pressable,
   Animated,
+  Easing,
   useAnimatedValue,
   StyleProp,
   ViewStyle,
@@ -24,10 +25,11 @@ import Reanimated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
-import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius } from '../../config/theme';
+import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius, Motion } from '../../config/theme';
 import { PressableOpacity } from './PressableOpacity';
 
 export interface BottomSheetModalProps {
@@ -62,7 +64,7 @@ const DISMISS_DISTANCE_RATIO = 0.28;
 const DISMISS_VELOCITY = 900;
 /** The pan only takes over after this many points downwards, so taps and horizontal swipes stay untouched. */
 const DRAG_ACTIVATION_PX = 10;
-const SNAP_BACK_SPRING = { damping: 24, stiffness: 280, mass: 0.9 } as const;
+const SNAP_BACK_SPRING = Motion.springs.sheet;
 
 export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   visible,
@@ -102,6 +104,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   const flattenedContainerStyle = StyleSheet.flatten(containerStyle) as ViewStyle | undefined;
   const sheetBgColor = flattenedContainerStyle?.backgroundColor || colors.card;
   const isFirstRender = useRef(true);
+  const reduceMotion = useReduceMotion();
   // Guards the close animation's completion callback: if `visible` flips back to true while the close animation is
   // still in flight, that stale callback must NOT unmount the (now reopened) sheet.
   const closeToken = useRef(0);
@@ -115,39 +118,53 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
     if (visible) {
       closeToken.current += 1; // invalidate any in-flight close
       setIsMounted(true);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 70,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (reduceMotion) {
+        fadeAnim.setValue(1);
+        slideAnim.setValue(0);
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            stiffness: Motion.springs.sheet.stiffness,
+            damping: Motion.springs.sheet.damping,
+            mass: Motion.springs.sheet.mass,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     } else {
       const token = (closeToken.current += 1);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: initialSlide,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        if (closeToken.current === token) {
-          setIsMounted(false);
-        }
-      });
+      if (reduceMotion) {
+        fadeAnim.setValue(0);
+        slideAnim.setValue(initialSlide);
+        setIsMounted(false);
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 160,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: initialSlide,
+            duration: 180,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          if (closeToken.current === token) {
+            setIsMounted(false);
+          }
+        });
+      }
     }
-  }, [visible, slideAnim, fadeAnim]);
+  }, [visible, slideAnim, fadeAnim, reduceMotion]);
 
   // ── Swipe to dismiss (UI thread). dragY is applied on top of the open/close slide above. ──
   const dragY = useSharedValue(0);

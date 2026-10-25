@@ -19,11 +19,12 @@ import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { isToday as checkIsToday } from 'date-fns/isToday';
 import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTheme } from '../store/themeStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../config/supabase';
-import { FontFamily } from '../config/theme';
+import { FontFamily, Motion } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
 import { formatCadenceStreakLabel } from '../lib/budgetModeUtils';
 import { computeCalendarConnections } from '../lib/budgetPeriods';
@@ -62,7 +63,9 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   const currentUser = useAuthStore((s) => s.user);
 
   // Month viewing state
+  const reduceMotion = useReduceMotion();
   const [viewingDate, setViewingDate] = useState<Date>(new Date());
+  const [navDirection, setNavDirection] = useState<'prev' | 'next' | 'none'>('none');
   const [loading, setLoading] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<TooltipState | null>(null);
 
@@ -85,27 +88,38 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      if (reduceMotion) {
+        gridAnim.setValue(1);
+        return;
+      }
       gridAnim.setValue(0);
       Animated.timing(gridAnim, {
         toValue: 1,
-        duration: 240,
-        easing: Easing.out(Easing.cubic),
+        duration: 220,
+        easing: Easing.bezier(0.23, 1, 0.32, 1),
         useNativeDriver: true,
       }).start();
+    } else {
+      setNavDirection('none');
     }
-  }, [visible, monthKey, gridAnim]);
+  }, [visible, monthKey, gridAnim, reduceMotion]);
 
   useEffect(() => {
     if (activeTooltip) {
+      if (reduceMotion) {
+        tooltipAnim.setValue(1);
+        return;
+      }
       tooltipAnim.setValue(0);
       Animated.spring(tooltipAnim, {
         toValue: 1,
-        tension: 70,
-        friction: 8,
+        stiffness: Motion.springs.settle.stiffness,
+        damping: Motion.springs.settle.damping,
+        mass: Motion.springs.settle.mass,
         useNativeDriver: true,
       }).start();
     }
-  }, [activeTooltip, tooltipAnim]);
+  }, [activeTooltip, tooltipAnim, reduceMotion]);
 
   const currentCadenceBest = bestStreakByCadence?.[budgetCadence] ?? bestStreak;
   const streakPillUnit =
@@ -114,12 +128,14 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   // Period navigation handlers
   const handlePrevPeriod = () => {
     setActiveTooltip(null);
+    setNavDirection('prev');
     setViewingDate(new Date(viewingYear, viewingMonth - 1, 1));
   };
 
   const handleNextPeriod = () => {
     setActiveTooltip(null);
     if (isCurrentMonth) return;
+    setNavDirection('next');
     setViewingDate(new Date(viewingYear, viewingMonth + 1, 1));
   };
 
@@ -493,10 +509,23 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     opacity: gridAnim,
                     transform: [
                       {
-                        translateY: gridAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [8, 0],
-                        }),
+                        translateX: reduceMotion
+                          ? 0
+                          : gridAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [
+                                navDirection === 'next' ? 24 : navDirection === 'prev' ? -24 : 0,
+                                0,
+                              ],
+                            }),
+                      },
+                      {
+                        translateY: reduceMotion
+                          ? 0
+                          : gridAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [navDirection === 'none' ? 8 : 0, 0],
+                            }),
                       },
                     ],
                   },

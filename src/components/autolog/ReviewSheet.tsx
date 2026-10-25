@@ -9,6 +9,7 @@ import {
   Alert,
   useWindowDimensions,
   Animated,
+  Easing,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import ShieldCheck from 'lucide-react-native/icons/shield-check';
@@ -23,7 +24,7 @@ import { useTheme } from '../../store/themeStore';
 import { useCategoryStore, Category, categoriesOfKind } from '../../store/categoryStore';
 import { getCategoryIcon } from '../../lib/iconUtils';
 import { getCategoryChipGradient } from '../../lib/colorUtils';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, Motion } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
 import { useExpenseStore } from '../../store/expenseStore';
@@ -81,8 +82,8 @@ const CategoryChipItem: React.FC<{
   useEffect(() => {
     if (isSelected) {
       Animated.sequence([
-        Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+        Animated.timing(scale, { toValue: Motion.scale.chip, duration: 80, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, tension: Motion.springs.release.tension, friction: Motion.springs.release.friction, useNativeDriver: true }),
       ]).start();
     }
   }, [isSelected, scale]);

@@ -373,7 +373,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               color="#2D1E1E"
               showDecimals={currentTotal % 1 !== 0}
               rolling
-              rollOnFocus
             />
           </View>
 

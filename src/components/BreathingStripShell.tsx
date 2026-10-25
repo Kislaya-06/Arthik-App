@@ -85,7 +85,6 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
               fontFamily: FontFamily.bold,
               color: tile.valueColor || colors.textPrimary,
             }}
-            rollOnFocus
           />
           {tile.unit ? (
             <Text

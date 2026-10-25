@@ -14,11 +14,13 @@ import X from 'lucide-react-native/icons/x';
 import RefreshCw from 'lucide-react-native/icons/refresh-cw';
 import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontFamily, Motion } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 export const OfflineBanner: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
 
   const isOffline = useNetworkStore((s) => s.isOffline);
   const bannerVisible = useNetworkStore((s) => s.bannerVisible);
@@ -31,13 +33,27 @@ export const OfflineBanner: React.FC = () => {
   const opacity = useAnimatedValue(0);
 
   useEffect(() => {
+    if (reduceMotion) {
+      if (bannerVisible) {
+        setShouldRender(true);
+        translateY.setValue(0);
+        opacity.setValue(1);
+      } else {
+        translateY.setValue(-100);
+        opacity.setValue(0);
+        setShouldRender(false);
+      }
+      return;
+    }
+
     if (bannerVisible) {
       setShouldRender(true);
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
-          friction: 8,
-          tension: 70,
+          stiffness: Motion.springs.sheet.stiffness,
+          damping: Motion.springs.sheet.damping,
+          mass: Motion.springs.sheet.mass,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
@@ -62,7 +78,7 @@ export const OfflineBanner: React.FC = () => {
         setShouldRender(false);
       });
     }
-  }, [bannerVisible]);
+  }, [bannerVisible, reduceMotion, translateY, opacity]);
 
   if (!shouldRender) return null;
 

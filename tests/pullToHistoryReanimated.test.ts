@@ -51,4 +51,10 @@ describe('OPT-16: PullToHistoryList Reanimated + RNGH Port', () => {
     expect(indicatorFile).toContain("import type { SharedValue } from 'react-native-reanimated'");
     expect(indicatorFile).toContain('pullDepth?: SharedValue<number>');
   });
+
+  it('renders countdown arc and armed ring natively on UI thread without continuous React state updates', () => {
+    expect(indicatorFile).toContain('Animated.createAnimatedComponent(Circle)');
+    expect(indicatorFile).toContain('useAnimatedProps(');
+    expect(indicatorFile).not.toContain('scheduleOnRN(setProgress');
+  });
 });

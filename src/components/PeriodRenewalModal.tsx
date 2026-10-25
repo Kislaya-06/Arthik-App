@@ -5,10 +5,12 @@ import {
   StyleSheet,
   Modal,
   Animated,
+  Easing,
   Pressable,
   ScrollView,
   useAnimatedValue,
 } from 'react-native';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { PressableOpacity } from './ui/PressableOpacity';
 import Check from 'lucide-react-native/icons/check';
 import X from 'lucide-react-native/icons/x';
@@ -25,7 +27,7 @@ import { GradientIconBadge } from './GradientIconBadge';
 import { KeypadGrid } from './ui/KeypadGrid';
 import { formatAmountWithCommas, formatCurrency, round2 } from '../lib/formatters';
 import { applyKeypadPress, KeypadKey } from '../lib/amountKeypad';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, Motion } from '../config/theme';
 
 export interface PeriodRenewalModalProps {
   visible: boolean;
@@ -71,6 +73,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
   }, [visible, isAutoRenew, budgetAmount]);
 
   const [isMounted, setIsMounted] = useState(visible);
+  const reduceMotion = useReduceMotion();
 
   // Bottom sheet spring physics
   const slideAnim = useAnimatedValue(450);
@@ -85,36 +88,50 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
 
     if (visible) {
       setIsMounted(true);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 70,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (reduceMotion) {
+        fadeAnim.setValue(1);
+        slideAnim.setValue(0);
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            stiffness: Motion.springs.sheet.stiffness,
+            damping: Motion.springs.sheet.damping,
+            mass: Motion.springs.sheet.mass,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 450,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      if (reduceMotion) {
+        fadeAnim.setValue(0);
+        slideAnim.setValue(450);
         setIsMounted(false);
-      });
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 160,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 450,
+            duration: 180,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setIsMounted(false);
+        });
+      }
     }
-  }, [visible, slideAnim, fadeAnim]);
+  }, [visible, slideAnim, fadeAnim, reduceMotion]);
 
   const dateRangeLabel = useMemo(() => {
     try {

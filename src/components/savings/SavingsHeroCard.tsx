@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Pressable, useAnimatedValue } from 'react-native';
 import { PressableOpacity } from '../ui/PressableOpacity';
 import Trophy from 'lucide-react-native/icons/trophy';
 import Sparkles from 'lucide-react-native/icons/sparkles';
@@ -9,8 +9,9 @@ import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { GradientIconBadge } from '../GradientIconBadge';
 import { MoneyHelpBadge } from '../MoneyExplainerModal';
 import { AmountText } from '../ui/AmountText';
-import { Spacing } from '../../config/theme';
+import { Spacing, Motion } from '../../config/theme';
 import { styles } from '../../screens/SavingsScreen.styles';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 export interface SavingsHeroCardProps {
   heroCardSize: { width: number; height: number };
@@ -39,6 +40,29 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
   onOpenDepositModal,
   isDark,
 }) => {
+  const reduceMotion = useReduceMotion();
+  const ctaScale = useAnimatedValue(1);
+
+  const handleCtaPressIn = React.useCallback(() => {
+    if (reduceMotion) return;
+    Animated.spring(ctaScale, {
+      toValue: Motion.scale.press,
+      tension: Motion.springs.press.tension,
+      friction: Motion.springs.press.friction,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, ctaScale]);
+
+  const handleCtaPressOut = React.useCallback(() => {
+    if (reduceMotion) return;
+    Animated.spring(ctaScale, {
+      toValue: 1,
+      tension: Motion.springs.release.tension,
+      friction: Motion.springs.release.friction,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, ctaScale]);
+
   return (
     <View
       style={[
@@ -121,7 +145,6 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
           value={totalAccumulatedSavings}
           color="#FFFFFF"
           rolling
-          rollOnFocus
         />
         <Text style={[styles.heroHelperText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
           {`Auto-saved from unspent ${budgetCadence === 'weekly' ? 'weekly budget' : budgetCadence === 'monthly' ? 'monthly budget' : 'daily allowance'}`}
@@ -165,23 +188,31 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
       </View>
 
       {/* Action: Deposit into Gullak */}
-      <PressableOpacity
-        style={[
-          styles.depositCtaBtn,
-          {
-            backgroundColor: '#FFFFFF',
-            borderColor: '#FFFFFF',
-            marginTop: 12,
-          },
-        ]}
+      <Pressable
         onPress={onOpenDepositModal}
-        activeOpacity={0.75}
+        onPressIn={handleCtaPressIn}
+        onPressOut={handleCtaPressOut}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel="Deposit to Gullak"
       >
-        <Plus size={17} color="#5B21B6" />
-        <Text style={[styles.depositCtaBtnText, { color: '#5B21B6' }]}>
-          Deposit to Gullak
-        </Text>
-      </PressableOpacity>
+        <Animated.View
+          style={[
+            styles.depositCtaBtn,
+            {
+              backgroundColor: '#FFFFFF',
+              borderColor: '#FFFFFF',
+              marginTop: 12,
+              transform: [{ scale: ctaScale }],
+            },
+          ]}
+        >
+          <Plus size={17} color="#5B21B6" />
+          <Text style={[styles.depositCtaBtnText, { color: '#5B21B6' }]}>
+            Deposit to Gullak
+          </Text>
+        </Animated.View>
+      </Pressable>
     </View>
   );
 });

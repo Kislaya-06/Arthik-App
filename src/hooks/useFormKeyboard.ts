@@ -92,7 +92,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     (dy: number, vy: number) => {
       if (!isKeypadVisibleRef.current) return;
       if (dy > 30 || vy > 0.35) {
-        // Drag confirmed: smoothly continue closing to 0
+        // Drag confirmed: complete close
         isKeypadVisibleRef.current = false;
         keypad.value = withTiming(
           0,
@@ -108,7 +108,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
           }
         );
       } else {
-        // Drag cancelled: spring back to open using AGENTS.md 9.7 physics
+        // Drag cancelled: spring back to open
         keypad.value = withSpring(1, {
           stiffness: 338.8,
           damping: 25,

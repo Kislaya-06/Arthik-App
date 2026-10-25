@@ -18,7 +18,7 @@ import { useIsSplashCoverOpaque } from '../store/splashCoverStore';
 const BLUR_RESET_DELAY_MS = 450;
 /** A focus event this soon after a sweep started for the same target is the same visit: do not restart it. */
 const SAME_VISIT_WINDOW_MS = 120;
-const SWEEP_EASING = Easing.bezier(0.25, 0.1, 0.25, 1);
+const SWEEP_EASING = Easing.bezier(0.23, 1, 0.32, 1);
 
 /**
  * Progress value (0..1) for a ring chart that sweeps up from empty on every visit — WITHOUT a blink.

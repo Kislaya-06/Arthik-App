@@ -28,7 +28,8 @@ import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { useNavBarStore } from '../store/navBarStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
-import { FontFamily } from '../config/theme';
+import { FontFamily, Motion } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useNavBarMetrics } from '../hooks/useNavBarMetrics';
 import { NAV_LABEL_MAX_FONT_SCALE } from '../lib/navBarLayout';
 import * as Haptics from 'expo-haptics';
@@ -87,30 +88,37 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
   activeMarginRight,
 }) => {
   const { isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
   const progress = useSharedValue(active ? 1 : 0);
   const pressScale = useAnimatedValue(1);
 
   useEffect(() => {
+    if (reduceMotion) {
+      progress.value = active ? 1 : 0;
+      return;
+    }
     progress.value = withTiming(active ? 1 : 0, {
       duration: 180,
       easing: REasing.out(REasing.cubic),
     });
-  }, [active, progress]);
+  }, [active, progress, reduceMotion]);
 
   const handlePressIn = () => {
+    if (reduceMotion) return;
     Animated.spring(pressScale, {
-      toValue: 0.92,
-      tension: 70,
-      friction: 8,
+      toValue: Motion.scale.press,
+      tension: Motion.springs.press.tension,
+      friction: Motion.springs.press.friction,
       useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
+    if (reduceMotion) return;
     Animated.spring(pressScale, {
       toValue: 1,
-      tension: 70,
-      friction: 8,
+      tension: Motion.springs.release.tension,
+      friction: Motion.springs.release.friction,
       useNativeDriver: true,
     }).start();
   };
@@ -190,22 +198,25 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
 // ─── Center Flush Action Button (+) ──────────────────────────────────────────
 const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const scale = useAnimatedValue(1);
 
   const handlePressIn = () => {
+    if (reduceMotion) return;
     Animated.spring(scale, {
-      toValue: 0.88,
-      tension: 70,
-      friction: 8,
+      toValue: Motion.scale.press,
+      tension: Motion.springs.press.tension,
+      friction: Motion.springs.press.friction,
       useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
+    if (reduceMotion) return;
     Animated.spring(scale, {
       toValue: 1,
-      tension: 70,
-      friction: 8,
+      tension: Motion.springs.release.tension,
+      friction: Motion.springs.release.friction,
       useNativeDriver: true,
     }).start();
   };
@@ -239,22 +250,25 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
 // ─── Individual Floating Action Button (+) for Pure Mode ─────────────────────
 const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const scale = useAnimatedValue(1);
 
   const handlePressIn = () => {
+    if (reduceMotion) return;
     Animated.spring(scale, {
-      toValue: 0.88,
-      tension: 70,
-      friction: 8,
+      toValue: Motion.scale.press,
+      tension: Motion.springs.press.tension,
+      friction: Motion.springs.press.friction,
       useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
+    if (reduceMotion) return;
     Animated.spring(scale, {
       toValue: 1,
-      tension: 70,
-      friction: 8,
+      tension: Motion.springs.release.tension,
+      friction: Motion.springs.release.friction,
       useNativeDriver: true,
     }).start();
   };
@@ -295,25 +309,35 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
   const translateY = useAnimatedValue(0);
   const modeAnim = useAnimatedValue(isBudgetModeEnabled ? 1 : 0);
 
+  const reduceMotion = useReduceMotion();
+
   useEffect(() => {
+    if (reduceMotion) {
+      modeAnim.setValue(isBudgetModeEnabled ? 1 : 0);
+      return;
+    }
     Animated.timing(modeAnim, {
       toValue: isBudgetModeEnabled ? 1 : 0,
       duration: 240,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [isBudgetModeEnabled, modeAnim]);
+  }, [isBudgetModeEnabled, modeAnim, reduceMotion]);
 
   const bottomOffset = m.bottomGap;
 
   useEffect(() => {
+    if (reduceMotion) {
+      translateY.setValue(isVisible ? 0 : 160 + m.bottomGap);
+      return;
+    }
     Animated.spring(translateY, {
       toValue: isVisible ? 0 : 160 + m.bottomGap,
       useNativeDriver: true,
       bounciness: 0,
       speed: 14,
     }).start();
-  }, [isVisible, translateY, m.bottomGap]);
+  }, [isVisible, translateY, m.bottomGap, reduceMotion]);
 
   const opacity = translateY.interpolate({
     inputRange: [0, 150],

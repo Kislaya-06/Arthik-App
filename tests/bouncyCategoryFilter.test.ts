@@ -102,6 +102,7 @@ vi.mock('react-native-reanimated', async () => {
     withTiming,
     withSequence,
     cancelAnimation,
+    useReducedMotion: () => false,
     Easing: {
       out: vi.fn((fn: any) => fn),
       quad: 'quad',
@@ -178,7 +179,7 @@ describe('BouncyCategoryFilter UI-Thread Reanimated Animation Parity (Source & S
   });
 
   it('FilterItem uses native worklet spring scale for touch feedback', () => {
-    expect(src).toMatch(/scale\.value\s*=\s*withSpring\(0\.94/);
+    expect(src).toMatch(/scale\.value\s*=\s*withSpring\(Motion\.scale\.chip/);
     expect(src).toMatch(/scale\.value\s*=\s*withSpring\(1/);
     expect(src).toMatch(/React\.memo/);
   });

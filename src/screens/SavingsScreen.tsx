@@ -5,6 +5,7 @@ import {
   Animated,
   Alert,
   useAnimatedValue,
+  Easing as RNEasing,
 } from 'react-native';
 import {
   useSharedValue,
@@ -21,6 +22,8 @@ import { parseISO } from 'date-fns/parseISO';
 
 import { useTheme } from '../store/themeStore';
 import { formatCurrency, round2 } from '../lib/formatters';
+import { Motion } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
@@ -336,22 +339,26 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const cardTarget = Math.round(cardIsOver ? cardOverAmount : cardRemaining);
   const prevSavingsRef = useRef(totalAccumulatedSavings);
 
+  const reduceMotion = useReduceMotion();
+
   const triggerPiggyBounce = useCallback(() => {
+    if (reduceMotion) return;
     Animated.sequence([
-      Animated.spring(heroPiggyScale, {
-        toValue: 1.25,
-        tension: 80,
-        friction: 6,
+      Animated.timing(heroPiggyScale, {
+        toValue: 1.08,
+        duration: Motion.duration.press,
+        easing: RNEasing.out(RNEasing.quad),
         useNativeDriver: true,
       }),
       Animated.spring(heroPiggyScale, {
         toValue: 1,
-        tension: 70,
-        friction: 8,
+        stiffness: Motion.springs.settle.stiffness,
+        damping: Motion.springs.settle.damping,
+        mass: Motion.springs.settle.mass,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [heroPiggyScale]);
+  }, [heroPiggyScale, reduceMotion]);
 
   useEffect(() => {
     if (totalAccumulatedSavings > prevSavingsRef.current) {

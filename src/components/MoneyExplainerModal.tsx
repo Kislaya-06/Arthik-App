@@ -25,7 +25,8 @@ import Clock from 'lucide-react-native/icons/clock';
 import Lock from 'lucide-react-native/icons/lock';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, Motion } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { AppButton } from './ui/AppButton';
 import {
   MoneyExplainerTopic,
@@ -52,6 +53,7 @@ export const MoneyHelpBadge: React.FC<MoneyHelpBadgeProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
   const scaleAnim = useAnimatedValue(1);
+  const reduceMotion = useReduceMotion();
   const radius = size / 2;
 
   const gradId = useMemo(() => {
@@ -61,22 +63,24 @@ export const MoneyHelpBadge: React.FC<MoneyHelpBadgeProps> = ({
 
   useEffect(() => {
     if (highlight) {
+      if (reduceMotion) return;
       Animated.sequence([
         Animated.timing(scaleAnim, {
-          toValue: 1.25,
-          duration: 200,
-          easing: Easing.out(Easing.back(1.5)),
+          toValue: 1.08,
+          duration: Motion.duration.press,
+          easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          tension: 70,
-          friction: 8,
+          stiffness: Motion.springs.settle.stiffness,
+          damping: Motion.springs.settle.damping,
+          mass: Motion.springs.settle.mass,
           useNativeDriver: true,
         }),
       ]).start();
     }
-  }, [highlight, scaleAnim]);
+  }, [highlight, scaleAnim, reduceMotion]);
 
   return (
     <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, style]}>
@@ -159,6 +163,7 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const content = getMoneyExplainerContent(topic);
+  const reduceMotion = useReduceMotion();
 
   const anim = useAnimatedValue(0);
   const [contentHeight, setContentHeight] = useState(1);
@@ -175,6 +180,10 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      if (reduceMotion) {
+        anim.setValue(1);
+        return;
+      }
       anim.setValue(0);
       scrollY.setValue(0);
       indicatorOpacity.setValue(0);
@@ -182,12 +191,13 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
 
       Animated.spring(anim, {
         toValue: 1,
-        tension: 70,
-        friction: 8,
+        stiffness: Motion.springs.sheet.stiffness,
+        damping: Motion.springs.sheet.damping,
+        mass: Motion.springs.sheet.mass,
         useNativeDriver: true,
       }).start();
     }
-  }, [visible, anim, scrollY, indicatorOpacity]);
+  }, [visible, anim, scrollY, indicatorOpacity, reduceMotion]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = event.nativeEvent.contentOffset.y;

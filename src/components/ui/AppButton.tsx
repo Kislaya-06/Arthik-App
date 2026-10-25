@@ -11,7 +11,8 @@ import {
   useAnimatedValue,
 } from 'react-native';
 import { useTheme } from '../../store/themeStore';
-import { ControlHeight, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
+import { ControlHeight, BorderRadius, FontSize, FontFamily, LineHeight, Motion } from '../../config/theme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
 export type ButtonSize = 'cta' | 'standard' | 'compact';
@@ -51,22 +52,25 @@ export const AppButton: React.FC<AppButtonProps> = ({
   testID,
 }) => {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const scaleAnim = useAnimatedValue(1);
 
   const handlePressIn = () => {
+    if (reduceMotion) return;
     Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      tension: 70,
-      friction: 8,
+      toValue: Motion.scale.press,
+      tension: Motion.springs.press.tension,
+      friction: Motion.springs.press.friction,
       useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
+    if (reduceMotion) return;
     Animated.spring(scaleAnim, {
       toValue: 1,
-      tension: 70,
-      friction: 8,
+      tension: Motion.springs.release.tension,
+      friction: Motion.springs.release.friction,
       useNativeDriver: true,
     }).start();
   };

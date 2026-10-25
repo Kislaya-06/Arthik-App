@@ -10,8 +10,10 @@ import {
   Platform,
   Keyboard,
   Animated,
+  Easing,
   useAnimatedValue,
 } from 'react-native';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { PressableOpacity } from './ui/PressableOpacity';
 import X from 'lucide-react-native/icons/x';
 import Check from 'lucide-react-native/icons/check';
@@ -35,7 +37,7 @@ import {
   evaluateExpression,
   formatExpressionWithCommas,
 } from '../lib/amountKeypad';
-import { Spacing } from '../config/theme';
+import { Spacing, Motion } from '../config/theme';
 import { styles } from './DepositGullakModal.styles';
 
 export interface DepositGullakModalProps {
@@ -50,8 +52,11 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   onClose,
 }) => {
   const { isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<'source' | 'amount'>('source');
+  const [isForward, setIsForward] = useState(true);
+  const stepAnim = useAnimatedValue(1);
   const [source, setSource] = useState<GullakDepositSource>('external');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -61,6 +66,20 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const celebrationScale = useAnimatedValue(0.8);
   const celebrationOpacity = useAnimatedValue(0);
   const sheetAnim = useAnimatedValue(0);
+
+  const goToStep = useCallback((nextStep: 'source' | 'amount') => {
+    setIsForward(nextStep === 'amount');
+    setStep(nextStep);
+    if (!reduceMotion) {
+      stepAnim.setValue(0);
+      Animated.timing(stepAnim, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.bezier(0.23, 1, 0.32, 1),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [reduceMotion, stepAnim]);
 
   const [isMounted, setIsMounted] = useState(visible);
   const addGullakDeposit = useDailyBudgetStore((s) => s.addGullakDeposit);
@@ -82,29 +101,42 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
     if (visible) {
       setIsMounted(true);
       setStep('source');
+      setIsForward(true);
+      stepAnim.setValue(1);
       setSource('external');
       setAmount('');
       setNote('');
       setIsCelebrating(false);
       celebrationScale.setValue(0.8);
       celebrationOpacity.setValue(0);
-      sheetAnim.setValue(0);
-      Animated.spring(sheetAnim, {
-        toValue: 1,
-        tension: 70,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
+      if (reduceMotion) {
+        sheetAnim.setValue(1);
+      } else {
+        sheetAnim.setValue(0);
+        Animated.spring(sheetAnim, {
+          toValue: 1,
+          stiffness: Motion.springs.sheet.stiffness,
+          damping: Motion.springs.sheet.damping,
+          mass: Motion.springs.sheet.mass,
+          useNativeDriver: true,
+        }).start();
+      }
     } else {
-      Animated.timing(sheetAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }).start(() => {
+      if (reduceMotion) {
+        sheetAnim.setValue(0);
         setIsMounted(false);
-      });
+      } else {
+        Animated.timing(sheetAnim, {
+          toValue: 0,
+          duration: 180,
+          easing: Easing.bezier(0.32, 0.72, 0, 1),
+          useNativeDriver: true,
+        }).start(() => {
+          setIsMounted(false);
+        });
+      }
     }
-  }, [visible, celebrationScale, celebrationOpacity, sheetAnim]);
+  }, [visible, celebrationScale, celebrationOpacity, sheetAnim, reduceMotion, stepAnim]);
 
   const {
     result: evaluatedAmount,
@@ -142,8 +174,9 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
       Animated.parallel([
         Animated.spring(celebrationScale, {
           toValue: 1,
-          tension: 70,
-          friction: 8,
+          stiffness: Motion.springs.settle.stiffness,
+          damping: Motion.springs.settle.damping,
+          mass: Motion.springs.settle.mass,
           useNativeDriver: true,
         }),
         Animated.timing(celebrationOpacity, {
@@ -237,7 +270,19 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
 
           {step === 'source' ? (
             /* STEP 1: SELECT SOURCE */
-            <>
+            <Animated.View
+              style={{
+                opacity: reduceMotion ? 1 : stepAnim,
+                transform: [{
+                  translateX: reduceMotion
+                    ? 0
+                    : stepAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [isForward ? 20 : -20, 0],
+                      }),
+                }],
+              }}
+            >
               {/* Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.titleWithIcon}>
@@ -279,7 +324,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 style={styles.sourceRow}
                 onPress={() => {
                   setSource('income');
-                  setStep('amount');
+                  goToStep('amount');
                 }}
                 activeOpacity={0.7}
               >
@@ -340,7 +385,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 style={styles.sourceRow}
                 onPress={() => {
                   setSource('external');
-                  setStep('amount');
+                  goToStep('amount');
                 }}
                 activeOpacity={0.7}
               >
@@ -399,23 +444,37 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   Cancel
                 </Text>
               </PressableOpacity>
-            </>
+            </Animated.View>
           ) : (
             /* STEP 2: ENTER AMOUNT & NOTE WITH IN-APP KEYPAD */
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.scrollContent}
+            <Animated.View
+              style={{
+                flex: 1,
+                opacity: reduceMotion ? 1 : stepAnim,
+                transform: [{
+                  translateX: reduceMotion
+                    ? 0
+                    : stepAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [isForward ? 20 : -20, 0],
+                      }),
+                }],
+              }}
             >
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <View style={styles.titleWithIcon}>
-                  <PressableOpacity
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setStep('source');
-                    }}
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.scrollContent}
+              >
+                {/* Header */}
+                <View style={styles.modalHeader}>
+                  <View style={styles.titleWithIcon}>
+                    <PressableOpacity
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        goToStep('source');
+                      }}
                     hitSlop={8}
                     style={[
                       styles.stepBackBtn,
@@ -626,7 +685,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   ]}
                   onPress={() => {
                     Keyboard.dismiss();
-                    setStep('source');
+                    goToStep('source');
                   }}
                   activeOpacity={0.7}
                 >
@@ -660,7 +719,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 </PressableOpacity>
               </View>
             </ScrollView>
-          )}
+          </Animated.View>
+        )}
 
           {/* ── Celebration Overlay (Coin Drop & Piggy Bounce) ── */}
           {isCelebrating && (

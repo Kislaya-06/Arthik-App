@@ -17,10 +17,10 @@
 // ─── FEEL constants (safe to tune) ───────────────────────────────────────────
 
 /**
- * Total time of one roll. 460ms: long enough for the eye to read the reel slowing down (the "premium"
- * part), short enough to never feel like waiting. Paired with ROLL_EASING below.
+ * Total time of one roll. 240ms: fast, responsive Apple-grade micro-animation.
+ * Settles crisp and immediate without delay. Paired with ROLL_EASING below.
  */
-export const ROLL_DURATION_MS = 460;
+export const ROLL_DURATION_MS = 240;
 /**
  * Ease-out with a long, soft landing (like a reel coming to rest), as cubic-bezier control points.
  * Fast start so the change registers instantly, then a gentle settle on the final digit.
@@ -29,12 +29,12 @@ export const ROLL_EASING: readonly [number, number, number, number] = [0.22, 1, 
 /** Extra full revolutions every digit makes on top of the distance to its new value. 1 = matches the recording. */
 export const ROLL_EXTRA_CYCLES = 1;
 /**
- * Delay between neighbouring digits (ms, left to right). A tiny 18ms ripple makes the number feel
- * like it is being "typed in" by a mechanism, instead of one block jumping. Keep it under ~25ms.
+ * Delay between neighbouring digits (ms, left to right). A crisp 10ms ripple makes the number feel
+ * like it is being "typed in" by a mechanism, instead of one block jumping.
  */
-export const ROLL_STAGGER_MS = 18;
-/** true = digits that did not change also spin (like the recording). false = only changed digits spin. */
-export const SPIN_UNCHANGED_DIGITS = true;
+export const ROLL_STAGGER_MS = 10;
+/** true = digits that did not change also spin. false = only changed digits spin (Apple Wallet style). */
+export const SPIN_UNCHANGED_DIGITS = false;
 
 /** 11-glyph wheel strip (0-9 + wrap-around 0) */
 export const GLYPHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0] as const;
@@ -159,7 +159,8 @@ export function planRoll(prev: string, next: string, forceSpin: boolean = false)
       const from = hasOld ? prevDigits[fromFromRight] : 0;
 
       const base = stepsBetween(from, to, dir);
-      const travel = base + (hasOld && !SPIN_UNCHANGED_DIGITS && base === 0 && !forceSpin ? 0 : 10 * ROLL_EXTRA_CYCLES);
+      const isUnchangedDigit = prevDigits.length === nextDigits.length && hasOld && base === 0;
+      const travel = base + (isUnchangedDigit && !SPIN_UNCHANGED_DIGITS && !forceSpin ? 0 : 10 * ROLL_EXTRA_CYCLES);
       if (travel > 0) {
         rolls[b.groups[g].start + c] = { from, to, dir, travel, isNew: !hasOld };
       }

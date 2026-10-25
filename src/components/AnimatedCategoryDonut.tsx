@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Pressable, useAnimatedValue } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Reanimated, {
   useSharedValue,
+  useAnimatedStyle,
   useAnimatedProps,
   withTiming,
   cancelAnimation,
@@ -10,10 +11,61 @@ import Reanimated, {
 import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Circle, Path, Defs, Mask, G } from 'react-native-svg';
 import { FontFamily } from '../config/theme';
-import { prepareCategoryBlockSegments } from '../lib/chartUtils';
+import { prepareCategoryBlockSegments, PreparedBlockSegment } from '../lib/chartUtils';
 import { formatCurrency } from '../lib/formatters';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
+const AnimatedPath = Reanimated.createAnimatedComponent(Path);
+
+interface SegmentSliceProps {
+  seg: PreparedBlockSegment;
+  isSelected: boolean;
+  isAnySelected: boolean;
+  isDark: boolean;
+  onPress: () => void;
+  reduceMotion: boolean;
+}
+
+const SegmentSlice: React.FC<SegmentSliceProps> = React.memo(({
+  seg,
+  isSelected,
+  isAnySelected,
+  isDark,
+  onPress,
+  reduceMotion,
+}) => {
+  const targetOpacity = isSelected ? 1 : isAnySelected ? 0.22 : 1;
+  const opacityAnim = useSharedValue(targetOpacity);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      opacityAnim.value = targetOpacity;
+      return;
+    }
+    opacityAnim.value = withTiming(targetOpacity, {
+      duration: 160,
+      easing: REasing.bezier(0.23, 1, 0.32, 1),
+    });
+  }, [targetOpacity, opacityAnim, reduceMotion]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    opacity: opacityAnim.value,
+  }));
+
+  return (
+    <AnimatedPath
+      d={seg.path}
+      fill={seg.color}
+      fillRule="evenodd"
+      animatedProps={animatedProps}
+      stroke={isSelected ? (isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.25)') : 'none'}
+      strokeWidth={isSelected ? 1.5 : 0}
+      strokeLinejoin="round"
+      onPress={onPress}
+    />
+  );
+});
 
 export interface AnimatedCategoryDonutProps {
   categories: Array<{ id: string; name: string; amount: number; percentage: number; color?: string }>;
@@ -53,14 +105,19 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   const trackRadius = rOuter - strokeWidth / 2;
   const circumference = 2 * Math.PI * trackRadius;
 
+  const reduceMotion = useReduceMotion();
   // Selected category interaction (supports controlled and uncontrolled modes)
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
   const selectedId = propSelectedId !== undefined ? propSelectedId : internalSelectedId;
 
   // Smooth clockwise sweep animation driver (0 to 1) on the UI thread
   const sweep = useSharedValue(0);
-  const centerOpacity = useAnimatedValue(1);
+  const centerOpacity = useSharedValue(1);
   const [isSweeping, setIsSweeping] = useState(true);
+
+  const centerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: centerOpacity.value,
+  }));
 
   const animatedMaskProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - Math.max(0, Math.min(1, sweep.value))),
@@ -85,7 +142,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   useEffect(() => {
     if (!isFocused) {
       sweep.value = 0;
-      centerOpacity.setValue(0);
+      centerOpacity.value = 0;
       setIsSweeping(false);
       return;
     }
@@ -95,23 +152,28 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
     } else {
       setInternalSelectedId(null);
     }
+
+    if (reduceMotion) {
+      sweep.value = 1;
+      centerOpacity.value = 1;
+      setIsSweeping(false);
+      return;
+    }
+
     setIsSweeping(true);
     sweep.value = 0;
-    centerOpacity.setValue(0.3);
+    centerOpacity.value = 0.3;
 
-    const centerAnim = Animated.timing(centerOpacity, {
-      toValue: 1,
-      duration: 350,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
+    centerOpacity.value = withTiming(1, {
+      duration: 280,
+      easing: REasing.bezier(0.23, 1, 0.32, 1),
     });
-    centerAnim.start();
 
     sweep.value = withTiming(
       1,
       {
-        duration: 750,
-        easing: REasing.bezier(0.25, 0.1, 0.25, 1),
+        duration: 280,
+        easing: REasing.bezier(0.23, 1, 0.32, 1),
       },
       (finished) => {
         if (finished) {
@@ -122,9 +184,9 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
 
     return () => {
       cancelAnimation(sweep);
-      centerAnim.stop();
+      cancelAnimation(centerOpacity);
     };
-  }, [isFocused, triggerKey, sweep, centerOpacity, onSelectCategory]);
+  }, [isFocused, triggerKey, sweep, centerOpacity, onSelectCategory, reduceMotion]);
 
   const selectedCategory = useMemo(() => {
     if (!selectedId) return null;
@@ -199,19 +261,15 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
         <G mask={isSweeping ? `url(#${maskId})` : undefined}>
           {preparedSegments.map((seg) => {
             const isSelected = selectedId === seg.id;
-            const opacity = isSelected ? 1 : isAnySelected ? 0.22 : 1;
-
             return (
-              <Path
+              <SegmentSlice
                 key={seg.id}
-                d={seg.path}
-                fill={seg.color}
-                fillRule="evenodd"
-                opacity={opacity}
-                stroke={isSelected ? (isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.25)') : 'none'}
-                strokeWidth={isSelected ? 1.5 : 0}
-                strokeLinejoin="round"
+                seg={seg}
+                isSelected={isSelected}
+                isAnySelected={isAnySelected}
+                isDark={isDark}
                 onPress={() => handleToggleSelect(seg.id)}
+                reduceMotion={reduceMotion}
               />
             );
           })}
@@ -219,10 +277,11 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
       </Svg>
 
       {/* Center Categories count / Selected Category summary */}
-      <Animated.View
+      <Reanimated.View
         style={[
           styles.chartCenterContent,
-          { opacity: centerOpacity, maxWidth: Math.max(56, Math.floor(rInner * 2 - 8)) },
+          centerAnimatedStyle,
+          { maxWidth: Math.max(56, Math.floor(rInner * 2 - 8)) },
         ]}
         pointerEvents="box-none"
       >
@@ -267,7 +326,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
             {displaySubtext}
           </Text>
         </Pressable>
-      </Animated.View>
+      </Reanimated.View>
     </View>
   );
 };

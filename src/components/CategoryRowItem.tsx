@@ -1,11 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Animated,
+  useAnimatedValue,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 import SquarePen from 'lucide-react-native/icons/square-pen';
 import Trash2 from 'lucide-react-native/icons/trash';
 import { Category } from '../store/categoryStore';
-import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing, BorderRadius } from '../config/theme';
+import {
+  ThemeColors,
+  FontFamily,
+  FontSize,
+  LineHeight,
+  Spacing,
+  BorderRadius,
+  Motion,
+} from '../config/theme';
 import { getCategoryIcon } from '../lib/iconUtils';
 import { GradientIconBadge } from './GradientIconBadge';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 export interface CategoryRowItemProps {
   category: Category;
@@ -17,6 +35,52 @@ export interface CategoryRowItemProps {
   onDelete: (id: string) => void;
 }
 
+const ActionIconButton: React.FC<{
+  onPress: () => void;
+  style: StyleProp<ViewStyle>;
+  accessibilityLabel: string;
+  reduceMotion: boolean;
+  children: React.ReactNode;
+}> = React.memo(({ onPress, style, accessibilityLabel, reduceMotion, children }) => {
+  const scale = useAnimatedValue(1);
+
+  const handlePressIn = React.useCallback(() => {
+    if (reduceMotion) return;
+    Animated.spring(scale, {
+      toValue: Motion.scale.chip,
+      tension: Motion.springs.keypad.tension,
+      friction: Motion.springs.keypad.friction,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, scale]);
+
+  const handlePressOut = React.useCallback(() => {
+    if (reduceMotion) return;
+    Animated.spring(scale, {
+      toValue: 1,
+      tension: Motion.springs.keypad.tension,
+      friction: Motion.springs.keypad.friction,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, scale]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      hitSlop={6}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+});
+
 export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
   category,
   expenseCount,
@@ -26,6 +90,7 @@ export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
   onEdit,
   onDelete,
 }) => {
+  const reduceMotion = useReduceMotion();
   const IconComponent = getCategoryIcon(category.icon);
   const handleEdit = React.useCallback(() => onEdit(category.id), [onEdit, category.id]);
   const handleDelete = React.useCallback(() => onDelete(category.id), [onDelete, category.id]);
@@ -62,42 +127,34 @@ export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
         </Text>
       </View>
       <View style={styles.categoryActions}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionBtn, 
-            { 
+        <ActionIconButton
+          onPress={handleEdit}
+          reduceMotion={reduceMotion}
+          accessibilityLabel={`Edit category ${category.name}`}
+          style={[
+            styles.actionBtn,
+            {
               backgroundColor: colors.cardSubtle,
               borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-              opacity: pressed ? 0.75 : 1,
-              transform: [{ scale: pressed ? 0.92 : 1 }],
-            }
+            },
           ]}
-          onPress={handleEdit}
-          hitSlop={6}
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={`Edit category ${category.name}`}
         >
           <SquarePen size={18} color={colors.textPrimary} strokeWidth={2} />
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionBtn, 
-            { 
+        </ActionIconButton>
+        <ActionIconButton
+          onPress={handleDelete}
+          reduceMotion={reduceMotion}
+          accessibilityLabel={`Delete category ${category.name}`}
+          style={[
+            styles.actionBtn,
+            {
               backgroundColor: colors.peachSoft,
               borderColor: isDark ? 'rgba(244, 184, 174, 0.25)' : 'rgba(244, 184, 174, 0.45)',
-              opacity: pressed ? 0.75 : 1,
-              transform: [{ scale: pressed ? 0.92 : 1 }],
-            }
+            },
           ]}
-          onPress={handleDelete}
-          hitSlop={6}
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={`Delete category ${category.name}`}
         >
           <Trash2 size={18} color={colors.coral} strokeWidth={2} />
-        </Pressable>
+        </ActionIconButton>
       </View>
     </View>
   );

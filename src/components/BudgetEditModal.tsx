@@ -41,8 +41,9 @@ import { isCountedExpense } from '../lib/transactionUtils';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { CadenceSwitchModal } from './CadenceSwitchModal';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, Motion } from '../config/theme';
 import { SegmentedControl } from './ui/SegmentedControl';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { KeypadGrid } from './ui/KeypadGrid';
 
 export interface BudgetEditModalProps {
@@ -66,6 +67,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   onClose,
 }) => {
   const sheetAnim = useAnimatedValue(0);
+  const reduceMotion = useReduceMotion();
 
   // Store state
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
@@ -118,11 +120,18 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
           : dailyBudgetAmount;
 
       setAmountStr(defaultAmount > 0 ? String(defaultAmount) : '');
+
+      if (reduceMotion) {
+        sheetAnim.setValue(1);
+        return;
+      }
+
       sheetAnim.setValue(0);
       Animated.spring(sheetAnim, {
         toValue: 1,
-        tension: 70,
-        friction: 8,
+        stiffness: Motion.springs.sheet.stiffness,
+        damping: Motion.springs.sheet.damping,
+        mass: Motion.springs.sheet.mass,
         useNativeDriver: true,
       }).start();
     }
@@ -135,6 +144,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     weeklyBudgetAmount,
     monthlyBudgetAmount,
     sheetAnim,
+    reduceMotion,
   ]);
 
   // When cadence segment changes, prefill that cadence's existing configured budget

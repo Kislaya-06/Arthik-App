@@ -30,7 +30,7 @@ import {
   optionWidthFor,
   pillEdgesFor,
 } from '../../lib/segmentedMotion';
-import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight } from '../../config/theme';
+import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight, Motion } from '../../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../../lib/fontScale';
 
 export interface SegmentedOption {
@@ -121,12 +121,16 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
     };
   });
 
+  const reduceMotion = useReducedMotion();
+
   const handlePressIn = () => {
-    pressScale.value = withSpring(0.96, { stiffness: 520, damping: 32, mass: 1 });
+    if (reduceMotion) return;
+    pressScale.value = withSpring(Motion.scale.chip, { stiffness: 520, damping: 32, mass: 1 });
   };
 
   const handlePressOut = () => {
-    pressScale.value = withSpring(1, { stiffness: 380, damping: 22, mass: 1 });
+    if (reduceMotion) return;
+    pressScale.value = withSpring(1, Motion.springs.settle);
   };
 
   const IconComponent = option.icon;

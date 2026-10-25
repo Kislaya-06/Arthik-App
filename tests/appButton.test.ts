@@ -63,6 +63,10 @@ vi.mock('../src/store/themeStore', () => {
   };
 });
 
+vi.mock('../src/hooks/useReduceMotion', () => ({
+  useReduceMotion: () => false,
+}));
+
 import { AppButton } from '../src/components/ui/AppButton';
 
 describe('AppButton Primitive (Seam: src/components/ui/AppButton.tsx)', () => {

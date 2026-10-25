@@ -21,9 +21,9 @@ describe('OPT-14: AnimatedCategoryDonut Reanimated Parity', () => {
     expect(source).not.toContain('sweepAnim.interpolate');
   });
 
-  it('preserves exact 750ms duration and bezier sweep easing curve', () => {
-    expect(source).toMatch(/duration:\s*750/);
-    expect(source).toMatch(/REasing\.bezier\(0\.25,\s*0\.1,\s*0\.25,\s*1\)/);
+  it('uses calibrated 280ms duration and Apple easeOut bezier sweep curve', () => {
+    expect(source).toMatch(/duration:\s*280/);
+    expect(source).toMatch(/REasing\.bezier\(0\.23,\s*1,\s*0\.32,\s*1\)/);
   });
 
   it('binds strokeDashoffset mask via useAnimatedProps on Reanimated AnimatedCircle', () => {
@@ -37,8 +37,10 @@ describe('OPT-14: AnimatedCategoryDonut Reanimated Parity', () => {
     expect(source).toMatch(/scheduleOnRN\(setIsSweeping,\s*false\)/);
   });
 
-  it('keeps centerOpacity animation on native driver (useNativeDriver: true)', () => {
-    expect(source).toContain('duration: 350');
-    expect(source).toContain('useNativeDriver: true');
+  it('synchronizes centerOpacity on Reanimated UI thread at matching 280ms duration', () => {
+    expect(source).toMatch(/centerOpacity\.value\s*=\s*withTiming\(1,\s*\{\s*duration:\s*280/);
+    expect(source).toContain('useAnimatedStyle');
+    expect(source).not.toContain('useAnimatedValue');
+    expect(source).not.toContain('useNativeDriver');
   });
 });

@@ -48,20 +48,29 @@ describe('rollingText', () => {
     const plan = planRoll('₹1,250', '₹1,050')!;
     const idx = (n: number) => plan.rolls[n];
 
-    it('rolls every digit, including the ones that did not change', () => {
-      // text: ₹ 1 , 0 5 0   -> digit indexes 1, 3, 4, 5
-      expect(Object.keys(plan.rolls).map(Number)).toEqual([1, 3, 4, 5]);
+    it('rolls only the digit that changed (hundreds digit 2 -> 0), keeping unchanged digits resting', () => {
+      // text: ₹ 1 , 0 5 0   -> only digit index 3 (2 -> 0) rolls
+      expect(Object.keys(plan.rolls).map(Number)).toEqual([3]);
     });
 
     it('goes DOWN because the number decreased', () => {
-      for (const i of [1, 3, 4, 5]) expect(idx(i).dir).toBe(-1);
+      expect(idx(3).dir).toBe(-1);
     });
 
-    it('unchanged digits make one full extra revolution; changed ones also move to their target', () => {
-      expect(idx(1)).toMatchObject({ from: 1, to: 1, travel: 10 * ROLL_EXTRA_CYCLES });
+    it('changed digit moves to its target with extra cycle; unchanged digits remain static', () => {
       expect(idx(3)).toMatchObject({ from: 2, to: 0, travel: 2 + 10 * ROLL_EXTRA_CYCLES });
-      expect(idx(4)).toMatchObject({ from: 5, to: 5, travel: 10 * ROLL_EXTRA_CYCLES });
-      expect(idx(5)).toMatchObject({ from: 0, to: 0, travel: 10 * ROLL_EXTRA_CYCLES });
+      expect(idx(1)).toBeUndefined(); // '1' unchanged
+      expect(idx(4)).toBeUndefined(); // '5' unchanged
+      expect(idx(5)).toBeUndefined(); // '0' unchanged
+    });
+
+    it('rolls all digits when forceSpin is true (e.g. pill filter switch)', () => {
+      const forcedPlan = planRoll('₹1,250', '₹1,050', true)!;
+      expect(Object.keys(forcedPlan.rolls).map(Number)).toEqual([1, 3, 4, 5]);
+      expect(forcedPlan.rolls[1]).toMatchObject({ from: 1, to: 1, travel: 10 * ROLL_EXTRA_CYCLES });
+      expect(forcedPlan.rolls[3]).toMatchObject({ from: 2, to: 0, travel: 2 + 10 * ROLL_EXTRA_CYCLES });
+      expect(forcedPlan.rolls[4]).toMatchObject({ from: 5, to: 5, travel: 10 * ROLL_EXTRA_CYCLES });
+      expect(forcedPlan.rolls[5]).toMatchObject({ from: 0, to: 0, travel: 10 * ROLL_EXTRA_CYCLES });
     });
 
     it('never touches symbols or commas', () => {
@@ -97,12 +106,13 @@ describe('rollingText', () => {
       expect(planRoll('₹250', '₹250 of ₹500')).toBeNull();
     });
 
-    it('rolls only the number that changed inside a sentence', () => {
+    it('rolls only the digit that changed inside a sentence', () => {
       const plan = planRoll('Spent ₹1,000 of ₹5,000', 'Spent ₹1,200 of ₹5,000')!;
       const idxs = Object.keys(plan.rolls).map(Number);
       const text = 'Spent ₹1,200 of ₹5,000';
       for (const i of idxs) expect(i).toBeLessThan(text.indexOf(' of')); // only the first number
-      expect(idxs.length).toBe(4);
+      expect(idxs.length).toBe(1);
+      expect(plan.rolls[idxs[0]]).toMatchObject({ from: 0, to: 2 });
     });
 
     it('works for percentages and signed values', () => {

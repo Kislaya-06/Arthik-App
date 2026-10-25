@@ -16,10 +16,11 @@ import Animated, {
   interpolateColor,
   interpolate,
   Extrapolation,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors } from '../config/theme';
+import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors, Motion } from '../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
 
 const PILL_PADDING = 4; // inset between outer pill edge and sliding highlight
@@ -75,12 +76,20 @@ const FilterItem = React.memo<FilterItemProps>(({
     transform: [{ scale: scale.value }],
   }));
 
+  const reduceMotion = useReducedMotion();
+
   const handlePressIn = () => {
-    scale.value = withSpring(0.94, { damping: 12, stiffness: 200 });
+    if (reduceMotion) return;
+    scale.value = withSpring(Motion.scale.chip, {
+      stiffness: 520,
+      damping: 32,
+      mass: 1,
+    });
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 14, stiffness: 240 });
+    if (reduceMotion) return;
+    scale.value = withSpring(1, Motion.springs.settle);
   };
 
   // Reanimated UI-thread color interpolation as pill highlight passes underneath
@@ -148,6 +157,7 @@ const FilterItem = React.memo<FilterItemProps>(({
 
 export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChange }) => {
   const { colors } = useTheme();
+  const reduceMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
 
   // Content-space x + width for each option, keyed by id ?? 'all'
@@ -174,8 +184,8 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
     const cw = containerWidthRef.current;
     if (!targetLayout || cw <= 0) return;
     const centerOffset = Math.max(0, targetLayout.x - cw / 2 + targetLayout.width / 2);
-    scrollRef.current?.scrollTo({ x: centerOffset, animated: true });
-  }, []); // stable: reads from refs
+    scrollRef.current?.scrollTo({ x: centerOffset, animated: !reduceMotion });
+  }, [reduceMotion]); // stable: reads from refs
 
   const animateTo = useCallback((targetKey: string) => {
     const targetLayout = layoutsRef.current[targetKey];
@@ -187,11 +197,16 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
     cancelAnimation(pillX);
     cancelAnimation(pillWidth);
 
-    pillX.value = withSpring(targetLayout.x, SLIDE_SPRING);
-    pillWidth.value = withSpring(targetLayout.width, SLIDE_SPRING);
+    if (reduceMotion) {
+      pillX.value = targetLayout.x;
+      pillWidth.value = targetLayout.width;
+    } else {
+      pillX.value = withSpring(targetLayout.x, SLIDE_SPRING);
+      pillWidth.value = withSpring(targetLayout.width, SLIDE_SPRING);
+    }
 
     centerCategory(targetKey);
-  }, [centerCategory, pillX, pillWidth]); // stable: shared values never change identity
+  }, [centerCategory, pillX, pillWidth, reduceMotion]); // stable: shared values never change identity
 
   // Immediate touch-driven animation start on UI thread:
   const handleSelect = useCallback((id: string | null) => {

@@ -5,7 +5,10 @@ import {
   StyleSheet,
   Pressable,
   LayoutChangeEvent,
+  Animated,
+  useAnimatedValue,
 } from 'react-native';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { PressableOpacity } from './ui/PressableOpacity';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import ArrowDownLeft from 'lucide-react-native/icons/arrow-down-left';
@@ -14,7 +17,7 @@ import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { DonutChart } from './DonutChart';
 import { RollingText } from './RollingText';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
-import { ThemeColors, FontFamily, FontSize } from '../config/theme';
+import { ThemeColors, FontFamily, FontSize, Motion } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas, round2 } from '../lib/formatters';
 import { calculatePureHeroMetrics, buildHeroSubtextChips } from '../lib/homeCalculations';
 import { pickPrimaryChip } from '../lib/heroDetails';
@@ -408,7 +411,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
   ]);
 
   // Numbers are handed to <RollingText/> as their FINAL value. Each digit rolls on its own (odometer style,
-  // native thread) whenever the value changes, and rolls smoothly up from zero on screen entry via rollOnFocus.
+  // native thread) whenever the value changes. Numbers render statically on screen entry without focus delay.
   const innerWidth = Math.max(0, (dimensions.width || DEFAULT_WIDTH) - 36); // cardInner: paddingHorizontal 18 x 2
   const metricAmountMaxWidth = Math.max(0, innerWidth / 2 - 30); // half the card minus (trend chip 24 + gap 6)
   const primaryAmountStyle = StyleSheet.flatten([
@@ -417,18 +420,49 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
   ]);
   const metricAmountStyle = StyleSheet.flatten([styles.metricAmount, { color: textColorPrimary }]);
 
+  const reduceMotion = useReduceMotion();
+  const pressScale = useAnimatedValue(1);
+
+  const handlePressIn = useCallback(() => {
+    if (reduceMotion || !onOpenDetails) return;
+    Animated.spring(pressScale, {
+      toValue: Motion.scale.press,
+      tension: Motion.springs.press.tension,
+      friction: Motion.springs.press.friction,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, onOpenDetails, pressScale]);
+
+  const handlePressOut = useCallback(() => {
+    if (reduceMotion || !onOpenDetails) return;
+    Animated.spring(pressScale, {
+      toValue: 1,
+      tension: Motion.springs.release.tension,
+      friction: Motion.springs.release.friction,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, onOpenDetails, pressScale]);
+
   return (
     <View style={styles.outerWrapper}>
       {/* ── Main Container (Measures Content). Tap opens the details sheet. ── */}
       <Pressable
-        style={[styles.cardContainer, !measured && styles.cardMeasuring]}
-        onLayout={handleLayout}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         onPress={onOpenDetails}
         disabled={!onOpenDetails}
         accessibilityRole={onOpenDetails ? 'button' : undefined}
         accessibilityLabel={onOpenDetails ? 'Show details' : undefined}
         accessibilityHint={onOpenDetails ? 'Opens the full breakdown for this period' : undefined}
       >
+        <Animated.View
+          style={[
+            styles.cardContainer,
+            !measured && styles.cardMeasuring,
+            { transform: [{ scale: pressScale }] },
+          ]}
+          onLayout={handleLayout}
+        >
         {/* ── SVG Notched Background ── */}
         {dimensions.width > 0 && dimensions.height > 0 && (
           <Svg
@@ -471,7 +505,6 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
               style={primaryAmountStyle}
               fitWidth={Math.max(0, innerWidth - (podSize + GAP + 6))}
               minScale={0.55}
-              rollOnFocus
             />
 
             {/* Subtext Chips (Budget mode only): Rendered inside topSection to guarantee clearing the chart pod */}
@@ -544,7 +577,6 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                     style={metricAmountStyle}
                     fitWidth={metricAmountMaxWidth}
                     minScale={0.6}
-                    rollOnFocus
                   />
                   <View style={styles.trendChipIncome}>
                     <ArrowDownLeft size={12} color="#15803D" strokeWidth={2.5} />
@@ -563,7 +595,6 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                     style={metricAmountStyle}
                     fitWidth={metricAmountMaxWidth}
                     minScale={0.6}
-                    rollOnFocus
                   />
                   <View style={styles.trendChipExpense}>
                     <ArrowUpRight size={12} color="#DC2626" strokeWidth={2.5} />
@@ -583,7 +614,6 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                     style={metricAmountStyle}
                     fitWidth={metricAmountMaxWidth}
                     minScale={0.6}
-                    rollOnFocus
                   />
                   <View style={styles.trendChipIncome}>
                     <ArrowDownLeft size={12} color="#15803D" strokeWidth={2.5} />
@@ -600,7 +630,6 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                     style={metricAmountStyle}
                     fitWidth={metricAmountMaxWidth}
                     minScale={0.6}
-                    rollOnFocus
                   />
                   <View style={styles.trendChipExpense}>
                     <ArrowUpRight size={12} color="#DC2626" strokeWidth={2.5} />
@@ -667,6 +696,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
             triggerKey={activeFilter}
           />
         </View>
+        </Animated.View>
       </Pressable>
     </View>
   );

@@ -5,11 +5,13 @@ import {
   StyleSheet,
   Modal,
   Animated,
+  Easing,
   Pressable,
   ScrollView,
   ActivityIndicator,
   useAnimatedValue,
 } from 'react-native';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { PressableOpacity } from './ui/PressableOpacity';
 import ShieldAlert from 'lucide-react-native/icons/shield-alert';
 import Plus from 'lucide-react-native/icons/plus';
@@ -28,7 +30,7 @@ import {
   round2,
 } from '../lib/formatters';
 import { VAULT_GUARD_MESSAGE } from '../lib/vaultSpendingGuard';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, Motion } from '../config/theme';
 
 export interface VaultSpendingGuardModalProps {
   visible: boolean;
@@ -56,6 +58,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi'>('upi');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const reduceMotion = useReduceMotion();
   const slideAnim = useAnimatedValue(400);
   const fadeAnim = useAnimatedValue(0);
   const isFirstRender = useRef(true);
@@ -73,36 +76,50 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
       setPaymentMode('upi');
       setAmountStr(expenseAmount > 0 ? String(expenseAmount) : '');
 
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 70,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (reduceMotion) {
+        fadeAnim.setValue(1);
+        slideAnim.setValue(0);
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            stiffness: Motion.springs.sheet.stiffness,
+            damping: Motion.springs.sheet.damping,
+            mass: Motion.springs.sheet.mass,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 400,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      if (reduceMotion) {
+        fadeAnim.setValue(0);
+        slideAnim.setValue(400);
         setIsMounted(false);
-      });
+      } else {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 160,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 400,
+            duration: 180,
+            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setIsMounted(false);
+        });
+      }
     }
-  }, [visible, expenseAmount, slideAnim, fadeAnim]);
+  }, [visible, expenseAmount, slideAnim, fadeAnim, reduceMotion]);
 
   const presetChips = useMemo(() => {
     const base = expenseAmount > 0 ? round2(expenseAmount) : 100;

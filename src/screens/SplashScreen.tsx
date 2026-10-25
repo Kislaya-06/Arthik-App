@@ -54,30 +54,30 @@ type Target = keyof RootStackParamList;
  * ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
  */
 
-const ENTRANCE_MS = 900;
-const EXIT_MS = 580;
+const ENTRANCE_MS = 540;
+const EXIT_MS = 360;
 const ICON_SIZE = 80;
 /** Lockup geometry: icon (80) + wordmark box (160) = 240 wide, so the icon sits 80 left of centre when open. */
 const ROW_CENTER_SHIFT = 80;
 const WORDMARK_WIDTH = 160;
 
 // Entrance timeline (ms on clock `t`)
-const ICON_POP: [number, number] = [0, 260];
-const LINE_STARTS = [120, 185, 250];
-const LINE_MS = 200;
-const PUNCH: [number, number] = [440, 570];
-const LOCKUP: [number, number] = [500, 820];
-const WORDMARK_FADE: [number, number] = [500, 760];
-const TAGLINE: [number, number] = [620, 900];
-const DOTS_IN: [number, number] = [720, 900];
+const ICON_POP: [number, number] = [0, 160];
+const LINE_STARTS = [75, 115, 155];
+const LINE_MS = 120;
+const PUNCH: [number, number] = [270, 350];
+const LOCKUP: [number, number] = [300, 490];
+const WORDMARK_FADE: [number, number] = [300, 460];
+const TAGLINE: [number, number] = [370, 540];
+const DOTS_IN: [number, number] = [430, 540];
 
 // Exit timeline (ms on clock `ex`)
-const EX_TEXT_FADE: [number, number] = [0, 120];
-const EX_WORDMARK_FADE: [number, number] = [0, 140];
-const EX_LOCKUP_BACK: [number, number] = [0, 260];
-const EX_LINES_FADE: [number, number] = [180, 260];
+const EX_TEXT_FADE: [number, number] = [0, 80];
+const EX_WORDMARK_FADE: [number, number] = [0, 90];
+const EX_LOCKUP_BACK: [number, number] = [0, 160];
+const EX_LINES_FADE: [number, number] = [110, 160];
 /** Bloom appears (fully hidden inside the mint icon card, so the switch is invisible) and grows. */
-const EX_BLOOM: [number, number] = [260, 580];
+const EX_BLOOM: [number, number] = [160, 360];
 
 // Loading dots: 3 pulses of 400ms, staggered by 130ms, then a 180ms rest (same rhythm as before).
 const DOT_CYCLE_MS = 840;

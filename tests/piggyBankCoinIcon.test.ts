@@ -8,6 +8,10 @@ import {
   COIN_PATH,
 } from '../src/components/PiggyBankCoinIcon';
 
+vi.mock('../src/hooks/useReduceMotion', () => ({
+  useReduceMotion: () => false,
+}));
+
 vi.mock('react-native', () => ({
   View: (props: any) => ({ type: 'View', props }),
   StyleSheet: {

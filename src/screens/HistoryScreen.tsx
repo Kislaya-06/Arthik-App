@@ -40,7 +40,17 @@ import { formatCurrency } from '../lib/formatters';
 import { isIncomeTransaction, isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { ThemeColors, Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { ThemeColors, Spacing, BorderRadius, FontSize, FontFamily, LineHeight, Motion } from '../config/theme';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Easing as REasing,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'History'>,
@@ -131,6 +141,60 @@ function getDateHeaderTitle(dateStr: string, todayKey: string): string {
   return title;
 }
 
+const SEARCH_CONTAINER_HEIGHT = 48;
+const SEARCH_SECTION_HEIGHT = Spacing.block + SEARCH_CONTAINER_HEIGHT + (Spacing.element * 2);
+
+interface EmptyStateViewProps {
+  IconComponent: React.ComponentType<{ size: number; color: string }>;
+  title: string;
+  subtitle: string;
+  style: any;
+  isReady: boolean;
+  colors: ThemeColors;
+  reduceMotion: boolean;
+}
+
+const EmptyStateView: React.FC<EmptyStateViewProps> = React.memo(({
+  IconComponent,
+  title,
+  subtitle,
+  style,
+  isReady,
+  colors,
+  reduceMotion,
+}) => {
+  const anim = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      anim.value = 1;
+      return;
+    }
+    anim.value = 0;
+    anim.value = withTiming(1, {
+      duration: Motion.duration.snappy,
+      easing: REasing.bezier(0.23, 1, 0.32, 1),
+    });
+  }, [title, reduceMotion, anim]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: isReady ? anim.value : 0,
+      transform: [{ scale: interpolate(anim.value, [0, 1], [0.96, 1]) }],
+    };
+  });
+
+  return (
+    <Animated.View style={[styles.emptyContainer, style, animatedStyle]}>
+      <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
+        <IconComponent size={32} color={colors.textSecondary} />
+      </View>
+      <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{title}</Text>
+      <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>{subtitle}</Text>
+    </Animated.View>
+  );
+});
+
 export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const expenses = useExpenseStore((s) => s.expenses);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
@@ -143,10 +207,60 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   // Bottom padding follows the responsive nav bar.
   const navBarInset = useNavBarContentInset();
   const handleScroll = useScrollDirection();
+  const reduceMotion = useReduceMotion();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [searchMounted, setSearchMounted] = useState(isSearchVisible);
+  const searchProgress = useSharedValue(isSearchVisible ? 1 : 0);
+
+  useEffect(() => {
+    if (isSearchVisible) {
+      setSearchMounted(true);
+      if (reduceMotion) {
+        searchProgress.value = 1;
+      } else {
+        searchProgress.value = withTiming(1, {
+          duration: Motion.duration.snappy,
+          easing: REasing.bezier(0.23, 1, 0.32, 1),
+        });
+      }
+    } else {
+      if (reduceMotion) {
+        searchProgress.value = 0;
+        setSearchMounted(false);
+      } else {
+        searchProgress.value = withTiming(
+          0,
+          {
+            duration: Motion.duration.snappy,
+            easing: REasing.bezier(0.23, 1, 0.32, 1),
+          },
+          (finished) => {
+            'worklet';
+            if (finished) {
+              scheduleOnRN(setSearchMounted, false);
+            }
+          }
+        );
+      }
+    }
+  }, [isSearchVisible, reduceMotion, searchProgress]);
+
+  const searchContainerAnimatedStyle = useAnimatedStyle(() => ({
+    height: searchProgress.value * SEARCH_SECTION_HEIGHT,
+    overflow: 'hidden' as const,
+  }));
+
+  const searchContentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: searchProgress.value,
+    transform: [
+      {
+        translateY: interpolate(searchProgress.value, [0, 1], [-8, 0], Extrapolation.CLAMP),
+      },
+    ],
+  }));
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const listRef = useRef<FlashListRef<HistoryRow>>(null);
   // Tapping the active History tab scrolls the list back to the top.
@@ -609,21 +723,17 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     return (
-      <View
-        style={[
-          styles.emptyContainer,
-          // Same area the old flexGrow content container gave it: list height minus nav inset minus top margin.
-          { minHeight: Math.max(0, listHeight - navBarInset - EMPTY_STATE_TOP_MARGIN), opacity: listHeight > 0 ? 1 : 0 },
-        ]}
-      >
-        <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
-          <IconComponent size={32} color={colors.textSecondary} />
-        </View>
-        <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{title}</Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>{subtitle}</Text>
-      </View>
+      <EmptyStateView
+        IconComponent={IconComponent}
+        title={title}
+        subtitle={subtitle}
+        style={{ minHeight: Math.max(0, listHeight - navBarInset - EMPTY_STATE_TOP_MARGIN) }}
+        isReady={listHeight > 0}
+        colors={colors}
+        reduceMotion={reduceMotion}
+      />
     );
-  }, [debouncedQuery, selectedCategoryId, categoryMap, colors, listHeight, navBarInset]);
+  }, [debouncedQuery, selectedCategoryId, categoryMap, colors, listHeight, navBarInset, reduceMotion]);
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -639,28 +749,35 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           <Pressable
             style={[styles.searchButton, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => setIsSearchVisible(!isSearchVisible)}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={isSearchVisible ? 'Close search' : 'Open search'}
           >
             <Search size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
 
-        {/* Search Bar */}
-        {isSearchVisible && (
-          <View style={[styles.searchContainer, { backgroundColor: colors.inputBg }]}>
-            <Search size={16} color={colors.textSecondary} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
-              placeholder="Search transactions..."
-              placeholderTextColor={colors.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-            />
-          </View>
+        {/* Search Bar Accordion */}
+        {searchMounted && (
+          <Animated.View style={searchContainerAnimatedStyle}>
+            <Animated.View style={[styles.searchInnerWrapper, searchContentAnimatedStyle]}>
+              <View style={[styles.searchContainer, { backgroundColor: colors.inputBg }]}>
+                <Search size={16} color={colors.textSecondary} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
+                  placeholder="Search transactions..."
+                  placeholderTextColor={colors.textMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus={isSearchVisible}
+                />
+              </View>
+            </Animated.View>
+          </Animated.View>
         )}
 
         {/* Filter Pills — bouncy sliding pill */}
-        <View style={[styles.filterWrapper, isSearchVisible && styles.filterWrapperSearchOpen]}>
+        <View style={styles.filterWrapper}>
           <BouncyCategoryFilter
             options={categoryFilterOptions}
             value={selectedCategoryId}
@@ -737,17 +854,16 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: Spacing.element,
   },
-  filterWrapperSearchOpen: {
-    marginTop: Spacing.element,
+  searchInnerWrapper: {
+    paddingTop: Spacing.block,
+    paddingBottom: Spacing.block,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.group,
-    marginTop: Spacing.block,
-    marginBottom: Spacing.element,
+    height: SEARCH_CONTAINER_HEIGHT,
   },
   searchInput: {
     flex: 1,

@@ -49,7 +49,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
   const isOverspent = hasData && spent > total;
 
   // Sweeps up from empty on every visit, on the UI thread, without a blink on return (see useRingSweep).
-  const anim = useRingSweep(targetSpentRatio, 400);
+  const anim = useRingSweep(targetSpentRatio, 240);
 
   // strokeDashoffset from progress; the rounded cap is hidden at 0 so no zero-length dot is drawn.
   const spentProps = useAnimatedProps(() => ({
@@ -117,7 +117,6 @@ const DonutChartBase: React.FC<DonutProps> = ({
           ])}
           fitWidth={Math.round(SIZE * 0.6)}
           minScale={0.7}
-          rollOnFocus
         />
         <Text
           style={[

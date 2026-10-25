@@ -11,11 +11,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AlertCircle from 'lucide-react-native/icons/circle-alert';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontFamily, Motion } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 export const SyncFailedBanner: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
 
   const failedSyncItems = useExpenseStore((s) => s.failedSyncItems);
   const clearAllFailedSyncItems = useExpenseStore((s) => s.clearAllFailedSyncItems);
@@ -28,13 +30,27 @@ export const SyncFailedBanner: React.FC = () => {
   const opacity = useAnimatedValue(0);
 
   useEffect(() => {
+    if (reduceMotion) {
+      if (isVisible) {
+        setShouldRender(true);
+        translateY.setValue(0);
+        opacity.setValue(1);
+      } else {
+        translateY.setValue(-100);
+        opacity.setValue(0);
+        setShouldRender(false);
+      }
+      return;
+    }
+
     if (isVisible) {
       setShouldRender(true);
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
-          friction: 8,
-          tension: 70,
+          stiffness: Motion.springs.sheet.stiffness,
+          damping: Motion.springs.sheet.damping,
+          mass: Motion.springs.sheet.mass,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
@@ -59,7 +75,7 @@ export const SyncFailedBanner: React.FC = () => {
         setShouldRender(false);
       });
     }
-  }, [isVisible]);
+  }, [isVisible, reduceMotion, translateY, opacity]);
 
   if (!shouldRender) return null;
 

@@ -7,6 +7,7 @@ import {
   EMBER_CONFIGS,
   StreakFlameConfig,
 } from '../lib/flameUtils';
+import { Motion } from '../config/theme';
 
 export { getStreakFlameConfig, FLAME_PATHS, EMBER_CONFIGS, StreakFlameConfig };
 
@@ -36,8 +37,9 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
       scaleAnim.setValue(0.92);
       Animated.spring(scaleAnim, {
         toValue: 1,
-        tension: 70,
-        friction: 8,
+        stiffness: Motion.springs.settle.stiffness,
+        damping: Motion.springs.settle.damping,
+        mass: Motion.springs.settle.mass,
         useNativeDriver: true,
       }).start();
     }

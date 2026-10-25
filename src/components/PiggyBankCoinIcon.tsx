@@ -1,6 +1,8 @@
 import React, { useEffect, useId } from 'react';
 import { View, Animated, Easing, StyleProp, ViewStyle, StyleSheet, useAnimatedValue } from 'react-native';
 import Svg, { Path, Circle, Defs, Mask, Rect, G, SvgProps } from 'react-native-svg';
+import { Motion } from '../config/theme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 export interface PiggyBankCoinIconProps extends SvgProps {
   size?: number;
@@ -104,7 +106,13 @@ export interface AnimatedPiggyBankProps {
 const createSquash = (val: Animated.Value, squash: number) =>
   Animated.sequence([
     Animated.timing(val, { toValue: squash, duration: 90, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-    Animated.spring(val, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+    Animated.spring(val, {
+      toValue: 1,
+      stiffness: Motion.springs.settle.stiffness,
+      damping: Motion.springs.settle.damping,
+      mass: Motion.springs.settle.mass,
+      useNativeDriver: true,
+    }),
   ]);
 
 /**
@@ -130,7 +138,14 @@ export const AnimatedPiggyBank: React.FC<AnimatedPiggyBankProps> = ({
   const piggyScaleX = useAnimatedValue(1);
   const piggyScaleY = useAnimatedValue(1);
 
+  const reduceMotion = useReduceMotion();
+
   useEffect(() => {
+    if (reduceMotion) {
+      onAnimationEnd?.();
+      return;
+    }
+
     coinY.setValue(-size * 0.4);
     coinOpacity.setValue(1);
     coinScale.setValue(0.9);
@@ -160,14 +175,14 @@ export const AnimatedPiggyBank: React.FC<AnimatedPiggyBankProps> = ({
         ]),
       ]),
       Animated.parallel([
-        createSquash(piggyScaleX, 1.2),
-        createSquash(piggyScaleY, 0.85),
+        createSquash(piggyScaleX, 1.08),
+        createSquash(piggyScaleY, 0.94),
       ]),
     ]);
 
     dropAnim.start(() => onAnimationEnd?.());
     return () => dropAnim.stop();
-  }, [triggerKey, size, onAnimationEnd, coinY, coinOpacity, coinScale, piggyScaleX, piggyScaleY]);
+  }, [triggerKey, size, onAnimationEnd, coinY, coinOpacity, coinScale, piggyScaleX, piggyScaleY, reduceMotion]);
 
   return (
     <View style={[{ width: size, height: size, position: 'relative' }, styles.center, style]}>

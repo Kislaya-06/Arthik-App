@@ -776,7 +776,7 @@ Make sure the parent vertical ScrollView still scrolls: if vertical scrolling br
 behave as before.
 
 ### OPT-16. ⚠️ OWNER GATE (feel review) — Pull-to-History list → RNGH + Reanimated
-**Status:** ✅ Done 24 Oct 2026 — Ported PullToHistoryList from PanResponder + Animated (useNativeDriver: false) to RNGH Gesture.Pan and Reanimated worklets; workletized pullToHistoryPhysics math; updated PullToHistoryIndicator to accept SharedValue; added tests/pullToHistoryReanimated.test.ts; all 140 test files (1,946 tests) and tsc pass.
+**Status:** ✅ Done 24 Oct 2026 — Ported PullToHistoryList from PanResponder + Animated (useNativeDriver: false) to RNGH Gesture.Pan and Reanimated worklets; workletized pullToHistoryPhysics math; updated PullToHistoryIndicator to accept SharedValue; added tests/pullToHistoryReanimated.test.ts. (25 Oct 2026): Finding 01 implemented — migrated PullToHistoryIndicator countdown ring and armed circle to native UI-thread AnimatedCircle + useAnimatedProps, eliminating up to 240 React re-renders during active dragging.
 **File:** `src/components/PullToHistoryList.tsx`, physics in `src/lib/pullToHistoryPhysics.ts` (measured from Instagram,
 do NOT change any constant).
 **Today:** a `PanResponder` with capture rules (touch slop, "finger moving down at top is not ours"), virtual scroll

@@ -200,7 +200,7 @@ export const RollingText: React.FC<RollingTextProps> = React.memo(({
   animate = true,
   testID,
   accessibilityLabel,
-  rollOnFocus,
+  rollOnFocus: _rollOnFocus,
   rollTrigger,
 }) => {
   const flat = (StyleSheet.flatten(style) || {}) as TextStyle;
@@ -272,30 +272,16 @@ export const RollingText: React.FC<RollingTextProps> = React.memo(({
     const rollCount = Object.keys(active.plan.rolls).length;
     const timer = setTimeout(
       () => setActive((cur) => (cur && cur.id === active.id ? null : cur)),
-      ROLL_DURATION_MS + ROLL_STAGGER_MS * rollCount + 80
+      ROLL_DURATION_MS + ROLL_STAGGER_MS * rollCount + 60
     );
     return () => clearTimeout(timer);
   }, [active?.id]);
 
-  // Tab focus entry handling (freezeOnBlur reveal / rollOnFocus)
+  // Tab focus entry: numbers render instantly and statically on screen entry without spinning delay.
+  // Animation strictly triggers when value actually changes or via explicit rollTrigger (Finding 02).
   useLayoutEffect(() => {
-    wasFocusedRef.current = false;
-  }, []);
-
-  useLayoutEffect(() => {
-    const justGainedFocus = !!rollOnFocus && isFocused && !wasFocusedRef.current;
     wasFocusedRef.current = isFocused;
-    if (!justGainedFocus || !animate || reduceMotion) return;
-
-    const zeroText = text.replace(/\d[\d,]*(?:\.\d+)?/g, '0');
-    if (zeroText !== text) {
-      const plan = planRoll(zeroText, text);
-      if (plan) {
-        const id = ++idRef.current;
-        setActive({ id, text, plan });
-      }
-    }
-  }, [isFocused, rollOnFocus, animate, reduceMotion, text]);
+  }, [isFocused]);
 
   const onContainerLayout = (e: LayoutChangeEvent) => {
     if (fitWidth !== undefined) return;

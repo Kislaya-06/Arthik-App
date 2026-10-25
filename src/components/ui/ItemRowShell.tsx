@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, useAnimatedValue } from 'react-native';
-import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing, BorderRadius } from '../../config/theme';
+import { ThemeColors, FontFamily, FontSize, LineHeight, Spacing, BorderRadius, Motion } from '../../config/theme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { AmountText } from './AmountText';
 import { formatCurrency } from '../../lib/formatters';
 
@@ -33,22 +34,25 @@ const ItemRowShellBase: React.FC<ItemRowShellProps> = ({
   phaseAOpacity,
   phaseATranslateY,
 }) => {
+  const reduceMotion = useReduceMotion();
   const pressScale = useAnimatedValue(1);
 
   const handlePressIn = () => {
+    if (reduceMotion) return;
     Animated.spring(pressScale, {
-      toValue: 0.98,
-      tension: 120,
-      friction: 8,
+      toValue: Motion.scale.press,
+      tension: Motion.springs.press.tension,
+      friction: Motion.springs.press.friction,
       useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
+    if (reduceMotion) return;
     Animated.spring(pressScale, {
       toValue: 1,
-      tension: 100,
-      friction: 8,
+      tension: Motion.springs.release.tension,
+      friction: Motion.springs.release.friction,
       useNativeDriver: true,
     }).start();
   };

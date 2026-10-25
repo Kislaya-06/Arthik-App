@@ -196,7 +196,6 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                   value={cardTarget}
                   color={cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF'}
                   rolling
-                  rollOnFocus
                 />
               </View>
             </View>

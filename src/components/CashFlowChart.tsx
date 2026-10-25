@@ -7,6 +7,7 @@ import {
   Animated,
   useAnimatedValue,
 } from 'react-native';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 import ArrowUpRight from 'lucide-react-native/icons/arrow-up-right';
 import ArrowDownRight from 'lucide-react-native/icons/arrow-down-right';
@@ -38,6 +39,249 @@ const DEFAULT_TRACK_HEIGHT = 115;
 const TRACK_WIDTH = 18;
 const MIN_FILL_HEIGHT = 18;
 
+interface CashFlowColumnProps {
+  week: MonthlyCashFlowWeek;
+  index: number;
+  totalBars?: number;
+  maxAmount: number;
+  trackBg: string;
+  inGradStart: string;
+  inGradEnd: string;
+  outGradStart: string;
+  outGradEnd: string;
+  inAccent: string;
+  outAccent: string;
+  colors: ThemeColors;
+  isDark: boolean;
+  onWeekPress?: (week: MonthlyCashFlowWeek) => void;
+  triggerKey?: string | number;
+}
+
+const CashFlowColumn: React.FC<CashFlowColumnProps> = React.memo(({
+  week: w,
+  index,
+  totalBars,
+  maxAmount,
+  trackBg,
+  inGradStart,
+  inGradEnd,
+  outGradStart,
+  outGradEnd,
+  inAccent,
+  outAccent,
+  colors,
+  isDark,
+  onWeekPress,
+  triggerKey,
+}) => {
+  const reduceMotion = useReduceMotion();
+  const animValue = useAnimatedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      animValue.setValue(1);
+      return;
+    }
+    animValue.setValue(0);
+    const delay = totalBars && totalBars > 0
+      ? Math.min(index * (100 / totalBars), 100)
+      : Math.min(index * 25, 100);
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.spring(animValue, {
+        toValue: 1,
+        tension: 110,
+        friction: 12,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [triggerKey, reduceMotion, index, totalBars]);
+
+  const targetInHeight = calculatePillFillHeight(
+    w.income,
+    maxAmount,
+    DEFAULT_TRACK_HEIGHT,
+    MIN_FILL_HEIGHT
+  );
+  const targetOutHeight = calculatePillFillHeight(
+    w.spent,
+    maxAmount,
+    DEFAULT_TRACK_HEIGHT,
+    MIN_FILL_HEIGHT
+  );
+
+  const animatedInTranslateY = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetInHeight],
+    extrapolateLeft: 'clamp',
+  });
+
+  const animatedOutTranslateY = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetOutHeight],
+    extrapolateLeft: 'clamp',
+  });
+
+  const weekNet = Math.round(w.income - w.spent);
+  const hasActivity = w.income > 0 || w.spent > 0;
+
+  let netDeltaText = '—';
+  let netDeltaColor = isDark ? colors.textMuted : colors.textSecondary;
+
+  if (hasActivity) {
+    if (weekNet > 0) {
+      netDeltaText = `+${formatCompactRupee(weekNet)}`;
+      netDeltaColor = inAccent;
+    } else if (weekNet < 0) {
+      netDeltaText = `−${formatCompactRupee(Math.abs(weekNet))}`;
+      netDeltaColor = outAccent;
+    } else {
+      netDeltaText = '₹0';
+      netDeltaColor = colors.textSecondary;
+    }
+  }
+
+  return (
+    <Pressable
+      key={w.day}
+      style={({ pressed }) => [
+        styles.weekCol,
+        pressed && { opacity: 0.75 },
+      ]}
+      onPress={() => onWeekPress?.(w)}
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      accessibilityRole="button"
+      accessibilityLabel={`${w.day} (${w.subLabel}): In ${formatCurrency(w.income)}, Out ${formatCurrency(w.spent)}`}
+    >
+      {/* Dual Capsule Bars Container */}
+      <View style={styles.barsContainer}>
+        {/* Money In Bar (Left) */}
+        <View
+          style={[
+            styles.track,
+            { backgroundColor: trackBg },
+          ]}
+        >
+          {w.income > 0 ? (
+            <Animated.View
+              style={[
+                styles.fillBar,
+                {
+                  transform: [{ translateY: animatedInTranslateY }],
+                },
+              ]}
+            >
+              <Svg width={TRACK_WIDTH} height={DEFAULT_TRACK_HEIGHT}>
+                <Defs>
+                  <LinearGradient id={`gradIn_${w.day}`} x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={inGradStart} />
+                    <Stop offset="1" stopColor={inGradEnd} />
+                  </LinearGradient>
+                </Defs>
+                <Rect
+                  width={TRACK_WIDTH}
+                  height={DEFAULT_TRACK_HEIGHT}
+                  rx={TRACK_WIDTH / 2}
+                  ry={TRACK_WIDTH / 2}
+                  fill={`url(#gradIn_${w.day})`}
+                />
+              </Svg>
+            </Animated.View>
+          ) : null}
+        </View>
+
+        {/* Money Out Bar (Right) */}
+        <View
+          style={[
+            styles.track,
+            { backgroundColor: trackBg },
+          ]}
+        >
+          {w.spent > 0 ? (
+            <Animated.View
+              style={[
+                styles.fillBar,
+                {
+                  transform: [{ translateY: animatedOutTranslateY }],
+                },
+              ]}
+            >
+              <Svg width={TRACK_WIDTH} height={DEFAULT_TRACK_HEIGHT}>
+                <Defs>
+                  <LinearGradient id={`gradOut_${w.day}`} x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={outGradStart} />
+                    <Stop offset="1" stopColor={outGradEnd} />
+                  </LinearGradient>
+                </Defs>
+                <Rect
+                  width={TRACK_WIDTH}
+                  height={DEFAULT_TRACK_HEIGHT}
+                  rx={TRACK_WIDTH / 2}
+                  ry={TRACK_WIDTH / 2}
+                  fill={`url(#gradOut_${w.day})`}
+                />
+              </Svg>
+            </Animated.View>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Grounding Baseline */}
+      <View
+        style={[
+          styles.podBaseline,
+          {
+            backgroundColor: isDark
+              ? 'rgba(255, 255, 255, 0.08)'
+              : 'rgba(0, 0, 0, 0.06)',
+          },
+        ]}
+      />
+
+      {/* Week Tag (W1, W2, W3, W4) */}
+      <Text
+        style={[
+          styles.dayLabel,
+          {
+            color: hasActivity ? colors.textPrimary : colors.textMuted,
+            fontFamily: FontFamily.bold,
+          },
+        ]}
+      >
+        {w.day}
+      </Text>
+
+      {/* Date Range Sub-label (1–7, 8–14, 15–21, 22–30) */}
+      <Text
+        style={[
+          styles.subDateLabel,
+          {
+            color: colors.textSecondary,
+            fontFamily: FontFamily.medium,
+          },
+        ]}
+        numberOfLines={1}
+      >
+        {w.subLabel}
+      </Text>
+
+      {/* Week Net Delta Indicator */}
+      <Text
+        style={[
+          styles.netDeltaLabel,
+          {
+            color: netDeltaColor,
+            fontFamily: FontFamily.bold,
+          },
+        ]}
+        numberOfLines={1}
+      >
+        {netDeltaText}
+      </Text>
+    </Pressable>
+  );
+});
+
 export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   title = 'Cash Flow',
   subTitle,
@@ -50,17 +294,6 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   onWeekPress,
   triggerKey,
 }) => {
-  const animValue = useAnimatedValue(0);
-
-  useEffect(() => {
-    animValue.setValue(0);
-    Animated.spring(animValue, {
-      toValue: 1,
-      tension: 70,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  }, [triggerKey]);
 
   // Vibrant, executive palette matching app's theme
   const {
@@ -274,191 +507,26 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
       {/* ── 4 Weekly Dual-Bar Columns (Seamless, Non-boxy) ── */}
       <View style={styles.chartContainer}>
-        {data.map((w) => {
-          const targetInHeight = calculatePillFillHeight(
-            w.income,
-            maxAmount,
-            DEFAULT_TRACK_HEIGHT,
-            MIN_FILL_HEIGHT
-          );
-          const targetOutHeight = calculatePillFillHeight(
-            w.spent,
-            maxAmount,
-            DEFAULT_TRACK_HEIGHT,
-            MIN_FILL_HEIGHT
-          );
-
-          const animatedInTranslateY = animValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetInHeight],
-            extrapolateLeft: 'clamp',
-          });
-
-          const animatedOutTranslateY = animValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: [DEFAULT_TRACK_HEIGHT, DEFAULT_TRACK_HEIGHT - targetOutHeight],
-            extrapolateLeft: 'clamp',
-          });
-
-          const weekNet = Math.round(w.income - w.spent);
-          const hasActivity = w.income > 0 || w.spent > 0;
-
-          let netDeltaText = '—';
-          let netDeltaColor = isDark ? colors.textMuted : colors.textSecondary;
-
-          if (hasActivity) {
-            if (weekNet > 0) {
-              netDeltaText = `+${formatCompactRupee(weekNet)}`;
-              netDeltaColor = inAccent;
-            } else if (weekNet < 0) {
-              netDeltaText = `−${formatCompactRupee(Math.abs(weekNet))}`;
-              netDeltaColor = outAccent;
-            } else {
-              netDeltaText = '₹0';
-              netDeltaColor = colors.textSecondary;
-            }
-          }
-
-          return (
-            <Pressable
-              key={w.day}
-              style={({ pressed }) => [
-                styles.weekCol,
-                pressed && { opacity: 0.75 },
-              ]}
-              onPress={() => onWeekPress?.(w)}
-              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              accessibilityRole="button"
-              accessibilityLabel={`${w.day} (${w.subLabel}): In ${formatCurrency(w.income)}, Out ${formatCurrency(w.spent)}`}
-            >
-              {/* Dual Capsule Bars Container */}
-              <View style={styles.barsContainer}>
-                {/* Money In Bar (Left) */}
-                <View
-                  style={[
-                    styles.track,
-                    { backgroundColor: trackBg },
-                  ]}
-                >
-                  {w.income > 0 ? (
-                    <Animated.View
-                      style={[
-                        styles.fillBar,
-                        {
-                          transform: [{ translateY: animatedInTranslateY }],
-                        },
-                      ]}
-                    >
-                      <Svg width={TRACK_WIDTH} height={DEFAULT_TRACK_HEIGHT}>
-                        <Defs>
-                          <LinearGradient id={`gradIn_${w.day}`} x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={inGradStart} />
-                            <Stop offset="1" stopColor={inGradEnd} />
-                          </LinearGradient>
-                        </Defs>
-                        <Rect
-                          width={TRACK_WIDTH}
-                          height={DEFAULT_TRACK_HEIGHT}
-                          rx={TRACK_WIDTH / 2}
-                          ry={TRACK_WIDTH / 2}
-                          fill={`url(#gradIn_${w.day})`}
-                        />
-                      </Svg>
-                    </Animated.View>
-                  ) : null}
-                </View>
-
-                {/* Money Out Bar (Right) */}
-                <View
-                  style={[
-                    styles.track,
-                    { backgroundColor: trackBg },
-                  ]}
-                >
-                  {w.spent > 0 ? (
-                    <Animated.View
-                      style={[
-                        styles.fillBar,
-                        {
-                          transform: [{ translateY: animatedOutTranslateY }],
-                        },
-                      ]}
-                    >
-                      <Svg width={TRACK_WIDTH} height={DEFAULT_TRACK_HEIGHT}>
-                        <Defs>
-                          <LinearGradient id={`gradOut_${w.day}`} x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={outGradStart} />
-                            <Stop offset="1" stopColor={outGradEnd} />
-                          </LinearGradient>
-                        </Defs>
-                        <Rect
-                          width={TRACK_WIDTH}
-                          height={DEFAULT_TRACK_HEIGHT}
-                          rx={TRACK_WIDTH / 2}
-                          ry={TRACK_WIDTH / 2}
-                          fill={`url(#gradOut_${w.day})`}
-                        />
-                      </Svg>
-                    </Animated.View>
-                  ) : null}
-                </View>
-              </View>
-
-              {/* Grounding Baseline */}
-              <View
-                style={[
-                  styles.podBaseline,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.08)'
-                      : 'rgba(0, 0, 0, 0.06)',
-                  },
-                ]}
-              />
-
-              {/* Week Tag (W1, W2, W3, W4) */}
-              <Text
-                style={[
-                  styles.dayLabel,
-                  {
-                    color: hasActivity ? colors.textPrimary : colors.textMuted,
-                    fontFamily: FontFamily.bold,
-                  },
-                ]}
-              >
-                {w.day}
-              </Text>
-
-              {/* Date Range Sub-label (1–7, 8–14, 15–21, 22–30) */}
-              <Text
-                style={[
-                  styles.subDateLabel,
-                  {
-                    color: colors.textSecondary,
-                    fontFamily: FontFamily.medium,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {w.subLabel}
-              </Text>
-
-              {/* Week Net Delta Indicator */}
-              <Text
-                style={[
-                  styles.netDeltaLabel,
-                  {
-                    color: netDeltaColor,
-                    fontFamily: FontFamily.bold,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {netDeltaText}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {data.map((w, index) => (
+          <CashFlowColumn
+            key={w.day}
+            week={w}
+            index={index}
+            totalBars={data.length}
+            maxAmount={maxAmount}
+            trackBg={trackBg}
+            inGradStart={inGradStart}
+            inGradEnd={inGradEnd}
+            outGradStart={outGradStart}
+            outGradEnd={outGradEnd}
+            inAccent={inAccent}
+            outAccent={outAccent}
+            colors={colors}
+            isDark={isDark}
+            onWeekPress={onWeekPress}
+            triggerKey={triggerKey}
+          />
+        ))}
       </View>
     </View>
   </View>

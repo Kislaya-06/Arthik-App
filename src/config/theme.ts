@@ -260,6 +260,45 @@ export const ControlHeight = {
   cta: 60,      // Primary action button height (AGENTS.md 9.2)
 } as const;
 
+/**
+ * Motion & Animation Tokens (Emil Kowalski / Apple-grade craft)
+ * Central source of truth for duration budgets, easing curves, and spring physics.
+ */
+export const Motion = {
+  duration: {
+    instant: 80,
+    press: 120,
+    snappy: 180,
+    standard: 240,
+    sheet: 300,
+    sweep: 320,
+  },
+  curves: {
+    // Strong UI ease-out: starts fast, crisp deceleration
+    easeOut: [0.23, 1, 0.32, 1] as const,
+    // On-screen morphing / moving elements
+    easeInOut: [0.77, 0, 0.175, 1] as const,
+    // iOS sheet and drawer dismissal curve
+    easeDrawer: [0.32, 0.72, 0, 1] as const,
+  },
+  springs: {
+    // Subtle button & card press feedback (0.97 scale compression)
+    press: { tension: 120, friction: 10 },
+    // Snappy tactile release for buttons & cards (fast return with zero overshoot)
+    release: { tension: 180, friction: 14 },
+    // Crisp settlement with zero oscillation
+    settle: { stiffness: 447.4, damping: 49, mass: 1 },
+    // Interactive sheet snapping
+    sheet: { damping: 24, stiffness: 280, mass: 0.9 },
+    // High-frequency keypad release
+    keypad: { tension: 180, friction: 12 },
+  },
+  scale: {
+    press: 0.97,
+    chip: 0.96,
+  },
+} as const;
+
 export const Theme = {
   radius: BorderRadius,
   spacing: Spacing,
@@ -267,6 +306,7 @@ export const Theme = {
   lineHeight: LineHeight,
   fonts: FontFamily,
   controls: ControlHeight,
+  motion: Motion,
 };
 
 /**

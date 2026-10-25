@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  ActivityIndicator, Animated, useAnimatedValue,
+  ActivityIndicator, Animated, Easing, useAnimatedValue,
 } from 'react-native';
 import Reanimated, {
   useSharedValue,
@@ -89,8 +89,8 @@ const CategoryChipItem = React.memo<{
     }
     if (isSelected) {
       Animated.sequence([
-        Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+        Animated.timing(scale, { toValue: 0.96, duration: 80, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, tension: 120, friction: 10, useNativeDriver: true }),
       ]).start();
     }
   }, [isSelected, scale]);
@@ -267,7 +267,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isMorphing, setIsMorphing] = useState<boolean>(false);
   const [showTick, setShowTick] = useState<boolean>(false);
   const morph = useSharedValue(0);
-  const tickScale = useSharedValue(0);
+  const tickScale = useSharedValue(0.88);
+  const tickOpacity = useSharedValue(0);
   const buttonHeight = isKeyboardOpen ? 50 : ControlHeight.cta;
 
   const isButtonGreen = isSaveEnabled || isSubmitting || isMorphing || showTick;
@@ -284,6 +285,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const tickScaleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: tickScale.value }],
+    opacity: tickOpacity.value,
   }));
 
   const onSavePress = useCallback(async () => {
@@ -313,13 +315,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         hideKeypad();
         setIsMorphing(true);
 
-        // 1. Button smoothly contracts into green circle (never turning grey)
+        // 1. Button smoothly contracts into green circle with strong UI ease-out
         await new Promise<void>((resolve) => {
           morph.value = withTiming(
             1,
             {
               duration: 180,
-              easing: REasing.inOut(REasing.ease),
+              easing: REasing.bezier(0.23, 1, 0.32, 1),
             },
             () => {
               'worklet';
@@ -328,12 +330,18 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           );
         });
 
-        // 2. Tick appears with bouncy spring inside the green circle
+        // 2. Tick appears naturally from 0.88 scale with smooth opacity fade (never scale(0))
         setShowTick(true);
+        tickScale.value = 0.88;
+        tickOpacity.value = 0;
         tickScale.value = withSpring(1, {
           stiffness: 356.9,
           damping: 19,
           mass: 1,
+        });
+        tickOpacity.value = withTiming(1, {
+          duration: 160,
+          easing: REasing.bezier(0.23, 1, 0.32, 1),
         });
 
         // 3. Keep green circle + tick visible for a brief moment ("bahut kam time ke liye")
@@ -343,9 +351,10 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       setIsMorphing(false);
       setShowTick(false);
       morph.value = 0;
-      tickScale.value = 0;
+      tickScale.value = 0.88;
+      tickOpacity.value = 0;
     }
-  }, [isSaveEnabled, triggerErrorShake, handleSave, hideKeypad, morph, tickScale]);
+  }, [isSaveEnabled, triggerErrorShake, handleSave, hideKeypad, morph, tickScale, tickOpacity]);
 
   // Keypad & Save Button Reanimated styles
   const keypadAnimatedStyle = useAnimatedStyle(() => ({
