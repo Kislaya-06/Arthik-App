@@ -15,6 +15,7 @@ import {
   setupNotifications,
 } from './src/lib/notificationService';
 import { startNotificationSync } from './src/lib/notificationSync';
+import { startQuickCategorySync } from './src/lib/quickCategories';
 import Constants from 'expo-constants';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -116,9 +117,16 @@ export default function App() {
 
     // Smart notifications: the schedule is rebuilt from the user's data whenever it changes (see notificationPolicy.ts)
     const stopNotificationSync = startNotificationSync();
+    // Keeps the user's top categories saved on the phone for the Automatic Logging notification buttons.
+    const stopQuickCategorySync = startQuickCategorySync();
 
     // Handle user tapping on a device notification in notification shade
-    const unregisterNotif = registerNotificationResponseListener((data) => {
+    const unregisterNotif = registerNotificationResponseListener((data, response) => {
+      // A category button on an Automatic Logging notification: save it quietly, never navigate.
+      if (typeof (response as any)?.actionIdentifier === 'string' && (response as any).actionIdentifier.startsWith('cat:')) {
+        import('./src/features/autoLog/notificationActions').then((m) => m.handleCategoryResponse(response)).catch(() => {});
+        return;
+      }
       const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;
       if (data?.type === 'autolog') {
         if (data?.screen === 'ExpenseDetail' && data?.expenseId) navigateTo('ExpenseDetail', { expenseId: data.expenseId });
@@ -238,6 +246,7 @@ export default function App() {
       appStateSub.remove();
       unregisterNotif();
       stopNotificationSync();
+      stopQuickCategorySync();
       cleanupNetwork();
       unsubNetwork();
       versionAppStateSub.remove();

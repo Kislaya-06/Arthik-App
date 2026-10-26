@@ -1,3 +1,4 @@
+import { usePullRefresh } from './usePullRefresh';
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -91,7 +92,6 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
   const [activeFilter, setActiveFilter] = useState<SavingsFilter>('All');
 
   const lastFetchTime = useRef<number>(0);
-  const [refreshing, setRefreshing] = useState(false);
 
   // ─── Focus & Pull-to-Refresh Throttled Data Loading ────────────────────────
   const loadData = useCallback(
@@ -114,11 +114,10 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
     }, [loadData])
   );
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
+  const refreshWork = useCallback(async () => {
     await loadData(true);
-    setRefreshing(false);
   }, [loadData]);
+  const { refreshing, onRefresh } = usePullRefresh(refreshWork);
 
   // ─── Memoized Records ──────────────────────────────────────────────────────
   const todayRecord = useMemo(() => getTodayRecord(), [getTodayRecord, dailyRecords, isAutoRenew, dailyBudgetAmount]);

@@ -26,6 +26,8 @@ export interface RefreshScrollShellProps {
 
 export const RefreshScrollShell: React.FC<RefreshScrollShellProps> = ({ refreshing, onRefresh, children }) => {
   const [locked, setLocked] = useState(false);
+  // While the circle is refreshing it must never be switched off: turning a native refresh control off
+  // resets it, which made the circle vanish and pop back (the "blink"). The lock only applies between pulls.
 
   return (
     <RefreshLockContext.Provider value={setLocked}>
@@ -38,7 +40,7 @@ export const RefreshScrollShell: React.FC<RefreshScrollShellProps> = ({ refreshi
         alwaysBounceVertical
         overScrollMode="never"
         showsVerticalScrollIndicator={false}
-        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!locked} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={refreshing || !locked} />}
       >
         {children}
       </ScrollView>

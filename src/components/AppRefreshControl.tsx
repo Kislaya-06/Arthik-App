@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { RefreshControl, ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
@@ -27,7 +27,7 @@ export interface AppRefreshControlProps extends ViewProps {
   topOffset?: number;
 }
 
-export const AppRefreshControl: React.FC<AppRefreshControlProps> = ({
+const AppRefreshControlBase: React.FC<AppRefreshControlProps> = ({
   refreshing,
   onRefresh,
   enabled = true,
@@ -37,6 +37,8 @@ export const AppRefreshControl: React.FC<AppRefreshControlProps> = ({
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const accent = isDark ? colors.mintGreen : colors.mintGreenDark;
+  // Stable array: a new array on every render makes the native circle re-apply its colours while it is moving.
+  const spinnerColors = useMemo(() => [accent], [accent]);
 
   return (
     // IMPORTANT: on Android, <ScrollView refreshControl={...}> clones this element and passes the actual
@@ -48,11 +50,13 @@ export const AppRefreshControl: React.FC<AppRefreshControlProps> = ({
       onRefresh={onRefresh}
       enabled={enabled}
       tintColor={accent}
-      colors={[accent]}
+      colors={spinnerColors}
       progressBackgroundColor={colors.card}
       progressViewOffset={topOffset ?? insets.top}
     />
   );
 };
+
+export const AppRefreshControl = React.memo(AppRefreshControlBase);
 
 export default AppRefreshControl;

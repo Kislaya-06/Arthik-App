@@ -294,11 +294,13 @@ export async function collectDeliveredForInbox(
 }
 
 /** Listen for the user tapping a notification. */
-export function registerNotificationResponseListener(onResponse: (data: any) => void): () => void {
+export function registerNotificationResponseListener(
+  onResponse: (data: any, response?: unknown) => void
+): () => void {
   if (!isDeviceNotificationSupported() || !Notifications) return () => {};
   try {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      onResponse(response?.notification?.request?.content?.data);
+      onResponse(response?.notification?.request?.content?.data, response);
     });
     return () => sub.remove();
   } catch {

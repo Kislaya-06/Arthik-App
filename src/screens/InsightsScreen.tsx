@@ -8,6 +8,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
+import { usePullRefresh } from '../hooks/usePullRefresh';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { useFocusEffect, useIsFocused, useScrollToTop } from '@react-navigation/native';
@@ -103,7 +104,6 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const [offset, setOffset] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState<number>(Date.now());
-  const [refreshing, setRefreshing] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const lastFetchTime = useRef<number>(0);
   const lastDayRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -142,12 +142,11 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     }, [loadData]),
   );
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
+  const refreshWork = useCallback(async () => {
     await loadData(true);
     setFocusSeq((s) => s + 1);
-    setRefreshing(false);
   }, [loadData]);
+  const { refreshing, onRefresh } = usePullRefresh(refreshWork);
 
   const {
     minOff,

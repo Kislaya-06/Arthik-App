@@ -1,4 +1,4 @@
-import { AppRegistry } from 'react-native';
+import { AppRegistry, Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundTask from 'expo-background-task';
 import { supabase } from '../../config/supabase';
@@ -14,6 +14,8 @@ import { isAutoLogNativeAvailable } from '../../../modules/arthik-autolog';
  */
 
 export const AUTOLOG_BG_TASK = 'arthik-autolog-periodic';
+/** Runs when a category button inside an Automatic Logging notification is tapped while the app is closed / in background. */
+export const AUTOLOG_NOTIFICATION_ACTION_TASK = 'arthik-autolog-notification-action';
 
 const runHeadless = async () => {
   if (!isAutoLogNativeAvailable()) return;
@@ -35,18 +37,45 @@ TaskManager.defineTask(AUTOLOG_BG_TASK, async () => {
   }
 });
 
+TaskManager.defineTask(AUTOLOG_NOTIFICATION_ACTION_TASK, async ({ data }: { data?: unknown }) => {
+  try {
+    // Only category buttons are handled; every other response is ignored here.
+    const { handleCategoryResponse } = await import('./notificationActions');
+    await handleCategoryResponse(data);
+  } catch {}
+});
+
 AppRegistry.registerHeadlessTask('ArthikAutoLogTask', () => async () => {
   try {
     await runHeadless();
   } catch {}
 });
 
+const registerNotificationActionTask = async () => {
+  if (Platform.OS !== 'android') return;
+  try {
+    if (await TaskManager.isTaskRegisteredAsync(AUTOLOG_NOTIFICATION_ACTION_TASK)) return;
+    const N = await import('expo-notifications');
+    await N.registerTaskAsync(AUTOLOG_NOTIFICATION_ACTION_TASK);
+  } catch {
+    // Without it the buttons still work while the app is open; closed-app taps would just do nothing.
+  }
+};
+
 export const registerBackground = async () => {
+  // Registered before the periodic task's early return so users who already have it get this one too.
+  await registerNotificationActionTask();
   if (await TaskManager.isTaskRegisteredAsync(AUTOLOG_BG_TASK)) return;
   await BackgroundTask.registerTaskAsync(AUTOLOG_BG_TASK, { minimumInterval: 15 });
 };
 
 export const unregisterBackground = async () => {
+  try {
+    if (await TaskManager.isTaskRegisteredAsync(AUTOLOG_NOTIFICATION_ACTION_TASK)) {
+      const N = await import('expo-notifications');
+      await N.unregisterTaskAsync(AUTOLOG_NOTIFICATION_ACTION_TASK);
+    }
+  } catch {}
   if (await TaskManager.isTaskRegisteredAsync(AUTOLOG_BG_TASK)) {
     await BackgroundTask.unregisterTaskAsync(AUTOLOG_BG_TASK);
   }

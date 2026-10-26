@@ -60,6 +60,15 @@ When toggling between Pure Mode and Budget Mode, the switch takes effect tomorro
 ## Automatic Logging: money from someone who owes you (`SPL-005`)
 When Automatic Logging logs a credit (while the app data is loaded) and the sender's name matches a person who still owes money, the "✓ ₹X logged" notification asks "Name owes you ₹Y. Is this their payment? Tap to answer." instead of the plain "Income" line. Name and amount are checked first, then name only. Tapping it opens the transaction, which offers "Yes, settle it". When the app data is not loaded (app closed) the normal notification is sent and the transaction screen asks the same question. Arthik never settles by itself. If "income" was remembered for that sender, such a credit is no longer logged automatically: it waits in review and the "needs review" notification asks the same "Name owes you ₹Y. Is this their payment?" question (SPL-005 point 7).
 
+## Automatic Logging: choose a category from the notification
+When Automatic Logging logs an **expense** with no known category, the "✓ ₹X logged" notification shows up to **3 action buttons** with the user's most used expense categories (Android's limit is 3; notifications cannot be swiped or dragged, so buttons are the way).
+- Tapping a button saves the category (only the category: `setTransactionCategory`), removes the notification and never opens the app. Tapping the notification body still opens the transaction.
+- The top categories come from `pickQuickCategories` (`src/lib/quickCategoryPick.ts`: most used first, newest breaks ties, filled from the category list for new users, never income categories). `startQuickCategorySync` (`src/lib/quickCategories.ts`) saves them on the phone (`@arthik_quick_categories_<userId>`) so they exist while the app is closed.
+- Buttons are registered as a notification category named from the set of category ids (`arthik-autolog-cat-<hash>`); button ids are `cat:<categoryId>`; the notification data carries `eventId` and `expenseId`.
+- App closed or in background: background task `arthik-autolog-notification-action` (`background.ts`) runs `handleCategoryResponse`. App open: the same handler runs from the notification listener in `App.tsx` and does not navigate. Running twice is harmless.
+- No buttons for income, money-back questions (SPL-005), an already known category, or when no categories are saved yet. If the save fails (for example offline) the notification becomes "Category not saved. Tap to choose it in Arthik." and the transaction stays in Review as "Logged · choose a category".
+- The merchant is NOT remembered from a button tap (same default as the Review screen).
+
 ## How it stays true
 `notificationSync.ts` rebuilds the whole plan from the latest data (3 s after any expense / budget change, on app foreground, after login) and replaces the OS schedule; an identical plan is not rescheduled. Logging an expense therefore cancels tonight's nudge immediately.
 

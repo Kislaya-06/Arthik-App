@@ -31,6 +31,7 @@ import { WelcomeBackGapModal } from '../components/WelcomeBackGapModal';
 import { findInactiveGapDays } from '../lib/gapFiller';
 import { PullToHistoryList, PullToHistoryListHandle } from '../components/PullToHistoryList';
 import { RefreshScrollShell } from '../components/RefreshScrollShell';
+import { usePullRefresh } from '../hooks/usePullRefresh';
 import { getNavTopOffset } from '../lib/pullToHistoryPhysics';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
@@ -254,7 +255,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Mirror of todayKey for the AppState listener (its closure would otherwise see an old value).
   const todayKeyRef = useRef(todayKey);
   todayKeyRef.current = todayKey;
-  const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async (force = false) => {
     const now = Date.now();
@@ -309,8 +309,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return () => sub.remove();
   }, [loadData]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
+  const refreshWork = useCallback(async () => {
     // Explicitly update today's date key on pull-to-refresh in case midnight just passed
     const nowKey = format(new Date(), 'yyyy-MM-dd');
     setTodayKey((prev) => (prev !== nowKey ? nowKey : prev));
@@ -319,8 +318,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       await useDailyBudgetStore.getState().hydrateFromSupabase(currentUser.id);
     }
     await loadData(true);
-    setRefreshing(false);
   }, [loadData]);
+  const { refreshing, onRefresh } = usePullRefresh(refreshWork);
 
   const handleNavigateSavings = useCallback(() => {
     navigation.navigate('Savings' as any);

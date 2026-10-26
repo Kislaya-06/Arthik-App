@@ -13,6 +13,7 @@ import type { FlashListRef } from '@shopify/flash-list';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRefreshControl } from '../components/AppRefreshControl';
+import { usePullRefresh } from '../hooks/usePullRefresh';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
@@ -378,7 +379,6 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [selectedCategoryId, searchQuery]);
 
   const lastFetchTime = useRef<number>(0);
-  const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async (force = false) => {
     const now = Date.now();
@@ -395,11 +395,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     }, [loadData]),
   );
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
+  const refreshWork = useCallback(async () => {
     await loadData(true);
-    setRefreshing(false);
   }, [loadData]);
+  const { refreshing, onRefresh } = usePullRefresh(refreshWork);
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, Category>();

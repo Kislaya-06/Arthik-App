@@ -410,6 +410,11 @@ Incoming financial events extracted from Bank SMS or Bank Transaction Emails tha
 - *Code location*: `src/screens/autolog/AutoLogReviewScreen.tsx`, `src/components/autolog/ReviewSheet.tsx`, `src/features/autoLog/reviews.ts`
 - *_Avoid_*: Unconfirmed Queue, Review Inbox
 
+**Category Button (notification)**:
+An action button on the "✓ ₹X logged" notification of an auto-logged expense that has no category. Up to 3 buttons show the user's most used expense categories. Tapping one saves only the category and removes the notification, without opening the app.
+- *Code location*: `src/features/autoLog/notify.ts`, `src/features/autoLog/notificationActions.ts`, `src/features/autoLog/background.ts`, `src/lib/quickCategoryPick.ts`, `src/lib/quickCategories.ts`
+- *_Avoid_*: Quick Reply, Notification Swipe
+
 **Review Dismissal & Discard**:
 The act of dismissing a pending item either individually (via swipe-to-reveal delete button or inside `ReviewSheet`) or in bulk ("Clear All"). Dismissal marks the event record as `status = 'ignored'` in local SQLite and deletes any pre-logged ledger transaction from `expenseStore` and Supabase.
 - *Code location*: `src/features/autoLog/db.ts` (`dismissPendingEvent`, `clearAllPending`), `src/features/autoLog/reviews.ts` (`discardEvent`, `discardAllPending`), `src/features/autoLog/service.ts` (`clearAllPendingReviews`), `src/screens/autolog/AutoLogReviewScreen.tsx`

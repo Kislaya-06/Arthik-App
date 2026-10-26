@@ -45,7 +45,10 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | `src/features/autoLog/reviews.ts` | User decisions: classify, category, ignore, report problem. |
 | `src/features/autoLog/service.ts` | Lifecycle: entry decision, setup, discovery, recovery, pause, sign-out, turn off. |
 | `src/features/autoLog/ledger.ts` | Bridge into `expenseStore` / Supabase. |
-| `src/features/autoLog/background.ts` | Headless task + periodic task. Imported in `index.ts`. |
+| `src/features/autoLog/background.ts` | Headless task + periodic task + notification-action task (category buttons tapped while the app is closed). Imported in `index.ts`. |
+| `src/features/autoLog/notify.ts` | Local notifications (preview, logged, needs review). The "logged" one carries up to 3 category buttons when an expense has no category. |
+| `src/features/autoLog/notificationActions.ts` | Reads a category-button tap and saves only the category (`setTransactionCategory`), then removes the notification. Used by the background task and the app's notification listener. |
+| `src/lib/quickCategoryPick.ts`, `src/lib/quickCategories.ts` | The user's most used expense categories for those buttons; saved on the phone so they exist while the app is closed. |
 | `src/features/autoLog/store.ts` | Zustand UI snapshot (not persisted). |
 | `src/features/autoLog/remote.ts` | `autolog_profiles` table (no message content). |
 | `src/features/autoLog/rollout.ts` | Beta rollout: `app_config.feature_flags.autolog` audience, existing-user detection, one-time intro. |

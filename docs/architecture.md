@@ -373,6 +373,8 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `opt22HomeResumeRefresh.test.ts` | OPT-22: Home 5 min se zyada background rehne par resume par chup-chaap refresh karta hai |
 | `historyRows.test.ts` | OPT-30: History rows (header + items), keys, aur date-jump header index (See More window ke andar/bahar) |
 | `opt30HistoryFlashList.test.ts` | OPT-30/31: FlashList JS-only hai, History ka scroll-to-top / date jump / empty state / pull-to-refresh wiring, CategoryDetail FlashList |
+| `pullRefreshBlink.test.ts` | Pull-to-refresh blink fix: shared `usePullRefresh` (700 ms hold, circle on before work, ignores second pull), all 4 screens use it, Home shell never disables the circle while refreshing |
+| `quickCategories.test.ts`, `autoLogNotificationActions.test.ts`, `autoLogNotifyButtons.test.ts` | Notification category buttons: top categories pick, button tap reading and saving (only category), buttons shown only for uncategorised expenses |
 | `reduceMotionStore.test.ts` | OPT-43: shared reduce-motion store (startup value, OS answer, live change, ek hi subscription, OS fail hone par bhi safe) |
 | `opt41to46Polish.test.ts` | OPT-41..46: Skeleton rules aur AutoLog use, large-text caps, ek reduce-motion source, haptics map, Add/Edit expense neeche se khulna |
 | `opt50to53Cleanup.test.ts` | OPT-50..53: dead files/exports/asset ab bhi gone hain, kisi ka reference nahi, har `console.*` dev-only hai (guard scan), paise ke functions aur PUR-001 notification bachi hain |

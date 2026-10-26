@@ -51,6 +51,7 @@ vi.mock('../src/store/expenseStore', async () => {
 import { renderHook, act } from './helpers/hookRuntime';
 import { useSavingsDashboard } from '../src/hooks/useSavingsDashboard';
 import { useDailyBudgetStore } from '../src/store/dailyBudgetStore';
+import { MIN_REFRESH_VISIBLE_MS } from '../src/hooks/usePullRefresh';
 
 const saved = (date: string, amount: number) => ({ date, budget: 500, spent: 500 - amount, saved: amount, isFinalized: true, status: 'saved' });
 const missed = (date: string) => ({ date, budget: 500, spent: 600, saved: 0, isFinalized: true, status: 'missed' });
@@ -187,6 +188,10 @@ describe('useSavingsDashboard (everything the Savings screen shows)', () => {
       const pending = h.result.current.onRefresh();
       expect(h.result.current.refreshing).toBe(true);
       release();
+      // The circle is held for a minimum time so a fast reload cannot make it blink (usePullRefresh).
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIN_REFRESH_VISIBLE_MS);
+      });
       await pending;
       expect(h.result.current.refreshing).toBe(false);
       expect(data.fetchExpenses).toHaveBeenCalledTimes(1);

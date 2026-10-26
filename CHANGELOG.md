@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Pull-to-Refresh Blink Fix (`usePullRefresh.ts`, `AppRefreshControl.tsx`, `RefreshScrollShell.tsx`) — OTA-safe**:
+  - Fixed: when pulling down to refresh, the circle dropped, vanished, came back at the same spot and only then went up. Now it drops once, spins, and slides up once when the data is ready.
+  - Why it happened: the native Android circle needs about 300 ms to settle after you let go. When the reload finished sooner, or the circle was switched off / re-configured at that moment, the native view was reset and then re-shown. Home also switched the circle off and on while its list handled touches.
+  - Fix: one shared handler `usePullRefresh(work)` for Home, History, Savings and Insights. It turns the circle on first, keeps it on for at least 700 ms, ignores a second pull while one is running, and always turns it off even if the reload fails. Home's shell never switches the circle off while it is refreshing, and the circle's colour array is now stable between renders.
+  - No money logic touched: each screen still refreshes exactly the same data as before.
+  - Tests: new `pullRefreshBlink.test.ts`; `useSavingsDashboard.test.ts` pull-to-refresh case now lets the 700 ms hold pass.
+  - Docs: `docs/CODEBASE_GUIDE.md`, `docs/design-system.md`, `AGENTS.md` repo map.
+- **Automatic Logging: Choose a Category Right From the Notification (`notify.ts`, `notificationActions.ts`, `background.ts`, `quickCategories.ts`) — OTA-safe**:
+  - When Automatic Logging logs an expense it could not categorise, the "✓ ₹X logged" notification now shows up to 3 buttons with the categories you use most. Tap one: the category is saved, the notification disappears, and the app never opens. Tapping the notification itself still opens the transaction as before.
+  - Works with the app closed (background notification task `arthik-autolog-notification-action`, registered together with Automatic Logging's other background task, so existing users get it without re-setup) and with the app open (the same handler runs from the app's notification listener without navigating).
+  - Your top categories are the expense categories you use most (ties go to the most recent), saved on the phone by `startQuickCategorySync` so they are available while the app is closed. A new user with no history sees the first categories of their list. Income categories are never offered.
+  - Only the category changes (same write as the Review screen: `setTransactionCategory`). Amount, type, date, note and payment mode are never touched. The merchant is not remembered from a button tap (same default as the Review screen's "Remember" switch). If saving fails (for example no internet) the notification becomes "Category not saved — Tap to choose it in Arthik." and the transaction stays in Review as "Logged · choose a category".
+  - Not shown for income, for money-back questions (SPL-005), when a category was already known, or when no categories are saved yet (the old notification is shown).
+  - Limits of Android notifications: at most 3 action buttons, and no swipe/drag inside a notification, so categories are buttons.
+  - No money logic touched (no canonical rule changed). `NotificationService` listener now also passes the raw response so buttons can be told apart from a normal tap.
+  - Tests: new `quickCategories.test.ts`, `autoLogNotificationActions.test.ts`, `autoLogNotifyButtons.test.ts`.
+  - Docs: `docs/notifications.md`, `docs/AUTO_LOGGING.md`, `docs/CODEBASE_GUIDE.md`, `AGENTS.md` repo map.
+
 - **HistoryScreen Swipe-to-Delete Underlay Ghosting Fix (`SwipeableHistoryRow.tsx`)**:
   - Eliminated the brief orange button flash/blink observed during tab transitions (Home ↔ History / Insights) by clamping the underlay's resting opacity to 0% when closed (`[-12, 0] -> [1, 0]`) and removing Android hardware `elevation: 2` and drop-shadows from the background delete button.
   - Added explicit stacking context (`zIndex: 1` on underlay, `zIndex: 2` on foreground) so the Android compositor never elevates the background delete action above the resting transaction card during screen fade transitions.

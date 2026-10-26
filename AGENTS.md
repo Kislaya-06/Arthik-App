@@ -75,15 +75,15 @@ src/
 │                 StreakCalendarModal, DepositGullakModal, GradientIconBadge, PiggyBankCoinIcon,
 │                 CategoryRowItem, AppLockOverlay, SplashCover, OtaUpdateModal, PullToHistoryList, ErrorBoundary, OfflineBanner, SyncFailedBanner,
 │                 autolog/ (AutoLogUi + BetaPill, ReviewSheet, WhyLoggedCard, AutoLogHomeBanner, AutoLogGate, EmailSourceInfo)
-├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background,
+├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background, notificationActions,
 │                 notify, permissions, remote, store, copy, types)
 ├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
-├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts
+├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, usePullRefresh.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
-│                 streakCalendarData.ts, asyncStorageList.ts, navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
+│                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts, navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install)
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History,

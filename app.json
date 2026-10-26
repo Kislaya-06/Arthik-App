@@ -65,6 +65,8 @@
         "version": "2.1.0",
         "title": "Insights Safe Daily Pace & Briefing Dock Polish 📊",
         "highlights": [
+          "Smoother Pull-to-Refresh: The refresh circle now drops once, spins, and slides away once, with no more flicker",
+          "Categorise From the Notification: When a payment is logged automatically, tap one of your top categories right in the notification. No need to open the app",
           "Safe Daily Spending Pace Precision: Today is now accurately counted as an active day in Weekly and Monthly Insights, giving you a true daily spending cushion (e.g. full 7 days on Monday) to pace safely without premature divisor loss",
           "Insights Briefing Dock: Unified dual-tile financial summary for Safe Daily Pace and Auto-Saved Gullak with instant one-tap navigation to Savings",
           "History Gesture Polish: Eliminated button underlay blink during screen transitions for buttery-smooth swipe-to-delete",

@@ -232,7 +232,7 @@ export const logEvent = async (
   e.reviewReason = null;
   if (created && opts.notify) {
     const question = type === 'income' ? moneyBackQuestionFor(e.amount, e.merchant) : null;
-    await notifyLogged(e.id, e.amount, e.merchant, id, type === 'income', question);
+    await notifyLogged(e.id, e.amount, e.merchant, id, type === 'income', question, !categoryId);
   }
 };
 

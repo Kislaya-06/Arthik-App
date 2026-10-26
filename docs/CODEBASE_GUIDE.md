@@ -361,7 +361,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 - **Split & Money Back:** `components/split/SplitExtras`, `components/split/MoneyBackExtras`, `components/split/MoneyBackSheet`, `components/split/SplitDetailCard`.
 - **Charts:** `CashFlowChart`, `YearlyCashFlowChart`, `SpendingFlowChart`, `DonutChart` (Home ring in both modes), `AnimatedCategoryDonut`, `BreathingStripShell` + Weekly/Monthly/Yearly strips, `YearlySavingsMilestoneCard`, `BehavioralInsightRow`.
 - **Form:** `BouncyTypeToggle`, `BouncyPaymentToggle`, `BouncyCategoryFilter` (Reanimated UI-thread worklet slider, touch dispatch, zero-shift typography), `KeyButton`, `ui/KeypadGrid`, `CustomDatePickerModal`, `transfer/TransferExtras` (self-transfer switch), `transfer/TransferDetailCard`.
-- **App-wide:** `BottomNavBar`, `AmbientBackground`, `AppLockOverlay`, `OfflineBanner`, `SyncFailedBanner`, `OtaUpdateModal`, `ErrorBoundary`, `AppRefreshControl`, `RefreshScrollShell`.
+- **App-wide:** `BottomNavBar`, `AmbientBackground`, `AppLockOverlay`, `OfflineBanner`, `SyncFailedBanner`, `OtaUpdateModal`, `ErrorBoundary`, `AppRefreshControl`, `RefreshScrollShell` (dono ek hi `usePullRefresh` handler ke saath chalte hain, refresh circle ek baar neeche aata hai aur ek baar upar jaata hai).
 - **`components/ui/`:** design-system ke chhote tukde: `AppButton`, `AmountText`, `SegmentedControl`, `BottomSheetModal`, `StatusBadge`, `ItemRowShell`, `AuthFormField`, `AuthMessageBanner`, `Skeleton` (grey placeholder jahan content load ho raha hai, OPT-41). Chhote fixed shapes (badge, pill, keypad key, calendar day) ka text `maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}` (`src/lib/fontScale.ts`, 1.3) se bandha hai (OPT-42).
 - **`components/autolog/`:** `ReviewSheet` (pending review ka sawal-jawab), `WhyLoggedCard`, `AutoLogHomeBanner`, `AutoLogGate`, `EmailSourceInfo`, `AutoLogUi`.
 - **Config:** `src/config/theme.ts` (colors, spacing, fonts, `CATEGORY_PALETTE`), `src/config/supabase.ts`.
@@ -374,6 +374,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `useFormKeyboard.ts`, `useFocusEntry.ts`, `useScrollDirection.ts` | Keyboard, screen focus (`useFocusEntryCount`, `useScreenBlurListener`), scroll ki disha |
 | `useReduceMotion.ts` | App ka ek hi "reduce motion" hook (OPT-43): OS setting live follow karta hai, ek shared subscription (`src/lib/reduceMotionStore.ts`), `AmbientBackground`, `RollingText` aur `Skeleton` yahi use karte hain |
 | `useNavBarMetrics.ts` | Phone ke hisaab se nav bar ki spacing (`useNavBarMetrics`) aur screens ki bottom padding (`useNavBarContentInset`) |
+| `usePullRefresh.ts` | Home, History, Savings, Insights ka ek shared pull-to-refresh handler: circle pehle on, kam se kam 700 ms tak on, doosra pull ignore, error par bhi circle band (blink fix) |
 | `useRingSweep.ts` | (focus-entry + `focus` event, dono se trigger) Home ring (`DonutChart`) ka blink-free sweep: blur ke baad UI thread par 0, wapas aane par seedha sweep up |
 
 ---
@@ -411,7 +412,8 @@ Bank email (notification) ─┤   (personal sender, OTP, bina paise wale messag
 | `ledger.ts` | Transaction banana/badalna; `isExceedingVaultLiquidity` (sirf Budget Mode mein review); `owingPersonMatchFor` / `moneyBackQuestionFor` (kaun paisa dena hai) |
 | `paybackGuard.ts` | Remembered "income" wale sender se aaya credit, agar wo insaan abhi paisa dena hai, to seedha income nahi banta, review mein jaata hai (SPL-005 point 7) |
 | `db.ts` | Encrypted SQLite (SQLCipher), user ke hisaab se, key SecureStore mein, review dismissal (`dismissPendingEvent`, `clearAllPending`), learned rules reset (`resetLearnedRules`) |
-| `store.ts`, `types.ts`, `copy.ts`, `notify.ts`, `permissions.ts`, `background.ts`, `remote.ts`, `rollout.ts` | UI snapshot, types, text, notifications, permissions, background task, remote profile (message ka content nahi), beta rollout |
+| `notificationActions.ts` | Notification ke category button ka tap padhta hai aur sirf category save karta hai, phir notification hata deta hai (app band ho ya khula, dono mein chalta hai) |
+| `store.ts`, `types.ts`, `copy.ts`, `notify.ts` (logged notification par top 3 category buttons), `permissions.ts`, `background.ts`, `remote.ts`, `rollout.ts` | UI snapshot, types, text, notifications, permissions, background task, remote profile (message ka content nahi), beta rollout |
 
 Privacy: message ka content sirf phone mein rehta hai; payment apps (GPay, PhonePe...) ke notifications padhe hi nahi jaate.
 
