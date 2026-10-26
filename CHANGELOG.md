@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Themed Custom Alert Dialog System (`AppAlertModal.tsx`, `alertStore.ts`) — OTA-safe**:
+  - Replaced stock white legacy Android `AlertDialog` across the entire app (all 70 occurrences across 18 files) with a unified, custom, glassmorphic dialog system matching Arthik's design system and buttons.
+  - Seamless support across **Light, Dark, and AMOLED** themes with WCAG AAA contrast, Quicksand bold/medium typography, tactile spring physics, and subtle translucent backdrop scrims.
+  - Interactive tactile buttons with scale compression (`0.96`), haptics (`expo-haptics`), rounded stadium pills (`BorderRadius.pill`), and responsive horizontal/vertical auto-layouts.
+  - Defensive UX: Automatic virtual keyboard dismissal on trigger ensuring the dialog is never obscured, and capped message `ScrollView` (`maxHeight: 220`) protecting compact screens and multi-bullet messages from overflowing action buttons.
+  - Tests: `tests/appAlertModal.test.ts` (6 tests passing).
+
+
 - **Pull-to-Refresh Blink Fix (`usePullRefresh.ts`, `AppRefreshControl.tsx`, `RefreshScrollShell.tsx`) — OTA-safe**:
   - Fixed: when pulling down to refresh, the circle dropped, vanished, came back at the same spot and only then went up. Now it drops once, spins, and slides up once when the data is ready.
   - Why it happened: the native Android circle needs about 300 ms to settle after you let go. When the reload finished sooner, or the circle was switched off / re-configured at that moment, the native view was reset and then re-shown. Home also switched the circle off and on while its list handled touches.

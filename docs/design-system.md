@@ -212,6 +212,14 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
    - Multi-row coordination (`isOpen`, `onSwipeOpen`, `onSwipeClose`) ensuring at most one row remains revealed at any moment across the feed.
    - Reveals a brand-aligned underlay action button (`colors.peachCoral` / `#F4B8AE` background with high-contrast `colors.forestGreen` / `#1A2B4C` icon and text) with tactile haptic feedback (`Haptics.ImpactFeedbackStyle.Light` on snap open, `Medium` on destructive press) and explicit confirmation dialog, protecting against accidental deletions.
 
+10. **`<AppAlertModal />`** (`src/components/ui/AppAlertModal.tsx`, store in `src/store/alertStore.ts`):
+    - Unified, themed replacement for stock white Android `AlertDialog` across Light, Dark, and AMOLED themes.
+    - Glassmorphic card styling (`BorderRadius.card`), WCAG AAA text contrast (`colors.textPrimary` bold 18px title, `colors.textSecondary` medium 14.5px message), and backdrop scrim opacity (`0.45` Light, `0.72` Dark, `0.88` AMOLED).
+    - Apple-inspired spring physics (`scale: 0.93 -> 1.0`, `opacity: 0 -> 1` with damping 18, stiffness 260) with fast 130ms exit choreography.
+    - Tactile pill buttons (`BorderRadius.pill`, 48px height): `0.96` press compression, `expo-haptics` tactile feedback, danger/mint/subtle variant styling.
+    - Defensive UX: automatic keyboard dismissal on trigger so the card is never obscured, and capped message `ScrollView` (`maxHeight: 220`) ensuring long multi-line alerts never push action buttons off-screen.
+    - Zero-touch runtime interception: `patchNativeAlert()` routes all legacy `Alert.alert` calls automatically.
+
 ### Home Card Details Sheet & Hero Card Geometry (`BrandedHeroCard`)
 - `HeroDetailsSheet` is a `BottomSheetModal` (with `swipeToDismiss`: grab handle 40×5, drag follows the finger, backdrop lightens with the drag, closes past 28% of the sheet height or on a flick > 900pt/s, otherwise springs back) with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens.
 - The Home ring (`DonutChart`, used in BOTH Budget Mode and Pure Mode) sweeps on the UI thread via `useRingSweep` and are emptied after the screen is left, never on return, so coming back to Home never blinks.

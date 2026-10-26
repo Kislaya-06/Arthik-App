@@ -65,7 +65,7 @@ supabase/               # migrations/ (budget modes, autolog_profiles, release f
 modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
                         # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
 src/
-├── components/   ui/ (AppButton, AmountText, SegmentedControl, BottomSheetModal, …),
+├── components/   ui/ (AppButton, AmountText, SegmentedControl, BottomSheetModal, AppAlertModal, …),
 │                 profile/ (PauseBudgetModal, EditProfileModal, DeleteAccountModal, styles),
 │                 savings/ (SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, styles),
 │                 transfer/ (TransferExtras, TransferDetailCard),
@@ -94,7 +94,7 @@ src/
 ├── store/        authStore, categoryStore,
 │                 expenseStore (with expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack),
 │                 dailyBudgetStore (with dailyBudget/ classifiers, expenseBridge, hydrate, metrics, pendingStorage, rollover, types),
-│                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, splashCoverStore
+│                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, splashCoverStore, alertStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 

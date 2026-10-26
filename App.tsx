@@ -30,9 +30,12 @@ import { SplashCover } from './src/components/SplashCover';
 import { OtaUpdateModal } from './src/components/OtaUpdateModal';
 import { useOtaStore } from './src/store/otaStore';
 import { onBeforeSignOut } from './src/features/autoLog/service';
+import { AppAlertModal } from './src/components/ui/AppAlertModal';
+import { patchNativeAlert } from './src/store/alertStore';
 import { perfMark } from './src/lib/perfMarks';
 
 perfMark('js_start');
+patchNativeAlert();
 
 const ConnectedOtaModal: React.FC = () => {
   const visible = useOtaStore((s) => s.visible);
@@ -282,6 +285,7 @@ export default function App() {
           <SplashCover />
           <AppLockOverlay />
           <ConnectedOtaModal />
+          <AppAlertModal />
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}
             translucent={true}
