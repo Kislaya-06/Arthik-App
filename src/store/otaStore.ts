@@ -3,16 +3,20 @@ import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { OtaUpdateInfo } from '../components/OtaUpdateModal';
 
+export type OtaStatus = 'idle' | 'checking' | 'available' | 'upToDate';
+
 interface OtaState {
   visible: boolean;
+  status: OtaStatus;
   info: OtaUpdateInfo | null;
   isDownloading: boolean;
   downloadText: string;
   error: string | null;
-  showUpdateModal: (info?: OtaUpdateInfo) => void;
+  showUpdateModal: (info?: OtaUpdateInfo, status?: OtaStatus) => void;
   hideUpdateModal: () => void;
   applyUpdate: () => Promise<void>;
   checkForUpdates: () => Promise<void>;
+  checkStatusFromProfile: () => Promise<void>;
 }
 
 const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
@@ -34,13 +38,15 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
 
 export const useOtaStore = create<OtaState>((set, get) => ({
   visible: false,
+  status: 'idle',
   info: null,
   isDownloading: false,
   downloadText: 'Downloading update...',
   error: null,
 
-  showUpdateModal: (info) => set({
+  showUpdateModal: (info, status = 'available') => set({
     visible: true,
+    status,
     info: info || resolveOtaInfo(),
     isDownloading: false,
     error: null,
@@ -75,13 +81,63 @@ export const useOtaStore = create<OtaState>((set, get) => ({
       if (update.isAvailable) {
         set({
           visible: true,
+          status: 'available',
           info: resolveOtaInfo(update.manifest),
+          isDownloading: false,
+          error: null,
+        });
+      } else {
+        set({ status: 'upToDate' });
+      }
+    } catch (e) {
+      if (__DEV__) console.log('Update check failed:', e);
+    }
+  },
+
+  checkStatusFromProfile: async () => {
+    if (get().isDownloading || get().status === 'checking') return;
+
+    set({ status: 'checking', error: null });
+
+    if (!Updates.isEnabled) {
+      set({
+        visible: true,
+        status: 'upToDate',
+        info: resolveOtaInfo(),
+        isDownloading: false,
+        error: null,
+      });
+      return;
+    }
+
+    try {
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        set({
+          visible: true,
+          status: 'available',
+          info: resolveOtaInfo(update.manifest),
+          isDownloading: false,
+          error: null,
+        });
+      } else {
+        set({
+          visible: true,
+          status: 'upToDate',
+          info: resolveOtaInfo(),
           isDownloading: false,
           error: null,
         });
       }
     } catch (e) {
       if (__DEV__) console.log('Update check failed:', e);
+      set({
+        visible: true,
+        status: 'upToDate',
+        info: resolveOtaInfo(),
+        isDownloading: false,
+        error: null,
+      });
     }
   },
 }));

@@ -15,7 +15,7 @@ vi.mock('../src/components/OtaUpdateModal', () => ({}));
 import { useOtaStore } from '../src/store/otaStore';
 
 const reset = () =>
-  useOtaStore.setState({ visible: false, info: null, isDownloading: false, downloadText: 'Downloading update...', error: null });
+  useOtaStore.setState({ visible: false, status: 'idle', info: null, isDownloading: false, downloadText: 'Downloading update...', error: null });
 
 describe('otaStore (the "new update available" modal)', () => {
   beforeEach(() => {
@@ -104,6 +104,48 @@ describe('otaStore (the "new update available" modal)', () => {
       await useOtaStore.getState().checkForUpdates();
       expect(updates.checkForUpdateAsync).not.toHaveBeenCalled();
       expect(useOtaStore.getState().visible).toBe(false);
+    });
+  });
+
+  describe('checkStatusFromProfile', () => {
+    it('opens in upToDate state when checkForUpdateAsync indicates no update available', async () => {
+      updates.checkForUpdateAsync.mockResolvedValueOnce({ isAvailable: false });
+      await useOtaStore.getState().checkStatusFromProfile();
+
+      const s = useOtaStore.getState();
+      expect(s.visible).toBe(true);
+      expect(s.status).toBe('upToDate');
+      expect(s.isDownloading).toBe(false);
+    });
+
+    it('opens in available state when checkForUpdateAsync indicates update is ready', async () => {
+      updates.checkForUpdateAsync.mockResolvedValueOnce({
+        isAvailable: true,
+        manifest: {
+          extra: {
+            otaUpdate: {
+              version: '2.2.0',
+              title: 'Super New Release',
+              highlights: ['Feature 1', 'Feature 2'],
+            },
+          },
+        },
+      });
+      await useOtaStore.getState().checkStatusFromProfile();
+
+      const s = useOtaStore.getState();
+      expect(s.visible).toBe(true);
+      expect(s.status).toBe('available');
+      expect(s.info?.version).toBe('2.2.0');
+    });
+
+    it('falls back gracefully to upToDate if check throws network error', async () => {
+      updates.checkForUpdateAsync.mockRejectedValueOnce(new Error('Network error'));
+      await useOtaStore.getState().checkStatusFromProfile();
+
+      const s = useOtaStore.getState();
+      expect(s.visible).toBe(true);
+      expect(s.status).toBe('upToDate');
     });
   });
 });

@@ -29,7 +29,7 @@ const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 48, 380);
 interface AlertButtonComponentProps {
   button: AlertButton;
   onPress: () => void;
-  isSingle: boolean;
+  isRow: boolean;
   colors: any;
   isAmoled: boolean;
 }
@@ -37,7 +37,7 @@ interface AlertButtonComponentProps {
 const AlertButtonComponent: React.FC<AlertButtonComponentProps> = ({
   button,
   onPress,
-  isSingle,
+  isRow,
   colors,
   isAmoled,
 }) => {
@@ -80,7 +80,7 @@ const AlertButtonComponent: React.FC<AlertButtonComponentProps> = ({
   };
 
   return (
-    <Animated.View style={[!isSingle && styles.flexOne, animatedStyle]}>
+    <Animated.View style={[isRow ? styles.flexOne : styles.fullWidth, animatedStyle]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={button.text || 'Action'}
@@ -91,8 +91,7 @@ const AlertButtonComponent: React.FC<AlertButtonComponentProps> = ({
           styles.button,
           {
             backgroundColor: bg,
-            borderColor: borderC,
-            borderWidth: isCancel ? 1 : 0,
+            borderColor: isCancel ? borderC : 'transparent',
           },
         ]}
       >
@@ -248,14 +247,29 @@ export const AppAlertModal: React.FC = () => {
     : 'rgba(15, 23, 42, 0.45)';
 
   // Button layout logic
-  const isSingle = buttons.length === 1;
   const isDouble = buttons.length === 2;
 
-  // For 2 buttons: ensure cancel button sits on left and confirm/destructive on right
+  // Determine if a 2-button alert can fit comfortably side-by-side or needs vertical stacking
+  const hasLongButtonText = isDouble && buttons.some(
+    (b) => (b.text || 'OK').length > 13
+  );
+  const isTotalTextTooLong = isDouble && (
+    (buttons[0]?.text || '').length + (buttons[1]?.text || '').length > 22
+  );
+
+  const isRow = isDouble && !hasLongButtonText && !isTotalTextTooLong;
+
   let displayButtons = buttons;
-  if (isDouble) {
+  if (isRow) {
+    // For horizontal row: Cancel always sits on LEFT, Action/Destructive on RIGHT
     const cancelIndex = buttons.findIndex((b) => b.style === 'cancel');
     if (cancelIndex === 1) {
+      displayButtons = [buttons[1], buttons[0]];
+    }
+  } else if (isDouble) {
+    // For vertical stack: Action sits on TOP, Cancel sits at the BOTTOM (Apple HIG standard)
+    const cancelIndex = buttons.findIndex((b) => b.style === 'cancel');
+    if (cancelIndex === 0) {
       displayButtons = [buttons[1], buttons[0]];
     }
   }
@@ -337,7 +351,7 @@ export const AppAlertModal: React.FC = () => {
           <View
             style={[
               styles.actionsContainer,
-              isDouble ? styles.actionsRow : styles.actionsColumn,
+              isRow ? styles.actionsRow : styles.actionsColumn,
             ]}
           >
             {displayButtons.map((btn, idx) => (
@@ -345,7 +359,7 @@ export const AppAlertModal: React.FC = () => {
                 key={`${btn.text || 'btn'}-${idx}`}
                 button={btn}
                 onPress={() => handleButtonPress(btn)}
-                isSingle={isSingle}
+                isRow={isRow}
                 colors={colors}
                 isAmoled={isAmoled}
               />
@@ -428,15 +442,23 @@ const styles = StyleSheet.create({
   flexOne: {
     flex: 1,
   },
+  fullWidth: {
+    width: '100%',
+  },
   button: {
     height: 48,
+    width: '100%',
     borderRadius: BorderRadius.pill,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+    borderWidth: 1,
   },
   buttonText: {
     fontSize: 15,
     letterSpacing: 0.1,
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });

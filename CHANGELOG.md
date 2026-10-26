@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Dual-State OTA Update & App Version Verification (`otaStore.ts`, `OtaUpdateModal.tsx`, `ProfileScreen.tsx`) — OTA-safe**:
+  - Eliminated false-positive "Update Now" prompt when tapping App Version in Profile while already running the latest OTA update.
+  - Added native `Updates.checkForUpdateAsync()` verification via `checkStatusFromProfile()`:
+    - **Up-to-Date State**: Green `CheckCircle2` badge, `"You're Up to Date 🎉"`, current version release notes, and a single `"Got it"` button.
+    - **Update-Available State**: Sparkles icon, `"New Update Available 🎉"`, latest patch notes, and `"Update Now"` + `"Later"` buttons.
+  - ProfileScreen App Version row now features real-time feedback with an inline `ActivityIndicator` during active checks.
+  - Tests: `tests/otaStore.test.ts` (11 unit tests passing).
+
 - **Themed Custom Alert Dialog System (`AppAlertModal.tsx`, `alertStore.ts`) — OTA-safe**:
   - Replaced stock white legacy Android `AlertDialog` across the entire app (all 70 occurrences across 18 files) with a unified, custom, glassmorphic dialog system matching Arthik's design system and buttons.
   - Seamless support across **Light, Dark, and AMOLED** themes with WCAG AAA contrast, Quicksand bold/medium typography, tactile spring physics, and subtle translucent backdrop scrims.

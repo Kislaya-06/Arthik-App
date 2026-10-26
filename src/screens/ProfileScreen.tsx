@@ -84,6 +84,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const isSupported = useAppLockStore((s) => s.isSupported);
   const isEnrolled = useAppLockStore((s) => s.isEnrolled);
   const setAppLockEnabled = useAppLockStore((s) => s.setAppLockEnabled);
+  const otaStatus = useOtaStore((s) => s.status);
   const [showMoneyExplainer, setShowMoneyExplainer] = useState(false);
 
   // Smart Budget & Gullak mode state
@@ -723,7 +724,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           {/* 6. App Version */}
           <Pressable
             style={[styles.settingRow, styles.lastSettingRow]}
-            onPress={() => useOtaStore.getState().showUpdateModal()}
+            onPress={() => useOtaStore.getState().checkStatusFromProfile()}
+            disabled={otaStatus === 'checking'}
           >
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <CircleAlert size={18} color={colors.textPrimary} />
@@ -731,9 +733,13 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               App Version
             </Text>
-            <Text style={[styles.versionText, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
-              {appVersion}
-            </Text>
+            {otaStatus === 'checking' ? (
+              <ActivityIndicator size="small" color={colors.mintGreenDark} />
+            ) : (
+              <Text style={[styles.versionText, { color: colors.textMuted, fontFamily: FontFamily.medium }]}>
+                {appVersion}
+              </Text>
+            )}
           </Pressable>
         </View>
 

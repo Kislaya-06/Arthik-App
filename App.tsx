@@ -39,6 +39,7 @@ patchNativeAlert();
 
 const ConnectedOtaModal: React.FC = () => {
   const visible = useOtaStore((s) => s.visible);
+  const status = useOtaStore((s) => s.status);
   const info = useOtaStore((s) => s.info);
   const isDownloading = useOtaStore((s) => s.isDownloading);
   const downloadText = useOtaStore((s) => s.downloadText);
@@ -51,6 +52,7 @@ const ConnectedOtaModal: React.FC = () => {
   return (
     <OtaUpdateModal
       visible={visible}
+      status={status}
       updateInfo={info}
       isDownloading={isDownloading}
       downloadProgressText={downloadText}

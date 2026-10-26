@@ -23,6 +23,7 @@ export interface OtaUpdateInfo {
 
 export interface OtaUpdateModalProps {
   visible: boolean;
+  status?: 'idle' | 'checking' | 'available' | 'upToDate';
   updateInfo: OtaUpdateInfo | null;
   isDownloading: boolean;
   downloadProgressText?: string;
@@ -34,6 +35,7 @@ export interface OtaUpdateModalProps {
 
 export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
   visible,
+  status = 'available',
   updateInfo,
   isDownloading,
   downloadProgressText,
@@ -45,9 +47,16 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
   const { colors, isDark } = useTheme();
   if (!visible) return null;
 
-  const title = updateInfo?.title || 'New Update Available 🎉';
+  const isUpToDate = status === 'upToDate';
+  const title = isUpToDate
+    ? "You're Up to Date 🎉"
+    : (updateInfo?.title || 'New Update Available 🎉');
+  const subtitle = isUpToDate
+    ? 'Arthik is running the latest version with all recent improvements.'
+    : 'A fresh update is ready to install for the best experience.';
   const highlights = updateInfo?.highlights || [];
-  const versionBadge = updateInfo?.version ? `v${updateInfo.version.replace(/^v/, '')}` : 'OTA PATCH';
+  const baseVersion = updateInfo?.version ? `v${updateInfo.version.replace(/^v/, '')}` : 'v2.1.0';
+  const versionBadge = isUpToDate ? `${baseVersion} • LATEST` : baseVersion;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={isDownloading ? undefined : onDismiss}>
@@ -55,7 +64,11 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Top Hero Icon (26 radius for 52x52 circle - AGENTS.md 9.3) */}
           <View style={[styles.heroIcon, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft }]}>
-            <Sparkles size={24} color={colors.mintGreenDark} />
+            {isUpToDate ? (
+              <CheckCircle2 size={26} color={colors.mintGreenDark} />
+            ) : (
+              <Sparkles size={24} color={colors.mintGreenDark} />
+            )}
           </View>
 
           {/* Badge chip */}
@@ -67,16 +80,20 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
 
           <Text style={[styles.title, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{title}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-            A fresh update is ready to install for the best experience.
+            {subtitle}
           </Text>
 
           {/* Highlights */}
           {highlights.length > 0 && (
             <View style={[styles.highlightsBox, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}>
               <View style={styles.highlightsHeader}>
-                <Sparkles size={12} color={colors.mintGreenDark} />
+                {isUpToDate ? (
+                  <CheckCircle2 size={12} color={colors.mintGreenDark} />
+                ) : (
+                  <Sparkles size={12} color={colors.mintGreenDark} />
+                )}
                 <Text style={[styles.highlightsLabel, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
-                  WHAT'S NEW
+                  {isUpToDate ? "WHAT'S IN THIS VERSION" : "WHAT'S NEW"}
                 </Text>
               </View>
               <ScrollView style={{ maxHeight: 160 }} showsVerticalScrollIndicator={false} bounces={false}>
@@ -109,6 +126,17 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
               <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
                 {downloadProgressText || 'Downloading update...'}
               </Text>
+            </View>
+          ) : isUpToDate ? (
+            <View style={{ width: '100%', alignItems: 'center' }}>
+              <Pressable
+                style={[styles.ctaBtn, { backgroundColor: colors.mintGreen }]}
+                onPress={onDismiss}
+              >
+                <Text style={[styles.ctaText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
+                  Got it
+                </Text>
+              </Pressable>
             </View>
           ) : (
             <View style={{ width: '100%', alignItems: 'center' }}>
