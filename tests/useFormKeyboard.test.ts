@@ -139,6 +139,14 @@ describe('useFormKeyboard (the custom keypad and the system keyboard on the add 
       expect(rn.anims.length).toBe(n);
       expect(h.result.current.isKeypadVisible).toBe(false);
     });
+
+    it('showing an already visible keypad does not launch a redundant animation', () => {
+      const { h } = newHook();
+      expect(h.result.current.isKeypadVisible).toBe(true);
+      const n = rn.anims.length;
+      h.result.current.showKeypad();
+      expect(rn.anims.length).toBe(n);
+    });
   });
 
   describe('system keyboard events', () => {

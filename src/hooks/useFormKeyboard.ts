@@ -52,6 +52,7 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
   // ─── Keypad show/hide animations ──────────────────────────────────────────
   const showKeypad = useCallback(() => {
     if (isNoteFocusedRef.current) return;
+    if (isKeypadVisibleRef.current && keypad.value === 1) return;
     isKeypadVisibleRef.current = true;
     setIsKeypadVisible(true);
     keypad.value = withTiming(1, {

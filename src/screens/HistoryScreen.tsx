@@ -361,14 +361,15 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const PAGE_SIZE_SECTIONS = 4;
   const [visibleSectionCount, setVisibleSectionCount] = useState(INITIAL_SECTION_COUNT);
 
-  // Synchronously reset visibleSectionCount on category change to prevent mounting stale large section windows
+  // Batched category filter change inside startTransition to prevent multi-pass layout churn
   const handleCategoryChange = useCallback((id: string | null) => {
-    setVisibleSectionCount(INITIAL_SECTION_COUNT);
     if (typeof React.startTransition === 'function') {
       React.startTransition(() => {
+        setVisibleSectionCount(INITIAL_SECTION_COUNT);
         setSelectedCategoryId(id);
       });
     } else {
+      setVisibleSectionCount(INITIAL_SECTION_COUNT);
       setSelectedCategoryId(id);
     }
   }, []);
@@ -411,7 +412,74 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     [categories]
   );
 
+  // Pre-grouped sections for "All" transactions + Gullak deposits.
+  // Memoized strictly on [expenses, gullakDeposits, categoryMap, isBudgetModeEnabled].
+  // Switching to "All" category becomes an instantaneous O(1) cache read with ZERO JS thread looping!
+  const allUnfilteredSections = useMemo<Section[]>(() => {
+    const filteredDeposits = !isBudgetModeEnabled ? [] : gullakDeposits;
+    const grouped: Record<string, HistoryItem[]> = {};
+    const spentTotals: Record<string, number> = {};
+    const incomeTotals: Record<string, number> = {};
+
+    expenses.forEach((expense) => {
+      const dateKey = expense.expense_date?.split('T')[0]?.trim() || '';
+      if (!dateKey) return;
+      (grouped[dateKey] ??= []).push({
+        kind: 'expense',
+        data: expense,
+        date: dateKey,
+        created_at: expense.created_at || '',
+      });
+
+      const category = expense.category_id ? categoryMap.get(expense.category_id) : undefined;
+      if (isCountedIncome(expense, category)) {
+        incomeTotals[dateKey] = (incomeTotals[dateKey] || 0) + expense.amount;
+      } else if (isCountedExpense(expense, category)) {
+        spentTotals[dateKey] = (spentTotals[dateKey] || 0) + expense.amount;
+      }
+    });
+
+    filteredDeposits.forEach((deposit) => {
+      const dateKey = deposit.date?.split('T')[0]?.trim() || '';
+      if (!dateKey) return;
+      (grouped[dateKey] ??= []).push({
+        kind: 'gullak',
+        data: deposit,
+        date: dateKey,
+        created_at: deposit.created_at || '',
+      });
+
+      if (deposit.source === 'external') {
+        incomeTotals[dateKey] = (incomeTotals[dateKey] || 0) + deposit.amount;
+      }
+    });
+
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+    return sortedDates.map((dateStr) => {
+      const title = getDateHeaderTitle(dateStr, todayKey);
+
+      const sortedData = grouped[dateStr].slice().sort((a, b) =>
+        b.created_at.localeCompare(a.created_at)
+      );
+
+      return {
+        title,
+        dateStr,
+        totalSpent: spentTotals[dateStr] || 0,
+        totalIncome: incomeTotals[dateStr] || 0,
+        data: sortedData,
+      };
+    });
+  }, [expenses, gullakDeposits, categoryMap, isBudgetModeEnabled]);
+
   const filteredAndGroupedExpenses = useMemo<Section[]>(() => {
+    // Fast path: When showing "All" without search filter, return pre-computed cached sections directly
+    if (!selectedCategoryId && !debouncedQuery.trim()) {
+      return allUnfilteredSections;
+    }
+
     let filteredExpenses = expenses;
     let filteredDeposits = (!isBudgetModeEnabled || selectedCategoryId) ? [] : gullakDeposits;
 
@@ -945,6 +1013,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
             options={categoryFilterOptions}
             value={selectedCategoryId}
             onChange={handleCategoryChange}
+            commitOnSettle
           />
         </View>
 

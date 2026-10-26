@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Pill Animation Smoothness & Zero-Stutter Overhaul (`BouncyCategoryFilter.tsx`, `HistoryScreen.tsx`, `SegmentedControl.tsx`, `BouncyPaymentToggle.tsx`, `useFormKeyboard.ts`) — OTA-safe**:
+  - **HistoryScreen Category Filter Zero-Stutter & Decoupled Glide**:
+    - Eliminated category pill jitter and stutter by implementing `commitOnSettle` on `BouncyCategoryFilter`, allowing the Reanimated spring to complete its glide on the native UI thread before triggering heavy `FlashList` re-renders and cell unmounting/mounting.
+    - Smart visible bounds scroll avoidance: `centerCategory` now verifies whether the tapped category chip is already comfortably within view (`visibleLeft + 24` to `visibleRight - 24`). If already visible, container scrolling (`scrollTo`) is skipped, eliminating jarring conflicting motion between the horizontal ScrollView and the sliding pill.
+    - Optimized UI-thread worklet performance in `FilterItem` with early distance pruning (`distance >= maxRange`), eliminating redundant per-frame `interpolateColor` calculations across off-target chips.
+    - Batched `setVisibleSectionCount(INITIAL_SECTION_COUNT)` and `setSelectedCategoryId(id)` inside a unified `React.startTransition` call in `handleCategoryChange`, preventing multi-pass re-render cascades.
+    - Pre-computed and memoized unfiltered sections (`allUnfilteredSections`), turning "All" category selection into an instant O(1) pointer slice with zero blocking loops on the JavaScript thread.
+    - Standardized consistent bold typography (`FontFamily.bold`) on category filter labels, preventing Android TextView layout invalidation and sub-pixel measurement jitter during user selection.
+  - **ExpenseFormScreen Type Toggle Fluidity**:
+    - Centered SegmentedControl pill color interpolation around visual mass (`(pillLeft + pillRight) / 2`) rather than the trailing edge (`pillLeft`), eliminating the color transition lag between Expense (Coral) and Income (Mint).
+    - Removed dynamic key unmounting on `BouncyPaymentToggle` (`key={options.map(o => o.mode).join('-')}`), allowing the built-in SegmentedControl geometry transition to smoothly resize slots without tearing down and recreating Reanimated native views.
+    - Guarded `useFormKeyboard.showKeypad()` to eliminate redundant re-launching of 220ms keypad slide animations while the pill is settling.
+  - **Tests**: `tests/pillMotionSmoothnessInvariants.test.ts` (17 tests), `tests/bouncyCategoryFilter.test.ts`, `tests/segmentedControl.test.ts`, `tests/useFormKeyboard.test.ts` (all 2,166 tests passing).
+
 - **Dual-State OTA Update & App Version Verification (`otaStore.ts`, `OtaUpdateModal.tsx`, `ProfileScreen.tsx`) — OTA-safe**:
   - Eliminated false-positive "Update Now" prompt when tapping App Version in Profile while already running the latest OTA update.
   - Added native `Updates.checkForUpdateAsync()` verification via `checkStatusFromProfile()`:

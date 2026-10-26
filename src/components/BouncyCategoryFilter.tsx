@@ -43,6 +43,7 @@ interface Props {
   options: FilterOption[];
   value: string | null;
   onChange: (id: string | null) => void;
+  commitOnSettle?: boolean;
 }
 
 interface FilterItemProps {
@@ -103,6 +104,11 @@ const FilterItem = React.memo<FilterItemProps>(({
     const pillCenter = pillLeft.value + pillWidth.value / 2;
     const distance = Math.abs(pillCenter - itemCenter);
     const maxRange = Math.max(layout.width, 40) * 0.6;
+    if (distance >= maxRange) {
+      return {
+        color: colors.textSecondary,
+      };
+    }
     const progress = interpolate(distance, [0, maxRange], [1, 0], Extrapolation.CLAMP);
     return {
       color: interpolateColor(progress, [0, 1], [colors.textSecondary, colors.forestGreen]),
@@ -143,7 +149,7 @@ const FilterItem = React.memo<FilterItemProps>(({
               styles.visibleLabel,
               animatedTextStyle,
               {
-                fontFamily: isActive ? FontFamily.bold : FontFamily.medium,
+                fontFamily: FontFamily.bold,
               },
             ]}
           >
@@ -155,7 +161,12 @@ const FilterItem = React.memo<FilterItemProps>(({
   );
 });
 
-export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChange }) => {
+export const BouncyCategoryFilter = React.memo<Props>(({
+  options,
+  value,
+  onChange,
+  commitOnSettle = false,
+}) => {
   const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
@@ -170,6 +181,13 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
   // Ref mirrors for stable callback access (avoids re-creating animateTo on every layout change)
   const layoutsRef = useRef<Record<string, { x: number; width: number }>>({});
   const containerWidthRef = useRef(0);
+  const scrollXRef = useRef(0);
+
+  // Commit on settle timer and pending key (prevents heavy parent re-renders from stuttering the spring)
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingKeyRef = useRef<string | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   // Track whether we've done the first no-animation snap
   const initialized = useRef(false);
@@ -178,11 +196,25 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
 
   const activeKey = value ?? 'all';
 
-  // Smoothly center the active item in the ScrollView (Apple UX standard for horizontal chips)
-  const centerCategory = useCallback((targetKey: string) => {
+  // Smoothly center the active item in the ScrollView if outside comfortable visible bounds (Apple UX standard)
+  const centerCategory = useCallback((targetKey: string, force = false) => {
     const targetLayout = layoutsRef.current[targetKey];
     const cw = containerWidthRef.current;
     if (!targetLayout || cw <= 0) return;
+
+    const visibleLeft = scrollXRef.current;
+    const visibleRight = scrollXRef.current + cw;
+    const margin = 24;
+
+    const isComfortablyVisible =
+      targetLayout.x >= visibleLeft + margin &&
+      targetLayout.x + targetLayout.width <= visibleRight - margin;
+
+    // Do NOT scroll the container under the user's finger if the chip is already comfortably in view!
+    if (!force && isComfortablyVisible) {
+      return;
+    }
+
     const centerOffset = Math.max(0, targetLayout.x - cw / 2 + targetLayout.width / 2);
     scrollRef.current?.scrollTo({ x: centerOffset, animated: !reduceMotion });
   }, [reduceMotion]); // stable: reads from refs
@@ -215,15 +247,45 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
     if (targetKey !== prevKey.current && layoutsRef.current[targetKey]) {
       animateTo(targetKey);
     }
-    // Decouple UI-thread spring motion from heavy SectionList dataset transition
-    if (typeof React.startTransition === 'function') {
-      React.startTransition(() => {
-        onChange(id);
-      });
-    } else {
-      onChange(id);
+
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
     }
-  }, [animateTo, onChange]);
+
+    if (!commitOnSettle) {
+      // Decouple UI-thread spring motion from heavy SectionList dataset transition
+      if (typeof React.startTransition === 'function') {
+        React.startTransition(() => {
+          onChange(id);
+        });
+      } else {
+        onChange(id);
+      }
+      return;
+    }
+
+    // commitOnSettle: wait ~200ms until the pill has arrived at its destination before committing heavy parent list re-render
+    pendingKeyRef.current = id;
+    commitTimerRef.current = setTimeout(() => {
+      commitTimerRef.current = null;
+      const finalId = pendingKeyRef.current;
+      pendingKeyRef.current = null;
+      if (typeof React.startTransition === 'function') {
+        React.startTransition(() => {
+          onChangeRef.current(finalId);
+        });
+      } else {
+        onChangeRef.current(finalId);
+      }
+    }, 200);
+  }, [animateTo, commitOnSettle, onChange]);
+
+  useEffect(() => () => {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     const activeLayout = layouts[activeKey];
@@ -236,9 +298,12 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
       lastActiveLayout.current = { x: activeLayout.x, width: activeLayout.width };
       pillX.value = activeLayout.x;
       pillWidth.value = activeLayout.width;
-      centerCategory(activeKey);
+      centerCategory(activeKey, true);
       return;
     }
+
+    // While a tap is waiting to be committed, parent's value is intentionally stale: keep pill where user tapped
+    if (pendingKeyRef.current !== null) return;
 
     if (prevKey.current !== activeKey) {
       // External value change not triggered by direct handleSelect tap
@@ -283,6 +348,10 @@ export const BouncyCategoryFilter = React.memo<Props>(({ options, value, onChang
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.content}
         bounces={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          scrollXRef.current = e.nativeEvent.contentOffset.x;
+        }}
       >
         {/* Sliding highlight — absolute in scroll-content space, so it travels with items */}
         <Animated.View

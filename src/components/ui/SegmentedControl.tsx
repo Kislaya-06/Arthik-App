@@ -409,9 +409,11 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
     // Never thinner than a dot, never inverted, even if springs cross on a frantic re-tap.
     const raw = pillRight.value - pillLeft.value;
     const width = Math.max(8, raw);
+    const pillCenter = (pillLeft.value + pillRight.value) / 2;
+    const centerSlot = optionWidth > 0 ? (pillCenter - optionWidth / 2) / optionWidth : 0;
     const bg = hasOptionColors && optionWidth > 0
       ? interpolateColor(
-          pillLeft.value / optionWidth,
+          centerSlot,
           colorInputRange,
           colorOutputRange
         )

@@ -359,4 +359,22 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
     expect(el.type).toBeTruthy();
     expect(el.props.children[1].props.children).toHaveLength(2);
   });
+
+  it('BouncyPaymentToggle maintains stable component identity without dynamic keys during options transition', async () => {
+    const { BouncyPaymentToggle, EXPENSE_PAYMENT_OPTIONS, INCOME_PAYMENT_OPTIONS } = await import('../src/components/BouncyPaymentToggle');
+    const elExpense = (BouncyPaymentToggle as any)({
+      value: 'upi',
+      options: EXPENSE_PAYMENT_OPTIONS,
+      onChange: vi.fn(),
+    });
+    const elIncome = (BouncyPaymentToggle as any)({
+      value: 'upi',
+      options: INCOME_PAYMENT_OPTIONS,
+      onChange: vi.fn(),
+    });
+
+    // Neither should have a dynamic 'key' prop forcing remount
+    expect(elExpense.key).toBeNull();
+    expect(elIncome.key).toBeNull();
+  });
 });
