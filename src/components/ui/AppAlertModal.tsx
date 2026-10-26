@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Dimensions,
   Platform,
   Keyboard,
 } from 'react-native';
@@ -15,16 +14,19 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
 import { useAlertStore, AlertButton } from '../../store/alertStore';
 import { useTheme } from '../../store/themeStore';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { FontFamily, BorderRadius } from '../../config/theme';
+import { FIXED_SHAPE_MAX_FONT_SCALE } from '../../lib/fontScale';
+import { alertButtonPalette } from '../../lib/alertButtonPalette';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 48, 380);
+// The overlay already keeps 24px on each side, so the card only needs a max width (no stale
+// module-level screen size: it stays right after rotation, split screen or a foldable unfold).
+const CARD_MAX_WIDTH = 380;
 
 interface AlertButtonComponentProps {
   button: AlertButton;
@@ -41,29 +43,12 @@ const AlertButtonComponent: React.FC<AlertButtonComponentProps> = ({
   colors,
   isAmoled,
 }) => {
-  const isDestructive = button.style === 'destructive';
   const isCancel = button.style === 'cancel';
-
-  // Variant-specific styling based on theme
-  let bg = colors.mintGreen;
-  let textColor = '#1A2B4C';
-  let borderC = 'transparent';
-
-  if (isDestructive) {
-    bg = colors.danger;
-    textColor = '#FFFFFF';
-  } else if (isCancel) {
-    bg = colors.cardSubtle;
-    textColor = colors.textPrimary;
-    borderC = colors.border;
-  } else if (isAmoled) {
-    bg = colors.mintGreen;
-    textColor = '#000000';
-  } else if (!colors.isDark) {
-    // In light theme, use deeper mint for strong contrast
-    bg = colors.mintGreenDark || colors.mintGreen;
-    textColor = '#1A2B4C';
-  }
+  // Every variant is >= 4.5:1 in Light, Dark and AMOLED (see lib/alertButtonPalette.ts).
+  const palette = alertButtonPalette(button.style, colors, isAmoled);
+  const bg = palette.background;
+  const textColor = palette.text;
+  const borderC = palette.border;
 
   const btnScale = useSharedValue(1);
 
@@ -97,6 +82,7 @@ const AlertButtonComponent: React.FC<AlertButtonComponentProps> = ({
       >
         <Text
           numberOfLines={1}
+          maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
           style={[
             styles.buttonText,
             {
@@ -113,7 +99,7 @@ const AlertButtonComponent: React.FC<AlertButtonComponentProps> = ({
 };
 
 export const AppAlertModal: React.FC = () => {
-  const { isOpen, title, message, buttons, options, hideAlert } = useAlertStore();
+  const { isOpen, id, title, message, buttons, options, hideAlert } = useAlertStore();
   const { colors, themeMode } = useTheme();
   const reduceMotion = useReduceMotion();
 
@@ -126,6 +112,16 @@ export const AppAlertModal: React.FC = () => {
   const cardOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const backdropOpacity = useSharedValue(0);
 
+  // Which alert (by id) has already played its entrance. The entrance runs once per alert, never
+  // again on the re-render that `setIsRendered(true)` causes (that restart was a visible hitch).
+  const enteredIdRef = useRef(0);
+  // true from the first tap on a button / backdrop until the dialog is gone: every later tap is
+  // ignored, so "Delete" can never run twice from a double tap.
+  const closingRef = useRef(false);
+  // The action to run once the exit animation ends. Runs exactly once, even if the animation is
+  // interrupted (an interrupted animation reports finished=false; the old code then dropped the action).
+  const pendingActionRef = useRef<(() => void) | undefined>(undefined);
+
   const cardAnimStyle = useAnimatedStyle(() => ({
     opacity: cardOpacity.value,
     transform: [{ scale: cardScale.value }],
@@ -135,82 +131,101 @@ export const AppAlertModal: React.FC = () => {
     opacity: backdropOpacity.value,
   }));
 
+  // One JS task does everything, so React never renders a half-closed state in between.
+  const finishClose = useCallback(() => {
+    if (!closingRef.current) return;
+    closingRef.current = false;
+    const action = pendingActionRef.current;
+    pendingActionRef.current = undefined;
+    setIsRendered(false);
+    hideAlert(); // shows the next queued alert, if any
+    if (action) action();
+  }, [hideAlert]);
+
   const triggerClose = useCallback(
     (onDone?: () => void) => {
+      if (closingRef.current) return false;
+      closingRef.current = true;
+      pendingActionRef.current = onDone;
+
       if (reduceMotion) {
-        setIsRendered(false);
-        hideAlert();
-        if (onDone) onDone();
-        return;
+        finishClose();
+        return true;
       }
 
       cardScale.value = withTiming(0.94, { duration: 130 });
       cardOpacity.value = withTiming(0, { duration: 130 });
-      backdropOpacity.value = withTiming(0, { duration: 150 }, (finished) => {
-        if (finished) {
-          runOnJS(setIsRendered)(false);
-          runOnJS(hideAlert)();
-          if (onDone) {
-            runOnJS(onDone)();
-          }
-        }
+      backdropOpacity.value = withTiming(0, { duration: 150 }, () => {
+        scheduleOnRN(finishClose);
       });
+      return true;
     },
-    [reduceMotion, hideAlert, cardScale, cardOpacity, backdropOpacity]
+    [reduceMotion, finishClose, cardScale, cardOpacity, backdropOpacity]
   );
 
+  // Entrance: once per alert id.
   useEffect(() => {
-    if (isOpen) {
-      try {
-        Keyboard.dismiss();
-      } catch {}
-      setIsRendered(true);
-      if (reduceMotion) {
-        cardScale.value = 1;
-        cardOpacity.value = 1;
-        backdropOpacity.value = 1;
-      } else {
-        cardScale.value = 0.93;
-        cardOpacity.value = 0;
-        backdropOpacity.value = 0;
+    if (!isOpen || enteredIdRef.current === id) return;
+    enteredIdRef.current = id;
+    closingRef.current = false;
+    pendingActionRef.current = undefined;
+    try {
+      Keyboard.dismiss();
+    } catch {}
+    setIsRendered(true);
+    if (reduceMotion) {
+      cardScale.value = 1;
+      cardOpacity.value = 1;
+      backdropOpacity.value = 1;
+    } else {
+      cardScale.value = 0.93;
+      cardOpacity.value = 0;
+      backdropOpacity.value = 0;
 
-        cardScale.value = withSpring(1, { damping: 18, stiffness: 260 });
-        cardOpacity.value = withTiming(1, { duration: 150 });
-        backdropOpacity.value = withTiming(1, { duration: 180 });
-      }
-    } else if (isRendered) {
+      cardScale.value = withSpring(1, { damping: 18, stiffness: 260 });
+      cardOpacity.value = withTiming(1, { duration: 150 });
+      backdropOpacity.value = withTiming(1, { duration: 180 });
+    }
+  }, [isOpen, id, reduceMotion, cardScale, cardOpacity, backdropOpacity]);
+
+  // Closed from outside (hideAlert called by code, not by a tap here): play the exit, no action.
+  useEffect(() => {
+    if (!isOpen && isRendered && !closingRef.current) {
       triggerClose();
     }
-  }, [isOpen, reduceMotion, triggerClose, isRendered, cardScale, cardOpacity, backdropOpacity]);
+  }, [isOpen, isRendered, triggerClose]);
+
+  const runSafely = (fn: (() => void | Promise<void>) | null | undefined, label: string) => {
+    if (!fn) return;
+    try {
+      const res = fn();
+      if (res instanceof Promise) {
+        res.catch((err) => {
+          if (__DEV__) {
+            console.error(`[AppAlertModal] ${label} rejected:`, err);
+          }
+        });
+      }
+    } catch (e) {
+      if (__DEV__) {
+        console.error(`[AppAlertModal] ${label} threw:`, e);
+      }
+    }
+  };
 
   const handleButtonPress = (btn: AlertButton) => {
+    if (closingRef.current) return;
     Haptics.impactAsync(
       btn.style === 'destructive'
         ? Haptics.ImpactFeedbackStyle.Medium
         : Haptics.ImpactFeedbackStyle.Light
     ).catch(() => {});
 
-    triggerClose(() => {
-      if (btn.onPress) {
-        try {
-          const res = btn.onPress();
-          if (res instanceof Promise) {
-            res.catch((err) => {
-              if (__DEV__) {
-                console.error('[AppAlertModal] Action rejected:', err);
-              }
-            });
-          }
-        } catch (e) {
-          if (__DEV__) {
-            console.error('[AppAlertModal] Action threw:', e);
-          }
-        }
-      }
-    });
+    triggerClose(() => runSafely(btn.onPress, 'Action'));
   };
 
   const handleBackdropPress = () => {
+    if (closingRef.current) return;
     if (options?.cancelable === false) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -218,26 +233,12 @@ export const AppAlertModal: React.FC = () => {
 
     triggerClose(() => {
       if (cancelBtn?.onPress) {
-        try {
-          cancelBtn.onPress();
-        } catch (e) {
-          if (__DEV__) {
-            console.error('[AppAlertModal] Cancel action threw:', e);
-          }
-        }
+        runSafely(cancelBtn.onPress, 'Cancel action');
       } else if (options?.onDismiss) {
-        try {
-          options.onDismiss();
-        } catch (e) {
-          if (__DEV__) {
-            console.error('[AppAlertModal] onDismiss threw:', e);
-          }
-        }
+        runSafely(options.onDismiss, 'onDismiss');
       }
     });
   };
-
-
 
   // Backdrop scrim tint based on theme
   const backdropColor = isAmoled
@@ -282,6 +283,9 @@ export const AppAlertModal: React.FC = () => {
       transparent={true}
       animationType="none"
       statusBarTranslucent={true}
+      // Without this the dialog window is not edge-to-edge on Android, so the scrim stops above the
+      // system navigation bar and that strip stays undimmed.
+      navigationBarTranslucent={true}
       onRequestClose={handleBackdropPress}
     >
       <View style={styles.overlay}>
@@ -304,6 +308,7 @@ export const AppAlertModal: React.FC = () => {
         <Animated.View
           accessibilityRole="alert"
           accessibilityLabel={title}
+          accessibilityViewIsModal
           style={[
             styles.card,
             {

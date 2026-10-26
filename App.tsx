@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
-import { StyleSheet, View, StatusBar, AppState } from 'react-native';
+import { StyleSheet, View, StatusBar, AppState, GestureResponderEvent } from 'react-native';
 import { AppNavigation, navigationRef, navigateTo } from './src/navigation';
 import { useTheme } from './src/store/themeStore';
 import { supabase } from './src/config/supabase';
@@ -32,6 +32,7 @@ import { useOtaStore } from './src/store/otaStore';
 import { onBeforeSignOut } from './src/features/autoLog/service';
 import { AppAlertModal } from './src/components/ui/AppAlertModal';
 import { patchNativeAlert } from './src/store/alertStore';
+import { flushPendingSelections } from './src/lib/selectionCommitFence';
 import { perfMark } from './src/lib/perfMarks';
 
 perfMark('js_start');
@@ -62,6 +63,11 @@ const ConnectedOtaModal: React.FC = () => {
       onRetry={applyUpdate}
     />
   );
+};
+
+// Module-level so the root View's prop never changes identity.
+const handleRootTouchStart = (e: GestureResponderEvent) => {
+  flushPendingSelections(e?.nativeEvent);
 };
 
 export default function App() {
@@ -268,7 +274,11 @@ export default function App() {
     <GestureHandlerRootView style={styles.container}>
     <SafeAreaProvider>
       <ErrorBoundary>
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Touch fence: any new touch first delivers pills' deferred selections (see selectionCommitFence). */}
+        <View
+          style={[styles.container, { backgroundColor: colors.background }]}
+          onTouchStart={handleRootTouchStart}
+        >
           <OfflineBanner />
           <SyncFailedBanner />
           {updateRequirement.isRequired ? (

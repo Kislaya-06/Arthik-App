@@ -35,10 +35,12 @@ describe('Pill Smoothness Invariant 1: HistoryScreen "All" Category Fast-Path (Z
 describe('Pill Smoothness Invariant 2: BouncyCategoryFilter Android Typography & Layout Stability', () => {
   const filterSrc = read('src/components/BouncyCategoryFilter.tsx');
 
-  it('uses stable FontFamily.bold on visibleLabel to permanently eliminate Android TextView requestLayout churn', () => {
-    // Both placeholder and visible label must use FontFamily.bold unconditionally
-    expect(filterSrc).toMatch(/visibleLabel,\s*animatedTextStyle,\s*\{\s*fontFamily:\s*FontFamily\.bold,\s*\}/);
-    // Must NOT toggle fontFamily based on isActive (causes native relayout on Android)
+  it('uses stable FontFamily.bold on BOTH label layers and never animates Text colour', () => {
+    // Both cross-faded copies are bold (identical size) and have a STATIC colour.
+    expect(filterSrc).toMatch(/\{ color: colors\.textSecondary, fontFamily: FontFamily\.bold \},\s*inactiveLabelStyle/);
+    expect(filterSrc).toMatch(/\{ color: colors\.forestGreen, fontFamily: FontFamily\.bold \},\s*activeLabelStyle/);
+    // Animated Text `color` re-measures text on Android every frame. Never again.
+    expect(filterSrc).not.toMatch(/interpolateColor/);
     expect(filterSrc).not.toMatch(/fontFamily:\s*isActive\s*\?\s*FontFamily\.bold\s*:\s*FontFamily\.medium/);
   });
 
@@ -47,9 +49,9 @@ describe('Pill Smoothness Invariant 2: BouncyCategoryFilter Android Typography &
     expect(filterSrc).toMatch(/aria-hidden/);
   });
 
-  it('animates translateX and width strictly without animating layout properties', () => {
-    expect(filterSrc).toMatch(/transform:\s*\[\{\s*translateX:\s*pillX\.value\s*\}\]/);
-    expect(filterSrc).toMatch(/width:\s*pillWidth\.value/);
+  it('animates the highlight with transforms only (no width, no left)', () => {
+    expect(filterSrc).toMatch(/translateX: p\.bodyX \}, \{ scaleX: p\.bodyScaleX/);
+    expect(filterSrc).not.toMatch(/width:\s*pillWidth\.value/);
     expect(filterSrc).not.toMatch(/left:\s*pillX\.value/);
   });
 });
@@ -58,12 +60,12 @@ describe('Pill Smoothness Invariant 3: SegmentedControl Center-Anchored Color Tr
   const segSrc = read('src/components/ui/SegmentedControl.tsx');
 
   it('anchors color interpolation to the physical visual center of the pill', () => {
-    expect(segSrc).toMatch(/const pillCenter = \(pillLeft\.value \+ pillRight\.value\) \/ 2;/);
-    expect(segSrc).toMatch(
-      /const centerSlot = optionWidth > 0 \? \(pillCenter - optionWidth \/ 2\) \/ optionWidth : 0;/
-    );
-    expect(segSrc).toMatch(/interpolateColor\(\s*centerSlot,\s*colorInputRange,\s*colorOutputRange\s*\)/);
-    // Must NOT anchor to pillLeft (the trailing edge, which lags behind by 80% during stretches)
+    expect(segSrc).toMatch(/const pillCenter = \(left \+ right\) \/ 2;/);
+    expect(segSrc).toMatch(/const centerSlot = \(pillCenter - optionWidth \/ 2\) \/ optionWidth;/);
+    expect(segSrc).toMatch(/interpolateColor\(centerSlot, colorInputRange, colorOutputRange\)/);
+    // Every coloured piece reads the colour from the pill's live centre.
+    expect(segSrc).toMatch(/backgroundColor: pillColorAt\(pillLeft\.value, pillRight\.value\)/);
+    // Must NOT anchor to pillLeft (the trailing edge, which lags behind during stretches)
     expect(segSrc).not.toMatch(/interpolateColor\(\s*pillLeft\.value \/ optionWidth/);
   });
 
@@ -127,8 +129,9 @@ describe('Pill Smoothness Invariant 6: BouncyCategoryFilter commitOnSettle & Sma
     expect(filterSrc).toMatch(/if \(!commitOnSettle\) \{/);
   });
 
-  it('prunes UI-thread interpolateColor when distance exceeds maxRange', () => {
-    expect(filterSrc).toMatch(/if \(distance >= maxRange\) \{\s*return \{\s*color: colors\.textSecondary,\s*\};\s*\}/);
+  it('prunes the label cross-fade when the highlight is far away (constant opacity, no per-frame update)', () => {
+    expect(filterSrc).toMatch(/if \(distance >= maxRange\) \{\s*return \{ opacity: 0 \};\s*\}/);
+    expect(filterSrc).toMatch(/if \(distance >= maxRange\) \{\s*return \{ opacity: 1 \};\s*\}/);
   });
 
   it('skips scrollTo if the target category chip is already comfortably in view', () => {

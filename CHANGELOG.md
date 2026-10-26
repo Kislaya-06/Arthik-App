@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Buttery-Smooth Pills, Root-Cause Fix (`SegmentedControl.tsx`, `BouncyCategoryFilter.tsx`, `segmentedMotion.ts`, new `selectionCommitFence.ts`, `App.tsx`, ADR 0020) — OTA-safe**:
+  - **Root cause found in Reanimated 4.5.1's native code**: every React commit pauses Reanimated's UI commits until it is mounted. Screens were told about a tap at 200ms, while the pill still had 6-12px to travel (Home, Expense | Income) and 10-80px on History, so the screen's re-render froze the end of the glide. On top of that the pill animated `width` (layout work every frame) and History animated each chip's Text `color` (Android re-measured text every frame).
+  - **Commit after landing**: Home (All/Daily/Weekly/Monthly), Expense | Income and History categories now tell their screen only when the pill has landed (both edges within 1px), computed exactly per tap from the real springs (`pillLandingMs`, `categoryPillLandingMs`). `PILL_COMMIT_MS` is now the 320ms fallback before the control is measured.
+  - **Transform-only pill**: two round caps + a scaled flat middle + one `boxShadow` box (`pillPiecesFor`). Same springs, same stretch, same colours, same corners; no `width` animation. History labels cross-fade by opacity instead of animating Text colour.
+  - **Touch fence (money safety)**: tapping Income and then Save before the pill lands now always saves Income. Any other touch delivers pending pill values first (root `onTouchStart` in `App.tsx`); re-taps on the same pill are not affected; unmount never loses a tap. Also fixes History "All" not being treated as pending (`PENDING_ALL`).
+  - Not changed: pill motion, haptics, and pills without `commitOnSettle` (Cash/UPI, Profile, Insights, Savings history, Manage Categories, Review sheet, Budget edit) which still report at once.
+  - Not possible OTA-only: Reanimated's 500ms "settled props" sync still makes one tiny commit 1-2s after an animation; with transform-only pills it carries no layout work. Fully removing it needs the native flag `ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS` (new APK), not enabled by owner decision.
+- **Themed Alert Dialog Review Fixes (`AppAlertModal.tsx`, `alertStore.ts`, new `alertButtonPalette.ts`) — OTA-safe**:
+  - A double tap on "Delete" ran the delete twice; now the first tap wins.
+  - The chosen action was dropped if the exit animation got interrupted (`finished = false`); now it always runs, exactly once.
+  - The entrance animation restarted one render after opening (a small hitch); now it plays once per alert.
+  - A second alert replaced an open one and dropped its button callbacks; now it waits in a queue (an identical alert is ignored as a duplicate).
+  - The scrim did not cover the system navigation bar (dialog window was not edge-to-edge); added `navigationBarTranslucent`.
+  - Delete button contrast: white on red was 3.76:1 (Light) and 2.77:1 (Dark/AMOLED). Now 4.83:1 / 5.08:1 / 7.59:1. Button labels capped for very large system fonts; card width no longer uses a stale screen size.
+- **Tests**: new `tests/pillButterySmooth.test.ts`, `tests/appAlertModalBehaviour.test.ts`; behaviour tests added to `segmentedControl.test.ts` and `bouncyCategoryFilter.test.ts`; obsolete invariants (animated `width`, animated Text colour, 200ms commit) replaced in `pillMotionSmoothnessInvariants.test.ts`, `segmentedMotion.test.ts`, `opt41to46Polish.test.ts`. 162 files, 2,316 tests passing; `tsc --noEmit` clean.
+
 - **Pill Animation Smoothness & Zero-Stutter Overhaul (`BouncyCategoryFilter.tsx`, `HistoryScreen.tsx`, `SegmentedControl.tsx`, `BouncyPaymentToggle.tsx`, `useFormKeyboard.ts`) — OTA-safe**:
   - **HistoryScreen Category Filter Zero-Stutter & Decoupled Glide**:
     - Eliminated category pill jitter and stutter by implementing `commitOnSettle` on `BouncyCategoryFilter`, allowing the Reanimated spring to complete its glide on the native UI thread before triggering heavy `FlashList` re-renders and cell unmounting/mounting.

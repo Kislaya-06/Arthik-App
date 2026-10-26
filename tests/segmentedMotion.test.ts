@@ -25,13 +25,13 @@ describe('segmentedMotion: liquid pill rules', () => {
     expect(Math.abs(dist - trail)).toBeLessThan(1.5);
   });
 
-  it.each([1, 2, 3, 4])('pill has reached >= 89% of travel by PILL_COMMIT_MS (%i-slot jump) for fluid motion overlap', (slots) => {
+  it.each([1, 2, 3, 4])('the fallback PILL_COMMIT_MS is a true landing (both edges within ~1.5px) on a %i-slot jump', (slots) => {
     const dist = slots * W;
     const trailing = trailingSpringFor(slots);
     const lead = simulateSpring(LEADING_EDGE_SPRING, 0, dist, PILL_COMMIT_MS);
     const trail = simulateSpring(trailing, 0, dist, PILL_COMMIT_MS);
-    expect(lead / dist).toBeGreaterThan(0.98);
-    expect(trail / dist).toBeGreaterThan(0.89);
+    expect(Math.abs(dist - lead)).toBeLessThan(1.5);
+    expect(Math.abs(dist - trail)).toBeLessThan(1.5);
   });
 
   it('every jump length lands in about the same time (duration does not grow with distance)', () => {

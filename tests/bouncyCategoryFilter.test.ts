@@ -141,10 +141,14 @@ describe('BouncyCategoryFilter UI-Thread Reanimated Animation Parity (Source & S
     expect(src).not.toMatch(/useAnimatedValue/);
   });
 
-  it('sliding highlight animated style derives translateX (not left) and width for transform-only animation', () => {
-    expect(src).toMatch(/transform:\s*\[\{\s*translateX:\s*pillX\.value\s*\}\]/);
-    expect(src).toMatch(/width:\s*pillWidth\.value/);
-    // Must NOT animate layout properties (`left`) — causes per-frame native relayout on Android
+  it('sliding highlight is TRANSFORM-ONLY: no animated width, no animated left (no per-frame layout)', () => {
+    // Pieces are positioned with translateX and stretched with scaleX on a flat middle piece.
+    expect(src).toMatch(/pillPiecesFor\(pillX\.value, pillX\.value \+ pillWidth\.value/);
+    expect(src).toMatch(/translateX: p\.leftCapX/);
+    expect(src).toMatch(/translateX: p\.bodyX \}, \{ scaleX: p\.bodyScaleX/);
+    expect(src).toMatch(/translateX: p\.rightCapX/);
+    // `width` is a layout prop: animating it forces Yoga + a shadow-tree commit every frame.
+    expect(src).not.toMatch(/width:\s*pillWidth\.value/);
     expect(src).not.toMatch(/left:\s*pill[A-Z].*\.value/);
   });
 
@@ -447,5 +451,86 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
     expect(pillWidth.value).toBe(56.76);
     // Dead shared values (stretchAnim, squishAnim, leadAnim) removed — only 2 shared values remain
     // plus 1 per FilterItem scale = 2 + 3 items = 5 total, but only first 2 are pill geometry
+  });
+});
+
+describe('BouncyCategoryFilter: list update waits for the highlight to LAND (no mid-glide FlashList commit)', () => {
+  const Component = (BouncyCategoryFilter as any).type || BouncyCategoryFilter;
+  const opts = [
+    { id: null, name: 'All' },
+    { id: 'cat-ent', name: 'Entertainment' },
+    { id: 'cat-trn', name: 'Transport' },
+  ];
+
+  const mount = (onChange: any, value: string | null = null) => {
+    const r = renderHook((props: any) => Component(props), { options: opts, value, onChange, commitOnSettle: true });
+    const items = () => r.result.current.props.children.props.children[1];
+    items()[0].props.onLayout({ nativeEvent: { layout: { x: 4, width: 56 } } });
+    items()[1].props.onLayout({ nativeEvent: { layout: { x: 60, width: 138 } } });
+    items()[2].props.onLayout({ nativeEvent: { layout: { x: 198, width: 108 } } });
+    return { ...r, items };
+  };
+
+  beforeEach(async () => {
+    reanimatedSpies.resetAll();
+    (await import('../src/lib/selectionCommitFence')).__resetSelectionFenceForTests();
+  });
+
+  it('reports exactly at the computed landing time, never before', async () => {
+    vi.useFakeTimers();
+    const { categoryPillLandingMs } = await import('../src/components/BouncyCategoryFilter');
+    const onChange = vi.fn();
+    const { items } = mount(onChange);
+    const wait = categoryPillLandingMs({ x: 4, width: 56 }, { x: 198, width: 108 });
+    expect(wait).toBeGreaterThan(300); // the old fixed 200ms committed while the pill was ~40px away
+    items()[2].props.onPress();
+    vi.advanceTimersByTime(wait - 1);
+    expect(onChange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('cat-trn');
+    vi.useRealTimers();
+  });
+
+  it('picking "All" (id null) is still treated as pending, so a re-render cannot snap the pill back', async () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const { items, rerender } = mount(onChange, 'cat-ent');
+    items()[0].props.onPress(); // All
+    const pillX = reanimatedSpies.sharedValues[0];
+    pillX.value = 33; // mid-glide
+    rerender({ options: [...opts], value: 'cat-ent', onChange, commitOnSettle: true });
+    expect(pillX.value).toBe(33);
+    vi.advanceTimersByTime(2000);
+    expect(onChange).toHaveBeenCalledWith(null);
+    vi.useRealTimers();
+  });
+
+  it('a touch elsewhere delivers the pending category immediately (fence)', async () => {
+    vi.useFakeTimers();
+    const fence = await import('../src/lib/selectionCommitFence');
+    const onChange = vi.fn();
+    const { items } = mount(onChange);
+    items()[1].props.onPress();
+    fence.flushPendingSelections({ timestamp: 9 });
+    expect(onChange).toHaveBeenCalledWith('cat-ent');
+    vi.advanceTimersByTime(2000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('labels cross-fade by opacity: active + inactive copies sum to a fully visible label', () => {
+    const onChange = vi.fn();
+    const { items } = mount(onChange);
+    const item = items()[1];
+    const Item = item.type.type ?? item.type;
+    const rendered = renderHook((pr: any) => Item(pr), item.props).result.current;
+    const wrapper = rendered.props.children.props.children;
+    const [, inactive, active] = wrapper.props.children;
+    const io = inactive.props.style.find((st: any) => st && 'opacity' in st).opacity;
+    const ao = active.props.style.find((st: any) => st && 'opacity' in st).opacity;
+    expect(io).toBe(1);
+    expect(ao).toBe(0);
+    expect(active.props.importantForAccessibility).toBe('no-hide-descendants');
   });
 });

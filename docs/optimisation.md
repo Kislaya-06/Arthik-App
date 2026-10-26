@@ -1193,7 +1193,7 @@ So the agent does not waste time re-doing finished work:
 - `AmbientBackground` uses native-driver animations, stops in background and on hidden tabs, respects reduce motion.
 - `BottomSheetModal` already uses RNGH + Reanimated.
 - `DonutChart` + `useRingSweep` already sweep on the UI thread, blink-free.
-- Home filter pills commit after the pill lands (`commitOnSettle`); History and segmented controls use `startTransition`.
+- Home, Expense | Income and History pills commit only after the pill has landed (`commitOnSettle`, exact landing time per tap, ADR 0020) and draw the pill transform-only; other segmented controls report at once via `startTransition`.
 - Home `fullWaterfall` is memoised separately from the pill switch.
 - `syncWithExpenses` only writes when today's record really changed.
 - Supabase token auto-refresh pauses in background.

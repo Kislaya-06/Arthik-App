@@ -52,7 +52,7 @@ describe('OPT-42: large text safety on fixed-size shapes', () => {
   const capped: Array<[string, number]> = [
     ['src/components/ui/StatusBadge.tsx', 1],
     ['src/components/ui/SegmentedControl.tsx', 2],
-    ['src/components/BouncyCategoryFilter.tsx', 2],
+    ['src/components/BouncyCategoryFilter.tsx', 3],
     ['src/components/KeyButton.tsx', 1],
     ['src/components/StreakCalendarModal.tsx', 2],
     ['src/components/CustomDatePickerModal.tsx', 4],
@@ -66,10 +66,10 @@ describe('OPT-42: large text safety on fixed-size shapes', () => {
     });
   }
 
-  it('the category pill keeps the invisible width placeholder and the visible label on the SAME cap', () => {
+  it('the category pill keeps the invisible width placeholder and BOTH cross-faded labels on the SAME cap', () => {
     const src = read('src/components/BouncyCategoryFilter.tsx');
     const blocks = src.match(/maxFontSizeMultiplier=\{FIXED_SHAPE_MAX_FONT_SCALE\}/g) ?? [];
-    expect(blocks.length).toBe(2);
+    expect(blocks.length).toBe(3);
     expect(src).toMatch(/hiddenPlaceholder/);
   });
 

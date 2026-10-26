@@ -284,7 +284,7 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
     expect(weeklyFont).toBe('Quicksand_700Bold');
   });
 
-  it('commitOnSettle: reports only the LAST tap, and only after the pill has arrived (PILL_COMMIT_MS)', async () => {
+  it('commitOnSettle: reports only the LAST tap, and only after the pill has landed (PILL_COMMIT_MS fallback when unmeasured)', async () => {
     vi.useFakeTimers();
     const { PILL_COMMIT_MS } = await import('../src/lib/segmentedMotion');
     const onChange = vi.fn();
@@ -376,5 +376,65 @@ describe('SegmentedControl Touch Reliability & Selection Invariant (Seam: src/co
     // Neither should have a dynamic 'key' prop forcing remount
     expect(elExpense.key).toBeNull();
     expect(elIncome.key).toBeNull();
+  });
+});
+
+describe('SegmentedControl touch fence (deferred selection can never be read stale)', () => {
+  it('Income tapped, then Save tapped before the pill lands: the fence delivers Income FIRST, exactly once', async () => {
+    vi.useFakeTimers();
+    const fence = await import('../src/lib/selectionCommitFence');
+    fence.__resetSelectionFenceForTests();
+    const onChange = vi.fn();
+    const el = SegmentedControl({
+      options: [{ key: 'expense', label: 'Expense' }, { key: 'income', label: 'Income' }],
+      selectedKey: 'expense',
+      onChange,
+      commitOnSettle: true,
+    }) as any;
+    el.props.children[1].props.children[1].props.onPress(); // Income
+    expect(onChange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(50);
+    // User's finger lands on Save (a touch that did NOT start on this pill).
+    fence.flushPendingSelections({ timestamp: 123 });
+    // Synchronous, not in a transition: applied before Save's onPress (which fires on touch END).
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('income');
+    vi.advanceTimersByTime(2000);
+    expect(onChange).toHaveBeenCalledTimes(1); // the landing timer does not deliver it a second time
+    vi.useRealTimers();
+  });
+
+  it('a re-tap that starts ON the pill is claimed: no early commit mid-glide', async () => {
+    vi.useFakeTimers();
+    const fence = await import('../src/lib/selectionCommitFence');
+    const { PILL_COMMIT_MS } = await import('../src/lib/segmentedMotion');
+    fence.__resetSelectionFenceForTests();
+    const onChange = vi.fn();
+    const el = SegmentedControl({
+      options: ['All', 'Daily', 'Weekly', 'Monthly'],
+      selectedKey: 'All',
+      onChange,
+      commitOnSettle: true,
+    }) as any;
+    el.props.children[1].props.children[2].props.onPress(); // Weekly
+    const touch = { timestamp: 7 };
+    el.props.onTouchStart({ nativeEvent: touch }); // next touch starts on the same pill...
+    fence.flushPendingSelections(touch); // ...and bubbles to the app root
+    expect(onChange).not.toHaveBeenCalled();
+    el.props.children[1].props.children[3].props.onPress(); // Monthly
+    vi.advanceTimersByTime(PILL_COMMIT_MS);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('Monthly');
+    vi.useRealTimers();
+  });
+
+  it('without commitOnSettle nothing is ever parked on the fence', async () => {
+    const fence = await import('../src/lib/selectionCommitFence');
+    fence.__resetSelectionFenceForTests();
+    const onChange = vi.fn();
+    const el = SegmentedControl({ options: ['Cash', 'UPI'], selectedKey: 'Cash', onChange }) as any;
+    el.props.children[1].props.children[1].props.onPress();
+    expect(onChange).toHaveBeenCalledWith('UPI');
+    expect(fence.hasPendingSelection()).toBe(false);
   });
 });

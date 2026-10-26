@@ -84,7 +84,9 @@ src/
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
 │                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts, navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
-│                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install)
+│                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install),
+│                 segmentedMotion.ts (pill springs, landing time, transform-only pill pieces), selectionCommitFence.ts (touch fence for deferred pill values),
+│                 alertButtonPalette.ts (themed dialog button colours + contrast)
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History,
 │                 Insights (with insights/ periodUtils, PeriodNavigator, useInsightsData, styles),
@@ -97,6 +99,8 @@ src/
 │                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, splashCoverStore, alertStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
+
+**Pill rule (ADR 0020)**: pills animate transform / opacity / backgroundColor only (never `width`, `left`, Text `color`), and heavy screens hear about a tap only after the pill has landed (`commitOnSettle`). `App.tsx`'s root `onTouchStart` must keep flushing `selectionCommitFence`.
 
 **High blast-radius files**: `dailyBudgetStore.ts (+ src/store/dailyBudget/*)`, `expenseStore.ts (+ src/store/expense/*)`, `budgetPeriods.ts`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `budgetCalculations.ts`, `moneyWaterfall.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `features/autoLog/engine.ts`, `features/autoLog/matching.ts`, `features/autoLog/service.ts`, `modules/arthik-autolog/**` (native → APK), `UpdateRequiredScreen.tsx` + `lib/versionCheck.ts` (force update for every user).
 > **File inspection rule**: Inspect ONLY the relevant sections/functions needed for the current task. Do NOT scan entire files or read whole files end-to-end unless the task strictly requires it.

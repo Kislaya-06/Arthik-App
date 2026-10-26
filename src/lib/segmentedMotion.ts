@@ -12,11 +12,19 @@
  *   slightly softer one for the trailing edge. No timing curves, no scale (scale would squash the
  *   round corners).
  *
- * Why the screen waits for PILL_SETTLE_MS:
- *   Changing a big screen (new totals, rolling digits, card resize) costs frames. If that work lands
- *   while the pill is still gliding, the pill stutters. So heavy screens ask the control to report the
- *   change only after the pill has landed (commitOnSettle). Rapid taps restart the wait, so only the
- *   final choice is reported.
+ * Why the screen waits until the pill has LANDED (not "almost landed"):
+ *   Reanimated 4 on Fabric pauses its own UI-thread commits while a React commit is being mounted
+ *   (ReanimatedCommitHook -> pauseReanimatedCommits, unpaused in ReanimatedMountHook). So ANY React
+ *   render that lands while the pill is moving freezes the pill for one or more frames, then it jumps.
+ *   That is the jitter. The old 200ms "commit early for overlap" left 6-12px of travel (80px on History)
+ *   for that freeze to show. Heavy screens now hear about the change only when both edges are within
+ *   PILL_LANDED_EPSILON_PX of the target (pillLandingMs). Rapid taps restart the wait.
+ *
+ * Why the pill is drawn as pieces (see pillPiecesFor):
+ *   Animating `width` is a LAYOUT prop: every frame dirties Yoga and must go through a shadow-tree
+ *   commit. Transform / opacity / backgroundColor are the only props Reanimated can apply straight to
+ *   the native view. So the stretching pill is two round caps + a flat middle that is SCALED (a flat
+ *   rectangle can be scaled without squashing any corner). Same shape, same motion, zero layout work.
  *
  * No React / React Native imports: deterministic and unit-testable.
  */
@@ -62,11 +70,22 @@ export function trailingSpringFor(slots: number): PillSpring {
 export const PILL_SETTLE_MS = 320;
 
 /**
- * Time after the LAST tap by which the pill is 95%+ arrived (leading edge landed, trailing edge
- * within ~6px). Heavy screens (Insights, Home) commit here to smoothly overlap rolling numbers
- * and card transitions with the pill's soft deceleration.
+ * Fallback commit delay, used only when the glide distance is not known yet (control not measured).
+ * Normal taps use pillLandingMs(), which is exact for the real slot width.
  */
-export const PILL_COMMIT_MS = 200;
+export const PILL_COMMIT_MS = PILL_SETTLE_MS;
+
+/**
+ * "Landed" means both edges are this close to the target. Below ~1px a held frame is invisible, so a
+ * React commit after this point can never show as a jump.
+ */
+export const PILL_LANDED_EPSILON_PX = 1;
+
+/** Extra wait added to every computed landing time (one 60Hz frame + scheduling slack). */
+export const PILL_LANDING_MARGIN_MS = 24;
+
+/** Hard ceiling so a broken layout can never make a screen wait forever. */
+export const PILL_LANDING_MAX_MS = 900;
 
 /** Soft "landing" tick when the pill arrives (the selection tick still fires on tap). */
 export const LANDING_HAPTIC_ENABLED = true;
@@ -163,3 +182,164 @@ export function simulateSpring(spring: PillSpring, from: number, to: number, ms:
   }
   return x;
 }
+
+/**
+ * Milliseconds until a spring released at rest at `from` stays within `epsilon` of `to` for good.
+ * Same physics as simulateSpring. `clampOvershoot` mirrors Reanimated's overshootClamping.
+ * Cost: at most PILL_LANDING_MAX_MS tiny steps, run once per tap on the JS thread.
+ */
+export function springLandingMs(
+  spring: PillSpring,
+  from: number,
+  to: number,
+  epsilon: number = PILL_LANDED_EPSILON_PX,
+  clampOvershoot = false
+): number {
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
+  if (Math.abs(to - from) <= epsilon) return 0;
+  const dt = 1 / 1000;
+  const goingUp = to > from;
+  let x = from;
+  let v = 0;
+  let lastOutside = 0;
+  for (let t = 1; t <= PILL_LANDING_MAX_MS; t++) {
+    const a = (-spring.stiffness * (x - to) - spring.damping * v) / spring.mass;
+    v += a * dt;
+    x += v * dt;
+    if (clampOvershoot && (goingUp ? x > to : x < to)) {
+      x = to;
+      v = 0;
+    }
+    if (Math.abs(x - to) > epsilon) lastOutside = t;
+  }
+  // After `lastOutside` steps it was still outside; one step later it is inside for good.
+  return lastOutside === 0 ? 0 : Math.min(PILL_LANDING_MAX_MS, lastOutside + 1);
+}
+
+/**
+ * When the segmented pill will have LANDED for a move from (fromLeft, fromRight) to option `toIndex`.
+ * Uses exactly the springs animateTo() will use. Returns PILL_COMMIT_MS when geometry is unknown.
+ */
+export function pillLandingMs(
+  fromLeft: number,
+  fromRight: number,
+  toIndex: number,
+  optionWidth: number
+): number {
+  if (!(optionWidth > 0)) return PILL_COMMIT_MS;
+  const target = pillEdgesFor(toIndex, optionWidth);
+  const springs = edgeSpringsFor(fromLeft, target.left, optionWidth);
+  const left = springLandingMs(springs.left, fromLeft, target.left);
+  const right = springLandingMs(springs.right, fromRight, target.right);
+  const landed = Math.max(left, right);
+  if (landed === 0) return 0;
+  return Math.min(PILL_LANDING_MAX_MS, landed + PILL_LANDING_MARGIN_MS);
+}
+
+/** Narrowest the pill is ever drawn (old behaviour: never thinner than a dot). */
+export const PILL_MIN_WIDTH = 8;
+
+/**
+ * Each cap is a rounded box 2*radius + 2*CAP_FLAT_PX wide. The extra flat part means the body's
+ * cut edge always sits under a FLAT part of a cap, so no anti-aliasing seam can ever show.
+ */
+export const CAP_FLAT_PX = 1;
+
+export interface PillPieces {
+  /** Pill is not placed yet (both edges still 0). Hide it so it never flashes as a dot. */
+  visible: boolean;
+  leftCapX: number;
+  rightCapX: number;
+  bodyX: number;
+  bodyScaleX: number;
+  shadowX: number;
+  shadowScaleX: number;
+}
+
+/** Width of one cap piece for a pill of corner radius `radius`. */
+export function capWidthFor(radius: number): number {
+  'worklet';
+  return 2 * radius + 2 * CAP_FLAT_PX;
+}
+
+/**
+ * Corner radius the pill really gets. React Native clamps a radius to half the height, so we do the
+ * same; caps built from an unclamped radius would be wider than the real corners.
+ */
+export function pillRadiusFor(requestedRadius: number, pillHeight: number): number {
+  const half = pillHeight > 0 ? pillHeight / 2 : 0;
+  const r = requestedRadius > 0 ? requestedRadius : 0;
+  return Math.max(0, Math.min(r, half));
+}
+
+/**
+ * Transform-only geometry for a pill spanning [left, right] (track coordinates).
+ *   - left cap: a rounded box of capWidthFor(radius) at `left`
+ *   - right cap: the same box ending at `right`
+ *   - body: a flat box of `bodyBase` width, translated + scaled to fill between the caps' centres
+ *   - shadow: one rounded box of `shadowBase` width, translated + scaled to the whole pill (blurred,
+ *     so the tiny corner stretch can't be seen; it never draws a fill)
+ * transform order is [translateX, scaleX]; React Native scales around the view's centre.
+ */
+export function pillPiecesFor(
+  left: number,
+  right: number,
+  radius: number,
+  bodyBase: number,
+  shadowBase: number
+): PillPieces {
+  'worklet';
+  const raw = right - left;
+  const width = raw > PILL_MIN_WIDTH ? raw : PILL_MIN_WIDTH;
+  const end = left + width;
+  const capW = 2 * radius + 2 * CAP_FLAT_PX;
+  const rightCapX = end - capW > left ? end - capW : left;
+  const a = left + radius + CAP_FLAT_PX;
+  const b = end - radius - CAP_FLAT_PX;
+  const span = b > a ? b - a : 0;
+  const safeBody = bodyBase > 0 ? bodyBase : 1;
+  const safeShadow = shadowBase > 0 ? shadowBase : 1;
+  const bodyScale = span / safeBody;
+  // When the pill is narrower than two caps the caps alone draw it; park the (invisible) body at the
+  // pill's centre so it can never sit outside the pill.
+  const bodyCentre = span > 0 ? (a + b) / 2 : (left + end) / 2;
+  return {
+    visible: raw > 1,
+    leftCapX: left,
+    rightCapX,
+    bodyX: bodyCentre - safeBody / 2,
+    bodyScaleX: bodyScale > 0.0001 ? bodyScale : 0.0001,
+    shadowX: (left + end) / 2 - safeShadow / 2,
+    shadowScaleX: width / safeShadow,
+  };
+}
+
+/**
+ * Pill colours must be opaque for the piece-based pill (the pieces overlap inside the pill, and a
+ * see-through colour would show the overlap darker). Anything we cannot prove opaque returns false and
+ * the control falls back to one scaled box (still transform-only).
+ */
+export function isOpaqueColor(color: string | undefined | null): boolean {
+  if (!color || typeof color !== 'string') return false;
+  const c = color.trim().toLowerCase();
+  if (c === 'transparent') return false;
+  if (c.startsWith('#')) {
+    const hex = c.slice(1);
+    if (hex.length === 3 || hex.length === 6) return /^[0-9a-f]+$/.test(hex);
+    if (hex.length === 4) return /^[0-9a-f]{3}f$/.test(hex);
+    if (hex.length === 8) return /^[0-9a-f]{6}ff$/.test(hex);
+    return false;
+  }
+  const fn = c.match(/^(rgba?|hsla?)\(([^)]*)\)$/);
+  if (fn) {
+    const parts = fn[2].split(/[\s,/]+/).filter(Boolean);
+    if (parts.length <= 3) return true;
+    const alpha = parts[3].endsWith('%') ? parseFloat(parts[3]) / 100 : parseFloat(parts[3]);
+    return Number.isFinite(alpha) && alpha >= 1;
+  }
+  // Named colours (e.g. 'white') are opaque.
+  return /^[a-z]+$/.test(c);
+}
+
+/** Shadow under the moving pill. Same look as Android elevation 2, drawn behind (never above) the fill. */
+export const PILL_BOX_SHADOW = '0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12)';

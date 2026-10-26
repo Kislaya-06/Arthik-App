@@ -65,6 +65,8 @@
         "version": "2.1.0",
         "title": "Insights Safe Daily Pace & Briefing Dock Polish 📊",
         "highlights": [
+          "Buttery-Smooth Pills: The Home period pills, the Expense | Income switch and the History category pills now glide without any stutter, and the screen updates the moment the pill lands",
+          "Safer Delete Dialogs: A double tap can no longer delete twice, the dialog now dims the whole screen including the navigation bar, and the Delete button is easier to read in every theme",
           "Themed Custom Alert Dialogs: Replaced legacy white Android popups with gorgeous glassmorphic dialogs matching Light, Dark, and AMOLED themes with tactile spring feedback",
           "Smoother Pull-to-Refresh: The refresh circle now drops once, spins, and slides away once, with no more flicker",
           "Categorise From the Notification: When a payment is logged automatically, tap one of your top categories right in the notification. No need to open the app",

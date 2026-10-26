@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   LayoutChangeEvent,
+  GestureResponderEvent,
 } from 'react-native';
 import Animated, {
   SharedValue,
@@ -13,7 +14,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   cancelAnimation,
-  interpolateColor,
   interpolate,
   Extrapolation,
   useReducedMotion,
@@ -22,11 +22,53 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors, Motion } from '../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
+import {
+  PILL_BOX_SHADOW,
+  PILL_LANDING_MARGIN_MS,
+  PILL_LANDING_MAX_MS,
+  capWidthFor,
+  inactiveLabelOpacity,
+  pillPiecesFor,
+  pillRadiusFor,
+  springLandingMs,
+} from '../lib/segmentedMotion';
+import {
+  claimTouch,
+  clearPendingSelection,
+  createFenceOwner,
+  setPendingSelection,
+} from '../lib/selectionCommitFence';
 
 const PILL_PADDING = 4; // inset between outer pill edge and sliding highlight
 const TOGGLE_HEIGHT = ControlHeight.standard;
+/** Sliding highlight height (content is TOGGLE_HEIGHT tall, highlight inset PILL_PADDING top and bottom). */
+const HIGHLIGHT_HEIGHT = TOGGLE_HEIGHT - PILL_PADDING * 2;
+const HIGHLIGHT_RADIUS = pillRadiusFor(BorderRadius.pill, HIGHLIGHT_HEIGHT);
+const HIGHLIGHT_CAP_WIDTH = capWidthFor(HIGHLIGHT_RADIUS);
+/** Base width of the scaled flat middle piece (any positive number works; it is only scaled). */
+const BODY_BASE_WIDTH = 100;
+
+/**
+ * When the highlight will have LANDED for a move from `from` to `to` (both x and width ride SLIDE_SPRING,
+ * with overshoot clamping). The list re-render waits for this, so FlashList's mount never lands mid-glide.
+ */
+export function categoryPillLandingMs(
+  from: { x: number; width: number } | null,
+  to: { x: number; width: number }
+): number {
+  if (!from) return 0;
+  const landed = Math.max(
+    springLandingMs(SLIDE_SPRING, from.x, to.x, undefined, true),
+    springLandingMs(SLIDE_SPRING, from.width, to.width, undefined, true)
+  );
+  if (landed === 0) return 0;
+  return Math.min(PILL_LANDING_MAX_MS, landed + PILL_LANDING_MARGIN_MS);
+}
 
 /** Apple-calibrated critically damped spring — runs entirely on the native UI thread */
+/** pendingKeyRef value meaning "the user picked All (id null)", distinct from "nothing pending". */
+const PENDING_ALL = '\u0000all';
+
 const SLIDE_SPRING = {
   stiffness: 447.4,
   damping: 49,
@@ -93,31 +135,44 @@ const FilterItem = React.memo<FilterItemProps>(({
     scale.value = withSpring(1, Motion.springs.settle);
   };
 
-  // Reanimated UI-thread color interpolation as pill highlight passes underneath
-  const animatedTextStyle = useAnimatedStyle(() => {
+  // How "selected" this chip looks (0..1) from the highlight's live position (UI thread).
+  // Drives an OPACITY cross-fade of two label copies. Animating Text `color` instead (the old way)
+  // changes the text itself, so Android re-measured every nearby chip's text on every frame.
+  const activeLabelStyle = useAnimatedStyle(() => {
     if (!layout || layout.width <= 0) {
-      return {
-        color: isActive ? colors.forestGreen : colors.textSecondary,
-      };
+      return { opacity: isActive ? 1 : 0 };
     }
     const itemCenter = layout.x + layout.width / 2;
     const pillCenter = pillLeft.value + pillWidth.value / 2;
     const distance = Math.abs(pillCenter - itemCenter);
     const maxRange = Math.max(layout.width, 40) * 0.6;
     if (distance >= maxRange) {
-      return {
-        color: colors.textSecondary,
-      };
+      return { opacity: 0 };
     }
-    const progress = interpolate(distance, [0, maxRange], [1, 0], Extrapolation.CLAMP);
+    return { opacity: interpolate(distance, [0, maxRange], [1, 0], Extrapolation.CLAMP) };
+  });
+  const inactiveLabelStyle = useAnimatedStyle(() => {
+    if (!layout || layout.width <= 0) {
+      return { opacity: isActive ? 0 : 1 };
+    }
+    const itemCenter = layout.x + layout.width / 2;
+    const pillCenter = pillLeft.value + pillWidth.value / 2;
+    const distance = Math.abs(pillCenter - itemCenter);
+    const maxRange = Math.max(layout.width, 40) * 0.6;
+    if (distance >= maxRange) {
+      return { opacity: 1 };
+    }
     return {
-      color: interpolateColor(progress, [0, 1], [colors.textSecondary, colors.forestGreen]),
+      opacity: inactiveLabelOpacity(interpolate(distance, [0, maxRange], [1, 0], Extrapolation.CLAMP)),
     };
   });
 
   return (
     <Pressable
       onLayout={onLayout}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={opt.name}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={onPress}
@@ -141,16 +196,29 @@ const FilterItem = React.memo<FilterItemProps>(({
           >
             {opt.name}
           </Text>
+          {/* Same text twice, both bold (identical size): inactive colour + active colour, cross-faded. */}
           <Animated.Text
             numberOfLines={1}
             maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
             style={[
               styles.label,
               styles.visibleLabel,
-              animatedTextStyle,
-              {
-                fontFamily: FontFamily.bold,
-              },
+              { color: colors.textSecondary, fontFamily: FontFamily.bold },
+              inactiveLabelStyle,
+            ]}
+          >
+            {opt.name}
+          </Animated.Text>
+          <Animated.Text
+            numberOfLines={1}
+            maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[
+              styles.label,
+              styles.visibleLabel,
+              { color: colors.forestGreen, fontFamily: FontFamily.bold },
+              activeLabelStyle,
             ]}
           >
             {opt.name}
@@ -188,6 +256,11 @@ export const BouncyCategoryFilter = React.memo<Props>(({
   const pendingKeyRef = useRef<string | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  // Touch fence owner (lib/selectionCommitFence) + when the current glide lands (absolute ms).
+  const fenceOwnerRef = useRef<number>(0);
+  if (fenceOwnerRef.current === 0) fenceOwnerRef.current = createFenceOwner();
+  const landingAtRef = useRef(0);
 
   // Track whether we've done the first no-animation snap
   const initialized = useRef(false);
@@ -240,11 +313,34 @@ export const BouncyCategoryFilter = React.memo<Props>(({
     centerCategory(targetKey);
   }, [centerCategory, pillX, pillWidth, reduceMotion]); // stable: shared values never change identity
 
+  // Hand the pending tap to the parent. viaTransition = normal timer path; false = touch fence / unmount.
+  const deliverPending = useCallback((viaTransition: boolean) => {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+    clearPendingSelection(fenceOwnerRef.current);
+    if (pendingKeyRef.current === null) return;
+    const finalId = pendingKeyRef.current === PENDING_ALL ? null : pendingKeyRef.current;
+    pendingKeyRef.current = null;
+    if (viaTransition && typeof React.startTransition === 'function') {
+      React.startTransition(() => {
+        onChangeRef.current(finalId);
+      });
+    } else {
+      onChangeRef.current(finalId);
+    }
+  }, []);
+
   // Immediate touch-driven animation start on UI thread:
   const handleSelect = useCallback((id: string | null) => {
     Haptics.selectionAsync().catch(() => {});
     const targetKey = id ?? 'all';
+    const now = Date.now();
     if (targetKey !== prevKey.current && layoutsRef.current[targetKey]) {
+      const from = lastActiveLayout.current;
+      const glideMs = reduceMotion ? 0 : categoryPillLandingMs(from, layoutsRef.current[targetKey]);
+      landingAtRef.current = now + glideMs;
       animateTo(targetKey);
     }
 
@@ -265,26 +361,27 @@ export const BouncyCategoryFilter = React.memo<Props>(({
       return;
     }
 
-    // commitOnSettle: wait ~200ms until the pill has arrived at its destination before committing heavy parent list re-render
-    pendingKeyRef.current = id;
-    commitTimerRef.current = setTimeout(() => {
-      commitTimerRef.current = null;
-      const finalId = pendingKeyRef.current;
-      pendingKeyRef.current = null;
-      if (typeof React.startTransition === 'function') {
-        React.startTransition(() => {
-          onChangeRef.current(finalId);
-        });
-      } else {
-        onChangeRef.current(finalId);
-      }
-    }, 200);
-  }, [animateTo, commitOnSettle, onChange]);
+    // commitOnSettle: the list re-render (a React commit, which pauses Reanimated's UI commits until it is
+    // mounted) waits until the highlight has LANDED. A re-tap mid-glide restarts the wait.
+    pendingKeyRef.current = id ?? PENDING_ALL;
+    setPendingSelection(fenceOwnerRef.current, () => deliverPending(false));
+    const remaining = Math.max(0, landingAtRef.current - now);
+    commitTimerRef.current = setTimeout(() => deliverPending(true), remaining);
+  }, [animateTo, commitOnSettle, onChange, reduceMotion, deliverPending]);
 
   useEffect(() => () => {
-    if (commitTimerRef.current) {
-      clearTimeout(commitTimerRef.current);
+    // Never lose a tap: if the screen goes away mid-glide, hand the value over now.
+    if (pendingKeyRef.current !== null) {
+      deliverPending(false);
+    } else {
+      if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+      clearPendingSelection(fenceOwnerRef.current);
     }
+  }, [deliverPending]);
+
+  // Taps on this filter are claimed so the app-root touch fence does not flush it on a re-tap.
+  const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+    claimTouch(fenceOwnerRef.current, e?.nativeEvent);
   }, []);
 
   useEffect(() => {
@@ -321,11 +418,33 @@ export const BouncyCategoryFilter = React.memo<Props>(({
     }
   }, [activeKey, layouts, animateTo, centerCategory, pillX, pillWidth]);
 
-  // TRANSFORM-ONLY animation: translateX (not `left`) → zero native relayout per frame
-  const animatedHighlightStyle = useAnimatedStyle(() => ({
-    width: pillWidth.value,
-    transform: [{ translateX: pillX.value }],
+  // Shadow box base width: the narrowest chip, so at rest the blurred shadow is (almost) unscaled.
+  const shadowBase = useMemo(() => {
+    const widths = Object.values(layouts).map((l) => l.width).filter((w) => w > 0);
+    return widths.length > 0 ? Math.max(HIGHLIGHT_CAP_WIDTH, Math.min(...widths)) : HIGHLIGHT_CAP_WIDTH;
+  }, [layouts]);
+
+  // TRANSFORM / OPACITY ONLY (no `width`, no `left`): nothing here needs Yoga layout or a shadow-tree
+  // commit, so the highlight glides even while the list below is busy. Same springs, same path as before.
+  const highlightGroupStyle = useAnimatedStyle(() => ({
+    opacity: pillWidth.value > 1 ? 1 : 0,
   }));
+  const shadowStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillX.value, pillX.value + pillWidth.value, HIGHLIGHT_RADIUS, BODY_BASE_WIDTH, shadowBase);
+    return { transform: [{ translateX: p.shadowX }, { scaleX: p.shadowScaleX }] };
+  });
+  const leftCapStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillX.value, pillX.value + pillWidth.value, HIGHLIGHT_RADIUS, BODY_BASE_WIDTH, shadowBase);
+    return { transform: [{ translateX: p.leftCapX }] };
+  });
+  const bodyStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillX.value, pillX.value + pillWidth.value, HIGHLIGHT_RADIUS, BODY_BASE_WIDTH, shadowBase);
+    return { transform: [{ translateX: p.bodyX }, { scaleX: p.bodyScaleX }] };
+  });
+  const rightCapStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillX.value, pillX.value + pillWidth.value, HIGHLIGHT_RADIUS, BODY_BASE_WIDTH, shadowBase);
+    return { transform: [{ translateX: p.rightCapX }] };
+  });
 
   return (
     // ── Outer pill: FIXED visual shape, both ends rounded, clips its children ──
@@ -333,6 +452,7 @@ export const BouncyCategoryFilter = React.memo<Props>(({
       onLayout={(e) => {
         containerWidthRef.current = e.nativeEvent.layout.width;
       }}
+      onTouchStart={handleTouchStart}
       style={[
         styles.pill,
         {
@@ -353,14 +473,34 @@ export const BouncyCategoryFilter = React.memo<Props>(({
           scrollXRef.current = e.nativeEvent.contentOffset.x;
         }}
       >
-        {/* Sliding highlight — absolute in scroll-content space, so it travels with items */}
-        <Animated.View
-          style={[
-            styles.slidingHighlight,
-            { backgroundColor: colors.mintGreen },
-            animatedHighlightStyle,
-          ]}
-        />
+        {/* Sliding highlight — absolute in scroll-content space, so it travels with items.
+            Shadow box first (under), then flat middle, then the two round caps. */}
+        <Animated.View pointerEvents="none" style={[styles.highlightLayer, highlightGroupStyle]}>
+          <Animated.View
+            style={[
+              styles.highlightPiece,
+              { width: shadowBase, borderRadius: HIGHLIGHT_RADIUS, boxShadow: PILL_BOX_SHADOW },
+              shadowStyle,
+            ]}
+          />
+          <Animated.View
+            style={[styles.highlightPiece, { width: BODY_BASE_WIDTH, backgroundColor: colors.mintGreen }, bodyStyle]}
+          />
+          <Animated.View
+            style={[
+              styles.highlightPiece,
+              { width: HIGHLIGHT_CAP_WIDTH, borderRadius: HIGHLIGHT_RADIUS, backgroundColor: colors.mintGreen },
+              leftCapStyle,
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.highlightPiece,
+              { width: HIGHLIGHT_CAP_WIDTH, borderRadius: HIGHLIGHT_RADIUS, backgroundColor: colors.mintGreen },
+              rightCapStyle,
+            ]}
+          />
+        </Animated.View>
 
         {/* Items */}
         {options.map((opt, idx) => {
@@ -408,17 +548,18 @@ const styles = StyleSheet.create({
     minHeight: TOGGLE_HEIGHT,
     paddingHorizontal: PILL_PADDING,
   },
-  slidingHighlight: {
+  highlightLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  highlightPiece: {
     position: 'absolute',
     top: PILL_PADDING,
-    bottom: PILL_PADDING,
-    left: 0, // static anchor — pill position driven entirely by translateX
-    borderRadius: BorderRadius.pill,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
+    height: HIGHLIGHT_HEIGHT,
+    left: 0, // static anchor — position driven entirely by translateX
   },
   item: {
     height: TOGGLE_HEIGHT,

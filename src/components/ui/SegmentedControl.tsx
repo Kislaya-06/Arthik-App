@@ -8,6 +8,7 @@ import {
   ViewStyle,
   StyleProp,
   LayoutChangeEvent,
+  GestureResponderEvent,
 } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -22,14 +23,25 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../store/themeStore';
 import {
   LANDING_HAPTIC_ENABLED,
+  PILL_BOX_SHADOW,
   PILL_COMMIT_MS,
-  PILL_SETTLE_MS,
+  capWidthFor,
   edgeSpringsFor,
   inactiveLabelOpacity,
+  isOpaqueColor,
   labelActiveProgress,
   optionWidthFor,
   pillEdgesFor,
+  pillLandingMs,
+  pillPiecesFor,
+  pillRadiusFor,
 } from '../../lib/segmentedMotion';
+import {
+  claimTouch,
+  clearPendingSelection,
+  createFenceOwner,
+  setPendingSelection,
+} from '../../lib/selectionCommitFence';
 import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight, Motion } from '../../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../../lib/fontScale';
 
@@ -57,9 +69,10 @@ export interface SegmentedControlProps {
   iconSize?: number;
   testID?: string;
   /**
-   * true = call onChange only after the pill has landed (PILL_SETTLE_MS after the last tap).
-   * Use on screens whose re-render is heavy (Home, Insights, Savings history) so it never stutters the
-   * pill. Default false = onChange right away (cheap forms like Cash/UPI).
+   * true = call onChange only after the pill has LANDED (exact time from pillLandingMs, ~300ms).
+   * Use on screens whose re-render is heavy (Home, Expense | Income, Insights, Savings history) so it
+   * never freezes the glide. Safe for forms: any other touch delivers the pending value first
+   * (lib/selectionCommitFence). Default false = onChange right away.
    */
   commitOnSettle?: boolean;
 }
@@ -197,8 +210,10 @@ const OptionItem: React.FC<OptionItemProps> = React.memo(({
  *   stretches in the direction of travel and settles back to its exact width. Corners never squash.
  * - Label colours cross-fade with the pill's live position, not on React re-render.
  * - Haptics: a selection tick on tap and a soft tick when the pill lands.
- * - commitOnSettle: heavy screens get onChange only after the pill has landed (PILL_SETTLE_MS after
- *   the last tap), so their re-render can never stutter the glide. Rapid taps report only the last one.
+ * - Transform-only pill: two round caps + a scaled flat middle (+ one blurred shadow). No `width`
+ *   animation, so no per-frame layout and nothing a React commit can block (see segmentedMotion.ts).
+ * - commitOnSettle: heavy screens get onChange only after the pill has landed, so their re-render can
+ *   never stutter the glide. Rapid taps report only the last one. Touch fence keeps forms correct.
  */
 export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
   options,
@@ -230,8 +245,15 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
   );
 
   const [containerWidth, setContainerWidth] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
   const pillLeft = useSharedValue(0);
   const pillRight = useSharedValue(0);
+  // Where the pill is heading (JS copy of the last target). A tap measures its landing time from here.
+  const targetEdgesRef = useRef<{ left: number; right: number } | null>(null);
+  // Absolute time (ms) at which the current glide has landed. A tap commits no earlier than this.
+  const landingAtRef = useRef(0);
+  const fenceOwnerRef = useRef<number>(0);
+  if (fenceOwnerRef.current === 0) fenceOwnerRef.current = createFenceOwner();
   const isFirstLayout = useRef(true);
   const prevIndexRef = useRef(selectedIndex);
   const prevOptionWidthRef = useRef(0);
@@ -250,6 +272,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
     cancelAnimation(pillLeft);
     cancelAnimation(pillRight);
     const edges = pillEdgesFor(targetIndex, optWidth);
+    targetEdgesRef.current = edges;
+    landingAtRef.current = 0;
     pillLeft.value = edges.left;
     pillRight.value = edges.right;
   }, [pillLeft, pillRight]);
@@ -258,6 +282,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
     if (optWidth <= 0) return;
     prevIndexRef.current = targetIndex;
     const target = pillEdgesFor(targetIndex, optWidth);
+    targetEdgesRef.current = target;
     if (reduceMotion) {
       // OS "reduce motion": no glide, no stretch.
       snapTo(targetIndex, optWidth);
@@ -269,28 +294,45 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
     pillRight.value = withSpring(target.right, springs.right);
   }, [pillLeft, pillRight, reduceMotion, snapTo]);
 
-  // When the pill last started moving (ms). Used so a re-tap on the slot it is already heading to still
-  // waits for the glide to finish instead of committing mid-flight.
-  const lastMoveAtRef = useRef(0);
+  // Deliver the pending tap to the parent. `viaTransition` = normal timer path (interruptible render);
+  // false = touch fence / unmount (must be applied before the next press handler runs).
+  const deliverPending = useCallback((viaTransition: boolean) => {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+    clearPendingSelection(fenceOwnerRef.current);
+    const finalKey = pendingKeyRef.current;
+    pendingKeyRef.current = null;
+    if (finalKey === null) return;
+    if (viaTransition) {
+      React.startTransition(() => {
+        onChangeRef.current(finalKey);
+      });
+    } else {
+      onChangeRef.current(finalKey);
+    }
+  }, []);
 
   // Touch-driven selection: pill starts on the UI thread on frame 0.
   const handleSelect = useCallback((key: string, idx: number) => {
     const indexChanged = idx !== prevIndexRef.current;
     // Like UISegmentedControl: tick only when the selection actually changes (not on a re-tap).
     if (indexChanged) Haptics.selectionAsync().catch(() => {});
+    const now = Date.now();
     if (indexChanged) {
+      let glideMs = reduceMotion ? 0 : PILL_COMMIT_MS;
       if (optionWidth > 0) {
+        const from = targetEdgesRef.current ?? pillEdgesFor(prevIndexRef.current, optionWidth);
+        if (!reduceMotion) glideMs = pillLandingMs(from.left, from.right, idx, optionWidth);
         animateTo(idx, optionWidth);
       } else {
         prevIndexRef.current = idx;
       }
-      lastMoveAtRef.current = Date.now();
+      landingAtRef.current = now + glideMs;
     }
-    const commitMs = reduceMotion ? 0 : PILL_COMMIT_MS;
-    const settleMs = reduceMotion ? 0 : PILL_SETTLE_MS;
-    const elapsed = Date.now() - lastMoveAtRef.current;
-    const commitRemaining = Math.max(0, commitMs - elapsed);
-    const settleRemaining = Math.max(0, settleMs - elapsed);
+    // A re-tap on the slot the pill is already heading to still waits for the rest of the glide.
+    const remaining = Math.max(0, landingAtRef.current - now);
 
     if (commitTimerRef.current) {
       clearTimeout(commitTimerRef.current);
@@ -305,7 +347,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
       settleTimerRef.current = setTimeout(() => {
         settleTimerRef.current = null;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
-      }, settleRemaining);
+      }, remaining);
     }
 
     if (!commitOnSettle) {
@@ -315,23 +357,27 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
       return;
     }
 
-    // commitOnSettle: tell the parent when the pill is 95%+ arrived so numbers roll in fluid harmony.
+    // commitOnSettle: tell the parent only once the pill has landed, so its re-render (a React commit,
+    // which pauses Reanimated's UI commits until it is mounted) can never freeze the glide.
     pendingKeyRef.current = key;
-    commitTimerRef.current = setTimeout(() => {
-      commitTimerRef.current = null;
-      const finalKey = pendingKeyRef.current;
-      pendingKeyRef.current = null;
-      if (finalKey !== null) {
-        React.startTransition(() => {
-          onChangeRef.current(finalKey);
-        });
-      }
-    }, commitRemaining);
-  }, [animateTo, optionWidth, commitOnSettle, reduceMotion]);
+    setPendingSelection(fenceOwnerRef.current, () => deliverPending(false));
+    commitTimerRef.current = setTimeout(() => deliverPending(true), remaining);
+  }, [animateTo, optionWidth, commitOnSettle, reduceMotion, deliverPending]);
 
   useEffect(() => () => {
-    if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
     if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    // Never lose a tap: if the screen goes away mid-glide, hand the value over now.
+    if (pendingKeyRef.current !== null) {
+      deliverPending(false);
+    } else {
+      if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+      clearPendingSelection(fenceOwnerRef.current);
+    }
+  }, [deliverPending]);
+
+  // Pill-owned touches are claimed so the app-root touch fence does not flush this pill on a re-tap.
+  const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+    claimTouch(fenceOwnerRef.current, e?.nativeEvent);
   }, []);
 
   useEffect(() => {
@@ -368,6 +414,10 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
+    const measuredHeight = e.nativeEvent.layout.height;
+    if (measuredHeight > 0 && Math.abs(measuredHeight - containerHeight) > 0.5) {
+      setContainerHeight(measuredHeight);
+    }
     // Guard against sub-pixel float noise and spurious reflow cancellations
     if (width > 0 && Math.abs(width - containerWidth) > 1) {
       // Place the pill BEFORE the first render that shows it, so there is no frame with the pill in the
@@ -405,31 +455,73 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
     return { hasOptionColors: true, colorInputRange: input, colorOutputRange: output };
   }, [normalizedOptions, resolvedPillBg]);
 
-  const animatedHighlightStyle = useAnimatedStyle(() => {
-    // Never thinner than a dot, never inverted, even if springs cross on a frantic re-tap.
-    const raw = pillRight.value - pillLeft.value;
-    const width = Math.max(8, raw);
-    const pillCenter = (pillLeft.value + pillRight.value) / 2;
-    const centerSlot = optionWidth > 0 ? (pillCenter - optionWidth / 2) / optionWidth : 0;
-    const bg = hasOptionColors && optionWidth > 0
-      ? interpolateColor(
-          centerSlot,
-          colorInputRange,
-          colorOutputRange
-        )
-      : resolvedPillBg;
+  // ── Pill geometry (static per layout) ──
+  // The pill sits inside the 1px border with `trackInset` on every side.
+  const BORDER = 1;
+  const resolvedHeight = containerHeight > 0 ? containerHeight : height;
+  const pillHeight = Math.max(0, resolvedHeight - 2 * BORDER - 2 * trackInset);
+  const pillRadius = pillRadiusFor(Math.max(4, borderRadius - 2), pillHeight);
+  const capWidth = capWidthFor(pillRadius);
+  const pieceBase = optionWidth > 0 ? optionWidth : 1;
+  // Pieces overlap inside the pill, so they need opaque colours. Otherwise: one scaled box.
+  const usePieces = useMemo(
+    () => isOpaqueColor(resolvedPillBg) && normalizedOptions.every((o) => !o.activePillColor || isOpaqueColor(o.activePillColor)),
+    [resolvedPillBg, normalizedOptions]
+  );
+
+  // Pill colour at the pill's live centre (UI thread). Same formula as before (centre-anchored).
+  const pillColorAt = (left: number, right: number): string => {
+    'worklet';
+    if (!hasOptionColors || !(optionWidth > 0)) return resolvedPillBg;
+    const pillCenter = (left + right) / 2;
+    const centerSlot = (pillCenter - optionWidth / 2) / optionWidth;
+    return interpolateColor(centerSlot, colorInputRange, colorOutputRange) as string;
+  };
+
+  // TRANSFORM / OPACITY / COLOUR ONLY. No `width`: nothing here needs Yoga layout or a shadow-tree commit.
+  const pillGroupStyle = useAnimatedStyle(() => ({
+    // Hidden until placed (both edges still at their initial 0), so it can never flash as a dot.
+    opacity: pillRight.value - pillLeft.value > 1 ? 1 : 0,
+  }));
+  const shadowStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    return { transform: [{ translateX: p.shadowX }, { scaleX: p.shadowScaleX }] };
+  });
+  const singleStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
     return {
-      width,
-      // Hidden until placed (both edges still at their initial 0), so it can never flash as a dot.
-      opacity: raw > 1 ? 1 : 0,
-      transform: [{ translateX: pillLeft.value }],
-      backgroundColor: bg,
+      backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
+      transform: [{ translateX: p.shadowX }, { scaleX: p.shadowScaleX }],
     };
   });
+  const leftCapStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    return {
+      backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
+      transform: [{ translateX: p.leftCapX }],
+    };
+  });
+  const bodyStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    return {
+      backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
+      transform: [{ translateX: p.bodyX }, { scaleX: p.bodyScaleX }],
+    };
+  });
+  const rightCapStyle = useAnimatedStyle(() => {
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    return {
+      backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
+      transform: [{ translateX: p.rightCapX }],
+    };
+  });
+
+  const pieceFrame = { top: trackInset, left: trackInset, height: pillHeight };
 
   return (
     <View
       onLayout={handleLayout}
+      onTouchStart={handleTouchStart}
       accessible
       accessibilityRole="tablist"
       testID={testID}
@@ -453,17 +545,33 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
         ]}
         pointerEvents="none"
       >
-        {optionWidth > 0 && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.sliderPill,
-              animatedHighlightStyle,
-              {
-                borderRadius: Math.max(4, borderRadius - 2),
-              },
-            ]}
-          />
+        {optionWidth > 0 && pillHeight > 0 && (
+          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, pillGroupStyle]}>
+            {/* Shadow only (no fill): one blurred box, drawn first so it always sits UNDER the pill. */}
+            <Animated.View
+              style={[
+                styles.piece,
+                pieceFrame,
+                { width: pieceBase, borderRadius: pillRadius, boxShadow: PILL_BOX_SHADOW },
+                shadowStyle,
+              ]}
+            />
+            {usePieces ? (
+              <>
+                <Animated.View style={[styles.piece, pieceFrame, { width: pieceBase }, bodyStyle]} />
+                <Animated.View
+                  style={[styles.piece, pieceFrame, { width: capWidth, borderRadius: pillRadius }, leftCapStyle]}
+                />
+                <Animated.View
+                  style={[styles.piece, pieceFrame, { width: capWidth, borderRadius: pillRadius }, rightCapStyle]}
+                />
+              </>
+            ) : (
+              <Animated.View
+                style={[styles.piece, pieceFrame, { width: pieceBase, borderRadius: pillRadius }, singleStyle]}
+              />
+            )}
+          </Animated.View>
         )}
       </View>
 
@@ -509,16 +617,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     overflow: 'hidden',
   },
-  sliderPill: {
+  piece: {
     position: 'absolute',
-    top: Spacing.micro,
-    bottom: Spacing.micro,
-    left: Spacing.micro,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
   },
   optionsRow: {
     flexDirection: 'row',
