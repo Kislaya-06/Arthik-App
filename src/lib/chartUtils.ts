@@ -689,6 +689,7 @@ export function computeMonthlyCashFlowData(
   budgetConfig?: MonthlyCashFlowBudgetConfig,
   referenceDate: Date = new Date()
 ): MonthlyCashFlowData {
+  const cleanUserCreated = userCreatedAtStr ? userCreatedAtStr.split('T')[0]?.trim() : undefined;
   const weeks: MonthlyCashFlowWeek[] = [];
   const endDay = monthEnd.getDate();
   const weekRanges: Array<{ label: string; startDay: number; endDay: number }> = [
@@ -707,7 +708,7 @@ export function computeMonthlyCashFlowData(
     const startStr = format(rangeStart, 'yyyy-MM-dd');
     const endStr = format(rangeEnd, 'yyyy-MM-dd');
 
-    if (userCreatedAtStr && endStr < userCreatedAtStr) {
+    if (cleanUserCreated && endStr < cleanUserCreated) {
       weeks.push({
         day: range.label,
         subLabel: `${range.startDay}–${range.endDay}`,
@@ -730,7 +731,7 @@ export function computeMonthlyCashFlowData(
       // One rule for every screen (BUD-009): only days after the user joined and up to today get allowance.
       weekIncome += Math.round(
         budgetAllowedForActiveDays(budgetConfig, startStr, endStr, {
-          userJoinedDateKey: userCreatedAtStr || null,
+          userJoinedDateKey: cleanUserCreated || null,
           todayDateKey: todayStr,
         })
       );
@@ -740,7 +741,7 @@ export function computeMonthlyCashFlowData(
     for (const exp of expenses) {
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
+      if (cleanUserCreated && cleanDate < cleanUserCreated) continue;
 
       if (cleanDate >= startStr && cleanDate <= endStr) {
         if (isExcludedFromTotals(exp)) continue;
@@ -757,7 +758,7 @@ export function computeMonthlyCashFlowData(
     for (const dep of gullakDeposits) {
       const cleanDate = dep.date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      if (userCreatedAtStr && cleanDate < userCreatedAtStr) continue;
+      if (cleanUserCreated && cleanDate < cleanUserCreated) continue;
 
       if (cleanDate >= startStr && cleanDate <= endStr) {
         if (dep.source === 'external') {
@@ -773,11 +774,11 @@ export function computeMonthlyCashFlowData(
       const curStr = format(curDay, 'yyyy-MM-dd');
       const hasExp = expenses.some((exp) => {
         const c = exp.expense_date?.split('T')[0]?.trim();
-        return c === curStr && (!userCreatedAtStr || c >= userCreatedAtStr) && exp.amount > 0;
+        return c === curStr && (!cleanUserCreated || c >= cleanUserCreated) && exp.amount > 0;
       });
       const hasDep = gullakDeposits.some((dep) => {
         const c = dep.date?.split('T')[0]?.trim();
-        return c === curStr && (!userCreatedAtStr || c >= userCreatedAtStr) && dep.amount > 0;
+        return c === curStr && (!cleanUserCreated || c >= cleanUserCreated) && dep.amount > 0;
       });
 
       if (hasExp || hasDep) {

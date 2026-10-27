@@ -549,6 +549,7 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       records,
       incomeByDate,
       userId,
+      expensesLoaded: areExpensesLoaded(),
     });
 
     // Ensure today's record exists if not present

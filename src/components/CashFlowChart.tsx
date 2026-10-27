@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
+import ArrowDownLeft from 'lucide-react-native/icons/arrow-down-left';
 import ArrowUpRight from 'lucide-react-native/icons/arrow-up-right';
-import ArrowDownRight from 'lucide-react-native/icons/arrow-down-right';
 import {
   ThemeColors,
   FontFamily,
@@ -449,7 +449,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 },
               ]}
             >
-              <ArrowUpRight
+              <ArrowDownLeft
                 size={11}
                 color={inAccent}
                 strokeWidth={2.5}
@@ -478,7 +478,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 },
               ]}
             >
-              <ArrowDownRight
+              <ArrowUpRight
                 size={11}
                 color={outAccent}
                 strokeWidth={2.5}

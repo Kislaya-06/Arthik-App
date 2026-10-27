@@ -28,10 +28,11 @@ export function selfHealDefaultBudget(params: {
   const budgetLooksWrong = remoteBudgetWasMigrationDefault || resolvedBudget === 500;
   if (budgetLooksWrong && logsData && logsData.length > 0) {
     const budgetCandidates: Record<number, number> = {};
+    const cleanUserCreated = userCreatedAtStr ? userCreatedAtStr.split('T')[0]?.trim() : undefined;
     for (let i = 0; i < logsData.length; i++) {
       const logEntry: RemoteSavingsLogEntry = logsData[i];
       const d = logEntry.date;
-      if (userCreatedAtStr && d < userCreatedAtStr) continue;
+      if (cleanUserCreated && d < cleanUserCreated) continue;
       const amountSaved = Number(logEntry.amount_saved) || 0;
       const spent = spentByDate[d] || 0;
 
@@ -92,6 +93,7 @@ export function selfHealCorruptedRows(params: {
   records: Record<string, DailyRecord>;
   incomeByDate: Record<string, number>;
   userId: string;
+  expensesLoaded?: boolean;
 }): void {
   const {
     logsData,
@@ -102,24 +104,27 @@ export function selfHealCorruptedRows(params: {
     records,
     incomeByDate,
     userId,
+    expensesLoaded,
   } = params;
 
   if (logsData && logsData.length > 0) {
+    const cleanUserCreated = userCreatedAtStr ? userCreatedAtStr.split('T')[0]?.trim() : undefined;
     for (let i = 0; i < logsData.length; i++) {
       const log = logsData[i];
       const d = log.date;
-      if (userCreatedAtStr && d < userCreatedAtStr) {
+      if (cleanUserCreated && d < cleanUserCreated) {
         continue; // Ignore any erroneous pre-registration logs
       }
 
       const rawLogBudget = log.budget_amount !== null && log.budget_amount !== undefined ? Number(log.budget_amount) : null;
       const rawLogSaved = Number(log.amount_saved) || 0;
-      const daySpent =
-        log.spent_amount !== null && log.spent_amount !== undefined
-          ? Number(log.spent_amount)
-          : spentByDate[d] !== undefined
-          ? spentByDate[d]
-          : 0;
+      const daySpent = expensesLoaded
+        ? (spentByDate[d] || 0)
+        : spentByDate[d] !== undefined
+        ? spentByDate[d]
+        : log.spent_amount !== null && log.spent_amount !== undefined
+        ? Number(log.spent_amount)
+        : 0;
 
       // --- 1. DETERMINE TRUE DAY BUDGET ---
       const dayIsDailyOwned = isDailyOwnedDate(resolvedPlanChanges, d);

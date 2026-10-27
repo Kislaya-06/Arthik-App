@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Insights Cash Flow Accuracy, Arrow Clarity & Reactive Gullak Savings (`CashFlowChart.tsx`, `chartUtils.ts`, `InsightsScreen.tsx`, `selfHealing.ts`, `hydrate.ts`) — OTA-safe**:
+  - **Cash Flow Metric Arrow Icon Alignment (`CashFlowChart.tsx`)**:
+    - Corrected the arrow directions to match financial convention and `BrandedHeroCard`: Inflow now displays `ArrowDownLeft` (`↙`, inward/incoming funds in `mint`), while Outflow displays `ArrowUpRight` (`↗`, outward/outgoing payments in `coral`).
+  - **Join-Date ISO Timestamp Sanitization (`chartUtils.ts`, `selfHealing.ts`)**:
+    - Fixed string comparison bug where raw user ISO timestamps (`'2026-10-23T15:30:00.000Z'`) compared against date keys (`'2026-10-23'`) caused `cleanDate < userCreatedAtStr` to evaluate to true, silently dropping join-date expenses (e.g. ₹20 expense on Oct 23rd dropping from ₹607 to ₹587).
+    - Fixed `budgetAllowedForActiveDays` and `countDaysInclusive` returning `NaN` (0 active days) for mid-month joiners when passed raw timestamps with `T...` parts, properly restoring Week 4 operational budget liquidity across all cadences (Daily, Weekly, Monthly) and Pure Mode.
+    - Sanitized `userCreatedAtStr` to `YYYY-MM-DD` in `selfHealDefaultBudget` and `selfHealCorruptedRows` to prevent erroneous pre-registration log discards on join date.
+  - **Reactive Insights Gullak Auto-Savings & Saved Days (`InsightsScreen.tsx`, `selfHealing.ts`, `hydrate.ts`)**:
+    - Added `syncWithExpenses` to `InsightsScreen.loadData` and pull-to-refresh (`refreshWork`), ensuring that deleting an expense, editing past records, or receiving split loan repayments immediately re-evaluates `dailyRecords` and dynamically updates "Auto-saved to Gullak" and "Saved Days" in Insights without needing a cold app restart.
+    - Updated `selfHealCorruptedRows` to prioritize actual local `spentByDate` over stale remote `log.spent_amount` when ground-truth expenses are loaded, permanently preventing deleted expenses from re-appearing as phantom spent amounts.
+  - **Tests**: `tests/chartUtils.test.ts` (added ISO timestamp parsing & join-date expense test), `tests/selfHealing.test.ts` (4 new tests covering ISO sanitization, deleted expense zeroing, and partial payback). 163 test files, 2,321 tests passing; `tsc --noEmit` clean.
+
 - **Buttery-Smooth Pills, Root-Cause Fix (`SegmentedControl.tsx`, `BouncyCategoryFilter.tsx`, `segmentedMotion.ts`, new `selectionCommitFence.ts`, `App.tsx`, ADR 0020) — OTA-safe**:
   - **Root cause found in Reanimated 4.5.1's native code**: every React commit pauses Reanimated's UI commits until it is mounted. Screens were told about a tap at 200ms, while the pill still had 6-12px to travel (Home, Expense | Income) and 10-80px on History, so the screen's re-render froze the end of the glide. On top of that the pill animated `width` (layout work every frame) and History animated each chip's Text `color` (Android re-measured text every frame).
   - **Commit after landing**: Home (All/Daily/Weekly/Monthly), Expense | Income and History categories now tell their screen only when the pill has landed (both edges within 1px), computed exactly per tap from the real springs (`pillLandingMs`, `categoryPillLandingMs`). `PILL_COMMIT_MS` is now the 320ms fallback before the control is measured.

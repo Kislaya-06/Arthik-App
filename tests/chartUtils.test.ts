@@ -561,6 +561,60 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
         expect(res.totalIncome).toBe(8550);
         expect(res.totalSpent).toBe(260);
       });
+
+      it('handles ISO timestamp for user registration date without dropping join date expense or NaN budget', () => {
+        const monthStart = new Date(2026, 9, 1); // 1 Oct 2026
+        const monthEnd = new Date(2026, 9, 31);  // 31 Oct 2026
+
+        // User registered on 2026-10-23 with ISO timestamp string
+        const userIsoCreatedAt = '2026-10-23T15:30:00.000Z';
+        const referenceDate = new Date(2026, 9, 27); // 27 Oct 2026 (elapsed: 23, 24, 25, 26, 27 = 5 days)
+
+        const expenses = [
+          { amount: 20, expense_date: '2026-10-23', type: 'expense' },  // on join date itself
+          { amount: 587, expense_date: '2026-10-25', type: 'expense' }, // 2 days later
+          { amount: 40, expense_date: '2026-10-26', type: 'income' },   // direct income
+        ];
+
+        const res = computeMonthlyCashFlowData(
+          monthStart,
+          monthEnd,
+          expenses,
+          [],
+          (exp) => exp.type === 'income',
+          userIsoCreatedAt,
+          {
+            isBudgetMode: true,
+            cadence: 'daily',
+            dailyBudgetAmount: 250,
+          },
+          referenceDate
+        );
+
+        expect(res.weeks).toHaveLength(4);
+
+        // W1, W2, W3 are prior to registration date (23 Oct), so they have 0 income and 0 spent
+        expect(res.weeks[0].income).toBe(0);
+        expect(res.weeks[0].spent).toBe(0);
+        expect(res.weeks[1].income).toBe(0);
+        expect(res.weeks[1].spent).toBe(0);
+        expect(res.weeks[2].income).toBe(0);
+        expect(res.weeks[2].spent).toBe(0);
+
+        // W4 (22–31 Oct):
+        // Active days from join date (23 Oct) to reference date (27 Oct) = 5 days (23, 24, 25, 26, 27)
+        // Budget allowance = 5 * 250 = 1250
+        // Direct income = 40
+        // Total W4 income = 1250 + 40 = 1290
+        expect(res.weeks[3].income).toBe(1290);
+
+        // Outflow must include BOTH the join date expense (₹20) and subsequent expense (₹587) = 607
+        expect(res.weeks[3].spent).toBe(607);
+
+        // Overall totals
+        expect(res.totalIncome).toBe(1290);
+        expect(res.totalSpent).toBe(607);
+      });
     });
 
     describe('computeYearlyGullakMilestones', () => {

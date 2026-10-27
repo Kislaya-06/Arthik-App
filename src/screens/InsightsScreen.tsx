@@ -89,6 +89,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
   const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
+  const syncWithExpenses = useDailyBudgetStore((s) => s.syncWithExpenses);
   const user = useAuthStore((s) => s.user);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -128,10 +129,15 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       lastDayRef.current = today;
       setFocusTime(now);
     }
-    if (!force && now - lastFetchTime.current < 60_000) return;
+    if (!force && now - lastFetchTime.current < 60_000) {
+      // Keep dailyRecords and Gullak savings reactive to expense changes
+      syncWithExpenses(useExpenseStore.getState().expenses);
+      return;
+    }
     lastFetchTime.current = now;
     await Promise.all([fetchExpenses(), fetchCategories()]);
-  }, [fetchExpenses, fetchCategories]);
+    syncWithExpenses(useExpenseStore.getState().expenses);
+  }, [fetchExpenses, fetchCategories, syncWithExpenses]);
 
   const [focusSeq, setFocusSeq] = useState(0);
 
@@ -144,8 +150,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
   const refreshWork = useCallback(async () => {
     await loadData(true);
+    syncWithExpenses(useExpenseStore.getState().expenses);
     setFocusSeq((s) => s + 1);
-  }, [loadData]);
+  }, [loadData, syncWithExpenses]);
   const { refreshing, onRefresh } = usePullRefresh(refreshWork);
 
   const {
