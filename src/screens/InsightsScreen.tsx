@@ -139,11 +139,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     syncWithExpenses(useExpenseStore.getState().expenses);
   }, [fetchExpenses, fetchCategories, syncWithExpenses]);
 
-  const [focusSeq, setFocusSeq] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
-      setFocusSeq((s) => s + 1);
       loadData(false);
     }, [loadData]),
   );
@@ -151,7 +150,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const refreshWork = useCallback(async () => {
     await loadData(true);
     syncWithExpenses(useExpenseStore.getState().expenses);
-    setFocusSeq((s) => s + 1);
+    setRefreshKey((s) => s + 1);
   }, [loadData, syncWithExpenses]);
   const { refreshing, onRefresh } = usePullRefresh(refreshWork);
 
@@ -538,7 +537,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               onDayPress={(d) => {
                 navigation.navigate('History', { targetDate: d.dateStr });
               }}
-              triggerKey={`${period}_${offset}_${focusSeq}`}
+              triggerKey={`${period}_${offset}_${refreshKey}`}
             />
           </View>
         )}
@@ -562,7 +561,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   endDate: week.endDate,
                 });
               }}
-              triggerKey={`${period}_${offset}_${focusSeq}`}
+              triggerKey={`${period}_${offset}_${refreshKey}`}
             />
           </View>
         )}
@@ -586,7 +585,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   endDate: month.endDate,
                 });
               }}
-              triggerKey={`${period}_${offset}_${focusSeq}`}
+              triggerKey={`${period}_${offset}_${refreshKey}`}
             />
 
             {/* Annual Budget Discipline (Completed Months Only) */}

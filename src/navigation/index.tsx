@@ -113,8 +113,8 @@ function TabNavigator() {
       tabBar={renderTabBar}
       screenOptions={{
         headerShown: false,
-        freezeOnBlur: true,
-        animation: 'fade',
+        freezeOnBlur: false,
+        animation: 'none',
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: 'transparent',
@@ -204,6 +204,7 @@ export function AppNavigation({
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
+          contentStyle: { backgroundColor: colors.background },
         }}
         initialRouteName="Splash"
       >

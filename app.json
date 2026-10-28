@@ -65,6 +65,7 @@
         "version": "2.1.0",
         "title": "Insights Cash Flow Accuracy & Gullak Reactivity 📊",
         "highlights": [
+          "Instant Screen Switching & Zero Blink: Eliminated tab crossfade blink and mid-screen collapse for silky-smooth, instantaneous tab switching matching top apps like Zomato and Swiggy",
           "Insights Cash Flow & Arrow Clarity: Fixed direction of Inflow (inward/downward) and Outflow (outward/upward) icons in Monthly Cash Flow to match Home Hero card",
           "Join Date & Mid-Month Cash Flow Accuracy: Fixed ISO timestamp registration parsing so join-date expenses and week budget allowances display accurately across Daily, Weekly, and Monthly cadences",
           "Reactive Gullak Insights: Deleting an expense, editing past expenses, or receiving split loan repayments now immediately refreshes Auto-saved to Gullak and Saved Days in Insights",

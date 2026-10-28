@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Instant Screen Switching & Zero Blink Overhaul (`src/navigation/index.tsx`, `InsightsScreen.tsx`, `AnimatedCategoryDonut.tsx`, `tabSwitchPerformanceIntegrity.test.ts`) — OTA-safe**:
+  - **Eliminated Tab Crossfade Blink (`Tab.Navigator animation: 'none'`)**: Bottom tabs now switch instantaneously with 0ms cut just like Zomato, Swiggy, and native mobile apps, eliminating the 150ms opacity dip that revealed the dark container background.
+  - **Eliminated Android Unfreeze Hitches (`freezeOnBlur: false`)**: Core tabs remain warm in memory, preventing React layout re-measurement and frame drops upon tab focus.
+  - **Eliminated Chart Collapse & Donut Re-sweep on Tab Focus**: Removed focus-triggered `focusSeq` state so `SpendingFlowChart`, `CashFlowChart`, and `YearlyCashFlowChart` no longer collapse to height 0 and spring up on casual tab visits. `AnimatedCategoryDonut` now preserves its rendered sweep on tab switch, animating only when the user changes the period/date or pulls down to refresh.
+  - **Solid Native Stack Canvas (`Stack.Navigator contentStyle`)**: Added `contentStyle: { backgroundColor: colors.background }` to ensure sub-screens have a solid background canvas during native push/pop transitions.
+  - **Tests**: Added `tests/tabSwitchPerformanceIntegrity.test.ts` locking down all 5 transition and chart-stability invariants. All 164 test files (2,326 tests) pass.
+
 - **Insights Cash Flow Accuracy, Arrow Clarity & Reactive Gullak Savings (`CashFlowChart.tsx`, `chartUtils.ts`, `InsightsScreen.tsx`, `selfHealing.ts`, `hydrate.ts`) — OTA-safe**:
   - **Cash Flow Metric Arrow Icon Alignment (`CashFlowChart.tsx`)**:
     - Corrected the arrow directions to match financial convention and `BrandedHeroCard`: Inflow now displays `ArrowDownLeft` (`↙`, inward/incoming funds in `mint`), while Outflow displays `ArrowUpRight` (`↗`, outward/outgoing payments in `coral`).

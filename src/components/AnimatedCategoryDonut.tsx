@@ -95,7 +95,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
   textColorSecondary,
   trackColor,
   triggerKey,
-  isFocused = true,
+  isFocused: _isFocused = true,
   selectedId: propSelectedId,
   onSelectCategory,
 }) => {
@@ -138,15 +138,8 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
     }
   }, [selectedId, onSelectCategory]);
 
-  // Trigger smooth round sweep on mount, on period change, and on screen focus
+  // Trigger smooth round sweep on mount and on period/offset/triggerKey change
   useEffect(() => {
-    if (!isFocused) {
-      sweep.value = 0;
-      centerOpacity.value = 0;
-      setIsSweeping(false);
-      return;
-    }
-
     if (onSelectCategory) {
       onSelectCategory(null);
     } else {
@@ -186,7 +179,7 @@ export const AnimatedCategoryDonut: React.FC<AnimatedCategoryDonutProps> = ({
       cancelAnimation(sweep);
       cancelAnimation(centerOpacity);
     };
-  }, [isFocused, triggerKey, sweep, centerOpacity, onSelectCategory, reduceMotion]);
+  }, [triggerKey, sweep, centerOpacity, onSelectCategory, reduceMotion]);
 
   const selectedCategory = useMemo(() => {
     if (!selectedId) return null;
