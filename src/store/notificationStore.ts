@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { persist } from 'zustand/middleware';
+import { createBatchedPersistStorage, removeBatchedItem } from '../lib/batchedStorage';
 import { registerStoreResetCallback } from './authStore';
 
 export type NotificationType =
@@ -105,7 +105,7 @@ export const useNotificationStore = create<NotificationState>()(
     }),
     {
       name: 'arthik-notifications-storage-v2',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createBatchedPersistStorage<NotificationState>(),
     }
   )
 );
@@ -113,7 +113,7 @@ export const useNotificationStore = create<NotificationState>()(
 registerStoreResetCallback(() => {
   useNotificationStore.getState().clearNotifications();
   useNotificationStore.setState({ ownerUserId: null });
-  AsyncStorage.removeItem('arthik-notifications-storage-v2').catch(() => {});
+  removeBatchedItem('arthik-notifications-storage-v2').catch(() => {});
 });
 
 

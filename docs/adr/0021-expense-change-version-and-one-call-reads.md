@@ -1,0 +1,27 @@
+# 0021. Expense Change Version, Keyset Pages and One-Call Reads
+
+## Status
+Accepted (29 October 2026). OTA-only (no native change). Needs `supabase/migrations/20261029120000_performance_sync_version_bootstrap.sql`; every part falls back to the old query until that SQL is run. Tasks OPT-60 to OPT-69 in `docs/optimisation.md`.
+
+## Context
+1. Every refresh downloaded the user's whole expense list again (1,000-row pages, one after the other), even when nothing had changed. Splash, Home, History, Insights and Savings each had their own 60 s timer, so the first visit of every screen downloaded it again, and two refreshes at the same time both downloaded it.
+2. Pages were read with an offset ("skip 2,000 rows"). The order (`expense_date`, `created_at`) was not unique, so rows with the same values could swap between pages, and a row added or deleted between two pages shifted the rest: a row could be read twice (counted twice) or missed.
+3. `daily_savings_log`, `budget_plan_changes`, `budget_periods` and `gullak_deposits` were read without paging. Supabase's API returns at most 1,000 rows per request, so after about 2.7 years of daily use the savings log would silently lose its newest days.
+4. One expense change ran the full money waterfall 3–4 times with the same inputs, and the ledger was rebuilt by several screens from the same list.
+
+A true delta sync (download only changed rows and merge them) was considered and rejected: it needs a second copy of the list on disk (Android AsyncStorage is limited to about 6 MB), deletes from other devices need tombstones, and re-sorting merged rows on the phone can disagree with Postgres in micro-second ties.
+
+## Decision
+1. **Change version (OPT-69).** A trigger keeps one counter per user in `expense_sync_versions`; every insert, update and delete of that user's expenses (also `ON DELETE SET NULL` from a deleted category or transfer rule) adds 1. After a full download the raw server rows are kept in memory with the counter value read **after** the pending sync and **before** the first page. The next refresh reads the counter again: the same number means the server rows are exactly the same, so the kept rows are used and everything after that point (pending queues, cache, budget sync) runs exactly as after a download. The first download of a session never asks (no extra round trip at app start). A forced refresh (pull-to-refresh, midnight), an error, a timeout or a missing function always means a full download. The counter table has no foreign key (it must never block an account deletion); an `auth.users` delete trigger removes the user's row.
+2. **Keyset pages (OPT-66).** Pages are ordered `expense_date DESC, created_at DESC, id DESC` and page 2 onwards asks for "rows after the last row I have" (`or` filter, timestamps double-quoted, NULL `created_at` handled as NULLS FIRST). A row the cursor cannot describe falls back to the old offset for the rest.
+3. **One shared fetch clock and one download at a time (OPT-60, OPT-61).** The 60 s window is app-wide (`getLastExpensesFetchAt`). A normal call joins a download that is already running; a forced call starts its own (as before).
+4. **One-call reads (OPT-67, OPT-68).** `arthik_budget_bootstrap` returns the four budget lists in one JSON value and `arthik_gullak_deposits` returns every deposit, so the 1,000-row cap no longer applies. Same columns, order and values as the direct queries (verified byte-for-byte through PostgREST). Errors and a missing function fall back to the exact old queries inside the same 3.5 s limit.
+5. **Memos (OPT-62, OPT-63, OPT-64).** `computeWaterfallFromState` keeps its last 4 results and returns one again when every input is the same reference or value (and every list has the same length). `buildLedgerEntries` reuses its result for the same rows and categories arrays. `fetchExpenses` skips the whole-list `JSON.stringify` when the cache would get the same bytes.
+6. **Indexes (OPT-65).** New `(user_id, expense_date DESC, created_at DESC, id DESC)` replaces `(user_id, expense_date DESC)`; new index on `transfer_rule_id`; `budget_periods` index moved to `active_start`; Gullak `(user_id, created_at DESC)`; unused `split_person`, `recovery`, `transaction_class` indexes and the duplicate `budget_plan_changes` index dropped.
+
+## Consequences
+- No number, rounding, stored value, screen, copy or navigation changes. Money rules (`docs/ARTHIK_CANONICAL_RULES.md`) are untouched; no rule covers how data is downloaded.
+- Rows with exactly the same `expense_date` and `created_at` now always come in `id` order (before: whatever Postgres returned). Nothing depends on that order: the waterfall sorts by itself (`WAT-002`).
+- Within 60 s of any fetch, a screen shows what is already in memory instead of downloading again. A change made on ANOTHER device inside that minute appears at the next refresh, the same as it already did for a screen that had just refreshed.
+- Store data must stay immutable (never `push` / `sort` / assign into a list or object that is already in a store). This was already the rule (Zustand); the memos rely on it. A full test run with every memo input and result deep-frozen found no app code that writes into them.
+- Tests: `tests/opt60to69ExpenseFetch.test.ts`, `tests/opt62to63MoneyMemo.test.ts`, `tests/opt66KeysetFilter.test.ts`, `tests/opt67to68BootstrapRpc.test.ts`. The SQL was tested on Postgres 16 + PostgREST 12 (triggers, cascades, RLS, account deletion, JSON equality, keyset order with ties and NULLs).

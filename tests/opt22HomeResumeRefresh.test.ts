@@ -10,7 +10,8 @@ describe('OPT-22: Home refreshes quietly after a long time in the background', (
   });
 
   it('refreshes on resume without force (keeps the 60 s throttle)', () => {
-    expect(src).toMatch(/Date\.now\(\) - lastFetchTime\.current > HOME_RESUME_STALE_MS/);
+    // OPT-60: the stale check reads the one shared fetch clock (was a Home-only ref).
+    expect(src).toMatch(/Date\.now\(\) - getLastExpensesFetchAt\(\) > HOME_RESUME_STALE_MS/);
     expect(src).toMatch(/loadData\(false\);\s*\}\s*\}\s*\}\);/);
   });
 

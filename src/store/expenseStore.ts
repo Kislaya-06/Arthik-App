@@ -62,14 +62,64 @@ import { deleteBlockReason } from '../lib/splitLedger';
 
 import NetInfo from '@react-native-community/netinfo';
 import {
+  markExpensesFetchStarted,
+  expenseKeysetCursor,
+  expenseKeysetFilter,
+  readExpensesVersion,
+  reusableSnapshotRows,
+  setExpenseServerSnapshot,
+  hasFullFetchFor,
+  markFullFetchDone,
+  resetExpenseServerSync,
+} from './expense/serverSync';
+export { getLastExpensesFetchAt } from './expense/serverSync';
+import type { ExpenseKeysetCursor } from './expense/serverSync';
+import {
   syncPendingDeletes,
   syncPendingAdds,
   syncPendingUpdates,
   flushSideQueues,
 } from './expense/syncPending';
 
+/**
+ * Puts the cached expense list into the store (no network). Same code the first step of `fetchExpenses` always ran;
+ * OPT-07 also calls it on its own to show Home from cache. Returns true when a cached list was loaded.
+ */
+export async function preloadCachedExpenses(): Promise<boolean> {
+  const user = useAuthStore.getState().user;
+  if (!user) return false;
+  try {
+    const cached = await AsyncStorage.getItem(getCachedStorageKey(user.id));
+    if (cached === null) return false;
+    const parsed: Expense[] = JSON.parse(cached);
+    const pending = useExpenseStore.getState().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
+    const combined = [...pending, ...parsed];
+    useExpenseStore.setState({ expenses: combined, isExpensesLoaded: true });
+    useDailyBudgetStore.getState().syncWithExpenses(combined);
+    return true;
+  } catch (cacheErr) {
+    if (__DEV__) console.log('Error reading cached expenses on launch:', cacheErr);
+    return false;
+  }
+}
+
 let isSyncInProgress = false;
 let activeFetchSeq = 0;
+
+// OPT-61: one download at a time. A normal (not forced) call made while a download for the same user is
+// already running waits for that download instead of starting a second one that would cancel the first.
+let inFlightFetch: { userId: string; promise: Promise<void> } | null = null;
+
+// OPT-64: what the expense cache was last written from. When the next refresh reuses the same server rows
+// (OPT-69) with the same pending deletes / updates, the cache JSON would be byte-for-byte the same, so the
+// JSON.stringify of the whole list is skipped too (not only the disk write).
+let lastCacheSource: {
+  key: string;
+  rows: Expense[];
+  deletesRaw: string | null;
+  updatesRaw: string | null;
+  json: string;
+} | null = null;
 
 // P0.7: Exact network failure identification
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
@@ -88,6 +138,9 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
 
   resetExpenses: () => {
     activeFetchSeq++;
+    inFlightFetch = null;
+    lastCacheSource = null;
+    resetExpenseServerSync();
     forgetExpenseCache();
     set({ expenses: [], loading: false, isExpensesLoaded: false, transactionType: 'expense', failedSyncItems: [] });
   },
@@ -218,209 +271,266 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
     }
   },
 
-  fetchExpenses: async () => {
+  fetchExpenses: (options?: { force?: boolean }) => {
     const user = useAuthStore.getState().user;
-    if (!user) return;
+    if (!user) return Promise.resolve();
+    const force = options?.force === true;
 
-    // Fast-path: pre-load cached expenses immediately so state has data right away
-    const cacheKey = getCachedStorageKey(user.id);
-    if (!get().isExpensesLoaded) {
-      try {
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached !== null) {
-          const parsed: Expense[] = JSON.parse(cached);
-          const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
-          const combined = [...pending, ...parsed];
-          set({ expenses: combined, isExpensesLoaded: true });
-          useDailyBudgetStore.getState().syncWithExpenses(combined);
-        }
-      } catch (cacheErr) {
-        if (__DEV__) console.log('Error reading cached expenses on launch:', cacheErr);
+    // OPT-60: one shared "last fetch" clock for every screen (was one per screen).
+    markExpensesFetchStarted();
+
+    // OPT-61: join the download that is already running for this user. A forced refresh (pull-to-refresh,
+    // midnight) always starts its own, exactly as before; the older one then stops at its next sequence check.
+    if (!force && inFlightFetch && inFlightFetch.userId === user.id) {
+      return inFlightFetch.promise;
+    }
+
+    const promise = (async (): Promise<void> => {
+      // Fast-path: pre-load cached expenses immediately so state has data right away
+      if (!get().isExpensesLoaded) {
+        await preloadCachedExpenses();
       }
-    }
 
-    // Offline fast-path: if currently offline, return immediately with cached expenses
-    const fetchSeq = ++activeFetchSeq;
+      // Offline fast-path: if currently offline, return immediately with cached expenses
+      const fetchSeq = ++activeFetchSeq;
 
-    // Offline fast-path: return immediately with cached expenses without network call
-    const isOffline = useNetworkStore.getState().isOffline;
-    if (isOffline) {
-      set({ loading: false });
-      return;
-    }
+      // Offline fast-path: return immediately with cached expenses without network call
+      const isOffline = useNetworkStore.getState().isOffline;
+      if (isOffline) {
+        set({ loading: false });
+        return;
+      }
 
-    set({ loading: true });
+      set({ loading: true });
 
-    try {
-      // P0.5: Run sync before fetch if online
       try {
-        await get().syncPendingExpenses();
-      } catch {}
+        // P0.5: Run sync before fetch if online
+        try {
+          await get().syncPendingExpenses();
+        } catch {}
 
-      if (fetchSeq !== activeFetchSeq) return;
-
-      // FIN-05: Range pagination with per-page timeout guard and retries
-      const BATCH_SIZE = 1000;
-      const PAGE_TIMEOUT_MS = 10000;
-      const MAX_PAGE_RETRIES = 2;
-      let fetchedRows: Expense[] = [];
-      let from = 0;
-      let hasMore = true;
-
-      while (hasMore) {
         if (fetchSeq !== activeFetchSeq) return;
 
-        let pageData: Expense[] | null = null;
-        let lastPageError: unknown = null;
+        // OPT-69: when this session already holds a full download, ask the server whether anything changed since.
+        // The version is read AFTER the pending sync above (so our own just-synced writes count as a change) and
+        // BEFORE any page is read (so a change during the download can never hide behind an old version).
+        // The very first download of a session does not ask (no extra round trip on app start).
+        const canProbe = !force && hasFullFetchFor(user.id);
+        const versionBeforeDownload = canProbe ? await readExpensesVersion(user.id) : null;
+        if (fetchSeq !== activeFetchSeq) return;
+        const reusedRows = reusableSnapshotRows(user.id, versionBeforeDownload);
 
-        for (let attempt = 0; attempt <= MAX_PAGE_RETRIES; attempt++) {
+        // FIN-05: Range pagination with per-page timeout guard and retries
+        // OPT-66: keyset pages ("rows after the last row I have"), id as the final tie-breaker.
+        const BATCH_SIZE = 1000;
+        const PAGE_TIMEOUT_MS = 10000;
+        const MAX_PAGE_RETRIES = 2;
+        let fetchedRows: Expense[] = reusedRows ?? [];
+        let from = 0;
+        let hasMore = reusedRows === null;
+        let cursor: ExpenseKeysetCursor | null = null;
+        let keysetBroken = false;
+
+        while (hasMore) {
           if (fetchSeq !== activeFetchSeq) return;
-          try {
-            const pageQuery = supabase
-              .from('expenses')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('expense_date', { ascending: false })
-              .order('created_at', { ascending: false })
-              .range(from, from + BATCH_SIZE - 1);
 
-            const { data, error } = await withTimeout<{ data: Expense[] | null; error: any }>(
-              pageQuery,
-              PAGE_TIMEOUT_MS,
-              { data: null, error: new Error('Network request failed: timeout') }
-            );
+          let pageData: Expense[] | null = null;
+          let lastPageError: unknown = null;
 
-            if (error) throw error;
-            pageData = data;
-            lastPageError = null;
-            break;
-          } catch (pageErr) {
-            lastPageError = pageErr;
-            if (attempt < MAX_PAGE_RETRIES) {
-              await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+          for (let attempt = 0; attempt <= MAX_PAGE_RETRIES; attempt++) {
+            if (fetchSeq !== activeFetchSeq) return;
+            try {
+              let pageBuilder = supabase
+                .from('expenses')
+                .select('*')
+                .eq('user_id', user.id);
+              if (cursor) {
+                pageBuilder = pageBuilder.or(expenseKeysetFilter(cursor));
+              }
+              // With a cursor every page starts at 0; without one (first page, or a row the cursor cannot
+              // describe) the old offset is used, so no row can ever be skipped.
+              const pageStart = cursor ? 0 : from;
+              const pageQuery = pageBuilder
+                .order('expense_date', { ascending: false })
+                .order('created_at', { ascending: false })
+                .order('id', { ascending: false })
+                .range(pageStart, pageStart + BATCH_SIZE - 1);
+
+              const { data, error } = await withTimeout<{ data: Expense[] | null; error: any }>(
+                pageQuery,
+                PAGE_TIMEOUT_MS,
+                { data: null, error: new Error('Network request failed: timeout') }
+              );
+
+              if (error) throw error;
+              pageData = data;
+              lastPageError = null;
+              break;
+            } catch (pageErr) {
+              lastPageError = pageErr;
+              if (attempt < MAX_PAGE_RETRIES) {
+                await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+              }
             }
           }
-        }
 
-        if (lastPageError || !pageData) {
-          throw lastPageError || new Error('Network request failed: timeout');
+          if (lastPageError || !pageData) {
+            throw lastPageError || new Error('Network request failed: timeout');
+          }
+
+          if (fetchSeq !== activeFetchSeq) return;
+
+          if (pageData && pageData.length > 0) {
+            fetchedRows = fetchedRows.concat(pageData);
+            if (pageData.length < BATCH_SIZE) {
+              hasMore = false;
+            } else {
+              from += BATCH_SIZE;
+              if (!keysetBroken) {
+                cursor = expenseKeysetCursor(pageData[pageData.length - 1]);
+                // A row the cursor cannot describe: keep reading by offset for the rest (the old way).
+                if (!cursor) keysetBroken = true;
+              }
+            }
+          } else {
+            hasMore = false;
+          }
         }
 
         if (fetchSeq !== activeFetchSeq) return;
 
-        if (pageData && pageData.length > 0) {
-          fetchedRows = fetchedRows.concat(pageData);
-          if (pageData.length < BATCH_SIZE) {
-            hasMore = false;
-          } else {
-            from += BATCH_SIZE;
+        // OPT-69: a complete download becomes the session snapshot, tagged with the version read before it.
+        if (reusedRows === null) {
+          setExpenseServerSnapshot(
+            versionBeforeDownload !== null ? { userId: user.id, version: versionBeforeDownload, rows: fetchedRows } : null
+          );
+          markFullFetchDone(user.id);
+        }
+
+        // P0.5: Read pending deletes, updates, and additions from AsyncStorage in one batch
+        let pendingDeletes: string[] = [];
+        let pendingUpdates: PendingUpdate[] = [];
+        let pendingAdds: Expense[] = [];
+        let deletesRaw: string | null = null;
+        let updatesRaw: string | null = null;
+
+        try {
+          const [delPair, updPair, addPair] = await AsyncStorage.multiGet([
+            getPendingDeletesKey(user.id),
+            getPendingUpdatesKey(user.id),
+            getPendingStorageKey(user.id),
+          ]);
+
+          deletesRaw = delPair ? delPair[1] ?? null : null;
+          updatesRaw = updPair ? updPair[1] ?? null : null;
+          if (delPair && delPair[1]) {
+            const parsed: (string | { id: string })[] = JSON.parse(delPair[1]);
+            pendingDeletes = parsed.map((item) => (typeof item === 'string' ? item : item.id));
           }
+          if (updPair && updPair[1]) {
+            pendingUpdates = JSON.parse(updPair[1]);
+          }
+          if (addPair && addPair[1]) {
+            pendingAdds = JSON.parse(addPair[1]);
+          }
+        } catch {}
+
+        const pendingDeleteSet = new Set(pendingDeletes);
+        const updateMap = new Map<string, ExpenseUpdatePayload>(pendingUpdates.map((u) => [u.id, u.payload]));
+
+        // Filter out pending-deleted rows and re-apply pending updates
+        const reconciledFetched = fetchedRows
+          .filter((e) => !pendingDeleteSet.has(e.id))
+          .map((e) => {
+            const patch = updateMap.get(e.id);
+            return patch ? { ...e, ...patch } : e;
+          });
+
+        // Also preserve any pending additions that haven't synced yet
+        const fetchedIdSet = new Set(reconciledFetched.map((e) => e.id));
+        const activePendingAdds = pendingAdds
+          .filter((e) => !pendingDeleteSet.has(e.id) && !fetchedIdSet.has(e.id))
+          .map((e) => {
+            const patch = updateMap.get(e.id);
+            return patch ? { ...e, ...patch, pending: true } : { ...e, pending: true };
+          });
+
+        const combined = [...activePendingAdds, ...reconciledFetched];
+        // Keep the same array when nothing changed, so screens do not re-render or recompute for nothing.
+        if (sameExpenseList(get().expenses, combined)) {
+          if (!get().isExpensesLoaded) set({ isExpensesLoaded: true });
         } else {
-          hasMore = false;
-        }
-      }
-
-      if (fetchSeq !== activeFetchSeq) return;
-
-      // P0.5: Read pending deletes, updates, and additions from AsyncStorage in one batch
-      let pendingDeletes: string[] = [];
-      let pendingUpdates: PendingUpdate[] = [];
-      let pendingAdds: Expense[] = [];
-
-      try {
-        const [delPair, updPair, addPair] = await AsyncStorage.multiGet([
-          getPendingDeletesKey(user.id),
-          getPendingUpdatesKey(user.id),
-          getPendingStorageKey(user.id),
-        ]);
-
-        if (delPair && delPair[1]) {
-          const parsed: (string | { id: string })[] = JSON.parse(delPair[1]);
-          pendingDeletes = parsed.map((item) => (typeof item === 'string' ? item : item.id));
-        }
-        if (updPair && updPair[1]) {
-          pendingUpdates = JSON.parse(updPair[1]);
-        }
-        if (addPair && addPair[1]) {
-          pendingAdds = JSON.parse(addPair[1]);
-        }
-      } catch {}
-
-      const pendingDeleteSet = new Set(pendingDeletes);
-      const updateMap = new Map<string, ExpenseUpdatePayload>(pendingUpdates.map((u) => [u.id, u.payload]));
-
-      // Filter out pending-deleted rows and re-apply pending updates
-      const reconciledFetched = fetchedRows
-        .filter((e) => !pendingDeleteSet.has(e.id))
-        .map((e) => {
-          const patch = updateMap.get(e.id);
-          return patch ? { ...e, ...patch } : e;
-        });
-
-      // Also preserve any pending additions that haven't synced yet
-      const fetchedIdSet = new Set(reconciledFetched.map((e) => e.id));
-      const activePendingAdds = pendingAdds
-        .filter((e) => !pendingDeleteSet.has(e.id) && !fetchedIdSet.has(e.id))
-        .map((e) => {
-          const patch = updateMap.get(e.id);
-          return patch ? { ...e, ...patch, pending: true } : { ...e, pending: true };
-        });
-
-      const combined = [...activePendingAdds, ...reconciledFetched];
-      // Keep the same array when nothing changed, so screens do not re-render or recompute for nothing.
-      if (sameExpenseList(get().expenses, combined)) {
-        if (!get().isExpensesLoaded) set({ isExpensesLoaded: true });
-      } else {
-        set({ expenses: combined, isExpensesLoaded: true });
-      }
-
-      // Cache expenses for offline resilience (skip the disk write when it would be identical)
-      const cacheStorageKey = getCachedStorageKey(user.id);
-      const cacheJson = JSON.stringify(reconciledFetched);
-      if (!isExpenseCacheUnchanged(cacheStorageKey, cacheJson)) {
-        await AsyncStorage.setItem(cacheStorageKey, cacheJson);
-        rememberExpenseCache(cacheStorageKey, cacheJson);
-      }
-      useDailyBudgetStore.getState().syncWithExpenses(combined);
-    } catch (e: unknown) {
-      if (fetchSeq !== activeFetchSeq) return;
-      const err = e as { message?: string } | null;
-
-      let isNetOffline = false;
-      try {
-        const netState = await NetInfo.fetch();
-        isNetOffline = Boolean(netState && (netState.isConnected === false || netState.isInternetReachable === false));
-      } catch {}
-
-      if (isNetOffline) {
-        if (__DEV__) console.warn('Network unavailable while fetching expenses, falling back to cache:', err?.message || e);
-        useNetworkStore.getState().setOffline(true);
-      } else if (isNetworkFailure(e)) {
-        if (__DEV__) console.warn('Network request failed while fetching expenses, falling back to cache:', err?.message || e);
-      } else {
-        if (__DEV__) console.error('Error fetching expenses:', e);
-      }
-      // Offline fallback: load cached expenses if available
-      try {
-        const cached = await AsyncStorage.getItem(getCachedStorageKey(user.id));
-        if (cached !== null) {
-          const parsed: Expense[] = JSON.parse(cached);
-          const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
-          const combined = [...pending, ...parsed];
           set({ expenses: combined, isExpensesLoaded: true });
-          useDailyBudgetStore.getState().syncWithExpenses(combined);
-        } else {
-          // Network failed and no cache exists: leave isExpensesLoaded as false so rollover notification does not fire with false data!
-          useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
         }
-      } catch (cacheErr) {
-        if (__DEV__) console.log('Error reading cached expenses:', cacheErr);
+
+        // Cache expenses for offline resilience (skip the disk write when it would be identical)
+        const cacheStorageKey = getCachedStorageKey(user.id);
+        // OPT-64: same server rows + same pending deletes/updates => the very same JSON as the last write. Only
+        // skipped while the cache memo still holds that JSON (nothing else has written the cache since).
+        const cacheInputsUnchanged =
+          lastCacheSource !== null &&
+          lastCacheSource.key === cacheStorageKey &&
+          lastCacheSource.rows === fetchedRows &&
+          lastCacheSource.deletesRaw === deletesRaw &&
+          lastCacheSource.updatesRaw === updatesRaw &&
+          isExpenseCacheUnchanged(cacheStorageKey, lastCacheSource.json);
+        if (!cacheInputsUnchanged) {
+          const cacheJson = JSON.stringify(reconciledFetched);
+          if (!isExpenseCacheUnchanged(cacheStorageKey, cacheJson)) {
+            await AsyncStorage.setItem(cacheStorageKey, cacheJson);
+            rememberExpenseCache(cacheStorageKey, cacheJson);
+          }
+          lastCacheSource = { key: cacheStorageKey, rows: fetchedRows, deletesRaw, updatesRaw, json: cacheJson };
+        }
+        useDailyBudgetStore.getState().syncWithExpenses(combined);
+      } catch (e: unknown) {
+        if (fetchSeq !== activeFetchSeq) return;
+        const err = e as { message?: string } | null;
+
+        let isNetOffline = false;
+        try {
+          const netState = await NetInfo.fetch();
+          isNetOffline = Boolean(netState && (netState.isConnected === false || netState.isInternetReachable === false));
+        } catch {}
+
+        if (isNetOffline) {
+          if (__DEV__) console.warn('Network unavailable while fetching expenses, falling back to cache:', err?.message || e);
+          useNetworkStore.getState().setOffline(true);
+        } else if (isNetworkFailure(e)) {
+          if (__DEV__) console.warn('Network request failed while fetching expenses, falling back to cache:', err?.message || e);
+        } else {
+          if (__DEV__) console.error('Error fetching expenses:', e);
+        }
+        // Offline fallback: load cached expenses if available
+        try {
+          const cached = await AsyncStorage.getItem(getCachedStorageKey(user.id));
+          if (cached !== null) {
+            const parsed: Expense[] = JSON.parse(cached);
+            const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
+            const combined = [...pending, ...parsed];
+            set({ expenses: combined, isExpensesLoaded: true });
+            useDailyBudgetStore.getState().syncWithExpenses(combined);
+          } else {
+            // Network failed and no cache exists: leave isExpensesLoaded as false so rollover notification does not fire with false data!
+            useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
+          }
+        } catch (cacheErr) {
+          if (__DEV__) console.log('Error reading cached expenses:', cacheErr);
+        }
+      } finally {
+        if (fetchSeq === activeFetchSeq) {
+          set({ loading: false });
+        }
       }
-    } finally {
-      if (fetchSeq === activeFetchSeq) {
-        set({ loading: false });
-      }
-    }
+    })();
+
+    const entry = { userId: user.id, promise };
+    inFlightFetch = entry;
+    const clearInFlight = () => {
+      if (inFlightFetch === entry) inFlightFetch = null;
+    };
+    promise.then(clearInFlight, clearInFlight);
+    return promise;
   },
 
   addExpense: async (amount, categoryId, note, paymentMode, date, type = 'expense', options) => {

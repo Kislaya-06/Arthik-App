@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
+import { createBatchedPersistStorage, removeBatchedItem } from '../lib/batchedStorage';
+import { isMoneyWritesHeld, resetMoneyWritesHold } from './dailyBudget/hydrationHold';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import type { Expense } from './expense/types';
@@ -728,6 +730,11 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         if (!currentUser || get().hydratedForUserId !== currentUser.id) {
           return;
         }
+        // OPT-07 / ROL-005: Home is shown from cache and the server copy is still loading: no finalization,
+        // scheduled plan, auto-renew or upload from the cached copy. The same work runs once right after hydration.
+        if (isMoneyWritesHeld(currentUser.id)) {
+          return;
+        }
 
         const todayStr = getTodayDateStr();
         const records = { ...get().dailyRecords };
@@ -807,6 +814,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         const currentUser = useAuthStore.getState().user;
         if (!currentUser) return;
         if (get().hydratedForUserId !== currentUser.id) return;
+        if (isMoneyWritesHeld(currentUser.id)) return; // OPT-07 / ROL-005
 
         const records = { ...get().dailyRecords };
         const dates = Object.keys(records);
@@ -862,6 +870,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       syncPendingGullakDeposits: async () => {
         const userId = useAuthStore.getState().user?.id;
         if (!userId) return;
+        if (isMoneyWritesHeld(userId)) return; // OPT-07 / ROL-005
 
         // 1. Flush pending adds (upsert is idempotent if sync runs twice)
         const addsKey = getPendingGullakAddsKey(userId);
@@ -947,7 +956,9 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           lastRenewedPeriodKey: null,
           dismissedGapDates: [],
         });
-        AsyncStorage.removeItem('arthik-daily-budget-storage-v2').catch(() => {});
+        // OPT-23: also cancels a pending batched write, so the reset state can never be followed by a late write.
+        removeBatchedItem('arthik-daily-budget-storage-v2').catch(() => {});
+        resetMoneyWritesHold();
         const prevUid = get().ownerUserId;
         if (prevUid) {
           AsyncStorage.removeItem(getLastRenewedPeriodKey(prevUid)).catch(() => {});
@@ -956,7 +967,8 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
     }),
     {
       name: 'arthik-daily-budget-storage-v2',
-      storage: createJSONStorage(() => AsyncStorage),
+      // OPT-23: one serialisation + one disk write per quiet moment instead of one per set().
+      storage: createBatchedPersistStorage<DailyBudgetState>(),
       version: 4,
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') return persistedState as DailyBudgetState;

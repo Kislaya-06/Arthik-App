@@ -23,6 +23,7 @@ import { useNotificationStore } from '../notificationStore';
 import { useNetworkStore } from '../networkStore';
 import { useAuthStore } from '../authStore';
 import { getCurrentExpenses, areExpensesLoaded } from './expenseBridge';
+import { releaseMoneyWrites } from './hydrationHold';
 import { buildCategoryClassifier, buildEligibleIncomeClassifier } from './classifiers';
 import { computeSpentByDate, computeIncomeByDate } from '../../lib/budgetCalculations';
 import {
@@ -206,9 +207,60 @@ export interface RemoteBudgetData {
   periodsData: RemoteBudgetPeriodEntry[] | null | undefined;
 }
 
-export async function fetchRemoteBudgetData(userId: string): Promise<RemoteBudgetData> {
-  const [profileRes, logsRes, plansRes, periodsRes] = await Promise.race<RemoteBudgetDataResults>([
-    Promise.all([
+// ─── OPT-67 / OPT-68: one-call reads ────────────────────────────────────────────────────────────────────
+// `arthik_budget_bootstrap` returns profile + savings log + plan changes + budget periods in ONE request, and
+// `arthik_gullak_deposits` returns every deposit, each as one JSON value, so the API's 1000-row cap can never
+// cut a list short. Same columns, same order, same values as the direct queries below (supabase/migrations/
+// 20261029120000_performance_sync_version_bootstrap.sql). If a function is missing (SQL not run yet) or fails,
+// the exact old query runs instead, inside the same time limit.
+
+const BUDGET_BOOTSTRAP_RPC = 'arthik_budget_bootstrap';
+const GULLAK_DEPOSITS_RPC = 'arthik_gullak_deposits';
+const unavailableRpcs = new Set<string>();
+
+const isMissingFunction = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as { code?: unknown }).code;
+  return code === 'PGRST202' || code === '42883';
+};
+
+/** Calls a one-call read. Returns its JSON value, or null whenever the old query must be used instead. */
+async function callReadRpc(name: string, userId: string): Promise<unknown | null> {
+  if (unavailableRpcs.has(name)) return null;
+  try {
+    const { data, error } = await supabase.rpc(name, { p_user_id: userId });
+    if (error) {
+      if (isMissingFunction(error)) unavailableRpcs.add(name);
+      return null;
+    }
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Test helper: forget which functions were found missing. */
+export function __resetReadRpcAvailabilityForTests(): void {
+  unavailableRpcs.clear();
+}
+
+async function fetchBudgetDataViaRpc(userId: string): Promise<RemoteBudgetDataResults | null> {
+  const value = await callReadRpc(BUDGET_BOOTSTRAP_RPC, userId);
+  if (!value || typeof value !== 'object') return null;
+  const v = value as { profile?: unknown; logs?: unknown; plans?: unknown; periods?: unknown };
+  if (!Array.isArray(v.logs) || !Array.isArray(v.plans) || !Array.isArray(v.periods)) return null;
+  const profile = v.profile && typeof v.profile === 'object' ? (v.profile as RemoteProfileData) : null;
+  return [
+    { data: profile },
+    { data: v.logs as RemoteSavingsLogEntry[] },
+    { data: v.plans as RemotePlanChangeEntry[] },
+    { data: v.periods as RemoteBudgetPeriodEntry[] },
+  ];
+}
+
+/** The four direct queries, exactly as before OPT-68. */
+function fetchBudgetDataDirect(userId: string): Promise<RemoteBudgetDataResults> {
+  return Promise.all([
       supabase
         .from('profiles')
         .select('daily_budget, is_auto_renew, is_budget_mode_enabled, budget_cadence, weekly_budget, monthly_budget')
@@ -229,7 +281,12 @@ export async function fetchRemoteBudgetData(userId: string): Promise<RemoteBudge
         .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, carry_mode, carried_over_amount, created_at')
         .eq('user_id', userId)
         .order('active_start', { ascending: true }),
-    ]) as Promise<RemoteBudgetDataResults>,
+    ]) as Promise<RemoteBudgetDataResults>;
+}
+
+export async function fetchRemoteBudgetData(userId: string): Promise<RemoteBudgetData> {
+  const [profileRes, logsRes, plansRes, periodsRes] = await Promise.race<RemoteBudgetDataResults>([
+    (async () => (await fetchBudgetDataViaRpc(userId)) ?? (await fetchBudgetDataDirect(userId)))(),
     new Promise<RemoteBudgetDataResults>((r) =>
       setTimeout(() => r([{ data: null }, { data: null }, { data: null }, { data: null }]), 3500)
     ),
@@ -274,14 +331,29 @@ export async function mergePendingPeriods(
 }
 
 
-/** Network part only. Same query, same 3.5 s timeout. */
-export function fetchGullakDepositsRaw(userId: string) {
-  return withTimeout(
-    supabase
-      .from('gullak_deposits')
-      .select('id, amount, date, note, source, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false }),
+/** One row as the server returns it (same six columns as the select below). */
+export interface RemoteGullakDepositRow {
+  id: string;
+  amount: number | string;
+  date: string;
+  note?: string | null;
+  source?: string | null;
+  created_at?: string;
+}
+type GullakDepositsRaw = { data: RemoteGullakDepositRow[] | null; error: unknown };
+
+/** Network part only. Same 3.5 s timeout. One-call read first (OPT-67), the exact old query as fallback. */
+export function fetchGullakDepositsRaw(userId: string): Promise<GullakDepositsRaw> {
+  return withTimeout<GullakDepositsRaw>(
+    (async (): Promise<GullakDepositsRaw> => {
+      const value = await callReadRpc(GULLAK_DEPOSITS_RPC, userId);
+      if (Array.isArray(value)) return { data: value as RemoteGullakDepositRow[], error: null };
+      return (await supabase
+        .from('gullak_deposits')
+        .select('id, amount, date, note, source, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })) as unknown as GullakDepositsRaw;
+    })(),
     3500,
     { data: null, error: new Error('timeout') }
   );
@@ -354,6 +426,20 @@ export async function hydrateGullakDeposits(
   } catch (depErr) {
     if (__DEV__) console.log('Error hydrating gullak_deposits from Supabase:', depErr);
     return localDeposits || [];
+  }
+}
+
+/**
+ * OPT-07: the money work that was held back while Home was shown from cache. The same two calls the online hydration
+ * makes right after it has saved the server copy (plus the Gullak queue, which was held too).
+ */
+export function runHeldBackMoneyWork(get: () => DailyBudgetState): void {
+  try {
+    get().checkAndRollover(getCurrentExpenses(), !areExpensesLoaded());
+    void get().uploadPendingDailyRecords();
+    void get().syncPendingGullakDeposits().catch(() => {});
+  } catch {
+    // never let held-back work break startup
   }
 }
 
@@ -631,6 +717,9 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       ...metrics,
     });
 
+    // OPT-07 / ROL-005: the server copy is saved; release the hold so the work below (and the queued Gullak sync) may run.
+    const wasHeld = releaseMoneyWrites(userId);
+
     // P0.1: Trigger checkAndRollover once after successful hydration.
     // If fresh expenses are already loaded (e.g. fetchExpenses finished first),
     // allow rollover notification so yesterday's celebration is never dropped due to race condition.
@@ -640,8 +729,13 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
 
     // P0.14: Also upload any records that need upload
     get().uploadPendingDailyRecords();
+    if (wasHeld) void get().syncPendingGullakDeposits().catch(() => {});
   } catch (e) {
     if (__DEV__) console.error('Error hydrating daily budget from Supabase:', e);
+  } finally {
+    // OPT-07: offline fast-path or a failed hydration never reached the release above; release now and run the work
+    // that was held back (no-op when nothing was held, i.e. every start that did not show Home from cache).
+    if (releaseMoneyWrites(userId)) runHeldBackMoneyWork(get);
   }
 }
 

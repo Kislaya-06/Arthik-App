@@ -21,7 +21,7 @@ import { useNavBarContentInset } from '../hooks/useNavBarMetrics';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useExpenseStore, Expense } from '../store/expenseStore';
+import { useExpenseStore, Expense, getLastExpensesFetchAt } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import Search from 'lucide-react-native/icons/search';
@@ -379,15 +379,15 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     setVisibleSectionCount(INITIAL_SECTION_COUNT);
   }, [selectedCategoryId, searchQuery]);
 
-  const lastFetchTime = useRef<number>(0);
-
   const loadData = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastFetchTime.current < 60_000) {
+    // OPT-60: the 60 s window is shared by every screen. Inside it only categories are checked; that call
+    // returns at once when categories are already loaded (same as before).
+    if (!force && now - getLastExpensesFetchAt() < 60_000) {
+      await fetchCategories();
       return;
     }
-    lastFetchTime.current = now;
-    await Promise.all([fetchExpenses(), fetchCategories()]);
+    await Promise.all([fetchExpenses(force ? { force: true } : undefined), fetchCategories()]);
   }, [fetchExpenses, fetchCategories]);
 
   useFocusEffect(

@@ -1,9 +1,9 @@
 import { usePullRefresh } from './usePullRefresh';
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
-import { useExpenseStore } from '../store/expenseStore';
+import { useExpenseStore, getLastExpensesFetchAt } from '../store/expenseStore';
 import {
   calculateTodayMetrics,
   filterSavingsRecords,
@@ -91,18 +91,16 @@ export function useSavingsDashboard(): UseSavingsDashboardReturn {
 
   const [activeFilter, setActiveFilter] = useState<SavingsFilter>('All');
 
-  const lastFetchTime = useRef<number>(0);
-
   // ─── Focus & Pull-to-Refresh Throttled Data Loading ────────────────────────
   const loadData = useCallback(
     async (force = false) => {
       const now = Date.now();
-      if (!force && now - lastFetchTime.current < 60_000) {
+      // OPT-60: the 60 s window is shared by every screen.
+      if (!force && now - getLastExpensesFetchAt() < 60_000) {
         syncWithExpenses(useExpenseStore.getState().expenses);
         return;
       }
-      lastFetchTime.current = now;
-      await fetchExpenses();
+      await fetchExpenses(force ? { force: true } : undefined);
       syncWithExpenses(useExpenseStore.getState().expenses);
     },
     [fetchExpenses, syncWithExpenses]

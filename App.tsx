@@ -9,6 +9,7 @@ import { supabase } from './src/config/supabase';
 import { useAuthStore } from './src/store/authStore';
 import { useCategoryStore } from './src/store/categoryStore';
 import { useExpenseStore } from './src/store/expenseStore';
+import { flushBatchedStorage } from './src/lib/batchedStorage';
 import { useDailyBudgetStore } from './src/store/dailyBudgetStore';
 import {
   registerNotificationResponseListener,
@@ -237,6 +238,8 @@ export default function App() {
       const { isAppLockEnabled: lockEnabled } = useAppLockStore.getState();
 
       if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // OPT-23: write the batched store copies now (last moment the OS guarantees to run our code).
+        void flushBatchedStorage();
         if (loggedInUser && lockEnabled) {
           lockApp();
         }

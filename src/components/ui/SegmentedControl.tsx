@@ -45,6 +45,9 @@ import {
 import { BorderRadius, FontSize, FontFamily, LineHeight, Spacing, ControlHeight, Motion } from '../../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../../lib/fontScale';
 
+/** Base width of the scaled flat middle and shadow piece (any positive constant works; it is only scaled). */
+const PILL_PIECE_BASE = 100;
+
 export interface SegmentedOption {
   key: string;
   label: string;
@@ -462,7 +465,6 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
   const pillHeight = Math.max(0, resolvedHeight - 2 * BORDER - 2 * trackInset);
   const pillRadius = pillRadiusFor(Math.max(4, borderRadius - 2), pillHeight);
   const capWidth = capWidthFor(pillRadius);
-  const pieceBase = optionWidth > 0 ? optionWidth : 1;
   // Pieces overlap inside the pill, so they need opaque colours. Otherwise: one scaled box.
   const usePieces = useMemo(
     () => isOpaqueColor(resolvedPillBg) && normalizedOptions.every((o) => !o.activePillColor || isOpaqueColor(o.activePillColor)),
@@ -484,32 +486,32 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
     opacity: pillRight.value - pillLeft.value > 1 ? 1 : 0,
   }));
   const shadowStyle = useAnimatedStyle(() => {
-    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, PILL_PIECE_BASE, PILL_PIECE_BASE);
     return { transform: [{ translateX: p.shadowX }, { scaleX: p.shadowScaleX }] };
   });
   const singleStyle = useAnimatedStyle(() => {
-    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, PILL_PIECE_BASE, PILL_PIECE_BASE);
     return {
       backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
       transform: [{ translateX: p.shadowX }, { scaleX: p.shadowScaleX }],
     };
   });
   const leftCapStyle = useAnimatedStyle(() => {
-    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, PILL_PIECE_BASE, PILL_PIECE_BASE);
     return {
       backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
       transform: [{ translateX: p.leftCapX }],
     };
   });
   const bodyStyle = useAnimatedStyle(() => {
-    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, PILL_PIECE_BASE, PILL_PIECE_BASE);
     return {
       backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
       transform: [{ translateX: p.bodyX }, { scaleX: p.bodyScaleX }],
     };
   });
   const rightCapStyle = useAnimatedStyle(() => {
-    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, pieceBase, pieceBase);
+    const p = pillPiecesFor(pillLeft.value, pillRight.value, pillRadius, PILL_PIECE_BASE, PILL_PIECE_BASE);
     return {
       backgroundColor: pillColorAt(pillLeft.value, pillRight.value),
       transform: [{ translateX: p.rightCapX }],
@@ -552,13 +554,13 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
               style={[
                 styles.piece,
                 pieceFrame,
-                { width: pieceBase, borderRadius: pillRadius, boxShadow: PILL_BOX_SHADOW },
+                { width: PILL_PIECE_BASE, borderRadius: pillRadius, boxShadow: PILL_BOX_SHADOW },
                 shadowStyle,
               ]}
             />
             {usePieces ? (
               <>
-                <Animated.View style={[styles.piece, pieceFrame, { width: pieceBase }, bodyStyle]} />
+                <Animated.View style={[styles.piece, pieceFrame, { width: PILL_PIECE_BASE }, bodyStyle]} />
                 <Animated.View
                   style={[styles.piece, pieceFrame, { width: capWidth, borderRadius: pillRadius }, leftCapStyle]}
                 />
@@ -568,7 +570,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = React.memo(({
               </>
             ) : (
               <Animated.View
-                style={[styles.piece, pieceFrame, { width: pieceBase, borderRadius: pillRadius }, singleStyle]}
+                style={[styles.piece, pieceFrame, { width: PILL_PIECE_BASE, borderRadius: pillRadius }, singleStyle]}
               />
             )}
           </Animated.View>

@@ -82,9 +82,32 @@ export function toLedgerEntry(
 }
 
 /** Cleans every row, once. Keep the result in a useMemo / selector and hand it to the total functions below. */
+// OPT-63: Home, Savings and Insights each built the ledger from the same expense list on every change. The
+// ledger is a pure function of (rows, categories), so the result for the same two references is reused.
+// Keyed weakly on the rows array: it is dropped together with that array. Entries are read-only.
+const ledgerMemo = new WeakMap<
+  readonly LedgerSourceRow[],
+  { categories: readonly LedgerCategory[] | undefined; rowCount: number; categoryCount: number; entries: LedgerEntry[] }
+>();
+
 export function buildLedgerEntries(
   rows: readonly LedgerSourceRow[],
-  categories: readonly LedgerCategory[] = []
+  categories?: readonly LedgerCategory[]
+): LedgerEntry[] {
+  const hit = ledgerMemo.get(rows);
+  const categoryCount = categories ? categories.length : -1;
+  // Same arrays AND same lengths (an array appended to in place never counts as the same).
+  if (hit && hit.categories === categories && hit.rowCount === rows.length && hit.categoryCount === categoryCount) {
+    return hit.entries;
+  }
+  const entries = buildLedgerEntriesUncached(rows, categories ?? []);
+  ledgerMemo.set(rows, { categories, rowCount: rows.length, categoryCount, entries });
+  return entries;
+}
+
+function buildLedgerEntriesUncached(
+  rows: readonly LedgerSourceRow[],
+  categories: readonly LedgerCategory[]
 ): LedgerEntry[] {
   const categoryLookup = buildCategoryLookup(categories);
   const entries: LedgerEntry[] = new Array(rows.length);

@@ -16,7 +16,9 @@ const data = vi.hoisted(() => ({
   today: { date: '2026-10-04', budget: 500, spent: 200, saved: 0, isFinalized: false, status: 'active' } as any,
   past: [] as any[],
   income: 777,
-  fetchExpenses: vi.fn(async () => { }),
+  // OPT-60: like the real store, every fetch stamps the one shared "last fetch" clock.
+  lastFetchAt: 0,
+  fetchExpenses: vi.fn(async () => { data.lastFetchAt = Date.now(); }),
   syncWithExpenses: vi.fn(),
   toggleAutoRenew: vi.fn(),
   cancelScheduled: vi.fn(),
@@ -45,7 +47,7 @@ vi.mock('../src/store/dailyBudgetStore', async () => {
 vi.mock('../src/store/expenseStore', async () => {
   const { createFakeStore } = await import('./helpers/fakeStore');
   const useExpenseStore = createFakeStore<any>({ expenses: [{ id: 'e1' }], fetchExpenses: data.fetchExpenses });
-  return { useExpenseStore };
+  return { useExpenseStore, getLastExpensesFetchAt: () => data.lastFetchAt };
 });
 
 import { renderHook, act } from './helpers/hookRuntime';
@@ -64,6 +66,7 @@ describe('useSavingsDashboard (everything the Savings screen shows)', () => {
     data.past = [];
     data.today = { date: '2026-10-04', budget: 500, spent: 200, saved: 0, isFinalized: false, status: 'active' };
     data.income = 777;
+    data.lastFetchAt = 0;
     useDailyBudgetStore.setState({ dailyBudgetAmount: 500, isAutoRenew: true, savingsStreak: 3, bestStreak: 5, totalAccumulatedSavings: 1200 });
   });
   afterEach(() => {

@@ -53,7 +53,7 @@ import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
 import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
 import { isDateInPeriod, FilterPeriod } from '../lib/dateFilters';
 import { useAuthStore } from '../store/authStore';
-import { useExpenseStore, Expense } from '../store/expenseStore';
+import { useExpenseStore, Expense, getLastExpensesFetchAt } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
@@ -251,7 +251,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const unreadCount = useNotificationStore((s) => s.notifications.filter((n) => !n.read).length);
 
-  const lastFetchTime = useRef<number>(0);
   // Mirror of todayKey for the AppState listener (its closure would otherwise see an old value).
   const todayKeyRef = useRef(todayKey);
   todayKeyRef.current = todayKey;
@@ -262,13 +261,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (currentUser && useDailyBudgetStore.getState().hydratedForUserId !== currentUser.id) {
       await useDailyBudgetStore.getState().hydrateFromSupabase(currentUser.id);
     }
-    if (!force && now - lastFetchTime.current < 60_000) {
+    // OPT-60: the 60 s window is shared by every screen (Splash, History, Insights, Savings count too).
+    if (!force && now - getLastExpensesFetchAt() < 60_000) {
       const cur = useExpenseStore.getState().expenses;
       syncWithExpenses(cur);
       return;
     }
-    lastFetchTime.current = now;
-    await fetchExpenses();
+    await fetchExpenses(force ? { force: true } : undefined);
     const cur = useExpenseStore.getState().expenses;
     syncWithExpenses(cur);
   }, [fetchExpenses, syncWithExpenses]);
@@ -301,7 +300,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           return prev;
         });
         // Multi-device freshness: coming back after a while, quietly refresh (read-only; throttled by loadData).
-        if (!crossedMidnight && Date.now() - lastFetchTime.current > HOME_RESUME_STALE_MS) {
+        if (!crossedMidnight && Date.now() - getLastExpensesFetchAt() > HOME_RESUME_STALE_MS) {
           loadData(false);
         }
       }

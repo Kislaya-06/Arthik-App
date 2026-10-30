@@ -110,7 +110,8 @@ export interface ExpenseState {
   transactionType: 'expense' | 'income';
   failedSyncItems: FailedSyncItem[];
   setTransactionType: (type: 'expense' | 'income') => void;
-  fetchExpenses: () => Promise<void>;
+  /** `force`: pull-to-refresh / midnight. Skips the shared in-flight download and the change-version reuse (OPT-61, OPT-69). */
+  fetchExpenses: (options?: { force?: boolean }) => Promise<void>;
   loadPendingExpenses: () => Promise<void>;
   loadFailedSyncItems: () => Promise<void>;
   discardFailedSyncItem: (id: string) => Promise<void>;
