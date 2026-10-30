@@ -365,15 +365,8 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `expenseFilters.test.ts` | Transaction filtering, category sorting, payment mode slices |
 | `expenseStore.test.ts` | Offline queues (create/update/delete), optimistic pending, reconnect sync |
 | `expenseSyncPending.test.ts` | Offline pending expense synchronization, retry logic, error classification |
-| `fetchExpensesTimeout.test.ts` | FIN-05: Page-by-page download (keyset pages since OPT-66) per-page timeout scaling, retry resilience, cancellation guard, and NetInfo connectivity validation |
+| `fetchExpensesTimeout.test.ts` | FIN-05: Range pagination per-page timeout scaling, retry resilience, cancellation guard, and NetInfo connectivity validation |
 | `fetchExpensesNoChange.test.ts` | OPT-20: same server data par `expenses` array wahi rehta hai aur cache dobara nahi likhta; badla hua ya naya row phir bhi pakda jaata hai |
-| `opt60to69ExpenseFetch.test.ts` | ADR 0021: shared fetch clock, one download at a time (forced call starts its own), keyset pages (2,500 rows, ties, NULLs, offset fallback), change-version reuse (first download never asks, same version reuses, new version / force / error / missing function downloads, pending queues applied the same), no whole-list stringify on reuse |
-| `opt62to63MoneyMemo.test.ts` | ADR 0021: waterfall and ledger memo results equal a fresh computation; any changed input or in-place append recomputes |
-| `opt66KeysetFilter.test.ts` | ADR 0021: exact keyset filter strings (verified against PostgREST 12), unsafe rows refused, missing-function detection |
-| `opt23BatchedStorage.test.ts` | OPT-23: batched persist storage writes once after the quiet time (and within the max wait), `getItem` sees the pending value, flush, remove cancels a pending write, failed write never throws, real zustand store round trip |
-| `opt07MoneyWritesHold.test.ts` | OPT-07 / `ROL-005`: with the hold nothing is finalized or uploaded (rollover, daily records, Gullak queue) and the same work runs after release; not held = unchanged |
-| `opt07WarmStart.test.ts` | OPT-07 / `ROL-005`: Home opens from cache only when every condition holds; cache fill order, app lock before return, refresh order, hold released after refresh / failure / watchdog |
-| `opt67to68BootstrapRpc.test.ts` | ADR 0021: one-call budget bootstrap and Gullak read, fallback to the old queries on error / malformed answer / missing function, 3.5 s limit kept |
 | `expenseListEquality.test.ts` | OPT-20: `sameExpenseList` (same list, ek field badla, row add, reorder, nested `split_allocations`) |
 | `expenseCacheMemo.test.ts` | OPT-20: cache memo (pehli write hamesha hoti hai, same key + same JSON par skip, forget) |
 | `opt21AutoLogShallow.test.ts` | OPT-21: AutoLog Center/Info screens poora store subscribe nahi karte (`useShallow`) |
@@ -494,6 +487,4 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | [0018](adr/0018-settle-review-choose-then-confirm.md) | Payback Review: Choose the Person, Then Confirm | Active |
 | [0019](adr/0019-income-categories.md) | Income Categories and Required Category on Review | Active |
 | [0020](adr/0020-transform-only-pills-and-commit-after-landing.md) | Transform-Only Pills, Commit After Landing, and the Touch Fence | Active |
-| [0021](adr/0021-expense-change-version-and-one-call-reads.md) | Expense Change Version, Keyset Pages and One-Call Reads | Active |
-| [0022](adr/0022-home-from-cache-and-batched-persist.md) | Home From Cache and Batched Persist Writes | Active |
 

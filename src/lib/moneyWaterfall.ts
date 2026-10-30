@@ -384,51 +384,7 @@ export interface WaterfallFromStateParams extends PoolResolverParams {
   ungovernedAsOverspend?: boolean;
 }
 
-// OPT-62: the waterfall replays the user's whole money history, and one expense change used to run it 3–4 times
-// with the very same inputs (store metrics, Home income balance, Home pills, Savings card). It is a pure function
-// of its inputs, so the last few results are kept and returned again when every input is the SAME reference /
-// value. Store data is never changed in place (Zustand: every change makes a new object), so the same reference
-// means the same data. Results are shared, read-only objects: callers never write into them.
-const WATERFALL_MEMO_SIZE = 4;
-const waterfallMemo: Array<{ params: WaterfallFromStateParams; lengths: string; result: WaterfallResult }> = [];
-
-/** Extra guard: an array that was appended to in place (same reference, more items) never counts as the same. */
-const listLengths = (p: WaterfallFromStateParams): string =>
-  `${p.expenses?.length ?? -1}|${p.categories?.length ?? -1}|${p.deposits?.length ?? -1}|${p.planChanges?.length ?? -1}`;
-
-function sameWaterfallParams(a: WaterfallFromStateParams, b: WaterfallFromStateParams): boolean {
-  const ra = a as unknown as Record<string, unknown>;
-  const rb = b as unknown as Record<string, unknown>;
-  for (const k of Object.keys(ra)) if (!Object.is(ra[k], rb[k])) return false;
-  // A key missing on one side counts as `undefined`, exactly how the function reads it.
-  for (const k of Object.keys(rb)) if (!(k in ra) && rb[k] !== undefined) return false;
-  return true;
-}
-
-/** Test helper: forget every remembered result. */
-export function __clearWaterfallMemoForTests(): void {
-  waterfallMemo.length = 0;
-}
-
 export function computeWaterfallFromState(p: WaterfallFromStateParams): WaterfallResult {
-  const lengths = listLengths(p);
-  for (let i = 0; i < waterfallMemo.length; i++) {
-    const hit = waterfallMemo[i];
-    if (hit.lengths === lengths && sameWaterfallParams(hit.params, p)) {
-      if (i > 0) {
-        waterfallMemo.splice(i, 1);
-        waterfallMemo.unshift(hit);
-      }
-      return hit.result;
-    }
-  }
-  const result = computeWaterfallFromStateUncached(p);
-  waterfallMemo.unshift({ params: { ...p }, lengths, result });
-  if (waterfallMemo.length > WATERFALL_MEMO_SIZE) waterfallMemo.length = WATERFALL_MEMO_SIZE;
-  return result;
-}
-
-function computeWaterfallFromStateUncached(p: WaterfallFromStateParams): WaterfallResult {
   const pools = buildBudgetPools(p.planChanges || [], p.todayStr);
   return computeMoneyWaterfall({
     txs: classifyForWaterfall(p.expenses, p.categories),

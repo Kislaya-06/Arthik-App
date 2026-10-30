@@ -94,7 +94,7 @@ src/
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
 │                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
 ├── store/        authStore, categoryStore,
-│                 expenseStore (with expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack, serverSync),
+│                 expenseStore (with expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack),
 │                 dailyBudgetStore (with dailyBudget/ classifiers, expenseBridge, hydrate, metrics, pendingStorage, rollover, types),
 │                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, splashCoverStore, alertStore
 └── types/        index.ts (RootStackParamList, TabParamList)

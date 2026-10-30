@@ -116,7 +116,6 @@ Example: `vy > 0.35` → `e.velocityY > 350`.
 | 5 | Perceived speed and polish (big-app patterns) | mixed, several ⚠️ | Feels premium |
 | 6 | Clean-up | none | Smaller, tidier repo |
 | 7 | React Compiler (optional) | ⚠️ | Only after everything else is green |
-| 8 | Data download and server | low (approved) | Fewer and smaller downloads, no 1,000-row cap (ADR 0021) |
 
 ---
 
@@ -560,8 +559,7 @@ reopen → still there; airplane mode cold open → local deposits shown.
 ---
 
 ### OPT-07. ⚠️ OWNER GATE — Show Home from cache, refresh behind it
-**Status:** ✅ Done 30 Oct 2026 (owner approved; canonical rule `ROL-005` added; ADR 0022) — `src/lib/warmStart.ts` (`canShowHomeFromCache`, `startHomeFromCache`), `src/store/dailyBudget/hydrationHold.ts`, guards in `checkAndRollover` / `uploadPendingDailyRecords` / `syncPendingGullakDeposits`, release + `runHeldBackMoneyWork` in `hydrate.ts`, `preloadCachedExpenses` in `expenseStore.ts`, `SplashScreen.tsx`. Tests: `tests/opt07MoneyWritesHold.test.ts`, `tests/opt07WarmStart.test.ts`.
-**Deviations from the proposal below, on purpose:** (1) the proposal said to use the existing `hydratedForUserId` flag as the guard. It cannot: it is saved to disk, so after a restart it is already true before any fetch. A memory-only hold is used instead. (2) Home opens from cache only when TODAY's daily record is already in the saved state (the app was opened earlier today) and both caches exist; the first open of a day, a first login and a wiped cache keep the old blocking start, so rollover, finalization, scheduled plans, auto-renew and Welcome Back always run on complete data. (3) App lock is initialised before Home is shown. (4) A 12 s watchdog releases the hold if the server never answers.
+**Status:** ⏸️ Deferred by owner (23 Oct 2026) — Deferred to be revisited after Phase 2–6. Requires canonical rule update (`ROL-*`, `BUD-*` rules) and rollover/Gullak write guards before building.
 
 **Problem found:** `SplashScreen.tsx` step 4 waits for the whole hydration chain (`loadPendingExpenses` →
 `fetchCategories` → `fetchExpenses` + `hydrateFromSupabase` + `appLock.init`), capped at 5 s, before it navigates.
@@ -579,7 +577,7 @@ animation time (~1.5 s).
   (this flag already exists), and run them right after hydration completes.
 - Needs a written rule in `docs/ARTHIK_CANONICAL_RULES.md` first.
 
-**Built after the owner said yes and `ROL-005` was added (30 Oct 2026).**
+**Do not build** until the owner says yes and the rule is added. Leave this entry as a reminder.
 
 ---
 
@@ -909,7 +907,6 @@ Keep the variable name `s` so the JSX does not change. Functions read from the s
 
 ### OPT-22. Refresh quietly when the app comes back after a while (multi-device freshness)
 **Status:** ✅ Done 24 Oct 2026 — Home refreshes with `loadData(false)` on resume after 5+ minutes away (skipped when midnight was crossed, since that branch already force-fetches); added `tests/opt22HomeResumeRefresh.test.ts`.
-**Note (29 Oct 2026):** the stale check now reads the shared clock `getLastExpensesFetchAt()` instead of Home's own `lastFetchTime` ref (OPT-60).
 **Problem found:** when the app returns to the foreground, `App.tsx` only flushes the offline queue. Home only refetches
 on **focus** (tab change) or across midnight. If the user adds an expense on another device (or the web), then opens
 the phone app that was in the background, Home shows old data until they pull to refresh. Google Pay, Splitwise, and
@@ -927,8 +924,7 @@ Because of OPT-20, a no-change refresh costs nothing on screen. Do OPT-20 first.
 Background 1 minute → no extra fetch (check the network log in dev).
 
 ### OPT-23. ⚠️ OWNER GATE — Batch AsyncStorage writes of persisted stores
-**Status:** ✅ Done 30 Oct 2026 (owner accepted the crash-inside-the-window trade-off; ADR 0022) — `src/lib/batchedStorage.ts`, used by `dailyBudgetStore.ts` and `notificationStore.ts`; `flushBatchedStorage()` in `App.tsx` on background / inactive. Tests: `tests/opt23BatchedStorage.test.ts`.
-**Deviations from the proposal below, on purpose:** (1) it is a zustand `PersistStorage` (receives the state object), not a string storage under `createJSONStorage`: `createJSONStorage` runs `JSON.stringify` on the whole state on every `set()` before the storage is even called, so a string-level batch would only have saved the disk write, not the serialisation. (2) A write is also forced 1.5 s after the first unwritten change, so a long burst of changes can never keep the disk copy old. (3) Store resets call `removeBatchedItem` (cancels a pending write) instead of `AsyncStorage.removeItem`, so a late write can never bring a signed-out user's data back. (4) No extra flush before sign-out: the reset removes both keys anyway.
+**Status:** ⏸️ Deferred by owner (24 Oct 2026) — to be done later. Not built. Still needs an explicit "yes" to the crash-inside-250 ms trade-off below before any code is written.
 **Problem found:** `dailyBudgetStore` and `notificationStore` use zustand `persist` with `createJSONStorage(() => AsyncStorage)`
 and no write batching. Every `set()` serialises the **whole** store (daily records, deposits, plan changes, periods,
 metrics) and writes it to disk. A single expense save triggers several sets in a row (optimistic add, sync, server
@@ -1179,62 +1175,6 @@ stale value is not acceptable.
    for the exact key and whether it is honoured by `eas update` — if it is not honoured for updates, stop).
 4. Start with `sources` limited to `src/components/` (plugin option), then screens, never `src/store`/`src/money`/`src/lib`.
 5. Full test suite + full manual pass of every screen in both modes.
-
----
-
-## Phase 8 — Data download and server (approved by owner 29 Oct 2026, ADR 0021)
-
-All ten tasks were approved together by the owner and built in one change (one PR, against §0.4, because the
-owner asked for one delivery and the tasks share `fetchExpenses`). Each task keeps its own record below.
-Supabase SQL: `supabase/migrations/20261029120000_performance_sync_version_bootstrap.sql` (also appended to
-`schema.sql`). Every app part falls back to the old query until that SQL is run.
-
-### OPT-60. One shared "last fetch" clock for every screen
-**Status:** ✅ Done 29 Oct 2026 — `getLastExpensesFetchAt()` (`src/store/expense/serverSync.ts`, re-exported from `expenseStore`) replaces the per-screen `lastFetchTime` refs in `HomeScreen`, `HistoryScreen`, `InsightsScreen` and `useSavingsDashboard`; `fetchExpenses` stamps it on every call.
-**Problem found:** each screen had its own 60 s timer starting at 0, so after Splash downloaded the list, Home downloaded
-it again at once, and the first visit of History, Insights and Savings each downloaded it again.
-**Must not change:** the 60 s window, the forced paths (pull-to-refresh, midnight), the 5-minute resume refresh (OPT-22),
-the `syncWithExpenses` call in the skip branch. History / Insights still check categories in the skip branch (the call
-returns at once when they are loaded).
-
-### OPT-61. One download at a time
-**Status:** ✅ Done 29 Oct 2026 — a normal `fetchExpenses()` call made while a download for the same user is running returns that download's promise; `fetchExpenses({ force: true })` starts its own (old behaviour); sign-out clears it.
-**Problem found:** focus + resume + Savings often called `fetchExpenses` together; the sequence guard threw away the
-older result, but every call had already done its network work.
-
-### OPT-62. Money waterfall memo
-**Status:** ✅ Done 29 Oct 2026 — `computeWaterfallFromState` keeps its last 4 results (`src/lib/moneyWaterfall.ts`); a hit needs every input to be the same reference / value and every list the same length.
-**Problem found:** one expense change ran the lifetime waterfall 3–4 times with identical inputs (store metrics, Home
-income balance, Home pills, Savings card). **Proof it is safe:** the whole suite was run once with every memo input and
-result deep-frozen; only two test harnesses that build their fake data with `push` failed, no app code writes into them.
-
-### OPT-63. Ledger memo
-**Status:** ✅ Done 29 Oct 2026 — `buildLedgerEntries` (`src/money/ledger.ts`) reuses its result for the same rows and categories arrays (WeakMap, also checks lengths).
-
-### OPT-64. Skip the whole-list `JSON.stringify` when the cache would not change
-**Status:** ✅ Done 29 Oct 2026 — when `fetchExpenses` reuses the same server rows (OPT-69) with the same raw pending deletes / updates and the cache memo still holds the last JSON, it neither stringifies nor writes. Otherwise the OPT-20 path runs unchanged. (The pending-sync step still rewrites the cache once per fetch, as before.)
-
-### OPT-65. Indexes (Supabase SQL)
-**Status:** ✅ Done 29 Oct 2026 — SQL Part A. New `idx_expenses_user_date_created_id` (matches the list query's sort exactly; replaces `idx_expenses_user_date`), `idx_expenses_transfer_rule_id` (FK), `idx_budget_periods_user_active_start` (replaces `idx_budget_periods_user_start`), `idx_gullak_deposits_user_created`. Dropped, unused by any query: `idx_expenses_split_person`, `idx_expenses_recovery`, `idx_expenses_transaction_class`, and the duplicate `idx_budget_plan_changes_user_effective`. Verified with `EXPLAIN`: the list query is one index scan with no sort.
-
-### OPT-66. Keyset pages for the expense list
-**Status:** ✅ Done 29 Oct 2026 — order `expense_date DESC, created_at DESC, id DESC`; page 2 onwards uses `expenseKeysetFilter` (an `or` filter for "after the last row", timestamps double-quoted, NULL `created_at` as NULLS FIRST) and starts at 0. A row the cursor cannot describe falls back to the old offset.
-**Problem found:** offset pages on a non-unique order could read a row twice (counted twice) or skip one when rows
-were added or deleted between pages. Verified against Postgres 16 + PostgREST 12: 2,600 rows with ties, NULLs and
-`+05:30` offsets read in 3 pages are byte-identical to one full read; 290 different page edges all continue correctly.
-
-### OPT-67. Gullak deposits in one call (no 1,000-row cap)
-**Status:** ✅ Done 29 Oct 2026 — `fetchGullakDepositsRaw` calls `arthik_gullak_deposits` first and falls back to the exact old query, inside the same 3.5 s limit.
-
-### OPT-68. Budget bootstrap in one call (no 1,000-row cap)
-**Status:** ✅ Done 29 Oct 2026 — `fetchRemoteBudgetData` calls `arthik_budget_bootstrap` (profile + savings log + plan changes + budget periods) and falls back to the four old queries, inside the same 3.5 s limit. The JSON is byte-identical to the direct queries (verified through PostgREST). A missing function (PGRST202) is not asked again in the session.
-**Problem found:** the savings log was read without paging, so after about 2.7 years of daily use its newest days
-would have been cut off by the API's 1,000-row limit.
-
-### OPT-69. Expense change version (reuse the list when nothing changed)
-**Status:** ✅ Done 29 Oct 2026 — SQL Part B (`expense_sync_versions` + trigger + `arthik_expenses_version`); app: `readExpensesVersion`, in-memory snapshot in `src/store/expense/serverSync.ts`. Version read after the pending sync and before the first page; same version => kept rows are used and everything after runs as after a download. First download of a session never asks; forced refreshes, errors, timeouts and a missing function always download.
-**Not built on purpose:** a row-by-row delta merge (needs a second copy on disk, AsyncStorage is ~6 MB; tombstones;
-risk of a different order in micro-second ties). See ADR 0021.
 
 ---
 

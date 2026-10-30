@@ -386,17 +386,6 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Code Enforcement:** `src/lib/gapFiller.ts` (`findInactiveGapDays`), `src/components/WelcomeBackGapModal.tsx`, `src/store/dailyBudgetStore.ts` (`saveGapDaysToGullak`, `dismissGapDays`), `src/screens/HomeScreen.tsx`
 - **Verified By:** `tests/gapFiller.test.ts`
 
-#### `ROL-005`: Money Writes Wait for the Server Copy When Home Opens From Cache
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-30)
-- **Canonical Definition:**
-  1. **When Home may open from cache.** On a cold start Home may be shown from the saved copy (cached expenses, categories and saved budget state) while the server copy loads behind it, but ONLY when all of these hold: the saved budget state belongs to the signed-in user and was fully loaded from the server in an earlier session; it already holds **today's** daily record (the app was already opened today); the expense cache and the category cache both exist. In every other case (first open of a day, first login, wiped cache) the app waits for the full load exactly as before, so `ROL-001` to `ROL-004` always run on complete data at the start of a day.
-  2. **Hold.** While Home is shown from cache and the server copy of the budget data has not arrived, nothing may finalize a daily record or period, activate a scheduled plan or budget, auto-renew, upload to `daily_savings_log` or `budget_periods`, or upload a Gullak deposit from the cached copy (`checkAndRollover`, `uploadPendingDailyRecords` and `syncPendingGullakDeposits` do nothing). Reading, adding and editing expenses stays allowed (`SEC-001` is unchanged).
-  3. **Release.** As soon as the budget hydration has finished, failed, or found the app offline (or 12 seconds have passed without an answer), the hold is released and the held work runs once: the same calls the normal start makes after hydration. Numbers on Home may change a moment after it appears if the server copy differs from the saved one.
-  4. **App lock.** App lock is initialised before Home is shown; Home is never visible before the lock state is known.
-  5. **Memory only.** The hold is never persisted. `hydratedForUserId` cannot do this job: it is saved to disk with the rest of the budget state, so after a restart it already says "hydrated" before any fetch has happened.
-- **Code Enforcement:** `src/lib/warmStart.ts` (`canShowHomeFromCache`, `startHomeFromCache`), `src/store/dailyBudget/hydrationHold.ts`, `src/store/dailyBudgetStore.ts` (`checkAndRollover`, `uploadPendingDailyRecords`, `syncPendingGullakDeposits`), `src/store/dailyBudget/hydrate.ts` (`runHeldBackMoneyWork`, release), `src/screens/SplashScreen.tsx`
-- **Verified By:** `tests/opt07MoneyWritesHold.test.ts`, `tests/opt07WarmStart.test.ts`
-
 #### `HEA-001`: Legacy Default ₹500 Self-Healing
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
 - **Canonical Definition:**
@@ -696,5 +685,4 @@ With the owner's final approvals on 2026-10-17, this document represents the **s
 3. **Status Unification:** The codebase and database use one vocabulary: `'saved' | 'missed' | 'even' | 'unknown'` (plus the never-saved in-progress marker `'active'`).
 4. **Universal Carry-Forward Law:** Carry-over unspent money never double-counts in all-time inflow. Mode A adds to spendable target; Mode B funds days with ₹0 fresh cash needed from user.
 5. **AutoLog Privacy:** Dual bank sources (SMS + Email), payment app notifications dropped, zero-knowledge encrypted on-device SQLite database (SQLCipher) with hardware Keystore. Granular specs in [`docs/AUTO_LOGGING.md`](AUTO_LOGGING.md).
-7. **Home From Cache (`ROL-005`):** Home opens from the saved copy only when the app was already opened today; rollover, finalization, scheduled plans, auto-renew and every upload wait until the server copy is in.
 6. **Mode Transition Scheduling (`PUR-003`):** Switching Pure Mode ↔ Budget Mode takes effect next day at 12:00 AM, protecting running budgets and midnight Gullak rollovers (new accounts on day one or accounts with 0 expenses logged switch immediately, `BPR-002` #3). Same-day reversal cleanly cancels pending schedules and inbox notices.

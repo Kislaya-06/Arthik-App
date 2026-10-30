@@ -180,16 +180,6 @@ The per-user AsyncStorage snapshot of server-confirmed expenses used to populate
 - *Code location*: `src/store/expense/pendingQueues.ts` (`@arthik_cached_expenses_${userId}`, `getCachedStorageKey`; re-exported by `src/store/expenseStore.ts`)
 - *_Avoid_*: Local Database, Offline Replica, Expense Store Backup
 
-**Warm Start**:
-Opening Home straight from the saved (cached) stores while the server copy loads behind it. Only allowed when the app was already opened today and the caches exist; until the server copy of the budget data is in, rollover, finalization and every money upload are held (`ROL-005`, ADR 0022).
-- *Code location*: `src/lib/warmStart.ts`, `src/store/dailyBudget/hydrationHold.ts`
-- *_Avoid_*: Optimistic Start, Fast Boot
-
-**Expense Sync Version**:
-A per-user number on Supabase (`expense_sync_versions`) that goes up on every insert, update or delete of that user's expenses. When it has not changed since the last full download in this session, the app reuses the rows it already holds instead of downloading the list again (ADR 0021).
-- *Code location*: `src/store/expense/serverSync.ts` (`readExpensesVersion`, snapshot), `supabase/migrations/20261029120000_performance_sync_version_bootstrap.sql` (`arthik_bump_expense_version`, `arthik_expenses_version`)
-- *_Avoid_*: Delta Sync, Change Feed, Row Diff
-
 **Cached Categories**:
 The per-user AsyncStorage snapshot of categories used to instantly render real user categories on cold start or offline launch before the remote fetch completes.
 - *Code location*: `src/store/categoryStore.ts` (`@arthik_cached_categories_${userId}`)

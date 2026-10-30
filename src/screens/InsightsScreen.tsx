@@ -39,7 +39,7 @@ import { PeriodNavigator, PeriodNavigatorProps } from './insights/PeriodNavigato
 import { styles } from './insights/InsightsScreen.styles';
 import { useInsightsData } from './insights/useInsightsData';
 
-import { useExpenseStore, getLastExpensesFetchAt } from '../store/expenseStore';
+import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useAuthStore } from '../store/authStore';
@@ -106,6 +106,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState<number>(Date.now());
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const lastFetchTime = useRef<number>(0);
   const lastDayRef = useRef<string>(format(new Date(), 'yyyy-MM-dd'));
 
   // Reset category expansion whenever period or offset changes
@@ -128,15 +129,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       lastDayRef.current = today;
       setFocusTime(now);
     }
-    // OPT-60: the 60 s window is shared by every screen. Inside it only categories are checked; that call
-    // returns at once when categories are already loaded (same as before).
-    if (!force && now - getLastExpensesFetchAt() < 60_000) {
-      await fetchCategories();
+    if (!force && now - lastFetchTime.current < 60_000) {
       // Keep dailyRecords and Gullak savings reactive to expense changes
       syncWithExpenses(useExpenseStore.getState().expenses);
       return;
     }
-    await Promise.all([fetchExpenses(force ? { force: true } : undefined), fetchCategories()]);
+    lastFetchTime.current = now;
+    await Promise.all([fetchExpenses(), fetchCategories()]);
     syncWithExpenses(useExpenseStore.getState().expenses);
   }, [fetchExpenses, fetchCategories, syncWithExpenses]);
 

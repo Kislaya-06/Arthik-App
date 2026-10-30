@@ -19,7 +19,6 @@ import { RootStackParamList } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore, isNetworkFailure } from '../store/expenseStore';
-import { canShowHomeFromCache, startHomeFromCache } from '../lib/warmStart';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
@@ -355,19 +354,12 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
               useAppLockStore.getState().init(user.id),
             ]);
           };
-          // OPT-07 / ROL-005: opened again on the same day with caches in place -> show Home from cache and refresh
-          // behind it (money writes are held until the server copy is in). Every other start waits as before.
-          if (await canShowHomeFromCache(user.id)) {
-            await startHomeFromCache(user.id);
-            perfMark('warm_start_ready');
-          } else {
-            try {
-              await Promise.race([hydrationChain(), new Promise<void>((resolve) => setTimeout(resolve, 5000))]);
-            } catch (hydrationErr) {
-              if (__DEV__) console.error('Startup hydration error:', hydrationErr);
-            }
-            perfMark('hydration_done');
+          try {
+            await Promise.race([hydrationChain(), new Promise<void>((resolve) => setTimeout(resolve, 5000))]);
+          } catch (hydrationErr) {
+            if (__DEV__) console.error('Startup hydration error:', hydrationErr);
           }
+          perfMark('hydration_done');
           target = 'AppTabs';
         } else {
           const hasSeen = await AsyncStorage.getItem('@arthik_has_seen_onboarding');

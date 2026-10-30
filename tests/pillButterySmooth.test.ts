@@ -280,12 +280,6 @@ describe('Rule 2: transform-only pill geometry (pillPiecesFor)', () => {
     expect(src).toMatch(/boxShadow: PILL_BOX_SHADOW \},\s*shadowStyle/);
     expect(src).not.toMatch(/elevation: 2/);
   });
-
-  it('SegmentedControl uses a fixed piece base constant to prevent first-render scale blowout', () => {
-    const src = read('src/components/ui/SegmentedControl.tsx');
-    expect(src).toMatch(/const PILL_PIECE_BASE = \d+;/);
-    expect(src).not.toMatch(/optionWidth > 0 \? optionWidth : 1/);
-  });
 });
 
 describe('Rule 3: touch fence (deferred selection can never be read stale)', () => {

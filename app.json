@@ -65,8 +65,6 @@
         "version": "2.1.0",
         "title": "Insights Cash Flow Accuracy & Gullak Reactivity 📊",
         "highlights": [
-          "Faster Opening: When you open Arthik again the same day, Home appears right away from your saved data and updates in the background",
-          "Faster Refresh: Opening tabs and coming back to the app no longer downloads your whole history again when nothing has changed",
           "Instant Screen Switching & Zero Blink: Eliminated tab crossfade blink and mid-screen collapse for silky-smooth, instantaneous tab switching matching top apps like Zomato and Swiggy",
           "Insights Cash Flow & Arrow Clarity: Fixed direction of Inflow (inward/downward) and Outflow (outward/upward) icons in Monthly Cash Flow to match Home Hero card",
           "Join Date & Mid-Month Cash Flow Accuracy: Fixed ISO timestamp registration parsing so join-date expenses and week budget allowances display accurately across Daily, Weekly, and Monthly cadences",
