@@ -49,12 +49,12 @@ const fromCalls: string[] = [];
 
 const mockGullakSelect = vi.fn().mockReturnValue({
   eq: vi.fn().mockReturnValue({
-    order: vi.fn().mockResolvedValue({
+    order: vi.fn().mockReturnValue({ range: vi.fn().mockResolvedValue({
       data: [
         { id: 'dep_remote_1', amount: 500, date: '2026-10-22', source: 'external', note: 'Gift', created_at: '2026-10-22T10:00:00Z' },
       ],
       error: null,
-    }),
+    }) }),
   }),
 });
 
@@ -76,19 +76,19 @@ const mockProfilesSelect = vi.fn().mockReturnValue({
 
 const mockLogsSelect = vi.fn().mockReturnValue({
   eq: vi.fn().mockReturnValue({
-    order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    order: vi.fn().mockReturnValue({ range: vi.fn().mockResolvedValue({ data: [], error: null }) }),
   }),
 });
 
 const mockPlansSelect = vi.fn().mockReturnValue({
   eq: vi.fn().mockReturnValue({
-    order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    order: vi.fn().mockReturnValue({ range: vi.fn().mockResolvedValue({ data: [], error: null }) }),
   }),
 });
 
 const mockPeriodsSelect = vi.fn().mockReturnValue({
   eq: vi.fn().mockReturnValue({
-    order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    order: vi.fn().mockReturnValue({ range: vi.fn().mockResolvedValue({ data: [], error: null }) }),
   }),
 });
 
@@ -119,7 +119,7 @@ vi.mock('../src/config/supabase', () => ({
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+        order: vi.fn().mockReturnValue({ range: vi.fn().mockResolvedValue({ data: [], error: null }) }),
       };
     }),
   },

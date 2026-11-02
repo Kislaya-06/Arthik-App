@@ -115,7 +115,7 @@ Example: `vy > 0.35` → `e.velocityY > 350`.
 | 4 | Lists | medium | History scroll on big accounts |
 | 5 | Perceived speed and polish (big-app patterns) | mixed, several ⚠️ | Feels premium |
 | 6 | Clean-up | none | Smaller, tidier repo |
-| 7 | React Compiler (optional) | ⚠️ | Only after everything else is green |
+| 8 | Offline safety (write-ahead queue, save timeout, queue lock, stale-cache guard, paging) | low, data-safety | No saved money can be lost, no stale data can overwrite the server |
 
 ---
 
@@ -558,29 +558,6 @@ reopen → still there; airplane mode cold open → local deposits shown.
 
 ---
 
-### OPT-07. ⚠️ OWNER GATE — Show Home from cache, refresh behind it
-**Status:** ⏸️ Deferred by owner (23 Oct 2026) — Deferred to be revisited after Phase 2–6. Requires canonical rule update (`ROL-*`, `BUD-*` rules) and rollover/Gullak write guards before building.
-
-**Problem found:** `SplashScreen.tsx` step 4 waits for the whole hydration chain (`loadPendingExpenses` →
-`fetchCategories` → `fetchExpenses` + `hydrateFromSupabase` + `appLock.init`), capped at 5 s, before it navigates.
-On good internet that is a few hundred ms; on bad internet the user stares at the splash for up to 5 s, even though the
-stores already hold cached data (expense cache, persisted daily-budget state, cached categories) from the last session.
-
-**Proposed fix:** navigate to Home as soon as the **cached** data is in the stores, and let the network refresh finish
-while Home is visible (Home updates when fresh data arrives). Typical cold open on any network → about the splash
-animation time (~1.5 s).
-
-**Why gated (behaviour change):**
-- Home may first show cached numbers and change a moment later.
-- Day rollover, auto-renew and Gullak writes must **never** run on stale daily records (`ROL-*`, `BUD-*` rules). The safe
-  version must block rollover / auto-renew / Gullak writes until `useDailyBudgetStore.getState().hydratedForUserId === user.id`
-  (this flag already exists), and run them right after hydration completes.
-- Needs a written rule in `docs/ARTHIK_CANONICAL_RULES.md` first.
-
-**Do not build** until the owner says yes and the rule is added. Leave this entry as a reminder.
-
----
-
 ## Phase 2 — Animations off the JS thread
 
 **Background (read once):** an `Animated` animation with `useNativeDriver: false` is computed on the **JS thread** every
@@ -923,23 +900,6 @@ Because of OPT-20, a no-change refresh costs nothing on screen. Do OPT-20 first.
 **Check:** background the app 6 minutes, add an expense from another device, return → appears without pulling.
 Background 1 minute → no extra fetch (check the network log in dev).
 
-### OPT-23. ⚠️ OWNER GATE — Batch AsyncStorage writes of persisted stores
-**Status:** ⏸️ Deferred by owner (24 Oct 2026) — to be done later. Not built. Still needs an explicit "yes" to the crash-inside-250 ms trade-off below before any code is written.
-**Problem found:** `dailyBudgetStore` and `notificationStore` use zustand `persist` with `createJSONStorage(() => AsyncStorage)`
-and no write batching. Every `set()` serialises the **whole** store (daily records, deposits, plan changes, periods,
-metrics) and writes it to disk. A single expense save triggers several sets in a row (optimistic add, sync, server
-confirm, sync again) → several full serialisations on the JS thread within ~1 s.
-**Proposed fix:** a storage adapter that keeps the latest value in memory and writes it to AsyncStorage after
-250 ms of quiet, and **flushes immediately** when `AppState` goes to `background`/`inactive` and before sign-out.
-**Why gated:** if the OS kills the app inside that 250 ms window without a background event (rare: crash, force-stop),
-the very last local change is not on disk. The server copy and the offline queues (separate AsyncStorage keys, not
-batched) still have it, but the owner must accept the trade-off. Do not build without a "yes".
-If approved: create `src/lib/batchedStorage.ts` (getItem reads memory first, then AsyncStorage; setItem stores in memory
-and schedules a write; removeItem cancels pending write and removes; `flushBatchedStorage()` exported), use it only in
-`dailyBudgetStore.ts` and `notificationStore.ts` via `createJSONStorage(() => batchedStorage)`, call
-`flushBatchedStorage()` in `App.tsx` `AppState` background branch and in the sign-out path before stores are reset.
-Tests: write → read back from memory immediately; flush writes exactly once; remove cancels a pending write.
-
 ---
 
 ## Phase 4 — Lists
@@ -1021,21 +981,6 @@ data, move it to `FlashList` the same way (simpler: no sections). `ManageCategor
 
 ## Phase 5 — Perceived speed and polish (big-app patterns)
 
-### OPT-40. ⚠️ OWNER GATE — Instant save (close the form before the server answers)
-**Status:** ⏸️ Deferred by owner (24 Oct 2026) — to be done later. Not built; needs the owner's explicit "yes" and a canonical rule first.
-**Problem found:** `useExpenseForm.handleSave` → `await addExpense(...)`. `expenseStore.addExpense` updates the list
-optimistically at once (good) but then **awaits the Supabase upsert** before returning. The form shows the morph + tick
-and closes only after that. On slow 4G this is 1–3 s of a spinning button, even though the expense is already in the
-list and the offline queue would protect it.
-Google Pay, Paytm, Splitwise, Uber close immediately and confirm in the background.
-**Proposed behaviour:** after the optimistic insert, save the row to the pending queue first (same as the offline path,
-`savePendingOffline`), return immediately (form morphs, ticks, closes), then upsert in the background; on success remove
-it from the queue (existing sync path); on a real validation error roll back as today **and** show a toast/banner
-"Couldn't save <amount> <category>. Tap to retry" that reopens the form with the data.
-**Why gated:** this changes when errors are shown (after the form has closed) and touches the money write path
-(`TXN-*`, `SEC-001` guard, AutoLog `reconcileExpenseSaved`). Needs the owner's yes and a canonical rule. Do not build
-without it.
-
 ### OPT-41. Skeletons instead of spinners for content loading
 **Status:** ✅ Done 24 Oct 2026 — Added `src/components/ui/Skeleton.tsx` (+ `src/lib/skeletonMotion.ts`): `cardSubtle` shape, UI-thread opacity pulse 0.55↔1 at 700 ms, still at 0.8 with reduce motion. Every one of the 14 spinner sites was read and classified. Used at ONE place: the result card in `AutoLogSetupScreen` (spinner replaced a whole card). Kept as spinners on purpose: buttons and modal confirm buttons; `StreakCalendarModal` (the grid already shows local data while the server answer refines it, a skeleton would hide data that is on screen; the small spinner sits next to the month label); `ExpenseFormScreen` "Loading categories..." (short label, and the chips already show placeholders); `ProfileScreen` (delete button only); AutoLog scan spinner (stands in for the Continue button, and is an operation) and recovery spinner (under a progress bar). Added `tests/opt41to46Polish.test.ts`.
 **Problem found:** 30 `ActivityIndicator` uses. Spinners inside buttons are fine (keep: `AppButton`, save buttons,
@@ -1089,23 +1034,8 @@ fixed meaning. Audit every call against this map and fix only the ones that brea
 Write the final table into `docs/design-system.md` (Haptics section). Never add haptics to scroll or to every keypad key
 (keypad: check what it does today and keep it).
 
-### OPT-45. Keep "today" right while the app stays open past midnight (UI only)
-**Status:** ⏸️ Deferred by owner (24 Oct 2026) — to be done later. Not built; needs the owner's explicit "yes" (touches the day-change path that `ROL-*` depends on).
-**Problem found:** `HomeScreen` updates `todayKey` on focus, foreground, and pull-to-refresh. If the app is open and in
-front at 23:59 and the user keeps looking at Home, it shows yesterday's "Daily" numbers until they leave and come back.
-**⚠️ OWNER GATE** because a new day also triggers rollover/Gullak logic elsewhere (`ROL-*`). The safe UI-only version:
-schedule a `setTimeout` to the next local midnight (+1 s) that calls the **same** code as the foreground branch
-(`setTodayKey` + `loadData(true)`), re-armed after it fires, cleared on unmount and when the screen blurs (use
-`useFocusEffect`). It must not call rollover functions directly; it only does what returning to the app already does.
-Ask the owner before building.
-
-### OPT-46. Design suggestion for the owner (do not build without a yes)
-**Status:** ◑ Partly done 24 Oct 2026 — (1) *Add Expense opens from the bottom*: DONE, `AddExpense` and `EditExpense` use `animation: 'fade_from_bottom'` in `src/navigation/index.tsx` for a blisteringly fast 210ms native bottom entrance (all other screens keep `slide_from_right`; the form's keypad is already open on mount, so there is no second motion). (2) *Hide amounts toggle*: deferred by owner, to be done later.
-- **Add Expense opens from the bottom.** Today `AddExpense` uses `fade_from_bottom` (rises up 8% while fading in 210ms with `decelerate_quint`, 2x faster than 500ms slide). Money apps
-  (Google Pay "Pay", Splitwise "Add expense", Apple Wallet) open "create" flows from the bottom, which tells the user
-  "this is a task, swipe down to cancel". Option: `options={{ animation: 'fade_from_bottom' }}` for `AddExpense` and
-  `EditExpense` in `src/navigation/index.tsx`. Pure JS, OTA-safe. **Owner decides.**
-- **Hide amounts toggle** (eye icon on the Home card, like banking apps) for use in public. New feature → owner decides.
+### OPT-46. Add / Edit expense open from the bottom
+**Status:** ✅ Done 24 Oct 2026 — `AddExpense` and `EditExpense` use `animation: 'fade_from_bottom'` in `src/navigation/index.tsx` for a 210ms native bottom entrance (all other screens keep `slide_from_right`; the form's keypad is already open on mount, so there is no second motion). The second idea of this task (a "hide amounts" toggle) was removed by the owner on 31 Oct 2026, see "Removed tasks".
 
 ---
 
@@ -1162,19 +1092,102 @@ truly unreferenced, never "merge" them with similar functions.
 
 ---
 
-## Phase 7 — ⚠️ OWNER GATE (optional) — React Compiler
-**What:** React Compiler automatically memoises components and hooks at build time, removing most useless re-renders
-without hand-written `useMemo`/`useCallback`. It is a Babel plugin, so it is JS-only and ships with OTA.
-**Why last and gated:** it assumes components follow the Rules of React (no mutation of props/state, no reading refs
-during render). Code that breaks a rule can behave differently after compilation. Arthik has money UI; one subtle
-stale value is not acceptable.
-**If the owner says yes:**
-1. `npm i -D babel-plugin-react-compiler eslint-plugin-react-compiler` (devDependencies only).
-2. Run the ESLint rule over `src` and fix or opt out (`'use no memo'` at the top of the function) every component it reports.
-3. Enable in `app.json` → `"experiments": { "reactCompiler": true }` (build-time setting; check the Expo SDK 57 docs
-   for the exact key and whether it is honoured by `eas update` — if it is not honoured for updates, stop).
-4. Start with `sources` limited to `src/components/` (plugin option), then screens, never `src/store`/`src/money`/`src/lib`.
-5. Full test suite + full manual pass of every screen in both modes.
+---
+
+## Removed tasks (owner decision, 31 Oct 2026)
+These were planned and deferred earlier. The owner removed them for good because each one could change what a user
+sees or what is saved. **Do not build them, do not recreate their sections, do not suggest them again** unless the owner
+brings them back himself:
+- **OPT-07** Show Home from cache, refresh behind it (Home would show numbers that change a moment later; rollover risk).
+- **OPT-23** Batch AsyncStorage writes of persisted stores (a crash inside the 250 ms window could lose the last change).
+- **OPT-40** Instant save, closing the form before the server answers (errors would appear after the form closed).
+  OPT-60 gives the safety part of it (write-ahead queue + 10 s timeout) without changing when the form closes on a
+  normal network.
+- **OPT-45** Midnight timer for "today" while the app stays open (touches the day-change path `ROL-*` depends on).
+- **OPT-46 (second idea)** "Hide amounts" toggle (a new feature, not an optimisation).
+- **Phase 7** React Compiler (could silently change behaviour of money screens).
+
+---
+
+## Phase 8 — Offline safety (data can never be lost or overwritten)
+Built 31 Oct 2026 in one round. **No money logic, no calculation, no stored format and no screen changed.** The same
+rows, keys and values are written as before; only *when* (earlier, before the request) and *how safely* (one writer at
+a time, idempotent) changed. All of it ships OTA.
+
+### OPT-60. Write-ahead queue + save timeout (add / edit / delete)
+**Status:** ✅ Done 31 Oct 2026 — `src/store/expenseStore.ts`, `src/store/expense/pendingQueues.ts`; `tests/opt60to64OfflineSafety.test.ts`.
+**Problem found:** online, `addExpense` / `updateExpense` / `deleteExpense` called the server first and only put the
+change in the offline queue when the request *failed*. If the app was killed, the phone switched off or the request hung
+while it was in flight, the change existed only in memory and was lost. Requests had no timeout, so on a weak network
+the form could spin for a long time.
+**Fix:**
+- Before the request, the change is written to the same queue the offline path uses (`@arthik_pending_expenses_*`,
+  `@arthik_pending_updates_*`, `@arthik_pending_deletes_*`). When the server confirms, it is removed again — but only if
+  the entry is still exactly what was written (`removePendingAddIfUnchanged`, `settlePendingUpdate`); a changed entry
+  stays and is sent by the normal sync.
+- Edits: if an older queued edit exists, the queue holds both merged (newest values win), exactly like an offline edit.
+  This also fixes an old race where a queued older edit, sent later, overwrote a newer online edit on the server.
+- Deletes are written ahead to the delete queue only (queued edits are left alone, as before).
+- A refused request (real database error) puts the queue back exactly as it was and rolls back, as before.
+- `SAVE_TIMEOUT_MS` = 10 s. After that the call stops waiting: the item stays "sync pending" and queued, **no offline
+  banner and no offline mode**. The request keeps running and its late answer is still used. If the user edits or
+  deletes such an item before the late answer, the edit / delete is also queued for the server (`inFlightAdds`).
+- Every Supabase request that may be awaited twice is wrapped in `Promise.resolve(...)` first (a Supabase query sends
+  itself again on every `.then`).
+**Not changed (verified):** offline path, network-error path (same banner, same `setOffline(true)`), rollback on
+refusal, the pending sign on Home (it comes from `expense.pending` in memory, which was already `true` during the save),
+money values, payload columns.
+
+### OPT-61. Queue lock (one writer at a time)
+**Status:** ✅ Done 31 Oct 2026 — `src/lib/queueLock.ts` (`runExclusive`), used by every queue writer in `pendingQueues.ts`, `savePendingOffline`, the final re-read/write of `syncPendingDeletes/Adds/Updates`, and the expense cache writes.
+**Problem found:** every queue is changed with "read → change → write" on AsyncStorage. Two of those overlapping on the
+same key could overwrite each other and lose an item. Also `syncPendingUpdates` removed an entry after sending it even if
+a newer edit had been merged into it meanwhile.
+**Fix:** per-key promise chain; and `syncPendingUpdates` keeps an entry whose payload changed while it was being sent.
+**Rule for future code:** never call the network inside `runExclusive`, never take the same key again inside it.
+
+### OPT-62. Idempotent add + offline copy after a confirmed save
+**Status:** ✅ Done 31 Oct 2026 — `expenseStore.ts`, `syncPending.ts`.
+**Problem found:** (1) `upsert(..., { ignoreDuplicates: true }).select().single()` returns an error when the row is
+already on the server (0 rows back), so a duplicate send (app killed after the server saved it) was treated as a
+permanent failure: the expense was removed from the list and moved to "Sync failed". (2) After an online save the
+on-phone copy (`@arthik_cached_expenses_*`) was only refreshed by the next sync/fetch, so an offline cold start right
+after did not show the new expense.
+**Fix:** `.maybeSingle()` (0 rows = success, data = null; one row = the same as `.single()`); after a confirmed
+add/edit/delete the cache is rewritten in the background in the same format the sync already writes (every
+non-pending expense). Cold start skips cache rows whose id is already in the pending list, so one expense can never
+be shown twice.
+
+### OPT-63. Stale-cache guard for server "self-heal" writes (owner approved 31 Oct 2026)
+**Status:** ✅ Done 31 Oct 2026 — `expenseBridge.ts` (`areExpensesFreshFromServer`), `hydrate.ts`, `selfHealing.ts`; test in `tests/dailyBudgetHydrate.test.ts`.
+**Problem found:** at startup `fetchExpenses` and `hydrateFromSupabase` run at the same time. When hydration finished
+first, `selfHealCorruptedRows` compared server `daily_savings_log` rows with numbers computed from the **on-phone cache**
+of expenses and rewrote the server rows from that cache. A stale cache could overwrite correct server rows.
+**Fix:** server rows are rewritten only when the expense list came from the server in this app session. Local records
+are computed exactly as before (screens unchanged). Rows that need healing are healed on the next hydration with fresh
+data (pull-to-refresh, midnight, next launch). The canonical self-healing rules still hold; only the input is now
+guaranteed fresh. Not touched: `selfHealDefaultBudget`, rollover, Gullak merge (see "Found, not fixed").
+
+### OPT-64. 1,000-row paging guard
+**Status:** ✅ Done 31 Oct 2026 — `src/lib/supabasePaging.ts` (`fetchAllPages`), used in `hydrate.ts` for `daily_savings_log`, `budget_plan_changes`, `budget_periods`, `gullak_deposits`.
+**Problem found:** these lists had no paging. Supabase returns at most 1,000 rows and does not say it cut the list.
+**Fix:** below 1,000 rows: one request, identical result. Full first page: read the rest page by page with `id` as a
+tie-breaker. Any later page failing returns the first page (exactly the old result). Nothing changes for any user today.
+
+### OPT-65. SQL: expenses list index (owner runs it via MCP)
+**Status:** ✅ Written 31 Oct 2026 — `supabase/migrations/20261031120000_expenses_list_index.sql`, `schema.sql`. Run steps: `placementguide.md`.
+**Problem found:** the app reads expenses with `WHERE user_id = ? ORDER BY expense_date DESC, created_at DESC` in pages of
+1,000. The existing index `(user_id, expense_date DESC)` does not cover `created_at`, so Postgres sorts every page.
+**Fix:** `idx_expenses_user_date_created (user_id, expense_date DESC, created_at DESC)`. Adds an index only; no row,
+column, policy or function changes. The old index is kept.
+
+### Found, not fixed (owner decided to leave as is)
+- `mergeGullakDeposits`: a local deposit not found on the server is inserted again, so a deposit deleted on another
+  device can come back. Fixing it could make a balance disappear on screen for a user with an old unsynced deposit.
+- Rollover can run on cached expense data at startup (same race as OPT-63). It is `ROL-*` logic and timing-visible.
+- `selfHealDefaultBudget` writes `profiles.daily_budget` (legacy migration-500 fix).
+- Re-renders: verified already granular (field selectors everywhere, same-array on no-change refresh, budget store sets
+  only on change, FlashList). No measured hotspot left that can be fixed without risk; profile before changing.
 
 ---
 
@@ -1189,7 +1202,7 @@ Keep for the next native release:
 
 ## Appendix B — Already good (do not "fix")
 So the agent does not waste time re-doing finished work:
-- Tabs use `freezeOnBlur: true`; hidden tabs do not render or animate.
+- Tabs use `freezeOnBlur: false` on purpose (no Android unfreeze hitch on tab switch); every core tab stays warm.
 - `AmbientBackground` uses native-driver animations, stops in background and on hidden tabs, respects reduce motion.
 - `BottomSheetModal` already uses RNGH + Reanimated.
 - `DonutChart` + `useRingSweep` already sweep on the UI thread, blink-free.
@@ -1197,7 +1210,7 @@ So the agent does not waste time re-doing finished work:
 - Home `fullWaterfall` is memoised separately from the pill switch.
 - `syncWithExpenses` only writes when today's record really changed.
 - Supabase token auto-refresh pauses in background.
-- Expense add is optimistic in the list (only the form waits — see OPT-40).
+- Expense add is optimistic in the list; the form waits for the server at most `SAVE_TIMEOUT_MS` (10 s, OPT-60), the change is already in the offline queue before the request.
 - Notifications are capped at 50.
 - History search is debounced.
 

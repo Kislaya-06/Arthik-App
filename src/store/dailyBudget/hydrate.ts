@@ -22,7 +22,8 @@ import {
 import { useNotificationStore } from '../notificationStore';
 import { useNetworkStore } from '../networkStore';
 import { useAuthStore } from '../authStore';
-import { getCurrentExpenses, areExpensesLoaded } from './expenseBridge';
+import { getCurrentExpenses, areExpensesLoaded, areExpensesFreshFromServer } from './expenseBridge';
+import { fetchAllPages } from '../../lib/supabasePaging';
 import { buildCategoryClassifier, buildEligibleIncomeClassifier } from './classifiers';
 import { computeSpentByDate, computeIncomeByDate } from '../../lib/budgetCalculations';
 import {
@@ -214,21 +215,32 @@ export async function fetchRemoteBudgetData(userId: string): Promise<RemoteBudge
         .select('daily_budget, is_auto_renew, is_budget_mode_enabled, budget_cadence, weekly_budget, monthly_budget')
         .eq('id', userId)
         .maybeSingle(),
-      supabase
-        .from('daily_savings_log')
-        .select('date, amount_saved, spent_amount, status, budget_amount')
-        .eq('user_id', userId)
-        .order('date', { ascending: true }),
-      supabase
-        .from('budget_plan_changes')
-        .select('id, effective_from, is_enabled, cadence, amount, carry_mode, carried_over_amount, created_at')
-        .eq('user_id', userId)
-        .order('effective_from', { ascending: true }),
-      supabase
-        .from('budget_periods')
-        .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, carry_mode, carried_over_amount, created_at')
-        .eq('user_id', userId)
-        .order('active_start', { ascending: true }),
+      // OPT-64: same queries, but never silently cut at 1,000 rows (one identical request below 1,000).
+      fetchAllPages(
+        () =>
+          supabase
+            .from('daily_savings_log')
+            .select('date, amount_saved, spent_amount, status, budget_amount')
+            .eq('user_id', userId)
+            .order('date', { ascending: true }) as never
+      ),
+      fetchAllPages(
+        () =>
+          supabase
+            .from('budget_plan_changes')
+            .select('id, effective_from, is_enabled, cadence, amount, carry_mode, carried_over_amount, created_at')
+            .eq('user_id', userId)
+            .order('effective_from', { ascending: true }) as never
+      ),
+      fetchAllPages(
+        () =>
+          supabase
+            .from('budget_periods')
+            .select('id, cadence, period_start, period_end, active_start, active_end, budget_amount, spent_amount, amount_saved, status, is_prorated, carry_mode, carried_over_amount, created_at')
+            .eq('user_id', userId)
+            .order('active_start', { ascending: true }) as never,
+        { tieBreaker: 'id' }
+      ),
     ]) as Promise<RemoteBudgetDataResults>,
     new Promise<RemoteBudgetDataResults>((r) =>
       setTimeout(() => r([{ data: null }, { data: null }, { data: null }, { data: null }]), 3500)
@@ -277,11 +289,16 @@ export async function mergePendingPeriods(
 /** Network part only. Same query, same 3.5 s timeout. */
 export function fetchGullakDepositsRaw(userId: string) {
   return withTimeout(
-    supabase
-      .from('gullak_deposits')
-      .select('id, amount, date, note, source, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false }),
+    // OPT-64: never silently cut at 1,000 rows (one identical request below 1,000).
+    fetchAllPages<{ id: string; amount: number | string; date: string; note?: string | null; source?: string | null; created_at?: string }>(
+      () =>
+        supabase
+          .from('gullak_deposits')
+          .select('id, amount, date, note, source, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }) as never,
+      { tieBreaker: 'id' }
+    ),
     3500,
     { data: null, error: new Error('timeout') }
   );
@@ -550,6 +567,8 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       incomeByDate,
       userId,
       expensesLoaded: areExpensesLoaded(),
+      // OPT-63: only rewrite server rows when the expense list came from the server in this session.
+      allowServerWrites: areExpensesFreshFromServer(),
     });
 
     // Ensure today's record exists if not present

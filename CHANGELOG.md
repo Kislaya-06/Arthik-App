@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Offline Safety Round: Nothing You Save Can Be Lost (`expenseStore.ts`, `pendingQueues.ts`, `syncPending.ts`, `hydrate.ts`, `selfHealing.ts`, `expenseBridge.ts`, new `queueLock.ts`, new `supabasePaging.ts`, OPT-60..OPT-65) — OTA-safe**:
+  - **Write-ahead queue (OPT-60)**: online add / edit / delete now go into the offline queue BEFORE the request and leave it when the server confirms. Before, a save that was in flight when the app was killed or the phone switched off was lost. A save that waits more than 10 s stops waiting: it stays "sync pending" and is sent by the normal sync (no offline banner, no offline mode); its late answer is still used.
+  - **Older queued edit can no longer undo a newer one**: an edit queued earlier and sent later used to overwrite a newer online edit on the server. Now both are merged (newest values win).
+  - **Queue lock (OPT-61)**: queue writes never overlap, so two quick changes can no longer overwrite each other in storage. Sync keeps an edit that arrived while an older one was being sent.
+  - **Idempotent add (OPT-62)**: a transaction already on the server (sent twice after an app kill) was treated as "Sync failed" and hidden from the list; it now counts as saved (`.maybeSingle()`). The on-phone copy is refreshed after every confirmed save, so an offline cold start right after shows it; one expense is never shown twice on cold start.
+  - **Stale cache never overwrites the server (OPT-63, owner approved)**: `selfHealCorruptedRows` rewrites `daily_savings_log` server rows only when the expense list came from the server in this session (before, a stale on-phone cache could win the startup race and overwrite correct rows). Local numbers and screens are computed exactly as before; canonical rules unchanged.
+  - **1,000-row guard (OPT-64)**: savings log, plan changes, budget periods and Gullak deposits are no longer silently cut at 1,000 rows. Below 1,000 rows the request and result are identical to before.
+  - **SQL (OPT-65)**: new index `idx_expenses_user_date_created` matching the expense list query exactly (`supabase/migrations/20261031120000_expenses_list_index.sql`, `schema.sql`). Index only; no data touched.
+  - No money logic touched. No calculation, stored format, key name, screen or copy changed.
+  - **Tests**: new `tests/opt60to64OfflineSafety.test.ts` (23 tests); OPT-63 case added to `dailyBudgetHydrate.test.ts`; Supabase test mocks gained `maybeSingle` / `range` (no assertion weakened; one assertion in `expenseStore.test.ts` now checks "no queue entry for this id" instead of "queue key never written", because the queue is written ahead). 165 files, 2,350 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/optimisation.md` (Phase 8 added; OPT-07, OPT-23, OPT-40, OPT-45, OPT-46 hide-amounts idea and Phase 7 removed by owner decision; Appendix B corrected: tabs use `freezeOnBlur: false`), `docs/architecture.md`, `docs/CODEBASE_GUIDE.md`, `docs/adr/0001-offline-first-asyncstorage-write-path.md`, `AGENTS.md`, `schema.sql`.
+
 - **Instant Screen Switching & Zero Blink Overhaul (`src/navigation/index.tsx`, `InsightsScreen.tsx`, `AnimatedCategoryDonut.tsx`, `tabSwitchPerformanceIntegrity.test.ts`) — OTA-safe**:
   - **Eliminated Tab Crossfade Blink (`Tab.Navigator animation: 'none'`)**: Bottom tabs now switch instantaneously with 0ms cut just like Zomato, Swiggy, and native mobile apps, eliminating the 150ms opacity dip that revealed the dark container background.
   - **Eliminated Android Unfreeze Hitches (`freezeOnBlur: false`)**: Core tabs remain warm in memory, preventing React layout re-measurement and frame drops upon tab focus.

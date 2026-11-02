@@ -53,6 +53,7 @@ const createThenableWithSelect = () => {
   return Object.assign(p, {
     select: vi.fn(() => ({
       single: mockSupabaseSingle,
+      maybeSingle: mockSupabaseSingle,
     })),
   });
 };

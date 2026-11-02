@@ -174,6 +174,10 @@ USING ((select auth.uid()) = user_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date 
 ON public.expenses (user_id, expense_date DESC);
 
+-- OPT-65: exact match for the app's list query (ORDER BY expense_date DESC, created_at DESC); no sort per page.
+CREATE INDEX IF NOT EXISTS idx_expenses_user_date_created
+ON public.expenses (user_id, expense_date DESC, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_expenses_category 
 ON public.expenses (category_id);
 

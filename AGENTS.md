@@ -83,7 +83,7 @@ src/
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
-│                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts, navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
+│                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts, queueLock.ts (one writer per queue key), supabasePaging.ts (no silent 1,000-row cut), navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install),
 │                 segmentedMotion.ts (pill springs, landing time, transform-only pill pieces), selectionCommitFence.ts (touch fence for deferred pill values),
 │                 alertButtonPalette.ts (themed dialog button colours + contrast)
@@ -171,6 +171,7 @@ Work with surgical precision and zero-breakage guarantee:
 
 ## 6.1 Existing Code First & Facade Pattern (MANDATORY ARCHITECTURE INVARIANT)
 - Screens render UI and call store actions. Stores manage Supabase, AsyncStorage, and state. `src/lib/` holds pure helpers.
+- **Offline queues (OPT-60/61, data safety)**: every online expense add / edit / delete is written to its offline queue BEFORE the request and removed only when the server confirms and the entry is unchanged. Any new code that changes a queue key (`@arthik_pending_*`, `@arthik_cached_expenses_*`) must do the read→change→write inside `runExclusive(key, …)` from `src/lib/queueLock.ts` (never a network call inside it). Wrap a Supabase query in `Promise.resolve(...)` before awaiting it twice (a query re-sends itself on every `.then`). Server rows computed from the expense list may only be written when `areExpensesFreshFromServer()` is true.
 - **Zero Monolithic God Files (Facade Pattern Rule)**: Under NO circumstances should any store or feature grow into an unmaintainable 2,000–2,500 line monolithic file. Any complex store or domain feature exceeding ~350–400 lines MUST strictly follow the **Facade Pattern** (as standardized in `dailyBudgetStore.ts` and `expenseStore.ts`).
   - **Public Facade**: The root file (e.g., `src/store/dailyBudgetStore.ts`) serves purely as a public facade exposing external contracts, Zustand hooks, and selectors.
   - **Categorized Submodules**: Internal logic must be cleanly decomposed into dedicated, single-responsibility modules under a feature subfolder (e.g., `src/store/dailyBudget/`):

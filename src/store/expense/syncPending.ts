@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../config/supabase';
 import { isNetworkFailure } from '../../lib/networkUtils';
 import { rememberExpenseCache } from '../../lib/expenseCacheMemo';
+import { runExclusive } from '../../lib/queueLock';
+import { stableStringify } from './pendingQueues';
 import { useDailyBudgetStore } from '../dailyBudgetStore';
 import { useCategoryStore } from '../categoryStore';
 import {
@@ -112,19 +114,22 @@ export const syncPendingDeletes = async (userId: string, _get: StoreGet, set: St
     }
 
     // P0.12: Re-read queue before saving so concurrently added items are not lost
-    const freshDeletesStored = await AsyncStorage.getItem(deleteKey);
-    const freshDeletesRaw: (string | PendingDelete)[] = freshDeletesStored ? JSON.parse(freshDeletesStored) : [];
-    const freshDeletesList: PendingDelete[] = freshDeletesRaw.map((item) =>
-      typeof item === 'string'
-        ? { id: item, retryCount: 0, lastRetryAt: 0 }
-        : { id: item.id, retryCount: item.retryCount || 0, lastRetryAt: item.lastRetryAt || 0 }
-    );
+    // (OPT-61: under the queue lock, so no other writer can slip in between the read and the write).
+    await runExclusive(deleteKey, async () => {
+      const freshDeletesStored = await AsyncStorage.getItem(deleteKey);
+      const freshDeletesRaw: (string | PendingDelete)[] = freshDeletesStored ? JSON.parse(freshDeletesStored) : [];
+      const freshDeletesList: PendingDelete[] = freshDeletesRaw.map((item) =>
+        typeof item === 'string'
+          ? { id: item, retryCount: 0, lastRetryAt: 0 }
+          : { id: item.id, retryCount: item.retryCount || 0, lastRetryAt: item.lastRetryAt || 0 }
+      );
 
-    const finalDeletes = freshDeletesList
-      .filter((d) => !syncedDeleteIds.has(d.id))
-      .map((d) => updatedDeletesMap.get(d.id) || d);
+      const finalDeletes = freshDeletesList
+        .filter((d) => !syncedDeleteIds.has(d.id))
+        .map((d) => updatedDeletesMap.get(d.id) || d);
 
-    await AsyncStorage.setItem(deleteKey, JSON.stringify(finalDeletes));
+      await AsyncStorage.setItem(deleteKey, JSON.stringify(finalDeletes));
+    });
   }
 };
 
@@ -180,7 +185,7 @@ export const syncPendingAdds = async (userId: string, _get: StoreGet, set: Store
           .from('expenses')
           .upsert(payload, { onConflict: 'id', ignoreDuplicates: true })
           .select()
-          .single();
+          .maybeSingle(); // OPT-62: row already on the server (ignored duplicate) = success, not an error
 
         // If rejected by database and category_id was set, retry once with category_id: null
         // in case the category was deleted while offline. Real financial records must never be lost.
@@ -190,7 +195,7 @@ export const syncPendingAdds = async (userId: string, _get: StoreGet, set: Store
             .from('expenses')
             .upsert(fallbackPayload, { onConflict: 'id', ignoreDuplicates: true })
             .select()
-            .single();
+            .maybeSingle();
           if (!fallback.error) {
             error = null;
             data = fallback.data;
@@ -265,14 +270,16 @@ export const syncPendingAdds = async (userId: string, _get: StoreGet, set: Store
       }
     }
 
-    // P0.12: Concurrency-safe queue update
-    const freshAddsStored = await AsyncStorage.getItem(addKey);
-    const freshAddsList: Expense[] = freshAddsStored ? JSON.parse(freshAddsStored) : [];
-    const finalAdds = freshAddsList
-      .filter((e) => !syncedAddIds.has(e.id))
-      .map((e) => updatedAddsMap.get(e.id) || e);
+    // P0.12: Concurrency-safe queue update (OPT-61: under the queue lock)
+    await runExclusive(addKey, async () => {
+      const freshAddsStored = await AsyncStorage.getItem(addKey);
+      const freshAddsList: Expense[] = freshAddsStored ? JSON.parse(freshAddsStored) : [];
+      const finalAdds = freshAddsList
+        .filter((e) => !syncedAddIds.has(e.id))
+        .map((e) => updatedAddsMap.get(e.id) || e);
 
-    await AsyncStorage.setItem(addKey, JSON.stringify(finalAdds));
+      await AsyncStorage.setItem(addKey, JSON.stringify(finalAdds));
+    });
   }
 };
 
@@ -285,6 +292,9 @@ export const syncPendingUpdates = async (userId: string, _get: StoreGet, set: St
     const updateList: PendingUpdate[] = JSON.parse(storedUpdates);
     const syncedUpdateIds = new Set<string>();
     const updatedUpdatesMap = new Map<string, PendingUpdate>();
+    // OPT-61: what was actually sent for each update the server accepted. If the queued entry was changed while
+    // we were sending (a newer edit merged in), it is kept so the newer values are sent next time.
+    const sentPayloadById = new Map<string, string>();
 
     for (const upd of updateList) {
       const retries = upd.retryCount || 0;
@@ -347,6 +357,7 @@ export const syncPendingUpdates = async (userId: string, _get: StoreGet, set: St
           }
         } else {
           syncedUpdateIds.add(upd.id);
+          sentPayloadById.set(upd.id, stableStringify(upd.payload));
         }
       } catch (e: unknown) {
         const err = e as { message?: string } | null;
@@ -375,14 +386,21 @@ export const syncPendingUpdates = async (userId: string, _get: StoreGet, set: St
       }
     }
 
-    // P0.12: Concurrency-safe queue update
-    const freshUpdatesStored = await AsyncStorage.getItem(updateKey);
-    const freshUpdatesList: PendingUpdate[] = freshUpdatesStored ? JSON.parse(freshUpdatesStored) : [];
-    const finalUpdates = freshUpdatesList
-      .filter((u) => !syncedUpdateIds.has(u.id))
-      .map((u) => updatedUpdatesMap.get(u.id) || u);
+    // P0.12: Concurrency-safe queue update (OPT-61: under the queue lock)
+    await runExclusive(updateKey, async () => {
+      const freshUpdatesStored = await AsyncStorage.getItem(updateKey);
+      const freshUpdatesList: PendingUpdate[] = freshUpdatesStored ? JSON.parse(freshUpdatesStored) : [];
+      const finalUpdates = freshUpdatesList
+        .filter((u) => {
+          if (!syncedUpdateIds.has(u.id)) return true;
+          const sent = sentPayloadById.get(u.id);
+          // Changed while sending → keep it (the newer values still have to reach the server).
+          return sent !== undefined && stableStringify(u.payload) !== sent;
+        })
+        .map((u) => updatedUpdatesMap.get(u.id) || u);
 
-    await AsyncStorage.setItem(updateKey, JSON.stringify(finalUpdates));
+      await AsyncStorage.setItem(updateKey, JSON.stringify(finalUpdates));
+    });
   }
 };
 

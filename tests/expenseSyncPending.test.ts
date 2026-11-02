@@ -31,7 +31,7 @@ const mockUpsert = vi.fn((payload: any, _options: any) => {
   callOrder.push('supabase:upsert');
   return {
     select: vi.fn().mockReturnValue({
-      single: vi.fn(async () => {
+      maybeSingle: vi.fn(async () => {
         if (onUpsertHook) await onUpsertHook();
         return { data: { ...payload, pending: false }, error: null };
       }),
@@ -378,7 +378,7 @@ describe('expenseSyncPending (Seam: syncPendingExpenses)', () => {
     // 1. Network failure
     mockUpsert.mockReturnValueOnce({
       select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValueOnce({
+        maybeSingle: vi.fn().mockResolvedValueOnce({
           data: null,
           error: { message: 'network request failed', status: 0 },
         }),
@@ -400,7 +400,7 @@ describe('expenseSyncPending (Seam: syncPendingExpenses)', () => {
     // 2. Permanent DB rejection (e.g. 400 check constraint)
     mockUpsert.mockReturnValueOnce({
       select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValueOnce({
+        maybeSingle: vi.fn().mockResolvedValueOnce({
           data: null,
           error: { message: 'check constraint violation: amount must be > 0', status: 400 },
         }),
@@ -610,7 +610,7 @@ describe('expenseSyncPending (Seam: syncPendingExpenses)', () => {
       if (payload.id === add3NetFail.id) {
         return {
           select: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
+            maybeSingle: vi.fn().mockResolvedValue({
               data: null,
               error: { message: 'network request failed', status: 0 },
             }),
@@ -619,7 +619,7 @@ describe('expenseSyncPending (Seam: syncPendingExpenses)', () => {
       }
       return {
         select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
+          maybeSingle: vi.fn().mockResolvedValue({
             data: { ...payload, pending: false },
             error: null,
           }),
@@ -675,7 +675,7 @@ describe('expenseSyncPending (Seam: syncPendingExpenses)', () => {
       if (payload.category_id === deletedCatId) {
         return {
           select: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
+            maybeSingle: vi.fn().mockResolvedValue({
               data: null,
               error: { message: 'foreign key constraint violation: category does not exist' },
             }),
@@ -685,7 +685,7 @@ describe('expenseSyncPending (Seam: syncPendingExpenses)', () => {
       // Retry with category_id: null succeeds
       return {
         select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
+          maybeSingle: vi.fn().mockResolvedValue({
             data: { ...payload, pending: false },
             error: null,
           }),

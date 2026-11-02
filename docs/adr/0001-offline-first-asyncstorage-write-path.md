@@ -29,3 +29,14 @@ We adopted an offline-first architecture where the client-side Zustand state and
 We would revisit this decision only if:
 - Arthik transitions to a multi-user real-time collaborative workspace where simultaneous concurrent edits to the same budget require distributed conflict resolution (CRDTs or Operational Transforms) rather than local single-user queues.
 - An off-the-shelf, battle-tested local-first database library (e.g., PowerSync, WatermelonDB, ElectricSQL) is integrated that eliminates the need for manual queue management without bloating bundle size or introducing unstable native dependencies.
+
+## Update — 31 Oct 2026 (OPT-60 .. OPT-63)
+- **Write-ahead online too**: online add / edit / delete now write the change to the same queue BEFORE the request and
+  remove it only when the server confirms and the entry is unchanged. A request lost to an app kill, power-off or hang
+  can no longer lose data. Requests stop being waited for after 10 s (`SAVE_TIMEOUT_MS`); the item stays queued.
+- **One writer per queue**: every queue read→change→write runs under `runExclusive` (`src/lib/queueLock.ts`).
+- **Idempotent adds**: `.maybeSingle()` makes "row already on the server" a success instead of a permanent failure.
+- **Offline copy after confirmed saves**: `@arthik_cached_expenses_<userId>` is refreshed after each confirmed save.
+- **Stale cache never overwrites the server**: server self-heal writes run only when the expense list came from the
+  server in this session (`areExpensesFreshFromServer`).
+

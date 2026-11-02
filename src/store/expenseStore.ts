@@ -3,7 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '../config/supabase';
 import { useAuthStore, registerStoreResetCallback } from './authStore';
-import { useDailyBudgetStore, registerExpenseGetter, registerExpensesLoadedGetter, registerAddExpense } from './dailyBudgetStore';
+import {
+  useDailyBudgetStore,
+  registerExpenseGetter,
+  registerExpensesLoadedGetter,
+  registerAddExpense,
+} from './dailyBudgetStore';
+import { registerExpensesFreshGetter } from './dailyBudget/expenseBridge';
 import { useNetworkStore, registerSyncCallback } from './networkStore';
 import { registerCategoryDeleteCallback } from './categoryStore';
 export type {
@@ -36,6 +42,11 @@ import {
   updatePendingItemOffline,
   removePendingItemOffline,
   sanitizeNote,
+  enqueuePendingDelete,
+  removePendingDelete,
+  readPendingUpdate,
+  settlePendingUpdate,
+  removePendingAddIfUnchanged,
 } from './expense/pendingQueues';
 export {
   UUID_REGEX,
@@ -71,8 +82,62 @@ import {
 let isSyncInProgress = false;
 let activeFetchSeq = 0;
 
+/**
+ * OPT-63: true once the expense list was loaded from the server in this app session (not from the cache).
+ * Reset on sign-out. Read by hydration through `areExpensesFreshFromServer()`.
+ */
+let expensesFreshFromServer = false;
+
+/**
+ * OPT-60/62: how long a save (add / edit / delete) waits for the server before it stops waiting.
+ * The change is already in the offline queue (written ahead), so after this it simply stays
+ * "sync pending" and is sent by the normal sync. The request itself keeps running; its late answer
+ * is still used (see `inFlightAdds`).
+ */
+export const SAVE_TIMEOUT_MS = 10_000;
+const SAVE_TIMED_OUT = { timedOut: true } as const;
+const isTimedOut = (value: unknown): value is typeof SAVE_TIMED_OUT => value === SAVE_TIMED_OUT;
+
+/**
+ * Adds whose request timed out but has not answered yet. If the user edits or deletes such an expense
+ * meanwhile, the edit / delete is also queued for the server, and re-queued when the late answer
+ * arrives, so nothing the user did can be lost to the late insert.
+ */
+const inFlightAdds = new Map<string, { lastUpdate?: ExpenseUpdatePayload; deleted?: boolean }>();
+
+/**
+ * OPT-62: keep the on-phone copy of confirmed expenses in step after a confirmed save, so an offline
+ * cold start right after shows it. Same content and format the sync already writes (`flushSideQueues`):
+ * every non-pending expense in the current list. Runs in the background, one write at a time.
+ */
+const persistConfirmedCache = (userId: string, getExpenses: () => Expense[]): Promise<void> => {
+  const key = getCachedStorageKey(userId);
+  return runExclusive(key, async () => {
+    try {
+      if (useAuthStore.getState().user?.id !== userId) return; // signed out meanwhile
+      // Never replace a fuller copy with a partial list (the list has not been loaded from cache/server yet).
+      if (!useExpenseStore.getState().isExpensesLoaded) return;
+      const confirmed = getExpenses().filter((e) => !e.pending && !e.id.startsWith('temp_'));
+      const json = JSON.stringify(confirmed);
+      if (isExpenseCacheUnchanged(key, json)) return;
+      await AsyncStorage.setItem(key, json);
+      rememberExpenseCache(key, json);
+    } catch (e) {
+      if (__DEV__) console.log('Error updating confirmed expense cache:', e);
+    }
+  });
+};
+
+/** Cached rows minus any id that is already in the in-memory pending list (never show one expense twice). */
+const withoutPendingDuplicates = (cached: Expense[], pending: Expense[]): Expense[] => {
+  if (pending.length === 0) return cached;
+  const pendingIds = new Set(pending.map((e) => e.id));
+  return cached.some((e) => pendingIds.has(e.id)) ? cached.filter((e) => !pendingIds.has(e.id)) : cached;
+};
+
 // P0.7: Exact network failure identification
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
+import { runExclusive } from '../lib/queueLock';
 export { isNetworkFailure, withTimeout };
 
 export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) => ({
@@ -88,6 +153,8 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
 
   resetExpenses: () => {
     activeFetchSeq++;
+    expensesFreshFromServer = false;
+    inFlightAdds.clear();
     forgetExpenseCache();
     set({ expenses: [], loading: false, isExpensesLoaded: false, transactionType: 'expense', failedSyncItems: [] });
   },
@@ -183,20 +250,22 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
   },
 
   savePendingOffline: async (expense: Expense) => {
-    try {
-      const key = getPendingStorageKey(expense.user_id);
-      const stored = await AsyncStorage.getItem(key);
-      const list: Expense[] = stored ? JSON.parse(stored) : [];
-      const idx = list.findIndex((item) => item.id === expense.id);
-      if (idx >= 0) {
-        list[idx] = { ...list[idx], ...expense, pending: true };
-      } else {
-        list.push({ ...expense, pending: true });
+    const key = getPendingStorageKey(expense.user_id);
+    await runExclusive(key, async () => {
+      try {
+        const stored = await AsyncStorage.getItem(key);
+        const list: Expense[] = stored ? JSON.parse(stored) : [];
+        const idx = list.findIndex((item) => item.id === expense.id);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...expense, pending: true };
+        } else {
+          list.push({ ...expense, pending: true });
+        }
+        await AsyncStorage.setItem(key, JSON.stringify(list));
+      } catch (e) {
+        if (__DEV__) console.log('Error saving pending expense to storage:', e);
       }
-      await AsyncStorage.setItem(key, JSON.stringify(list));
-    } catch (e) {
-      if (__DEV__) console.log('Error saving pending expense to storage:', e);
-    }
+    });
   },
 
   syncPendingExpenses: async () => {
@@ -230,7 +299,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         if (cached !== null) {
           const parsed: Expense[] = JSON.parse(cached);
           const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
-          const combined = [...pending, ...parsed];
+          const combined = [...pending, ...withoutPendingDuplicates(parsed, pending)];
           set({ expenses: combined, isExpensesLoaded: true });
           useDailyBudgetStore.getState().syncWithExpenses(combined);
         }
@@ -374,13 +443,17 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         set({ expenses: combined, isExpensesLoaded: true });
       }
 
+      expensesFreshFromServer = true; // OPT-63: the list now comes from the server
+
       // Cache expenses for offline resilience (skip the disk write when it would be identical)
       const cacheStorageKey = getCachedStorageKey(user.id);
       const cacheJson = JSON.stringify(reconciledFetched);
-      if (!isExpenseCacheUnchanged(cacheStorageKey, cacheJson)) {
-        await AsyncStorage.setItem(cacheStorageKey, cacheJson);
-        rememberExpenseCache(cacheStorageKey, cacheJson);
-      }
+      await runExclusive(cacheStorageKey, async () => {
+        if (!isExpenseCacheUnchanged(cacheStorageKey, cacheJson)) {
+          await AsyncStorage.setItem(cacheStorageKey, cacheJson);
+          rememberExpenseCache(cacheStorageKey, cacheJson);
+        }
+      });
       useDailyBudgetStore.getState().syncWithExpenses(combined);
     } catch (e: unknown) {
       if (fetchSeq !== activeFetchSeq) return;
@@ -406,7 +479,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         if (cached !== null) {
           const parsed: Expense[] = JSON.parse(cached);
           const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
-          const combined = [...pending, ...parsed];
+          const combined = [...pending, ...withoutPendingDuplicates(parsed, pending)];
           set({ expenses: combined, isExpensesLoaded: true });
           useDailyBudgetStore.getState().syncWithExpenses(combined);
         } else {
@@ -472,6 +545,23 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
       return;
     }
 
+    // 3. OPT-60 write-ahead: put it in the offline queue BEFORE talking to the server, so it can never be lost
+    // (app killed mid-request, phone switched off, request hanging). Removed again once the server confirms.
+    // Sending it twice is harmless: same id + upsert with ignoreDuplicates.
+    await get().savePendingOffline(optimisticExpense);
+
+    // Server confirmed: same state update as before, then clear the queue entry and refresh the offline copy.
+    const applyConfirmed = async (data: Expense | null): Promise<void> => {
+      const confirmed = data || { ...optimisticExpense, pending: false };
+      set((state) => ({
+        expenses: state.expenses.map((e) => (e.id === newId ? { ...confirmed, pending: false } : e)),
+      }));
+      useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
+      // Queue entry first, then the offline copy (this order means one expense can never be in both).
+      await removePendingAddIfUnchanged(user.id, optimisticExpense);
+      persistConfirmedCache(user.id, () => get().expenses).catch(() => {});
+    };
+
     set({ loading: true });
     try {
       const payload = {
@@ -488,12 +578,43 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         ...extraColumnsFor(optimisticExpense),
       };
 
-      // P0.4: upsert with onConflict: 'id', ignoreDuplicates: true
-      const { data, error } = await supabase
-        .from('expenses')
-        .upsert(payload, { onConflict: 'id', ignoreDuplicates: true })
-        .select()
-        .single();
+      // P0.4: upsert with onConflict: 'id', ignoreDuplicates: true.
+      // OPT-62: maybeSingle → a row that is already on the server comes back as data = null (success), not as an error.
+      // Promise.resolve runs the request exactly once (a Supabase query re-sends itself on every `.then`).
+      const request = Promise.resolve(
+        supabase
+          .from('expenses')
+          .upsert(payload, { onConflict: 'id', ignoreDuplicates: true })
+          .select()
+          .maybeSingle()
+      );
+      const outcome = await withTimeout(request, SAVE_TIMEOUT_MS, SAVE_TIMED_OUT);
+
+      if (isTimedOut(outcome)) {
+        // OPT-60: stop waiting. It is already queued and shows as "sync pending"; no offline banner, no offline mode.
+        inFlightAdds.set(newId, {});
+        request.then(
+          (late) => {
+            const tracked = inFlightAdds.get(newId);
+            inFlightAdds.delete(newId);
+            if (late.error) return; // still queued; the normal sync retries it
+            const stillPending = get().expenses.some((e) => e.id === newId && e.pending);
+            if (stillPending && !tracked?.lastUpdate && !tracked?.deleted) {
+              applyConfirmed(late.data as Expense | null).catch(() => {});
+              return;
+            }
+            // The user edited or deleted it while we waited: make sure that reaches the server after this insert.
+            if (tracked?.deleted) enqueuePendingDelete(user.id, newId).catch(() => {});
+            else if (tracked?.lastUpdate) savePendingUpdateOffline(user.id, newId, tracked.lastUpdate).catch(() => {});
+          },
+          () => {
+            inFlightAdds.delete(newId);
+          }
+        );
+        return;
+      }
+
+      const { data, error } = outcome;
 
       if (error) {
         if (isNetworkFailure(error)) {
@@ -503,18 +624,15 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
           return;
         }
 
-        // Real schema/DB validation error: rollback optimistic item
+        // Real schema/DB validation error: take it out of the queue again, then rollback optimistic item
+        await removePendingItemOffline(user.id, newId);
         set((state) => ({ expenses: state.expenses.filter((e) => e.id !== newId) }));
         useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
         throw error;
       }
 
       // Confirmed by server: clear pending flag
-      const confirmed = data || { ...optimisticExpense, pending: false };
-      set((state) => ({
-        expenses: state.expenses.map((e) => (e.id === newId ? { ...confirmed, pending: false } : e)),
-      }));
-      useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
+      await applyConfirmed(data as Expense | null);
     } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         useNetworkStore.getState().setOffline(true);
@@ -522,6 +640,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         useNetworkStore.getState().triggerOfflineAlert('You are offline, changes will sync when connected');
         return;
       }
+      // Anything else: the transaction stays queued (written ahead) and the normal sync retries it.
       if (__DEV__) console.error('Error adding expense:', e);
       throw e;
     } finally {
@@ -583,6 +702,12 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
     // 2. If it's a pending offline expense, update it in local pending storage
     if (previousExpense.pending || id.startsWith('temp_')) {
       await updatePendingItemOffline(user.id, id, payload);
+      // OPT-60: its first save timed out and may still land on the server; queue the edit for the server too.
+      const tracked = inFlightAdds.get(id);
+      if (tracked) {
+        tracked.lastUpdate = { ...(tracked.lastUpdate || {}), ...payload };
+        await savePendingUpdateOffline(user.id, id, payload);
+      }
       return;
     }
 
@@ -594,12 +719,35 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
       return;
     }
 
+    // 4. OPT-60 write-ahead: queue the edit BEFORE the request. If an older queued edit exists, the queue now
+    // holds both merged (newest values win), exactly like an offline edit; it is then sent by the normal sync.
+    const queuedBefore = await readPendingUpdate(user.id, id);
+    await savePendingUpdateOffline(user.id, id, payload);
+    const queuedNow: ExpenseUpdatePayload = queuedBefore ? { ...queuedBefore.payload, ...payload } : payload;
+
     set({ loading: true });
     try {
-      const { error } = await supabase
-        .from('expenses')
-        .update(payload)
-        .eq('id', id);
+      // Promise.resolve runs the request exactly once.
+      const request = Promise.resolve(
+        supabase
+          .from('expenses')
+          .update(payload)
+          .eq('id', id)
+      );
+      const outcome = await withTimeout(request, SAVE_TIMEOUT_MS, SAVE_TIMED_OUT);
+
+      if (isTimedOut(outcome)) {
+        // Stop waiting: the edit is queued and will be sent by the normal sync. A late success clears it.
+        request.then(
+          (late) => {
+            if (!late.error && !queuedBefore) settlePendingUpdate(user.id, id, queuedNow, null).catch(() => {});
+          },
+          () => {}
+        );
+        return;
+      }
+
+      const { error } = outcome;
 
       if (error) {
         if (isNetworkFailure(error)) {
@@ -609,9 +757,16 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
           return;
         }
 
+        // Refused by the database: put the queue back exactly as it was before this edit, then rollback.
+        await settlePendingUpdate(user.id, id, queuedNow, queuedBefore);
         rollbackUpdate();
         throw error;
       }
+
+      // Confirmed. With no older queued edit, the queue entry is done. With one, the merged entry stays and is
+      // sent by the normal sync (it carries the older fields that still have to reach the server).
+      if (!queuedBefore) await settlePendingUpdate(user.id, id, queuedNow, null);
+      persistConfirmedCache(user.id, () => get().expenses).catch(() => {});
     } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         useNetworkStore.getState().setOffline(true);
@@ -620,6 +775,8 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         return;
       }
 
+      // Not a server answer (it threw): undo the write-ahead and rollback, exactly as before.
+      if (!isRolledBack) await settlePendingUpdate(user.id, id, queuedNow, queuedBefore);
       rollbackUpdate();
       if (__DEV__) console.error('Error updating expense:', e);
       throw e;
@@ -672,6 +829,12 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
     // 2. If it's a pending offline expense, remove it from offline queue
     if (previousExpense.pending || id.startsWith('temp_')) {
       await removePendingItemOffline(user.id, id);
+      // OPT-60: its first save timed out and may still land on the server; delete it there too.
+      const tracked = inFlightAdds.get(id);
+      if (tracked) {
+        tracked.deleted = true;
+        await enqueuePendingDelete(user.id, id);
+      }
       return;
     }
 
@@ -683,12 +846,33 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
       return;
     }
 
+    // 4. OPT-60 write-ahead: queue the delete BEFORE the request (delete queue only; queued edits are left as they
+    // are, like before). `queuedHere` = this call added it, so this call may take it out again.
+    const queuedHere = await enqueuePendingDelete(user.id, id);
+
     set({ loading: true });
     try {
-      const { error } = await supabase
-        .from('expenses')
-        .delete()
-        .eq('id', id);
+      // Promise.resolve runs the request exactly once.
+      const request = Promise.resolve(
+        supabase
+          .from('expenses')
+          .delete()
+          .eq('id', id)
+      );
+      const outcome = await withTimeout(request, SAVE_TIMEOUT_MS, SAVE_TIMED_OUT);
+
+      if (isTimedOut(outcome)) {
+        // Stop waiting: the delete is queued and will be sent by the normal sync. A late success clears it.
+        request.then(
+          (late) => {
+            if (!late.error && queuedHere) removePendingDelete(user.id, id).catch(() => {});
+          },
+          () => {}
+        );
+        return;
+      }
+
+      const { error } = outcome;
 
       if (error) {
         if (isNetworkFailure(error)) {
@@ -698,9 +882,15 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
           return;
         }
 
+        // Refused by the database: take the write-ahead out again, then rollback (as before).
+        if (queuedHere) await removePendingDelete(user.id, id);
         rollbackDelete();
         throw error;
       }
+
+      // Confirmed by the server.
+      if (queuedHere) await removePendingDelete(user.id, id);
+      persistConfirmedCache(user.id, () => get().expenses).catch(() => {});
     } catch (e: unknown) {
       if (isNetworkFailure(e)) {
         useNetworkStore.getState().setOffline(true);
@@ -709,6 +899,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
         return;
       }
 
+      if (!isRolledBack && queuedHere) await removePendingDelete(user.id, id);
       rollbackDelete();
       if (__DEV__) console.error('Error deleting expense:', e);
       throw e;
@@ -730,6 +921,7 @@ registerStoreResetCallback(() => {
 
 registerExpenseGetter(() => useExpenseStore.getState().expenses);
 registerExpensesLoadedGetter(() => useExpenseStore.getState().isExpensesLoaded);
+registerExpensesFreshGetter(() => expensesFreshFromServer);
 registerAddExpense((...args) => useExpenseStore.getState().addExpense(...args));
 
 registerCategoryDeleteCallback((deletedCategoryId: string) => {

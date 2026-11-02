@@ -100,31 +100,40 @@ autoLogStore ─ registerStoreResetCallback ─────► authStore
 
 ## 4. Offline-First Write Path
 
-See [ADR 0001](adr/0001-offline-first-asyncstorage-write-path.md).
+See [ADR 0001](adr/0001-offline-first-asyncstorage-write-path.md) and `docs/optimisation.md` Phase 8 (OPT-60..OPT-64).
 
 ```
-User action (addExpense)
+User action (addExpense / updateExpense / deleteExpense)
         │
         ▼
-Optimistic update in Zustand state (pending: true)
+Optimistic update in Zustand state (pending: true for adds)
         │
-        ├─── Online? ─── YES ──► Supabase upsert
-        │                              │
-        │                        Success? ─ YES ──► clear pending flag, update state with server row
-        │                              │
-        │                        Error? ──────────► queue in @arthik_pending_expenses_<userId>
-        │                                           (same path as offline)
+        ├─── Online? ─── NO ───► queue in @arthik_pending_*_<userId>  (unchanged)
         │
-        └─── Online? ─── NO ───► queue in @arthik_pending_expenses_<userId>
+        └─── Online? ─── YES ──► OPT-60 write-ahead: queue it FIRST (same queue as offline)
                                         │
-                                 On reconnect (networkStore)
+                                 Supabase request (Promise.resolve → sent once), wait max SAVE_TIMEOUT_MS = 10 s
                                         │
-                                 syncPendingExpenses() ──► retry with exponential backoff
-                                        │                   [2s, 5s, 15s, 30s, 60s], max 5 attempts
+             ┌──────────────────────────┼───────────────────────────────┬──────────────────────────┐
+         Success                   Network error                   Refused (DB error)         Timed out
+  remove queue entry only if    keep queued, setOffline +      put queue back exactly as    keep queued, stays
+  unchanged; refresh offline    banner (unchanged)             before; rollback; throw      "sync pending"; no
+  copy (OPT-62)                                                (unchanged)                  banner; late answer
+                                                                                            still applied
+                                        │
+                                 On reconnect / before every online fetch (networkStore, fetchExpenses)
+                                        │
+                                 syncPendingExpenses(): deletes → adds → updates → flushSideQueues
+                                 (settings, daily records, periods, plan changes, Gullak, categories, profile, cache)
+                                 retry with exponential backoff [2s, 5s, 15s, 30s, 60s], max 5 attempts
                                         │
                                  Still failing? ──────────► @arthik_failed_sync_<userId>
                                                             (user can retry or discard)
 ```
+
+Every queue read→change→write runs under `runExclusive(key)` (`src/lib/queueLock.ts`, OPT-61), so two writers can never
+overwrite each other. Adds are idempotent (`upsert … ignoreDuplicates` + `.maybeSingle()`: a row already on the server
+counts as saved, OPT-62).
 
 **AsyncStorage keys per user:**
 
@@ -369,6 +378,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `fetchExpensesNoChange.test.ts` | OPT-20: same server data par `expenses` array wahi rehta hai aur cache dobara nahi likhta; badla hua ya naya row phir bhi pakda jaata hai |
 | `expenseListEquality.test.ts` | OPT-20: `sameExpenseList` (same list, ek field badla, row add, reorder, nested `split_allocations`) |
 | `expenseCacheMemo.test.ts` | OPT-20: cache memo (pehli write hamesha hoti hai, same key + same JSON par skip, forget) |
+| `opt60to64OfflineSafety.test.ts` | OPT-60..64: write-ahead queue (add/edit/delete), 10 s save timeout + late answer, queue lock, idempotent add, no duplicate on cold start, fresh-from-server flag, 1,000-row paging |
 | `opt21AutoLogShallow.test.ts` | OPT-21: AutoLog Center/Info screens poora store subscribe nahi karte (`useShallow`) |
 | `opt22HomeResumeRefresh.test.ts` | OPT-22: Home 5 min se zyada background rehne par resume par chup-chaap refresh karta hai |
 | `historyRows.test.ts` | OPT-30: History rows (header + items), keys, aur date-jump header index (See More window ke andar/bahar) |

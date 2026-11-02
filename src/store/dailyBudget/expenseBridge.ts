@@ -26,6 +26,22 @@ export const areExpensesLoaded = (): boolean => {
   return false;
 };
 
+/**
+ * OPT-63 (data safety): true only after the expense list was loaded FROM THE SERVER in this app session
+ * (not from the on-phone cache). Server rows that are rewritten from the expense list
+ * (`selfHealCorruptedRows`) are only written when this is true, so a stale cache can never overwrite
+ * correct server data. Screens are not affected: local numbers are computed exactly as before.
+ */
+let expensesFreshGetter: (() => boolean) | null = null;
+
+export const registerExpensesFreshGetter = (getter: () => boolean) => {
+  expensesFreshGetter = getter;
+};
+
+export const areExpensesFreshFromServer = (): boolean => {
+  return expensesFreshGetter ? expensesFreshGetter() : false;
+};
+
 export type AddExpenseBridgeFn = (
   amount: number,
   categoryId: string | null | undefined,

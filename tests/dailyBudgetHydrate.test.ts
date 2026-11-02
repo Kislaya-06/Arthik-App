@@ -131,6 +131,7 @@ vi.mock('../src/config/supabase', () => ({
         select: vi.fn(() => builder),
         eq: vi.fn(() => builder),
         order: vi.fn(() => builder),
+        range: vi.fn(() => builder),
         maybeSingle: vi.fn(async () => {
           if (table === 'profiles') {
             return { data: mockSupabaseData.profiles, error: null };
@@ -177,6 +178,7 @@ import {
   getPendingBudgetPeriodsKey,
   GullakDeposit,
 } from '../src/store/dailyBudgetStore';
+import { registerExpensesFreshGetter } from '../src/store/dailyBudget/expenseBridge';
 
 describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net', () => {
   const USER_ID = 'user_hydrate_test_1';
@@ -194,6 +196,7 @@ describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net
     mockSupabaseData.deposits = [];
 
     registerExpensesLoadedGetter(() => true);
+    registerExpensesFreshGetter(() => true);
     registerExpenseGetter(() => []);
     useDailyBudgetStore.getState().resetDailyBudget();
   });
@@ -513,6 +516,36 @@ describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net
           spent_amount: 100,
           status: 'saved',
         }),
+        { onConflict: 'user_id,date' }
+      );
+    });
+
+    it('OPT-63: with expenses only from the on-phone cache, computes the same local record but rewrites NO server row', async () => {
+      registerExpensesFreshGetter(() => false); // list came from the cache, not yet from the server
+      mockSupabaseData.profiles = { daily_budget: 300, is_auto_renew: true, is_budget_mode_enabled: true };
+      mockSupabaseData.savingsLogs = [
+        { date: '2026-03-14', budget_amount: null, amount_saved: 400, spent_amount: 100, status: 'saved' },
+      ];
+      registerExpenseGetter(() => [
+        { id: 'exp_corrupt', user_id: USER_ID, amount: 100, expense_date: '2026-03-14', payment_mode: 'cash' } as any,
+      ]);
+      useDailyBudgetStore.setState({
+        dailyBudgetAmount: 300,
+        dailyRecords: {
+          '2026-03-14': { date: '2026-03-14', budget: 300, spent: 100, saved: 200, isFinalized: true, status: 'saved' },
+        },
+      });
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      // Local record: exactly what the fresh case computes (screens unchanged)
+      expect(state.dailyRecords['2026-03-14'].budget).toBe(300);
+      expect(state.dailyRecords['2026-03-14'].saved).toBe(200);
+      expect(state.dailyRecords['2026-03-14'].status).toBe('saved');
+      // Server row: not touched
+      expect(mockSupabaseSpies.upsert).not.toHaveBeenCalledWith(
+        expect.objectContaining({ date: '2026-03-14' }),
         { onConflict: 'user_id,date' }
       );
     });

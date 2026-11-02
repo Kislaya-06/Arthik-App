@@ -315,6 +315,8 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `moneyBack.ts` | Money back / refund record karna, aur logged income ko money back me badalna (SPL-003..006) |
 | `src/lib/expenseListEquality.ts` | `sameExpenseList(a, b)`: do lists ka content barabar ho to `true` (OPT-20). `fetchExpenses` isse same array rakhta hai jab server ka data wahi hai |
 | `src/lib/expenseCacheMemo.ts` | Har cache key par last likha JSON yaad rakhta hai, taaki same JSON dobara disk par na likha jaye (OPT-20). `fetchExpenses` aur `syncPending.ts` dono isse update karte hain |
+| `src/lib/queueLock.ts` | `runExclusive(key, fn)`: ek AsyncStorage key par ek waqt mein ek hi writer (OPT-61). Har offline queue write (add/update/delete), sync ka final re-read/write aur expense cache write isi se hote hain. Andar network call kabhi nahi, same key dobara kabhi nahi |
+| `src/lib/supabasePaging.ts` | `fetchAllPages`: 1,000 se kam rows par ek hi request (result bilkul same); pehla page full ho tabhi baaki pages `id` tie-breaker ke saath; koi baad wala page fail ho toh pehla page hi lautata hai (OPT-64) |
 
 ### Baaki stores
 | Store | Kaam |

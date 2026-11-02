@@ -23,7 +23,7 @@ vi.mock('expo-crypto', () => ({
 
 const mockUpsertPayloads: any[] = [];
 const mockSupabaseSingle = vi.fn();
-const mockSupabaseSelect = vi.fn(() => ({ single: mockSupabaseSingle }));
+const mockSupabaseSelect = vi.fn(() => ({ single: mockSupabaseSingle, maybeSingle: mockSupabaseSingle }));
 const mockSupabaseUpsert = vi.fn((payload: any) => {
   mockUpsertPayloads.push(payload);
   return { select: mockSupabaseSelect };

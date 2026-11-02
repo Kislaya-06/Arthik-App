@@ -29,6 +29,7 @@ const mockSupabaseSingle = vi.fn();
 const mockSupabaseUpsert = vi.fn(() => ({
   select: mockSupabaseSelect.mockReturnValue({
     single: mockSupabaseSingle,
+    maybeSingle: mockSupabaseSingle,
   }),
 }));
 const mockSupabaseUpdate = vi.fn(() => ({
@@ -193,9 +194,11 @@ describe('expenseStore (Seam: useExpenseStore)', () => {
       expect(expenses[0].pending).toBe(false);
       expect(expenses[0].amount).toBe(500);
 
-      // Should NOT be stored in pending storage since it succeeded online
+      // Should NOT be left in pending storage since it succeeded online
+      // (OPT-60: it is written ahead to the queue and removed again once the server confirms).
       const stored = await AsyncStorage.getItem(PENDING_KEY);
-      expect(stored).toBeNull();
+      const queued: { id: string }[] = stored ? JSON.parse(stored) : [];
+      expect(queued.find((e) => e.id === expectedId)).toBeUndefined();
     });
 
     it('rolls back optimistic expense if database returns a permanent validation error', async () => {

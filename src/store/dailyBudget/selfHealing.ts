@@ -94,6 +94,12 @@ export function selfHealCorruptedRows(params: {
   incomeByDate: Record<string, number>;
   userId: string;
   expensesLoaded?: boolean;
+  /**
+   * OPT-63: when false, local records are computed exactly as before but NO server row is rewritten.
+   * Hydration passes true only when the expense list came from the server in this session, so a stale
+   * on-phone cache can never overwrite correct server data. Omitted = true (old behaviour, used by tests).
+   */
+  allowServerWrites?: boolean;
 }): void {
   const {
     logsData,
@@ -105,6 +111,7 @@ export function selfHealCorruptedRows(params: {
     incomeByDate,
     userId,
     expensesLoaded,
+    allowServerWrites = true,
   } = params;
 
   if (logsData && logsData.length > 0) {
@@ -156,6 +163,11 @@ export function selfHealCorruptedRows(params: {
         rawLogSaved !== daySaved ||
         (rawLogBudget !== null && rawLogBudget !== dayBudget) ||
         log.status !== (evaluatedStatus === 'even' ? 'even' : daySaved > 0 ? 'saved' : evaluatedStatus === 'unknown' ? 'unknown' : 'missed');
+
+      if (!allowServerWrites) {
+        // Stale-cache guard (OPT-63): keep the server row as it is; the next hydration with fresh data heals it.
+        continue;
+      }
 
       if (!dayIsDailyOwned && (rawLogBudget || 0) > 0) {
         // Wrong daily row for a weekly / monthly / Pure day: overwrite the server row too.
