@@ -255,7 +255,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                           fontFamily: n.read ? FontFamily.semibold : FontFamily.bold,
                         },
                       ]}
-                      numberOfLines={1}
+                      numberOfLines={2}
                     >
                       {n.title}
                     </Text>

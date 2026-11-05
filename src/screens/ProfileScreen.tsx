@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../lib/friendlyError';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, Pressable, Alert,
@@ -310,7 +311,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     } catch (err: any) {
       Alert.alert(
         'Delete Account Failed',
-        err?.message || 'Could not delete your account. Please check your network connection and try again or contact support.'
+        toFriendlyMessage(err, 'Could not delete your account. Please check your network connection and try again or contact support.')
       );
     } finally {
       setIsDeleting(false);
@@ -544,7 +545,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.budgetTitleRow}>
                 <Text
                   style={[styles.budgetModeTitleText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-                  numberOfLines={1}
+                  numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}
                 >
                   Smart Budget & Gullak
                 </Text>
@@ -557,7 +558,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
               <Text
                 style={[styles.budgetModeSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {budgetSubtitle}
                 {(isBudgetModeEnabled || isScheduledSwitch) && !isScheduledSwitch && (

@@ -82,10 +82,10 @@ const ItemRowShellBase: React.FC<ItemRowShellProps> = ({
       >
         {iconBadge}
         <View style={styles.txMiddle}>
-          <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+          <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={2}>
             {title}
           </Text>
-          <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text style={[styles.txSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
             {subtitle}
           </Text>
         </View>

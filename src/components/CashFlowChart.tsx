@@ -260,7 +260,7 @@ const CashFlowColumn: React.FC<CashFlowColumnProps> = React.memo(({
             fontFamily: FontFamily.medium,
           },
         ]}
-        numberOfLines={1}
+        numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}
       >
         {w.subLabel}
       </Text>
@@ -274,7 +274,7 @@ const CashFlowColumn: React.FC<CashFlowColumnProps> = React.memo(({
             fontFamily: FontFamily.bold,
           },
         ]}
-        numberOfLines={1}
+        numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}
       >
         {netDeltaText}
       </Text>

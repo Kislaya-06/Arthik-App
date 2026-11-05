@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../lib/friendlyError';
 import React, { useMemo, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, Pressable, FlatList, Alert 
@@ -92,7 +93,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation, route }) =
               await deleteCategory(categoryId);
               await fetchCategories();
             } catch (e: any) {
-              Alert.alert('Error', e?.message || 'Could not delete category. Please try again.');
+              Alert.alert('Could not delete', toFriendlyMessage(e, 'Could not delete category. Please try again.'));
             } finally {
               setIsDeleting(false);
             }

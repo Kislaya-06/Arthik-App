@@ -44,6 +44,7 @@ import { CadenceSwitchModal } from './CadenceSwitchModal';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, Motion } from '../config/theme';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { saveSuccessHaptic } from '../lib/saveFeedback';
 import { KeypadGrid } from './ui/KeypadGrid';
 
 export interface BudgetEditModalProps {
@@ -294,6 +295,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       }
       setBudgetCadence(selectedCadence);
       setBudgetModeEnabled(true, { cadence: selectedCadence, amount: evaluatedAmount, autoRenew: true });
+      saveSuccessHaptic();
       onClose();
       return;
     }
@@ -317,6 +319,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 text: 'Yes, Change',
                 onPress: () => {
                   scheduleNextDailyBudget(evaluatedAmount);
+                  saveSuccessHaptic();
                   onClose();
                 },
               },
@@ -341,6 +344,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 text: 'Yes, Change',
                 onPress: () => {
                   setWeeklyBudget(evaluatedAmount);
+                  saveSuccessHaptic();
                   onClose();
                 },
               },
@@ -365,6 +369,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 text: 'Yes, Change',
                 onPress: () => {
                   setMonthlyBudget(evaluatedAmount);
+                  saveSuccessHaptic();
                   onClose();
                 },
               },
@@ -378,6 +383,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       }
       setMonthlyBudget(evaluatedAmount, { immediate: true });
     }
+    saveSuccessHaptic();
     onClose();
   }, [
     evaluatedAmount,

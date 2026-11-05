@@ -376,7 +376,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network down');
+      expect(mocks.alert).toHaveBeenCalledWith('Could not save', 'Network down');
       expect(nav.goBack).not.toHaveBeenCalled();
       expect(s.r().isSubmitting).toBe(false);
       expect(s.r().isSaveEnabled).toBe(true);
@@ -389,7 +389,7 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       await act(async () => {
         await s.r().handleSave();
       });
-      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Could not save transaction. Please try again.');
+      expect(mocks.alert).toHaveBeenCalledWith('Could not save', 'Could not save transaction. Please try again.');
     });
   });
 

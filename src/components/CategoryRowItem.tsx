@@ -112,7 +112,7 @@ export const CategoryRowItem: React.FC<CategoryRowItemProps> = React.memo(({
             styles.categoryName,
             { color: colors.textPrimary, fontFamily: FontFamily.bold },
           ]}
-          numberOfLines={1}
+          numberOfLines={2}
         >
           {category.name}
         </Text>

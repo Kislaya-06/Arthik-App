@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../lib/friendlyError';
 import React, { useState } from 'react';
 import {
   View,
@@ -321,7 +322,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
         }
       }
     } catch (e: any) {
-      showBanner(e.message || 'Error with Google Authentication', 'error');
+      showBanner(toFriendlyMessage(e, 'Error with Google Authentication'), 'error');
     } finally {
       setGoogleLoading(false);
     }

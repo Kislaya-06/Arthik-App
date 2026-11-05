@@ -655,7 +655,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                       <View style={styles.categoryStackTextWrapper}>
                         <Text
                           style={[styles.categoryStackName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-                          numberOfLines={1}
+                          numberOfLines={2}
                         >
                           {seg.name}
                         </Text>
@@ -728,7 +728,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                       <View style={{ flex: 1 }}>
                         <Text
                           style={[styles.legendName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-                          numberOfLines={1}
+                          numberOfLines={2}
                         >
                           {seg.name}
                         </Text>

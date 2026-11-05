@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -61,7 +62,7 @@ export const AutoLogWelcomeBackScreen: React.FC<Props> = ({ navigation, route })
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       useAutoLogStore.getState().refresh(userId);
     } catch (e: any) {
-      setError(e?.message || 'Could not check messages.');
+      setError(toFriendlyMessage(e, 'Could not check messages.'));
       setPhase('choose');
     }
   };

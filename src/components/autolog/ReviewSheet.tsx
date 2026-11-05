@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
@@ -230,7 +231,7 @@ export const ReviewSheet: React.FC<Props> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onDone(message);
     } catch (e: any) {
-      setError(e?.message || 'Something went wrong. Please try again.');
+      setError(toFriendlyMessage(e, 'Something went wrong. Please try again.'));
     } finally {
       setBusy(false);
     }

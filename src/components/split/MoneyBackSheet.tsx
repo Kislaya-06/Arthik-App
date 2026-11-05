@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import Check from 'lucide-react-native/icons/check';
@@ -92,7 +93,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onDone(kind === 'refund' ? 'Refund recorded' : `${person?.name} paid back ${formatCurrency(plan.allocated)}`);
     } catch (e: any) {
-      setError(e?.message || 'Something went wrong. Please try again.');
+      setError(toFriendlyMessage(e, 'Something went wrong. Please try again.'));
     } finally {
       setBusy(false);
     }

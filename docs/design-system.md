@@ -271,7 +271,15 @@ Haptics have a fixed meaning. Never add a haptic to scrolling or to every keypad
 | Blocked action, validation error, guard sheet | `notificationAsync(Warning)` or `(Error)` |
 | Destructive confirm (delete) | `impactAsync(Heavy)` once, on confirm |
 | Swipe reveal | `impactAsync(Light)` |
-Every call ends with `.catch(() => {})`.
+Every call ends with `.catch(() => {})`. Save success is wired through `saveSuccessHaptic()` (`src/lib/saveFeedback.ts`) in the expense form (both save paths), the Gullak deposit and the budget save.
+
+### Text that must stay readable (no `...` on important text)
+- Amounts never end in `...`: they shrink (`adjustsFontSizeToFit`) first.
+- Buttons, dialog buttons, sheet titles and badges: 1 line that shrinks to 85% (`minimumFontScale={0.85}`), never cut.
+- Row titles and subtitles (transactions, ledger, notifications, categories, Insights categories): up to 2 lines; the row grows.
+- Only fixed-size shapes (pills, nav, keypad) stay at 1 line, capped by `FIXED_SHAPE_MAX_FONT_SCALE`; keep their copy short.
+- User-facing errors go through `toFriendlyMessage` (`src/lib/friendlyError.ts`): no database, server or code text on screen.
+- Splash shows "Just a moment, still loading..." only after 2.5 s.
 
 ---
 

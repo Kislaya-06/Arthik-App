@@ -38,6 +38,7 @@ import {
   formatExpressionWithCommas,
 } from '../lib/amountKeypad';
 import { Spacing, Motion } from '../config/theme';
+import { saveSuccessHaptic } from '../lib/saveFeedback';
 import { styles } from './DepositGullakModal.styles';
 
 export interface DepositGullakModalProps {
@@ -170,6 +171,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const handleDeposit = useCallback(() => {
     if (isValidAmount && !isCelebrating) {
       Keyboard.dismiss();
+      saveSuccessHaptic();
       setIsCelebrating(true);
       Animated.parallel([
         Animated.spring(celebrationScale, {

@@ -187,8 +187,8 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                     accessibilityLabel={`${p.name}, ${p.isSettled ? 'settled' : `owes ${formatCurrency(p.owed)}`}`}
                   >
                     <View style={styles.flex}>
-                      <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>{p.name}</Text>
-                      <Text style={[styles.sub, { color: colors.textSecondary }]} numberOfLines={1}>
+                      <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={2}>{p.name}</Text>
+                      <Text style={[styles.sub, { color: colors.textSecondary }]} numberOfLines={2}>
                         Shared {formatCurrency(p.totalShared)} · Paid back {formatCurrency(p.totalPaidBack)}
                       </Text>
                     </View>
@@ -258,10 +258,10 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                             }
                           >
                             <View style={styles.flex}>
-                              <Text numberOfLines={1} style={[styles.lineTitle, { color: colors.textPrimary }]}>
+                              <Text numberOfLines={2} style={[styles.lineTitle, { color: colors.textPrimary }]}>
                                 {s.note || 'Expense'}
                               </Text>
-                              <Text numberOfLines={1} style={[styles.sub, { color: colors.textSecondary }]}>
+                              <Text numberOfLines={2} style={[styles.sub, { color: colors.textSecondary }]}>
                                 {day(s.date)} · Their share {formatCurrency(s.theirShare)}
                                 {s.settled > 0 && !s.isSettled ? ` · Paid ${formatCurrency(s.settled)}` : ''}
                               </Text>

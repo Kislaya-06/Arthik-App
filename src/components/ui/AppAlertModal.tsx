@@ -81,7 +81,7 @@ const AlertButtonComponent: React.FC<AlertButtonComponentProps> = ({
         ]}
       >
         <Text
-          numberOfLines={1}
+          numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}
           maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
           style={[
             styles.buttonText,
