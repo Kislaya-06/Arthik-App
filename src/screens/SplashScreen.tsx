@@ -56,6 +56,7 @@ type Target = keyof RootStackParamList;
 
 const ENTRANCE_MS = 540;
 const EXIT_MS = 360;
+const SLOW_START_MS = 2500;
 const ICON_SIZE = 80;
 /** Lockup geometry: icon (80) + wordmark box (160) = 240 wide, so the icon sits 80 left of centre when open. */
 const ROW_CENTER_SHIFT = 80;
@@ -230,6 +231,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const t = useSharedValue(0);
   const ex = useSharedValue(0);
   const dots = useSharedValue(0);
+  // Shown only if start-up takes longer than SLOW_START_MS, so a slow network never feels like a frozen app.
+  const slow = useSharedValue(0);
 
   // Scale that makes an 80pt circle cover the whole screen from its centre (with a little margin).
   const bloomTarget = (Math.hypot(width, height) / ICON_SIZE) * 1.08;
@@ -381,6 +384,16 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      slow.value = withTiming(1, { duration: 300 });
+    }, SLOW_START_MS);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimation(slow);
+    };
+  }, [slow]);
+
+  useEffect(() => {
     return () => {
       unmounted.current = true;
       cancelAnimation(t);
@@ -419,6 +432,10 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       transform: [{ translateY: 12 * (1 - p) }],
     };
   });
+
+  const slowStyle = useAnimatedStyle(() => ({
+    opacity: slow.value * (1 - seg(ex.value, EX_TEXT_FADE)),
+  }));
 
   const dotsStyle = useAnimatedStyle(() => ({
     opacity: seg(t.value, DOTS_IN) * (1 - seg(ex.value, EX_TEXT_FADE)),
@@ -482,6 +499,9 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
             <Dot key={i} index={i} dots={dots} color={dotColor} baseColor={dotBaseColor} />
           ))}
         </Animated.View>
+        <Animated.Text style={[styles.slowText, { color: colors.textSecondary }, slowStyle]}>
+          Just a moment, still loading...
+        </Animated.Text>
       </View>
 
       {/* Bloom: its own full-screen layer, centred on the screen (= the centred icon), painted above everything. */}
@@ -570,6 +590,13 @@ const styles = StyleSheet.create({
     top: 96,
     fontSize: FontSize.body,
     fontFamily: FontFamily.medium,
+  },
+  slowText: {
+    position: 'absolute',
+    top: 172,
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
+    textAlign: 'center',
   },
   dotsContainer: {
     position: 'absolute',

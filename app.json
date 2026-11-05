@@ -63,8 +63,12 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Insights Cash Flow Accuracy & Gullak Reactivity 📊",
+        "title": "Clearer Text, Calmer Errors & Tactile Saves ✨",
         "highlights": [
+          "Full Text, No More ...: Names, notes, titles and buttons now wrap or shrink to fit instead of being cut off, so you can read everything on smaller screens and larger fonts",
+          "Clear Error Messages: If something fails, you now see a short, simple message instead of technical text",
+          "Tactile Saves: A soft success buzz when you save an expense, deposit to Gullak or update your budget",
+          "Calmer Slow Starts: If the app takes a moment to open, it now tells you it is still loading",
           "Safer Saving Offline: Every expense you save is kept on your phone first, so nothing is lost if the app closes or the network drops, and saving never hangs on a weak connection",
           "Instant Screen Switching & Zero Blink: Eliminated tab crossfade blink and mid-screen collapse for silky-smooth, instantaneous tab switching matching top apps like Zomato and Swiggy",
           "Insights Cash Flow & Arrow Clarity: Fixed direction of Inflow (inward/downward) and Outflow (outward/upward) icons in Monthly Cash Flow to match Home Hero card",

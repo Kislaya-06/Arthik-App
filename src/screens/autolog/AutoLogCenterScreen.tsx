@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, AppState, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,7 +138,7 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
               Alert.alert('Rules Reset', 'All learned merchant preferences and ignore rules have been reset.');
               await useAutoLogStore.getState().refresh(userId);
             } catch (e: any) {
-              Alert.alert('Error', e?.message || 'Failed to reset rules.');
+              Alert.alert('Could not reset', toFriendlyMessage(e, 'Failed to reset rules.'));
             }
           },
         },

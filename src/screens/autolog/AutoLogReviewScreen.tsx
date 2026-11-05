@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -258,7 +259,7 @@ export const AutoLogReviewScreen: React.FC<Props> = ({ navigation }) => {
               flash('All pending reviews cleared');
               await useAutoLogStore.getState().refresh(userId);
             } catch (e: any) {
-              flash(e?.message || 'Failed to clear reviews');
+              flash(toFriendlyMessage(e, 'Failed to clear reviews'));
             }
           },
         },
@@ -276,7 +277,7 @@ export const AutoLogReviewScreen: React.FC<Props> = ({ navigation }) => {
           await useAutoLogStore.getState().refresh(userId);
         }
       } catch (e: any) {
-        flash(e?.message || 'Failed to discard');
+        flash(toFriendlyMessage(e, 'Failed to discard'));
         load();
       }
     },

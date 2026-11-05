@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, AppState, Linking, ActivityIndicator, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -153,7 +154,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
       if (mode === 'resetup') setSelected(new Set(all.filter((a) => prevKeys.has(a.key)).map((a) => a.key)));
       if (mode === 'learn') setSelected(new Set());
     } catch (e: any) {
-      setScanError(e?.message || 'Could not read messages.');
+      setScanError(toFriendlyMessage(e, 'Could not read messages.'));
     }
   }, [mode, previous, route.params?.from, route.params?.to, userId]);
 

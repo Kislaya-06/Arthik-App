@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../lib/friendlyError';
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -156,7 +157,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
       );
     } catch (e: any) {
       setLoading(false);
-      showError(e?.message || 'Something went wrong while resetting password. Please try again.');
+      showError(toFriendlyMessage(e, 'Something went wrong while resetting password. Please try again.'));
     }
   };
 

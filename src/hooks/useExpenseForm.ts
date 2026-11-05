@@ -1,3 +1,5 @@
+import { toFriendlyMessage } from '../lib/friendlyError';
+import { saveSuccessHaptic } from '../lib/saveFeedback';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
@@ -977,6 +979,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
       const currentExpenses = useExpenseStore.getState().expenses;
       useDailyBudgetStore.getState().syncWithExpenses(currentExpenses);
 
+      saveSuccessHaptic();
       if (onSuccess) {
         await onSuccess();
       }
@@ -984,7 +987,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
       navigation.goBack();
     } catch (e: any) {
       setIsSubmitting(false);
-      Alert.alert('Error', e?.message || 'Could not save transaction. Please try again.');
+      Alert.alert('Could not save', toFriendlyMessage(e, 'Could not save transaction. Please try again.'));
     }
   };
 
@@ -1061,6 +1064,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
 
       setShowVaultGuard(false);
 
+      saveSuccessHaptic();
       if (onSuccess) {
         await onSuccess();
       }
@@ -1068,7 +1072,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
       navigation.goBack();
     } catch (e: any) {
       setIsSubmitting(false);
-      Alert.alert('Error', e?.message || 'Could not save transaction. Please try again.');
+      Alert.alert('Could not save', toFriendlyMessage(e, 'Could not save transaction. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }

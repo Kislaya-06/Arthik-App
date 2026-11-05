@@ -167,7 +167,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
                 },
                 textStyle,
               ]}
-              numberOfLines={1}
+              numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}
             >
               {label}
             </Text>

@@ -23,10 +23,13 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Insights Safe Daily Pace & Briefing Dock Polish 📊',
+    title: ota?.title || 'Clearer Text, Calmer Errors & Tactile Saves ✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
+          'Full Text, No More ...: Names, notes, titles and buttons now wrap or shrink to fit instead of being cut off',
+          'Clear Error Messages: Short, simple messages instead of technical text',
+          'Tactile Saves: A soft success buzz when you save an expense, deposit to Gullak or update your budget',
           'Safe Daily Spending Pace Precision: Today is now accurately counted as an active day in Weekly and Monthly Insights',
           'Insights Briefing Dock: Unified dual-tile financial summary for Safe Daily Pace and Auto-Saved Gullak with instant one-tap navigation to Savings',
           'History Gesture Polish: Eliminated button underlay blink during screen transitions for buttery-smooth swipe-to-delete',

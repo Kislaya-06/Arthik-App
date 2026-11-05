@@ -284,7 +284,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           {title ? (
             <Text
               style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-              numberOfLines={1}
+              numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}
             >
               {title}
             </Text>

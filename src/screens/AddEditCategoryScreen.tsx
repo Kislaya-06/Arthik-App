@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../lib/friendlyError';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Alert
@@ -114,7 +115,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
 
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Could not save category. Please try again.');
+      Alert.alert('Could not save category', toFriendlyMessage(e, 'Could not save category. Please try again.'));
     } finally {
       setIsSaving(false);
     }

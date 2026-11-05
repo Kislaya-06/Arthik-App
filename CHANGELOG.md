@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Premium Polish: Full Text, Friendly Errors, Tactile Saves (`ItemRowShell`, `AppButton`, `AppAlertModal`, `BottomSheetModal`, `StatusBadge`, `LedgerScreen`, `NotificationsScreen`, `CategoryRowItem`, `InsightsScreen`, `ProfileScreen`, `CashFlowChart`, `SplashScreen`, new `friendlyError.ts`, new `saveFeedback.ts`) — OTA-safe**:
+  - **Fix (cut-off text)**: transaction rows, ledger names, notification titles, category names, Insights category names and the Profile budget line may now use 2 lines; buttons, dialog buttons, sheet titles, badges and two chart labels shrink slightly (down to 85%) instead of showing `...`. Rows grow in height when needed. Amounts already shrink and are unchanged.
+  - **Addition (friendly errors)**: `toFriendlyMessage` turns network failures into one clear offline line and hides database / server / code text behind a short fallback. Used on save, category, split, AutoLog, profile delete, password reset and Google sign-in errors. Generic "Error" dialog titles are now specific (e.g. "Could not save"). Force update screen, sync queues and `errorReason` are untouched.
+  - **Addition (tactile saves)**: `saveSuccessHaptic` (Success haptic) fires once on a confirmed expense save, Gullak deposit and budget save, per the haptics map.
+  - **Addition (slow start)**: Splash shows "Just a moment, still loading..." only after 2.5 s and fades out with the other splash text. Startup order and the 5 s timeout are unchanged.
+  - No money logic, calculation, queue or stored format changed. Existing `useExpenseForm` assertions updated for the new dialog title. New `tests/friendlyError.test.ts`.
+
 - **Offline Safety Round: Nothing You Save Can Be Lost (`expenseStore.ts`, `pendingQueues.ts`, `syncPending.ts`, `hydrate.ts`, `selfHealing.ts`, `expenseBridge.ts`, new `queueLock.ts`, new `supabasePaging.ts`, OPT-60..OPT-65) — OTA-safe**:
   - **Write-ahead queue (OPT-60)**: online add / edit / delete now go into the offline queue BEFORE the request and leave it when the server confirms. Before, a save that was in flight when the app was killed or the phone switched off was lost. A save that waits more than 10 s stops waiting: it stays "sync pending" and is sent by the normal sync (no offline banner, no offline mode); its late answer is still used.
   - **Older queued edit can no longer undo a newer one**: an edit queued earlier and sent later used to overwrite a newer online edit on the server. Now both are merged (newest values win).

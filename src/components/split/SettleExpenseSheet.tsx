@@ -1,3 +1,4 @@
+import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
@@ -81,7 +82,7 @@ export const SettleExpenseSheet: React.FC<SettleExpenseSheetProps> = ({
       );
       onClose();
     } catch (e: any) {
-      setError(e?.message || 'Failed to record settlement. Please try again.');
+      setError(toFriendlyMessage(e, 'Failed to record settlement. Please try again.'));
     } finally {
       setBusy(false);
     }
