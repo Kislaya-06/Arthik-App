@@ -50,7 +50,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Delete transaction | Confirm dialog, immediate removal with Supabase sync |
 | Payment modes | Cash, UPI, Card |
 | Note suggestions | Autocomplete from recent notes, ranked by recency + frequency + category affinity |
-| Offline logging | Fully functional offline; syncs on reconnect |
+| Offline logging | Fully functional offline; syncs on reconnect. The splash opens from the data saved on the phone and never waits for the server (`OFL-001`); budget settings, Gullak, categories and remembered transfer notes are queued and sent by themselves |
 
 ### 4.2 Multi-Cadence Budgeting & Smart Gullak ✅ Shipped
 
@@ -217,7 +217,7 @@ The following are **explicitly out of scope** for v2.x:
 
 | Constraint | Detail |
 |---|---|
-| Offline-first | App must be fully functional without internet (ADR 0001) |
+| Offline-first | App must be fully functional without internet (ADR 0001, `OFL-001`): opens from saved data in about a second on any network, every change is saved on the phone first and synced in the background |
 | Dual-storage architecture | **Supabase Postgres** for authenticated user transactions, categories, and Gullak logs; on-device **SQLCipher encrypted SQLite** (`expo-sqlite`) for AutoLog events and review queues; **AsyncStorage** for local preferences and pending offline sync queues. |
 | No backend application server | Supabase handles auth, storage, and edge functions. No custom Express/FastAPI server. |
 | Indian number format | All amounts displayed in Indian grouping (`₹1,00,000`) via `formatCurrency` |

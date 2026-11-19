@@ -20,6 +20,7 @@ import {
 import {
   calculateSavingsMetrics,
   computeSpentByDate,
+  evaluateDayStatus,
   DailyRecord,
 } from '../../lib/budgetCalculations';
 import {
@@ -66,6 +67,31 @@ export const getUserCreatedAtStr = (): string | undefined =>
  */
 export const isDailyOwnedDate = (changes: BudgetPlanChange[] | undefined, dateStr: string): boolean =>
   !changes || changes.length === 0 ? true : getDateOwner(changes, dateStr) === 'daily';
+
+/**
+ * Today's allowance for a day that SHOULD have one but whose unfinalized record still says 0 (FIN-16, PUR-003).
+ * It happens when a scheduled Pure -> Budget Mode switch matures: the mode and auto-save flip, but the record that was
+ * written while the day was still in Pure Mode keeps budget 0 (the real money for that day was never added).
+ *
+ * Returns the healed record, or null when nothing must change. It only ever fills a ZERO budget of an unfinalized
+ * day, and only when Budget Mode, auto-save (isAutoRenew, AGENTS.md 8.1: a paused allowance stays paused) and a
+ * daily plan for today are all on. A real budget (> 0) or a finalized day is never touched.
+ */
+export const healZeroTodayAllowance = (
+  state: Pick<DailyBudgetState, 'isBudgetModeEnabled' | 'isAutoRenew' | 'dailyBudgetAmount' | 'planChanges'>,
+  record: DailyRecord | undefined,
+  todayStr: string,
+  spent: number,
+  eligibleIncome: number
+): DailyRecord | null => {
+  if (!state.isBudgetModeEnabled || !state.isAutoRenew) return null;
+  if (!(state.dailyBudgetAmount > 0)) return null;
+  if (!isDailyOwnedDate(state.planChanges, todayStr)) return null;
+  if (!record || record.isFinalized || record.budget !== 0) return null;
+  const budget = state.dailyBudgetAmount;
+  const { saved } = evaluateDayStatus(budget, spent, eligibleIncome);
+  return { ...record, budget, spent, saved, status: spent > budget ? 'missed' : 'active' };
+};
 
 /** Extra budget the first daily day gets from money carried over from a weekly / monthly plan ("add to tomorrow"). */
 export const dailyCarryExtraFor = (dateStr: string, st?: DailyBudgetState): number => {

@@ -6,7 +6,7 @@ import { useAuthStore, registerStoreResetCallback } from './authStore';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 import { getNextCategoryColor } from '../config/theme';
-import { getStoredList, setStoredList } from '../lib/asyncStorageList';
+import { getStoredList, changeStoredList, removeFromStoredList } from '../lib/asyncStorageList';
 
 /** Which side a category belongs to (CAT-004). Rows saved before income categories existed have no kind = expense. */
 export type CategoryKind = 'expense' | 'income';
@@ -27,6 +27,8 @@ interface CategoryState {
   categories: Category[];
   loading: boolean;
   isFetched: boolean;
+  /** Saved-on-the-phone categories only (no network). Returns true when a saved copy existed. */
+  loadCachedCategories: () => Promise<boolean>;
   fetchCategories: (force?: boolean) => Promise<void>;
   addCategory: (name: string, icon: string, color: string, kind?: CategoryKind) => Promise<void>;
   updateCategory: (id: string, name: string, icon: string, color: string) => Promise<void>;
@@ -60,38 +62,41 @@ const getPendingCatDeletesKey = (uid: string) => `@arthik_pending_cat_deletes_${
 type PendingCatAdd = { id: string; user_id: string; name: string; icon: string; color: string; kind?: CategoryKind };
 type PendingCatUpdate = { id: string; name: string; icon: string; color: string };
 
+// Every queue change is a locked read -> change -> write (OPT-61): writers on one key never overlap.
 const savePendingCatAdd = async (uid: string, cat: PendingCatAdd) => {
-  const key = getPendingCatAddsKey(uid);
-  const list = await getStoredList<PendingCatAdd>(key);
-  if (!list.some((c) => c.id === cat.id)) await setStoredList(key, [...list, cat]);
+  await changeStoredList<PendingCatAdd>(getPendingCatAddsKey(uid), (list) => ({
+    next: list.some((c) => c.id === cat.id) ? null : [...list, cat],
+    result: undefined,
+  }));
 };
 
 // Returns true if the category was in pending-add queue (never reached Supabase).
 const tryRemovePendingCatAdd = async (uid: string, catId: string): Promise<boolean> => {
-  const key = getPendingCatAddsKey(uid);
-  const list = await getStoredList<PendingCatAdd>(key);
-  const filtered = list.filter((c) => c.id !== catId);
-  if (filtered.length === list.length) return false;
-  await setStoredList(key, filtered);
-  return true;
+  return changeStoredList<PendingCatAdd, boolean>(getPendingCatAddsKey(uid), (list) => {
+    const filtered = list.filter((c) => c.id !== catId);
+    return filtered.length === list.length ? { next: null, result: false } : { next: filtered, result: true };
+  });
 };
 
 const savePendingCatUpdate = async (uid: string, upd: PendingCatUpdate) => {
-  const key = getPendingCatUpdatesKey(uid);
-  const list = await getStoredList<PendingCatUpdate>(key);
-  const idx = list.findIndex((u) => u.id === upd.id);
-  if (idx >= 0) list[idx] = upd; else list.push(upd);
-  await setStoredList(key, list);
+  await changeStoredList<PendingCatUpdate>(getPendingCatUpdatesKey(uid), (list) => {
+    const next = [...list];
+    const idx = next.findIndex((u) => u.id === upd.id);
+    if (idx >= 0) next[idx] = upd; else next.push(upd);
+    return { next, result: undefined };
+  });
 };
 
 const savePendingCatDelete = async (uid: string, catId: string) => {
-  const updKey = getPendingCatUpdatesKey(uid);
-  const upds = await getStoredList<PendingCatUpdate>(updKey);
-  if (upds.some((u) => u.id === catId)) await setStoredList(updKey, upds.filter((u) => u.id !== catId));
-
-  const delKey = getPendingCatDeletesKey(uid);
-  const dels = await getStoredList<string>(delKey);
-  if (!dels.includes(catId)) await setStoredList(delKey, [...dels, catId]);
+  await changeStoredList<PendingCatUpdate>(getPendingCatUpdatesKey(uid), (upds) =>
+    upds.some((u) => u.id === catId)
+      ? { next: upds.filter((u) => u.id !== catId), result: undefined }
+      : { next: null, result: undefined }
+  );
+  await changeStoredList<string>(getPendingCatDeletesKey(uid), (dels) => ({
+    next: dels.includes(catId) ? null : [...dels, catId],
+    result: undefined,
+  }));
 };
 
 // Display-only visual placeholder array shown before real categories load from Supabase.
@@ -156,6 +161,27 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     set({ categories: DEFAULT_CATEGORIES, isFetched: false, loading: false });
   },
 
+  loadCachedCategories: async () => {
+    const user = useAuthStore.getState().user;
+    if (!user) return false;
+    if (get().isFetched) return true;
+    // Load cached real categories first if offline or cold launch
+    try {
+      const cached = await AsyncStorage.getItem(`@arthik_cached_categories_${user.id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const { updated } = normalizeCategoryColors(parsed);
+          set({ categories: updated, isFetched: true });
+          return true;
+        }
+      }
+    } catch (cacheErr) {
+      if (__DEV__) console.log('Error reading cached categories:', cacheErr);
+    }
+    return false;
+  },
+
   fetchCategories: async (force = false) => {
     // Skip network call if data is already loaded and caller didn't force a refresh.
     if (get().isFetched && !force) return;
@@ -165,20 +191,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
 
     // Load cached real categories first if offline or cold launch
     const cacheKey = `@arthik_cached_categories_${user.id}`;
-    if (!get().isFetched) {
-      try {
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            const { updated } = normalizeCategoryColors(parsed);
-            set({ categories: updated, isFetched: true });
-          }
-        }
-      } catch (cacheErr) {
-        if (__DEV__) console.log('Error reading cached categories:', cacheErr);
-      }
-    }
+    await get().loadCachedCategories();
 
     // Offline fast-path: return immediately with cached categories
     if (useNetworkStore.getState().isOffline) {
@@ -299,12 +312,13 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     // If category is pending-add, just patch the pending-add queue entry
     if (previousCategory.pending) {
       const key = getPendingCatAddsKey(user.id);
-      const list = await getStoredList<PendingCatAdd>(key);
-      const idx = list.findIndex((c) => c.id === id);
-      if (idx >= 0) {
-        list[idx] = { ...list[idx], name, icon, color };
-        await setStoredList(key, list);
-      }
+      await changeStoredList<PendingCatAdd>(key, (list) => {
+        const idx = list.findIndex((c) => c.id === id);
+        if (idx < 0) return { next: null, result: undefined };
+        const next = [...list];
+        next[idx] = { ...next[idx], name, icon, color };
+        return { next, result: undefined };
+      });
       return;
     }
 
@@ -436,7 +450,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
         } catch {}
       }
       if (synced.length) {
-        await setStoredList(addsKey, adds.filter((c) => !synced.includes(c.id)));
+        await removeFromStoredList<PendingCatAdd>(addsKey, (c) => synced.includes(c.id));
         set((s) => ({ categories: s.categories.map((c) => (synced.includes(c.id) ? { ...c, pending: false } : c)) }));
       }
     }
@@ -452,7 +466,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
           if (!error) synced.push(u.id);
         } catch {}
       }
-      if (synced.length) await setStoredList(updsKey, upds.filter((u) => !synced.includes(u.id)));
+      if (synced.length) await removeFromStoredList<PendingCatUpdate>(updsKey, (u) => synced.includes(u.id));
     }
 
     // 3. Sync pending deletes
@@ -466,7 +480,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
           if (!error) synced.push(id);
         } catch {}
       }
-      if (synced.length) await setStoredList(delsKey, dels.filter((id) => !synced.includes(id)));
+      if (synced.length) await removeFromStoredList<string>(delsKey, (id) => synced.includes(id));
     }
 
     // Refresh categories from server to get authoritative state

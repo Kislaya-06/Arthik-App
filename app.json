@@ -65,6 +65,10 @@
         "version": "2.1.0",
         "title": "Clearer Text, Calmer Errors & Tactile Saves ✨",
         "highlights": [
+          "Opens Fast, Even Offline: The app now opens from the data saved on your phone, so it starts quickly on any network and keeps working without internet. Everything syncs by itself in the background",
+          "Budget Mode Starts Properly: When you switch Smart Budget & Gullak back on, your daily budget now starts right away on the first day with auto-save on, instead of showing ₹0",
+          "Nothing Lost Offline: Budget changes, Gullak deposits and categories you save offline now always reach the server, even if you change something else while syncing",
+          "Self-Transfers Offline: Remembered transfer notes now work without internet, so your own transfers are never counted as spending or income",
           "Full Text, No More ...: Names, notes, titles and buttons now wrap or shrink to fit instead of being cut off, so you can read everything on smaller screens and larger fonts",
           "Clear Error Messages: If something fails, you now see a short, simple message instead of technical text",
           "Tactile Saves: A soft success buzz when you save an expense, deposit to Gullak or update your budget",

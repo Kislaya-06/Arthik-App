@@ -138,12 +138,12 @@ A row (`transaction_class = 'recovery'`) for money that came back for expenses a
 
 **Pure Deficit Auto-Balance**:
 The automatic real-income balancing transaction created when a user switches from Pure Mode to Budget Mode while in deficit (`R = computeTotalAccountRemaining(st, expenses) < 0`, canonical rule `PUR-001`). Creates exactly one income row for $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated to the earliest expense causing Gullak draw $\ge D$. Excluded from the Home budget chip `periodIncome` but fully counted in all-time inflows and the money waterfall.
-- *Code location*: `src/store/dailyBudget/planActions.ts` (`balancePureDeficitIfNeeded`), `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`), `src/lib/homeCalculations.ts` (`calculatePeriodSummary`)
+- *Code location*: `src/store/dailyBudget/planActions.ts` (`balancePureDeficitIfNeeded`, `balancePureDeficit`), `src/store/dailyBudget/deficitCheck.ts` (cold-start marker: runs once, only on server-fresh expenses, before the new day's allowance), `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`), `src/lib/homeCalculations.ts` (`calculatePeriodSummary`)
 - *_Avoid_*: Fake Income, Deficit Penalty, Balance Reset
 
 **Scheduled Mode Transition & Same-Day Reversal Protection (`PUR-003`)**:
 Mode transitions (Pure Mode ↔ Budget Mode) take effect next day at 12:00 AM (`effectiveFrom = tomorrow`), protecting running-day budget and midnight Gullak savings. If toggled back on the same day, the pending switch is cancelled, scheduled notifications removed, and the active mode continues seamlessly with zero glitches. Overspending past weekly/monthly allowances draws from unspent income and Gullak reserves; Digital Vault Guard only blocks if total account liquidity ($R \le 0$) is exhausted.
-- *Code location*: `src/store/dailyBudget/planActions.ts` (`handleSetBudgetModeEnabled`, `handleCancelPendingPlanChange`), `src/store/dailyBudget/rollover.ts` (`applyScheduledPlanChanges`), `src/lib/vaultSpendingGuard.ts`
+- *Code location*: `src/store/dailyBudget/planActions.ts` (`handleSetBudgetModeEnabled`, `handleCancelPendingPlanChange`), `src/store/dailyBudget/rollover.ts` (`applyScheduledPlanChanges`), `src/store/dailyBudget/hydrate.ts` (cold-start activation + `persistActivatedPlanSettings`), `src/lib/budgetModeUtils.ts` (`resolveAutoRenewForPlan`: Pure → Budget turns auto-save ON, Budget → Pure turns it OFF, already-on keeps the user choice), `src/lib/vaultSpendingGuard.ts`
 - *_Avoid_*: Immediate Mode Wipe, Mid-day Gullak Dump, Contradictory Notifications
 
 ---
@@ -404,6 +404,11 @@ The standardized interactive button component encapsulating primary, secondary, 
 ---
 
 ### 10. Automatic Logging (AutoLog)
+
+**Offline-First Start-Up (`OFL-001`)**:
+The splash screen opens from the data saved ON THE PHONE (session, saved profile, saved expenses and categories, budget state, app lock) and never waits for the server; categories, expenses and budget are refreshed in the background, and a sync sends every queued change when internet is back. Only a phone with no saved expenses yet (first run) waits for the first download, at most 5 seconds. "Connected but internet test not finished" counts as online, never as offline.
+- *Code location*: `src/lib/startupLoad.ts` (`runLocalFirstStartup`), `src/screens/SplashScreen.tsx`, `src/store/authStore.ts` (`setSession`), `src/store/networkStore.ts` (`checkConnectivity`), `src/store/dailyBudget/pendingStorage.ts`, `src/lib/asyncStorageList.ts`
+- *_Avoid_*: Loading splash, Wait for server, Blocking refresh
 
 **Pending Review**:
 Incoming financial events extracted from Bank SMS or Bank Transaction Emails that require explicit human confirmation (e.g. unknown merchant, ambiguous lookalike, new untracked account, or exceeding liquidity under Vault Spending Guard). Events wait in `Pending Review` until confirmed or dismissed.

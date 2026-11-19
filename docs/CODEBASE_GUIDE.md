@@ -127,6 +127,18 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
 ### Samasya 19: "Toggles (on/off) ka animation premium nahi tha, aur colour JS thread par chal raha tha" (FIN-15)
 - **Hal (`AnimatedToggle.tsx`, `toggleMotion.ts`)**: App ke saare on/off ek hi component `AnimatedToggle` se bante hain, isliye ek jagah badalne se sab (Profile ke 4, Budget Hub, Split, Self-transfer, AutoLog accounts) badal gaye. Press par thumb sirf subtle cushion (0.25 stretch factor) leta hai taaki pehle alag se na khinche; jaise hi switch hota hai, slide spring (`SLIDE_SPRING` 720 stiffness, 44 damping) tez aur snappy glide karti hai. Slide ke beech mein thumb lamba hota hai (aage ka edge aage, peeche ka edge peeche), aur landing par ~1px squash ke baad rest. Thumb kabhi track se bahar nahi jaata (slide spring clamped hai). Colour change opacity wali do layers se hota hai (200ms), `interpolateColor` se nahi (FIN-13 wali Android paint problem na aaye). Har change par haptic tick, aur OS ka reduce-motion maane to bina animation seedha change. Resting look (size, padding, travel) bilkul purana hai.
 
+### Samasya 20: "Budget Mode ON dikhta hai par daily budget (jaise ₹100) apply nahi hota" (FIN-16, Rules `PUR-003`, `PUR-001`)
+- **Hal (`hydrate.ts`, `rollover.ts`, `dailyBudgetStore.ts`, `metrics.ts`, `budgetModeUtils.ts`, `deficitCheck.ts`, AGENTS.md 8.1):** Pure Mode se Budget Mode "kal se" schedule hota hai. Do alag gap the. (a) App raat bhar band ho: cold start par hydration pehle chalta tha, mode Budget kar deta tha par auto-save (`isAutoRenew`) purani value (OFF) par chhod deta tha, aur rollover ko "mode already switch" dikhta tha. (b) App midnight par khuli ho: auto-save ON ho jaata tha par aaj ka record (jo Pure Mode mein ₹0 bana tha) ₹0 hi rehta tha. Ab ek helper `resolveAutoRenewForPlan` dono jagah auto-save decide karta hai (Pure → Budget: ON, Budget → Pure: OFF, pehle se Budget Mode: user ka choice, paused rehta hai), hydration naya mode profile mein save karta hai, aur `healZeroTodayAllowance` aaj ke zero budget ko daily amount deta hai (sirf jab Budget Mode, auto-save aur daily plan teeno ON hon; asli budget ya finalized din ko kabhi nahi chhuta). Cold start par PUR-001 deficit check bhi ek baar chalta hai, sirf server-fresh expenses par aur naye din ke allowance se pehle (`deficitCheck.ts`).
+
+### Samasya 21: "App band tha, splash bahut der tak dikhta tha (slow lagta tha)" (OPT-71, Rule `OFL-001`)
+- **Hal (`startupLoad.ts`, `SplashScreen.tsx`, `authStore.ts`, `networkStore.ts`):** Pehle splash internet ka intezaar karta tha: connectivity check, profile request, categories, poora expense download aur budget hydration (5 second tak). Ab `runLocalFirstStartup` phone mein saved data (queue, categories, expenses, app lock) load hote hi app khol deta hai; server se refresh background mein chalta hai. Saved profile ho to `setSession` turant khatam hota hai. Pehli baar (koi saved expense nahi) par hi splash zyada se zyada 5 second ruk sakta hai. "Connected par internet test baaki" ab offline nahi, online maana jaata hai (`checkConnectivity`).
+
+### Samasya 22: "Offline kiya hua change server tak nahi pahunchta ya queue se gayab ho jaata hai" (OPT-72, Rule `OFL-001`)
+- **Hal (`pendingStorage.ts`, `asyncStorageList.ts`, `syncPending.ts`, `categoryStore.ts`):** (1) Settings, plan change, period, Gullak aur category queues bina lock ke badli jaati thi, do saves ek saath hon to ek kho jaata tha. (2) Sync network call se pehle queue padhta tha aur baad mein purani list wapas likhta tha, to sync ke dauran add hua deposit/category mit jaata tha. (3) Sirf weekly/monthly amount ya cadence wala settings patch kabhi server par nahi jaata tha. Ab har queue change `runExclusive` ke andar hai, flush sirf confirmed items hatata hai, aur har queued setting bheji jaati hai.
+
+### Samasya 23: "Offline mein self-transfer pehchana nahi jaata" (OPT-73, Rules `TXN-003`, `OFL-001`)
+- **Hal (`transferRulesStore.ts`):** Remembered notes ki list ab phone mein save hoti hai, to offline bhi transfer pehchana jaata hai. Offline "Always remember" ka rule turant local save hota hai, queue mein jaata hai, aur expense queue se **pehle** server ko bheja jaata hai (foreign key).
+
 ---
 
 ## 3. App ki layers (kaun kisse baat karta hai)
@@ -296,7 +308,8 @@ Is store ko chhote modules mein toda gaya hai (ADR 0013):
 | `rollover.ts` | Din/period ka finalize: `finalizeDailyRecords`, `finalizePeriods`, `groupSpentByDate` |
 | `hydrate.ts` | Supabase se data laana (`runHydrateFromSupabase`) aur offline start |
 | `selfHealing.ts` | Purani galat rows ko theek karna (₹500 default, galat daily rows) |
-| `pendingStorage.ts` | Offline queue ke AsyncStorage keys (settings, plan changes, periods, gullak adds/deletes) |
+| `pendingStorage.ts` | Offline queue ke AsyncStorage keys (settings, plan changes, periods, gullak adds/deletes). Har change `runExclusive` lock ke andar; flush sirf confirmed items hatata hai (`removeSyncedFromQueue`, `clearSentPendingSettings`) (OPT-72) |
+| `deficitCheck.ts` | Cold start par Pure → Budget switch ke baad PUR-001 deficit check ka marker. Server-fresh expenses milne par ek baar chalta hai (FIN-16) |
 | `expenseBridge.ts` | Expense store tak pahunchne ka "bridge" (`getCurrentExpenses`, `addExpenseFromBridge`) |
 | `classifiers.ts` | Category/income classifier banane ke helpers |
 | `legacyStatus.ts` | Purane `'exceeded'` status ko `'missed'` banata hai |

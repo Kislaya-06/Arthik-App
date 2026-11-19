@@ -34,7 +34,7 @@ import {
   getPendingBudgetPeriodsKey,
   getLastRenewedPeriodKey,
   getStoredList,
-  setStoredList,
+  removeSyncedFromQueue,
 } from './pendingStorage';
 import { getCurrentExpenses, addExpenseFromBridge } from './expenseBridge';
 import {
@@ -269,8 +269,30 @@ export function handleCancelScheduledNextDailyBudget(
 
 export function balancePureDeficitIfNeeded(get: () => DailyBudgetState, todayStr: string): void {
   if (get().isBudgetModeEnabled) return;
+  balancePureDeficit(get, todayStr);
+}
+
+/**
+ * PUR-001 deficit auto-balance without the "mode is still off" guard. `excludeTodayAllowance` measures the deficit the
+ * way the switch does when the app is open (before the new day's allowance exists): today's record counts as 0.
+ */
+export function balancePureDeficit(
+  get: () => DailyBudgetState,
+  todayStr: string,
+  options?: { excludeTodayAllowance?: boolean }
+): void {
   const currentExpenses = getCurrentExpenses();
-  const R = computeTotalAccountRemaining(get(), currentExpenses);
+  let calcState = get();
+  if (options?.excludeTodayAllowance && calcState.dailyRecords?.[todayStr]) {
+    calcState = {
+      ...calcState,
+      dailyRecords: {
+        ...calcState.dailyRecords,
+        [todayStr]: { ...calcState.dailyRecords[todayStr], budget: 0, saved: 0, status: 'unknown' },
+      },
+    };
+  }
+  const R = computeTotalAccountRemaining(calcState, currentExpenses);
   if (R >= 0) return;
   const D = round2(-R);
   if (D <= 0) return;
@@ -280,7 +302,7 @@ export function balancePureDeficitIfNeeded(get: () => DailyBudgetState, todayStr
     .filter((e) => isCountedExpense(e, e.category_id ? catMap.get(e.category_id) : undefined))
     .sort((a, b) => (b.expense_date || '').localeCompare(a.expense_date || '') || (b.created_at || '').localeCompare(a.created_at || ''));
 
-  const waterfall = runWaterfall();
+  const waterfall = options?.excludeTodayAllowance ? runWaterfall({ records: calcState.dailyRecords }) : runWaterfall();
   let runningSum = 0;
   let dateStr = todayStr;
   for (const e of countedExpenses) {
@@ -853,10 +875,8 @@ export function handleCancelPendingPlanChange(
   const currentUser = useAuthStore.getState().user;
   if (currentUser) {
     const key = getPendingPlanChangesKey(currentUser.id);
-    getStoredList<BudgetPlanChange>(key).then((list) => {
-      const updated = list.filter((c) => c.effectiveFrom <= todayStr);
-      setStoredList(key, updated);
-    });
+    // Locked read -> change -> write (a plan change queued at the same moment is never wiped).
+    removeSyncedFromQueue<BudgetPlanChange>(key, (c) => c.effectiveFrom > todayStr).catch(() => {});
 
     supabase
       .from('budget_plan_changes')
@@ -903,7 +923,7 @@ export async function uploadPendingBudgetPeriods(
     } catch {}
   }
   if (syncedIds.length > 0) {
-    await setStoredList(key, list.filter((p) => !syncedIds.includes(p.id)));
+    await removeSyncedFromQueue<BudgetPeriodRecord>(key, (p) => syncedIds.includes(p.id));
   }
 }
 
@@ -937,7 +957,7 @@ export async function syncPendingPlanChanges(
     } catch {}
   }
   if (syncedIds.length > 0) {
-    await setStoredList(key, list.filter((c) => !syncedIds.includes(c.id)));
+    await removeSyncedFromQueue<BudgetPlanChange>(key, (c) => syncedIds.includes(c.id));
   }
 }
 

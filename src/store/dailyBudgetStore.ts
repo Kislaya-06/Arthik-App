@@ -11,7 +11,9 @@ import {
   areExpensesLoaded,
   registerAddExpense,
   addExpenseFromBridge,
+  areExpensesFreshFromServer,
 } from './dailyBudget/expenseBridge';
+import { hasDeficitCheckPending, clearDeficitCheckPending } from './dailyBudget/deficitCheck';
 export {
   registerExpenseGetter,
   getCurrentExpenses,
@@ -27,6 +29,7 @@ import {
   getUserCreatedAtStr,
   isDailyOwnedDate,
   dailyCarryExtraFor,
+  healZeroTodayAllowance,
   runWaterfall,
   computeAllTimeBudget,
   computeMetrics,
@@ -144,6 +147,7 @@ import {
   savePendingGullakAdd,
   tryRemovePendingGullakAdd,
   savePendingGullakDelete,
+  removeSyncedFromQueue,
 } from './dailyBudget/pendingStorage';
 export {
   getPendingSettingsKey,
@@ -230,6 +234,7 @@ import {
   uploadPendingBudgetPeriods,
   syncPendingPlanChanges,
   handleSetLastRenewedPeriodKey,
+  balancePureDeficit,
 } from './dailyBudget/planActions';
 export {
   handleSetDailyBudget,
@@ -247,6 +252,8 @@ export {
   syncPendingPlanChanges,
   handleSetLastRenewedPeriodKey,
 };
+
+let hydrationInFlight: { userId: string; promise: Promise<void> } | null = null;
 
 export const useDailyBudgetStore = create<DailyBudgetState>()(
   persist(
@@ -565,6 +572,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         let hasTodayChanged = false;
 
         const isBudgetOn = get().isBudgetModeEnabled;
+        const healedToday = healZeroTodayAllowance(get(), todayRecord, todayStr, todaySpent, todayEligibleIncome);
 
         if (!todayRecord) {
           const budget = isBudgetOn && get().isAutoRenew && get().dailyBudgetAmount > 0 && isDailyOwnedDate(get().planChanges, todayStr) ? get().dailyBudgetAmount + dailyCarryExtraFor(todayStr) : 0;
@@ -593,6 +601,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         } else if (todayRecord.budget > 0 && !todayRecord.isFinalized && !isDailyOwnedDate(get().planChanges, todayStr)) {
           // A weekly / monthly plan (or Pure Mode) owns today: no daily budget on this day.
           todayRecord = { ...todayRecord, budget: 0, spent: todaySpent, saved: 0, status: 'unknown' };
+          hasTodayChanged = true;
+        } else if (healedToday) {
+          // FIN-16: Budget Mode + auto-save + a daily plan are on, but today's unfinalized record still says 0
+          // (it was written while the day was in Pure Mode). Give the day its allowance. A paused allowance
+          // (auto-save OFF) never gets here.
+          todayRecord = healedToday;
           hasTodayChanged = true;
         } else {
           const { saved: newSaved } = evaluateDayStatus(todayRecord.budget, todaySpent, todayEligibleIncome);
@@ -730,17 +744,45 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
         }
 
         const todayStr = getTodayDateStr();
+
+        // PUR-001 on a cold start: the deficit check left by the start-up hydration runs ONCE, as soon as the expense
+        // list comes from the server. The marker is cleared first, so it can never run twice. It runs before the
+        // records are copied below, because adding the income re-enters this function.
+        if (hasDeficitCheckPending(currentUser.id) && areExpensesFreshFromServer()) {
+          void clearDeficitCheckPending(currentUser.id);
+          if (get().isBudgetModeEnabled) {
+            balancePureDeficit(get, todayStr, { excludeTodayAllowance: true });
+          }
+        }
+
         const records = { ...get().dailyRecords };
         let updated = false;
 
         applyScheduledNextDayBudget(get, set, todayStr);
-        if (applyScheduledPlanChanges(get, set, todayStr)) {
+        const planApplied = applyScheduledPlanChanges(get, set, todayStr);
+        if (planApplied) {
           updated = true;
         }
 
         const isIncomeFn = buildCategoryClassifier();
         const isEligibleIncomeFn = buildEligibleIncomeClassifier();
         const resolvedExpenses = Array.isArray(expenses) ? expenses : getCurrentExpenses();
+
+        // FIN-16: a scheduled switch to Budget Mode just matured. Today's record (written while the day was still in
+        // Pure Mode) has budget 0, so give it the allowance here, on this pass's copy of the records, or the write at
+        // the end of this function would put the zero back.
+        if (planApplied) {
+          const healed = healZeroTodayAllowance(
+            get(),
+            records[todayStr],
+            todayStr,
+            computeSpentForDate(resolvedExpenses, todayStr, isIncomeFn),
+            computeIncomeForDate(resolvedExpenses, todayStr, isEligibleIncomeFn)
+          );
+          if (healed) {
+            records[todayStr] = healed;
+          }
+        }
 
         const { spentByDate, incomeByDate } = groupSpentByDate(
           resolvedExpenses,
@@ -885,7 +927,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               if (!error) synced.push(d.id);
             } catch {}
           }
-          if (synced.length) await setStoredList(addsKey, adds.filter((d) => !synced.includes(d.id)));
+          if (synced.length) await removeSyncedFromQueue<GullakDeposit>(addsKey, (d) => synced.includes(d.id));
         }
 
         // 2. Flush pending deletes
@@ -899,21 +941,31 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
               if (!error) synced.push(id);
             } catch {}
           }
-          if (synced.length) await setStoredList(delsKey, dels.filter((id) => !synced.includes(id)));
+          if (synced.length) await removeSyncedFromQueue<string>(delsKey, (id) => synced.includes(id));
         }
       },
 
-      hydrateFromSupabase: async (userId: string) => {
-        const dismissed = await getStoredDismissedGapDates(userId);
-        if (dismissed && dismissed.length) {
-          set({ dismissedGapDates: dismissed });
-        }
-        await runHydrateFromSupabase({
-          get,
-          set,
-          userId,
-          store: useDailyBudgetStore,
+      // One hydration per user at a time: the splash screen, the Home screen and the sign-in listener can all ask for
+      // it within the same second. Later callers share the run that is already going (no duplicate server requests,
+      // no two runs writing the same state).
+      hydrateFromSupabase: (userId: string) => {
+        if (hydrationInFlight?.userId === userId) return hydrationInFlight.promise;
+        const promise = (async () => {
+          const dismissed = await getStoredDismissedGapDates(userId);
+          if (dismissed && dismissed.length) {
+            set({ dismissedGapDates: dismissed });
+          }
+          await runHydrateFromSupabase({
+            get,
+            set,
+            userId,
+            store: useDailyBudgetStore,
+          });
+        })().finally(() => {
+          if (hydrationInFlight?.promise === promise) hydrationInFlight = null;
         });
+        hydrationInFlight = { userId, promise };
+        return promise;
       },
 
       resetDailyBudget: () => {

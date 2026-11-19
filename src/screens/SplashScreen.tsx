@@ -27,6 +27,7 @@ import { useSplashCoverStore } from '../store/splashCoverStore';
 import { Spacing, FontFamily, FontSize } from '../config/theme';
 import { supabase } from '../config/supabase';
 import { perfMark } from '../lib/perfMarks';
+import { runLocalFirstStartup } from '../lib/startupLoad';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 type Target = keyof RootStackParamList;
@@ -309,7 +310,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Startup work: connectivity → session → offline restore → hydration (logic unchanged) ──
+  // ── Startup work (offline-first): session → offline restore → saved data; server refresh in the background ──
   useEffect(() => {
     const initAuthAndNavigate = async () => {
       let target: Target = 'Onboarding';
@@ -326,9 +327,10 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           ),
         ]).catch((e) => ({ data: { session: null }, error: e as Error, thrown: true as const }));
 
-        await connectivity; // connectivity result applied first, exactly as before
+        // Offline-first: the splash never waits for the connectivity check. The session is read from the phone; the
+        // connectivity result is applied whenever it arrives and the server refresh below waits for it.
         let activeUser: User | null = null;
-        const res = await sessionRace; // then the session result
+        const res = await sessionRace;
         if ('thrown' in res) {
           useNetworkStore.getState().setOffline(true);
         } else if (res.data?.session) {
@@ -345,20 +347,25 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           if (restoredUser) activeUser = restoredUser;
         }
 
-        // 4. Startup hydration for an authenticated user (aggregate 5s cap; cache-first loads fill the stores)
+        // 4. Offline-first start-up for an authenticated user (see src/lib/startupLoad.ts): open as soon as the data
+        // saved on the phone is loaded; the server refresh runs in the background and never holds the splash.
         if (activeUser) {
           const user = activeUser;
-          const hydrationChain = async () => {
-            await useExpenseStore.getState().loadPendingExpenses();
-            await fetchCategories();
-            await Promise.all([
-              fetchExpenses(),
-              useDailyBudgetStore.getState().hydrateFromSupabase(user.id),
-              useAppLockStore.getState().init(user.id),
-            ]);
-          };
           try {
-            await Promise.race([hydrationChain(), new Promise<void>((resolve) => setTimeout(resolve, 5000))]);
+            await runLocalFirstStartup({
+              loadLocalData: async () => {
+                await useExpenseStore.getState().loadPendingExpenses();
+                await useCategoryStore.getState().loadCachedCategories();
+                const hasCachedExpenses = await useExpenseStore.getState().loadCachedExpenses();
+                await useAppLockStore.getState().init(user.id);
+                return { hasCachedExpenses };
+              },
+              refreshFromServer: async () => {
+                await connectivity; // know whether we are online before choosing the network path
+                await fetchCategories(true);
+                await Promise.all([fetchExpenses(), useDailyBudgetStore.getState().hydrateFromSupabase(user.id)]);
+              },
+            });
           } catch (hydrationErr) {
             if (__DEV__) console.error('Startup hydration error:', hydrationErr);
           }

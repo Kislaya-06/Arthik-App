@@ -7,6 +7,7 @@ import {
   notifyBudgetUpdated,
 } from '../../lib/budgetAlerts';
 import { resolveRolloverBudget } from '../../lib/budgetUtils';
+import { resolveAutoRenewForPlan } from '../../lib/budgetModeUtils';
 import {
   buildPeriodsToFinalize,
   isDailyGovernedDate,
@@ -109,9 +110,11 @@ export function applyScheduledPlanChanges(
             : { monthlyBudgetAmount: activePlanForToday.amount }
           : {};
 
-      const autoRenew = activePlanForToday.isEnabled
-        ? (get().isBudgetModeEnabled ? get().isAutoRenew : true)
-        : false;
+      const autoRenew = resolveAutoRenewForPlan(
+        activePlanForToday.isEnabled,
+        get().isBudgetModeEnabled,
+        get().isAutoRenew
+      );
 
       set({
         isBudgetModeEnabled: activePlanForToday.isEnabled,

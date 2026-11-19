@@ -110,6 +110,8 @@ export interface ExpenseState {
   transactionType: 'expense' | 'income';
   failedSyncItems: FailedSyncItem[];
   setTransactionType: (type: 'expense' | 'income') => void;
+  /** Saved-on-the-phone expenses only (no network). Returns true when a saved copy existed. */
+  loadCachedExpenses: () => Promise<boolean>;
   fetchExpenses: () => Promise<void>;
   loadPendingExpenses: () => Promise<void>;
   loadFailedSyncItems: () => Promise<void>;

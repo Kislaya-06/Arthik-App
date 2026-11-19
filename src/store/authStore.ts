@@ -88,35 +88,51 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    try {
-      const profilePromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+    const refreshProfile = async () => {
+      try {
+        const profilePromise = supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-      const { data, error } = await withTimeout(
-        profilePromise,
-        3000,
-        { data: null, error: new Error('Profile fetch timeout') }
-      );
+        const { data, error } = await withTimeout(
+          profilePromise,
+          3000,
+          { data: null, error: new Error('Profile fetch timeout') }
+        );
 
-      if (error) {
-        if (!cachedProfile && !get().profile) {
-          // Profile might not exist yet (first sign up setup)
-          set({ profile: null });
+        // The user may have signed out (or another account signed in) while the request was in flight.
+        if (get().user?.id !== user.id) return;
+
+        if (error) {
+          if (!cachedProfile && !get().profile) {
+            // Profile might not exist yet (first sign up setup)
+            set({ profile: null });
+          }
+        } else if (data) {
+          set({ profile: data });
+          try {
+            await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+          } catch (_) {}
         }
-      } else if (data) {
-        set({ profile: data });
-        try {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
-        } catch (_) {}
+      } catch (e) {
+        if (__DEV__) console.error('Error fetching profile:', e);
+      } finally {
+        if (get().user?.id === user.id) set({ loading: false, initialized: true });
       }
-    } catch (e) {
-      if (__DEV__) console.error('Error fetching profile:', e);
-    } finally {
+    };
+
+    // Offline-first: a profile already saved on this phone is enough to start. The app opens at once and the
+    // profile is refreshed quietly in the background (slow network never holds the splash screen).
+    if (cachedProfile) {
       set({ loading: false, initialized: true });
+      void refreshProfile();
+      return;
     }
+
+    // No saved profile yet (first sign-in on this phone): wait for it, there is nothing to show before it.
+    await refreshProfile();
   },
 
   restoreOfflineSession: async () => {
