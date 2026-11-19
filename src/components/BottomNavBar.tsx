@@ -146,6 +146,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
 
   return (
     <ReanimatedPressable
+      accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={label}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -223,6 +224,7 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
 
   return (
     <Pressable
+      accessibilityRole="button" accessibilityLabel="Add transaction"
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -275,6 +277,7 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
 
   return (
     <Pressable
+      accessibilityRole="button" accessibilityLabel="Add transaction"
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}

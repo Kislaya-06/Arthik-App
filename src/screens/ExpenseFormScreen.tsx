@@ -422,6 +422,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* ── Header ── */}
       <View style={[styles.header, { marginTop: insets.top + 16 }]}>
         <Pressable
+          accessibilityRole="button" accessibilityLabel="Go back"
           style={styles.backButton}
           disabled={isSubmitting || isMorphing}
           onPress={() => {
@@ -936,6 +937,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             ]}
           >
             <Pressable
+              accessibilityRole="button" accessibilityLabel="Save transaction" accessibilityState={{ disabled: isSubmitting || isMorphing, busy: isSubmitting }}
               disabled={isSubmitting || isMorphing}
               onPress={onSavePress}
               style={({ pressed }) => [

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import type { TextInput } from 'react-native';
 import {
   View,
   Text,
@@ -15,7 +16,6 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import ArrowRight from 'lucide-react-native/icons/arrow-right';
-import Camera from 'lucide-react-native/icons/camera';
 import User from 'lucide-react-native/icons/user';
 import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +45,7 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disable
   const scaleAnim = useAnimatedValue(1);
   return (
     <Pressable
+      accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
       onPress={onPress}
       disabled={disabled}
       onPressIn={() =>
@@ -73,11 +74,9 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
   const [firstNameError, setFirstNameError] = useState(false);
   const [nameLimitError, setNameLimitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Enter on the first name moves to the last name.
+  const lastNameInputRef = useRef<TextInput>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  const handleAvatarPress = () => {
-    if (__DEV__) console.log('Avatar picker pressed');
-  };
 
   const totalNameLen = calculateNameLength(firstName, lastName);
 
@@ -146,7 +145,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           {/* Back arrow */}
-          <Pressable style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
             <ArrowLeft size={26} color={colors.textPrimary} />
           </Pressable>
 
@@ -163,26 +162,18 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Avatar */}
           <View style={styles.avatarSection}>
-            <Pressable onPress={handleAvatarPress} style={styles.avatarWrapper}>
+            {/* Placeholder only: Arthik has no profile photo upload, so nothing here is tappable. */}
+            <View style={styles.avatarWrapper} accessible={false} importantForAccessibility="no-hide-descendants">
               <View style={[
                 styles.avatarOuter, 
                 { 
                   backgroundColor: colors.cardSubtle,
-                  borderColor: isDark ? colors.card : '#FFFFFF'
+                  borderColor: isDark ? colors.card : colors.white
                 }
               ]}>
                 <User size={48} color={colors.textTertiary} />
               </View>
-              <View style={[
-                styles.cameraBadge, 
-                { 
-                  backgroundColor: colors.mint,
-                  borderColor: isDark ? colors.card : '#FFFFFF'
-                }
-              ]}>
-                <Camera size={16} color={colors.forestGreen} />
-              </View>
-            </Pressable>
+            </View>
           </View>
 
           {/* Heading */}
@@ -199,7 +190,11 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
             onFocus={() => setFocusedField('firstName')}
             onBlur={() => setFocusedField(null)}
             autoCapitalize="words"
+            autoComplete="given-name"
+            textContentType="givenName"
             returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => lastNameInputRef.current?.focus()}
             errorText={firstNameError ? 'First name is required' : null}
             rightLabel={
               <Text
@@ -226,6 +221,9 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
             onFocus={() => setFocusedField('lastName')}
             onBlur={() => setFocusedField(null)}
             autoCapitalize="words"
+            autoComplete="family-name"
+            textContentType="familyName"
+            inputRef={lastNameInputRef}
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
             errorText={nameLimitError}
@@ -333,19 +331,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
-  },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#B8E0C8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
 
   // Heading

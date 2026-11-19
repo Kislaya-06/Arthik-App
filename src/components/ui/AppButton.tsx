@@ -95,14 +95,14 @@ export const AppButton: React.FC<AppButtonProps> = ({
 
   // Variant-specific surface & border styling
   let backgroundColor: string = colors.mintGreen;
-  let textColor: string = '#1A2B4C';
+  let textColor: string = colors.forestGreen;
   let borderWidth: number = 0;
   let borderColor: string = 'transparent';
 
   switch (variant) {
     case 'primary':
       backgroundColor = colors.mintGreen;
-      textColor = '#1A2B4C';
+      textColor = colors.forestGreen;
       break;
     case 'secondary':
       backgroundColor = colors.cardSubtle;
@@ -118,7 +118,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
       break;
     case 'danger':
       backgroundColor = colors.danger;
-      textColor = '#FFFFFF';
+      textColor = colors.white;
       break;
     case 'ghost':
       backgroundColor = 'transparent';

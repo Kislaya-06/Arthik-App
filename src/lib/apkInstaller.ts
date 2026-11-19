@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { isTrustedReleaseUrl } from './versionCheck';
 
 /**
  * In-app APK update (Android, v2.0+).
@@ -31,6 +32,10 @@ export async function downloadApk(
   version: string,
   onEvent: (e: InstallerEvent) => void
 ): Promise<string> {
+  // SEC-03: second gate (the screen already filters the link): never download from outside Arthik's repository.
+  if (!isTrustedReleaseUrl(url)) {
+    throw new Error('This update link is not from Arthik. Please update from the official release page.');
+  }
   const FileSystem = legacyFs();
   const safe = (version || 'latest').replace(/[^0-9a-zA-Z.]/g, '');
   const target = `${FileSystem.cacheDirectory}arthik-update-${safe}.apk`;

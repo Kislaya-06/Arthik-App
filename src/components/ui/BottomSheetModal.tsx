@@ -358,7 +358,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
         },
       ]}
     >
-      <PressableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+      <PressableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} accessible={false} importantForAccessibility="no" />
     </Animated.View>
   );
 

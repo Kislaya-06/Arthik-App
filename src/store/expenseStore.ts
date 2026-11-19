@@ -70,6 +70,7 @@ import { sameExpenseList } from '../lib/expenseListEquality';
 import { isExpenseCacheUnchanged, rememberExpenseCache, forgetExpenseCache } from '../lib/expenseCacheMemo';
 import { withRecoveries } from './expense/recoveryMiddleware';
 import { deleteBlockReason } from '../lib/splitLedger';
+import { probeExpensesVersion, canReuseExpenseList } from './expense/versionProbe';
 
 import NetInfo from '@react-native-community/netinfo';
 import {
@@ -87,6 +88,14 @@ let activeFetchSeq = 0;
  * Reset on sign-out. Read by hydration through `areExpensesFreshFromServer()`.
  */
 let expensesFreshFromServer = false;
+
+/**
+ * OPT-69: the server's expense change counter, read just BEFORE the last successful download of this session.
+ * While the server still reports the same counter, nothing changed there and the list in memory is reused.
+ * `null` = not known (first download of the session, counter not available, or the last download failed).
+ * Reset on sign-out.
+ */
+let lastDownloadVersion: { userId: string; version: number } | null = null;
 
 /**
  * OPT-60/62: how long a save (add / edit / delete) waits for the server before it stops waiting.
@@ -154,6 +163,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
   resetExpenses: () => {
     activeFetchSeq++;
     expensesFreshFromServer = false;
+    lastDownloadVersion = null;
     inFlightAdds.clear();
     forgetExpenseCache();
     set({ expenses: [], loading: false, isExpensesLoaded: false, transactionType: 'expense', failedSyncItems: [] });
@@ -328,6 +338,21 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
 
       if (fetchSeq !== activeFetchSeq) return;
 
+      // OPT-69: after the first download of a session, ask the server whether any expense changed since then.
+      // Read BEFORE the download, so a change that lands in between can only cause one extra download, never a
+      // missed row. The first download of a session does not ask (app start sends the same requests as before).
+      let probedVersion: number | null = null;
+      if (expensesFreshFromServer) {
+        probedVersion = await probeExpensesVersion(user.id);
+        if (fetchSeq !== activeFetchSeq) return;
+        const baseline = lastDownloadVersion?.userId === user.id ? lastDownloadVersion.version : null;
+        if (canReuseExpenseList(baseline, probedVersion)) {
+          // Same counter: no row was added, changed or deleted on the server. Keep the list (and its array identity).
+          useDailyBudgetStore.getState().syncWithExpenses(get().expenses);
+          return;
+        }
+      }
+
       // FIN-05: Range pagination with per-page timeout guard and retries
       const BATCH_SIZE = 1000;
       const PAGE_TIMEOUT_MS = 10000;
@@ -351,6 +376,9 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
               .eq('user_id', user.id)
               .order('expense_date', { ascending: false })
               .order('created_at', { ascending: false })
+              // OPT-70: unique last sort key. Rows saved together share one `created_at`; without this their order
+              // is not fixed between two page requests, so a row on a 1,000-row page border could be skipped or repeated.
+              .order('id', { ascending: false })
               .range(from, from + BATCH_SIZE - 1);
 
             const { data, error } = await withTimeout<{ data: Expense[] | null; error: any }>(
@@ -444,6 +472,8 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
       }
 
       expensesFreshFromServer = true; // OPT-63: the list now comes from the server
+      // OPT-69: remember the counter this download belongs to (null when it could not be read).
+      lastDownloadVersion = probedVersion !== null ? { userId: user.id, version: probedVersion } : null;
 
       // Cache expenses for offline resilience (skip the disk write when it would be identical)
       const cacheStorageKey = getCachedStorageKey(user.id);
@@ -457,6 +487,7 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
       useDailyBudgetStore.getState().syncWithExpenses(combined);
     } catch (e: unknown) {
       if (fetchSeq !== activeFetchSeq) return;
+      lastDownloadVersion = null; // OPT-69: the download failed, so the next refresh must download again
       const err = e as { message?: string } | null;
 
       let isNetOffline = false;

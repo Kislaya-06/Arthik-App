@@ -261,7 +261,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Header Row */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={10}>
               <ArrowLeft size={24} color={colors.textPrimary} />
             </Pressable>
             <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
@@ -270,11 +270,11 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <View style={styles.headerRight}>
             {!isRecoveryClass(expense) && (
-              <Pressable onPress={handleEdit} hitSlop={10}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Edit transaction" onPress={handleEdit} hitSlop={10}>
                 <SquarePen size={20} color={colors.textPrimary} />
               </Pressable>
             )}
-            <Pressable onPress={handleDelete} hitSlop={10} style={{ marginLeft: Spacing.block }}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Delete transaction" onPress={handleDelete} hitSlop={10} style={{ marginLeft: Spacing.block }}>
               <Trash2 size={20} color={colors.coral} />
             </Pressable>
           </View>

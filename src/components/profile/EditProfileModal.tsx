@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -112,6 +112,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   const totalLen = calculateNameLength(editFirstName, editLastName);
   const isOverLimit = totalLen > MAX_PROFILE_NAME_LENGTH;
+  // Enter on the first name moves to the last name.
+  const lastNameInputRef = useRef<TextInput>(null);
   const isSaveDisabled = editSaving || isOverLimit || !editFirstName.trim();
 
   const handleSavePress = () => {
@@ -148,6 +150,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             placeholder="First name"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
+            accessibilityLabel="First name"
+            autoComplete="given-name"
+            textContentType="givenName"
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => lastNameInputRef.current?.focus()}
           />
           <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>Last Name</Text>
           <TextInput
@@ -160,11 +168,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 fontFamily: FontFamily.medium,
               },
             ]}
+            ref={lastNameInputRef}
             value={editLastName}
             onChangeText={handleLastNameChange}
             placeholder="Last name (optional)"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
+            accessibilityLabel="Last name"
+            autoComplete="family-name"
+            textContentType="familyName"
+            returnKeyType="done"
           />
 
           {/* Feedback & Character Count Row */}

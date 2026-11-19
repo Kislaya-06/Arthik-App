@@ -1,5 +1,6 @@
 import { toFriendlyMessage } from '../lib/friendlyError';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import type { TextInput } from 'react-native';
 import {
   View,
   Text,
@@ -43,6 +44,7 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disable
   const scaleAnim = useAnimatedValue(1);
   return (
     <Pressable
+      accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       onPressIn={() =>
@@ -70,6 +72,9 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  // Enter on one field moves to the next; Enter on the password submits the form.
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
 
@@ -343,7 +348,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           {navigation.canGoBack() && (
-            <Pressable style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
               <ArrowLeft size={26} color={colors.textPrimary} />
             </Pressable>
           )}
@@ -380,6 +385,12 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                   onFocus={() => setFocusedField('name')}
                   onBlur={() => setFocusedField(null)}
                   autoCapitalize="words"
+                  autoComplete="name"
+                  textContentType="name"
+                  maxLength={50}
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => emailInputRef.current?.focus()}
                   colors={colors}
                   isDark={isDark}
                 />
@@ -395,6 +406,13 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
+                autoCorrect={false}
+                inputRef={emailInputRef}
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
                 colors={colors}
                 isDark={isDark}
               />
@@ -410,6 +428,11 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
                 isPassword
                 showPassword={showPassword}
                 onToggleShowPassword={() => setShowPassword(!showPassword)}
+                autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                textContentType={isSignUp ? 'newPassword' : 'password'}
+                inputRef={passwordInputRef}
+                returnKeyType="go"
+                onSubmitEditing={handleAuth}
                 colors={colors}
                 isDark={isDark}
               />

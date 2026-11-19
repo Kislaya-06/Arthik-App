@@ -336,7 +336,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
   // Contrast: Dark Navy typography on Mint Green (#B8E0C8) provides 9.8:1 AAA contrast
   const mintBase = colors.mintGreen; // #B8E0C8
   const cardBorderColor = isDark ? 'rgba(184, 224, 200, 0.35)' : 'rgba(26, 43, 76, 0.12)';
-  const textColorPrimary = '#1A2B4C';
+  const textColorPrimary = colors.forestGreen;
   const textColorSecondary = isDark ? 'rgba(26, 43, 76, 0.85)' : 'rgba(26, 43, 76, 0.80)';
 
   // Split breakdown into distinct micro-chips and sort ascending by size (shortest on top, longest on bottom)

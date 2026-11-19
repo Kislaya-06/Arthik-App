@@ -312,6 +312,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                   </View>
                 </View>
                 <PressableOpacity
+                  accessibilityRole="button" accessibilityLabel="Close"
                   onPress={onClose}
                   hitSlop={12}
                   style={[
@@ -486,6 +487,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 bounces={false}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                // Note keyboard open: buttons work on the first tap.
+                keyboardShouldPersistTaps="handled"
               >
                 {/* Header */}
                 <View style={styles.modalHeader}>

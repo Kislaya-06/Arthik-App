@@ -47,6 +47,7 @@ export const AuthMessageBanner: React.FC<AuthMessageBannerProps> = ({
         style={{ marginRight: Spacing.element, flexShrink: 0 }}
       />
       <Text
+        accessibilityLiveRegion="polite"
         style={[
           styles.bannerText,
           isDark && { color: iconColor },
@@ -56,7 +57,7 @@ export const AuthMessageBanner: React.FC<AuthMessageBannerProps> = ({
       >
         {message}
       </Text>
-      <Pressable onPress={onDismiss} style={styles.bannerClose} hitSlop={8}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Dismiss message" onPress={onDismiss} style={styles.bannerClose} hitSlop={8}>
         <X size={16} color={iconColor} />
       </Pressable>
     </Animated.View>

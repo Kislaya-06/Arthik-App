@@ -338,7 +338,8 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `animationUtils.test.ts` | Spring physics, layout transitions, easing curves |
 | `appButton.test.ts` | Button variants, tactile press feedback, loading state, disabled guards |
 | `appLockStore.test.ts` | Biometric toggle, persistence, multi-user isolation, sign-out reset |
-| `appUpdate.test.ts` | In-app APK updates, permission prompts, download progress, install intents |
+| `appUpdate.test.ts` | In-app APK updates, permission prompts, download progress, install intents; SEC-03 trusted update links (only Arthik's GitHub repository) |
+| `apkInstallerTrustedLink.test.ts` | SEC-03: `downloadApk` refuses a link from outside the repository before downloading; the update screen filters the browser fallback |
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
 | `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
 | `autoLogEmail.test.ts` | Bank email notification parsing, sender resolution, multi-source identity matching |
@@ -379,6 +380,14 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `expenseListEquality.test.ts` | OPT-20: `sameExpenseList` (same list, ek field badla, row add, reorder, nested `split_allocations`) |
 | `expenseCacheMemo.test.ts` | OPT-20: cache memo (pehli write hamesha hoti hai, same key + same JSON par skip, forget) |
 | `opt60to64OfflineSafety.test.ts` | OPT-60..64: write-ahead queue (add/edit/delete), 10 s save timeout + late answer, queue lock, idempotent add, no duplicate on cold start, fresh-from-server flag, 1,000-row paging |
+| `signOutCleanup.test.ts` | SEC-01: Log Out removes the user's cached expenses / categories / profile, keeps every unsynced queue and other users' data, waits for a running cache write |
+| `secureSessionStorage.test.ts` | SEC-02: encrypt + read back, app restart, plain session of an older version is kept and upgraded, a newer session is never overwritten, plain fallback on every cipher / secure-storage problem, unreadable value → no session + `onUnreadable`, changed ciphertext refused |
+| `secureSessionStorageSupabase.test.ts` | SEC-02 inside the real Supabase client: a user signed in before the update stays signed in and the stored session becomes encrypted; local sign-out removes it; lost key → no session |
+| `expoSessionCipher.test.ts` | SEC-02: the wrapper around the expo-crypto AES API (key size, IV / ciphertext split, wrong key refused) |
+| `sessionCodec.test.ts` | SEC-02: UTF-8 and base64 helpers match Node for every byte value and length; invalid input is refused |
+| `opt70ExpensePagingTieBreaker.test.ts` | OPT-70: every expense page is ordered by `expense_date`, `created_at`, `id` (newest first); 2,001 rows over 3 pages arrive exactly once |
+| `opt69ExpenseVersionProbe.test.ts` | OPT-69: no counter request on the first download; counter read after sync and before the download; same counter skips the download and keeps the same array; changed counter, counter 0, missing function, network error, timeout and failed download all download as before |
+| `sec04SignupNameSafetySql.test.ts` | SEC-04 / OPT-69 SQL: `handle_new_user()` and the expense change counter are the same text in `schema.sql`, the 16 Nov migration and Part B of the 30 Oct migration; name limits match the profile rules; function name matches the app's call |
 | `opt21AutoLogShallow.test.ts` | OPT-21: AutoLog Center/Info screens poora store subscribe nahi karte (`useShallow`) |
 | `opt22HomeResumeRefresh.test.ts` | OPT-22: Home 5 min se zyada background rehne par resume par chup-chaap refresh karta hai |
 | `historyRows.test.ts` | OPT-30: History rows (header + items), keys, aur date-jump header index (See More window ke andar/bahar) |
@@ -464,6 +473,9 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `vaultSpendingGuard.test.ts` | Digital Vault Spending Guard, net liquidity evaluation, inflow blockers |
 | `vaultSpendingGuardAndBudgetEdit.test.ts` | In-sheet Add Money & Save workflow, zero-spend immediate budget adjustments (Daily/Weekly/Monthly) |
 | `versionCheck.test.ts` | Semver comparison, update-required screen gating |
+| `ux01IconButtonLabels.test.ts` | UX-01: scans every `.tsx` in `src/`; a touchable with no text must have an `accessibilityLabel` or be listed with a reason (backdrops, wrappers) |
+| `ux05to08Polish.test.ts` | UX-05..08: avatar is not tappable; 7 backdrops hidden from the screen reader and every Modal has `onRequestClose`; Edit profile autofill + Enter; the four theme-invariant tokens stay equal in all palettes; hard-coded hex count only goes down |
+| `ux02to04FormsAndKeyboard.test.ts` | UX-02..04: autofill hints and Enter-key flow on Auth / Reset password / Profile setup; first-tap lists under search fields; sign-in errors announced |
 | `weeklyInsightsData.test.ts` | Weekly day-by-day aggregations, daily averages, weekend vs weekday spend |
 | `yearlyInsightsData.test.ts` | 12-month calendar aggregation, annual savings, largest month-over-month increases |
 | `yearlyInsightsInflowDeposits.test.ts` | FIN-03: Annual and 12-month inflow deposit filtering, income double-counting prevention (GUL-004) |

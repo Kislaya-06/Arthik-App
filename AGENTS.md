@@ -61,7 +61,7 @@ schema.sql              # Supabase DDL + RLS policies (source of truth for DB)
 CHANGELOG.md            # user-facing change log — keep updated
 tests/                  # Vitest unit tests (run with npm test); helpers/autoLogTestEnv.ts = Auto Logging test doubles
 docs/                   # architecture, AUTO_LOGGING, RELEASE_PROCESS, design-system, CODEBASE_GUIDE, adr/, specs/
-supabase/               # migrations/ (budget modes, autolog_profiles, release flags), functions/delete-user-account
+supabase/               # migrations/ (budget modes, autolog_profiles, release flags, sign-up name safety + expense change counter), functions/delete-user-account
 modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
                         # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
 src/
@@ -77,13 +77,13 @@ src/
 │                 autolog/ (AutoLogUi + BetaPill, ReviewSheet, WhyLoggedCard, AutoLogHomeBanner, AutoLogGate, EmailSourceInfo)
 ├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background, notificationActions,
 │                 notify, permissions, remote, store, copy, types)
-├── config/       supabase.ts (client + env), theme.ts (LightColors / DarkColors, design tokens)
+├── config/       supabase.ts (client + env; login session stored encrypted through lib/secureSessionStorage, SEC-02), theme.ts (LightColors / DarkColors, design tokens)
 ├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, usePullRefresh.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
-│                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts, queueLock.ts (one writer per queue key), supabasePaging.ts (no silent 1,000-row cut), navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
+│                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts, queueLock.ts (one writer per queue key), supabasePaging.ts (no silent 1,000-row cut), signOutCleanup.ts (Log Out removes the user's cached copies of server data, never the unsynced queues), secureSessionStorage.ts + expoSessionCipher.ts + sessionCodec.ts (SEC-02: Supabase session encrypted with AES-256-GCM, key in secure storage; plain-text fallback when encryption cannot be proven; never read `sb-*-auth-token` from AsyncStorage directly), navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install),
 │                 segmentedMotion.ts (pill springs, landing time, transform-only pill pieces), selectionCommitFence.ts (touch fence for deferred pill values),
 │                 alertButtonPalette.ts (themed dialog button colours + contrast)
@@ -94,7 +94,7 @@ src/
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
 │                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
 ├── store/        authStore, categoryStore,
-│                 expenseStore (with expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack),
+│                 expenseStore (with expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack, versionProbe),
 │                 dailyBudgetStore (with dailyBudget/ classifiers, expenseBridge, hydrate, metrics, pendingStorage, rollover, types),
 │                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, splashCoverStore, alertStore
 └── types/        index.ts (RootStackParamList, TabParamList)
@@ -171,7 +171,7 @@ Work with surgical precision and zero-breakage guarantee:
 
 ## 6.1 Existing Code First & Facade Pattern (MANDATORY ARCHITECTURE INVARIANT)
 - Screens render UI and call store actions. Stores manage Supabase, AsyncStorage, and state. `src/lib/` holds pure helpers.
-- **Offline queues (OPT-60/61, data safety)**: every online expense add / edit / delete is written to its offline queue BEFORE the request and removed only when the server confirms and the entry is unchanged. Any new code that changes a queue key (`@arthik_pending_*`, `@arthik_cached_expenses_*`) must do the read→change→write inside `runExclusive(key, …)` from `src/lib/queueLock.ts` (never a network call inside it). Wrap a Supabase query in `Promise.resolve(...)` before awaiting it twice (a query re-sends itself on every `.then`). Server rows computed from the expense list may only be written when `areExpensesFreshFromServer()` is true.
+- **Offline queues (OPT-60/61, data safety)**: every online expense add / edit / delete is written to its offline queue BEFORE the request and removed only when the server confirms and the entry is unchanged. Any new code that changes a queue key (`@arthik_pending_*`, `@arthik_cached_expenses_*`) must do the read→change→write inside `runExclusive(key, …)` from `src/lib/queueLock.ts` (never a network call inside it). Wrap a Supabase query in `Promise.resolve(...)` before awaiting it twice (a query re-sends itself on every `.then`). Server rows computed from the expense list may only be written when `areExpensesFreshFromServer()` is true. **Skip-unchanged download (OPT-69)**: `fetchExpenses` keeps the list in memory when the server's expense change counter (`arthik_expenses_version`, read BEFORE the download via `src/store/expense/versionProbe.ts`) is the same as before the last successful download and is ≥ 1; every failure means a full download. Never read the counter after the rows, and never remember a counter whose download did not succeed.
 - **Zero Monolithic God Files (Facade Pattern Rule)**: Under NO circumstances should any store or feature grow into an unmaintainable 2,000–2,500 line monolithic file. Any complex store or domain feature exceeding ~350–400 lines MUST strictly follow the **Facade Pattern** (as standardized in `dailyBudgetStore.ts` and `expenseStore.ts`).
   - **Public Facade**: The root file (e.g., `src/store/dailyBudgetStore.ts`) serves purely as a public facade exposing external contracts, Zustand hooks, and selectors.
   - **Categorized Submodules**: Internal logic must be cleanly decomposed into dedicated, single-responsibility modules under a feature subfolder (e.g., `src/store/dailyBudget/`):
@@ -200,7 +200,7 @@ Work with surgical precision and zero-breakage guarantee:
 - **Offline Queue System**: Offline writes queue in AsyncStorage (`@arthik_pending_expenses_<userId>`, `@arthik_pending_updates_<userId>`, `@arthik_pending_deletes_<userId>`, `@arthik_failed_sync_<userId>`).
 - **Optimistic UI & Zero Data Loss**: Optimistic rows are marked `pending: true`. Never drop or overwrite user data silently; destructive actions strictly require explicit user confirmation.
 - **Robust State Handling**: Always handle loading, error, empty, and offline states across all screens and components. Validate inputs at all boundaries (amounts, auth forms, deep links).
-- **Session Reset**: On sign-out, all stores must reset their state (`resetCategories`, `resetExpenses`, budget, notifications).
+- **Session Reset**: On sign-out, all stores must reset their state (`resetCategories`, `resetExpenses`, budget, notifications). `signOut()` also removes the signed-out user's on-phone copies of server data (`clearUserCachesOnSignOut` in `src/lib/signOutCleanup.ts`, SEC-01): expense cache, category cache, profile cache. It must NEVER remove a `@arthik_pending_*` queue or `@arthik_failed_sync_*`. A new per-user cache of server data must be added to that helper.
 - **Startup Hydration Order**: `loadPendingExpenses` → `fetchCategories` → (`fetchExpenses` + `hydrateFromSupabase`) in parallel.
 
 ---
@@ -539,7 +539,7 @@ Read `docs/AUTO_LOGGING.md` before touching `src/features/autoLog/`, `modules/ar
 # 18. Releases, Force Update & Beta Rollout (v2.0)
 
 Read `docs/RELEASE_PROCESS.md`. (The owner may also keep a local, gitignored `AGENT_BRIEF.md` in the project root — read it if present; repo docs win if they disagree.)
-- **Force update** is server-driven: `app_config` row `version_control` (`min_supported_version`, `force_update_enabled`, `release_url`, and v2+ `apk_url`, `update_title`, `update_highlights`). Old clients (v1.2.x) read only `release_url` — keep it a direct `.apk` link when forcing.
+- **Force update** is server-driven: `app_config` row `version_control` (`min_supported_version`, `force_update_enabled`, `release_url`, and v2+ `apk_url`, `update_title`, `update_highlights`). Old clients (v1.2.x) read only `release_url` — keep it a direct `.apk` link when forcing. **Trusted links only (SEC-03)**: the app downloads / opens `apk_url` and `release_url` only when they are inside `https://github.com/Kislaya-06/Arthik-App/` (`isTrustedReleaseUrl` in `src/lib/versionCheck.ts`); any other link falls back to the official release page. Hosting the APK elsewhere needs `TRUSTED_RELEASE_PREFIX` changed first.
 - `UpdateRequiredScreen` has **no skip/later/back**. On Android it downloads inside the app (`src/lib/apkInstaller.ts`) and opens the system installer; anything failing falls back to the browser.
 - Release assets per GitHub release (tag `vX.Y.Z`): **`Arthik-vX.Y.Z.apk`** (required — force-update `release_url` / `apk_url` always point to `releases/download/vX.Y.Z/Arthik-vX.Y.Z.apk`) **+ `Arthik.apk`** (same file; makes `releases/latest/download/Arthik.apk` a permanent always-latest link). Never use `releases/latest/download/Arthik-vX.Y.Z.apk` (404 after the next release). `eas.json` preview has `autoIncrement` (versionCode).
 - **Automatic Logging is Beta**, gated by `app_config.feature_flags.autolog.audience` (`existing` | `all` | `none`). Logic in `src/features/autoLog/rollout.ts`; never hide it from someone already using it; the one-time intro is for existing users only. Every place that names the feature shows the `BetaPill`.

@@ -468,7 +468,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
                   backgroundColor: colors.mintGreen,
                   borderWidth: isDark ? 1 : 0,
                   borderColor: colors.borderSubtle,
-                  shadowColor: isDark ? '#000000' : '#1A2B4C',
+                  shadowColor: isDark ? '#000000' : colors.forestGreen,
                 },
                 iconStyle,
               ]}

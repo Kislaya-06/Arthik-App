@@ -126,7 +126,7 @@ export const Checkbox: React.FC<{ checked: boolean }> = ({ checked }) => {
   const { colors } = useTheme();
   return (
     <View style={[styles.checkbox, { borderColor: checked ? colors.mintGreenDark : colors.border, backgroundColor: checked ? colors.mintGreenDark : 'transparent' }]}>
-      {checked ? <Check size={14} color="#FFFFFF" strokeWidth={3.5} /> : null}
+      {checked ? <Check size={14} color={colors.white} strokeWidth={3.5} /> : null}
     </View>
   );
 };

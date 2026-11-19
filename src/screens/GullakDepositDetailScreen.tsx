@@ -82,6 +82,7 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + Spacing.element }]}>
         <Pressable
+          accessibilityRole="button" accessibilityLabel="Go back"
           onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
           style={[styles.headerBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           hitSlop={8}
@@ -160,7 +161,7 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
           onPress={handleDelete}
           variant="danger"
           size="cta"
-          icon={<Trash2 size={18} color="#FFFFFF" />}
+          icon={<Trash2 size={18} color={colors.white} />}
         />
       </ScrollView>
     </View>

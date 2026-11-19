@@ -77,6 +77,7 @@ const KeyButtonBase: React.FC<KeyButtonProps> = ({ item, onPress, height, fontSi
 
   return (
     <Pressable
+      accessibilityRole="button" accessibilityLabel={isBackspace ? 'Delete last digit' : item === '.' ? 'Decimal point' : item === '+' ? 'Plus' : item}
       style={styles.keyPressable}
       onPress={() => onPress(item)}
       onPressIn={handlePressIn}

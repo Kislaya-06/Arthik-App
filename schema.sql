@@ -174,7 +174,7 @@ USING ((select auth.uid()) = user_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date 
 ON public.expenses (user_id, expense_date DESC);
 
--- OPT-65: exact match for the app's list query (ORDER BY expense_date DESC, created_at DESC); no sort per page.
+-- OPT-65: matches the app's list query (ORDER BY expense_date DESC, created_at DESC; since OPT-70 also id DESC as the last key).
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date_created
 ON public.expenses (user_id, expense_date DESC, created_at DESC);
 
@@ -282,12 +282,14 @@ DECLARE
     new_profile_id UUID;
     extracted_name TEXT;
 BEGIN
-    extracted_name := COALESCE(
-        new.raw_user_meta_data->>'first_name',
-        new.raw_user_meta_data->>'full_name',
-        new.raw_user_meta_data->>'name',
-        split_part(new.email, '@', 1)
-    );
+    -- SEC-04: first non-blank of first_name, full_name, name, the part of the email before "@".
+    -- Trimmed and cut to 50 characters so profiles_first_name_len can never refuse a sign-up.
+    extracted_name := btrim(left(COALESCE(
+        NULLIF(btrim(new.raw_user_meta_data->>'first_name'), ''),
+        NULLIF(btrim(new.raw_user_meta_data->>'full_name'), ''),
+        NULLIF(btrim(new.raw_user_meta_data->>'name'), ''),
+        NULLIF(btrim(split_part(new.email, '@', 1)), '')
+    ), 50));
 
     INSERT INTO public.profiles (
         id, 
@@ -304,7 +306,7 @@ BEGIN
     VALUES (
         new.id,
         extracted_name,
-        new.raw_user_meta_data->>'last_name',
+        left(new.raw_user_meta_data->>'last_name', 50), -- cut to profiles_last_name_len
         new.email,
         0,
         false,
@@ -865,3 +867,101 @@ CREATE INDEX IF NOT EXISTS idx_expenses_split_person
     ON public.expenses (user_id, lower(split_person)) WHERE split_person IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_expenses_recovery
     ON public.expenses (user_id, expense_date DESC) WHERE transaction_class = 'recovery';
+
+-- ═══ Expense change counter (OPT-69) — see supabase/migrations/20261116120000_signup_name_safety_and_expense_counter.sql ═══
+-- One small counter per user. It goes up on every insert / update / delete of that user's expenses, in the same
+-- transaction as the change. The app reads it with arthik_expenses_version() before downloading the expense list and
+-- skips the download when the number has not changed. Same SQL as Part B of
+-- supabase/migrations/20261030145341_performance_sync_version_bootstrap.sql.
+
+CREATE TABLE IF NOT EXISTS public.expense_sync_versions (
+    -- No foreign key on purpose: the delete trigger below may run while the user's account is being
+    -- deleted, and a foreign key would then block the account deletion.
+    user_id UUID PRIMARY KEY,
+    version BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.expense_sync_versions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "expense_sync_versions_select_own" ON public.expense_sync_versions;
+CREATE POLICY "expense_sync_versions_select_own" ON public.expense_sync_versions
+    FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
+-- No insert / update / delete policy: only the trigger (SECURITY DEFINER) writes this table.
+
+CREATE OR REPLACE FUNCTION public.arthik_bump_expense_version()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+        INSERT INTO public.expense_sync_versions AS v (user_id, version, updated_at)
+        VALUES (NEW.user_id, 1, NOW())
+        ON CONFLICT (user_id) DO UPDATE SET version = v.version + 1, updated_at = NOW();
+    END IF;
+
+    IF TG_OP = 'DELETE' OR (TG_OP = 'UPDATE' AND OLD.user_id IS DISTINCT FROM NEW.user_id) THEN
+        -- Skip when the account itself is being deleted (nothing will ever read the counter again).
+        IF EXISTS (SELECT 1 FROM auth.users u WHERE u.id = OLD.user_id) THEN
+            INSERT INTO public.expense_sync_versions AS v (user_id, version, updated_at)
+            VALUES (OLD.user_id, 1, NOW())
+            ON CONFLICT (user_id) DO UPDATE SET version = v.version + 1, updated_at = NOW();
+        END IF;
+    END IF;
+
+    RETURN NULL; -- AFTER trigger: the return value is ignored
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.arthik_bump_expense_version() FROM PUBLIC;
+
+-- Fires for every write path, including ON DELETE SET NULL from a deleted category or transfer rule
+-- (Postgres runs row triggers for foreign-key actions too).
+DROP TRIGGER IF EXISTS arthik_expenses_bump_version ON public.expenses;
+CREATE TRIGGER arthik_expenses_bump_version
+    AFTER INSERT OR UPDATE OR DELETE ON public.expenses
+    FOR EACH ROW EXECUTE FUNCTION public.arthik_bump_expense_version();
+
+-- Remove the counter row when an account is deleted (the edge function deletes auth.users; everything
+-- else cascades). Errors are swallowed on purpose: a leftover counter must never block an account deletion.
+CREATE OR REPLACE FUNCTION public.arthik_cleanup_expense_version()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    BEGIN
+        DELETE FROM public.expense_sync_versions WHERE user_id = OLD.id;
+    EXCEPTION WHEN OTHERS THEN
+        NULL;
+    END;
+    RETURN OLD;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.arthik_cleanup_expense_version() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS arthik_on_auth_user_deleted_cleanup ON auth.users;
+CREATE TRIGGER arthik_on_auth_user_deleted_cleanup
+    AFTER DELETE ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.arthik_cleanup_expense_version();
+
+-- The probe the app calls. 0 = no expense write since this was installed.
+CREATE OR REPLACE FUNCTION public.arthik_expenses_version(p_user_id UUID)
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+    SELECT COALESCE(
+        (SELECT v.version FROM public.expense_sync_versions v WHERE v.user_id = p_user_id),
+        0
+    )::BIGINT;
+$$;
+
+REVOKE ALL ON FUNCTION public.arthik_expenses_version(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.arthik_expenses_version(UUID) TO authenticated;

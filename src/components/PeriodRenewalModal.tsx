@@ -186,7 +186,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
       <View style={styles.modalOverlay}>
         {/* Dimmed backdrop */}
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} importantForAccessibility="no" />
         </Animated.View>
 
         {/* Bottom Sheet Card */}
@@ -208,6 +208,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
           <View style={styles.sheetTopRow}>
             {mode === 'edit' && isAutoRenew && (
               <PressableOpacity
+                accessibilityRole="button" accessibilityLabel="Back"
                 onPress={() => setMode('celebrate')}
                 style={[styles.circleBtn, { backgroundColor: colors.cardSubtle }]}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -217,6 +218,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
             )}
             <View style={{ flex: 1 }} />
             <PressableOpacity
+              accessibilityRole="button" accessibilityLabel="Close"
               onPress={onClose}
               style={[styles.circleBtn, { backgroundColor: colors.cardSubtle }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -270,7 +272,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
                   onPress={onConfirmKeep}
                   activeOpacity={0.8}
                 >
-                  <Check size={20} color="#1A2B4C" strokeWidth={2.5} />
+                  <Check size={20} color={colors.forestGreen} strokeWidth={2.5} />
                   <Text style={styles.primaryCtaText}>
                     {`Keep ₹${formatAmountWithCommas(String(budgetAmount))}`}
                   </Text>
@@ -344,7 +346,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
                         {
                           color:
                             inputAmount === String(val)
-                              ? '#1A2B4C'
+                              ? colors.forestGreen
                               : colors.textPrimary,
                           fontFamily:
                             inputAmount === String(val)
@@ -381,7 +383,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
                 disabled={parseFloat(inputAmount) <= 0}
                 activeOpacity={0.8}
               >
-                <Check size={20} color="#1A2B4C" strokeWidth={2.5} />
+                <Check size={20} color={colors.forestGreen} strokeWidth={2.5} />
                 <Text style={styles.primaryCtaText}>
                   {`Set ${formatCurrency(parseFloat(inputAmount) || 0)} Budget`}
                 </Text>

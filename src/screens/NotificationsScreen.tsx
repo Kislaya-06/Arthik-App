@@ -190,6 +190,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <Pressable
+          accessibilityRole="button" accessibilityLabel="Go back"
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           hitSlop={10}
@@ -207,10 +208,10 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
         {notifications.length > 0 && (
           <View style={styles.headerRightActions}>
-            <PressableOpacity onPress={markAllAsRead} hitSlop={10} style={styles.actionBtn}>
+            <PressableOpacity accessibilityRole="button" accessibilityLabel="Mark all as read" onPress={markAllAsRead} hitSlop={10} style={styles.actionBtn}>
               <CheckCheck size={20} color={colors.textSecondary} />
             </PressableOpacity>
-            <PressableOpacity onPress={clearNotifications} hitSlop={10} style={styles.actionBtn}>
+            <PressableOpacity accessibilityRole="button" accessibilityLabel="Clear all notifications" onPress={clearNotifications} hitSlop={10} style={styles.actionBtn}>
               <Trash2 size={19} color={colors.textSecondary} />
             </PressableOpacity>
           </View>

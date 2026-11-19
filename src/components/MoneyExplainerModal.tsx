@@ -243,6 +243,8 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
       <View style={styles.backdrop}>
         {/* Full-screen backdrop tap target */}
         <Pressable
+          accessible={false}
+          importantForAccessibility="no"
           style={[
             StyleSheet.absoluteFill,
             { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(15, 23, 42, 0.48)' },
@@ -292,6 +294,7 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
             </View>
 
             <PressableOpacity
+              accessibilityRole="button" accessibilityLabel="Close"
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={[styles.closeBtn, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}

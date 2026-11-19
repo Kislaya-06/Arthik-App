@@ -83,9 +83,10 @@ const RE_PROMO = /(offer|cashback up to|get up to|win |won |congratulations|pre-
 const RE_DEBIT = /\b(debited|debit(?:ed)? by|spent|paid|withdrawn|withdrawal|sent|purchase|deducted|charged|used at|transferred to|txn of|payment of)\b/i;
 const RE_CREDIT = /\b(credited|received|deposited|refund(?:ed)?|reversed|reversal|added to)\b/i;
 
-const RE_CURRENCY_AMT = /(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/gi;
+// AL-03: some banks write "Rs:200.00" (Union Bank, Indian Bank), so one colon is allowed after the currency.
+const RE_CURRENCY_AMT = /(?:rs\.?|inr|₹)\s*:?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/gi;
 const RE_VERB_AMT =
-  /(debited|credited|spent|paid|sent|received|withdrawn|deducted|charged|deposited)\s+(?:by|for|with|of)?\s*(?:rs\.?|inr|₹)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i;
+  /(debited|credited|spent|paid|sent|received|withdrawn|deducted|charged|deposited)\s+(?:by|for|with|of)?\s*(?:rs\.?|inr|₹)?\s*:?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i;
 const RE_BALANCE_BEFORE = /(avl\.?|avail(?:able)?|bal(?:ance)?|limit|outstanding|o\/s|due)\s*(?:bal(?:ance)?|amt|amount|lmt|limit)?\s*(?:is|:|-|of)?\s*$/i;
 
 const toAmount = (raw?: string): number | undefined => {
@@ -130,10 +131,23 @@ const firstIndex = (re: RegExp, text: string): number => {
   return m ? m.index : -1;
 };
 
+/** AL-02: "Rs.450 Dr." / "INR 450 Cr" directly after an amount (Bank of Baroda style). Never a balance ("Bal Rs 1200 CR"). */
+const RE_AMT_DRCR = /(?:rs\.?|inr|₹)\s*:?\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s*(dr|cr)\b/gi;
+const directionFromDrCr = (text: string): Direction | undefined => {
+  RE_AMT_DRCR.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = RE_AMT_DRCR.exec(text))) {
+    const before = text.slice(Math.max(0, m.index - 28), m.index);
+    if (RE_BALANCE_BEFORE.test(before)) continue;
+    return m[1].toLowerCase() === 'dr' ? 'debit' : 'credit';
+  }
+  return undefined;
+};
+
 const detectDirection = (text: string): Direction | undefined => {
   const d = firstIndex(RE_DEBIT, text);
   const c = firstIndex(RE_CREDIT, text);
-  if (d < 0 && c < 0) return undefined;
+  if (d < 0 && c < 0) return directionFromDrCr(text);
   if (d < 0) return 'credit';
   if (c < 0) return 'debit';
   return d < c ? 'debit' : 'credit'; // earliest verb describes the account owner's side
@@ -144,7 +158,14 @@ const RE_ACCOUNT =
 const RE_ENDING = /ending\s*(?:with|in)?\s*[:\-]?\s*(?:[x*•]+)?(\d{4})\b/i;
 const RE_MASKED = /\b[x*•]{2,}(\d{3,6})\b/i;
 
-const extractLast4 = (text: string): string | undefined => {
+/** AL-01: "EMI for Loan A/c XX5678 debited from your A/c XX1234": the loan number is not the account that paid. */
+const withoutLoanAccount = (text: string): string =>
+  text.replace(/\bloan\s+(?:a\/c|acct|account|ac)\s*(?:no\.?|number|num)?\s*[:\-]?\s*[x*•.]*\s*\d{3,}/gi, 'loan');
+
+const extractLast4 = (rawText: string): string | undefined => {
+  const cleaned = withoutLoanAccount(rawText);
+  // Only when another account is still named; a message with just the loan account keeps the old behaviour.
+  const text = cleaned !== rawText && (RE_ACCOUNT.test(cleaned) || RE_ENDING.test(cleaned) || RE_MASKED.test(cleaned)) ? cleaned : rawText;
   const m = RE_ACCOUNT.exec(text) || RE_ENDING.exec(text) || RE_MASKED.exec(text);
   if (!m) return undefined;
   const digits = m[1];
@@ -156,11 +177,18 @@ const detectAccountKind = (text: string): AccountKind =>
 
 const RE_REF =
   /(?:upi\s*ref(?:\.|erence)?\s*(?:no\.?|number|id)?|ref(?:erence)?\.?\s*(?:no\.?|number|id)?|refno|rrn|utr|txn\s*id|transaction\s*id|upi)\s*[:\-#]?\s*([a-z0-9]{8,22})/i;
+/** AL-06: "Your UPI transaction reference number is 430512345678". */
+const RE_REF_IS = /ref(?:erence)?\.?\s*(?:no\.?|number|id)\s+is\s*[:\-#]?\s*([0-9]{8,22})\b/i;
+/** AL-04: Axis style "UPI/P2M/430512345678/AMAZON PAY": reference, then the payee. */
+const RE_UPI_SLASH = /\bUPI\/[A-Z0-9]{2,6}\/(\d{9,16})\/([A-Za-z][A-Za-z0-9 .&'_-]{1,40}?)(?=\s*\.(?:\s|$)|\s+(?:not you|if not|sms|avl|bal)\b|\/|$)/i;
 
 const extractRef = (text: string): string | undefined => {
+  const slash = RE_UPI_SLASH.exec(text);
+  if (slash) return slash[1];
   const m = RE_REF.exec(text);
-  if (!m) return undefined;
-  return /\d{6,}/.test(m[1]) ? m[1].toUpperCase() : undefined;
+  if (m && /\d{6,}/.test(m[1])) return m[1].toUpperCase();
+  const worded = RE_REF_IS.exec(text);
+  return worded ? worded[1] : undefined;
 };
 
 const STOP_MERCHANT = /^(a\/c|ac|acct|account|your|the|card|xx|you|vpa|upi|rs|inr|bank|beneficiary|on|via|ref)\b/i;
@@ -169,11 +197,14 @@ export const cleanMerchant = (raw?: string): string | undefined => {
   if (!raw) return undefined;
   let s = raw.trim();
   s = s.replace(/^vpa\s+/i, '');
+  // AL-09: bank channel words in front of the name ("NEFT-ACME CORP", "ACH D- ZERODHA") are not part of the name.
+  s = s.replace(/^(?:neft|imps|rtgs|nach|ach\s*[dc])\s*[-/:]\s*/i, '');
   if (s.includes('@')) s = s.split('@')[0].replace(/[._-]+/g, ' ').replace(/\d+/g, '').trim();
   s = s.replace(/\s{2,}/g, ' ').replace(/[.;,:]+$/, '').trim();
   if (s.length < 2 || s.length > 40) return undefined;
   if (STOP_MERCHANT.test(s)) return undefined;
   if (/^\d+$/.test(s) || /^[x*]+\d*$/i.test(s)) return undefined;
+  if (/^\d{6,}/.test(s)) return undefined; // AL-04: a phone / helpline number ("SMS BLOCKUPI to 9199...") is never a payee
   return s
     .toLowerCase()
     .split(' ')
@@ -186,9 +217,29 @@ const RE_TO = new RegExp(String.raw`(?:\bto|\bat|\btowards|trf to|paid to|info:?
 const RE_FROM = new RegExp(String.raw`(?:\bfrom|\bby)\s+([A-Za-z0-9&._@' -]{2,40}?)` + MERCHANT_END, 'i');
 const RE_SEMI_PAYEE = /;\s*([A-Za-z][A-Za-z .&']{1,30}?)\s+credited/i; // ICICI: "...; RAHUL credited"
 
+/** AL-05: card spends written as "spent ... on NETFLIX" (no "at"). Never a date, a card or an account. */
+const RE_SPENT_ON = /\bon\s+([A-Za-z][A-Za-z&._' -]{1,40}?)(?=\s*\.(?:\s|$)|\s+(?:avl|if not|not you|ref|on)\b|[;,(]|$)/gi;
+const spentOnMerchant = (text: string): string | undefined => {
+  if (!/\bspent\b/i.test(text)) return undefined;
+  RE_SPENT_ON.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = RE_SPENT_ON.exec(text))) {
+    const name = m[1];
+    if (/\b(card|bank|a\/c|acct|account|your|date)\b/i.test(name)) continue;
+    const cleaned = cleanMerchant(name);
+    if (cleaned) return cleaned;
+  }
+  return undefined;
+};
+
 const extractMerchant = (text: string, direction?: Direction): string | undefined => {
   if (direction === 'debit') {
-    return cleanMerchant(RE_SEMI_PAYEE.exec(text)?.[1]) || cleanMerchant(RE_TO.exec(text)?.[1]);
+    return (
+      cleanMerchant(RE_UPI_SLASH.exec(text)?.[2]) ||
+      cleanMerchant(RE_SEMI_PAYEE.exec(text)?.[1]) ||
+      cleanMerchant(RE_TO.exec(text)?.[1]) ||
+      spentOnMerchant(text)
+    );
   }
   if (direction === 'credit') return cleanMerchant(RE_FROM.exec(text)?.[1]);
   return undefined;

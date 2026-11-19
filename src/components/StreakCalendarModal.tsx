@@ -421,6 +421,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   </View>
 
                   <Pressable
+                    accessibilityRole="button" accessibilityLabel="Close"
                     onPress={onClose}
                     hitSlop={8}
                     style={[
@@ -439,6 +440,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
               {/* Month / Period Navigation Row */}
               <View style={styles.monthNavRow}>
                 <Pressable
+                  accessibilityRole="button" accessibilityLabel="Previous period"
                   onPress={handlePrevPeriod}
                   hitSlop={8}
                   style={({ pressed }) => [
@@ -468,6 +470,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                 </View>
 
                 <Pressable
+                  accessibilityRole="button" accessibilityLabel="Next period"
                   disabled={isCurrentMonth}
                   onPress={handleNextPeriod}
                   hitSlop={8}
@@ -548,14 +551,14 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   const isSelected = activeTooltip?.dateStr === cell.dateStr;
 
                   // Filled circle background
-                  let circleBg = hasAnyConnection ? (isDark ? colors.card : '#FFFFFF') : 'transparent';
-                  if (isSaved) circleBg = '#B8E0C8';
+                  let circleBg = hasAnyConnection ? (isDark ? colors.card : colors.white) : 'transparent';
+                  if (isSaved) circleBg = colors.mint;
                   else if (isMissed) circleBg = '#E08A8A';
 
                   // Text color: Dark navy on filled colored circles, muted/normal on neutral
                   let textColor = colors.textMuted;
                   if (isSaved || isMissed) {
-                    textColor = '#1A2B4C';
+                    textColor = colors.forestGreen;
                   } else if (isToday) {
                     textColor = colors.textPrimary;
                   }
@@ -563,7 +566,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   // Ring styling for Today
                   const ringBorderWidth = isToday ? 2 : isSelected ? 2 : 0;
                   const ringBorderColor = isToday
-                    ? (isDark ? '#F8FAFC' : '#1A2B4C')
+                    ? colors.textPrimary
                     : isSelected
                     ? colors.mintGreenDark
                     : 'transparent';
@@ -635,7 +638,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   style={[
                     styles.tooltipCard,
                     {
-                      backgroundColor: isDark ? '#1A263B' : '#F5F6F9',
+                      backgroundColor: colors.cardSubtle,
                       borderColor: activeTooltip.status === 'saved' ? colors.mintGreen : colors.peachCoral,
                       opacity: tooltipAnim,
                       transform: [
@@ -672,6 +675,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     )}
                   </View>
                   <Pressable
+                    accessibilityRole="button" accessibilityLabel="Close tip"
                     onPress={() => setActiveTooltip(null)}
                     hitSlop={6}
                     style={styles.tooltipClose}
@@ -684,7 +688,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
               {/* Legend Row at Bottom */}
               <View style={[styles.legendRow, { borderTopColor: colors.borderSubtle }]}>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#B8E0C8' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: colors.mint }]} />
                   <Text style={[styles.legendText, { color: colors.textSecondary }]}>
                     Saved
                   </Text>
@@ -705,7 +709,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                   <View
                     style={[
                       styles.legendRing,
-                      { borderColor: isDark ? '#F8FAFC' : '#1A2B4C' },
+                      { borderColor: colors.textPrimary },
                     ]}
                   />
                   <Text style={[styles.legendText, { color: colors.textSecondary }]}>

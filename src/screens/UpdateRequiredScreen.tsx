@@ -27,7 +27,7 @@ import {
   ControlHeight,
 } from '../config/theme';
 import { useTheme } from '../store/themeStore';
-import { DEFAULT_RELEASE_URL, resolveApkUrl } from '../lib/versionCheck';
+import { DEFAULT_RELEASE_URL, resolveApkUrl, resolveReleasePageUrl } from '../lib/versionCheck';
 import { canInstallInApp, downloadApk, openInstaller, openUnknownSourcesSettings } from '../lib/apkInstaller';
 
 interface UpdateRequiredScreenProps {
@@ -82,7 +82,8 @@ export const UpdateRequiredScreen: React.FC<UpdateRequiredScreenProps> = ({
   }, []);
 
   const openInBrowser = useCallback(async () => {
-    const url = directApk || releaseUrl || DEFAULT_RELEASE_URL;
+    // SEC-03: only Arthik's own GitHub links are opened; anything else falls back to the official release page.
+    const url = directApk || resolveReleasePageUrl(releaseUrl);
     try {
       const canOpen = await Linking.canOpenURL(url);
       await Linking.openURL(canOpen ? url : DEFAULT_RELEASE_URL);
@@ -135,21 +136,21 @@ export const UpdateRequiredScreen: React.FC<UpdateRequiredScreenProps> = ({
   const items = highlights && highlights.length ? highlights : DEFAULT_HIGHLIGHTS;
 
   let ctaLabel = inApp ? `Download & install ${displayRequired}` : `Download ${displayRequired} APK`;
-  let ctaIcon = <Download size={22} color="#1A2B4C" />;
+  let ctaIcon = <Download size={22} color={colors.forestGreen} />;
   let ctaAction: () => void = start;
   let ctaDisabled = false;
   if (phase.kind === 'downloading') {
     const pct = Math.round(phase.fraction * 100);
     ctaLabel = phase.totalMb ? `Downloading… ${pct}%` : `Downloading… ${phase.receivedMb.toFixed(1)} MB`;
-    ctaIcon = <ActivityIndicator color="#1A2B4C" />;
+    ctaIcon = <ActivityIndicator color={colors.forestGreen} />;
     ctaDisabled = true;
   } else if (phase.kind === 'ready') {
     ctaLabel = 'Install update';
-    ctaIcon = <PackageCheck size={22} color="#1A2B4C" />;
+    ctaIcon = <PackageCheck size={22} color={colors.forestGreen} />;
     ctaAction = () => install(phase.localUri);
   } else if (phase.kind === 'error') {
     ctaLabel = 'Try again';
-    ctaIcon = <RefreshCw size={22} color="#1A2B4C" />;
+    ctaIcon = <RefreshCw size={22} color={colors.forestGreen} />;
   }
 
   return (

@@ -224,6 +224,8 @@ SELECT value FROM public.app_config WHERE key = 'version_control';
 ```
 `release_url` bhi direct APK — v1.x phones sirf wahi padhte hain.
 
+> **Sirf apna GitHub repo (SEC-03):** `apk_url` aur `release_url` dono `https://github.com/Kislaya-06/Arthik-App/` ke andar ke link hone chahiye (upar wale dono format sahi hain). Kisi aur jagah ka link hua toh app usse download nahi karega aur browser me official release page kholega. APK kahin aur host karna ho toh pehle `src/lib/versionCheck.ts` me `TRUSTED_RELEASE_PREFIX` badal kar OTA bhejo.
+
 Apne purane-version phone pe: app band karke kholo → Update Required → **Download & install** → progress → **Update** (pehli baar "Install unknown apps → Allow from this source").
 
 | Problem | Fix |

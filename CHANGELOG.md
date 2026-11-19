@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **UI/UX Polish: Avatar, Backdrops, Edit Profile, Colour Tokens (UX-05..UX-08) — OTA-safe**:
+  - **UX-05 Profile setup avatar**: the avatar had a camera badge and was tappable, but the tap did nothing (Arthik has no profile photo upload). The badge and the tap are removed; the avatar is now a plain placeholder picture. *This is the one visible change of the round: the small camera badge is gone.*
+  - **UX-06 Backdrops and TalkBack**: the dark full-screen area behind 7 sheets / modals was a nameless focus stop for the screen reader, and was the first thing it landed on. It is now skipped (`accessible={false}`, `importantForAccessibility="no"`). A tap on it still closes the sheet; Close and the Android back button work as before.
+  - **UX-07 Edit profile**: first / last name have autofill hints and a screen-reader name; Enter on the first name moves to the last name.
+  - **UX-08 Colours**: 52 hard-coded colours that are the same in every theme now use their token (`colors.white`, `colors.forestGreen`, `colors.mint`, `colors.coral`): no pixel changes, in any theme. 3 places in the streak calendar that used Dark values for AMOLED too now use `colors.textPrimary` / `colors.cardSubtle`, so AMOLED gets its own colours there (ring around today and one legend outline #F8FAFC → #FFFFFF, day tooltip background #1A263B → #121212). Hard-coded hex count in screens and components: 552 → 491, and a test keeps it from going up.
+  - **Checked, no bug found**: every fixed neutral background or border in a static style (28 places) is overridden with a theme colour where it is used, so none of them shows in Dark or AMOLED. The remaining 491 are accent pairs (light / dark), gradients, shadows and those overridden defaults; they need NEW tokens, which is a design decision (design-system "Design Gap Protocol").
+  - No money logic touched. No store, no calculation, no stored value changed.
+  - **Tests**: new `tests/ux05to08Polish.test.ts` (13); `tests/ux01IconButtonLabels.test.ts` updated. 177 files, 2,464 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/design-system.md` (audit checklist), `docs/architecture.md`, `placementguide.md`.
+
+- **Login Session Stored Encrypted (`src/config/supabase.ts`, new `src/lib/secureSessionStorage.ts`, `src/lib/expoSessionCipher.ts`, `src/lib/sessionCodec.ts`, SEC-02) — OTA-safe**:
+  - **Fix (security)**: the Supabase login session (access token + refresh token, the key to the whole account) was kept as readable text in AsyncStorage. It is now stored as `arthik-enc-v1:<iv>:<ciphertext>` (AES-256-GCM) under the same AsyncStorage key; the AES key lives in the phone's secure storage (Android Keystore through expo-secure-store). Uses the native AES module that already ships inside `expo-crypto` and `expo-secure-store`, both already in the installed app: no new dependency, no new APK.
+  - **Nobody is signed out by the update**: a session saved as plain text by the previous version is read as it is and then encrypted in the background (only if it is still the current value; writes for one key never overlap).
+  - **Never risks a working session**: every encrypted value is decrypted again and compared with the original before it is written; if anything is off (no secure storage, cipher error, mismatch) the value is written as plain text exactly like before and encryption stays off until the next app start.
+  - **If the phone can no longer read the stored session** (secure storage lost its key; retried once): the app treats it as "not signed in" and also forgets `@arthik_cached_user`, so it opens on the login screen instead of half signed in. The user signs in again; unsynced queues are untouched.
+  - **Unchanged**: sign-in, Google sign-in, password reset (the PKCE code verifier goes through the same storage), token refresh, offline start, every screen and number.
+  - **Owner note**: publishing an OLDER JS bundle after this one signs every user out once (the old code cannot read the encrypted value). No data is lost.
+  - No money logic touched.
+  - **Tests**: new `tests/secureSessionStorage.test.ts` (25), `tests/secureSessionStorageSupabase.test.ts` (5, with the real Supabase client), `tests/expoSessionCipher.test.ts` (4), `tests/sessionCodec.test.ts` (8). 176 files, 2,451 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/optimisation.md` (SEC-02), `docs/architecture.md`, `docs/CODEBASE_GUIDE.md`, `AGENTS.md`, `placementguide.md`.
+
+- **Sign-Up Can No Longer Fail on a Long or Blank Name + Expense Change Counter SQL (new `supabase/migrations/20261116120000_signup_name_safety_and_expense_counter.sql`, `schema.sql`, SEC-04) — database only, no app code, no OTA needed**:
+  - **Fix (sign-up)**: `handle_new_user()` copied the name from the sign-up data as it was. A Google account whose name is longer than 50 characters, or a blank `first_name`, broke the profile name rule (`profiles_first_name_len`), so the whole sign-up failed with "Database error saving new user". The name is now the first NON-BLANK of `first_name`, `full_name`, `name`, email part before "@", trimmed and cut to 50 characters; `last_name` is cut to 50. For every name that worked before, the stored value is the same (only spaces around a name are removed). The profile row, the first plan row and the 12 default categories are word for word unchanged.
+  - **Expense change counter (server part of OPT-69)**: the same SQL as Part B of the 30 Oct migration, as its own small file, so the "skip unchanged download" saving can be turned on without that file's index changes. Running it when it is already installed changes nothing.
+  - **Checked on a real Postgres**: 39 checks (bug reproduced before the fix; 10 name cases; counter +1 on insert / update / delete / category delete, unchanged on a no-op upsert and on a rolled-back write; other users cannot read or move it; second run changes nothing; account deletion still works; `schema.sql` builds a fresh database; works after the 30 Oct file).
+  - No stored value, no money row, no existing policy and no index is changed.
+  - **Tests**: new `tests/sec04SignupNameSafetySql.test.ts` (7 tests: `schema.sql`, the migration and the 30 Oct file stay in step). 172 files, 2,409 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/optimisation.md` (SEC-04), `docs/architecture.md`, `AGENTS.md`, `placementguide.md`.
+
+- **Refresh Without Re-Downloading Unchanged Expenses (`expenseStore.ts`, new `src/store/expense/versionProbe.ts`, OPT-69) — OTA-safe**:
+  - **Optimisation**: every pull-to-refresh, tab refresh and return to the app downloaded the user's whole expense list again (all pages), even when nothing had changed. The server already keeps one change counter per user (`expense_sync_versions`, bumped by a trigger on every expense insert / update / delete; 30 Oct migration) but the app never asked for it. `fetchExpenses` now reads the counter (`arthik_expenses_version`) before a download and remembers it; when a later refresh finds the same counter, nothing changed on the server, so the list in memory is kept and no rows are downloaded.
+  - **Safety rules**: the counter is read BEFORE the download (a change in between can only cause one extra download, never a missed row); a counter of 0 is never trusted; the first download of a session does not ask (app start sends exactly the same requests as before); function not installed, network error, timeout (2.5 s) or a strange answer → full download exactly as before; a counter is remembered only after its download succeeded; sign-out forgets it.
+  - **Unchanged**: every row, number and screen. A change from another phone is still picked up on the next refresh (its counter is different). Without the 30 Oct migration on the server nothing changes at all.
+  - No money logic touched.
+  - **Tests**: new `tests/opt69ExpenseVersionProbe.test.ts` (13 tests). 171 files, 2,402 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/optimisation.md` (OPT-69), `docs/architecture.md`, `docs/CODEBASE_GUIDE.md`, `AGENTS.md`, `placementguide.md`.
+
+- **Expense List Paging: Unique Sort Key (`expenseStore.ts`, OPT-70) — OTA-safe**:
+  - **Fix (data completeness)**: the expense list is downloaded in pages of 1,000, ordered by `expense_date DESC, created_at DESC`. Rows saved together (for example a batch of offline expenses synced in one request) share the same `created_at`, so their order was not fixed between two page requests: on an account with more than 1,000 transactions a row on a page border could be skipped or come twice. The query now adds `id DESC` as the last sort key, which makes the order fully fixed. This is the order the index `idx_expenses_user_date_created_id` (30 Oct migration) was already built for.
+  - **Unchanged**: which rows are returned, every number and every screen. For accounts under 1,000 transactions the same rows arrive in one request as before.
+  - No money logic touched.
+  - **Tests**: new `tests/opt70ExpensePagingTieBreaker.test.ts` (2 tests). 170 files, 2,389 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/optimisation.md` (Phase 10 added), `docs/architecture.md`, `schema.sql` (comment only), `placementguide.md`.
+
+- **Update Links Only From Arthik's Own GitHub Repository (`versionCheck.ts`, `apkInstaller.ts`, `UpdateRequiredScreen.tsx`, SEC-03) — OTA-safe**:
+  - **Fix (security)**: the force-update screen downloaded and opened whatever link the server row `app_config.version_control` contained (only "https" and ".apk" were checked). If that row were ever changed by someone else, the app would have downloaded a file from any website and opened Android's installer for it. Now the in-app download (`resolveApkUrl`, and a second gate inside `downloadApk`) and the browser fallback (`resolveReleasePageUrl`) accept only links inside `https://github.com/Kislaya-06/Arthik-App/` (no `..`, `%`, `@`, `#`, spaces). Any other link → no in-app download; the browser opens the official release page instead.
+  - **Unchanged**: both documented link forms keep working exactly as before (`releases/download/vX.Y.Z/Arthik-vX.Y.Z.apk`, `releases/latest/download/Arthik.apk`); when the force update shows, its title, highlights, progress and installer flow; old v1.x apps.
+  - **Owner note**: if the APK is ever hosted outside this GitHub repository, change `TRUSTED_RELEASE_PREFIX` in `src/lib/versionCheck.ts` first (OTA), or phones will open the release page instead of downloading in the app.
+  - No money logic touched.
+  - **Tests**: 5 new tests in `tests/appUpdate.test.ts`, new `tests/apkInstallerTrustedLink.test.ts` (2 tests). 169 files, 2,387 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/optimisation.md` (SEC-03), `docs/RELEASE_PROCESS.md`, `docs/architecture.md`, `AGENTS.md`, `placementguide.md`.
+
+- **Log Out Clears This Phone's Copies of Your Data (new `src/lib/signOutCleanup.ts`, `authStore.ts`, SEC-01) — OTA-safe**:
+  - **Fix (privacy)**: after Log Out, the signed-out user's full expense list, category list and profile stayed on the phone as readable text in app storage (`@arthik_cached_expenses_*`, `@arthik_cached_categories_*`, `@arthik_cached_profile_*`). `signOut()` now removes these three copies once the session on the phone has ended. They are downloaded again at the next sign-in.
+  - **Never removed**: every unsynced queue (`@arthik_pending_*`) and `@arthik_failed_sync_*`, so a change the server has not confirmed yet can never be lost by logging out. Another user's data on the same phone is not touched.
+  - **Unchanged**: a session that ends by itself (expired / revoked, `setSession(null)`) keeps the caches exactly as before; account deletion already clears everything.
+  - No money logic touched. No calculation, stored format, key name, screen or copy changed.
+  - **Tests**: new `tests/signOutCleanup.test.ts` (8 tests) + 2 tests in `tests/authStore.test.ts`. 168 files, 2,380 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/optimisation.md` (Phase 9 added), `docs/architecture.md`, `docs/CODEBASE_GUIDE.md`, `AGENTS.md`, `placementguide.md`.
+
+- **UI/UX Round: Screen-Reader Labels, Sign-In Autofill & Keyboard Flow, First-Tap Search (UX-01..UX-04) — OTA-safe**:
+  - **No pixel changes.** No layout, colour, text, spacing, animation or navigation changed. Only properties that tell Android how a control behaves.
+  - **UX-01 Screen-reader labels (24 files, 43 buttons)**: icon-only buttons had no name, so TalkBack said "unlabelled button". Now named: Back on 12 screens ("Go back"), Close on the sheets, Previous / Next month and period, Edit / Delete transaction, Save transaction, Mark all as read, Clear all notifications, Clear search text, the "+" button ("Add transaction"), the keypad backspace ("Delete last digit"). Bottom tabs announce "tab, selected". Category icon options announce "selected". Three back buttons that were 40 px and the 36 px month arrows got a larger touch area (`hitSlop`), same look.
+  - **UX-02 Sign-in forms (`AuthFormField`, Auth, Reset password, Profile setup)**: Android Autofill and password managers can now fill and save the email and password (`autoComplete`: name, email, current-password / new-password, given-name, family-name). Email is no longer auto-corrected. Enter moves Name → Email → Password; Enter on the last field submits (the handlers already ignore a second call while loading). Sign-up name is limited to 50 characters, the server's limit.
+  - **UX-03 First tap works with the keyboard open**: in History search, FAQ search and the Gullak deposit sheet the first tap only closed the keyboard and a second tap was needed. Lists now use `keyboardShouldPersistTaps="handled"`; scrolling History or FAQ closes the keyboard. Search fields show a Search key.
+  - **UX-04 Errors are announced**: the sign-in message banner and field errors are read out by the screen reader when they appear.
+  - No money logic touched. No store, no calculation, no stored value changed.
+  - **Tests**: new `tests/ux01IconButtonLabels.test.ts` (2; scans all of `src/`) and `tests/ux02to04FormsAndKeyboard.test.ts` (7). 167 files, 2,370 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/design-system.md` (audit checklist), `docs/architecture.md`, `placementguide.md`.
+
+- **Auto Logging: Parser Reads More Bank SMS Formats (`src/features/autoLog/parser.ts`, AL-01..AL-09) — OTA-safe**:
+  - Found by running the parser on 26 typical Indian bank SMS formats (written from common bank patterns, not taken from a phone).
+  - **AL-01 EMI / loan**: "EMI for Loan A/c XX5678 debited from your A/c XX1234" used the loan number as the account, so the debit could be skipped as an untracked account. The paying account is used now.
+  - **AL-02 "Rs.450 Dr." / "Cr."** (Bank of Baroda style) was not read at all. Read only directly after an amount, never after a balance.
+  - **AL-03 "Rs:200.00"** (Union Bank, Indian Bank): the amount was not read, so every such message went to review.
+  - **AL-04 Axis "UPI/P2M/<ref>/<payee>"**: payee and reference are read; a helpline number is never a payee.
+  - **AL-05 Card "spent ... on NETFLIX"**: merchant read (never a date, card or bank name).
+  - **AL-06 "reference number is ..."**: reference read (helps SMS and email of one payment match).
+  - **AL-09 Names**: "NEFT-", "IMPS/", "RTGS-", "NACH-", "ACH D-" in front of a name are removed.
+  - **Unchanged**: every format that already worked gives the same result (10 formats pinned by a test); the format signature used by "ignore similar" / learned rules; the engine, matching, review and money logic.
+  - **One side effect**: a category remembered for a name that started with such a prefix (for example "Neft-acme Corp") is asked once more under the clean name.
+  - **Not done here**: foreign-currency spends, UPI Lite without an account number, ATM / investment handling, built-in merchant → category list (each changes how money is classified; owner decides).
+  - **Tests**: 11 new tests in `tests/autoLogParser.test.ts`. 165 files, 2,361 tests passing; `tsc --noEmit` clean.
+  - **Docs**: `docs/AUTO_LOGGING.md`, `placementguide.md`.
+
 - **Premium Polish: Full Text, Friendly Errors, Tactile Saves (`ItemRowShell`, `AppButton`, `AppAlertModal`, `BottomSheetModal`, `StatusBadge`, `LedgerScreen`, `NotificationsScreen`, `CategoryRowItem`, `InsightsScreen`, `ProfileScreen`, `CashFlowChart`, `SplashScreen`, new `friendlyError.ts`, new `saveFeedback.ts`) — OTA-safe**:
   - **Fix (cut-off text)**: transaction rows, ledger names, notification titles, category names, Insights category names and the Profile budget line may now use 2 lines; buttons, dialog buttons, sheet titles, badges and two chart labels shrink slightly (down to 85%) instead of showing `...`. Rows grow in height when needed. Amounts already shrink and are unchanged.
   - **Addition (friendly errors)**: `toFriendlyMessage` turns network failures into one clear offline line and hides database / server / code text behind a short fallback. Used on save, category, split, AutoLog, profile delete, password reset and Google sign-in errors. Generic "Error" dialog titles are now specific (e.g. "Could not save"). Force update screen, sync queues and `errorReason` are untouched.

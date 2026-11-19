@@ -140,7 +140,7 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={28} color={colors.textPrimary} strokeWidth={2.5} />
         </Pressable>
         <Text style={[styles.title, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
@@ -159,9 +159,11 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
           onChangeText={setSearch}
           autoCapitalize="none"
           autoCorrect={false}
+          accessibilityLabel="Search questions"
+          returnKeyType="search"
         />
         {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')} hitSlop={8}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Clear search text" onPress={() => setSearch('')} hitSlop={8}>
             <X size={16} color={colors.textSecondary} />
           </Pressable>
         )}
@@ -169,7 +171,12 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Category Filter Pills */}
       <View style={{ marginBottom: Spacing.element }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsScroll}
+          keyboardShouldPersistTaps="handled"
+        >
           {CATEGORIES.map((cat) => {
             const active = selectedCat === cat;
             return (
@@ -196,6 +203,9 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section }]}
         showsVerticalScrollIndicator={false}
+        // Search keyboard open: the first tap opens a question, and scrolling closes the keyboard.
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {faqs.length === 0 ? (
           <View style={styles.empty}>
