@@ -69,3 +69,6 @@ supabase/.temp/
 /ARTHIK_DAILY_BUDGET_AND_FINAL_VERIFICATION.md
 /ARTHIK_REFACTOR_PLAN_UPDATED.md
 *.mp4
+
+# graphify output (local knowledge graph)
+graphify-out/

@@ -481,6 +481,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 />
               </View>
               <PressableOpacity
+                accessibilityRole="button" accessibilityLabel="Close"
                 onPress={onClose}
                 hitSlop={12}
                 style={[

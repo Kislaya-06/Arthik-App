@@ -990,6 +990,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   autoFocus={isSearchVisible}
+                  accessibilityLabel="Search transactions"
+                  returnKeyType="search"
+                  autoCorrect={false}
+                  autoCapitalize="none"
                 />
                 {searchQuery.length > 0 && (
                   <Pressable
@@ -1027,6 +1031,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
             renderItem={renderRow}
             extraData={listExtraData}
             showsVerticalScrollIndicator={false}
+            // Search keyboard open: the first tap opens the row (no extra tap just to close the keyboard),
+            // and scrolling the list closes the keyboard.
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             refreshControl={
               // List starts below the fixed header + filters, so no status-bar offset here.
               <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} topOffset={0} />

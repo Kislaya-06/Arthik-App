@@ -51,7 +51,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       break;
     case 'gullak':
       backgroundColor = isDark ? 'rgba(173, 235, 179, 0.25)' : '#ADEBB3';
-      textColor = isDark ? colors.mint : '#1A2B4C';
+      textColor = isDark ? colors.mint : colors.forestGreen;
       borderColor = isDark ? 'rgba(173, 235, 179, 0.35)' : 'rgba(0, 0, 0, 0.08)';
       break;
     case 'neutral':

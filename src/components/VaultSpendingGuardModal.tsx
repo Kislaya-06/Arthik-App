@@ -188,7 +188,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
       <View style={styles.overlay}>
         {/* Backdrop */}
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} importantForAccessibility="no" />
         </Animated.View>
 
         {/* Bottom Sheet */}
@@ -299,7 +299,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                         styles.presetChipText,
                         {
                           color: isSelected
-                            ? (isDark ? colors.forestGreen : '#FFFFFF')
+                            ? (isDark ? colors.forestGreen : colors.white)
                             : colors.textPrimary,
                           fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
                         },
@@ -364,7 +364,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                       styles.paymentPillText,
                       {
                         color: paymentMode === 'upi'
-                          ? (isDark ? colors.forestGreen : '#FFFFFF')
+                          ? (isDark ? colors.forestGreen : colors.white)
                           : colors.textSecondary,
                         fontFamily: paymentMode === 'upi' ? FontFamily.bold : FontFamily.medium,
                       },
@@ -397,7 +397,7 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                       styles.paymentPillText,
                       {
                         color: paymentMode === 'cash'
-                          ? (isDark ? colors.forestGreen : '#FFFFFF')
+                          ? (isDark ? colors.forestGreen : colors.white)
                           : colors.textSecondary,
                         fontFamily: paymentMode === 'cash' ? FontFamily.bold : FontFamily.medium,
                       },
@@ -452,11 +452,11 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
               >
                 {isSubmitting ? (
                   <>
-                    <ActivityIndicator size="small" color={isDark ? colors.forestGreen : '#FFFFFF'} />
+                    <ActivityIndicator size="small" color={isDark ? colors.forestGreen : colors.white} />
                     <Text
                       style={[
                         styles.primaryButtonText,
-                        { color: isDark ? colors.forestGreen : '#FFFFFF' },
+                        { color: isDark ? colors.forestGreen : colors.white },
                       ]}
                     >
                       Saving Expense...
@@ -466,13 +466,13 @@ export const VaultSpendingGuardModal: React.FC<VaultSpendingGuardModalProps> = (
                   <>
                     <Plus
                       size={18}
-                      color={canSave ? (isDark ? colors.forestGreen : '#FFFFFF') : colors.textMuted}
+                      color={canSave ? (isDark ? colors.forestGreen : colors.white) : colors.textMuted}
                       strokeWidth={2.5}
                     />
                     <Text
                       style={[
                         styles.primaryButtonText,
-                        { color: canSave ? (isDark ? colors.forestGreen : '#FFFFFF') : colors.textMuted },
+                        { color: canSave ? (isDark ? colors.forestGreen : colors.white) : colors.textMuted },
                       ]}
                     >
                       Add {formatCurrency(evaluatedAddAmount)} & Save Expense

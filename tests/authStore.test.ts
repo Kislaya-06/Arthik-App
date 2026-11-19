@@ -136,6 +136,32 @@ describe('authStore (Seam: useAuthStore)', () => {
     expect(useAuthStore.getState().user).toBeNull();
   });
 
+  it('SEC-01: signOut removes this user\'s cached server data but keeps unsynced queues', async () => {
+    useAuthStore.setState({ user: mockUser, session: mockSession });
+    await AsyncStorage.setItem(`@arthik_cached_expenses_${TEST_USER_ID}`, '[{"id":"e1"}]');
+    await AsyncStorage.setItem(`@arthik_cached_categories_${TEST_USER_ID}`, '[{"id":"c1"}]');
+    await AsyncStorage.setItem(`@arthik_cached_profile_${TEST_USER_ID}`, '{"first_name":"A"}');
+    await AsyncStorage.setItem(`@arthik_pending_expenses_${TEST_USER_ID}`, '[{"id":"p1"}]');
+    await AsyncStorage.setItem('@arthik_cached_expenses_someone_else', '[{"id":"x"}]');
+
+    await useAuthStore.getState().signOut();
+
+    expect(await AsyncStorage.getItem(`@arthik_cached_expenses_${TEST_USER_ID}`)).toBeNull();
+    expect(await AsyncStorage.getItem(`@arthik_cached_categories_${TEST_USER_ID}`)).toBeNull();
+    expect(await AsyncStorage.getItem(`@arthik_cached_profile_${TEST_USER_ID}`)).toBeNull();
+    expect(await AsyncStorage.getItem(`@arthik_pending_expenses_${TEST_USER_ID}`)).toBe('[{"id":"p1"}]');
+    expect(await AsyncStorage.getItem('@arthik_cached_expenses_someone_else')).toBe('[{"id":"x"}]');
+  });
+
+  it('SEC-01: a session that ends without the Log Out button (setSession(null)) keeps the caches', async () => {
+    useAuthStore.setState({ user: mockUser, session: mockSession });
+    await AsyncStorage.setItem(`@arthik_cached_expenses_${TEST_USER_ID}`, '[{"id":"e1"}]');
+
+    await useAuthStore.getState().setSession(null);
+
+    expect(await AsyncStorage.getItem(`@arthik_cached_expenses_${TEST_USER_ID}`)).toBe('[{"id":"e1"}]');
+  });
+
   it('optimistically updates profile and user metadata on updateProfile', async () => {
     useAuthStore.setState({
       user: { ...mockUser, user_metadata: { first_name: 'Kislaya' } },

@@ -144,6 +144,7 @@ export const OfflineBanner: React.FC = () => {
         </View>
 
         <PressableOpacity
+          accessibilityRole="button" accessibilityLabel="Dismiss offline notice"
           style={styles.closeBtn}
           onPress={dismissBanner}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

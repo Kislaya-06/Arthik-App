@@ -109,7 +109,7 @@ export const WelcomeBackGapModal: React.FC<WelcomeBackGapModalProps> = ({
         <View style={styles.actionsContainer}>
           <AppButton
             label={`Save ₹${formatAmountWithCommas(String(totalAmount))} to Gullak`}
-            icon={<Sparkles size={18} color="#FFFFFF" />}
+            icon={<Sparkles size={18} color={colors.white} />}
             onPress={handleSave}
             variant="primary"
             size="cta"

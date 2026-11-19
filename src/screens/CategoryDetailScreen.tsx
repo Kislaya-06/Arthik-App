@@ -133,7 +133,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
 
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={10}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerCenter}>
@@ -169,7 +169,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
             <Defs>
               <LinearGradient id="catCardGrad" x1="0%" y1="100%" x2="100%" y2="0%">
                 <Stop offset="0%" stopColor="#000000" stopOpacity={0.05} />
-                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.3} />
+                <Stop offset="100%" stopColor={colors.white} stopOpacity={0.3} />
               </LinearGradient>
             </Defs>
             <Rect width="100%" height="100%" fill="url(#catCardGrad)" />

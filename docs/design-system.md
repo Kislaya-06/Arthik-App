@@ -317,6 +317,11 @@ Before declaring any UI task done, verify:
 - [ ] Buttons and inputs use `ControlHeight.standard` or `ControlHeight.row`.
 - [ ] Colors come from `useTheme()` and look sharp in **Light, Dark, and AMOLED**.
 - [ ] Interactive touch targets are $\ge 44\text{dp}$.
+- [ ] Every icon-only button has `accessibilityRole="button"` and an `accessibilityLabel` that says what it does ("Go back", "Close", "Delete transaction"). `tests/ux01IconButtonLabels.test.ts` fails on any touchable without text and without a label (UX-01).
+- [ ] Text fields set the keyboard correctly: `autoComplete` for name / email / password, `returnKeyType`, Enter moves to the next field and the last field submits (UX-02).
+- [ ] A full-screen backdrop behind a sheet / modal has `accessible={false}` and `importantForAccessibility="no"` (it still closes on tap), and every `Modal` has `onRequestClose` (UX-06).
+- [ ] No new hard-coded hex in screens / components: `tests/ux05to08Polish.test.ts` holds the count (491) and only lets it go down. `white`, `forestGreen`, `mint`, `coral` are the same in all three themes; use them instead of the literal (UX-08).
+- [ ] A list that sits under a text field has `keyboardShouldPersistTaps="handled"` (first tap works) and `keyboardDismissMode="on-drag"` (UX-03).
 - [ ] Sliding controls use `SegmentedControl` with proper contrast.
 - [ ] No regression or visual glitches on small screens ($< 360\text{dp}$).
 

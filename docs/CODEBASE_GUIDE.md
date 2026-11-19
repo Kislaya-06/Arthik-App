@@ -310,6 +310,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `types.ts` | `Expense`, pending types |
 | `pendingQueues.ts` | Queue ke keys, retry/backoff, UUID check, failed items |
 | `syncPending.ts` | Pending adds/updates/deletes ko server par bhejna. Purani `reimbursement` class ko normal bana deta hai |
+| `versionProbe.ts` | `probeExpensesVersion` + `canReuseExpenseList`: server se user ka expense change counter (`arthik_expenses_version`) padhta hai. Counter wahi ho toh `fetchExpenses` poori list dobara download nahi karta. Koi bhi dikkat (function nahi, network, timeout) → `null` → pehle jaisa full download (OPT-69) |
 | `payload.ts` | Split / money-back columns sirf tab bhejta hai jab row unhe use kare (SQL chalne se pehle bhi normal expenses chalte hain) |
 | `recoveryMiddleware.ts` | Har `expenses` write par counted amount dobara nikaalta hai (SPL-003) |
 | `moneyBack.ts` | Money back / refund record karna, aur logged income ko money back me badalna (SPL-003..006) |
@@ -317,6 +318,10 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `src/lib/expenseCacheMemo.ts` | Har cache key par last likha JSON yaad rakhta hai, taaki same JSON dobara disk par na likha jaye (OPT-20). `fetchExpenses` aur `syncPending.ts` dono isse update karte hain |
 | `src/lib/queueLock.ts` | `runExclusive(key, fn)`: ek AsyncStorage key par ek waqt mein ek hi writer (OPT-61). Har offline queue write (add/update/delete), sync ka final re-read/write aur expense cache write isi se hote hain. Andar network call kabhi nahi, same key dobara kabhi nahi |
 | `src/lib/supabasePaging.ts` | `fetchAllPages`: 1,000 se kam rows par ek hi request (result bilkul same); pehla page full ho tabhi baaki pages `id` tie-breaker ke saath; koi baad wala page fail ho toh pehla page hi lautata hai (OPT-64) |
+| `src/lib/signOutCleanup.ts` | `clearUserCachesOnSignOut(userId)`: Log Out ke baad us user ki phone par padi server-data copies hataata hai (expense cache, category cache, profile cache). Unsynced queues (`@arthik_pending_*`) aur `@arthik_failed_sync_*` ko kabhi nahi chhedta (SEC-01) |
+| `src/lib/secureSessionStorage.ts` | Supabase login session ka encrypted storage (SEC-02). Value usi AsyncStorage key me `arthik-enc-v1:<iv>:<data>` ban kar rehti hai; AES key phone ke secure storage me. Purana plain session padh kar background me encrypt karta hai. Har encrypted value likhne se pehle wapas decrypt karke match karta hai; kuch bhi gadbad ho toh pehle jaisa plain likhta hai. Padh na sake toh `onUnreadable` chala kar "no session" batata hai |
+| `src/lib/expoSessionCipher.ts` | `expo-crypto` ke native AES-256-GCM ka chhota wrapper. Native ke saath sirf base64 strings aati-jaati hain |
+| `src/lib/sessionCodec.ts` | Pure JS helpers: text ↔ UTF-8 bytes ↔ base64 (engine ke `TextEncoder` / `atob` par depend nahi) |
 
 ### Baaki stores
 | Store | Kaam |

@@ -204,7 +204,7 @@ const ReviewCardItem = React.memo<ReviewCardItemProps>(({
             )}
           </Card>
           {swipedOpen && (
-            <Pressable style={StyleSheet.absoluteFill} onPress={closeSwipe} />
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeSwipe} accessible={false} importantForAccessibility="no" />
           )}
         </Animated.View>
       </GestureDetector>

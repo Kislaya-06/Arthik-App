@@ -130,7 +130,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
 
       {/* Header */}
       <View style={styles.headerRow}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={10}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
@@ -204,6 +204,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
 
             return (
               <Pressable
+                accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={`${iconName} icon`}
                 key={iconName}
                 style={[
                   styles.iconOption,

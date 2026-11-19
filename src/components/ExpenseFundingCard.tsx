@@ -18,7 +18,7 @@ export const ExpenseFundingCard: React.FC<{ funding: ExpenseFundingBreakdown }> 
 
   const rows = [
     funding.coveredByBudget > 0 && { key: 'b', title: 'Daily Allowance', sub: 'Within daily budget limit', amt: funding.coveredByBudget, col: '#ADEBB3', icon: (c: string) => <Calendar size={20} color={c} strokeWidth={2.2} /> },
-    funding.coveredByIncome > 0 && { key: 'i', title: 'Paid from Income', sub: 'Covered overspending', amt: funding.coveredByIncome, col: '#B8E0C8', icon: (c: string) => <Wallet size={20} color={c} strokeWidth={2.2} /> },
+    funding.coveredByIncome > 0 && { key: 'i', title: 'Paid from Income', sub: 'Covered overspending', amt: funding.coveredByIncome, col: colors.mint, icon: (c: string) => <Wallet size={20} color={c} strokeWidth={2.2} /> },
     funding.coveredByGullak > 0 && { key: 'g', title: 'Paid from Gullak', sub: 'Deducted from savings', amt: funding.coveredByGullak, col: '#ADEBB3', alert: true, icon: (c: string) => <PiggyBankCoinIcon size={20} color={c} /> },
   ].filter(Boolean) as any[];
 

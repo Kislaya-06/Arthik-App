@@ -1,6 +1,7 @@
 import { toFriendlyMessage } from '../lib/friendlyError';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import type { TextInput } from 'react-native';
 import {
   View,
   Text,
@@ -42,6 +43,7 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({ onPress, style, disable
   const scaleAnim = useAnimatedValue(1);
   return (
     <Pressable
+      accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
       onPress={onPress}
       disabled={disabled}
       onPressIn={() =>
@@ -70,6 +72,8 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
   const [focusedField, setFocusedField] = useState<'password' | 'confirm' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Enter on the first field moves to the second; Enter on the second submits.
+  const confirmInputRef = useRef<TextInput>(null);
 
   const errorOpacity = useAnimatedValue(0);
   const errorTranslateY = useAnimatedValue(-10);
@@ -184,6 +188,7 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* Header & Back Button */}
           <View style={styles.headerRow}>
             <Pressable
+              accessibilityRole="button" accessibilityLabel="Go back"
               style={styles.backBtn}
               onPress={() => {
                 if (navigation.canGoBack()) {
@@ -249,6 +254,11 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
               isPassword
               showPassword={showPassword}
               onToggleShowPassword={() => setShowPassword(!showPassword)}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => confirmInputRef.current?.focus()}
               colors={colors}
               isDark={isDark}
             />
@@ -269,6 +279,11 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
               isPassword
               showPassword={showConfirmPassword}
               onToggleShowPassword={() => setShowConfirmPassword(!showConfirmPassword)}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              inputRef={confirmInputRef}
+              returnKeyType="done"
+              onSubmitEditing={handleUpdatePassword}
               colors={colors}
               isDark={isDark}
             />

@@ -131,9 +131,9 @@ export const AppLockOverlay: React.FC = () => {
             onPress={() => authenticate(true)}
           >
             {isAuthenticating ? (
-              <ActivityIndicator size="small" color="#1A2B4C" />
+              <ActivityIndicator size="small" color={colors.forestGreen} />
             ) : (
-              <FingerprintPattern size={36} color="#1A2B4C" strokeWidth={2.2} />
+              <FingerprintPattern size={36} color={colors.forestGreen} strokeWidth={2.2} />
             )}
           </Pressable>
 

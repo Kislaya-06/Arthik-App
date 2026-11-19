@@ -99,6 +99,7 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
       {/* Arrow row */}
       <View style={navStyles.row}>
         <Pressable
+          accessibilityRole="button" accessibilityLabel="Previous period"
           onPress={() => {
             Haptics.selectionAsync().catch(() => { });
             onPrev();
@@ -139,6 +140,7 @@ export const PeriodNavigator: React.FC<PeriodNavigatorProps> = ({
         </View>
 
         <Pressable
+          accessibilityRole="button" accessibilityLabel="Next period"
           onPress={() => {
             Haptics.selectionAsync().catch(() => { });
             onNext();

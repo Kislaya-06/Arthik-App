@@ -263,7 +263,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                   Takes effect at 12:00 AM
                 </Text>
               </View>
-              <PressableOpacity onPress={handleCancelScheduled} hitSlop={8}>
+              <PressableOpacity accessibilityRole="button" accessibilityLabel="Cancel scheduled change" onPress={handleCancelScheduled} hitSlop={8}>
                 <X size={16} color="rgba(255, 255, 255, 0.8)" />
               </PressableOpacity>
             </View>
@@ -307,7 +307,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                     : 'Takes effect tomorrow at 12:00 AM · Tap ✕ to cancel'}
                 </Text>
               </View>
-              <PressableOpacity onPress={cancelPendingPlanChange} hitSlop={8}>
+              <PressableOpacity accessibilityRole="button" accessibilityLabel="Cancel scheduled change" onPress={cancelPendingPlanChange} hitSlop={8}>
                 <X size={16} color="rgba(255, 255, 255, 0.8)" />
               </PressableOpacity>
             </View>

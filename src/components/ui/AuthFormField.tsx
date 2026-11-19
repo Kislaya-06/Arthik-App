@@ -7,6 +7,7 @@ import {
   Pressable,
   KeyboardTypeOptions,
   ReturnKeyTypeOptions,
+  TextInputProps,
 } from 'react-native';
 import Eye from 'lucide-react-native/icons/eye';
 import EyeOff from 'lucide-react-native/icons/eye-off';
@@ -30,6 +31,16 @@ export interface AuthFormFieldProps {
   keyboardType?: KeyboardTypeOptions;
   returnKeyType?: ReturnKeyTypeOptions;
   onSubmitEditing?: () => void;
+  /** Autofill hint (password managers, Google Autofill). Example: "email", "current-password", "new-password". */
+  autoComplete?: TextInputProps['autoComplete'];
+  textContentType?: TextInputProps['textContentType'];
+  /** Keyboard auto-correction. Off by default for password fields; pass false for emails. */
+  autoCorrect?: boolean;
+  maxLength?: number;
+  /** "submit" keeps the keyboard open when Enter moves to the next field. */
+  submitBehavior?: TextInputProps['submitBehavior'];
+  /** Lets the screen focus this field (Enter on the previous field). */
+  inputRef?: React.Ref<TextInput>;
   colors: ThemeColors;
   isDark: boolean;
   editable?: boolean;
@@ -53,6 +64,12 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
   keyboardType = 'default',
   returnKeyType = 'done',
   onSubmitEditing,
+  autoComplete,
+  textContentType,
+  autoCorrect,
+  maxLength,
+  submitBehavior,
+  inputRef,
   topSpacing = 24,
   colors,
   isDark,
@@ -93,6 +110,8 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
           ]}
         >
           <TextInput
+            ref={inputRef}
+            accessibilityLabel={label}
             style={[
               styles.input,
               {
@@ -112,6 +131,11 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
             keyboardType={keyboardType}
             returnKeyType={returnKeyType}
             onSubmitEditing={onSubmitEditing}
+            autoComplete={autoComplete}
+            textContentType={textContentType}
+            autoCorrect={autoCorrect ?? (isPassword ? false : undefined)}
+            maxLength={maxLength}
+            submitBehavior={submitBehavior}
             editable={editable}
           />
           {isPassword && onToggleShowPassword ? (
@@ -133,7 +157,10 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
         </View>
       </View>
       {errorText ? (
-        <Text style={[styles.errorText, { color: colors.coral, fontFamily: FontFamily.medium }]}>
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[styles.errorText, { color: colors.coral, fontFamily: FontFamily.medium }]}
+        >
           {errorText}
         </Text>
       ) : null}

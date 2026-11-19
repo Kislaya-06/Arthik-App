@@ -135,7 +135,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={styles.backdrop} onPress={onClose} accessible={false} importantForAccessibility="no" />
 
         <View
           style={[
@@ -226,6 +226,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
           {/* Month & Year Navigation Row */}
           <View style={styles.monthNavRow}>
             <Pressable
+              accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={6}
               onPress={handlePrevMonth}
               style={({ pressed }) => [
                 styles.navArrow,
@@ -249,6 +250,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
             </Text>
 
             <Pressable
+              accessibilityRole="button" accessibilityLabel="Next month" hitSlop={6}
               onPress={handleNextMonth}
               style={({ pressed }) => [
                 styles.navArrow,
@@ -315,7 +317,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                         styles.dayText,
                         {
                           color: cell.isSelected
-                            ? '#1A2B4C'
+                            ? colors.forestGreen
                             : cell.isTodayDate
                             ? colors.mintGreen
                             : colors.textPrimary,
@@ -371,7 +373,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                 maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
                 style={[
                   styles.confirmButtonText,
-                  { color: '#1A2B4C', fontFamily: FontFamily.bold },
+                  { color: colors.forestGreen, fontFamily: FontFamily.bold },
                 ]}
               >
                 Done

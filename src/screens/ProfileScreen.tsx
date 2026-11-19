@@ -426,6 +426,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       >
         <View style={styles.headerRow}>
           <Pressable 
+            accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}
             style={styles.backBtn}
             onPress={() => navigation.goBack()}
           >

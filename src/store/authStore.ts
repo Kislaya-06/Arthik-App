@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { supabase } from '../config/supabase';
 import { useNetworkStore } from './networkStore';
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
+import { clearUserCachesOnSignOut } from '../lib/signOutCleanup';
 
 export interface Profile {
   id: string;
@@ -144,6 +145,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    const signedOutUserId = get().user?.id;
     set({ loading: true });
     try {
       resetCallbacks.forEach((cb) => {
@@ -161,6 +163,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (_) {}
     await supabase.auth.signOut();
     set({ session: null, user: null, profile: null, loading: false });
+    // SEC-01: the session on this phone has ended, so remove this user's copies of server data
+    // (expense list, categories, profile). Unsynced queues are kept; nothing the server lacks is removed.
+    await clearUserCachesOnSignOut(signedOutUserId);
   },
 
   updateProfile: async (firstName?: string, lastName?: string, settings?: { daily_budget?: number; is_auto_renew?: boolean }) => {

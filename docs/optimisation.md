@@ -116,6 +116,8 @@ Example: `vy > 0.35` → `e.velocityY > 350`.
 | 5 | Perceived speed and polish (big-app patterns) | mixed, several ⚠️ | Feels premium |
 | 6 | Clean-up | none | Smaller, tidier repo |
 | 8 | Offline safety (write-ahead queue, save timeout, queue lock, stale-cache guard, paging) | low, data-safety | No saved money can be lost, no stale data can overwrite the server |
+| 9 | Security hardening (data at rest, sign-out, update download) | low | Less readable data left on the phone; nothing a user sees changes |
+| 10 | Sync efficiency (paging order, skip unchanged downloads) | low | Less data and battery per refresh; same rows, same numbers |
 
 ---
 
@@ -1188,6 +1190,96 @@ column, policy or function changes. The old index is kept.
 - `selfHealDefaultBudget` writes `profiles.daily_budget` (legacy migration-500 fix).
 - Re-renders: verified already granular (field selectors everywhere, same-array on no-change refresh, budget store sets
   only on change, FlashList). No measured hotspot left that can be fixed without risk; profile before changing.
+
+---
+
+## Phase 9 — Security hardening (OTA-safe)
+Started 16 Nov 2026 after a full security + optimisation read of the repo. One task = one OTA. **No money logic, no
+calculation, no screen and no copy changes in this phase.**
+
+### SEC-01. Log Out removes this phone's copies of the user's data
+**Status:** ✅ Done 16 Nov 2026 — new `src/lib/signOutCleanup.ts` (`clearUserCachesOnSignOut`), called at the end of `signOut()` in `src/store/authStore.ts`; `tests/signOutCleanup.test.ts`, `tests/authStore.test.ts`.
+**Problem found:** `signOut()` removed only `@arthik_cached_user`. The full expense list, the category list and the
+profile of the signed-out user stayed in AsyncStorage as plain text (`@arthik_cached_expenses_*`,
+`@arthik_cached_categories_*`, `@arthik_cached_profile_*`). (The persisted budget and notification stores were already
+removed on sign-out.)
+**Fix:** after the session on the phone has ended, remove those three keys. The expense key is removed under the same
+`runExclusive` lock as every cache writer and its "already written" memo is forgotten, so the next sign-in writes it again.
+**Must NOT change:** every `@arthik_pending_*` queue and `@arthik_failed_sync_*` stay (unsynced changes survive a
+logout exactly as before); other users' keys; a session that ends by itself (`setSession(null)`) keeps the caches.
+**Check on device:** log out, log in again online → every screen shows the same numbers as before. Add an expense in
+airplane mode, log out, log in online → the expense is still there and syncs.
+
+### SEC-02. Login session stored encrypted
+**Status:** ✅ Done 16 Nov 2026 — new `src/lib/secureSessionStorage.ts`, `src/lib/expoSessionCipher.ts`, `src/lib/sessionCodec.ts`; `src/config/supabase.ts` passes it as `auth.storage`; `tests/secureSessionStorage.test.ts`, `tests/secureSessionStorageSupabase.test.ts`, `tests/expoSessionCipher.test.ts`, `tests/sessionCodec.test.ts`. Shipped as the LAST zip of the round because it is the only one that touches sign-in for every user.
+**Problem found:** `auth.storage` was AsyncStorage, so the access token and refresh token sat on the phone as readable
+text. Anyone who can read the app's storage (rooted phone, forensic backup) could copy the refresh token and use the
+account from elsewhere. The Auto Logging database was already encrypted (SQLCipher) but the key to the whole account was not.
+**Fix:** AES-256-GCM through the native AES module inside `expo-crypto` (already in the installed binary: the app
+imports `expo-crypto` at start, and that import loads the AES native module, so a binary without it could not start).
+Key in `expo-secure-store` under `arthik_session_key_v1`. Same AsyncStorage key, value prefixed `arthik-enc-v1:`.
+**Why it cannot lose a working session:** plain values are still read; every sealed value is opened again and
+compared before it is written; any failure → plain write (old behaviour) for the rest of the app run; writes per key
+are serialised with `runExclusive`; the background upgrade writes only if the stored value is still the one it read.
+**Must NOT change:** the Supabase storage key names; `flowType: 'pkce'`; `autoRefreshToken`; the offline start.
+**Known trade-offs (owner must know):** (1) if secure storage loses the key, the user signs in again (clean login
+screen; unsynced queues kept); (2) publishing an older JS bundle after this one signs everyone out once.
+**Check on device:** see `placementguide.md` of 16 Nov 2026 (Zip 6).
+
+### SEC-03. Update links only from Arthik's own GitHub repository
+**Status:** ✅ Done 16 Nov 2026 — `isTrustedReleaseUrl`, `resolveReleasePageUrl`, stricter `resolveApkUrl` in `src/lib/versionCheck.ts`; second gate in `downloadApk` (`src/lib/apkInstaller.ts`); browser fallback in `src/screens/UpdateRequiredScreen.tsx`; `tests/appUpdate.test.ts`, `tests/apkInstallerTrustedLink.test.ts`.
+**Problem found:** the force-update screen took `apk_url` / `release_url` from the server row and only checked "https" +
+".apk" + file size over 1 MB. A changed server row could make the app download a file from any website and open
+Android's installer for it (Android would still refuse to install it OVER Arthik without the same signing key, but it
+could be offered as a different app).
+**Fix:** links must start with `https://github.com/Kislaya-06/Arthik-App/` and contain no `..`, `%`, `@`, `#`, `\` or
+spaces. Otherwise: no in-app download, and the browser opens `DEFAULT_RELEASE_URL`.
+**Must NOT change:** the documented link forms keep working; `evaluateVersionRequirement` still returns the server
+values as they are (the screen filters them); when the force update shows; v1.x clients.
+**Check on device:** with the normal `version_control` row and force update on → Download & install works as before.
+
+### SEC-04. Sign-up cannot fail on a long or blank name (database only)
+**Status:** ✅ SQL written and tested 16 Nov 2026 — `supabase/migrations/20261116120000_signup_name_safety_and_expense_counter.sql` (Part 1), mirrored in `schema.sql`; `tests/sec04SignupNameSafetySql.test.ts`. **Owner runs the SQL once** (steps: `placementguide.md`). No app code, no OTA.
+**Problem found:** `handle_new_user()` stored `COALESCE(first_name, full_name, name, email part)` as it was, and
+`last_name` as it was. `profiles_first_name_len` allows 1 to 50 characters and `profiles_last_name_len` at most 50.
+A longer name (possible with Google sign-in, or an email with a long part before "@") or a blank `first_name` made
+the trigger fail, and with it the whole sign-up ("Database error saving new user"). Reproduced on a real Postgres.
+**Fix:** first NON-BLANK source, `btrim`, `left(…, 50)`; `last_name` → `left(…, 50)`.
+**Must NOT change:** the order of the sources; the profile defaults; the first `budget_plan_changes` row; the 12
+default categories; `SECURITY DEFINER`, `search_path` and the `REVOKE`.
+**Also in the same file (Part 2):** the expense change counter for OPT-69 (same SQL as Part B of the 30 Oct migration).
+
+---
+
+## Phase 10 — Sync efficiency (OTA-safe)
+Started 16 Nov 2026. **Same rows, same numbers.** Only how the rows are asked for changes.
+
+### OPT-70. Unique last sort key for the paged expense download
+**Status:** ✅ Done 16 Nov 2026 — `.order('id', { ascending: false })` added to the page query in `fetchExpenses` (`src/store/expenseStore.ts`); `tests/opt70ExpensePagingTieBreaker.test.ts`.
+**Problem found:** pages of 1,000 ordered by `expense_date DESC, created_at DESC` only. Rows written in one request
+share one `created_at` (Postgres `NOW()` is the same for the whole statement), so their order is not fixed between two
+page requests; a row on a page border could be skipped or repeated. `fetchAllPages` (OPT-64) already adds an `id`
+tie-breaker for the other lists; the expense list did not have one.
+**Fix:** `id DESC` as the third sort key. Matches `idx_expenses_user_date_created_id` exactly; with only
+`idx_expenses_user_date_created` present Postgres sorts the few tied rows itself.
+**Must NOT change:** which rows are returned; one request for accounts under 1,000 rows; the per-page timeout and retries.
+**Check on device:** Home, History and Insights show the same transactions and totals as before.
+
+### OPT-69. Skip the expense download when the server counter did not change
+**Status:** ✅ Done 16 Nov 2026 — new `src/store/expense/versionProbe.ts` (`probeExpensesVersion`, `canReuseExpenseList`), used in `fetchExpenses` (`src/store/expenseStore.ts`); `tests/opt69ExpenseVersionProbe.test.ts`. Server side: Part B of `supabase/migrations/20261030145341_performance_sync_version_bootstrap.sql` (written 30 Oct 2026, no change in this task).
+**Problem found:** `fetchExpenses` is called from Home, History, Insights, Savings, Category detail, Manage categories,
+Splash and the auth listener. Every call downloaded all pages of `expenses` again. The 30 Oct migration created the
+per-user change counter and `arthik_expenses_version()`, but no client code called it (`.rpc(` did not exist in `src/`).
+**Fix:** order inside `fetchExpenses` is now sync pending → read counter → download. The counter read before a
+successful download is remembered (`lastDownloadVersion`). Next refresh: same counter (and ≥ 1) → keep the list,
+`syncWithExpenses(get().expenses)`, return. Anything else → download as before.
+**Why it is safe:** the trigger bumps the counter in the same transaction as the row change; the counter is read
+before the rows, so "same counter" proves "same rows". Own online saves bump the counter too, so the next refresh
+after an own save downloads once (conservative). The first download of a session never asks, so cold start is unchanged.
+**Must NOT change:** the merge with the pending queues on a real download; `expensesFreshFromServer` (OPT-63); the
+cache write; per-page timeout and retries.
+**Check on device:** two phones on one account: add on phone A, pull to refresh on phone B → it appears. With no
+changes: pull to refresh twice → the second one finishes faster, numbers identical.
 
 ---
 

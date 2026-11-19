@@ -219,14 +219,14 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
     >
       <View style={styles.backdrop}>
         <Animated.View style={[styles.scrim, { opacity: fadeAnim }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} importantForAccessibility="no" />
         </Animated.View>
 
         <Animated.View
           style={[
             styles.sheetContainer,
             {
-              backgroundColor: isDark ? '#141416' : '#FFFFFF',
+              backgroundColor: isDark ? '#141416' : colors.white,
               borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
               paddingBottom: Math.max(insets.bottom, Spacing.surface),
               transform: [{ translateY: slideAnim }],
@@ -334,7 +334,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     activeOpacity={0.8}
                     onPress={() => handleApplySafeAmount(plan.validation.maxSafeWeeklyAmount!)}
                   >
-                    <Sparkles size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Sparkles size={13} color={colors.white} style={{ marginRight: 6 }} />
                     <Text style={styles.safeActionText}>
                       Set Safe Budget: {formatCurrency(plan.validation.maxSafeWeeklyAmount)}/week
                     </Text>
@@ -347,7 +347,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     activeOpacity={0.8}
                     onPress={() => handleApplySafeAmount(plan.validation.maxSafeDailyAmount!)}
                   >
-                    <Sparkles size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Sparkles size={13} color={colors.white} style={{ marginRight: 6 }} />
                     <Text style={styles.safeActionText}>
                       Set Safe Budget: {formatCurrency(plan.validation.maxSafeDailyAmount)}/day
                     </Text>
@@ -557,7 +557,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     ? colors.textSecondary
                     : isDark
                     ? colors.forestGreen
-                    : '#FFFFFF'
+                    : colors.white
                 }
                 style={{ marginRight: 6 }}
               />
@@ -569,7 +569,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                       ? colors.textSecondary
                       : isDark
                       ? colors.forestGreen
-                      : '#FFFFFF',
+                      : colors.white,
                   },
                 ]}
               >
@@ -583,7 +583,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
             style={[
               styles.overshootSkirt,
               {
-                backgroundColor: isDark ? '#141416' : '#FFFFFF',
+                backgroundColor: isDark ? '#141416' : colors.white,
                 borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
                 borderLeftWidth: 1,
                 borderRightWidth: 1,

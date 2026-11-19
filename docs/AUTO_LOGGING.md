@@ -130,6 +130,8 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
 **Limits:** only what the email notification shows (long emails are cut by the email app); emails whose notifications are muted are not seen; no historical email discovery (old emails are never read).
 
 ## 10. Known limitations (MVP)
+- Parser formats added 16 Nov 2026 (AL-01..AL-09, `tests/autoLogParser.test.ts`): loan account vs paying account, "Rs.450 Dr./Cr.", "Rs:200.00", Axis "UPI/P2M/ref/payee", card "spent ... on X", "reference number is", bank channel prefixes in names.
+- Still not read: foreign-currency spends (go to review), UPI Lite messages without an account number (ask "Which account?"). ATM withdrawals and investments are logged as normal expenses.
 - Android only. iOS has no SMS access.
 - Bank SMS formats vary; unknown formats go to review and are learned from user answers.
 - Transfers are detected only when both accounts are tracked.

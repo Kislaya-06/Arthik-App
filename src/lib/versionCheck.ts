@@ -13,9 +13,36 @@ export interface VersionCheckResult {
   highlights?: string[];
 }
 
-/** Picks the direct APK link: explicit `apk_url`, else `release_url` if it already points at an .apk. */
+/**
+ * SEC-03: update files and update pages are only ever taken from Arthik's own GitHub repository.
+ * The links come from the server (`app_config.version_control`); if that row were ever changed by someone else,
+ * the app must not download or open a file from another place.
+ */
+export const TRUSTED_RELEASE_PREFIX = 'https://github.com/Kislaya-06/Arthik-App/';
+
+/** True only for an https link inside Arthik's GitHub repository, with nothing that could point elsewhere. */
+export function isTrustedReleaseUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (trimmed.length > 500) return false;
+  if (!trimmed.toLowerCase().startsWith(TRUSTED_RELEASE_PREFIX.toLowerCase())) return false;
+  const rest = trimmed.slice(TRUSTED_RELEASE_PREFIX.length);
+  // Path: letters, digits, dot, dash, underscore, slash. Optional simple query. No "..", "%", "@", "\", "#", spaces.
+  if (!/^[A-Za-z0-9._\-/]*(\?[A-Za-z0-9._\-=&]*)?$/.test(rest)) return false;
+  return !rest.includes('..');
+}
+
+/** The page opened in the browser as fallback: the server's link when it is Arthik's own, else the default page. */
+export function resolveReleasePageUrl(releaseUrl?: string | null): string {
+  return isTrustedReleaseUrl(releaseUrl) ? (releaseUrl as string).trim() : DEFAULT_RELEASE_URL;
+}
+
+/**
+ * Picks the direct APK link: explicit `apk_url`, else `release_url` if it already points at an .apk.
+ * Only links inside Arthik's own GitHub repository are accepted (SEC-03); anything else → no in-app download.
+ */
 export function resolveApkUrl(result: Pick<VersionCheckResult, 'apkUrl' | 'releaseUrl'>): string | null {
-  const isApk = (u?: string) => !!u && /^https:\/\/.+\.apk(\?.*)?$/i.test(u.trim());
+  const isApk = (u?: string) => !!u && /^https:\/\/.+\.apk(\?.*)?$/i.test(u.trim()) && isTrustedReleaseUrl(u);
   if (isApk(result.apkUrl)) return (result.apkUrl as string).trim();
   if (isApk(result.releaseUrl)) return result.releaseUrl.trim();
   return null;

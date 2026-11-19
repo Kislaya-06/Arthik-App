@@ -29,20 +29,20 @@ const Slide1Illustration = ({ isDark, colors }: { isDark: boolean; colors: Theme
     <View style={[styles.circleOuter, { opacity: isDark ? 0.12 : 0.2 }]} />
     <View style={[styles.circleMiddle, { opacity: isDark ? 0.25 : 0.4 }]} />
     <View style={styles.circleInner}>
-      <IndianRupee size={32} color="#1A2B4C" />
+      <IndianRupee size={32} color={colors.forestGreen} />
     </View>
 
     {/* Sparkles */}
     <View style={[styles.absolutePos, { top: 10, left: 10 }]}>
-      <Sparkles size={16} color="#B8E0C8" />
+      <Sparkles size={16} color={colors.mint} />
     </View>
     <View style={[styles.absolutePos, { top: 20, right: 20 }]}>
-      <Sparkles size={14} color="#F4B8AE" />
+      <Sparkles size={14} color={colors.coral} />
     </View>
 
     {/* Dots */}
-    <View style={[styles.dotAccent, { bottom: 30, right: 30, backgroundColor: '#F4B8AE' }]} />
-    <View style={[styles.dotAccent, { bottom: 40, left: 20, backgroundColor: '#B8E0C8' }]} />
+    <View style={[styles.dotAccent, { bottom: 30, right: 30, backgroundColor: colors.coral }]} />
+    <View style={[styles.dotAccent, { bottom: 40, left: 20, backgroundColor: colors.mint }]} />
 
     {/* Rupee Badges */}
     <View style={[styles.rupeeBadge, { bottom: 45, left: -10, backgroundColor: colors.card }]}>
@@ -63,8 +63,8 @@ const Slide2Illustration = ({ colors }: { colors: ThemeColors }) => {
 
   // Segments: Food (38%), Travel (27%), Shopping (20%), Other (15%)
   const segments = [
-    { percentage: 0.38, color: '#B8E0C8' },
-    { percentage: 0.27, color: '#F4B8AE' },
+    { percentage: 0.38, color: colors.mint },
+    { percentage: 0.27, color: colors.coral },
     { percentage: 0.20, color: '#F5D98B' },
     { percentage: 0.15, color: '#C9B8E8' },
   ];
@@ -112,7 +112,7 @@ const Slide2Legend = ({ colors }: { colors: ThemeColors }) => (
     <View style={styles.legendCol}>
       <View style={styles.legendRow}>
         <View style={styles.legendLeft}>
-          <View style={[styles.legendDot, { backgroundColor: '#B8E0C8' }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.mint }]} />
           <Text style={[styles.legendText, { color: colors.textPrimary }]} numberOfLines={1}>Food</Text>
         </View>
         <Text style={[styles.legendPercent, { color: colors.textSecondary }]}>38%</Text>
@@ -128,7 +128,7 @@ const Slide2Legend = ({ colors }: { colors: ThemeColors }) => (
     <View style={styles.legendCol}>
       <View style={styles.legendRow}>
         <View style={styles.legendLeft}>
-          <View style={[styles.legendDot, { backgroundColor: '#F4B8AE' }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.coral }]} />
           <Text style={[styles.legendText, { color: colors.textPrimary }]} numberOfLines={1}>Travel</Text>
         </View>
         <Text style={[styles.legendPercent, { color: colors.textSecondary }]}>27%</Text>
@@ -150,7 +150,7 @@ const Slide3Illustration = ({ isDark, colors }: { isDark: boolean; colors: Theme
     {/* Concentric Circles */}
     <View style={[styles.circleOuterSlide3, { opacity: isDark ? 0.15 : 0.25 }]} />
     <View style={styles.circleInnerSlide3}>
-      <Check size={48} color="#1A2B4C" strokeWidth={3} />
+      <Check size={48} color={colors.forestGreen} strokeWidth={3} />
     </View>
 
     {/* Bubble shapes */}
@@ -171,9 +171,9 @@ const Slide3Illustration = ({ isDark, colors }: { isDark: boolean; colors: Theme
 
     {/* Sparkle & Dot */}
     <View style={[styles.absolutePos, { top: 15, right: 30 }]}>
-      <Sparkles size={14} color="#F4B8AE" />
+      <Sparkles size={14} color={colors.coral} />
     </View>
-    <View style={[styles.dotAccent, { bottom: 25, right: 20, backgroundColor: '#F4B8AE' }]} />
+    <View style={[styles.dotAccent, { bottom: 25, right: 20, backgroundColor: colors.coral }]} />
   </View>
 );
 
