@@ -178,7 +178,8 @@ import {
   getPendingBudgetPeriodsKey,
   GullakDeposit,
 } from '../src/store/dailyBudgetStore';
-import { registerExpensesFreshGetter } from '../src/store/dailyBudget/expenseBridge';
+import { registerExpensesFreshGetter, registerAddExpense } from '../src/store/dailyBudget/expenseBridge';
+import { supabase } from '../src/config/supabase';
 
 describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net', () => {
   const USER_ID = 'user_hydrate_test_1';
@@ -673,6 +674,452 @@ describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net
         }),
         expect.any(Object)
       );
+    });
+  });
+  // -------------------------------------------------------------------------
+  // 3. Scheduled Budget Mode switch reaching a cold start (PUR-003, AGENTS.md section 8.1)
+  //    Bug: Budget Mode was scheduled "from tomorrow", the app was closed overnight, and the next cold start
+  //    showed Budget Mode ON with the allowance still paused (isAutoRenew = false, today's budget = 0).
+  // -------------------------------------------------------------------------
+  describe('PUR-003: scheduled Budget Mode switch on a cold start', () => {
+    const PURE_ROW = { id: 'p1', effective_from: '2026-01-01', is_enabled: false, cadence: 'daily', amount: 0 };
+    const profileUpdates = () => mockSupabaseSpies.update.mock.calls.map((c) => c[0]);
+
+    it('turns auto-save ON and gives today the daily budget when Pure -> Budget Mode matures while the app was closed', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        PURE_ROW,
+        { id: 'p2', effective_from: TODAY_STR, is_enabled: true, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(100);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(100);
+      expect(state.dailyRecords[TODAY_STR].status).toBe('active');
+    });
+
+    it('uses the unsynced offline-queued settings too (Pure-mode setDailyBudget saves is_auto_renew=false)', async () => {
+      storageMap.set(
+        getPendingSettingsKey(USER_ID),
+        JSON.stringify({ daily_budget: 100, is_auto_renew: false })
+      );
+      mockSupabaseData.profiles = { daily_budget: 250, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        PURE_ROW,
+        { id: 'p2', effective_from: TODAY_STR, is_enabled: true, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(100);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(100);
+    });
+
+    it('saves the activation to the profile so a later "pause auto-save" is never undone by the next start', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        PURE_ROW,
+        { id: 'p2', effective_from: TODAY_STR, is_enabled: true, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      expect(profileUpdates()).toContainEqual(
+        expect.objectContaining({ is_budget_mode_enabled: true, is_auto_renew: true, daily_budget: 100 })
+      );
+
+      // Next cold start: the server now says "Budget Mode on", and the user paused auto-save in between.
+      storageMap.clear();
+      useDailyBudgetStore.getState().resetDailyBudget();
+      mockSupabaseSpies.update.mockClear();
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(0);
+      expect(state.dailyRecords[TODAY_STR].status).toBe('unknown');
+    });
+
+    it('never flips a paused allowance back on when Budget Mode was already on (section 8.1 sovereignty)', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        { id: 'p0', effective_from: '2026-03-01', is_enabled: true, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(0);
+      expect(profileUpdates()).toHaveLength(0);
+    });
+
+    it('does not touch auto-save when the plan change is still in the future (today stays in Pure Mode)', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        PURE_ROW,
+        { id: 'p2', effective_from: '2026-03-16', is_enabled: true, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(false);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(0);
+      expect(profileUpdates()).toHaveLength(0);
+    });
+
+    it('turns auto-save ON for a weekly plan that matures while the app was closed', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, weekly_budget: 700, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        PURE_ROW,
+        { id: 'p2', effective_from: TODAY_STR, is_enabled: true, cadence: 'weekly', amount: 700 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.budgetCadence).toBe('weekly');
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.weeklyBudgetAmount).toBe(700);
+      expect(profileUpdates()).toContainEqual(
+        expect.objectContaining({ is_budget_mode_enabled: true, is_auto_renew: true })
+      );
+    });
+
+    it('turns auto-save OFF when Budget Mode -> Pure Mode matures while the app was closed', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: true, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        { id: 'p0', effective_from: '2026-03-01', is_enabled: true, cadence: 'daily', amount: 100 },
+        { id: 'p2', effective_from: TODAY_STR, is_enabled: false, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(false);
+      expect(state.isAutoRenew).toBe(false);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(0);
+      expect(profileUpdates()).toContainEqual(
+        expect.objectContaining({ is_budget_mode_enabled: false, is_auto_renew: false })
+      );
+    });
+
+    it('offline cold start: the first rollover still activates Budget Mode with auto-save ON', async () => {
+      mockNetworkState.isOffline = true;
+      useDailyBudgetStore.setState({
+        isBudgetModeEnabled: false,
+        isAutoRenew: false,
+        dailyBudgetAmount: 100,
+        planChanges: [
+          { id: 'p1', userId: USER_ID, effectiveFrom: '2026-01-01', isEnabled: false, cadence: 'daily', amount: 0 },
+          { id: 'p2', userId: USER_ID, effectiveFrom: TODAY_STR, isEnabled: true, cadence: 'daily', amount: 100 },
+        ],
+      });
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+      useDailyBudgetStore.getState().checkAndRollover([]);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyBudgetAmount).toBe(100);
+    });
+  });
+  // -------------------------------------------------------------------------
+  // 4. One hydration per user at a time (splash + Home + sign-in listener can all ask within the same second)
+  // -------------------------------------------------------------------------
+  describe('single-flight hydration', () => {
+    const planRequests = () =>
+      vi.mocked(supabase.from).mock.calls.filter((c) => c[0] === 'budget_plan_changes').length;
+
+    it('two overlapping hydrateFromSupabase calls share one run (one set of server requests)', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: true, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+      const store = useDailyBudgetStore.getState();
+
+      const first = store.hydrateFromSupabase(USER_ID);
+      const second = store.hydrateFromSupabase(USER_ID);
+      await Promise.all([first, second]);
+
+      expect(planRequests()).toBe(1);
+      expect(useDailyBudgetStore.getState().hydratedForUserId).toBe(USER_ID);
+    });
+
+    it('a call after the first run finished starts a fresh run', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: true, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+      expect(planRequests()).toBe(2);
+    });
+
+    it('a different user never joins the run of another user', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: true, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+      const a = useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+      const b = useDailyBudgetStore.getState().hydrateFromSupabase('someone_else');
+      await Promise.all([a, b]);
+      expect(planRequests()).toBe(2);
+    });
+  });
+  // -------------------------------------------------------------------------
+  // 5. Same switch while the app was OPEN at midnight (PUR-003, FIN-16): mode and auto-save came on but today's
+  //    unfinalized record kept budget 0, so the first Budget Mode day had no allowance at all.
+  // -------------------------------------------------------------------------
+  describe('PUR-003: scheduled Budget Mode switch maturing while the app is open', () => {
+    const seedPureDay = (overrides: Record<string, unknown> = {}) => {
+      useDailyBudgetStore.setState({
+        hydratedForUserId: USER_ID,
+        ownerUserId: USER_ID,
+        isBudgetModeEnabled: false,
+        isAutoRenew: false,
+        dailyBudgetAmount: 100,
+        planChanges: [
+          { id: 'p1', userId: USER_ID, effectiveFrom: '2026-01-01', isEnabled: false, cadence: 'daily', amount: 0 },
+          { id: 'p2', userId: USER_ID, effectiveFrom: TODAY_STR, isEnabled: true, cadence: 'daily', amount: 100 },
+        ],
+        dailyRecords: {
+          [TODAY_STR]: { date: TODAY_STR, budget: 0, spent: 0, saved: 0, isFinalized: false, status: 'unknown' },
+        },
+        ...overrides,
+      });
+    };
+
+    it('gives today the daily budget at once when the rollover turns Budget Mode on', () => {
+      seedPureDay();
+
+      useDailyBudgetStore.getState().checkAndRollover([]);
+
+      const state = useDailyBudgetStore.getState();
+      expect(state.isBudgetModeEnabled).toBe(true);
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(100);
+      expect(state.dailyRecords[TODAY_STR].status).toBe('active');
+      expect(state.dailyRecords[TODAY_STR].saved).toBe(100);
+    });
+
+    it('counts what was already spent today against the new daily budget', () => {
+      const spentToday = [
+        { id: 'e1', user_id: USER_ID, amount: 30, category_id: null, note: '', payment_mode: 'cash', expense_date: TODAY_STR, created_at: `${TODAY_STR}T08:00:00Z` },
+      ] as any[];
+      registerExpenseGetter(() => spentToday);
+      seedPureDay({
+        // Gullak money already covers the ₹30, so this scenario has no Pure Mode deficit to auto-balance (PUR-001).
+        gullakDeposits: [
+          { id: 'g1', amount: 1000, date: '2026-03-01', note: '', source: 'external', created_at: '2026-03-01T10:00:00Z' },
+        ],
+        dailyRecords: {
+          [TODAY_STR]: { date: TODAY_STR, budget: 0, spent: 30, saved: 0, isFinalized: false, status: 'unknown' },
+        },
+      });
+
+      useDailyBudgetStore.getState().checkAndRollover(spentToday);
+
+      const rec = useDailyBudgetStore.getState().dailyRecords[TODAY_STR];
+      expect(rec.budget).toBe(100);
+      expect(rec.spent).toBe(30);
+      expect(rec.saved).toBe(70);
+    });
+
+    it('syncWithExpenses heals a zero allowance when Budget Mode and auto-save are on', () => {
+      seedPureDay({ isBudgetModeEnabled: true, isAutoRenew: true });
+
+      useDailyBudgetStore.getState().syncWithExpenses([]);
+
+      expect(useDailyBudgetStore.getState().dailyRecords[TODAY_STR].budget).toBe(100);
+    });
+
+    it('syncWithExpenses never fills a paused allowance (auto-save OFF stays 0, section 8.1)', () => {
+      seedPureDay({ isBudgetModeEnabled: true, isAutoRenew: false });
+
+      useDailyBudgetStore.getState().syncWithExpenses([]);
+
+      expect(useDailyBudgetStore.getState().dailyRecords[TODAY_STR].budget).toBe(0);
+    });
+
+    it('never overwrites a real budget that is already set for today', () => {
+      seedPureDay({
+        isBudgetModeEnabled: true,
+        isAutoRenew: true,
+        dailyBudgetAmount: 100,
+        dailyRecords: {
+          [TODAY_STR]: { date: TODAY_STR, budget: 250, spent: 0, saved: 250, isFinalized: false, status: 'active' },
+        },
+      });
+
+      useDailyBudgetStore.getState().syncWithExpenses([]);
+
+      expect(useDailyBudgetStore.getState().dailyRecords[TODAY_STR].budget).toBe(250);
+    });
+
+    it('does not give a daily budget to a day owned by a weekly plan', () => {
+      seedPureDay({
+        isBudgetModeEnabled: true,
+        isAutoRenew: true,
+        budgetCadence: 'weekly',
+        weeklyBudgetAmount: 700,
+        planChanges: [
+          { id: 'p1', userId: USER_ID, effectiveFrom: '2026-01-01', isEnabled: false, cadence: 'daily', amount: 0 },
+          { id: 'p2', userId: USER_ID, effectiveFrom: TODAY_STR, isEnabled: true, cadence: 'weekly', amount: 700 },
+        ],
+      });
+
+      useDailyBudgetStore.getState().syncWithExpenses([]);
+
+      expect(useDailyBudgetStore.getState().dailyRecords[TODAY_STR].budget).toBe(0);
+    });
+
+    it('does not touch a finalized day', () => {
+      seedPureDay({
+        isBudgetModeEnabled: true,
+        isAutoRenew: true,
+        dailyRecords: {
+          [TODAY_STR]: { date: TODAY_STR, budget: 0, spent: 0, saved: 0, isFinalized: true, status: 'unknown' },
+        },
+      });
+
+      useDailyBudgetStore.getState().syncWithExpenses([]);
+
+      expect(useDailyBudgetStore.getState().dailyRecords[TODAY_STR].budget).toBe(0);
+    });
+  });
+  // -------------------------------------------------------------------------
+  // 6. PUR-001 on a cold start: the Pure -> Budget deficit auto-balance for a switch that matured while the app was
+  //    closed. It waits for expenses that come FROM THE SERVER (a stale saved list could invent a deficit) and measures
+  //    the deficit before today's new allowance, exactly like the switch does when the app is open.
+  // -------------------------------------------------------------------------
+  describe('PUR-001: deficit auto-balance for a switch that matured on a cold start', () => {
+    const DEFICIT_KEY = `@arthik_pending_deficit_check_${USER_ID}`;
+    const spend500 = [
+      { id: 'e1', user_id: USER_ID, amount: 500, category_id: null, note: '', payment_mode: 'cash', expense_date: '2026-03-10', created_at: '2026-03-10T08:00:00Z' },
+    ] as any[];
+    let expenses: any[] = [];
+    let fresh = true;
+    const addSpy = vi.fn(async () => {});
+
+    const maturedPlans = () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        { id: 'p1', effective_from: '2026-01-01', is_enabled: false, cadence: 'daily', amount: 0 },
+        { id: 'p2', effective_from: TODAY_STR, is_enabled: true, cadence: 'daily', amount: 100 },
+      ];
+    };
+
+    beforeEach(() => {
+      expenses = spend500;
+      fresh = true;
+      addSpy.mockClear();
+      registerExpenseGetter(() => expenses);
+      registerExpensesFreshGetter(() => fresh);
+      registerAddExpense(addSpy as any);
+    });
+
+    it('adds the deficit income once, measured before the new daily allowance, when expenses are fresh', async () => {
+      maturedPlans();
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      expect(addSpy).toHaveBeenCalledTimes(1);
+      const call = addSpy.mock.calls[0] as unknown as unknown[];
+      expect(call[0]).toBe(500); // not 400: the new ₹100 daily allowance is not counted against the old overspend
+      expect(call[1]).toBeNull();
+      expect(call[5]).toBe('income');
+      expect(storageMap.has(DEFICIT_KEY)).toBe(false);
+    });
+
+    it('waits while the expenses are only the saved copy, then runs once when the server copy arrives', async () => {
+      maturedPlans();
+      fresh = false;
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+      expect(addSpy).not.toHaveBeenCalled();
+      expect(storageMap.get(DEFICIT_KEY)).toBe(TODAY_STR); // remembered, survives a restart
+
+      fresh = true;
+      useDailyBudgetStore.getState().checkAndRollover(expenses);
+      expect(addSpy).toHaveBeenCalledTimes(1);
+
+      useDailyBudgetStore.getState().checkAndRollover(expenses);
+      expect(addSpy).toHaveBeenCalledTimes(1); // never twice
+    });
+
+    it('a restart in between keeps the check (it is read back from the phone)', async () => {
+      maturedPlans();
+      fresh = false;
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+      expect(addSpy).not.toHaveBeenCalled();
+
+      // App restarted: store state is rebuilt, the saved marker is still there.
+      useDailyBudgetStore.getState().resetDailyBudget();
+      fresh = true;
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      expect(addSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('adds nothing when the money covers the spending (no deficit)', async () => {
+      maturedPlans();
+      useDailyBudgetStore.setState({
+        gullakDeposits: [
+          { id: 'g1', amount: 1000, date: '2026-03-01', note: '', source: 'external', created_at: '2026-03-01T10:00:00Z' },
+        ],
+      });
+      mockSupabaseData.deposits = [
+        { id: 'g1', amount: 1000, date: '2026-03-01', note: '', source: 'external', created_at: '2026-03-01T10:00:00Z' },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      expect(addSpy).not.toHaveBeenCalled();
+      expect(storageMap.has(DEFICIT_KEY)).toBe(false);
+    });
+
+    it('a Budget Mode that was already on does not start a deficit check', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: true, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        { id: 'p0', effective_from: '2026-03-01', is_enabled: true, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      expect(addSpy).not.toHaveBeenCalled();
+      expect(storageMap.has(DEFICIT_KEY)).toBe(false);
+    });
+
+    it('a Budget Mode to Pure Mode switch never starts a deficit check', async () => {
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: true, is_budget_mode_enabled: true, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        { id: 'p0', effective_from: '2026-03-01', is_enabled: true, cadence: 'daily', amount: 100 },
+        { id: 'p2', effective_from: TODAY_STR, is_enabled: false, cadence: 'daily', amount: 100 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      expect(addSpy).not.toHaveBeenCalled();
+      expect(storageMap.has(DEFICIT_KEY)).toBe(false);
+    });
+
+    it('drops an old marker without adding anything when the app is in Pure Mode', async () => {
+      storageMap.set(DEFICIT_KEY, '2026-03-10');
+      mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
+      mockSupabaseData.planChanges = [
+        { id: 'p1', effective_from: '2026-01-01', is_enabled: false, cadence: 'daily', amount: 0 },
+      ];
+
+      await useDailyBudgetStore.getState().hydrateFromSupabase(USER_ID);
+
+      expect(addSpy).not.toHaveBeenCalled();
+      expect(storageMap.has(DEFICIT_KEY)).toBe(false);
     });
   });
 });

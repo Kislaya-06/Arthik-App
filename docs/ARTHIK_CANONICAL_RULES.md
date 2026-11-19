@@ -4,7 +4,7 @@
 > **Status:** ACTIVE — Governed by Owner Approval Protocol  
 > **Repository:** `Arthik-App` (this file lives at `docs/ARTHIK_CANONICAL_RULES.md`)  
 > **Initial Creation:** 2026-10-17  
-> **Last Updated:** 2026-10-22  
+> **Last Updated:** 2026-11-19  
 
 ---
 
@@ -52,8 +52,9 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Excluded from Inflow/Income:** Must NEVER increment total income or available income.
   3. **Protected Budget & Streak:** Must NEVER deduct from daily allowance or break Gullak savings streaks.
   4. **Preserved in History:** Displayed exclusively in transaction logs and history feeds as an informational record.
-- **Code Enforcement:** `src/lib/transactionUtils.ts` (`isExcludedFromTotals`, `isCountedExpense`, `isCountedIncome`)
-- **Verified By:** `tests/selfTransfersAndIncome.test.ts`, `tests/moneyFixesFour.test.ts`
+  5. **Works Offline (owner decision 2026-11-19):** Remembered self-transfer notes ("always remember") are kept on the phone, so a transfer is still recognised without internet and never falls back to being counted as a normal expense or income. A note remembered offline is saved at once and sent later, and it is sent BEFORE any expense that points to it.
+- **Code Enforcement:** `src/lib/transactionUtils.ts` (`isExcludedFromTotals`, `isCountedExpense`, `isCountedIncome`), `src/store/transferRulesStore.ts`
+- **Verified By:** `tests/selfTransfersAndIncome.test.ts`, `tests/moneyFixesFour.test.ts`, `tests/transferRulesOffline.test.ts`
 
 #### `TXN-004`: Money That Comes Back Is Not Income
 - **Status:** `APPROVED AS CHANGED` (Owner decision 2026-10-17, replaced by owner decision 2026-10-18)
@@ -640,8 +641,9 @@ This document is the **single authoritative canonical source of truth** for all 
   6. Post one inbox notification (`type: 'pure_deficit_balanced'`) with title *"Pure Mode deficit balanced"* and stable ID `pure_deficit_${dateStr}_${D}`.
   7. Invariant: Total Income never decreases. Repeat Pure Mode cycles only balance the new incremental deficit.
   8. Display Guardrail: The auto-balance income is excluded from `periodIncome` on Home budget summary chips, but fully counted in all-time total income, inflows, and the waterfall.
-- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/lib/homeCalculations.ts`, `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`)
-- **Verified By:** `tests/pureModeRules.test.ts`
+  9. **Switch That Matured While the App Was Closed (owner decision 2026-11-19):** the same check runs once for it. Because a stale saved expense list could invent a deficit, it waits until the expense list comes from the server, and it measures the deficit before the new day's allowance exists (exactly like the switch does when the app is open). It runs once per switch (a durable marker, never twice) and does nothing if the app is not in Budget Mode any more.
+- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/deficitCheck.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudgetStore.ts` (`checkAndRollover`), `src/lib/homeCalculations.ts`, `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`)
+- **Verified By:** `tests/pureModeRules.test.ts`, `tests/dailyBudgetHydrate.test.ts`
 
 #### `PUR-002`: Pure Mode Ended-Pool Leftover Retention
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -670,8 +672,26 @@ This document is the **single authoritative canonical source of truth** for all 
      - The app seamlessly continues in its currently active mode without sending any contradictory next-day notifications or glitching.
   3. **Zero Proration & Full Liquidity Guard**:
      - Overspending past weekly/monthly budget allowance is permitted as long as total account liquidity (budget + income + Gullak) > 0 (`SEC-001`). Digital Vault Guard only blocks outflows when `totalVaultLiquidity <= 0` (`accountRemaining <= 0`).
-- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/lib/budgetPeriods.ts`, `src/lib/vaultSpendingGuard.ts`, `src/screens/ProfileScreen.tsx`
-- **Verified By:** `tests/budgetModesStore.test.ts`, `tests/cadenceFixes.test.ts`, `tests/vaultSpendingGuard.test.ts`
+  4. **When the Switch Matures (owner decision 2026-11-19)** — whether the app was open at midnight or opened the next morning:
+     - Pure Mode → Budget Mode turns auto-save (`isAutoRenew`) ON; Budget Mode → Pure Mode turns it OFF; if Budget Mode was already on, the user's own choice stays (a paused allowance stays paused). One helper decides this for both the rollover and the cold-start hydration (`resolveAutoRenewForPlan`).
+     - The new mode and auto-save are saved to the profile, so a later "pause auto-save" is never undone by the next start.
+     - The first Budget Mode day gets its allowance at once: an unfinalized today record with budget 0 receives the daily amount, when Budget Mode, auto-save and a daily plan are on. A real budget (> 0) and a finalized day are never touched (`healZeroTodayAllowance`).
+- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudget/rollover.ts`, `src/store/dailyBudget/metrics.ts` (`healZeroTodayAllowance`), `src/store/dailyBudgetStore.ts` (`syncWithExpenses`, `checkAndRollover`), `src/lib/budgetModeUtils.ts` (`resolveAutoRenewForPlan`), `src/lib/budgetPeriods.ts`, `src/lib/vaultSpendingGuard.ts`, `src/screens/ProfileScreen.tsx`
+- **Verified By:** `tests/budgetModesStore.test.ts`, `tests/cadenceFixes.test.ts`, `tests/vaultSpendingGuard.test.ts`, `tests/dailyBudgetHydrate.test.ts`, `tests/budgetModeUtils.test.ts`
+
+### Domain 12: OFL — Offline-First Start-Up & Background Sync
+
+#### `OFL-001`: The App Works Without Internet; the Server Is a Background Copy
+- **Status:** `APPROVED AS CHANGED` (Owner decision 2026-11-19)
+- **Canonical Definition:**
+  1. **Open from the phone:** the splash screen ends as soon as the data saved on the phone is loaded (login session, saved profile, saved expenses and categories, budget state, app lock). It never waits for the connectivity check or for the server. The only exception is a phone with no saved expenses yet (first run): the splash may wait for the first download for at most 5 seconds.
+  2. **Refresh in the background:** categories, expenses and budget are refreshed from the server after the app has opened. A slow or failing network never blocks or slows the app. One budget hydration runs per user at a time.
+  3. **Nothing the user did is lost:** every change (expense, category, Gullak deposit, budget plan, budget settings, remembered transfer note) is saved on the phone first and sent later. Several changes made at the same moment never overwrite each other, and a change made while a sync request is in flight stays queued (only the items the server confirmed are removed).
+  4. **Sync by itself:** when internet comes back (and when the app returns to the foreground) every queue is sent, in an order the server accepts (remembered transfer notes before the expenses that point to them). No user action is needed.
+  5. **Unknown is not offline:** "connected, internet test not finished yet" is treated as online. Offline is only declared when the phone is not connected or the internet test failed.
+  6. **Only what is needed is online:** the server keeps what the user needs again later (money rows, categories, budget history, profile settings). A queue entry is a pending action, never a copy of server data: sign-out keeps queues and removes only the saved copies of server data (the Log Out cleanup, `src/lib/signOutCleanup.ts`).
+- **Code Enforcement:** `src/lib/startupLoad.ts`, `src/screens/SplashScreen.tsx`, `src/store/authStore.ts` (`setSession`), `src/store/networkStore.ts` (`checkConnectivity`), `src/store/dailyBudget/pendingStorage.ts`, `src/lib/asyncStorageList.ts`, `src/store/expense/syncPending.ts` (`flushSideQueues`), `src/store/categoryStore.ts`, `src/store/transferRulesStore.ts`
+- **Verified By:** `tests/startupLoad.test.ts`, `tests/splashOfflineFirst.test.ts`, `tests/authSessionFastStart.test.ts`, `tests/networkConnectivity.test.ts`, `tests/offlineQueueSafety.test.ts`, `tests/categoryQueueSafety.test.ts`, `tests/transferRulesOffline.test.ts`, `tests/dailyBudgetHydrate.test.ts`
 
 ---
 

@@ -27,6 +27,10 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
+          'Opens Fast, Even Offline: The app now opens from the data saved on your phone, so it starts quickly on any network and keeps working without internet',
+          'Budget Mode Starts Properly: When you switch Smart Budget & Gullak back on, your daily budget now starts right away on the first day with auto-save on, instead of showing ₹0',
+          'Nothing Lost Offline: Budget changes, Gullak deposits and categories you save offline now always reach the server',
+          'Self-Transfers Offline: Remembered transfer notes now work without internet',
           'Full Text, No More ...: Names, notes, titles and buttons now wrap or shrink to fit instead of being cut off',
           'Clear Error Messages: Short, simple messages instead of technical text',
           'Tactile Saves: A soft success buzz when you save an expense, deposit to Gullak or update your budget',

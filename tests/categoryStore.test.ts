@@ -245,4 +245,37 @@ describe('categoryStore (Seam: useCategoryStore)', () => {
       expect(state.categories[0].isPlaceholder).toBe(true);
     });
   });
+  describe('Offline-first start-up: loadCachedCategories (no network)', () => {
+    it('loads the saved categories without any server request and reports that a copy existed', async () => {
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify([
+        { id: 'cat_cached_1', user_id: TEST_USER_ID, name: 'Groceries', icon: 'ShoppingBag', color: '#10B981', is_default: false },
+      ]));
+
+      const found = await useCategoryStore.getState().loadCachedCategories();
+
+      expect(found).toBe(true);
+      expect(useCategoryStore.getState().isFetched).toBe(true);
+      expect(useCategoryStore.getState().categories.map((c) => c.id)).toContain('cat_cached_1');
+      expect(mockSupabaseSelect).not.toHaveBeenCalled();
+    });
+
+    it('reports false and keeps the placeholders when nothing is saved', async () => {
+      const found = await useCategoryStore.getState().loadCachedCategories();
+      expect(found).toBe(false);
+      expect(useCategoryStore.getState().isFetched).toBe(false);
+      expect(useCategoryStore.getState().categories[0].isPlaceholder).toBe(true);
+    });
+
+    it('a later forced fetchCategories still refreshes from the server after the saved copy was loaded', async () => {
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify([
+        { id: 'cat_cached_1', user_id: TEST_USER_ID, name: 'Groceries', icon: 'ShoppingBag', color: '#10B981', is_default: false },
+      ]));
+      await useCategoryStore.getState().loadCachedCategories();
+      mockSupabaseSelect.mockClear();
+
+      await useCategoryStore.getState().fetchCategories(true);
+
+      expect(mockSupabaseSelect).toHaveBeenCalled();
+    });
+  });
 });

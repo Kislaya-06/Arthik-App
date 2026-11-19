@@ -105,7 +105,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   checkConnectivity: async () => {
     const state = await NetInfo.fetch();
-    const isOnline = Boolean(state.isConnected && state.isInternetReachable);
+    // Connected but the reachability test has not finished (null) is "not known yet", not "offline": calling it
+    // offline would skip the start-up download and flash the offline banner. A real failure shows up as `false`.
+    const isOnline = state.isConnected === true && state.isInternetReachable !== false;
     get().setOffline(!isOnline);
     return isOnline;
   },

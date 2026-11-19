@@ -147,6 +147,7 @@ const withoutPendingDuplicates = (cached: Expense[], pending: Expense[]): Expens
 // P0.7: Exact network failure identification
 import { isNetworkFailure, withTimeout } from '../lib/networkUtils';
 import { runExclusive } from '../lib/queueLock';
+import { syncPendingTransferRules } from './transferRulesStore';
 export { isNetworkFailure, withTimeout };
 
 export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) => ({
@@ -286,6 +287,9 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
       const user = session?.user || useAuthStore.getState().user;
       if (!user) return;
 
+      // Remembered transfer rules made offline go first: an expense can point to one, and the server rejects a
+      // pointer to a rule it does not know yet.
+      await syncPendingTransferRules(user.id).catch(() => {});
       await syncPendingDeletes(user.id, get, set);
       await syncPendingAdds(user.id, get, set);
       await syncPendingUpdates(user.id, get, set);
@@ -297,26 +301,32 @@ export const useExpenseStore = create<ExpenseState>()(withRecoveries((set, get) 
     }
   },
 
+  loadCachedExpenses: async () => {
+    const user = useAuthStore.getState().user;
+    if (!user) return false;
+    if (get().isExpensesLoaded) return true;
+    // Fast-path: pre-load cached expenses immediately so state has data right away
+    try {
+      const cached = await AsyncStorage.getItem(getCachedStorageKey(user.id));
+      if (cached !== null) {
+        const parsed: Expense[] = JSON.parse(cached);
+        const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
+        const combined = [...pending, ...withoutPendingDuplicates(parsed, pending)];
+        set({ expenses: combined, isExpensesLoaded: true });
+        useDailyBudgetStore.getState().syncWithExpenses(combined);
+        return true;
+      }
+    } catch (cacheErr) {
+      if (__DEV__) console.log('Error reading cached expenses on launch:', cacheErr);
+    }
+    return false;
+  },
+
   fetchExpenses: async () => {
     const user = useAuthStore.getState().user;
     if (!user) return;
 
-    // Fast-path: pre-load cached expenses immediately so state has data right away
-    const cacheKey = getCachedStorageKey(user.id);
-    if (!get().isExpensesLoaded) {
-      try {
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached !== null) {
-          const parsed: Expense[] = JSON.parse(cached);
-          const pending = get().expenses.filter((e) => e.pending || e.id.startsWith('temp_'));
-          const combined = [...pending, ...withoutPendingDuplicates(parsed, pending)];
-          set({ expenses: combined, isExpensesLoaded: true });
-          useDailyBudgetStore.getState().syncWithExpenses(combined);
-        }
-      } catch (cacheErr) {
-        if (__DEV__) console.log('Error reading cached expenses on launch:', cacheErr);
-      }
-    }
+    await get().loadCachedExpenses();
 
     // Offline fast-path: if currently offline, return immediately with cached expenses
     const fetchSeq = ++activeFetchSeq;

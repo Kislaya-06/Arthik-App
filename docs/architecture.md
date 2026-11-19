@@ -132,7 +132,12 @@ Optimistic update in Zustand state (pending: true for adds)
 ```
 
 Every queue read→change→write runs under `runExclusive(key)` (`src/lib/queueLock.ts`, OPT-61), so two writers can never
-overwrite each other. Adds are idempotent (`upsert … ignoreDuplicates` + `.maybeSingle()`: a row already on the server
+overwrite each other. This covers the budget and category side queues too (OPT-72, `OFL-001`): settings, plan changes,
+budget periods, Gullak adds / deletes, category adds / updates / deletes and remembered transfer notes. A flush never
+writes back the copy it read BEFORE the request: it re-reads the queue under the lock and removes only the items the
+server confirmed (`removeFromStoredList`, `clearSentPendingSettings`), so something queued while the request was in
+flight is kept. Any queued profile setting is sent on reconnect (weekly / monthly amount, cadence and mode too), and
+remembered transfer notes (`syncPendingTransferRules`) are sent BEFORE the expenses that point to them. Adds are idempotent (`upsert … ignoreDuplicates` + `.maybeSingle()`: a row already on the server
 counts as saved, OPT-62).
 
 **AsyncStorage keys per user:**
@@ -145,6 +150,9 @@ counts as saved, OPT-62).
 | `@arthik_failed_sync_<userId>` | Permanently failed items |
 | `@arthik_cached_expenses_<userId>` | Cold-start expense cache |
 | `@arthik_cached_categories_<userId>` | Cold-start category cache |
+| `@arthik_cached_transfer_rules_<userId>` | Saved remembered self-transfer notes (offline matching, OPT-73) |
+| `@arthik_pending_transfer_rules_<userId>` | Remembered notes made offline, sent before the expenses (OPT-73) |
+| `@arthik_pending_deficit_check_<userId>` | Cold-start PUR-001 deficit check still to run (activation date, FIN-16) |
 | `@arthik_pending_settings_<userId>` | Pending profile budget changes |
 | `@arthik_app_lock_enabled` | Global biometric lock preference |
 | `@arthik_app_lock_enabled_<userId>` | Per-user biometric lock preference |
@@ -156,18 +164,38 @@ counts as saved, OPT-62).
 
 The order is load-bearing. Categories **must** be in memory before `hydrateFromSupabase` runs `checkAndRollover`, or income classification will miscount expenses as spending.
 
+**Offline-first (`OFL-001`, OPT-71):** the splash screen opens from the data saved ON THE PHONE and never waits for the
+server. `runLocalFirstStartup` (`src/lib/startupLoad.ts`) runs two steps in this order:
+
 ```
-App boot (App.tsx: auth state listener fires)
+SplashScreen (cold start)
     │
-    ├─ await loadPendingExpenses()         # restore offline queue into state
-    ├─ await fetchCategories(true)         # categories must be loaded FIRST
-    └─ await Promise.all([
-           fetchExpenses(),                # fetch confirmed expenses from Supabase
-           hydrateFromSupabase(userId),    # restore budget records, run checkAndRollover
-       ])
-           │
-           └─ if online: syncPendingExpenses()   # flush any queued offline writes
+    ├─ session: supabase.auth.getSession() (capped 2 s) → else restoreOfflineSession() (saved user + profile)
+    │     setSession(): a saved profile is enough, the profile request runs in the background (OPT-71)
+    │     the connectivity check (NetInfo, capped 1.5 s) runs in parallel and is NOT waited for
+    │
+    └─ runLocalFirstStartup({ loadLocalData, refreshFromServer })
+         │
+         ├─ loadLocalData (storage reads only):
+         │     loadPendingExpenses → loadCachedCategories → loadCachedExpenses → appLock.init
+         │     → returns { hasCachedExpenses }
+         │
+         ├─ the splash exit animation ends and the app opens          ← usually < 1 s, any network
+         │
+         └─ refreshFromServer (background, errors swallowed):
+               await connectivity → fetchCategories(true) → Promise.all([fetchExpenses(), hydrateFromSupabase(userId)])
+               → syncPendingExpenses (queues, reconnect)
 ```
+
+Only a phone with NO saved expenses yet (first run) lets the splash wait for `refreshFromServer`, for at most 5 s
+(`FIRST_RUN_WAIT_MS`), because there is nothing to show before it. `hydrateFromSupabase` is single-flight per user: the
+splash, the Home screen and the sign-in listener share one run (no duplicate requests). A scheduled Pure ↔ Budget
+switch that matured while the app was closed is applied by this hydration with the same auto-save rule as the midnight
+rollover (`resolveAutoRenewForPlan`, `PUR-003`), and the PUR-001 deficit check waits for server-fresh expenses
+(`deficitCheck.ts`).
+
+The sign-in listener in `App.tsx` (`SIGNED_IN`) still runs the sequential chain `loadPendingExpenses → fetchCategories(true)
+→ Promise.all([fetchExpenses, hydrateFromSupabase])` (a brand-new login has nothing saved yet).
 
 ---
 
@@ -327,7 +355,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage as of v2.1.0**: 120 test files, 1777 tests (Node 22+). Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
+**Coverage (latest run)**: 185 test files, 2,555 tests (Node 22+). Earlier snapshot, v2.1.0: 120 test files, 1777 tests. Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
 
 | Test file | What it covers |
 |---|---|
@@ -341,6 +369,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `appUpdate.test.ts` | In-app APK updates, permission prompts, download progress, install intents; SEC-03 trusted update links (only Arthik's GitHub repository) |
 | `apkInstallerTrustedLink.test.ts` | SEC-03: `downloadApk` refuses a link from outside the repository before downloading; the update screen filters the browser fallback |
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
+| `authSessionFastStart.test.ts` | OFL-001 / OPT-71: `setSession` with a saved profile finishes at once and refreshes the profile in the background; late answer never revives a signed-out user |
 | `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
 | `autoLogEmail.test.ts` | Bank email notification parsing, sender resolution, multi-source identity matching |
 | `autoLogFixes.test.ts` | Regression tests for AutoLog parser and edge cases |
@@ -353,7 +382,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `breathingStrips.test.ts` | Weekly, Monthly, and Yearly breathing strip rendering and pulse physics |
 | `budgetAlerts.test.ts` | Real-time budget alerts: threshold crossings, rollover summaries, resume notifications |
 | `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`missed`/`even`/`unknown`), duplicate prevention |
-| `budgetModeUtils.test.ts` | Unprorated pacing previews, calendar streak cards, monthly matrices |
+| `budgetModeUtils.test.ts` | Unprorated pacing previews, calendar streak cards, monthly matrices, `resolveAutoRenewForPlan` (auto-save when a scheduled plan decides the mode, PUR-003) |
 | `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, next-day scheduling, same-day reversal protection (PUR-003), persistence, offline queues |
 | `budgetPeriods.test.ts` | Period timeline engine, active slices, finalization, idempotency |
 | `budgetUtils.test.ts` | Budget resolution helpers, fallback logic, allowance math |
@@ -365,7 +394,13 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `incomeCategories.test.ts` | Category kind helpers, migration + schema seeding, Manage Categories toggle, review sheet requires a category (no "None") |
 | `chartUtils.test.ts` | SVG donut sweep calculations, flow bar coordinate mapping, color palettes |
 | `colorUtils.test.ts` | Dynamic hex resolution, contrast math, gradient pairs |
-| `dailyBudgetHydrate.test.ts` | Supabase hydration fast-path, persist-hydration gate, legacy row self-healing |
+| `dailyBudgetHydrate.test.ts` | Supabase hydration fast-path, persist-hydration gate, legacy row self-healing, scheduled Pure ↔ Budget switch maturing on a cold start or while the app is open (auto-save, profile save, first-day allowance, PUR-003, FIN-16), PUR-001 deficit check after a cold-start switch, single-flight hydration |
+| `categoryQueueSafety.test.ts` | OFL-001 / OPT-72: category add / update / delete queues keep items added while a sync request is in flight |
+| `networkConnectivity.test.ts` | OFL-001 / OPT-71: "connected, reachability not known yet" is online; real offline and the reconnect sync still work |
+| `offlineQueueSafety.test.ts` | OFL-001 / OPT-72: settings, plan change, period and Gullak queues: no lost update, items added mid-sync stay queued, every queued profile setting is sent |
+| `splashOfflineFirst.test.ts` | OFL-001 / OPT-71: the splash opens through `runLocalFirstStartup` and loads only saved data before opening |
+| `startupLoad.test.ts` | OFL-001 / OPT-71: the app opens right after the saved data loads, the server refresh never blocks it (first-run exception capped at 5 s) |
+| `transferRulesOffline.test.ts` | OFL-001 / OPT-73: remembered transfer notes saved on the phone, queued offline, sent before the expenses |
 | `dailyBudgetPlanActions.test.ts` | Allowance updates, cadence switching, scheduled next-day plan actions, queue sync |
 | `dailyBudgetRollover.test.ts` | Midnight rollover cycle, period finalization, daily record grouping |
 | `dailyBudgetStore.test.ts` | Rollover finalization, hydration guard, Gullak deposits, store reset |

@@ -10,6 +10,7 @@ import { getCachedStorageKey } from '../store/expense/pendingQueues';
  * - the confirmed expense list (`@arthik_cached_expenses_<userId>`)
  * - the category list (`@arthik_cached_categories_<userId>`)
  * - the profile (`@arthik_cached_profile_<userId>`)
+ * - the remembered self-transfer rules (`@arthik_cached_transfer_rules_<userId>`)
  *
  * NEVER removed here (they hold changes the server has not confirmed yet, so removing them would lose data):
  * every `@arthik_pending_*` queue and `@arthik_failed_sync_*`.
@@ -19,6 +20,7 @@ import { getCachedStorageKey } from '../store/expense/pendingQueues';
  */
 export const getCachedCategoriesKey = (userId: string) => `@arthik_cached_categories_${userId}`;
 export const getCachedProfileKey = (userId: string) => `@arthik_cached_profile_${userId}`;
+export const getCachedTransferRulesKeyForCleanup = (userId: string) => `@arthik_cached_transfer_rules_${userId}`;
 
 export async function clearUserCachesOnSignOut(userId: string | null | undefined): Promise<void> {
   if (!userId) return;
@@ -34,7 +36,11 @@ export async function clearUserCachesOnSignOut(userId: string | null | undefined
     if (__DEV__) console.log('Error removing cached expenses on sign out:', e);
   }
 
-  for (const key of [getCachedCategoriesKey(userId), getCachedProfileKey(userId)]) {
+  for (const key of [
+    getCachedCategoriesKey(userId),
+    getCachedProfileKey(userId),
+    getCachedTransferRulesKeyForCleanup(userId),
+  ]) {
     try {
       await AsyncStorage.removeItem(key);
     } catch (e) {

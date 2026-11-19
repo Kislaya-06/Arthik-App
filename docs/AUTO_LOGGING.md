@@ -85,6 +85,8 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 - **Server:** `autolog_profiles` — enabled, setup/last-active/signed-out timestamps, tracked accounts as `{bank, bankCode, last4, kind}`.
 
 ## 7. Limits and constants (`matching.ts`)
+Remembered "own transfer" notes saved from a review (`ledger.saveSelfTransferRule` → `transferRulesStore.addRule`) also work offline: they are saved on the phone, queued, and sent before the expenses that point to them (`TXN-003`, `OFL-001`).
+
 Discovery: last 90 days, max 5,000 SMS. Recovery: gaps up to 30 days (longer → Learn only). Cross-source window 15 min. Notification wait 20 min. Transfer window 15 min.
 
 ## 8. Tests

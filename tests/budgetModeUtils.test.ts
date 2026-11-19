@@ -9,6 +9,7 @@ import {
   formatCadenceRolloverStrip,
   buildWeeklyStreakCards,
   buildMonthlyStreakMatrix,
+  resolveAutoRenewForPlan,
 } from '../src/lib/budgetModeUtils';
 import { BudgetPlanChange, BudgetPeriodRecord } from '../src/types';
 
@@ -304,6 +305,22 @@ describe('budgetModeUtils (pure helpers)', () => {
       // Nov (index 10) should be future
       expect(matrix[10].monthName).toBe('Nov');
       expect(matrix[10].status).toBe('future');
+    });
+  });
+
+  describe('resolveAutoRenewForPlan (PUR-003: auto-save when a scheduled plan decides the mode)', () => {
+    it('turns auto-save ON when Budget Mode starts from Pure Mode', () => {
+      expect(resolveAutoRenewForPlan(true, false, false)).toBe(true);
+    });
+
+    it('keeps the user choice when Budget Mode was already on (paused stays paused, on stays on)', () => {
+      expect(resolveAutoRenewForPlan(true, true, false)).toBe(false);
+      expect(resolveAutoRenewForPlan(true, true, true)).toBe(true);
+    });
+
+    it('turns auto-save OFF when the plan is Pure Mode', () => {
+      expect(resolveAutoRenewForPlan(false, true, true)).toBe(false);
+      expect(resolveAutoRenewForPlan(false, false, true)).toBe(false);
     });
   });
 });

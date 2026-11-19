@@ -3,6 +3,8 @@ import { supabase } from '../../config/supabase';
 import { withTimeout } from '../../lib/networkUtils';
 import { round2 } from '../../lib/formatters';
 import { upsertPendingChange, resolvePlanForDate } from '../../lib/budgetPeriods';
+import { resolveAutoRenewForPlan } from '../../lib/budgetModeUtils';
+import { markDeficitCheckPending, restoreDeficitCheckPending } from './deficitCheck';
 import type { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord, BudgetPeriodStatus } from '../../types';
 import type { DailyBudgetState, ProfileSettingsPatch, GullakDeposit } from './types';
 import {
@@ -18,6 +20,8 @@ import {
   getPendingBudgetPeriodsKey,
   getLastRenewedPeriodKey,
   getStoredList,
+  savePendingSettingsOffline,
+  clearPendingSettingsOffline,
 } from './pendingStorage';
 import { useNotificationStore } from '../notificationStore';
 import { useNetworkStore } from '../networkStore';
@@ -151,6 +155,40 @@ export function buildOfflineHydrationPatch(
     ...metrics,
     hydratedForUserId: userId,
   };
+}
+
+/**
+ * Saves the mode a matured scheduled plan change just switched to (same fields the rollover saves), queue first,
+ * then the profile. Without it the profile would keep saying "Pure Mode" and every later cold start would treat the
+ * switch as brand new.
+ */
+export async function persistActivatedPlanSettings(
+  userId: string,
+  plan: BudgetPlanChange,
+  autoRenew: boolean
+): Promise<void> {
+  const patch: ProfileSettingsPatch = {
+    is_budget_mode_enabled: plan.isEnabled,
+    is_auto_renew: autoRenew,
+    ...(plan.isEnabled && plan.cadence === 'daily' && plan.amount > 0 ? { daily_budget: plan.amount } : {}),
+  };
+  await savePendingSettingsOffline(userId, patch);
+  try {
+    supabase
+      .from('profiles')
+      .update(patch)
+      .eq('id', userId)
+      .then(
+        ({ error }) => {
+          if (!error) {
+            clearPendingSettingsOffline(userId, ['is_budget_mode_enabled', 'is_auto_renew']);
+          }
+        },
+        () => {}
+      );
+  } catch {
+    // Offline / auth errors: the queued copy above is retried on the next sync.
+  }
 }
 
 export interface RemoteProfileData {
@@ -398,6 +436,7 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
     useNotificationStore.getState().setOwnerUserId(userId);
 
     const todayStr = getTodayDateStr();
+    await restoreDeficitCheckPending(userId);
 
     // Check pending settings key (P0.13)
     const pendingSettings = await readPendingSettings(userId);
@@ -501,7 +540,20 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
     }
     resolvedPlanChanges = await mergePendingPlanChanges(userId, resolvedPlanChanges);
     const activePlanForToday = resolvePlanForDate(resolvedPlanChanges, todayStr);
+    // PUR-003: a scheduled Pure <-> Budget switch that matured while the app was closed is applied HERE (the cold
+    // start hydrates before the first rollover, which would then see the mode as already switched). It must decide
+    // auto-save exactly like the rollover does, and save the new settings, or the user sees Budget Mode ON with a
+    // paused allowance (₹0 today) and the next start could undo a later "pause auto-save".
+    let activatedPlan: BudgetPlanChange | null = null;
     if (activePlanForToday) {
+      if (activePlanForToday.isEnabled !== resolvedBudgetModeEnabled) {
+        resolvedAutoRenew = resolveAutoRenewForPlan(
+          activePlanForToday.isEnabled,
+          resolvedBudgetModeEnabled,
+          resolvedAutoRenew
+        );
+        activatedPlan = activePlanForToday;
+      }
       resolvedBudgetModeEnabled = activePlanForToday.isEnabled;
       if (activePlanForToday.isEnabled) {
         resolvedCadence = activePlanForToday.cadence;
@@ -649,6 +701,14 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       })(),
       ...metrics,
     });
+
+    if (activatedPlan) {
+      await persistActivatedPlanSettings(userId, activatedPlan, resolvedAutoRenew);
+      // PUR-001: Pure -> Budget Mode matured on a cold start; its deficit check runs once the expenses are server-fresh.
+      if (activatedPlan.isEnabled) {
+        await markDeficitCheckPending(userId, activatedPlan.effectiveFrom);
+      }
+    }
 
     // P0.1: Trigger checkAndRollover once after successful hydration.
     // If fresh expenses are already loaded (e.g. fetchExpenses finished first),

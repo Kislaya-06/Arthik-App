@@ -370,4 +370,51 @@ describe('expenseStore (Seam: useExpenseStore)', () => {
       expect(state.failedSyncItems).toEqual([]);
     });
   });
+  describe('Offline-first start-up: loadCachedExpenses (no network)', () => {
+    const CACHE_KEY = `@arthik_cached_expenses_${TEST_USER_ID}`;
+    const cachedRow = {
+      id: '11111111-1111-4111-8111-111111111111',
+      user_id: TEST_USER_ID,
+      amount: 120,
+      category_id: null,
+      note: 'Saved on the phone',
+      payment_mode: 'cash',
+      expense_date: '2026-09-22',
+      created_at: '2026-09-22T10:00:00Z',
+    };
+
+    it('loads the saved expenses without any server request and reports that a copy existed', async () => {
+      storageMap.set(CACHE_KEY, JSON.stringify([cachedRow]));
+
+      const found = await useExpenseStore.getState().loadCachedExpenses();
+
+      expect(found).toBe(true);
+      expect(useExpenseStore.getState().isExpensesLoaded).toBe(true);
+      expect(useExpenseStore.getState().expenses.map((e) => e.id)).toEqual([cachedRow.id]);
+      expect(mockSupabaseUpsert).not.toHaveBeenCalled();
+    });
+
+    it('reports false when no saved copy exists yet (first run on this phone)', async () => {
+      const found = await useExpenseStore.getState().loadCachedExpenses();
+      expect(found).toBe(false);
+      expect(useExpenseStore.getState().isExpensesLoaded).toBe(false);
+    });
+
+    it('keeps an unsynced offline expense on top of the saved list', async () => {
+      storageMap.set(CACHE_KEY, JSON.stringify([cachedRow]));
+      useExpenseStore.setState({
+        expenses: [{ ...cachedRow, id: 'temp_pending_1', note: 'Not synced yet', pending: true } as any],
+      });
+
+      await useExpenseStore.getState().loadCachedExpenses();
+
+      expect(useExpenseStore.getState().expenses.map((e) => e.id)).toEqual(['temp_pending_1', cachedRow.id]);
+    });
+
+    it('is quick and safe to call again (already loaded)', async () => {
+      storageMap.set(CACHE_KEY, JSON.stringify([cachedRow]));
+      await useExpenseStore.getState().loadCachedExpenses();
+      expect(await useExpenseStore.getState().loadCachedExpenses()).toBe(true);
+    });
+  });
 });

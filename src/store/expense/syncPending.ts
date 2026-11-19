@@ -20,6 +20,8 @@ import {
   FailedSyncItem,
 } from './pendingQueues';
 import type { Expense, StoreGet, StoreSet } from './types';
+import type { ProfileSettingsPatch } from '../dailyBudget/types';
+import { clearSentPendingSettings } from '../dailyBudget/pendingStorage';
 import { extraColumnsFor, storedTransactionClass } from './payload';
 
 const saveFailedSyncItem = (
@@ -410,11 +412,13 @@ export const flushSideQueues = async (userId: string, get: StoreGet): Promise<vo
     const settingsKey = `@arthik_pending_settings_${userId}`;
     const storedSettings = await AsyncStorage.getItem(settingsKey);
     if (storedSettings) {
-      const patch = JSON.parse(storedSettings);
-      if (patch.daily_budget !== undefined || patch.is_auto_renew !== undefined) {
+      const patch = JSON.parse(storedSettings) as ProfileSettingsPatch;
+      // Any queued profile setting is sent (weekly / monthly amount, cadence and mode too, not only the daily ones).
+      if (Object.keys(patch).length > 0) {
         const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
         if (!error) {
-          await AsyncStorage.removeItem(settingsKey);
+          // Only the values that were sent are removed; a setting changed while the request was in flight stays queued.
+          await clearSentPendingSettings(userId, patch);
         }
       }
     }

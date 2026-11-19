@@ -20,6 +20,7 @@ import {
   clearUserCachesOnSignOut,
   getCachedCategoriesKey,
   getCachedProfileKey,
+  getCachedTransferRulesKeyForCleanup,
 } from '../src/lib/signOutCleanup';
 import { runExclusive } from '../src/lib/queueLock';
 import { isExpenseCacheUnchanged, rememberExpenseCache } from '../src/lib/expenseCacheMemo';
@@ -64,6 +65,7 @@ describe('SEC-01 clearUserCachesOnSignOut', () => {
       [`@arthik_pending_budget_periods_${USER}`]: '[{"id":"bp1"}]',
       [`@arthik_pending_profile_${USER}`]: '{"first_name":"A"}',
       [`@arthik_pending_settings_${USER}`]: '{"daily_budget":100}',
+      [`@arthik_pending_transfer_rules_${USER}`]: '[{"id":"tr1"}]',
       '@arthik_has_seen_onboarding': 'true',
       '@arthik_app_lock_enabled': 'true',
     };
@@ -145,5 +147,17 @@ describe('SEC-01 clearUserCachesOnSignOut', () => {
     expect(getCachedProfileKey('X')).toBe('@arthik_cached_profile_X');
     expect(read('src/store/categoryStore.ts')).toContain('`@arthik_cached_categories_${user.id}`');
     expect(read('src/store/authStore.ts')).toContain('`@arthik_cached_profile_${user.id}`');
+    expect(getCachedTransferRulesKeyForCleanup('X')).toBe('@arthik_cached_transfer_rules_X');
+    expect(read('src/store/transferRulesStore.ts')).toContain('`@arthik_cached_transfer_rules_${userId}`');
+  });
+
+  it('removes the saved self-transfer rules of the signed-out user but keeps the unsent ones', async () => {
+    storageMap.set(`@arthik_cached_transfer_rules_${USER}`, '[{"id":"r1"}]');
+    storageMap.set(`@arthik_pending_transfer_rules_${USER}`, '[{"id":"r2"}]');
+
+    await clearUserCachesOnSignOut(USER);
+
+    expect(storageMap.has(`@arthik_cached_transfer_rules_${USER}`)).toBe(false);
+    expect(storageMap.get(`@arthik_pending_transfer_rules_${USER}`)).toBe('[{"id":"r2"}]');
   });
 });

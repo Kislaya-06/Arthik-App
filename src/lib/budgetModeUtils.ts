@@ -16,6 +16,22 @@ import {
 export type TabName = 'Home' | 'History' | 'Savings' | 'Insights';
 
 /**
+ * Auto-save (`isAutoRenew`) for the day a scheduled plan change (`PUR-003`) decides the mode.
+ * ONE rule for both places that apply a matured plan (the midnight rollover and the cold-start hydration):
+ * - the plan turns Budget Mode ON from Pure Mode -> auto-save starts ON (the user just chose to start saving);
+ * - the plan is Pure Mode -> auto-save is OFF;
+ * - Budget Mode was already on -> keep the user's own choice (a paused allowance stays paused, AGENTS.md 8.1).
+ */
+export function resolveAutoRenewForPlan(
+  planEnabled: boolean,
+  modeWasEnabled: boolean,
+  currentAutoRenew: boolean
+): boolean {
+  if (!planEnabled) return false;
+  return modeWasEnabled ? currentAutoRenew : true;
+}
+
+/**
  * Returns the visible bottom tab names depending on whether Smart Budget & Gullak mode is active.
  * When OFF: 4-tab layout ['Home', 'History', 'Insights'] (plus the center Add button).
  * When ON: 5-tab layout ['Home', 'History', 'Savings', 'Insights'] (plus the center Add button).
