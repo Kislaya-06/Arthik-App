@@ -1,13 +1,17 @@
 import React, { useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Pressable,
+  View,
+  Text,
+  StyleSheet,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import Receipt from 'lucide-react-native/icons/receipt';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { TransactionRow } from '../components/TransactionRow';
@@ -21,7 +25,9 @@ import { getCategoryIcon } from '../lib/iconUtils';
 import { isIncomeTransaction } from '../lib/transactionUtils';
 import { sumCountedSpending } from '../money/ledger';
 import { isDateInBounds } from '../lib/insightsCommon';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, LetterSpacing } from '../config/theme';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryDetail'>;
 
@@ -118,11 +124,11 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
         <Text style={[styles.notFoundText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
           Category not found
         </Text>
-        <Pressable onPress={() => navigation.goBack()} style={[styles.notFoundBack, { backgroundColor: colors.mint }]}>
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => navigation.goBack()} style={[styles.notFoundBack, { backgroundColor: colors.mint }]}>
           <Text style={[styles.notFoundBackText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
             Go Back
           </Text>
-        </Pressable>
+        </PressableOpacity>
       </View>
     );
   }
@@ -132,27 +138,15 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={10}>
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </Pressable>
-        <View style={styles.headerCenter}>
+      <ScreenHeader
+        inset={false}
+        title={category.name}
+        titleAccessory={
           <GradientIconBadge size={36} color={categoryColor} isDark={isDark}>
             {({ iconColor }) => <CategoryIcon size={18} color={iconColor} strokeWidth={2.2} />}
           </GradientIconBadge>
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-            style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-          >
-            {category.name}
-          </Text>
-        </View>
-        {/* Spacer to balance the back button — literal 24 tracks ArrowLeft icon size, not Spacing.gutter */}
-        <View style={{ width: 24 }} />
-      </View>
+        }
+      />
 
       {/* Summary Card */}
       <View style={[
@@ -205,11 +199,13 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
 
       {/* List */}
       {categoryExpenses.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { color: colors.textTertiary, fontFamily: FontFamily.medium }]}>
-            {dateRangeLabel ? `No transactions in this category for ${dateRangeLabel}.` : 'No transactions in this category yet.'}
-          </Text>
-        </View>
+        <EmptyState
+          size="section"
+          icon={Receipt}
+          title="No transactions yet"
+          subtitle={dateRangeLabel ? `Nothing in this category for ${dateRangeLabel}.` : 'Transactions in this category will appear here.'}
+          style={styles.emptyState}
+        />
       ) : (
         <FlashList
           data={categoryExpenses}
@@ -254,39 +250,12 @@ const styles = StyleSheet.create({
     color: '#1A2B4C',
   },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Spacing.block,
-  },
-  headerCenter: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    flexShrink: 1,
-  },
 
   // Summary Card
   summaryCard: {
     borderRadius: BorderRadius.cardLarge,
     padding: Spacing.gutter,
-    marginTop: Spacing.gutter,
+    marginTop: Spacing.block,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -310,7 +279,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: FontSize.caption,
-    letterSpacing: 1,
+    letterSpacing: LetterSpacing.label,
     textTransform: 'uppercase',
     color: 'rgba(60, 35, 35, 0.8)',
   },
@@ -335,11 +304,6 @@ const styles = StyleSheet.create({
 
   // Empty
   emptyState: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  emptyText: {
-    fontSize: FontSize.body,
-    color: '#B0B4C0',
+    marginTop: Spacing.section,
   },
 });

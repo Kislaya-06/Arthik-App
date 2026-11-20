@@ -44,8 +44,11 @@ import { CadenceSwitchModal } from './CadenceSwitchModal';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, Motion } from '../config/theme';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useScrimColor } from '../hooks/useScrimColor';
+import { useStoreWhileVisible } from '../hooks/useStoreWhileVisible';
 import { saveSuccessHaptic } from '../lib/saveFeedback';
 import { KeypadGrid } from './ui/KeypadGrid';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 export interface BudgetEditModalProps {
   visible: boolean;
@@ -67,6 +70,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   initialCadence,
   onClose,
 }) => {
+  const scrim = useScrimColor();
   const sheetAnim = useAnimatedValue(0);
   const reduceMotion = useReduceMotion();
 
@@ -76,8 +80,9 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const weeklyBudgetAmount = useDailyBudgetStore((s) => s.weeklyBudgetAmount);
   const monthlyBudgetAmount = useDailyBudgetStore((s) => s.monthlyBudgetAmount);
-  const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
-  const planChanges = useDailyBudgetStore((s) => s.planChanges);
+  // Full-history inputs: only followed while the sheet is open (Savings keeps it mounted while closed).
+  const dailyRecords = useStoreWhileVisible(useDailyBudgetStore, (s) => s.dailyRecords, visible);
+  const planChanges = useStoreWhileVisible(useDailyBudgetStore, (s) => s.planChanges, visible);
   const getPendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange);
 
   // Store actions
@@ -99,7 +104,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   const [showCadenceSwitchModal, setShowCadenceSwitchModal] = useState(false);
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
-  const expenses = useExpenseStore((s) => s.expenses);
+  const expenses = useStoreWhileVisible(useExpenseStore, (s) => s.expenses, visible);
 
   const pendingChange = useMemo(() => getPendingPlanChange(), [getPendingPlanChange, planChanges]);
 
@@ -412,7 +417,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
+      <View style={[styles.modalOverlay, { backgroundColor: scrim }]}>
         <Animated.View
           style={[
             styles.modalContent,
@@ -480,7 +485,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                   onPress={() => setShowMoneyExplainer(true)}
                 />
               </View>
-              <PressableOpacity
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 accessibilityRole="button" accessibilityLabel="Close"
                 onPress={onClose}
                 hitSlop={12}
@@ -520,7 +525,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                     {`${pendingChange.cadence.charAt(0).toUpperCase() + pendingChange.cadence.slice(1)} · ${formatCurrency(pendingChange.amount)} (${formatEffectiveFrom(pendingChange.effectiveFrom, todayStr, pendingChange.cadence)})`}
                   </Text>
                 </View>
-                <PressableOpacity
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   style={styles.cancelPendingBtn}
                   onPress={() => {
                     Alert.alert(
@@ -672,7 +677,6 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.gutter,
@@ -693,9 +697,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.nano,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -800,26 +804,26 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    height: ControlHeight.row,
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: FontSize.bodySmall,
+    fontSize: FontSize.body,
     fontFamily: FontFamily.bold,
   },
   modalSaveBtn: {
     flex: 1,
-    height: ControlHeight.row,
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalSaveText: {
-    fontSize: FontSize.bodySmall,
+    fontSize: FontSize.body,
     fontFamily: FontFamily.bold,
   },
 });

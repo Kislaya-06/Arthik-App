@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Trophy from 'lucide-react-native/icons/trophy';
 import Calendar from 'lucide-react-native/icons/calendar';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
@@ -14,6 +14,8 @@ import {
 } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
 import { YearlyGullakMetrics } from '../lib/chartUtils';
+import { PressableOpacity } from './ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 export interface YearlySavingsMilestoneCardProps {
   metrics: YearlyGullakMetrics;
@@ -69,7 +71,7 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
         </View>
 
         {onOpenSavings && (
-          <Pressable
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
             style={[styles.savingsBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.12)' : '#E8F5EE' }]}
             onPress={onOpenSavings}
             accessibilityRole="button"
@@ -79,7 +81,7 @@ export const YearlySavingsMilestoneCard: React.FC<YearlySavingsMilestoneCardProp
               Gullak
             </Text>
             <ChevronRight size={12} color={iconColor} />
-          </Pressable>
+          </PressableOpacity>
         )}
       </View>
 

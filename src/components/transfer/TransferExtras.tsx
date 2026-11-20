@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Repeat from 'lucide-react-native/icons/repeat';
 import { useTheme } from '../../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
 import { AnimatedToggle } from '../AnimatedToggle';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 export interface TransferExtrasProps {
   isSelfTransfer: boolean;
@@ -21,7 +23,7 @@ export const TransferExtras: React.FC<TransferExtrasProps> = (p) => {
 
   return (
     <View style={styles.wrap}>
-      <Pressable
+      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
         onPress={() => p.onToggleSelfTransfer(!p.isSelfTransfer)}
         style={[
           styles.pillTrigger,
@@ -50,7 +52,7 @@ export const TransferExtras: React.FC<TransferExtrasProps> = (p) => {
           onValueChange={p.onToggleSelfTransfer}
           onColor={activeColor}
         />
-      </Pressable>
+      </PressableOpacity>
 
       {p.isSelfTransfer && !p.ruleMatched ? (
         <View style={[styles.card, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}>
@@ -60,14 +62,14 @@ export const TransferExtras: React.FC<TransferExtrasProps> = (p) => {
               const disabled = m === 'always' && !p.canRemember;
               const active = p.rememberMode === m && !disabled;
               return (
-                <Pressable
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   key={m}
                   disabled={disabled}
                   onPress={() => p.onRememberMode(m)}
                   style={[styles.pill, { borderColor: active ? colors.mintGreenDark : colors.borderSubtle, opacity: disabled ? 0.45 : 1 }]}
                 >
                   <Text style={[styles.optionText, { color: colors.textPrimary }]}>{m === 'always' ? 'Always remember' : 'Only this transaction'}</Text>
-                </Pressable>
+                </PressableOpacity>
               );
             })}
           </View>

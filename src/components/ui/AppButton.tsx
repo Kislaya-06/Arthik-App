@@ -13,6 +13,7 @@ import {
 import { useTheme } from '../../store/themeStore';
 import { ControlHeight, BorderRadius, FontSize, FontFamily, LineHeight, Motion } from '../../config/theme';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
+import { alertButtonPalette } from '../../lib/alertButtonPalette';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
 export type ButtonSize = 'cta' | 'standard' | 'compact';
@@ -51,7 +52,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   accessibilityLabel,
   testID,
 }) => {
-  const { colors } = useTheme();
+  const { colors, isAmoled } = useTheme();
   const reduceMotion = useReduceMotion();
   const scaleAnim = useAnimatedValue(1);
 
@@ -116,10 +117,13 @@ export const AppButton: React.FC<AppButtonProps> = ({
       borderWidth = 1;
       borderColor = colors.border;
       break;
-    case 'danger':
-      backgroundColor = colors.danger;
-      textColor = colors.white;
+    case 'danger': {
+      // Same readable red as the alert dialog (white on the soft dark-theme red was 2.77:1).
+      const destructive = alertButtonPalette('destructive', colors, isAmoled);
+      backgroundColor = destructive.background;
+      textColor = destructive.text;
       break;
+    }
     case 'ghost':
       backgroundColor = 'transparent';
       textColor = colors.textSecondary;

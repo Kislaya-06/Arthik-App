@@ -26,6 +26,7 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
           Savings & Gullak
         </Text>
         <Text
+          accessibilityRole="header"
           style={[styles.screenTitle, { color: colors.textPrimary }]}
           numberOfLines={1}
           adjustsFontSizeToFit

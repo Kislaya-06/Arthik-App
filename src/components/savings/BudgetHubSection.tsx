@@ -15,6 +15,7 @@ import { formatCurrency } from '../../lib/formatters';
 import { useTheme } from '../../store/themeStore';
 import { useSavingsDashboard } from '../../hooks/useSavingsDashboard';
 import { styles } from '../../screens/SavingsScreen.styles';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 const OVER_BUDGET_CORAL = '#FF7A6E';
 const OVER_BUDGET_CORAL_DOT = '#FF6B5E';
@@ -263,7 +264,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                   Takes effect at 12:00 AM
                 </Text>
               </View>
-              <PressableOpacity accessibilityRole="button" accessibilityLabel="Cancel scheduled change" onPress={handleCancelScheduled} hitSlop={8}>
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Cancel scheduled change" onPress={handleCancelScheduled} hitSlop={8}>
                 <X size={16} color="rgba(255, 255, 255, 0.8)" />
               </PressableOpacity>
             </View>
@@ -307,7 +308,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                     : 'Takes effect tomorrow at 12:00 AM · Tap ✕ to cancel'}
                 </Text>
               </View>
-              <PressableOpacity accessibilityRole="button" accessibilityLabel="Cancel scheduled change" onPress={cancelPendingPlanChange} hitSlop={8}>
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Cancel scheduled change" onPress={cancelPendingPlanChange} hitSlop={8}>
                 <X size={16} color="rgba(255, 255, 255, 0.8)" />
               </PressableOpacity>
             </View>

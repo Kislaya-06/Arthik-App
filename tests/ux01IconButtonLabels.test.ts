@@ -18,8 +18,8 @@ const ALLOWED: Record<string, string> = {
   // The primitive itself: callers pass the label.
   'components/ui/PressableOpacity.tsx#<Pressable': 'primitive',
   // Wrappers whose child component renders its own text (title + amount).
-  'screens/HistoryScreen.tsx#<Pressable onPress': 'wraps GullakDepositRow',
-  'screens/HomeScreen.tsx#<PressableOpacity activeOpacity={0.75} onPress={handlePress}': 'wraps GullakDepositRow',
+  'screens/history/HistoryRows.tsx#<Pressable onPress': 'wraps GullakDepositRow',
+  'screens/home/HomeRecentItems.tsx#<PressableOpacity activeOpacity={0.75} onPress={handlePress}': 'wraps GullakDepositRow',
   // Buttons whose text comes from the caller as children.
   'screens/AuthScreen.tsx#<Pressable accessibilityRole="button" accessibilityState': 'AnimatedButton: children hold the text',
   'screens/ProfileSetupScreen.tsx#<Pressable accessibilityRole="button" accessibilityState': 'AnimatedButton: children hold the text',
@@ -99,7 +99,10 @@ describe('UX-01: icon-only buttons have a screen-reader label', () => {
       'FaqScreen', 'GullakDepositDetailScreen', 'ManageCategoriesScreen', 'NotificationsScreen', 'ProfileScreen',
       'ProfileSetupScreen', 'ResetPasswordScreen',
     ]) {
-      expect(read(`screens/${screen}.tsx`), screen).toContain('accessibilityLabel="Go back"');
+      // Every pushed screen draws its back arrow with the shared HeaderBackButton (which carries the label),
+      // directly or through ScreenHeader.
+      expect(read(`screens/${screen}.tsx`), screen).toMatch(/<(HeaderBackButton|ScreenHeader)\b/);
     }
+    expect(read('components/ui/HeaderBackButton.tsx')).toContain('accessibilityLabel="Go back"');
   });
 });

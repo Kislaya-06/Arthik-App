@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Alert, ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -13,7 +17,7 @@ import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { formatCurrency } from '../lib/formatters';
 import { getDateOwner } from '../lib/budgetPeriods';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import SquarePen from 'lucide-react-native/icons/square-pen';
 import Trash2 from 'lucide-react-native/icons/trash';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +36,9 @@ import { WhyLoggedCard } from '../components/autolog/WhyLoggedCard';
 import { TransferDetailCard } from '../components/transfer/TransferDetailCard';
 import { ExpenseFundingCard } from '../components/ExpenseFundingCard';
 import { calculateExpenseFunding } from '../lib/transactionFunding';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
 
@@ -105,11 +111,11 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={[styles.notFoundText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
           Expense not found
         </Text>
-        <Pressable onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mint }]}>
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mint }]}>
           <Text style={[styles.backButtonText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
             Go Back
           </Text>
-        </Pressable>
+        </PressableOpacity>
       </View>
     );
   }
@@ -259,26 +265,22 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.container}>
 
         {/* Header Row */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={10}>
-              <ArrowLeft size={24} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              {isIncome ? 'Transaction Detail' : 'Expense Detail'}
-            </Text>
-          </View>
-          <View style={styles.headerRight}>
-            {!isRecoveryClass(expense) && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Edit transaction" onPress={handleEdit} hitSlop={10}>
-                <SquarePen size={20} color={colors.textPrimary} />
-              </Pressable>
-            )}
-            <Pressable accessibilityRole="button" accessibilityLabel="Delete transaction" onPress={handleDelete} hitSlop={10} style={{ marginLeft: Spacing.block }}>
-              <Trash2 size={20} color={colors.coral} />
-            </Pressable>
-          </View>
-        </View>
+        <ScreenHeader
+          inset={false}
+          title={isIncome ? 'Transaction Detail' : 'Expense Detail'}
+          right={
+            <>
+              {!isRecoveryClass(expense) && (
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Edit transaction" onPress={handleEdit} hitSlop={12}>
+                  <SquarePen size={20} color={colors.textPrimary} />
+                </PressableOpacity>
+              )}
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Delete transaction" onPress={handleDelete} hitSlop={12}>
+                <Trash2 size={20} color={colors.coral} />
+              </PressableOpacity>
+            </>
+          }
+        />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -519,31 +521,11 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: FontSize.body,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Spacing.block,
-    marginBottom: Spacing.element,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    marginLeft: Spacing.block,
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   scrollContent: {
   },
   badgeContainer: {
     alignItems: 'center',
-    marginTop: Spacing.section,
+    marginTop: Spacing.gutter,
   },
   badgeOuter: {
     width: 112,

@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
+import { readSplitSource } from './helpers/readSplitSource';
 
 describe('HistoryScreen 4-Day Progressive Pagination & "See More" Behavior', () => {
-  const historyPath = path.join(__dirname, '..', 'src/screens/HistoryScreen.tsx');
-  const historySrc = fs.readFileSync(historyPath, 'utf8');
+  // HistoryScreen + its split modules (HistoryScreen.styles.ts, screens/history/*): same assertions.
+  const historySrc = readSplitSource('src/screens/HistoryScreen.tsx');
 
   it('bounds initial section count and page increment to exactly 4 days', () => {
     expect(historySrc).toMatch(/INITIAL_SECTION_COUNT\s*=\s*4/);

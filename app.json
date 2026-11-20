@@ -63,8 +63,11 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Clearer Text, Calmer Errors & Tactile Saves ✨",
+        "title": "Smoother, Cleaner & More Consistent ✨",
         "highlights": [
+          "Easier to Read in Light Mode: Amounts and links on Home, History and more now use deeper green and coral, so they are clear on a white screen",
+          "Snappier After Every Save: Less work happens in the background when you add or edit money, so the app stays smooth even with years of history",
+          "Cleaner, More Consistent Look: Page titles are now centred and sit at the same height on every screen, empty screens share one friendly design, every back, popup and close button has the same size and feel, every tap gives instant feedback, and the red Delete buttons are easier to read in dark mode",
           "Opens Fast, Even Offline: The app now opens from the data saved on your phone, so it starts quickly on any network and keeps working without internet. Everything syncs by itself in the background",
           "Budget Mode Starts Properly: When you switch Smart Budget & Gullak back on, your daily budget now starts right away on the first day with auto-save on, instead of showing ₹0",
           "Nothing Lost Offline: Budget changes, Gullak deposits and categories you save offline now always reach the server, even if you change something else while syncing",

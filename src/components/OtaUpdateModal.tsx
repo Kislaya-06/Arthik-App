@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -13,7 +12,9 @@ import CheckCircle2 from 'lucide-react-native/icons/circle-check';
 import AlertCircle from 'lucide-react-native/icons/circle-alert';
 import RefreshCw from 'lucide-react-native/icons/refresh-cw';
 import { useTheme } from '../store/themeStore';
+import { AppButton } from './ui/AppButton';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { useScrimColor } from '../hooks/useScrimColor';
 
 export interface OtaUpdateInfo {
   version?: string;
@@ -45,6 +46,7 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
   onRetry,
 }) => {
   const { colors, isDark } = useTheme();
+  const scrim = useScrimColor();
   if (!visible) return null;
 
   const isUpToDate = status === 'upToDate';
@@ -60,7 +62,7 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={isDownloading ? undefined : onDismiss}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: scrim }]}>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Top Hero Icon (26 radius for 52x52 circle - AGENTS.md 9.3) */}
           <View style={[styles.heroIcon, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft }]}>
@@ -121,7 +123,7 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
 
           {/* Action Row */}
           {isDownloading ? (
-            <View style={[styles.ctaBtn, { backgroundColor: colors.cardSubtle }]}>
+            <View style={[styles.downloadingRow, { backgroundColor: colors.cardSubtle }]}>
               <ActivityIndicator size="small" color={colors.mintGreenDark} />
               <Text style={[{ color: colors.textPrimary, fontFamily: FontFamily.bold, fontSize: FontSize.body }]}>
                 {downloadProgressText || 'Downloading update...'}
@@ -129,31 +131,25 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
             </View>
           ) : isUpToDate ? (
             <View style={{ width: '100%', alignItems: 'center' }}>
-              <Pressable
-                style={[styles.ctaBtn, { backgroundColor: colors.mintGreen }]}
-                onPress={onDismiss}
-              >
-                <Text style={[styles.ctaText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
-                  Got it
-                </Text>
-              </Pressable>
+              <AppButton label="Got it" onPress={onDismiss} variant="primary" size="cta" style={styles.fullWidth} />
             </View>
           ) : (
             <View style={{ width: '100%', alignItems: 'center' }}>
-              <Pressable
-                style={[styles.ctaBtn, { backgroundColor: colors.mintGreen }]}
+              <AppButton
+                label={error ? 'Try Again' : 'Update Now'}
                 onPress={error ? (onRetry || onUpdate) : onUpdate}
-              >
-                {Boolean(error) && <RefreshCw size={16} color={colors.forestGreen} />}
-                <Text style={[styles.ctaText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
-                  {error ? 'Try Again' : 'Update Now'}
-                </Text>
-              </Pressable>
-              <Pressable style={styles.laterBtn} onPress={onDismiss}>
-                <Text style={[{ color: colors.textSecondary, fontFamily: FontFamily.semibold, fontSize: FontSize.bodySmall }]}>
-                  {error ? 'Dismiss' : 'Later'}
-                </Text>
-              </Pressable>
+                variant="primary"
+                size="cta"
+                icon={error ? <RefreshCw size={16} color={colors.forestGreen} /> : undefined}
+                style={styles.fullWidth}
+              />
+              <AppButton
+                label={error ? 'Dismiss' : 'Later'}
+                onPress={onDismiss}
+                variant="ghost"
+                size="standard"
+                style={[styles.fullWidth, styles.laterBtn]}
+              />
             </View>
           )}
         </View>
@@ -165,7 +161,6 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.gutter,
@@ -248,7 +243,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.caption,
   },
-  ctaBtn: {
+  // Same shape as the 60px CTA it replaces while the update downloads.
+  downloadingRow: {
     width: '100%',
     height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
@@ -257,13 +253,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.element,
   },
-  ctaText: {
-    fontSize: FontSize.body,
+  fullWidth: {
+    width: '100%',
   },
   laterBtn: {
-    width: '100%',
-    paddingVertical: Spacing.row,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: Spacing.element,
   },
 });

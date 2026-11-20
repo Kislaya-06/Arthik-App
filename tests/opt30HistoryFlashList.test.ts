@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readSplitSource } from './helpers/readSplitSource';
 
 const root = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
@@ -21,7 +22,8 @@ describe('OPT-30/31: FlashList is JS-only and OTA-safe', () => {
 });
 
 describe('OPT-30: HistoryScreen behaviour kept after SectionList to FlashList', () => {
-  const src = read('src/screens/HistoryScreen.tsx');
+  // HistoryScreen + its split modules (HistoryScreen.styles.ts, screens/history/*): same assertions.
+  const src = readSplitSource('src/screens/HistoryScreen.tsx');
 
   it('scroll-to-top on tab re-tap uses scrollToOffset 0 animated', () => {
     expect(src).toMatch(/listRef\.current\?\.scrollToOffset\(\{ offset: 0, animated: true \}\)/);
@@ -43,7 +45,9 @@ describe('OPT-30: HistoryScreen behaviour kept after SectionList to FlashList', 
   it('empty state keeps its full-height, centred layout without flexGrow', () => {
     expect(src).not.toMatch(/flexGrow:\s*1/);
     expect(src).toMatch(/minHeight: Math\.max\(0, listHeight - navBarInset - EMPTY_STATE_TOP_MARGIN\)/);
-    expect(src).toMatch(/EMPTY_STATE_TOP_MARGIN = 64/);
+    // 64dp, now shared with every screen empty state (EMPTY_STATE_TOP_OFFSET in EmptyState.tsx).
+    expect(src).toMatch(/EMPTY_STATE_TOP_MARGIN = (64|EMPTY_STATE_TOP_OFFSET);/);
+    expect(read('src/components/ui/EmptyState.tsx')).toContain('export const EMPTY_STATE_TOP_OFFSET = 64;');
     expect(src).toMatch(/marginTop: EMPTY_STATE_TOP_MARGIN/);
     expect(src).toMatch(/onLayout=\{handleListLayout\}/);
   });

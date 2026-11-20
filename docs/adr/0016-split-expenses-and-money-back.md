@@ -27,4 +27,4 @@ When a user paid for a friend and the friend paid back later, the money counted 
 - Total Income no longer includes money that only came back. Total Account Remaining rises by the money received.
 - Past days and Gullak can change after a settlement. This is correct; the entry on the detail screen says which days.
 - Multi-person refunds accurately maintain each participant's open debt with zero residual drift or premature settlement.
-- Needs the SQL in `supabase/migrations/20261018_split_and_money_back.sql` and `20261018_multi_person_split.sql`.
+- Needs the SQL in `supabase/migrations/20261018111651_split_and_money_back.sql` and `20261018160000_multi_person_split.sql`.

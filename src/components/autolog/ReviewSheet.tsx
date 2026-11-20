@@ -1,17 +1,6 @@
 import { toFriendlyMessage } from '../../lib/friendlyError';
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  Alert,
-  useWindowDimensions,
-  Animated,
-  Easing,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, ScrollView, TextInput, Alert, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import ShieldCheck from 'lucide-react-native/icons/shield-check';
 import Users from 'lucide-react-native/icons/users';
@@ -23,9 +12,7 @@ import { SegmentedControl, SegmentedOption } from '../ui/SegmentedControl';
 import { Checkbox } from './AutoLogUi';
 import { useTheme } from '../../store/themeStore';
 import { useCategoryStore, Category, categoriesOfKind } from '../../store/categoryStore';
-import { getCategoryIcon } from '../../lib/iconUtils';
-import { getCategoryChipGradient } from '../../lib/colorUtils';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, Motion } from '../../config/theme';
+import { Spacing, FontSize, FontFamily, ControlHeight } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
 import { useExpenseStore } from '../../store/expenseStore';
@@ -43,6 +30,8 @@ import {
   discardEvent,
   markAsSelfTransfer,
 } from '../../features/autoLog/reviews';
+import { styles } from './ReviewSheet.styles';
+import { CategoryChipItem } from './review/CategoryChipItem';
 
 /**
  * Concise single-sheet AutoLog review (Spec §9, §18-21).
@@ -52,7 +41,7 @@ import {
  * - 48px stadium pill for Remember Preference.
  * - 48px stadium pill button for "Mark as Self Transfer" (automates transfer rule & purges expense).
  * - 48px stadium pill button for "Save and split with friends".
- * - Primary 52px CTA with comfortable 38px auxiliary actions below.
+ * - Primary 60px CTA (AppButton size="cta") with 44px auxiliary actions below.
  */
 
 interface Props {
@@ -68,78 +57,6 @@ const TYPE_OPTIONS: SegmentedOption[] = [
   { key: 'expense', label: 'Expense' },
   { key: 'income', label: 'Income' },
 ];
-
-// ─── Animated Category Chip (Parity with ExpenseFormScreen) ──────────────────
-const CategoryChipItem: React.FC<{
-  category: Category;
-  isSelected: boolean;
-  onSelect: () => void;
-  colors: ReturnType<typeof useTheme>['colors'];
-  isDark: boolean;
-}> = ({ category, isSelected, onSelect, colors, isDark }) => {
-  const scale = useRef(new Animated.Value(1)).current;
-  const IconComp = getCategoryIcon(category.icon);
-
-  useEffect(() => {
-    if (isSelected) {
-      Animated.sequence([
-        Animated.timing(scale, { toValue: Motion.scale.chip, duration: 80, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, tension: Motion.springs.release.tension, friction: Motion.springs.release.friction, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [isSelected, scale]);
-
-  const chipColor = category.color || colors.mintGreen;
-
-  const { startColor, midColor, endColor, contentColor } = useMemo(() => {
-    if (!isSelected) {
-      return {
-        startColor: '',
-        midColor: '',
-        endColor: '',
-        contentColor: colors.textPrimary,
-      };
-    }
-    return getCategoryChipGradient(chipColor, isDark);
-  }, [chipColor, isSelected, isDark, colors.textPrimary]);
-
-  const gradId = `review_chip_grad_${(category.id || 'default').replace(/[^a-zA-Z0-9]/g, '')}`;
-
-  return (
-    <Pressable onPress={onSelect}>
-      <Animated.View
-        style={[
-          styles.categoryChip,
-          isSelected
-            ? { backgroundColor: midColor, borderColor: midColor }
-            : { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle },
-          { transform: [{ scale }] },
-        ]}
-      >
-        {isSelected && (
-          <Svg style={StyleSheet.absoluteFill}>
-            <Defs>
-              <LinearGradient id={gradId} x1="10%" y1="0%" x2="90%" y2="100%">
-                <Stop offset="0%" stopColor={startColor} />
-                <Stop offset="50%" stopColor={midColor} />
-                <Stop offset="100%" stopColor={endColor} />
-              </LinearGradient>
-            </Defs>
-            <Rect x={0} y={0} width="100%" height="100%" rx={21} ry={21} fill={`url(#${gradId})`} />
-          </Svg>
-        )}
-        <IconComp size={15} color={contentColor} strokeWidth={isSelected ? 2.2 : 2.0} />
-        <Text
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          style={[styles.categoryChipText, { color: contentColor, fontFamily: FontFamily.bold }]}
-        >
-          {category.name}
-        </Text>
-      </Animated.View>
-    </Pressable>
-  );
-};
 
 export const ReviewSheet: React.FC<Props> = ({
   visible,
@@ -841,275 +758,3 @@ export const ReviewSheet: React.FC<Props> = ({
     </BottomSheetModal>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    height: '86%',
-    maxHeight: '92%',
-  },
-  modalContent: {
-    flex: 1,
-  },
-  mainScroll: {
-    flex: 1,
-  },
-  mainScrollContent: {
-    paddingBottom: Spacing.block,
-  },
-  // ── Split-row Receipt Summary Card ──
-  summaryCard: {
-    borderRadius: BorderRadius.input,
-    padding: Spacing.group,
-    marginBottom: Spacing.group,
-  },
-  summarySplitRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  summaryLeftCol: {
-    flex: 1,
-    marginRight: Spacing.element,
-  },
-  summaryAmount: {
-    fontSize: 26,
-    lineHeight: 30,
-    fontFamily: FontFamily.bold,
-    letterSpacing: -0.5,
-  },
-  summaryMerchant: {
-    fontSize: FontSize.body,
-    fontFamily: FontFamily.bold,
-    marginTop: 2,
-  },
-  summaryRightCol: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  accountPill: {
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    maxWidth: 150,
-  },
-  accountPillText: {
-    fontSize: FontSize.caption - 1,
-    fontFamily: FontFamily.bold,
-  },
-  summaryDateText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.medium,
-    marginTop: 4,
-  },
-  discoveryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.pill,
-    marginTop: Spacing.micro,
-    alignSelf: 'flex-start',
-  },
-  discoveryBadgeText: {
-    fontSize: FontSize.micro,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  summaryQuoteBox: {
-    borderRadius: 8,
-    paddingHorizontal: Spacing.element,
-    paddingVertical: 5,
-    marginTop: 8,
-  },
-  summaryQuoteText: {
-    fontSize: FontSize.caption - 1,
-    fontFamily: FontFamily.medium,
-    fontStyle: 'italic',
-  },
-  section: {
-    marginBottom: Spacing.group,
-  },
-  categorySection: {
-    marginBottom: Spacing.group,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.element,
-  },
-  label: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: Spacing.element,
-  },
-  chosenLabel: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-  },
-  // ── Horizontal category scroll & fade styles ──
-  categoryScrollContainer: {
-    position: 'relative',
-    marginHorizontal: -Spacing.gutter,
-  },
-  categoryList: {
-    flexDirection: 'row',
-    gap: Spacing.element,
-    paddingHorizontal: Spacing.gutter,
-    paddingVertical: 2,
-  },
-  categoryFadeLeft: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 28,
-    zIndex: 10,
-  },
-  categoryFadeRight: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 28,
-    zIndex: 10,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: 10,
-    borderWidth: 1,
-    overflow: 'hidden',
-    height: 42,
-  },
-  categoryChipText: {
-    fontSize: FontSize.bodySmall,
-    marginLeft: Spacing.element,
-    includeFontPadding: false,
-  },
-  // ── 48px Uniform Stadium Pills ──
-  rememberPill: {
-    height: ControlHeight.standard,
-    borderRadius: BorderRadius.pill,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.block,
-    gap: Spacing.element,
-    marginBottom: Spacing.group,
-  },
-  rememberText: {
-    flex: 1,
-    fontSize: FontSize.bodySmall,
-    includeFontPadding: false,
-  },
-  actionPillsGroup: {
-    gap: Spacing.element,
-    marginBottom: Spacing.group,
-  },
-  owingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderRadius: BorderRadius.input,
-    padding: Spacing.group,
-    minHeight: 48,
-  },
-  owingTextCol: {
-    flex: 1,
-    minWidth: 0,
-    marginLeft: Spacing.element + 2,
-    marginRight: Spacing.element,
-    gap: 3,
-    alignItems: 'flex-start',
-  },
-  owingName: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-    maxWidth: '100%',
-  },
-  owingOwed: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-    flexShrink: 0,
-  },
-  likelyTag: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  likelyTagText: {
-    fontSize: 10.5,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.2,
-  },
-  settleNote: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.semibold,
-    textAlign: 'center',
-  },
-  dimmedSection: {
-    opacity: 0.4,
-  },
-  amountBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: BorderRadius.input,
-    paddingHorizontal: Spacing.block,
-    height: ControlHeight.standard,
-  },
-  rupee: {
-    fontSize: FontSize.titleSmall,
-    fontFamily: FontFamily.bold,
-    marginRight: Spacing.element,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: FontSize.titleSmall,
-    fontFamily: FontFamily.bold,
-  },
-  footerCol: {
-    gap: Spacing.group,
-  },
-  secondaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.block,
-    paddingTop: Spacing.element,
-    paddingBottom: Spacing.nano,
-  },
-  secondaryBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: Spacing.element,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 38,
-  },
-  secondaryText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.semibold,
-  },
-  dotSeparator: {
-    fontSize: FontSize.bodySmall,
-  },
-  error: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.semibold,
-    marginBottom: Spacing.micro,
-    textAlign: 'center',
-  },
-  text: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall + 2,
-    fontFamily: FontFamily.medium,
-    marginBottom: Spacing.element,
-  },
-});

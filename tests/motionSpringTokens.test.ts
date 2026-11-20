@@ -20,8 +20,14 @@ describe('Motion Design System Tokens (Seam: src/config/theme.ts)', () => {
 });
 
 describe('Finding 05 Invariant: Zero Loose Underdamped Spring Drift in Modals', () => {
-  const readComponent = (relPath: string) =>
-    fs.readFileSync(path.resolve(__dirname, '..', relPath), 'utf-8');
+  // A sheet that delegates its enter / exit motion to the shared runSheetTransition (src/lib/sheetTransition.ts,
+  // code-health pass) is read together with it, so the same token assertions still apply to its spring.
+  const readComponent = (relPath: string) => {
+    const src = fs.readFileSync(path.resolve(__dirname, '..', relPath), 'utf-8');
+    return src.includes('runSheetTransition(')
+      ? src + fs.readFileSync(path.resolve(__dirname, '..', 'src/lib/sheetTransition.ts'), 'utf-8')
+      : src;
+  };
 
   it('BottomSheetModal uses Motion.springs.sheet for both entry and snap-back', () => {
     const src = readComponent('src/components/ui/BottomSheetModal.tsx');

@@ -33,8 +33,10 @@ describe('ItemRowShell: pressed-row radius and clipping', () => {
 
 describe('AuthFormField: original field rhythm', () => {
   const src = read('src/components/ui/AuthFormField.tsx');
-  it('label uses 0.5 letter-spacing (not the rounder 0.8 of a fresh component)', () => {
-    expect(src).toMatch(/label:\s*\{[^}]*letterSpacing:\s*0\.5/);
+  // Owner-approved (ADR 0021, label spacing): every small uppercase label, including the auth form
+  // labels this field was matched against, now uses LetterSpacing.label (0.8), so parity still holds.
+  it('label uses the shared LetterSpacing.label like every other uppercase label', () => {
+    expect(src).toMatch(/label:\s*\{[^}]*letterSpacing:\s*LetterSpacing\.label/);
   });
   it('the input wrapper radius is 18, the inner field uses Spacing.surface padding', () => {
     expect(src).toMatch(/inputWrapper:\s*\{\s*borderRadius:\s*18/);

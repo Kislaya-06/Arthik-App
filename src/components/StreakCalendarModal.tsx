@@ -32,6 +32,9 @@ import { StreakFlame } from './StreakFlame';
 import { styles } from './StreakCalendarModal.styles';
 import { DayLogData, mapRemoteRowsToDayLog } from '../lib/streakCalendarData';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
+import { PressableOpacity } from './ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { useScrimColor } from '../hooks/useScrimColor';
 
 interface StreakCalendarModalProps {
   visible: boolean;
@@ -52,6 +55,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
   onClose,
 }) => {
   const { colors, isDark } = useTheme();
+  const scrim = useScrimColor();
   const savingsStreak = useDailyBudgetStore((s) => s.savingsStreak);
   const bestStreak = useDailyBudgetStore((s) => s.bestStreak);
   const bestStreakByCadence = useDailyBudgetStore((s) => s.bestStreakByCadence);
@@ -371,7 +375,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
       onRequestClose={onClose}
     >
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { backgroundColor: scrim }]}>
           <TouchableWithoutFeedback onPress={() => setActiveTooltip(null)}>
             <View
               style={[
@@ -420,7 +424,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     </Text>
                   </View>
 
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     accessibilityRole="button" accessibilityLabel="Close"
                     onPress={onClose}
                     hitSlop={8}
@@ -432,8 +436,8 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                       },
                     ]}
                   >
-                    <X size={16} color={colors.textSecondary} />
-                  </Pressable>
+                    <X size={18} color={colors.textSecondary} />
+                  </PressableOpacity>
                 </View>
               </View>
 
@@ -674,14 +678,14 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                       </Text>
                     )}
                   </View>
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     accessibilityRole="button" accessibilityLabel="Close tip"
                     onPress={() => setActiveTooltip(null)}
                     hitSlop={6}
                     style={styles.tooltipClose}
                   >
                     <X size={13} color={colors.textSecondary} />
-                  </Pressable>
+                  </PressableOpacity>
                 </Animated.View>
               )}
 

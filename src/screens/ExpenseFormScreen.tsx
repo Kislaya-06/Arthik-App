@@ -1,9 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import {
-  View, Text, TextInput, ScrollView, Pressable,
-  Platform, KeyboardAvoidingView, StyleSheet, Keyboard,
-  ActivityIndicator, Animated, Easing, useAnimatedValue,
-} from 'react-native';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
+import { View, Text, TextInput, ScrollView, Pressable, Platform, KeyboardAvoidingView, Keyboard, ActivityIndicator, Animated, useAnimatedValue } from 'react-native';
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,7 +16,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import Calendar from 'lucide-react-native/icons/calendar';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import Plus from 'lucide-react-native/icons/plus';
@@ -43,8 +39,6 @@ import { Category } from '../store/categoryStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
 import { formatAmountWithCommas } from '../lib/formatters';
-import { getCategoryIcon } from '../lib/iconUtils';
-import { getCategoryChipGradient } from '../lib/colorUtils';
 import { useTheme } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { useFormKeyboard } from '../hooks/useFormKeyboard';
@@ -54,13 +48,16 @@ import {
   MAX_NOTE_CHARS,
   countWords,
 } from '../hooks/useExpenseForm';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { styles } from './ExpenseFormScreen.styles';
+import { CategoryChipItem } from './expenseForm/CategoryChipItem';
 
 // Both AddExpense and EditExpense routes use this single component.
 type Props =
   | NativeStackScreenProps<RootStackParamList, 'AddExpense'>
   | NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
-
 
 const KEYPAD_ROWS = [
   ['1', '2', '3', '÷'],
@@ -68,107 +65,6 @@ const KEYPAD_ROWS = [
   ['7', '8', '9', '−'],
   ['.', '0', 'backspace', '+'],
 ];
-
-// ─── Animated Category Chip ─────────────────────────────────────────────────
-const CategoryChipItem = React.memo<{
-  category: Category;
-  isSelected: boolean;
-  isPlaceholder: boolean;
-  onSelect: (id: string) => void;
-  colors: ReturnType<typeof useTheme>['colors'];
-  isDark: boolean;
-}>(({ category, isSelected, isPlaceholder, onSelect, colors, isDark }) => {
-  const scale = useAnimatedValue(1);
-  const isFirstMount = useRef(true);
-  const IconComp = getCategoryIcon(category.icon);
-
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
-    if (isSelected) {
-      Animated.sequence([
-        Animated.timing(scale, { toValue: 0.96, duration: 80, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, tension: 120, friction: 10, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [isSelected, scale]);
-
-  const chipColor = category.color || colors.mintGreen;
-
-  const { startColor, midColor, endColor, contentColor } = useMemo(() => {
-    if (!isSelected) {
-      return {
-        startColor: '',
-        midColor: '',
-        endColor: '',
-        contentColor: colors.textPrimary,
-      };
-    }
-    return getCategoryChipGradient(chipColor, isDark);
-  }, [chipColor, isSelected, isDark, colors.textPrimary]);
-
-  const gradId = `chip_grad_${(category.id || 'default').replace(/[^a-zA-Z0-9]/g, '')}`;
-
-  const handlePress = useCallback(() => {
-    if (!isPlaceholder) onSelect(category.id);
-  }, [isPlaceholder, onSelect, category.id]);
-
-  return (
-    <Pressable
-      disabled={isPlaceholder}
-      onPress={handlePress}
-    >
-      <Animated.View
-        style={[
-          styles.categoryChip,
-          isSelected
-            ? { backgroundColor: midColor, borderColor: midColor }
-            : { backgroundColor: colors.card, borderColor: colors.border },
-          isPlaceholder && { opacity: 0.45 },
-          { transform: [{ scale }] },
-        ]}
-      >
-        {isSelected && (
-          <Svg style={StyleSheet.absoluteFill}>
-            <Defs>
-              <LinearGradient id={gradId} x1="10%" y1="0%" x2="90%" y2="100%">
-                <Stop offset="0%" stopColor={startColor} />
-                <Stop offset="50%" stopColor={midColor} />
-                <Stop offset="100%" stopColor={endColor} />
-              </LinearGradient>
-            </Defs>
-            <Rect
-              x={0}
-              y={0}
-              width="100%"
-              height="100%"
-              rx={20}
-              ry={20}
-              fill={`url(#${gradId})`}
-            />
-          </Svg>
-        )}
-        <IconComp
-          size={16}
-          color={contentColor}
-          strokeWidth={isSelected ? 2.2 : 2.0}
-        />
-        <Text
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          style={[
-            styles.categoryChipText,
-            { color: contentColor, fontFamily: FontFamily.bold },
-          ]}
-        >
-          {category.name}
-        </Text>
-      </Animated.View>
-    </Pressable>
-  );
-});
 
 export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const { colors, isDark } = useTheme();
@@ -420,24 +316,11 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* ── Header ── */}
-      <View style={[styles.header, { marginTop: insets.top + 16 }]}>
-        <Pressable
-          accessibilityRole="button" accessibilityLabel="Go back"
-          style={styles.backButton}
-          disabled={isSubmitting || isMorphing}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            }
-          }}
-          hitSlop={10}
-        >
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-          {isEdit ? 'Edit Expense' : 'Add Transaction'}
-        </Text>
-      </View>
+      <ScreenHeader
+        title={isEdit ? 'Edit Expense' : 'Add Transaction'}
+        backDisabled={isSubmitting || isMorphing}
+        style={{ marginTop: insets.top + Spacing.micro }}
+      />
 
       {/* ── Transaction Type Segmented Toggle ── */}
       <View style={styles.typeToggleWrapper}>
@@ -550,14 +433,14 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                     ? 'No income categories found. Create one to add income.'
                     : 'No categories found. Create one to add an expense.'}
                 </Text>
-                <Pressable
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   style={[styles.createCategoryBtn, { backgroundColor: colors.mintGreen }]}
                   onPress={() => (navigation as any).navigate('AddEditCategory', { kind: transactionType })}
                 >
                   <Text style={[styles.createCategoryBtnText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>
                     + Create Category
                   </Text>
-                </Pressable>
+                </PressableOpacity>
               </View>
             ) : (
               <View style={styles.categoryScrollContainer}>
@@ -643,7 +526,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
           DATE
         </Text>
-        <Pressable
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
           onPress={() => {
             Keyboard.dismiss();
             hideKeypad();
@@ -658,7 +541,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </View>
           <ChevronRight size={18} color={colors.textSecondary} />
-        </Pressable>
+        </PressableOpacity>
 
         {/* Dynamic Backdated Spending Notice (FIN-01 / UX Transparency) */}
         {backdatedSpendingNotice && (
@@ -885,7 +768,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             ]}
           >
             {/* ── Keypad Drag Handle Bar (Slide down to dismiss) ── */}
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               hitSlop={{ top: 8, bottom: 12, left: 30, right: 30 }}
               onPress={hideKeypad}
               style={styles.keypadHandleBar}
@@ -893,7 +776,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               accessibilityRole="button"
             >
               <View style={[styles.keypadHandle, { backgroundColor: colors.border }]} />
-            </Pressable>
+            </PressableOpacity>
 
             <View style={styles.keypadGrid}>
               {KEYPAD_ROWS.map((row, rIdx) => (
@@ -987,303 +870,3 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    paddingHorizontal: Spacing.gutter,
-  },
-  backButton: {
-    position: 'absolute',
-    left: Spacing.gutter,
-  },
-  headerTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-  },
-  typeToggleWrapper: {
-    paddingHorizontal: Spacing.gutter,
-    marginTop: Spacing.block,
-  },
-  amountContainer: {
-    alignItems: 'center',
-    marginTop: Spacing.block,
-  },
-  expressionText: {
-    fontSize: FontSize.body,
-    marginBottom: Spacing.nano,
-    textAlign: 'center',
-    paddingHorizontal: Spacing.gutter,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  currencySymbol: {
-    fontSize: 48,
-    marginRight: Spacing.micro,
-  },
-  amountValue: {
-    fontSize: 56,
-  },
-  amountUnderline: {
-    height: 1,
-    width: 80,
-    marginTop: Spacing.element,
-  },
-  bodyWrapper: {
-    flex: 1,
-  },
-  scrollSection: {
-    flex: 1,
-    marginTop: Spacing.surface,
-  },
-  scrollContent: {
-    paddingBottom: Spacing.section,
-  },
-  formSectionPadding: {
-    paddingHorizontal: Spacing.gutter,
-  },
-  sectionLabel: {
-    fontSize: FontSize.caption,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: Spacing.group,
-  },
-  sectionLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.group,
-    paddingHorizontal: Spacing.gutter,
-  },
-  sectionLabelNoMargin: {
-    marginBottom: 0,
-  },
-  noteCounterText: {
-    fontSize: FontSize.caption,
-    letterSpacing: 0.2,
-  },
-
-  categoryScrollContainer: {
-    position: 'relative',
-    minHeight: 44,
-    marginBottom: Spacing.block,
-  },
-  categoryList: {
-    flexDirection: 'row',
-    gap: Spacing.group,
-    paddingHorizontal: Spacing.gutter,
-  },
-  categoryFadeLeft: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 36,
-    zIndex: 10,
-  },
-  categoryFadeRight: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 36,
-    zIndex: 10,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: 10,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  categoryChipText: {
-    fontSize: FontSize.bodySmall,
-    marginLeft: Spacing.element,
-  },
-  manageCategoryChip: {
-    paddingHorizontal: Spacing.group,
-    justifyContent: 'center',
-  },
-  emptyCategoriesContainer: {
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.block,
-    borderRadius: BorderRadius.input,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: Spacing.block,
-    marginHorizontal: Spacing.gutter,
-  },
-  emptyCategoriesText: {
-    fontSize: FontSize.bodySmall,
-    textAlign: 'center',
-  },
-  createCategoryBtn: {
-    paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.element,
-    borderRadius: BorderRadius.pill,
-  },
-  createCategoryBtnText: {
-    fontSize: FontSize.bodySmall,
-  },
-  inputContainer: {
-    height: ControlHeight.row,
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    justifyContent: 'center',
-    marginBottom: Spacing.block,
-    marginHorizontal: Spacing.gutter,
-  },
-  suggestionsScroll: {
-    marginBottom: Spacing.block,
-  },
-  suggestionsList: {
-    flexDirection: 'row',
-    gap: Spacing.element,
-    paddingHorizontal: Spacing.gutter,
-  },
-  suggestionChip: {
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    paddingVertical: 8,
-    borderWidth: 1,
-  },
-  suggestionText: {
-    fontSize: FontSize.bodySmall,
-  },
-  inputText: {
-    height: '100%',
-    fontSize: FontSize.body,
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-  datePickerButton: {
-    height: ControlHeight.row,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    marginBottom: Spacing.block,
-    marginHorizontal: Spacing.gutter,
-  },
-  datePickerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  datePickerText: {
-    marginLeft: Spacing.group,
-    fontSize: FontSize.body,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-  backdatedNoticeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.surface,
-    borderRadius: BorderRadius.card,
-    borderWidth: 1,
-    marginHorizontal: Spacing.gutter,
-    marginTop: -Spacing.element,
-    marginBottom: Spacing.block,
-  },
-  backdatedNoticeLeftIcon: {
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backdatedNoticeTextWrap: {
-    flex: 1,
-  },
-  backdatedNoticeTitle: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    marginBottom: 2,
-  },
-  backdatedNoticeDesc: {
-    fontSize: FontSize.caption,
-    lineHeight: LineHeight.caption,
-  },
-  bottomSection: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    borderTopWidth: 1,
-    paddingHorizontal: Spacing.surface,
-    paddingTop: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  keypadGrid: {
-    flexDirection: 'column',
-    gap: 10,
-  },
-  keypadRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  saveButton: {
-    borderRadius: BorderRadius.pill,
-    height: ControlHeight.cta,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 0,
-  },
-  saveButtonKeyboard: {
-    marginTop: 0,
-    height: 50,
-  },
-  saveButtonEnabled: {
-    ...Platform.select({
-      ios: {
-        shadowColor: '#B8E0C8',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  saveButtonDisabled: {
-    borderWidth: 1,
-  },
-  saveButtonText: {
-    fontSize: FontSize.body,
-    lineHeight: LineHeight.body,
-    letterSpacing: 0.3,
-  },
-  keypadHandleBar: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    marginBottom: Spacing.micro,
-  },
-  keypadHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-  },
-});

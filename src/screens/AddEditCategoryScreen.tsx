@@ -1,12 +1,18 @@
 import { toFriendlyMessage } from '../lib/friendlyError';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Alert
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import MoreHorizontal from 'lucide-react-native/icons/ellipsis';
 import Check from 'lucide-react-native/icons/check';
 import { CATEGORY_ICONS } from '../lib/categoryIconRegistry';
@@ -25,7 +31,10 @@ import {
   CATEGORY_PALETTE,
   getNextCategoryColor,
   getContrastTextColor,
+  LetterSpacing,
 } from '../config/theme';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 export { CATEGORY_PALETTE };
 
@@ -129,16 +138,12 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View style={styles.headerRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={10}>
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-          {isEditMode
-            ? kind === 'income' ? 'Edit Income Category' : 'Edit Category'
-            : kind === 'income' ? 'Add Income Category' : 'Add Category'}
-        </Text>
-      </View>
+      <ScreenHeader
+        inset={false}
+        title={isEditMode
+          ? kind === 'income' ? 'Edit Income Category' : 'Edit Category'
+          : kind === 'income' ? 'Add Income Category' : 'Add Category'}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -203,7 +208,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
             const isSelected = selectedIcon === iconName;
 
             return (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={`${iconName} icon`}
                 key={iconName}
                 style={[
@@ -216,7 +221,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
                   size={22}
                   color={isSelected ? colors.forestGreen : colors.textSecondary}
                 />
-              </Pressable>
+              </PressableOpacity>
             );
           })}
         </View>
@@ -230,7 +235,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
             const isSelected = selectedColor.toUpperCase() === colorHex.toUpperCase();
             const checkColor = getContrastTextColor(colorHex);
             return (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 key={colorHex}
                 style={[
                   styles.colorOption,
@@ -241,13 +246,13 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
                 accessibilityLabel={`Select color ${colorHex}`}
               >
                 {isSelected && <Check size={18} color={checkColor} strokeWidth={2.6} />}
-              </Pressable>
+              </PressableOpacity>
             );
           })}
         </View>
 
         {/* Save Button */}
-        <Pressable
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
           style={[
             styles.saveBtn,
             isSaveEnabled && !isSaving
@@ -270,7 +275,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
               {isEditMode ? 'Update Category' : 'Save Category'}
             </Text>
           )}
-        </Pressable>
+        </PressableOpacity>
 
       </ScrollView>
     </View>
@@ -283,16 +288,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FB',
     paddingHorizontal: Spacing.gutter,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: Spacing.block,
-  },
-  headerTitle: {
-    marginLeft: Spacing.block,
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-  },
   scrollContent: {
     paddingBottom: 40,
   },
@@ -300,7 +295,7 @@ const styles = StyleSheet.create({
   // Preview
   previewContainer: {
     alignItems: 'center',
-    marginTop: Spacing.section,
+    marginTop: Spacing.block,
   },
   previewCircle: {
     width: 80,
@@ -314,7 +309,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.group,
     fontSize: FontSize.caption,
     color: '#B0B4C0',
-    letterSpacing: 1,
+    letterSpacing: LetterSpacing.label,
     textTransform: 'uppercase',
   },
 
@@ -329,7 +324,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: FontSize.caption,
     color: '#8A8FA3',
-    letterSpacing: 1,
+    letterSpacing: LetterSpacing.label,
     textTransform: 'uppercase',
   },
   charCount: {
@@ -417,8 +412,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7ED',
   },
   saveText: {
-    fontSize: FontSize.body,
-    lineHeight: LineHeight.body,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
   },
   saveTextEnabled: {
     color: '#1A2B4C',

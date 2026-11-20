@@ -2,12 +2,9 @@ import { toFriendlyMessage } from '../lib/friendlyError';
 import { saveSuccessHaptic } from '../lib/saveFeedback';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
-import { RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 
-import { RootStackParamList, VaultLiquidityInfo } from '../types';
 import { useExpenseStore } from '../store/expenseStore';
 import {
   useCategoryStore,
@@ -24,30 +21,17 @@ import {
 } from '../lib/amountKeypad';
 import { getNoteSuggestions } from '../lib/noteSuggestions';
 import { calculateVaultLiquidity } from '../lib/vaultSpendingGuard';
-import { getBackdatedSpendingNotice, BackdatedSpendingNotice } from '../lib/budgetUtils';
+import { getBackdatedSpendingNotice } from '../lib/budgetUtils';
 import * as Crypto from 'expo-crypto';
 import { isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
 import { useTransferRulesStore } from '../store/transferRulesStore';
 import { findMatchingTransferRule, normalizeTransferDescriptor } from '../lib/transferRules';
-import {
-  buildPeopleLedger,
-  cleanPersonName,
-  validateSplitAllocations,
-  planSettlement,
-  planRefund,
-  refundCandidates,
-  minAmountForExpense,
-  minShareForExpense,
-  settledPersonsForExpense,
-  grossAmountOf,
-  personKey,
-  type PersonLedger,
-  type RefundCandidate,
-  type RecoveryPlan,
-} from '../lib/splitLedger';
+import { buildPeopleLedger, cleanPersonName, validateSplitAllocations, planSettlement, planRefund, refundCandidates, minAmountForExpense, minShareForExpense, settledPersonsForExpense, grossAmountOf, personKey, type RecoveryPlan } from '../lib/splitLedger';
 import { recordMoneyBack } from '../store/expense/moneyBack';
 import { calculateGullakIncomeDeficit } from '../lib/gullakReconciliation';
 import { round2 } from '../lib/formatters';
+import { UseExpenseFormParams, UseExpenseFormReturn, SplitMemberState, SplitFormState, MoneyBackMode, MoneyBackFormState } from './expenseForm/types';
+export { UseExpenseFormParams, UseExpenseFormReturn, SplitMemberState, SplitFormState, MoneyBackMode, MoneyBackFormState } from './expenseForm/types';
 
 let memberIdCounter = 0;
 const nextMemberId = () => `mem_${Date.now()}_${++memberIdCounter}`;
@@ -59,131 +43,6 @@ export const countWords = (text: string): number => {
   const trimmed = text.trim();
   return trimmed ? trimmed.split(/\s+/).length : 0;
 };
-
-export interface UseExpenseFormParams {
-  route: RouteProp<RootStackParamList, 'AddExpense' | 'EditExpense'>;
-  navigation: NativeStackNavigationProp<RootStackParamList, 'AddExpense' | 'EditExpense'>;
-}
-
-export interface UseExpenseFormReturn {
-  // Form Values
-  amount: string;
-  evaluatedAmount: number;
-  formattedExpression: string;
-  hasOperator: boolean;
-  isDivisionByZero: boolean;
-  transactionType: 'expense' | 'income';
-  selectedCategoryId: string | null;
-  note: string;
-  selectedDate: Date;
-  formattedDate: string;
-  paymentMode: 'cash' | 'upi' | 'card';
-
-  // Form / UI Status
-  isEdit: boolean;
-  isSubmitting: boolean;
-  isSaveEnabled: boolean;
-  showDatePicker: boolean;
-  showVaultGuard: boolean;
-  setShowVaultGuard: (show: boolean) => void;
-  vaultLiquidity: VaultLiquidityInfo;
-  isBudgetModeEnabled: boolean;
-  backdatedSpendingNotice: BackdatedSpendingNotice | null;
-  shortfallAmount: number;
-
-  // Category Store Status
-  categories: Category[];
-  isCategoriesLoading: boolean;
-  areCategoriesPlaceholder: boolean;
-  isCategoriesFetched: boolean;
-
-  // Handlers
-  handleTypeChange: (type: 'expense' | 'income') => void;
-  handleKeyPress: (val: string) => void;
-  handleCategorySelect: (id: string) => void;
-  handleNoteChange: (text: string) => void;
-  handleDateConfirm: (date: Date) => void;
-  setShowDatePicker: (show: boolean) => void;
-  setPaymentMode: (mode: 'cash' | 'upi' | 'card') => void;
-  handleSave: (onSuccess?: () => Promise<void> | void) => Promise<void>;
-  handleSaveWithIncome: (addedAmount: number, addedPaymentMode?: 'cash' | 'upi') => Promise<void>;
-  noteSuggestions: string[];
-  handleSelectNoteSuggestion: (suggestion: string) => void;
-
-  // Self-transfer (TXN-003)
-  isSelfTransfer: boolean;
-  toggleSelfTransfer: (on: boolean) => void;
-  rememberMode: 'always' | 'once';
-  setRememberMode: (m: 'always' | 'once') => void;
-  canRememberTransfer: boolean;
-  transferRuleMatched: boolean;
-
-  // Split expense (SPL-001) and money back (SPL-003 / SPL-004 / SPL-006)
-  split: SplitFormState;
-  moneyBack: MoneyBackFormState;
-}
-
-export interface SplitMemberState {
-  id?: string;
-  person: string;
-  shareText: string;
-  share: number;
-}
-
-export interface SplitFormState {
-  /** Shown for new and edited expenses (not income, not self-transfers). */
-  visible: boolean;
-  on: boolean;
-  members: SplitMemberState[];
-  totalShare: number;
-  /** The user's own part: amount minus total shared. */
-  myShare: number;
-  /** Names used before, newest first. */
-  knownNames: string[];
-  /** Error to show under the fields, or null. */
-  error: string | null;
-  setOn: (on: boolean) => void;
-  addMember: (name?: string) => void;
-  removeMember: (index: number) => void;
-  updateMemberName: (index: number, name: string) => void;
-  updateMemberShareText: (index: number, text: string) => void;
-  splitEqually: () => void;
-  person: string;
-  /** What the user typed for the other person's share (first person). */
-  shareText: string;
-  share: number;
-  setPerson: (name: string) => void;
-  setShareText: (text: string) => void;
-  /** Fill the share with half of the amount. */
-  splitHalf: () => void;
-}
-
-export type MoneyBackMode = 'income' | 'friend' | 'refund';
-
-export interface MoneyBackFormState {
-  /** Shown only when adding new income. */
-  visible: boolean;
-  mode: MoneyBackMode;
-  setMode: (mode: MoneyBackMode) => void;
-  /** People who still owe money, for the "friend paid back" chips. */
-  people: PersonLedger[];
-  person: string;
-  setPerson: (name: string) => void;
-  /** Refund: who paid it back (shop / company). */
-  refundWho: string;
-  setRefundWho: (who: string) => void;
-  refundExpenseId: string | null;
-  setRefundExpenseId: (id: string | null) => void;
-  /** Solution 2: Interactive recipient choice ('everyone' | 'user' | person name). */
-  refundTarget: string;
-  setRefundTarget: (target: string) => void;
-  refundOptions: RefundCandidate[];
-  /** What will happen with the typed amount (live). */
-  plan: RecoveryPlan | null;
-  /** Error to show, or null. */
-  error: string | null;
-}
-
 
 export function useExpenseForm({ route, navigation }: UseExpenseFormParams): UseExpenseFormReturn {
   const isEdit = route.name === 'EditExpense';
@@ -708,7 +567,6 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const handleDateConfirm = useCallback((date: Date) => {
     setSelectedDate(date);
   }, []);
-
 
   // ─── Save / Update ────────────────────────────────────────────────────────
   const handleSave = async (onSuccess?: () => Promise<void> | void) => {

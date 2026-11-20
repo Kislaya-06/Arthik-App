@@ -18,7 +18,9 @@ import Sparkles from 'lucide-react-native/icons/sparkles';
 import Palette from 'lucide-react-native/icons/palette';
 import CircleAlert from 'lucide-react-native/icons/circle-alert';
 import LogOut from 'lucide-react-native/icons/log-out';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { AppButton } from '../components/ui/AppButton';
+import { LIGHT_DESTRUCTIVE_BG } from '../lib/alertButtonPalette';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import Trash2 from 'lucide-react-native/icons/trash';
 import ShieldCheck from 'lucide-react-native/icons/shield-check';
 import HelpCircle from 'lucide-react-native/icons/circle-question-mark';
@@ -55,6 +57,8 @@ import { EditProfileModal } from '../components/profile/EditProfileModal';
 import { DeleteAccountModal } from '../components/profile/DeleteAccountModal';
 import { getDisplayName, validateProfileName } from '../lib/profileUtils';
 import { styles } from './ProfileScreen.styles';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -73,6 +77,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const isOffline = useNetworkStore((s) => s.isOffline);
   const [isDeleting, setIsDeleting] = useState(false);
   const { colors, isDark, setThemeMode, themeMode, effectiveScheme } = useTheme();
+  // Readable red text for Delete Account: deep red on Light, the theme's soft red on Dark / AMOLED.
+  const destructiveTextColor = isDark ? colors.danger : LIGHT_DESTRUCTIVE_BG;
   const activeTheme = themeMode === 'system' ? effectiveScheme : themeMode;
   const handleScroll = useScrollDirection();
   const appVersion = Constants.expoConfig?.version ? `v${Constants.expoConfig.version}` : 'v1.2.3';
@@ -424,22 +430,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         onScroll={handleScroll}
         scrollEventThrottle={32}
       >
-        <View style={styles.headerRow}>
-          <Pressable 
-            accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-          >
-            <ArrowLeft size={28} color={colors.textPrimary} strokeWidth={2.5} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-            Profile
-          </Text>
-        </View>
+        <ScreenHeader inset={false} title="Profile" />
 
         {/* Profile Info Card */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          <Pressable
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
             onPress={openEditProfile}
             style={styles.avatarWrapper}
             hitSlop={6}
@@ -452,7 +447,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {getInitials()}
               </Text>
             </View>
-          </Pressable>
+          </PressableOpacity>
 
           <View style={styles.profileInfo}>
             <Text
@@ -584,7 +579,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
 
           {/* 1. Manage Categories */}
-          <Pressable 
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} 
             style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}
             onPress={() => navigation.navigate('ManageCategories')}
           >
@@ -595,11 +590,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               Manage Categories
             </Text>
             <ChevronRight size={18} color={colors.textSecondary} />
-          </Pressable>
+          </PressableOpacity>
 
           {/* 1b. Automatic Logging (Beta) — visible per server rollout (see features/autoLog/rollout.ts) */}
           {(autoLogAvailable || autoLogMode !== 'off') && (
-          <Pressable
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
             style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}
             onPress={() => navigation.navigate('AutoLogCenter')}
           >
@@ -619,7 +614,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               </Text>
             </View>
             <ChevronRight size={18} color={colors.textSecondary} />
-          </Pressable>
+          </PressableOpacity>
           )}
 
           {/* 2. Notifications */}
@@ -710,7 +705,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* 5. FAQs & Help */}
-          <Pressable 
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} 
             style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}
             onPress={() => navigation.navigate('Faq')}
           >
@@ -721,10 +716,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               FAQs & Help
             </Text>
             <ChevronRight size={18} color={colors.textSecondary} />
-          </Pressable>
+          </PressableOpacity>
 
           {/* 6. App Version */}
-          <Pressable
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
             style={[styles.settingRow, styles.lastSettingRow]}
             onPress={() => useOtaStore.getState().checkStatusFromProfile()}
             disabled={otaStatus === 'checking'}
@@ -742,34 +737,28 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {appVersion}
               </Text>
             )}
-          </Pressable>
+          </PressableOpacity>
         </View>
 
         {/* Log Out Button */}
-        <Pressable style={[styles.logoutBtn, { backgroundColor: colors.peachSoft }]} onPress={handleLogout}>
-          <LogOut size={18} color={colors.peachCoral} />
-          <Text style={[styles.logoutText, { color: colors.peachCoral, fontFamily: FontFamily.bold }]}>
-            Log Out
-          </Text>
-        </Pressable>
+        <AppButton
+          label="Log Out"
+          onPress={handleLogout}
+          variant="secondary"
+          icon={<LogOut size={18} color={colors.textPrimary} />}
+          style={styles.logoutBtn}
+        />
 
         {/* Delete Account Button (Required for Play Store / App Store compliance) */}
-        <Pressable
-          style={[styles.deleteAccountBtn, { borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FEE2E2', backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : '#FEF2F2' }]}
+        <AppButton
+          label="Delete Account"
           onPress={handleDeleteAccount}
-          disabled={isDeleting}
-        >
-          {isDeleting ? (
-            <ActivityIndicator size="small" color="#DC2626" />
-          ) : (
-            <>
-              <Trash2 size={16} color="#DC2626" />
-              <Text style={[styles.deleteAccountText, { color: '#DC2626', fontFamily: FontFamily.bold }]}>
-                Delete Account
-              </Text>
-            </>
-          )}
-        </Pressable>
+          variant="outline"
+          loading={isDeleting}
+          icon={<Trash2 size={16} color={destructiveTextColor} />}
+          textStyle={{ color: destructiveTextColor }}
+          style={styles.deleteAccountBtn}
+        />
 
       </ScrollView>
 

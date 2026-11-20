@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Animated,
-  Easing,
-  Pressable,
-  ScrollView,
-  useAnimatedValue,
-} from 'react-native';
+import { View, Text, StyleSheet, Modal, Animated, Pressable, ScrollView, useAnimatedValue } from 'react-native';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { PressableOpacity } from './ui/PressableOpacity';
 import Check from 'lucide-react-native/icons/check';
@@ -27,7 +17,10 @@ import { GradientIconBadge } from './GradientIconBadge';
 import { KeypadGrid } from './ui/KeypadGrid';
 import { formatAmountWithCommas, formatCurrency, round2 } from '../lib/formatters';
 import { applyKeypadPress, KeypadKey } from '../lib/amountKeypad';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, Motion } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { useScrimColor } from '../hooks/useScrimColor';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { runSheetTransition } from '../lib/sheetTransition';
 
 export interface PeriodRenewalModalProps {
   visible: boolean;
@@ -55,6 +48,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
   onClose,
 }) => {
   const { colors, isDark } = useTheme();
+  const scrim = useScrimColor();
   const insets = useSafeAreaInsets();
 
   const [mode, setMode] = useState<'celebrate' | 'edit'>('celebrate');
@@ -88,49 +82,8 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
 
     if (visible) {
       setIsMounted(true);
-      if (reduceMotion) {
-        fadeAnim.setValue(1);
-        slideAnim.setValue(0);
-      } else {
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 220,
-            useNativeDriver: true,
-          }),
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            stiffness: Motion.springs.sheet.stiffness,
-            damping: Motion.springs.sheet.damping,
-            mass: Motion.springs.sheet.mass,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-    } else {
-      if (reduceMotion) {
-        fadeAnim.setValue(0);
-        slideAnim.setValue(450);
-        setIsMounted(false);
-      } else {
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 160,
-            easing: Easing.bezier(0.32, 0.72, 0, 1),
-            useNativeDriver: true,
-          }),
-          Animated.timing(slideAnim, {
-            toValue: 450,
-            duration: 180,
-            easing: Easing.bezier(0.32, 0.72, 0, 1),
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setIsMounted(false);
-        });
-      }
     }
+    runSheetTransition({ visible, reduceMotion, fadeAnim, slideAnim, offscreen: 450, enterFadeMs: 220, setIsMounted });
   }, [visible, slideAnim, fadeAnim, reduceMotion]);
 
   const dateRangeLabel = useMemo(() => {
@@ -185,7 +138,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
     >
       <View style={styles.modalOverlay}>
         {/* Dimmed backdrop */}
-        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.backdrop, { backgroundColor: scrim, opacity: fadeAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} importantForAccessibility="no" />
         </Animated.View>
 
@@ -207,7 +160,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
           {/* Close / Back button in top corner */}
           <View style={styles.sheetTopRow}>
             {mode === 'edit' && isAutoRenew && (
-              <PressableOpacity
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 accessibilityRole="button" accessibilityLabel="Back"
                 onPress={() => setMode('celebrate')}
                 style={[styles.circleBtn, { backgroundColor: colors.cardSubtle }]}
@@ -217,7 +170,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
               </PressableOpacity>
             )}
             <View style={{ flex: 1 }} />
-            <PressableOpacity
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               accessibilityRole="button" accessibilityLabel="Close"
               onPress={onClose}
               style={[styles.circleBtn, { backgroundColor: colors.cardSubtle }]}
@@ -323,7 +276,7 @@ export const PeriodRenewalModal: React.FC<PeriodRenewalModalProps> = ({
               {/* Quick Presets */}
               <View style={styles.presetsRow}>
                 {presets.map((val) => (
-                  <PressableOpacity
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     key={val}
                     style={[
                       styles.presetChip,
@@ -419,7 +372,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   sheetContainer: {
     borderTopLeftRadius: BorderRadius.cardLarge,
@@ -450,9 +402,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.element,
   },
   circleBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },

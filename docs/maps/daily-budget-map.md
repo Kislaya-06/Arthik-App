@@ -1,17 +1,18 @@
 # Technical Architecture Map: `src/store/dailyBudgetStore.ts`
 
 > [!NOTE]
-> **Architecture & Modular Decomposition (October 2026)**
-> `src/store/dailyBudgetStore.ts` serves as the public facade (875 lines) delegating to focused submodules under `src/store/dailyBudget/`:
+> **Architecture & Modular Decomposition (October 2026, facade split November 2026)**
+> `src/store/dailyBudgetStore.ts` serves as the public facade (~380 lines) delegating to focused submodules under `src/store/dailyBudget/`. Store actions live in factories that receive the store's own `set` / `get` and are spread into the store (`...createGullakActions(set, get)`), so no submodule imports the store:
 > - Types & Interfaces: `src/store/dailyBudget/types.ts`
 > - Offline Pending Storage: `src/store/dailyBudget/pendingStorage.ts`
 > - Cross-Store Expense Bridge: `src/store/dailyBudget/expenseBridge.ts`
 > - Category Map Classifiers: `src/store/dailyBudget/classifiers.ts`
 > - Metrics & Waterfall: `src/store/dailyBudget/metrics.ts`
 > - Rollover Engine: `src/store/dailyBudget/rollover.ts`
-> - Supabase Hydration Coordinator: `src/store/dailyBudget/hydrate.ts`
+> - Supabase Hydration Coordinator: `src/store/dailyBudget/hydrate.ts` (+ `hydrateRemote.ts` remote fetch and Gullak merge, `hydrateOffline.ts` offline patch, pending-settings read, plan activation)
 > - Database Anomaly Self-Healing: `src/store/dailyBudget/selfHealing.ts`
-> - Plan Actions & Cadence Settings: `src/store/dailyBudget/planActions.ts`
+> - Plan Actions & Cadence Settings: `src/store/dailyBudget/planActions.ts` (daily budget, auto-save, scheduling; re-exports `planSync.ts`, `pureDeficit.ts`, `pendingPlan.ts`, `cadenceActions.ts`, `budgetModeActions.ts`)
+> - Store action factories: `gullakActions.ts` (Gullak deposits + gap days), `syncActions.ts` (`syncWithExpenses`, `checkAndRollover`, `uploadPendingDailyRecords`), `recordActions.ts` (`getTodayRecord`, `getPastRecordsList`)
 > For system architecture, see [`docs/architecture.md §6`](../architecture.md) and [`docs/adr/0013-store-module-split.md`](../adr/0013-store-module-split.md). For live calculation helpers, see [`src/lib/budgetCalculations.ts`](file:///d:/Arthik-App/src/lib/budgetCalculations.ts) and [`src/lib/budgetUtils.ts`](file:///d:/Arthik-App/src/lib/budgetUtils.ts).
 
 This document catalogs the functions of `dailyBudgetStore` and its sub-modules under `src/store/dailyBudget/`. It adheres strictly to the domain vocabulary defined in [CONTEXT.md](file:///d:/Arthik-App/CONTEXT.md).
@@ -27,18 +28,18 @@ Every function and helper associated with `src/store/dailyBudgetStore.ts` is cat
 | 1 | `registerExpenseGetter`, `getCurrentExpenses` | `src/store/dailyBudget/expenseBridge.ts` | **CROSS-STORE** | Bridge callbacks linking `expenseStore` data to budget calculations without circular imports. |
 | 2 | `buildCategoryClassifier`, `buildEligibleIncomeClassifier` | `src/store/dailyBudget/classifiers.ts` | **CROSS-STORE** | In-memory Category map classifiers delegating directly to `isIncomeTransaction(e, cat)`. |
 | 3 | `getPendingSettingsKey`, `savePendingSettingsOffline`, `clearPendingSettingsOffline` | `src/store/dailyBudget/pendingStorage.ts` | **STORAGE** | AsyncStorage offline queues for pending budget, Gullak, and plan change mutations. |
-| 4 | `getTodayDateStr`, `computeMetrics`, `runWaterfall`, balance selectors | `src/store/dailyBudget/metrics.ts` | **METRICS** | Local time date strings, waterfall calculations, carryable funds, and available income selectors. |
+| 4 | `getTodayDateStr`, `computeMetrics`, `runWaterfall`, balance selectors | `src/store/dailyBudget/metrics.ts` | **METRICS** | Local time date strings, waterfall calculations, carryable funds, and available income selectors. `runWaterfall` goes through `computeWaterfallFromState`, which reuses a recent result when every input is the same reference (pure function, immutable store data, `tests/waterfallCache.test.ts`). |
 | 5 | `applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods` | `src/store/dailyBudget/rollover.ts` | **ROLLOVER** | Midnight day evaluation, daily savings finalization, and weekly/monthly cycle rollovers. |
-| 6 | `runHydrateFromSupabase`, `buildOfflineHydrationPatch` | `src/store/dailyBudget/hydrate.ts` | **HYDRATION** | Startup hydration coordinator, persist-hydration gate, offline fast-path, and remote fetching. A scheduled Pure ↔ Budget switch that matured while the app was closed is applied here too: auto-save comes from `resolveAutoRenewForPlan` (`src/lib/budgetModeUtils.ts`, same rule as the rollover) and `persistActivatedPlanSettings` saves the new mode to the profile (FIN-16, `PUR-003`). |
+| 6 | `runHydrateFromSupabase` (`hydrate.ts`); `buildOfflineHydrationPatch`, `persistActivatedPlanSettings`, `readPendingSettings`, `mergePendingPlanChanges`, `mergePendingPeriods` (`hydrateOffline.ts`); `fetchRemoteBudgetData`, `mergeGullakDeposits`, `hydrateGullakDeposits` (`hydrateRemote.ts`) | `src/store/dailyBudget/hydrate*.ts` | **HYDRATION** | Startup hydration coordinator, persist-hydration gate, offline fast-path, and remote fetching. A scheduled Pure ↔ Budget switch that matured while the app was closed is applied here too: auto-save comes from `resolveAutoRenewForPlan` (`src/lib/budgetModeUtils.ts`, same rule as the rollover) and `persistActivatedPlanSettings` saves the new mode to the profile (FIN-16, `PUR-003`). |
 | 6b | `markDeficitCheckPending`, `restoreDeficitCheckPending`, `hasDeficitCheckPending`, `clearDeficitCheckPending` | `src/store/dailyBudget/deficitCheck.ts` | **HYDRATION** | Durable per-user marker (`@arthik_pending_deficit_check_<userId>`): the PUR-001 deficit check for a Pure → Budget switch that matured on a cold start. Consumed once by `checkAndRollover` when expenses are server-fresh (`balancePureDeficit`, `excludeTodayAllowance`). |
 | 4b | `healZeroTodayAllowance` | `src/store/dailyBudget/metrics.ts` | **METRICS** | Pure helper (FIN-16): gives an unfinalized today record with budget 0 its daily amount when Budget Mode, auto-save and a daily plan are on. Used by `syncWithExpenses` and right after `applyScheduledPlanChanges` in `checkAndRollover`. Never fills a paused allowance. |
 | 7 | `selfHealDefaultBudget`, `selfHealCorruptedRows` | `src/store/dailyBudget/selfHealing.ts` | **SELF-HEALING** | Repairs OTA migration defaults (e.g. 500 budget) and corrupted savings log rows. |
-| 8 | `handleSetDailyBudget`, `handleToggleAutoRenew`, `handleSetBudgetModeEnabled`, `handleCancelPendingPlanChange`, `resolvePendingPlanChange`, cadence switch handlers | `src/store/dailyBudget/planActions.ts` | **PLAN-ACTIONS** | Allowance updates, cadence switching, next-day scheduling (`PUR-003`), scheduled plan cancellation, and pending plan queues. |
-| 9 | `getTodayRecord`, `getPastRecordsList` | `src/store/dailyBudgetStore.ts` | **STORE-READ** | Zustand selectors for today's record and filtered past daily records. |
-| 10 | `addGullakDeposit`, `removeGullakDeposit`, `updateGullakDepositAmount`, `adjustGullakIncomeDeposits`, `syncPendingGullakDeposits` | `src/store/dailyBudgetStore.ts` | **STORAGE** | Gullak manual deposits management, income-deficit reconciliation adjustments, and offline queue synchronization. |
-| 11 | `syncWithExpenses` | `src/store/dailyBudgetStore.ts` | **MIXED** | Recomputes today's live spent, checks 80%/100% notification thresholds, and invokes rollover. |
-| 12 | `checkAndRollover` | `src/store/dailyBudgetStore.ts` | **FACADE** | Coordinates with `rollover.ts` (`runCheckAndRollover`) and updates store metrics. |
-| 13 | `uploadPendingDailyRecords` | `src/store/dailyBudgetStore.ts` | **STORAGE** | Scans `dailyRecords` for `needsUpload === true` and upserts them to Supabase `daily_savings_log`. |
+| 8 | `handleSetDailyBudget`, `handleToggleAutoRenew` (`planActions.ts`); `handleSetBudgetModeEnabled` (`budgetModeActions.ts`); `handleCancelPendingPlanChange`, `resolvePendingPlanChange` (`pendingPlan.ts`); cadence / weekly / monthly handlers (`cadenceActions.ts`); `balancePureDeficit` (`pureDeficit.ts`); `syncPendingPlanChanges`, `uploadPendingBudgetPeriods` (`planSync.ts`) — all importable from `planActions.ts` | `src/store/dailyBudget/` | **PLAN-ACTIONS** | Allowance updates, cadence switching, next-day scheduling (`PUR-003`), scheduled plan cancellation, and pending plan queues. |
+| 9 | `getTodayRecord`, `getPastRecordsList` | `src/store/dailyBudget/recordActions.ts` | **STORE-READ** | Zustand selectors for today's record and filtered past daily records. |
+| 10 | `addGullakDeposit`, `removeGullakDeposit`, `updateGullakDepositAmount`, `adjustGullakIncomeDeposits`, `syncPendingGullakDeposits`, `saveGapDaysToGullak`, `dismissGapDays` | `src/store/dailyBudget/gullakActions.ts` | **STORAGE** | Gullak manual deposits management, income-deficit reconciliation adjustments, and offline queue synchronization. |
+| 11 | `syncWithExpenses` | `src/store/dailyBudget/syncActions.ts` | **MIXED** | Recomputes today's live spent, checks 80%/100% notification thresholds, and invokes rollover. |
+| 12 | `checkAndRollover` | `src/store/dailyBudget/syncActions.ts` | **FACADE** | Coordinates with `rollover.ts` (`runCheckAndRollover`) and updates store metrics. |
+| 13 | `uploadPendingDailyRecords` | `src/store/dailyBudget/syncActions.ts` | **STORAGE** | Scans `dailyRecords` for `needsUpload === true` and upserts them to Supabase `daily_savings_log`. |
 | 14 | `hydrateFromSupabase` | `src/store/dailyBudgetStore.ts` | **FACADE** | Coordinates with `hydrate.ts` (`runHydrateFromSupabase`) for complete store hydration. |
 | 15 | `resetDailyBudget` | `src/store/dailyBudgetStore.ts` | **STORAGE** | Wipes local store state and AsyncStorage keys on user sign-out. |
 
@@ -454,7 +455,7 @@ The table below reflects the completed modular decomposition across all submodul
 | `runHydrateFromSupabase`, `buildOfflineHydrationPatch`, `fetchRemoteBudgetData` | `src/store/dailyBudget/hydrate.ts` | **EXTRACTED** | Startup hydration coordinator, persist-wait timeout, offline fast-path, and remote fetching. |
 | `selfHealDefaultBudget`, `selfHealCorruptedRows` | `src/store/dailyBudget/selfHealing.ts` | **EXTRACTED** | Database anomaly self-healing repairing 500 migration defaults and corrupted savings rows. |
 | `handleSetDailyBudget`, `handleToggleAutoRenew`, `handleSetBudgetCadence`, plan sync | `src/store/dailyBudget/planActions.ts` | **EXTRACTED** | Plan adjustments, cadence transitions, next-day scheduling, and pending plan queues. |
-| `useDailyBudgetStore` | `src/store/dailyBudgetStore.ts` | **FACADE (875 lines)** | Preserves 100% of public exports, store types, hooks, and external contracts. |
+| `useDailyBudgetStore` | `src/store/dailyBudgetStore.ts` | **FACADE (~380 lines)** | Preserves 100% of public exports, store types, hooks, and external contracts. |
 
 ---
 

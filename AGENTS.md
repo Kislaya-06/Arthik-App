@@ -65,7 +65,7 @@ supabase/               # migrations/ (budget modes, autolog_profiles, release f
 modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
                         # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
 src/
-├── components/   ui/ (AppButton, AmountText, SegmentedControl, BottomSheetModal, AppAlertModal, …),
+├── components/   ui/ (AppButton, AmountText, SegmentedControl, BottomSheetModal, AppAlertModal, ScreenHeader, HeaderBackButton, EmptyState, PressableOpacity, …),
 │                 profile/ (PauseBudgetModal, EditProfileModal, DeleteAccountModal, styles),
 │                 savings/ (SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, styles),
 │                 transfer/ (TransferExtras, TransferDetailCard),
@@ -78,31 +78,40 @@ src/
 ├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background, notificationActions,
 │                 notify, permissions, remote, store, copy, types)
 ├── config/       supabase.ts (client + env; login session stored encrypted through lib/secureSessionStorage, SEC-02), theme.ts (LightColors / DarkColors, design tokens)
-├── hooks/        useExpenseForm.ts, useFormKeyboard.ts, useSavingsDashboard.ts, usePullRefresh.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts
-├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts,
+├── hooks/        useExpenseForm.ts (+ expenseForm/types.ts), useStoreWhileVisible.ts, useFormKeyboard.ts, useSavingsDashboard.ts, usePullRefresh.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts, useScrimColor.ts
+├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts (facade over periods/ core, pools, carry, streak, calendar, periodSummary, finalize),
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
-│                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts (locked list helpers `changeStoredList` / `removeFromStoredList`), queueLock.ts (one writer per queue key), startupLoad.ts (offline-first splash order, OFL-001), supabasePaging.ts (no silent 1,000-row cut), signOutCleanup.ts (Log Out removes the user's cached copies of server data, never the unsynced queues), secureSessionStorage.ts + expoSessionCipher.ts + sessionCodec.ts (SEC-02: Supabase session encrypted with AES-256-GCM, key in secure storage; plain-text fallback when encryption cannot be proven; never read `sb-*-auth-token` from AsyncStorage directly), navBarLayout.ts, settleReview.ts, chartUtils.ts, profileUtils.ts,
+│                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts (locked list helpers `changeStoredList` / `removeFromStoredList`), queueLock.ts (one writer per queue key), startupLoad.ts (offline-first splash order, OFL-001), supabasePaging.ts (no silent 1,000-row cut), signOutCleanup.ts (Log Out removes the user's cached copies of server data, never the unsynced queues), secureSessionStorage.ts + expoSessionCipher.ts + sessionCodec.ts (SEC-02: Supabase session encrypted with AES-256-GCM, key in secure storage; plain-text fallback when encryption cannot be proven; never read `sb-*-auth-token` from AsyncStorage directly), navBarLayout.ts, settleReview.ts, chartUtils.ts (facade over charts/ donutSegments, monthlyCharts, gullakMilestones, dualRing), profileUtils.ts,
+│                 sheetTransition.ts (shared enter / exit motion of the Cadence, Period Renewal and Vault sheets), whileVisibleSelector.ts (hidden popups keep their last store value),
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install),
 │                 segmentedMotion.ts (pill springs, landing time, transform-only pill pieces), selectionCommitFence.ts (touch fence for deferred pill values),
-│                 alertButtonPalette.ts (themed dialog button colours + contrast)
+│                 alertButtonPalette.ts (themed dialog button colours + contrast; also AppButton `danger`),
+│                 pressFeedback.ts (`PRESS_DIM_OPACITY`), scrim.ts (one popup scrim per theme)
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
-├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home, History,
+├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home (+ HomeScreen.styles, home/HomeRecentItems), History (+ HistoryScreen.styles, history/ HistoryRows, HistoryEmptyState, historyHelpers),
+│                 ExpenseForm (+ ExpenseFormScreen.styles, expenseForm/CategoryChipItem),
 │                 Insights (with insights/ periodUtils, PeriodNavigator, useInsightsData, styles),
 │                 Savings, ExpenseForm, ExpenseDetail, Ledger, CategoryDetail, ManageCategories,
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
 │                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
 ├── store/        authStore, categoryStore,
-│                 expenseStore (with expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack, versionProbe),
-│                 dailyBudgetStore (with dailyBudget/ classifiers, deficitCheck, expenseBridge, hydrate, metrics, pendingStorage, rollover, types),
+│                 expenseStore (facade; expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack, versionProbe,
+│                   saveGuards, mutationActions (add / update / delete), loadActions, failedSyncActions),
+│                 dailyBudgetStore (facade; dailyBudget/ classifiers, deficitCheck, expenseBridge, metrics, pendingStorage, rollover, types,
+│                   gullakActions, syncActions (syncWithExpenses / checkAndRollover / uploadPendingDailyRecords), recordActions,
+│                   planActions → planSync, pureDeficit, pendingPlan, cadenceActions, budgetModeActions,
+│                   hydrate → hydrateRemote, hydrateOffline),
 │                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, splashCoverStore, alertStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
 **Pill rule (ADR 0020)**: pills animate transform / opacity / backgroundColor only (never `width`, `left`, Text `color`), and heavy screens hear about a tap only after the pill has landed (`commitOnSettle`). `App.tsx`'s root `onTouchStart` must keep flushing `selectionCommitFence`.
 
-**High blast-radius files**: `dailyBudgetStore.ts (+ src/store/dailyBudget/*)`, `expenseStore.ts (+ src/store/expense/*)`, `budgetPeriods.ts`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `budgetCalculations.ts`, `moneyWaterfall.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `features/autoLog/engine.ts`, `features/autoLog/matching.ts`, `features/autoLog/service.ts`, `modules/arthik-autolog/**` (native → APK), `UpdateRequiredScreen.tsx` + `lib/versionCheck.ts` (force update for every user).
+**UI consistency rule (ADR 0021)**: every pushed page with a title uses `ScreenHeader` (`src/components/ui/ScreenHeader.tsx`): 48dp bar, `HeaderBackButton` on the left, actions on the right, 20px bold title centred on the bar and announced as a heading; only main tabs use the 28px left-aligned title. Never draw an `ArrowLeft` back button or a title row by hand. Every tappable element gives press feedback: `AppButton` (scale) for real buttons, `PressableOpacity activeOpacity={PRESS_DIM_OPACITY}` (`src/lib/pressFeedback.ts`) for rows / icons / chips; a raw `Pressable` without feedback is only for backdrops. Button heights: 48 in centered dialogs, 60 in bottom sheets and page CTAs (never 46 / 50 / 52 / 56). Every dialog / sheet scrim comes from `useScrimColor()` (`src/lib/scrim.ts`). Every empty page / list / card uses `EmptyState` (`src/components/ui/EmptyState.tsx`, `size="screen"` or `"section"`). Mint / coral used as TEXT (amounts, links) use `colors.mintText` / `colors.coralText` (readable on Light, brand values on Dark / AMOLED); the brand fills stay for pills and backgrounds. Every small UPPERCASE label uses `letterSpacing: LetterSpacing.label` (0.8; badges, chart labels and fixed tiles excepted). Guarded by `tests/uiConsistency.test.ts`.
+
+**High blast-radius files**: `dailyBudgetStore.ts (+ src/store/dailyBudget/*)`, `expenseStore.ts (+ src/store/expense/*)`, `budgetPeriods.ts (+ src/lib/periods/*)`, `cadenceSwitch.ts`, `vaultSpendingGuard.ts`, `budgetCalculations.ts`, `moneyWaterfall.ts`, `ExpenseFormScreen.tsx`, `SavingsScreen.tsx`, `HomeScreen.tsx`, `features/autoLog/engine.ts`, `features/autoLog/matching.ts`, `features/autoLog/service.ts`, `modules/arthik-autolog/**` (native → APK), `UpdateRequiredScreen.tsx` + `lib/versionCheck.ts` (force update for every user).
 > **File inspection rule**: Inspect ONLY the relevant sections/functions needed for the current task. Do NOT scan entire files or read whole files end-to-end unless the task strictly requires it.
 
 ---
@@ -172,7 +181,7 @@ Work with surgical precision and zero-breakage guarantee:
 ## 6.1 Existing Code First & Facade Pattern (MANDATORY ARCHITECTURE INVARIANT)
 - Screens render UI and call store actions. Stores manage Supabase, AsyncStorage, and state. `src/lib/` holds pure helpers.
 - **Offline queues (OPT-60/61/72, data safety)**: every online expense add / edit / delete is written to its offline queue BEFORE the request and removed only when the server confirms and the entry is unchanged. Any new code that changes a queue key (`@arthik_pending_*`, `@arthik_cached_*`) must do the read→change→write inside `runExclusive(key, …)` from `src/lib/queueLock.ts` (never a network call inside it). For the list queues use `changeStoredList` / `removeFromStoredList` (`src/lib/asyncStorageList.ts`); a flush must NEVER write back the copy it read before the request (it erases what was queued meanwhile): it removes only the confirmed items from a fresh, locked read. A queued profile-settings patch is sent whole and only the sent values are cleared (`clearSentPendingSettings`). Remembered transfer notes (`syncPendingTransferRules`) are sent BEFORE the expense queues (foreign key). Wrap a Supabase query in `Promise.resolve(...)` before awaiting it twice (a query re-sends itself on every `.then`). Server rows computed from the expense list may only be written when `areExpensesFreshFromServer()` is true. **Skip-unchanged download (OPT-69)**: `fetchExpenses` keeps the list in memory when the server's expense change counter (`arthik_expenses_version`, read BEFORE the download via `src/store/expense/versionProbe.ts`) is the same as before the last successful download and is ≥ 1; every failure means a full download. Never read the counter after the rows, and never remember a counter whose download did not succeed.
-- **Zero Monolithic God Files (Facade Pattern Rule)**: Under NO circumstances should any store or feature grow into an unmaintainable 2,000–2,500 line monolithic file. Any complex store or domain feature exceeding ~350–400 lines MUST strictly follow the **Facade Pattern** (as standardized in `dailyBudgetStore.ts` and `expenseStore.ts`).
+- **Zero Monolithic God Files (Facade Pattern Rule)**: Under NO circumstances should any store or feature grow into an unmaintainable 2,000–2,500 line monolithic file. Any complex store or domain feature exceeding ~350–400 lines MUST strictly follow the **Facade Pattern** (as standardized in `dailyBudgetStore.ts` and `expenseStore.ts`). Store actions that grow live in submodule factories that receive the store's own `set` / `get` (`createGullakActions(set, get)`, `createMutationActions(set, get)` …) and are spread into the store; a `let` used only by moved actions moves with them; a submodule never imports its own store. Big screens keep their styles in `<Screen>.styles.ts` and their row / item components in a `screens/<name>/` folder. Source-reading tests use `tests/helpers/readSplitSource.ts` so a pure move never changes an assertion.
   - **Public Facade**: The root file (e.g., `src/store/dailyBudgetStore.ts`) serves purely as a public facade exposing external contracts, Zustand hooks, and selectors.
   - **Categorized Submodules**: Internal logic must be cleanly decomposed into dedicated, single-responsibility modules under a feature subfolder (e.g., `src/store/dailyBudget/`):
     - `types.ts` — Interfaces, domain contracts, and action signatures.

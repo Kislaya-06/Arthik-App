@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Animated,
-  Easing,
-  Pressable,
-  ScrollView,
-  useAnimatedValue,
-} from 'react-native';
+import { View, Text, StyleSheet, Modal, Animated, Pressable, ScrollView, useAnimatedValue } from 'react-native';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { PressableOpacity } from './ui/PressableOpacity';
 import Check from 'lucide-react-native/icons/check';
@@ -31,7 +21,10 @@ import {
 } from '../lib/cadenceSwitch';
 import { getPeriodBounds } from '../lib/budgetPeriods';
 import { formatCurrency } from '../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, Motion } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { useScrimColor } from '../hooks/useScrimColor';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { runSheetTransition } from '../lib/sheetTransition';
 
 export interface CadenceSwitchModalProps {
   visible: boolean;
@@ -60,6 +53,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
   onClose,
 }) => {
   const { colors, isDark } = useTheme();
+  const scrim = useScrimColor();
   const insets = useSafeAreaInsets();
 
   const activeAccent = isDark ? colors.mintGreen : colors.forestGreen;
@@ -89,49 +83,8 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
 
     if (visible) {
       setIsMounted(true);
-      if (reduceMotion) {
-        fadeAnim.setValue(1);
-        slideAnim.setValue(0);
-      } else {
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 220,
-            useNativeDriver: true,
-          }),
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            stiffness: Motion.springs.sheet.stiffness,
-            damping: Motion.springs.sheet.damping,
-            mass: Motion.springs.sheet.mass,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-    } else {
-      if (reduceMotion) {
-        fadeAnim.setValue(0);
-        slideAnim.setValue(500);
-        setIsMounted(false);
-      } else {
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 160,
-            easing: Easing.bezier(0.32, 0.72, 0, 1),
-            useNativeDriver: true,
-          }),
-          Animated.timing(slideAnim, {
-            toValue: 500,
-            duration: 180,
-            easing: Easing.bezier(0.32, 0.72, 0, 1),
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setIsMounted(false);
-        });
-      }
     }
+    runSheetTransition({ visible, reduceMotion, fadeAnim, slideAnim, offscreen: 500, enterFadeMs: 220, setIsMounted });
   }, [visible, slideAnim, fadeAnim, reduceMotion]);
 
   const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [visible]);
@@ -218,7 +171,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
       statusBarTranslucent
     >
       <View style={styles.backdrop}>
-        <Animated.View style={[styles.scrim, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.scrim, { backgroundColor: scrim, opacity: fadeAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} importantForAccessibility="no" />
         </Animated.View>
 
@@ -266,7 +219,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               </Text>
             </View>
 
-            <PressableOpacity
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               style={[
                 styles.closeButton,
                 { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' },
@@ -606,7 +559,6 @@ const styles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   sheetContainer: {
     borderTopLeftRadius: BorderRadius.cardLarge,
@@ -658,9 +610,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -808,7 +760,7 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    height: ControlHeight.row,
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
     alignItems: 'center',
@@ -820,7 +772,7 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     flex: 1,
-    height: ControlHeight.row,
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import Zap from 'lucide-react-native/icons/zap';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
@@ -14,6 +14,8 @@ import { reportProblem, ProblemReason } from '../../features/autoLog/reviews';
 import { money } from '../../features/autoLog/copy';
 import { useAutoLogStore } from '../../features/autoLog/store';
 import type { AutoLogEvent } from '../../features/autoLog/types';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 /**
  * Source transparency + "Why was this logged?" + "Report a problem" (spec §22, §23, §38.6).
@@ -107,10 +109,10 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
       <Text style={[styles.label, { color: colors.textSecondary }]}>Source</Text>
       <Text style={[styles.value, { color: colors.textPrimary }]}>{sources.join(' + ')}</Text>
 
-      <Pressable onPress={() => setOpen((o) => !o)} style={styles.toggle}>
+      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => setOpen((o) => !o)} style={styles.toggle}>
         <Text style={[styles.toggleText, { color: colors.textPrimary }]}>Why was this logged?</Text>
         {open ? <ChevronUp size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
-      </Pressable>
+      </PressableOpacity>
       {open ? (
         <View style={[styles.why, { borderTopColor: colors.borderSubtle }]}>
           <Text style={[styles.text, { color: colors.textPrimary }]}>{money(main.amount)}{main.merchant ? ` · ${main.merchant}` : ''}</Text>
@@ -148,10 +150,10 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
       ) : null}
 
       {done ? <Text style={[styles.done, { color: colors.mintGreenDark }]}>{done}</Text> : null}
-      <Pressable onPress={() => setReporting(true)} style={styles.report} hitSlop={6}>
+      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => setReporting(true)} style={styles.report} hitSlop={6}>
         <Flag size={14} color={colors.textSecondary} />
         <Text style={[styles.reportText, { color: colors.textSecondary }]}>Report a problem</Text>
-      </Pressable>
+      </PressableOpacity>
 
       <BottomSheetModal visible={reporting} onClose={() => setReporting(false)} title="What's wrong?" colors={colors} isDark={isDark}>
         <View style={{ gap: Spacing.element }}>

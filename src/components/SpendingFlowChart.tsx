@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   Animated,
   useAnimatedValue,
 } from 'react-native';
@@ -49,6 +48,8 @@ const DEFAULT_TRACK_WIDTH = 32;
 const MIN_FILL_HEIGHT = 28;
 
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { PressableOpacity } from './ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 interface FlowBarColumnProps {
   item: SpendingDayData;
@@ -110,7 +111,7 @@ const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
   });
 
   return (
-    <Pressable
+    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
       style={styles.column}
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
@@ -190,7 +191,7 @@ const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
           {item.subLabel}
         </Text>
       ) : null}
-    </Pressable>
+    </PressableOpacity>
   );
 });
 

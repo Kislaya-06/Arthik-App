@@ -1,12 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, TextInput,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
   LayoutAnimation,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
+import { EmptyState } from '../components/ui/EmptyState';
 import Search from 'lucide-react-native/icons/search';
 import X from 'lucide-react-native/icons/x';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
@@ -24,6 +29,8 @@ import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight 
 import { useTheme } from '../store/themeStore';
 import { RootStackParamList } from '../types';
 import { configureLayoutAnimation } from '../lib/animationUtils';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Faq'>;
 type Category = 'All' | 'Budget Modes' | 'Daily Budget' | 'Gullak & Savings' | 'Streak & Rules' | 'Income & Expenses' | 'Automatic Logging' | 'Offline & Privacy';
@@ -114,7 +121,7 @@ const FAQ_DATA = [
    'Deleting your account from the Profile screen permanently deletes all your expenses, categories, and Gullak savings history from both your device and cloud servers. This action is irreversible.'],
 ].map(([id, category, question, answer]) => ({ id, category: category as Category, question, answer }));
 
-export const FaqScreen: React.FC<Props> = ({ navigation }) => {
+export const FaqScreen: React.FC<Props> = () => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const [search, setSearch] = useState('');
@@ -139,14 +146,7 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={8}>
-          <ArrowLeft size={28} color={colors.textPrimary} strokeWidth={2.5} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-          FAQs & Help
-        </Text>
-      </View>
+      <ScreenHeader title="FAQs & Help" />
 
       {/* Search Bar */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
@@ -163,9 +163,9 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
           returnKeyType="search"
         />
         {search.length > 0 && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Clear search text" onPress={() => setSearch('')} hitSlop={8}>
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Clear search text" onPress={() => setSearch('')} hitSlop={8}>
             <X size={16} color={colors.textSecondary} />
-          </Pressable>
+          </PressableOpacity>
         )}
       </View>
 
@@ -180,7 +180,7 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
           {CATEGORIES.map((cat) => {
             const active = selectedCat === cat;
             return (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 key={cat}
                 style={[
                   styles.pill,
@@ -193,7 +193,7 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={[styles.pillText, { color: active ? colors.mintGreenDark : colors.textSecondary, fontFamily: active ? FontFamily.bold : FontFamily.medium }]}>
                   {cat}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
             );
           })}
         </ScrollView>
@@ -208,19 +208,19 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
         keyboardDismissMode="on-drag"
       >
         {faqs.length === 0 ? (
-          <View style={styles.empty}>
-            <HelpCircle size={36} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>No FAQs found</Text>
-            <Text style={[styles.emptyDesc, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              No questions found matching your search. Try a different keyword.
-            </Text>
-          </View>
+          <EmptyState
+            size="section"
+            icon={HelpCircle}
+            title="No FAQs found"
+            subtitle="No questions found matching your search. Try a different keyword."
+            style={styles.empty}
+          />
         ) : (
           faqs.map((item) => {
             const open = expandedId === item.id;
             const Icon = ICONS[item.category] || HelpCircle;
             return (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 key={item.id}
                 style={[
                   styles.card,
@@ -252,7 +252,7 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
                     </Text>
                   </View>
                 )}
-              </Pressable>
+              </PressableOpacity>
             );
           })
         )}
@@ -263,11 +263,6 @@ export const FaqScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.gutter, paddingTop: Spacing.block, marginBottom: Spacing.element, gap: Spacing.block },
-  title: {
-    fontSize: FontSize.titleLarge,
-    lineHeight: LineHeight.titleLarge,
-  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -298,11 +293,4 @@ const styles = StyleSheet.create({
     lineHeight: LineHeight.bodySmall,
   },
   empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: Spacing.gutter },
-  emptyTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    marginTop: Spacing.block,
-    marginBottom: 4,
-  },
-  emptyDesc: { fontSize: FontSize.bodySmall, textAlign: 'center' },
 });

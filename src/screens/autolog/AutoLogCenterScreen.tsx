@@ -1,6 +1,6 @@
 import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, AppState, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, AppState, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -29,6 +29,8 @@ import * as service from '../../features/autoLog/service';
 import { fetchRemoteProfile } from '../../features/autoLog/remote';
 import { openBatterySettings } from '../../features/autoLog/permissions';
 import { accountLabel, eventTitle, modeCopy, money, relative, statusLine, dateTime } from '../../features/autoLog/copy';
+import { PressableOpacity } from '../../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogCenter'>;
 
@@ -257,7 +259,7 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
           <Card>
             <SectionLabel>Recent activity</SectionLabel>
             {s.recent.map((e, i) => (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 key={e.id}
                 onPress={() => {
                   if (e.status === 'pending' || (e.status === 'logged' && e.needsCategory)) navigation.navigate('AutoLogReview');
@@ -274,7 +276,7 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
                   </Text>
                 </View>
                 <Text style={[styles.src, { color: colors.textMuted }]}>{e.source === 'sms' ? 'SMS' : e.sender}</Text>
-              </Pressable>
+              </PressableOpacity>
             ))}
           </Card>
         ) : null}

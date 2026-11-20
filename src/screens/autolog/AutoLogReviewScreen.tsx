@@ -31,6 +31,7 @@ import { ignoreEvent, discardEvent } from '../../features/autoLog/reviews';
 import { useAutoLogStore } from '../../features/autoLog/store';
 import { accountLabelFromKey, dateTime, directionWord, eventTitle, money, reviewLabelFor } from '../../features/autoLog/copy';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
+import { EmptyState, EMPTY_STATE_TOP_OFFSET } from '../../components/ui/EmptyState';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogReview'>;
 
@@ -340,11 +341,7 @@ export const AutoLogReviewScreen: React.FC<Props> = ({ navigation }) => {
           ) : null
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Inbox size={40} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>All caught up</Text>
-            <Body muted style={{ textAlign: 'center' }}>Nothing needs your review right now.</Body>
-          </View>
+          <EmptyState icon={Inbox} title="All caught up" subtitle="Nothing needs your review right now." style={styles.empty} />
         }
       />
       <ReviewSheet
@@ -399,8 +396,7 @@ const styles = StyleSheet.create({
   chip: { alignSelf: 'flex-start', borderRadius: BorderRadius.pill, paddingHorizontal: 10, paddingVertical: 4, marginTop: Spacing.element },
   chipText: { fontSize: FontSize.caption, fontFamily: FontFamily.bold },
   row2: { flexDirection: 'row', gap: Spacing.group, marginTop: Spacing.group },
-  empty: { alignItems: 'center', paddingTop: 80, gap: Spacing.element },
-  emptyTitle: { fontSize: FontSize.titleMedium, fontFamily: FontFamily.bold },
+  empty: { paddingTop: EMPTY_STATE_TOP_OFFSET },
   toast: { textAlign: 'center', fontSize: FontSize.caption, fontFamily: FontFamily.bold, marginBottom: Spacing.element },
   headerClearBtn: { padding: Spacing.element },
 });

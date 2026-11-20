@@ -5,6 +5,7 @@ import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { MoneyHelpBadge } from '../MoneyExplainerModal';
 import { Spacing, FontSize, FontFamily, BorderRadius, ControlHeight } from '../../config/theme';
 import { formatCurrency } from '../../lib/formatters';
+import { useScrimColor } from '../../hooks/useScrimColor';
 
 export interface PauseBudgetModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
   isDark,
   styles,
 }) => {
+  const scrim = useScrimColor();
   return (
     <Modal
       visible={visible}
@@ -39,7 +41,7 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
       onRequestClose={onClose}
     >
       <Pressable
-        style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(15, 23, 42, 0.45)' }]}
+        style={[styles.modalOverlay, { backgroundColor: scrim }]}
         onPress={onClose}
       >
         <Pressable

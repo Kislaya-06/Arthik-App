@@ -150,19 +150,8 @@ export const styles = StyleSheet.create({
   legendName: { fontSize: FontSize.body },
   legendSubtext: { fontSize: FontSize.bodySmall, marginTop: Spacing.nano },
   emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 36,
+    paddingVertical: Spacing.section,
     paddingHorizontal: Spacing.gutter,
-  },
-  emptyStateText: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    textAlign: 'center',
-    marginBottom: Spacing.block,
-  },
-  emptyStateCta: {
-    minWidth: 160,
   },
   expandCategoriesBtn: {
     flexDirection: 'row',

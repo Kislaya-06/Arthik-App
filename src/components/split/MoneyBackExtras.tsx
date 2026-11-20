@@ -1,13 +1,15 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../store/themeStore';
 import { useExpenseStore } from '../../store/expenseStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LetterSpacing } from '../../config/theme';
 import { formatCurrency, formatDate } from '../../lib/formatters';
 import { MAX_PERSON_NAME, splitAllocationsOf } from '../../lib/splitLedger';
 import { SegmentedControl, SegmentedOption } from '../ui/SegmentedControl';
 import type { MoneyBackFormState, MoneyBackMode } from '../../hooks/useExpenseForm';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 const MODES: SegmentedOption[] = [
   { key: 'income', label: 'Income' },
@@ -57,7 +59,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                 {mb.people.map((p) => {
                   const active = p.key === mb.person.trim().toLowerCase();
                   return (
-                    <Pressable
+                    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                       key={p.key}
                       onPress={() => {
                         Haptics.selectionAsync().catch(() => {});
@@ -70,7 +72,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                       <Text style={[styles.pillText, { color: colors.textPrimary, fontFamily: FontFamily.semibold }]}>
                         {p.name} · owes {formatCurrency(p.owed)}
                       </Text>
-                    </Pressable>
+                    </PressableOpacity>
                   );
                 })}
               </View>
@@ -100,7 +102,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
               const active = mb.refundExpenseId === c.id;
               const matches = amount > 0 && c.remaining === amount;
               return (
-                <Pressable
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   key={c.id}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
@@ -117,7 +119,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                     </Text>
                   </View>
                   <Text style={[styles.title, { color: colors.textPrimary }]}>{formatCurrency(c.remaining)}</Text>
-                </Pressable>
+                </PressableOpacity>
               );
             })
           )}
@@ -128,7 +130,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                 Who is this refund for?
               </Text>
               <View style={styles.pills}>
-                <Pressable
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
                     mb.setRefundTarget('everyone');
@@ -154,9 +156,9 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                   >
                     Split among everyone
                   </Text>
-                </Pressable>
+                </PressableOpacity>
 
-                <Pressable
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
                     mb.setRefundTarget('user');
@@ -182,12 +184,12 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                   >
                     Just for me
                   </Text>
-                </Pressable>
+                </PressableOpacity>
 
                 {splitAllocs.map((a) => {
                   const isTarget = mb.refundTarget.toLowerCase() === a.person.toLowerCase();
                   return (
-                    <Pressable
+                    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                       key={a.person}
                       onPress={() => {
                         Haptics.selectionAsync().catch(() => {});
@@ -214,7 +216,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                       >
                         {a.person}
                       </Text>
-                    </Pressable>
+                    </PressableOpacity>
                   );
                 })}
               </View>
@@ -270,7 +272,7 @@ const styles = StyleSheet.create({
   wrap: { gap: Spacing.group, marginTop: Spacing.block, marginBottom: Spacing.block },
   flex: { flex: 1 },
   card: { borderRadius: BorderRadius.input, padding: Spacing.block, gap: Spacing.element },
-  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: 1, textTransform: 'uppercase' },
+  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: LetterSpacing.label, textTransform: 'uppercase' },
   title: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.bold },
   sub: { fontSize: FontSize.caption, fontFamily: FontFamily.medium, marginTop: 2 },
   input: { height: ControlHeight.standard, borderRadius: BorderRadius.input, paddingHorizontal: Spacing.block, fontSize: FontSize.body },
@@ -291,7 +293,7 @@ const styles = StyleSheet.create({
   breakdownHeader: {
     fontSize: FontSize.micro,
     fontFamily: FontFamily.bold,
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
     marginBottom: Spacing.micro,
   },
   breakdownItem: {

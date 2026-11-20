@@ -14,7 +14,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { HeaderBackButton } from '../components/ui/HeaderBackButton';
 import ArrowRight from 'lucide-react-native/icons/arrow-right';
 import User from 'lucide-react-native/icons/user';
 import { useAuthStore } from '../store/authStore';
@@ -23,7 +23,7 @@ import { useCategoryStore } from '../store/categoryStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useTheme } from '../store/themeStore';
 import { AuthFormField } from '../components/ui/AuthFormField';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, LetterSpacing } from '../config/theme';
 import {
   clampNameInput,
   calculateNameLength,
@@ -145,9 +145,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           {/* Back arrow */}
-          <Pressable accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={26} color={colors.textPrimary} />
-          </Pressable>
+          <HeaderBackButton style={[styles.backBtn, { marginTop: Spacing.block }]} />
 
           {/* Progress Row */}
           <View style={styles.progressRow}>
@@ -283,7 +281,7 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: FontSize.caption,
     color: '#8A8FA3',
-    letterSpacing: 0.8,
+    letterSpacing: LetterSpacing.label,
     fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
   },
@@ -357,7 +355,7 @@ const styles = StyleSheet.create({
     color: '#8A8FA3',
     fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
   },
   lastNameLabelRow: {
     flexDirection: 'row',
@@ -371,7 +369,7 @@ const styles = StyleSheet.create({
     color: '#8A8FA3',
     fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
   },
   optionalBadge: {
     backgroundColor: '#E8F5EC',
@@ -421,7 +419,7 @@ const styles = StyleSheet.create({
   ctaBtn: {
     borderRadius: BorderRadius.pill,
     backgroundColor: '#B8E0C8',
-    paddingVertical: Spacing.surface,
+    height: ControlHeight.cta,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -432,7 +430,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   ctaBtnText: {
-    fontSize: FontSize.cta,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
   },

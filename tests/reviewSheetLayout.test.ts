@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { readSplitSource } from './helpers/readSplitSource';
 
 const read = (p: string) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 
 describe('ReviewSheet Layout & UI Invariants', () => {
-  const src = read('src/components/autolog/ReviewSheet.tsx');
+  // ReviewSheet + its split modules (ReviewSheet.styles.ts, autolog/review/*): same assertions.
+  const src = readSplitSource('src/components/autolog/ReviewSheet.tsx');
 
   it('renders horizontal scroll category chip bar with left and right gradient fades matching ExpenseFormScreen', () => {
     expect(src).toMatch(/categoryScrollContainer:\s*\{[\s\S]*?position:\s*'relative'/);
@@ -42,8 +44,8 @@ describe('ReviewSheet Layout & UI Invariants', () => {
     expect(src).toMatch(/icon=\{<Users size=\{16\}/);
   });
 
-  it('provides comfortable 38px touch target and bodySmall typography for secondary bottom actions', () => {
-    expect(src).toMatch(/secondaryBtn:\s*\{[\s\S]*?minHeight:\s*38/);
+  it('provides a 44px touch target and bodySmall typography for secondary bottom actions', () => {
+    expect(src).toMatch(/secondaryBtn:\s*\{[\s\S]*?minHeight:\s*44/);
     expect(src).toMatch(/secondaryText:\s*\{[\s\S]*?fontSize:\s*FontSize\.bodySmall/);
   });
 

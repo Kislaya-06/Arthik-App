@@ -4,14 +4,15 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Pressable,
   KeyboardTypeOptions,
   ReturnKeyTypeOptions,
   TextInputProps,
 } from 'react-native';
 import Eye from 'lucide-react-native/icons/eye';
 import EyeOff from 'lucide-react-native/icons/eye-off';
-import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius, ControlHeight } from '../../config/theme';
+import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius, ControlHeight, LetterSpacing } from '../../config/theme';
+import { PressableOpacity } from './PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 export interface AuthFormFieldProps {
   label: string;
@@ -139,7 +140,7 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
             editable={editable}
           />
           {isPassword && onToggleShowPassword ? (
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               style={styles.eyeIcon}
               onPress={onToggleShowPassword}
               hitSlop={8}
@@ -152,7 +153,7 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
               ) : (
                 <Eye size={20} color={colors.textSecondary} />
               )}
-            </Pressable>
+            </PressableOpacity>
           ) : null}
         </View>
       </View>
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: FontSize.caption,
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
     textTransform: 'uppercase',
   },
   inputWrapper: {

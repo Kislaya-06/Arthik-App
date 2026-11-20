@@ -76,10 +76,11 @@ export const AmountText: React.FC<AmountTextProps> = ({
 
   // Determine semantic color if not overridden
   const resolvedColor = color || (
+    // Light: deep mint / coral (>= 4.8:1); Dark / AMOLED: the same brand mint / coral as before.
     direction === 'income'
-      ? (colors.isDark ? colors.mint : colors.mintDark)
+      ? colors.mintText
       : direction === 'expense'
-        ? (colors.isDark ? colors.coral : colors.peachCoral)
+        ? colors.coralText
         : colors.textPrimary
   );
 

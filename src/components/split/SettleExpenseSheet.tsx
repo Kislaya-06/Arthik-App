@@ -10,7 +10,7 @@ import { SegmentedControl } from '../ui/SegmentedControl';
 import { useTheme } from '../../store/themeStore';
 import { recordMoneyBack } from '../../store/expense/moneyBack';
 import { formatCurrency, round2 } from '../../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, LetterSpacing } from '../../config/theme';
 
 export interface SettleExpenseTarget {
   expenseId: string;
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
   },
   infoCard: {
     borderRadius: BorderRadius.card,

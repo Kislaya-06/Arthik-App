@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, LetterSpacing } from '../config/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
   heroSub: {
     fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
-    letterSpacing: 0.8,
+    letterSpacing: LetterSpacing.label,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
@@ -393,26 +393,13 @@ export const styles = StyleSheet.create({
     borderStyle: 'dashed',
     marginTop: Spacing.micro,
   },
-  emptyTitle: {
-    fontSize: FontSize.body,
-    lineHeight: LineHeight.body,
-    fontFamily: FontFamily.bold,
-    marginTop: Spacing.group,
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    fontFamily: FontFamily.medium,
-    textAlign: 'center',
-  },
 
   depositCtaBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 46,
+    height: ControlHeight.standard,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
   },

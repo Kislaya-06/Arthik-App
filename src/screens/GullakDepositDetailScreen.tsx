@@ -1,6 +1,10 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Alert, ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -9,16 +13,19 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import Trash2 from 'lucide-react-native/icons/trash';
 import { PiggyBankCoinIcon } from '../components/PiggyBankCoinIcon';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AmountText } from '../components/ui/AmountText';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { AppButton } from '../components/ui/AppButton';
+import { alertButtonPalette } from '../lib/alertButtonPalette';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '../lib/formatters';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GullakDepositDetail'>;
 
@@ -26,7 +33,9 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
   const { depositId } = route.params;
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const removeGullakDeposit = useDailyBudgetStore((s) => s.removeGullakDeposit);
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, isAmoled } = useTheme();
+  // Icon follows the danger button text colour (dark text on the soft red in Dark / AMOLED).
+  const dangerContentColor = alertButtonPalette('destructive', colors, isAmoled).text;
   const insets = useSafeAreaInsets();
 
   const deposit = gullakDeposits.find((d) => d.id === depositId);
@@ -38,11 +47,11 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
         <Text style={[styles.notFoundText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
           Deposit not found
         </Text>
-        <Pressable onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mintGreenSoft }]}>
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mintGreenSoft }]}>
           <Text style={[styles.backButtonText, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
             Go Back
           </Text>
-        </Pressable>
+        </PressableOpacity>
       </View>
     );
   }
@@ -80,19 +89,7 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.element }]}>
-        <Pressable
-          accessibilityRole="button" accessibilityLabel="Go back"
-          onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
-          style={[styles.headerBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-          hitSlop={8}
-        >
-          <ArrowLeft size={20} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Deposit Details</Text>
-        {/* Spacer to balance back button */}
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader title="Deposit Details" style={{ marginTop: insets.top + Spacing.micro }} />
 
       <ScrollView
         style={styles.scroll}
@@ -161,7 +158,7 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
           onPress={handleDelete}
           variant="danger"
           size="cta"
-          icon={<Trash2 size={18} color={colors.white} />}
+          icon={<Trash2 size={18} color={dangerContentColor} />}
         />
       </ScrollView>
     </View>
@@ -171,26 +168,6 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.gutter,
-    paddingBottom: Spacing.block,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    fontFamily: FontFamily.bold,
   },
   scroll: {
     flex: 1,

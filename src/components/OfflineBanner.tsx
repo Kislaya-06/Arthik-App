@@ -16,6 +16,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily, Motion } from '../config/theme';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 export const OfflineBanner: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -143,7 +144,7 @@ export const OfflineBanner: React.FC = () => {
           </Text>
         </View>
 
-        <PressableOpacity
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
           accessibilityRole="button" accessibilityLabel="Dismiss offline notice"
           style={styles.closeBtn}
           onPress={dismissBanner}

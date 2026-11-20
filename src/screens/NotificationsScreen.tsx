@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { StatusBar } from 'expo-status-bar';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 import BellOff from 'lucide-react-native/icons/bell-off';
 import Sparkles from 'lucide-react-native/icons/sparkles';
 import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
@@ -34,9 +36,8 @@ import { Spacing, FontSize, FontFamily, LineHeight, Motion } from '../config/the
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
 const NotificationsEmptyState: React.FC<{
-  colors: any;
   reduceMotion: boolean;
-}> = React.memo(({ colors, reduceMotion }) => {
+}> = React.memo(({ reduceMotion }) => {
   const anim = useSharedValue(0);
 
   React.useEffect(() => {
@@ -58,25 +59,11 @@ const NotificationsEmptyState: React.FC<{
 
   return (
     <Animated.View style={[styles.emptyContainer, animatedStyle]}>
-      <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
-        <BellOff size={32} color={colors.textSecondary} />
-      </View>
-      <Text
-        style={[
-          styles.emptyTitle,
-          { color: colors.textPrimary, fontFamily: FontFamily.bold },
-        ]}
-      >
-        No new notifications
-      </Text>
-      <Text
-        style={[
-          styles.emptySubtitle,
-          { color: colors.textSecondary, fontFamily: FontFamily.medium },
-        ]}
-      >
-        Budget updates, balance alerts, and savings celebrations will appear here.
-      </Text>
+      <EmptyState
+        icon={BellOff}
+        title="No new notifications"
+        subtitle="Budget updates, balance alerts, and savings celebrations will appear here."
+      />
     </Animated.View>
   );
 });
@@ -179,7 +166,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       style={[
         styles.container,
         {
-          paddingTop: insets.top + Spacing.block,
+          paddingTop: insets.top,
           paddingBottom: insets.bottom + Spacing.block,
           backgroundColor: colors.background,
         },
@@ -188,39 +175,23 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button" accessibilityLabel="Go back"
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={10}
-        >
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text
-          style={[
-            styles.headerTitle,
-            { color: colors.textPrimary, fontFamily: FontFamily.bold },
-          ]}
-        >
-          Notifications
-        </Text>
-
-        {notifications.length > 0 && (
-          <View style={styles.headerRightActions}>
-            <PressableOpacity accessibilityRole="button" accessibilityLabel="Mark all as read" onPress={markAllAsRead} hitSlop={10} style={styles.actionBtn}>
+      <ScreenHeader
+        title="Notifications"
+        right={notifications.length > 0 ? (
+          <>
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Mark all as read" onPress={markAllAsRead} hitSlop={12}>
               <CheckCheck size={20} color={colors.textSecondary} />
             </PressableOpacity>
-            <PressableOpacity accessibilityRole="button" accessibilityLabel="Clear all notifications" onPress={clearNotifications} hitSlop={10} style={styles.actionBtn}>
-              <Trash2 size={19} color={colors.textSecondary} />
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Clear all notifications" onPress={clearNotifications} hitSlop={12}>
+              <Trash2 size={20} color={colors.textSecondary} />
             </PressableOpacity>
-          </View>
-        )}
-      </View>
+          </>
+        ) : null}
+      />
 
       {/* Content */}
       {notifications.length === 0 ? (
-        <NotificationsEmptyState colors={colors} reduceMotion={reduceMotion} />
+        <NotificationsEmptyState reduceMotion={reduceMotion} />
       ) : (
         <ScrollView
           style={styles.scroll}
@@ -297,32 +268,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    paddingHorizontal: Spacing.gutter,
-    marginBottom: Spacing.surface,
-  },
-  backButton: {
-    position: 'absolute',
-    left: Spacing.gutter,
-  },
-  headerTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-  },
-  headerRightActions: {
-    position: 'absolute',
-    right: Spacing.gutter,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  actionBtn: {
-    padding: Spacing.micro,
-  },
   scroll: {
     flex: 1,
   },
@@ -387,23 +332,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.section,
     paddingBottom: 40,
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.gutter,
-  },
-  emptyTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    marginBottom: Spacing.element,
-  },
-  emptySubtitle: {
-    fontSize: FontSize.bodySmall,
-    textAlign: 'center',
-    lineHeight: LineHeight.bodySmall,
   },
 });
