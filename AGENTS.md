@@ -93,7 +93,7 @@ src/
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home (+ HomeScreen.styles, home/HomeRecentItems), History (+ HistoryScreen.styles, history/ HistoryRows, HistoryEmptyState, historyHelpers),
 │                 ExpenseForm (+ ExpenseFormScreen.styles, expenseForm/CategoryChipItem),
 │                 Insights (with insights/ periodUtils, PeriodNavigator, useInsightsData, styles),
-│                 Savings, ExpenseForm, ExpenseDetail, Ledger, CategoryDetail, ManageCategories,
+│                 Savings, ExpenseForm, ExpenseDetail, Ledger (+ ledger/LedgerParts: TallyBar, PersonInitial), CategoryDetail, ManageCategories,
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
 │                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
 ├── store/        authStore, categoryStore,

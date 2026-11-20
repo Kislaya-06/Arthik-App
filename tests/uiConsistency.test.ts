@@ -297,3 +297,34 @@ describe('Light theme: mint / coral used as text are readable (Home accents, all
     expect(home).toContain('styles.networkStatusText, { color: colors.mintText }');
   });
 });
+
+describe('No faint accent text anywhere (Light): text uses mintText / coralText', () => {
+  // A <Text> colour from the light brand accents (mint / coral family) is 1.4–2.3:1 on Light.
+  // Allowed: the Onboarding chart segment colours (not text).
+  const ACC = '(peachCoral|coral|mintGreen|mint|mintDark|mintGreenDark)';
+  const TEXT_COLOUR = new RegExp(
+    String.raw`(?<![A-Za-z])color:\s*(?:(?:isDark|colors\.isDark)\s*\?\s*colors\.\w+\s*:\s*)?colors\.` + ACC + String.raw`\b(?![A-Za-z])`,
+    'g'
+  );
+  const ALLOWED_FILES = ['screens/OnboardingScreen.tsx'];
+
+  it('no screen or component colours text with a light accent directly', () => {
+    const offenders: string[] = [];
+    for (const file of walk(SRC).filter((f) => f.endsWith('.tsx'))) {
+      if (ALLOWED_FILES.includes(rel(file))) continue;
+      const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+      lines.forEach((line, i) => {
+        for (const m of line.matchAll(TEXT_COLOUR)) {
+          // `isDark ? <accent> : …` keeps the accent for Dark only, which is fine.
+          if (/\?\s*colors\.(mintGreenDark|mintDark|mintGreen|coral|peachCoral)\s*:\s*colors\.(mintText|coralText)/.test(line)) continue;
+          if (/backgroundColor|borderColor|shadowColor/.test(line.slice(Math.max(0, (m.index ?? 0) - 12), m.index))) continue;
+          const ctx = lines.slice(Math.max(0, i - 3), i + 1).join(' ');
+          if (/<Text|Text\b|Label|label|tag|toast|meta|chip|badge|link|done|error|Error|beta|step|version|amount|owed/i.test(ctx)) {
+            offenders.push(`${rel(file)}:${i + 1}`);
+          }
+        }
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+});

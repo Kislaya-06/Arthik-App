@@ -27,7 +27,8 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
-          'Easier to Read in Light Mode: Amounts and links on Home, History and more now use deeper green and coral, so they are clear on a white screen',
+          'A Nicer Ledger: See at a glance how much each friend has paid back, with clear Owes you and Settled groups and a bigger Settle all button',
+          'Easier to Read in Light Mode: Amounts, links, labels and error messages now use deeper green and coral, so they are clear on a white screen',
           'Snappier After Every Save: Less work happens in the background when you add or edit money, so the app stays smooth even with years of history',
           'Cleaner, More Consistent Look: Page titles are now centred and sit at the same height on every screen, empty screens share one friendly design, every back, popup and close button has the same size and feel, every tap gives instant feedback, and the red Delete buttons are easier to read in dark mode',
           'Opens Fast, Even Offline: The app now opens from the data saved on your phone, so it starts quickly on any network and keeps working without internet',

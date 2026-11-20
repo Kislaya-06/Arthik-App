@@ -284,8 +284,8 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.matchIndicatorRow}>
                 {password === confirmPassword ? (
                   <>
-                    <Check size={14} color={isDark ? colors.mintGreen : colors.mintDark} />
-                    <Text style={[styles.matchTextSuccess, { color: isDark ? colors.mintGreen : colors.mintDark, fontFamily: FontFamily.medium }]}>
+                    <Check size={14} color={colors.mintText} />
+                    <Text style={[styles.matchTextSuccess, { color: colors.mintText, fontFamily: FontFamily.medium }]}>
                       Passwords match
                     </Text>
                   </>

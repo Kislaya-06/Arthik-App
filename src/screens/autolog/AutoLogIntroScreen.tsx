@@ -47,7 +47,7 @@ export const AutoLogIntroScreen: React.FC<Props> = ({ navigation }) => {
             <Zap size={34} color={colors.textPrimary} />
           </GradientIconBadge>
           <View style={styles.newRow}>
-            <Text style={[styles.newText, { color: colors.mintGreenDark }]}>NEW IN ARTHIK 2.0</Text>
+            <Text style={[styles.newText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>NEW IN ARTHIK 2.0</Text>
             <BetaPill />
           </View>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Automatic Logging</Text>

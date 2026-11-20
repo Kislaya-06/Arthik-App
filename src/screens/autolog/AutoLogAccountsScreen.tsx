@@ -64,7 +64,7 @@ export const AutoLogAccountsScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.acc, { color: colors.textPrimary }]}>
                     ••••{a.last4} <Text style={{ color: colors.textSecondary, fontSize: FontSize.caption }}>{a.kind === 'card' ? 'Card' : 'Account'}</Text>
-                    {a.isNew && !a.tracked ? <Text style={{ color: colors.peachCoral, fontSize: FontSize.caption }}>  · New</Text> : null}
+                    {a.isNew && !a.tracked ? <Text style={{ color: colors.coralText, fontSize: FontSize.caption }}>  · New</Text> : null}
                   </Text>
                   <Text style={[styles.sub, { color: colors.textSecondary }]}>
                     {a.lastSeen ? `Last activity ${dateTime(a.lastSeen)}` : 'No recent activity found'}

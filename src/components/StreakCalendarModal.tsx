@@ -667,7 +667,7 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     {activeTooltip.status === 'saved' ? (
                       <Text style={[styles.tooltipTitle, { color: colors.textPrimary }]}>
                         You saved{' '}
-                        <Text style={{ color: colors.mintGreenDark, fontFamily: FontFamily.bold }}>
+                        <Text style={{ color: colors.isDark ? colors.mintGreenDark : colors.mintText, fontFamily: FontFamily.bold }}>
                           {formatCurrency(activeTooltip.amount)}
                         </Text>{' '}
                         on {activeTooltip.formattedDate}

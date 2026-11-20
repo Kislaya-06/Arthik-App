@@ -336,8 +336,8 @@ export const ReviewSheet: React.FC<Props> = ({
 
       {discovery ? (
         <View style={[styles.discoveryBadge, { backgroundColor: colors.mintGreenSoft }]}>
-          <ShieldCheck size={12} color={colors.mintGreenDark} />
-          <Text style={[styles.discoveryBadgeText, { color: colors.mintGreenDark }]}>Discovery</Text>
+          <ShieldCheck size={12} color={colors.isDark ? colors.mintGreenDark : colors.mintText} />
+          <Text style={[styles.discoveryBadgeText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Discovery</Text>
         </View>
       ) : null}
 
@@ -482,7 +482,7 @@ export const ReviewSheet: React.FC<Props> = ({
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 0 }]}>CATEGORY</Text>
             {chosenCategory ? (
-              <Text style={[styles.chosenLabel, { color: colors.mintGreenDark }]}>
+              <Text style={[styles.chosenLabel, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>
                 {chosenCategory.name}
               </Text>
             ) : null}
@@ -642,7 +642,7 @@ export const ReviewSheet: React.FC<Props> = ({
                             { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.14)' : colors.mintGreenSoft },
                           ]}
                         >
-                          <Text style={[styles.likelyTagText, { color: colors.mintGreenDark }]}>Likely match</Text>
+                          <Text style={[styles.likelyTagText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Likely match</Text>
                         </View>
                       ) : null}
                     </View>
@@ -728,7 +728,7 @@ export const ReviewSheet: React.FC<Props> = ({
             onPress={handleDiscard}
             style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.65 }]}
           >
-            <Text style={[styles.secondaryText, { color: colors.peachCoral }]}>
+            <Text style={[styles.secondaryText, { color: colors.coralText }]}>
               {categoryOnly ? 'Delete transaction' : 'Discard review'}
             </Text>
           </Pressable>

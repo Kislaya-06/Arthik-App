@@ -207,7 +207,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
 
           {/* Validation Error Message */}
           {split.error ? (
-            <Text style={[styles.errorText, { color: colors.coral, fontFamily: FontFamily.medium }]}>
+            <Text style={[styles.errorText, { color: colors.coralText, fontFamily: FontFamily.medium }]}>
               {split.error}
             </Text>
           ) : null}

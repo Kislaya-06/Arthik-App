@@ -694,7 +694,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                     : `View ${bottomCategories.length} more ${bottomCategories.length === 1 ? 'category' : 'categories'}`
                 }
               >
-                <Text style={[styles.expandCategoriesText, { color: colors.mintGreen, fontFamily: FontFamily.bold }]}>
+                <Text style={[styles.expandCategoriesText, { color: colors.mintText, fontFamily: FontFamily.bold }]}>
                   {showAllCategories
                     ? 'Show less'
                     : `View ${bottomCategories.length} more ${bottomCategories.length === 1 ? 'category' : 'categories'}`}

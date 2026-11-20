@@ -182,7 +182,7 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
 | `colors.mintText` | `#2E7A53` (>= 4.8:1 on card, background, cardSubtle) | `#B8E0C8` (brand mint, unchanged) | Income amounts, positive totals, mint links on plain surfaces ("Swipe up or tap", network status) |
 | `colors.coralText` | `#B9473A` (>= 4.8:1) | `#F4B8AE` (brand coral, unchanged) | Expense amounts, amounts owed |
 
-The brand fills (`mintGreen`, `peachCoral`) stay for pills, badges and backgrounds. `tests/uiConsistency.test.ts` checks the Light contrast and that Dark / AMOLED keep the brand values.
+Every text (and the icon next to it) uses these tokens, never `mint` / `mintGreen` / `mintDark` / `mintGreenDark` / `coral` / `peachCoral` directly. Where Dark used `mintGreenDark` on purpose, write `colors.isDark ? colors.mintGreenDark : colors.mintText`. The brand fills (`mintGreen`, `peachCoral`) stay for pills, badges, chart segments and backgrounds. `tests/uiConsistency.test.ts` checks the Light contrast and that Dark / AMOLED keep the brand values.
 
 ### Scrim (dimmed background behind popups)
 Every centered dialog and bottom sheet dims the screen with the same theme value from `src/lib/scrim.ts` (hook: `useScrimColor()`): Light `rgba(15, 23, 42, 0.45)`, Dark `rgba(0, 0, 0, 0.72)`, AMOLED `rgba(0, 0, 0, 0.88)`. Never write a popup's own black overlay.
@@ -297,6 +297,7 @@ Built only from existing tokens and primitives (no new tokens): `SplitExtras` (s
 - **Hardware-Accelerated Transform Sliding:** Sliding highlight pills animate exclusively via `translateX` (anchored at `left: 0`) and width, avoiding layout properties (`left`, `top`, `margin`) to guarantee 60/120fps motion without native Yoga relayout passes.
 - **Fluid Layout Transitions & State Disclosures (Plans 001–006):**
   - **Onboarding Carousel Dots:** Morph between 8px circle and 28px stadium pill via `withSpring(targetWidth, Motion.springs.settle)` and active opacity interpolation.
+  - **Ledger tally (Nov 2026):** the Ledger hero shows what is still owed (Tier A) with a static tally bar under it (paid back / shared, `forestGreen` on the mint card, track at 14%), and every person who still owes repeats it in their row (`mintText` fill on `chartTrack`). People are grouped "Owes you" / "Settled"; each has a `PersonInitial` (`GradientIconBadge`, colour from the name, not from list order). "Settle all" is a compact `AppButton`. The bar never animates: it is a reading, not a celebration.
   - **Split Ledger Accordion:** Smooth 180° chevron rotation (`withTiming(..., 180ms)`) combined with `LinearTransition.duration(180)` card expansion and `FadeIn`/`FadeOut` details reveal.
   - **App Lock Dissolve Exit:** Graceful 180ms dissolve (`opacity: 1 -> 0`, `scale: 1.0 -> 1.03`), unmounting cleanly on UI completion while immediately disabling pointer events.
   - **Dynamic Banner Layout Transitions:** Banners like `AutoLogHomeBanner` employ `LinearTransition.duration(240)` and snappy 180ms `FadeIn`/`FadeOut` to avoid jarring hero card displacement.
