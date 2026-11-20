@@ -127,7 +127,7 @@ export const SettleExpenseSheet: React.FC<SettleExpenseSheetProps> = ({
             {personName}
           </Text>
           <Text style={[styles.contextDot, { color: colors.textSecondary }]}>•</Text>
-          <Text numberOfLines={1} style={[styles.contextNote, { color: colors.textPrimary }]}>
+          <Text numberOfLines={2} style={[styles.contextNote, { color: colors.textPrimary }]}>
             {isSingle ? targetExpense.note || 'Expense' : 'All open expenses'}
           </Text>
         </View>

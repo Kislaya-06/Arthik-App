@@ -52,6 +52,16 @@ The first pass left title alignment out of scope. A re-audit found two more head
 - Also found and fixed: 15 `PressableOpacity` without `activeOpacity` fell back to a 0.2 dim (the element nearly vanished on press), now 0.7; the period renewal close / back buttons were 34dp, now 36dp like every close button; the force-update screen had no themed status bar.
 - No animation, transition, spring or money logic changed.
 
+## Amendment 4 (November 2026): Form anatomy, inset lists, help centre, no clipped text
+
+From the owner's screenshots and a screen-by-screen review on the emulator:
+- **Form anatomy**: the Split and Transfer switches were bordered two-line capsules unlike every other field. They now follow the field anatomy (label "SPLIT" / "TRANSFER", 56dp row, helper line). "What is this money?" squeezed "Friend paid back" into a third of the control at 13px; the option is now "Paid back" at the normal size (same name in the Money Back sheet).
+- **Add Category**: the preview is the real `GradientIconBadge` (was a flat circle, §9.9) and the name field is the 56dp pill like every other input.
+- **Manage Categories**: rows form one inset card like Profile, FAQ and Ledger.
+- **FAQs & Help**: help-centre layout (topic filter shared with History, one inset card per topic, turning chevron); `ChevronRotator` moved from Ledger to `components/ui` for both. `BouncyCategoryFilter` now keeps taps with a keyboard open (History benefited too).
+- **No clipped text**: 38 texts that could hide part of their content were changed: amounts and short labels shrink instead of `...`, names / notes / messages get 2 lines, detail screens show everything.
+- Not changed (needs the owner): the Yearly Insights tile abbreviates money ("₹34.1k", "₹39k In · ₹4.9k Out"); it is a tested design choice (`tests/breathingStrips.test.ts`).
+
 ## Amendment 3 (November 2026): Readable mint / coral text on Light
 
 Owner-approved. On Light, money amounts used `mintDark` (#7FB896, 2.2:1) for income and `peachCoral` (#F4B8AE, 1.7:1) for expenses, and Home's "Swipe up or tap" used `mintGreen` (1.37:1). Two theme tokens: `mintText` (Light `#2E7A53`) and `coralText` (Light `#B9473A`), both >= 4.8:1 on every light surface; on Dark / AMOLED they equal the brand mint / coral, so nothing changes there. Applied at the root (`AmountText` direction colours, so every amount row in Home, History, Category Detail, Savings and Gullak detail), plus Home's history link and network status, History's income-only day total and the Ledger amounts. Follow-up (owner-approved the same day): every other text in the light accents moved too — Automatic Logging tags, toasts, "Processed on this device", the BETA pill, Review chips and Delete, form error texts (`colors.coral` → `coralText`), the update popup badge and highlights label, the Update Required screen, Profile Setup, Reset Password match text, Insights "show all", Settle sheet, Streak calendar, Gullak detail back link (36 texts + the 8 icons that sit next to them). Rule: coral family → `coralText`; `mintGreen` → `mintText`; `mintGreenDark` / `mintDark` → `colors.isDark ? colors.mintGreenDark : colors.mintText`, so Dark / AMOLED keep their exact colours. Only the Onboarding chart segments keep the brand fills (not text). `tests/uiConsistency.test.ts` fails if a text uses a light accent directly (mutation-tested).

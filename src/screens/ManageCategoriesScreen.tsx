@@ -17,7 +17,7 @@ import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import { CategoryRowItem } from '../components/CategoryRowItem';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { Spacing, FontSize, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
 
@@ -111,16 +111,26 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation, route }) =
     const count = categoryExpenseCounts[item.id] || 0;
     const isLast = index === visibleCategories.length - 1;
 
+    // The rows form one inset card (like Profile settings, FAQ and Ledger): first row rounds the top, last the bottom.
     return (
-      <CategoryRowItem
-        category={item}
-        expenseCount={count}
-        isLast={isLast}
-        colors={colors}
-        isDark={isDark}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
+      <View
+        style={[
+          styles.cardSegment,
+          { backgroundColor: colors.card, borderColor: colors.borderSubtle },
+          index === 0 && styles.cardFirst,
+          isLast && styles.cardLast,
+        ]}
+      >
+        <CategoryRowItem
+          category={item}
+          expenseCount={count}
+          isLast={isLast}
+          colors={colors}
+          isDark={isDark}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      </View>
     );
   }, [visibleCategories.length, categoryExpenseCounts, handleEdit, handleDelete, colors, isDark]);
 
@@ -200,6 +210,23 @@ const styles = StyleSheet.create({
   },
   listContent: {
     flexGrow: 1,
+  },
+  cardSegment: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    paddingHorizontal: Spacing.block,
+  },
+  cardFirst: {
+    borderTopWidth: 1,
+    borderTopLeftRadius: BorderRadius.card,
+    borderTopRightRadius: BorderRadius.card,
+    paddingTop: Spacing.micro,
+  },
+  cardLast: {
+    borderBottomWidth: 1,
+    borderBottomLeftRadius: BorderRadius.card,
+    borderBottomRightRadius: BorderRadius.card,
+    paddingBottom: Spacing.micro,
   },
   fab: {
     position: 'absolute',

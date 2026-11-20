@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Repeat from 'lucide-react-native/icons/repeat';
 import { useTheme } from '../../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, LetterSpacing } from '../../config/theme';
 import { AnimatedToggle } from '../AnimatedToggle';
 import { PressableOpacity } from '../ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
@@ -23,36 +23,39 @@ export const TransferExtras: React.FC<TransferExtrasProps> = (p) => {
 
   return (
     <View style={styles.wrap}>
-      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
-        onPress={() => p.onToggleSelfTransfer(!p.isSelfTransfer)}
-        style={[
-          styles.pillTrigger,
-          {
-            backgroundColor: colors.inputBg,
-            borderColor: p.isSelfTransfer ? activeColor : colors.borderSubtle,
-          },
-        ]}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: p.isSelfTransfer }}
-        accessibilityLabel="Transfer between your own accounts"
-      >
-        <View style={styles.pillLeft}>
-          <Repeat size={18} color={p.isSelfTransfer ? activeColor : colors.textSecondary} />
-          <View style={styles.textWrap}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>Transfer between your own accounts?</Text>
-            {p.ruleMatched && p.isSelfTransfer ? (
-              <Text style={[styles.sub, { color: colors.textSecondary }]}>Matches a transfer you asked Arthik to remember</Text>
-            ) : (
-              <Text style={[styles.sub, { color: colors.textSecondary }]}>Won’t count as income, expense or Gullak</Text>
-            )}
+      {/* Same anatomy as every other form field: label, 56dp row, helper line. */}
+      <Text style={[styles.label, { color: colors.textSecondary }]}>TRANSFER</Text>
+      <View style={styles.field}>
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
+          onPress={() => p.onToggleSelfTransfer(!p.isSelfTransfer)}
+          style={[styles.row, { backgroundColor: colors.inputBg }]}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: p.isSelfTransfer }}
+          accessibilityLabel="Transfer between your own accounts"
+        >
+          <View style={styles.rowLeft}>
+            <Repeat size={18} color={p.isSelfTransfer ? activeColor : colors.textSecondary} />
+            <Text
+              style={[styles.rowTitle, { color: colors.textPrimary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              Between my own accounts
+            </Text>
           </View>
-        </View>
-        <AnimatedToggle
-          value={p.isSelfTransfer}
-          onValueChange={p.onToggleSelfTransfer}
-          onColor={activeColor}
-        />
-      </PressableOpacity>
+          <AnimatedToggle
+            value={p.isSelfTransfer}
+            onValueChange={p.onToggleSelfTransfer}
+            onColor={activeColor}
+          />
+        </PressableOpacity>
+        <Text style={[styles.helper, { color: colors.textSecondary }]}>
+          {p.ruleMatched && p.isSelfTransfer
+            ? 'Matches a transfer you asked Arthik to remember'
+            : 'Won’t count as income, expense or Gullak'}
+        </Text>
+      </View>
 
       {p.isSelfTransfer && !p.ruleMatched ? (
         <View style={[styles.card, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}>
@@ -87,27 +90,26 @@ export const TransferExtras: React.FC<TransferExtrasProps> = (p) => {
 };
 
 const styles = StyleSheet.create({
-  wrap: { gap: Spacing.group, marginTop: Spacing.block },
-  pillTrigger: {
-    minHeight: ControlHeight.row,
+  wrap: { gap: Spacing.group },
+  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: LetterSpacing.label, textTransform: 'uppercase' },
+  field: { gap: Spacing.element },
+  row: {
+    height: ControlHeight.row,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.surface,
-    paddingVertical: 10,
-    borderWidth: 1,
   },
-  pillLeft: {
+  rowLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.group,
     marginRight: Spacing.element,
   },
-  textWrap: {
-    flex: 1,
-  },
+  rowTitle: { flexShrink: 1, fontSize: FontSize.body, fontFamily: FontFamily.medium, includeFontPadding: false },
+  helper: { fontSize: FontSize.caption, lineHeight: LineHeight.caption, fontFamily: FontFamily.medium, paddingHorizontal: Spacing.surface },
   card: {
     borderRadius: BorderRadius.card,
     padding: Spacing.block,

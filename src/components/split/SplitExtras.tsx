@@ -5,7 +5,7 @@ import Plus from 'lucide-react-native/icons/plus';
 import X from 'lucide-react-native/icons/x';
 import User from 'lucide-react-native/icons/user';
 import { useTheme } from '../../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LetterSpacing } from '../../config/theme';
 import { formatCurrency } from '../../lib/formatters';
 import { MAX_PERSON_NAME, personKey } from '../../lib/splitLedger';
 import { AnimatedToggle } from '../AnimatedToggle';
@@ -37,27 +37,27 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
 
   return (
     <View style={styles.container}>
-      {/* ── Capsule Pill Trigger ── */}
+      {/* Same anatomy as every other form field: label, then the 56dp row. */}
+      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>SPLIT</Text>
       <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
         onPress={() => {
           if (!split.on) onFieldFocus?.();
           split.setOn(!split.on);
         }}
-        style={[
-          styles.pillTrigger,
-          {
-            backgroundColor: colors.inputBg,
-            borderColor: split.on ? activeColor : colors.borderSubtle,
-          },
-        ]}
+        style={[styles.pillTrigger, { backgroundColor: colors.inputBg }]}
         accessibilityRole="switch"
         accessibilityState={{ checked: split.on }}
         accessibilityLabel="Split this expense"
       >
         <View style={styles.pillLeft}>
           <Users size={18} color={split.on ? activeColor : colors.textSecondary} />
-          <Text style={[styles.pillTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-            Split this expense
+          <Text
+            style={[styles.pillTitle, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            Split with friends
           </Text>
         </View>
 
@@ -220,8 +220,14 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
 const styles = StyleSheet.create({
   container: {
     marginTop: Spacing.block, // 16px vertical breathing space from PAID VIA
-    marginBottom: Spacing.element,
+    marginBottom: Spacing.block, // same gap to the next label as every other field
     gap: Spacing.group, // 12px between pill and expanded card
+  },
+  fieldLabel: {
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
+    letterSpacing: LetterSpacing.label,
+    textTransform: 'uppercase',
   },
   pillTrigger: {
     height: ControlHeight.row,
@@ -230,14 +236,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.surface,
-    borderWidth: 1,
   },
   pillLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.group,
+    marginRight: Spacing.element,
   },
   pillTitle: {
+    flexShrink: 1,
     fontSize: FontSize.body,
     includeFontPadding: false,
   },

@@ -339,7 +339,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         >
           {hasOperator && (
             <Text
-              numberOfLines={1}
+              numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
               ellipsizeMode="head"
               style={[
                 styles.expressionText,

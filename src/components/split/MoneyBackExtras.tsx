@@ -13,7 +13,7 @@ import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 const MODES: SegmentedOption[] = [
   { key: 'income', label: 'Income' },
-  { key: 'friend', label: 'Friend paid back' },
+  { key: 'friend', label: 'Paid back' },
   { key: 'refund', label: 'Refund' },
 ];
 
@@ -45,7 +45,6 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
         activePillColor={colors.mintGreen}
         activeTextColor={colors.forestGreen}
         backgroundColor={colors.inputBg}
-        fontSize={13}
       />
 
       {mb.mode === 'friend' ? (
@@ -113,7 +112,7 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
                   accessibilityState={{ selected: active }}
                 >
                   <View style={styles.flex}>
-                    <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{c.note || 'Expense'}</Text>
+                    <Text numberOfLines={2} style={[styles.title, { color: colors.textPrimary }]}>{c.note || 'Expense'}</Text>
                     <Text style={[styles.sub, { color: colors.textSecondary }]}>
                       {formatDate(c.date)}{matches ? ' · same amount' : ''}
                     </Text>

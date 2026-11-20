@@ -4,21 +4,11 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { EmptyState, EMPTY_STATE_TOP_OFFSET } from '../components/ui/EmptyState';
-import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import Users from 'lucide-react-native/icons/users';
 import Check from 'lucide-react-native/icons/check';
 import CheckCheck from 'lucide-react-native/icons/check-check';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-  Easing as REasing,
-  LinearTransition,
-  FadeIn,
-  FadeOut,
-} from 'react-native-reanimated';
+import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
@@ -35,35 +25,9 @@ import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 import { AppButton } from '../components/ui/AppButton';
 import { PersonInitial, TallyBar } from './ledger/LedgerParts';
+import { ChevronRotator } from '../components/ui/ChevronRotator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Ledger'>;
-
-const ChevronRotator: React.FC<{ isOpen: boolean; color: string; reduceMotion: boolean }> = React.memo(
-  ({ isOpen, color, reduceMotion }) => {
-    const progress = useSharedValue(isOpen ? 1 : 0);
-
-    useEffect(() => {
-      if (reduceMotion) {
-        progress.value = isOpen ? 1 : 0;
-        return;
-      }
-      progress.value = withTiming(isOpen ? 1 : 0, {
-        duration: Motion.duration.snappy,
-        easing: REasing.bezier(0.23, 1, 0.32, 1),
-      });
-    }, [isOpen, reduceMotion, progress]);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 180])}deg` }],
-    }));
-
-    return (
-      <Animated.View style={animatedStyle}>
-        <ChevronDown size={18} color={color} />
-      </Animated.View>
-    );
-  }
-);
 
 const day = (iso: string): string => {
   try {
@@ -144,7 +108,7 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
         >
           <Check size={16} color={isDark ? colors.mintGreen : colors.forestGreen} strokeWidth={2.5} />
           <Text
-            numberOfLines={1}
+            numberOfLines={2}
             style={[styles.feedbackText, { color: isDark ? colors.mintGreen : colors.forestGreen }]}
           >
             {feedbackMessage}

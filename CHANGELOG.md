@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Living Streak Flame + Savings Filter Flicker Fix — OTA-safe, no logic / money change**:
+  - **Fix (Savings "Day-by-Day Savings History" filter)**: the first time the Savings tab opened, the green pill stretched from "All" to "Deposits" for a moment and snapped back. Cause: the pill's middle piece was scaled from the measured option width, and on the first layout the native view got that width one frame before the UI-thread transform did. It now scales from a fixed base width (`PILL_PIECE_BASE`), the same approach the category filter already uses. This fix had been lost when commit `e13d348` was reverted as a whole.
+  - **Streak flame**: the glowing circle behind the flame is gone. The flame is a gradient fire that flickers and leans on the UI thread (`flameFrameAt`, a seamless loop) and grows a little with every streak day up to 30 days (`flameGrowthFor`). Hotter tiers keep their warmer colours and livelier flicker. It stays still when the streak is 0, with reduce motion on, or while the screen is not visible.
+  - **Streak chip** (Savings header and Streak Calendar): uses the app's pill surface (`cardSubtle` / `borderSubtle`), `coralText` text and a 36dp height (no hardcoded colours); the Savings chip now has a screen-reader label.
+  - **Tests**: `streakFlame` (growth curve, seamless loop, gentle limits, no halo; old glow checks removed with the glow) and `pillButterySmooth` (fixed piece base). 190 files, 2,666 tests passing; `tsc --noEmit` clean. Checked on the emulator (AMOLED).
+
+- **Premium & Consistent Screens: Form Fields, Help Centre FAQ, No Cut-Off Text (ADR 0021 amendment 4) — OTA-safe, no logic / money / animation change**:
+  - **Add Transaction**: "What is this money?" no longer squeezes "Friend paid back" (now "Paid back", normal size). The Split and Transfer switches look like every other field: a label ("SPLIT", "TRANSFER"), one 56dp row, and the explanation underneath.
+  - **FAQs & Help**: redesigned like a help centre — search, the same topic pills as History, one card of questions per topic, answers open in place with a turning arrow.
+  - **Add Category**: the preview shows the real badge the category will have; the name field matches the other inputs.
+  - **Manage Categories**: the list sits in one card like Profile and Ledger.
+  - **Text never hides**: 38 places that could cut text now shrink amounts instead of "...", give names and notes two lines, and show the full note on Expense Detail.
+  - **Fix**: with the search keyboard open, the first tap on a topic / category pill (FAQ, History) now selects it.
+  - **Tests**: new guards in `uiConsistency` (form anatomy, FAQ layout, full note); UX-03 updated for the shared pill filter. 190 files, 2,658 tests passing; `tsc --noEmit` clean. Checked on the emulator.
+
 - **Ledger Looks Premium: Tally Bars, Initials, Clear Groups (owner-approved design) — OTA-safe, no logic / money / animation change**:
   - **Hero**: under what you will get back, a tally bar and "₹X back of ₹Y shared" show at a glance how much has already come back.
   - **People**: each person has an initial badge (same colour every time) and their own tally bar with "₹X back of ₹Y"; people are grouped "Owes you" and "Settled" (settled rows say "₹X shared · all paid back").

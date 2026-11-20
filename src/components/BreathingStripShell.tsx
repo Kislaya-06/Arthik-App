@@ -145,7 +145,7 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
                     fontFamily: FontFamily.bold,
                   },
                 ]}
-                numberOfLines={1}
+                numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
               >
                 {tile.pillText}
               </Text>
@@ -176,7 +176,6 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
             styles.takeawayText,
             { color: colors.textPrimary, fontFamily: FontFamily.semibold },
           ]}
-          numberOfLines={2}
         >
           {takeawayText}
         </Text>

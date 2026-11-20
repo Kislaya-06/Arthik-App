@@ -452,7 +452,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.profileInfo}>
             <Text
               style={[styles.fullName, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-              numberOfLines={1}
+              numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
             >
               {fullName}
             </Text>

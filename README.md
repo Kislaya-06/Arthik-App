@@ -99,7 +99,7 @@ Log expenses and income without typing them.
 | Updates | EAS Build (APK), EAS Update (OTA), in-app APK updater (`expo-file-system`, `expo-intent-launcher`) |
 | UI | `lucide-react-native`, Quicksand, `react-native-svg`, Reanimated, Gesture Handler |
 | Dates | `date-fns`, Indian number formatting (₹) |
-| Tests | Vitest (190 files, 2,653 tests) |
+| Tests | Vitest (190 files, 2,666 tests) |
 
 ---
 

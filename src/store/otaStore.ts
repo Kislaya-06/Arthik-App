@@ -27,6 +27,8 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
+          'A Living Streak Flame: Your savings streak now has a real moving flame that grows a little bigger with every day you keep it going, and the Savings history filter no longer flickers when you open the tab',
+          'Cleaner Forms & Help: Add Transaction fields all look the same, FAQs are laid out like a help centre, and names, notes and amounts are never cut off',
           'A Nicer Ledger: See at a glance how much each friend has paid back, with clear Owes you and Settled groups and a bigger Settle all button',
           'Easier to Read in Light Mode: Amounts, links, labels and error messages now use deeper green and coral, so they are clear on a white screen',
           'Snappier After Every Save: Less work happens in the background when you add or edit money, so the app stays smooth even with years of history',

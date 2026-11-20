@@ -280,6 +280,21 @@ describe('Rule 2: transform-only pill geometry (pillPiecesFor)', () => {
     expect(src).toMatch(/boxShadow: PILL_BOX_SHADOW \},\s*shadowStyle/);
     expect(src).not.toMatch(/elevation: 2/);
   });
+
+  it('SegmentedControl scales its pieces from a FIXED base width, never the measured slot width', () => {
+    // Regression (Savings "Day-by-Day Savings History" filter): with base = measured option width, the
+    // first layout gave the native view its new width one frame before the UI-thread transform knew it,
+    // and that frame drew the pill stretched from "All" to "Deposits".
+    const src = read('src/components/ui/SegmentedControl.tsx');
+    expect(src).toMatch(/const PILL_PIECE_BASE = \d+;/);
+    expect(src).not.toMatch(/pieceBase/);
+    expect(src.match(/pillPiecesFor\([^)]*\)/g)!.every((call) => call.endsWith('PILL_PIECE_BASE, PILL_PIECE_BASE)'))).toBe(true);
+    // Every piece that is scaled uses the same constant as its laid-out width.
+    expect(src.match(/width: PILL_PIECE_BASE/g)).toHaveLength(3);
+    // The stretch itself: a stale base of 1 (unmeasured) would scale the middle ~60x.
+    const resting = pillPiecesFor(4, 86, 20, 100, 100);
+    expect(resting.bodyScaleX * 100).toBeLessThan(86 - 4);
+  });
 });
 
 describe('Rule 3: touch fence (deferred selection can never be read stale)', () => {

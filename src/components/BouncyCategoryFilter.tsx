@@ -467,6 +467,9 @@ export const BouncyCategoryFilter = React.memo<Props>(({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.content}
+        // UX-03: with a search keyboard open above (History, FAQ), the first tap selects a pill instead of
+        // only closing the keyboard.
+        keyboardShouldPersistTaps="handled"
         bounces={false}
         scrollEventThrottle={16}
         onScroll={(e) => {

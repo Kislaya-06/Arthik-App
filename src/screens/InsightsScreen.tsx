@@ -667,7 +667,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                         </Text>
                         <Text
                           style={[styles.categoryStackSubtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
-                          numberOfLines={1}
+                          numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
                         >
                           {formatCurrency(seg.amount)} · {seg.percentage}%
                         </Text>
@@ -740,7 +740,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                         </Text>
                         <Text
                           style={[styles.legendSubtext, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
-                          numberOfLines={1}
+                          numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
                         >
                           {formatCurrency(seg.amount)} · {seg.percentage}%
                         </Text>

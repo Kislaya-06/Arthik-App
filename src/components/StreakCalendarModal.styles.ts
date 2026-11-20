@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 export const styles = StyleSheet.create({
   overlay: {
@@ -39,17 +39,19 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  // Same height and surface as the close button next to it.
   streakPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    height: ControlHeight.compact,
+    paddingLeft: Spacing.element,
+    paddingRight: Spacing.group,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
-    gap: 4,
+    gap: Spacing.micro,
   },
   streakPillText: {
-    fontSize: 12,
+    fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
   },
   closeButton: {

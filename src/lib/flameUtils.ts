@@ -4,10 +4,6 @@ export interface StreakFlameConfig {
   outerColor: string;
   innerColor: string;
   coreColor?: string;
-  glowColor: string;
-  glowSecondaryColor: string;
-  glowOpacity: number;
-  glowRadius: number;
   emberCount: number;
   flickerSpeed: number; // ms for one loop
   lickStretch: number;  // peak scaleY
@@ -49,11 +45,11 @@ export const FLAME_PATHS = {
 
 /**
  * Returns visual & animation tuning parameters based on streak count.
- * - 0 days: Dormant ember / quiet flame awaiting ignition
- * - 1-3 days: Spark (warm flame dancing, 1 ember rising, subtle glow)
- * - 4-7 days: Blaze (energetic fire licking, 2 embers rising, fiery halo)
- * - 8-14 days: Inferno (blazing fire, white-hot core, 3 embers rising, radiant glow)
- * - 15+ days: Supernova (legendary firestorm, 4 continuous embers, hyper-radiant aura)
+ * - 0 days: Dormant (muted, still flame)
+ * - 1-3 days: Spark (warm flame, gentle flicker)
+ * - 4-7 days: Blaze (brighter fire, livelier flicker)
+ * - 8-14 days: Inferno (blazing fire, white-hot core)
+ * - 15+ days: Supernova (hottest colours, liveliest flicker)
  */
 export function getStreakFlameConfig(streak: number): StreakFlameConfig {
   if (streak <= 0) {
@@ -62,10 +58,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       tierName: 'dormant',
       outerColor: '#D97757',
       innerColor: '#EAA690',
-      glowColor: '#FF7043',
-      glowSecondaryColor: '#FFA726',
-      glowOpacity: 0,
-      glowRadius: 0,
       emberCount: 0,
       flickerSpeed: 1800,
       lickStretch: 1.05,
@@ -80,10 +72,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       outerColor: '#FF5722',
       innerColor: '#FFC107',
       coreColor: '#FFF9C4',
-      glowColor: '#FF5722',
-      glowSecondaryColor: '#FFB300',
-      glowOpacity: 0.32,
-      glowRadius: 18,
       emberCount: 1,
       flickerSpeed: 1100,
       lickStretch: 1.14,
@@ -98,10 +86,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       outerColor: '#FF3D00',
       innerColor: '#FFD54F',
       coreColor: '#FFFFFF',
-      glowColor: '#FF3D00',
-      glowSecondaryColor: '#FFC107',
-      glowOpacity: 0.52,
-      glowRadius: 24,
       emberCount: 2,
       flickerSpeed: 920,
       lickStretch: 1.18,
@@ -116,10 +100,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       outerColor: '#E62E00',
       innerColor: '#FFE082',
       coreColor: '#FFFFFF',
-      glowColor: '#E62E00',
-      glowSecondaryColor: '#FF9800',
-      glowOpacity: 0.72,
-      glowRadius: 30,
       emberCount: 3,
       flickerSpeed: 760,
       lickStretch: 1.22,
@@ -133,13 +113,66 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
     outerColor: '#D50000',
     innerColor: '#FFEA00',
     coreColor: '#FFFFFF',
-    glowColor: '#FF1744',
-    glowSecondaryColor: '#FFD600',
-    glowOpacity: 0.90,
-    glowRadius: 36,
     emberCount: 4,
     flickerSpeed: 620,
     lickStretch: 1.26,
     swayDegrees: 5.5,
+  };
+}
+
+/** Smallest flame (day 1) as a share of the full flame; the full size is reached at FLAME_FULL_GROWTH_DAYS. */
+export const FLAME_MIN_GROWTH = 0.72;
+export const FLAME_FULL_GROWTH_DAYS = 30;
+
+/**
+ * How big the flame is drawn (0..1 of its box) for a streak. It grows a little with EVERY extra day,
+ * fast at first and slower later (log curve), and stops growing at FLAME_FULL_GROWTH_DAYS.
+ * A streak of 0 shows the smallest flame.
+ */
+export function flameGrowthFor(streak: number): number {
+  const days = Number.isFinite(streak) && streak > 0 ? Math.min(streak, FLAME_FULL_GROWTH_DAYS) : 0;
+  const t = Math.log(1 + days) / Math.log(1 + FLAME_FULL_GROWTH_DAYS);
+  return FLAME_MIN_GROWTH + (1 - FLAME_MIN_GROWTH) * t;
+}
+
+/** One full flicker loop. Three tier "flicker" beats fit in it, so a hotter tier loops faster. */
+export function flameLoopMs(config: StreakFlameConfig): number {
+  return config.flickerSpeed * 3;
+}
+
+export interface FlameFrame {
+  /** Flame height (scaled from the base of the flame). */
+  scaleY: number;
+  /** Flame width; narrows a little as the flame stretches up. */
+  scaleX: number;
+  /** Lean of the flame, in degrees. */
+  rotateDeg: number;
+  /** Size of the hot inner tongue. */
+  innerScale: number;
+  /** Brightness of the hot inner tongue. */
+  innerOpacity: number;
+}
+
+/**
+ * Flame shape at `phase` (0..1) of one loop. Sums of sines with WHOLE-number frequencies, so the end of
+ * the loop meets its start exactly (no jump when the loop repeats), and the flame never repeats a plain
+ * "breathing" rhythm. Runs on the UI thread.
+ */
+export function flameFrameAt(phase: number, lickStretch: number, swayDegrees: number): FlameFrame {
+  'worklet';
+  const t = phase * 2 * Math.PI;
+  // Height: a slow lick plus quicker small flickers (normalised to -1..1).
+  const lick = 0.55 * Math.sin(2 * t) + 0.3 * Math.sin(5 * t + 1.1) + 0.15 * Math.sin(9 * t + 2.3);
+  const amp = (lickStretch - 1) * 0.6;
+  const scaleY = 1 + amp * lick;
+  const scaleX = 1 - amp * 0.35 * lick;
+  const rotateDeg = swayDegrees * (0.7 * Math.sin(t + 0.4) + 0.3 * Math.sin(4 * t + 1.7));
+  const core = 0.6 * Math.sin(3 * t + 0.8) + 0.4 * Math.sin(7 * t);
+  return {
+    scaleY,
+    scaleX,
+    rotateDeg,
+    innerScale: 1 + 0.08 * core,
+    innerOpacity: 0.88 + 0.12 * core,
   };
 }

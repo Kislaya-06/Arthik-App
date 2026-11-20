@@ -287,12 +287,12 @@ export const ReviewSheet: React.FC<Props> = ({
     >
       <View style={styles.summarySplitRow}>
         <View style={styles.summaryLeftCol}>
-          <Text style={[styles.summaryAmount, { color: colors.textPrimary }]} numberOfLines={1}>
+          <Text style={[styles.summaryAmount, { color: colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
             {money(amount)}
           </Text>
           <Text
             style={[styles.summaryMerchant, { color: colors.textPrimary }]}
-            numberOfLines={1}
+            numberOfLines={2}
             ellipsizeMode="tail"
           >
             {eventTitle(event)}
@@ -312,14 +312,14 @@ export const ReviewSheet: React.FC<Props> = ({
             >
               <Text
                 style={[styles.accountPillText, { color: colors.textPrimary }]}
-                numberOfLines={1}
+                numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
                 ellipsizeMode="tail"
               >
                 {account}
               </Text>
             </View>
           ) : null}
-          <Text style={[styles.summaryDateText, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text style={[styles.summaryDateText, { color: colors.textSecondary }]} numberOfLines={2}>
             {[
               dateTime(event.occurredAt),
               event.source === 'notification'
@@ -354,7 +354,7 @@ export const ReviewSheet: React.FC<Props> = ({
         >
           <Text
             style={[styles.summaryQuoteText, { color: colors.textSecondary }]}
-            numberOfLines={1}
+            numberOfLines={2}
             ellipsizeMode="tail"
           >
             "{event.body.replace(/\s+/g, ' ').trim()}"
@@ -576,7 +576,7 @@ export const ReviewSheet: React.FC<Props> = ({
         >
           <Checkbox checked={remember} />
           <Text
-            numberOfLines={1}
+            numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
             ellipsizeMode="tail"
             style={[
               styles.rememberText,
@@ -629,7 +629,7 @@ export const ReviewSheet: React.FC<Props> = ({
                     <Checkbox checked={picked} />
                     <View style={styles.owingTextCol}>
                       <Text
-                        numberOfLines={1}
+                        numberOfLines={2}
                         ellipsizeMode="tail"
                         style={[styles.owingName, { color: colors.textPrimary }]}
                       >
@@ -646,7 +646,7 @@ export const ReviewSheet: React.FC<Props> = ({
                         </View>
                       ) : null}
                     </View>
-                    <Text numberOfLines={1} style={[styles.owingOwed, { color: colors.textSecondary }]}>
+                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.owingOwed, { color: colors.textSecondary }]}>
                       owes {money(p.owed)}
                     </Text>
                   </Pressable>
@@ -686,7 +686,7 @@ export const ReviewSheet: React.FC<Props> = ({
     footer = (
       <View style={{ gap: Spacing.element }}>
         {settleHint && !busy ? (
-          <Text numberOfLines={1} style={[styles.settleNote, { color: colors.textSecondary }]}>
+          <Text numberOfLines={2} style={[styles.settleNote, { color: colors.textSecondary }]}>
             {settleHint}
           </Text>
         ) : null}

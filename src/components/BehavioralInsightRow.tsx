@@ -82,7 +82,7 @@ export const BehavioralInsightRow: React.FC<BehavioralInsightRowProps> = ({
                     fontFamily: FontFamily.bold,
                   },
                 ]}
-                numberOfLines={1}
+                numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
                 maxFontSizeMultiplier={1.2}
               >
                 {pillText}
@@ -94,7 +94,6 @@ export const BehavioralInsightRow: React.FC<BehavioralInsightRowProps> = ({
         {/* Headline: Now gets full width below headerRow */}
         <Text
           style={[styles.headline, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-          numberOfLines={2}
           maxFontSizeMultiplier={1.3}
         >
           {headline}
@@ -103,7 +102,6 @@ export const BehavioralInsightRow: React.FC<BehavioralInsightRowProps> = ({
         {/* Detail: Now gets full width below headline */}
         <Text
           style={[styles.detail, { color: colors.textMuted, fontFamily: FontFamily.medium }]}
-          numberOfLines={3}
           maxFontSizeMultiplier={1.3}
         >
           {detail}

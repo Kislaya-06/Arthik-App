@@ -243,7 +243,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       fontFamily: FontFamily.medium,
                     },
                   ]}
-                  numberOfLines={1}
+                  numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
                   selectable
                 >
                   {userEmail}

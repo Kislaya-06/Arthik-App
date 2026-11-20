@@ -166,7 +166,7 @@ const ReviewCardItem = React.memo<ReviewCardItemProps>(({
           <Card style={{ marginBottom: 0 }}>
             <View style={styles.rowTop}>
               <Text style={[styles.amount, { color: colors.textPrimary }]}>{money(item.amount)}</Text>
-              <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}> — {eventTitle(item)}</Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={2}> — {eventTitle(item)}</Text>
             </View>
             <Text style={[styles.sub, { color: colors.textSecondary }]}>
               {[directionWord(item), acc, dateTime(item.occurredAt)].filter(Boolean).join(' — ')}
