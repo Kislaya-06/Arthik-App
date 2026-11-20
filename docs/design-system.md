@@ -3,7 +3,7 @@
 > **Document Type:** Canonical Human & AI Agent Design System Specification (Contract & Usage Guide)  
 > **Target Framework:** React Native 0.86 + Expo SDK 57 (Android-first, Quicksand Typography)  
 > **Status:** Single Approved Source of Truth for all UI, Styling, and Interaction Design  
-> **Last Updated:** October 2026 (v2.1.0)
+> **Last Updated:** November 2026 (v2.1.0, UI consistency pass: token tables re-synced with `theme.ts`, header / press / button / scrim rules)
 
 ---
 
@@ -50,6 +50,7 @@ Arthik enforces a strict **4/8-point spatial grid**. Numeric values reflect recu
 | `Spacing.micro` | `4px` | Micro Element Gap | Badge internal padding, chart track gaps, indicator dot margins | None |
 | `Spacing.element` | `8px` | Adjacent Related Items | Icon-to-text gap, input-label margin, compact chip spacing | None |
 | `Spacing.group` | `12px` | Sibling Cluster Gap | Modal action button gaps, card internal sub-group spacing | None |
+| `Spacing.row` | `14px` | List Row Rhythm | Vertical padding of list rows and dialog rows | None |
 | `Spacing.block` | `16px` | Container & Block Gap | Vertical rhythm between cards, standard form input spacing | None |
 | `Spacing.surface` | `20px` | Card Internal Padding | Standard content card padding, dialog internal padding | Compact cards (16px) |
 | `Spacing.gutter` | `24px` | Screen Gutter & Hero Pad | Canonical screen horizontal padding (`paddingHorizontal: 24`), Hero card padding | None |
@@ -68,15 +69,31 @@ Typography is set exclusively in **Quicksand** via `@expo-google-fonts/quicksand
 
 ### Typography Tokens (`FontSize` & `FontFamily` in `src/config/theme.ts`)
 
-| Token Name | Size | Line Height | Letter Spacing | Font Family | Semantic Role |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `FontSize.display` | `32px` | `38px` | `-0.5px` | `FontFamily.bold` | Hero metric amounts, primary banner figures |
-| `FontSize.title` | `24px` | `30px` | `-0.3px` | `FontFamily.bold` | Screen titles, hero titles |
-| `FontSize.cardTitle` | `18px` | `24px` | `-0.2px` | `FontFamily.semiBold` | Major card headings, modal titles |
-| `FontSize.subheader` | `16px` | `22px` | `0px` | `FontFamily.semiBold` | Section headers, prominent form labels |
-| `FontSize.body` | `14px` | `20px` | `0px` | `FontFamily.regular` | Standard body text, primary row text |
-| `FontSize.caption` | `12px` | `16px` | `+0.2px` | `FontFamily.medium` | Timestamps, metadata, secondary helper labels |
-| `FontSize.micro` | `10px` | `14px` | `+0.3px` | `FontFamily.medium` | Badge text, micro pill indicators |
+Font weights: `FontFamily.regular` (400), `FontFamily.medium` (500), `FontFamily.semibold` (600), `FontFamily.bold` (700).
+
+| Token Name | Size | Line Height | Semantic Role |
+| :--- | :--- | :--- | :--- |
+| `FontSize.micro` | `11px` | `LineHeight.micro` 14 | Chart axis labels, compact calendar cell dates, badge text |
+| `FontSize.caption` | `12px` | `LineHeight.caption` 16 | Uppercase section labels, timestamps, compact tags, status pills |
+| `FontSize.bodySmall` | `14px` | `LineHeight.bodySmall` 18 | Secondary body text, subtitles, helper notes, compact button labels |
+| `FontSize.body` | `16px` | `LineHeight.body` 22 | Body text, input text, row labels, 48px button labels, paired 60px sheet buttons |
+| `FontSize.titleSmall` | `18px` | `LineHeight.titleSmall` 24 | Single full-width 60px CTA labels, prominent alert titles |
+| `FontSize.titleMedium` | `20px` | `LineHeight.titleMedium` 26 | **Pushed-page header titles**, modal / sheet titles, section titles |
+| `FontSize.titleLarge` | `28px` | `LineHeight.titleLarge` 34 | **Main tab titles only** (History, Insights, Savings) and onboarding / update screens |
+| `FontSize.display` | `34px` | `LineHeight.display` 42 | Hero amounts, welcome greetings, auth headline |
+| `FontSize.cta` | `18px` | — | Deprecated alias of `titleSmall`; do not use in new code |
+| `FontSize.sectionTitle` | `20px` | — | Deprecated alias of `titleMedium`; do not use in new code |
+| `FontSize.screenTitle` | `30px` | — | Deprecated; use `titleLarge` or `display` |
+
+Intermediate literals (`11`, `13`, `15`) are allowed only where §9.3 of `AGENTS.md` permits (chart and fixed-shape geometry).
+
+### Letter Spacing (`LetterSpacing` in `src/config/theme.ts`)
+
+| Token Name | Value | Semantic Role |
+| :--- | :--- | :--- |
+| `LetterSpacing.label` | `0.8px` | Every small UPPERCASE label: section labels ("CATEGORY", "EXPENSES"), form field labels, card captions ("TOTAL SPENT", "YOU WILL GET BACK"), sheet section headers |
+
+Weight stays with the label's own role (bold for section labels, medium / semibold for form labels). Badges (`BETA`, pill counts), chart labels and fixed-size strip tiles keep their own tuned spacing: they are fixed shapes and wider tracking could push the text out. `tests/uiConsistency.test.ts` fails if a caption-size uppercase label uses another value.
 
 ---
 
@@ -92,14 +109,14 @@ Typography is set exclusively in **Quicksand** via `@expo-google-fonts/quicksand
 Every financial figure in Arthik represents **real money**. Numbers must be clearly prioritised so the user's eye immediately grasps their financial state.
 
 ### Amount Tiers
-- **Tier A — Hero Financial Amount (`FontSize.display` / `32px`):**
+- **Tier A — Hero Financial Amount (`FontSize.display` / `34px`):**
   - Used for: Current Day's Allowance, Total Balance, Period Total Spent, Gullak Accumulated Savings.
   - Exactly one Tier A amount dominates any given viewport/hero card.
-- **Tier B — Primary Contextual Amount (`FontSize.title` / `24px` or `20px`):**
+- **Tier B — Primary Contextual Amount (`FontSize.titleLarge` / `28px` or `FontSize.titleMedium` / `20px`):**
   - Used for: Remaining budget in a major card, monthly/weekly recap headers, net cash flow.
-- **Tier C — Row & Analytical Amount (`FontSize.subheader` or `FontSize.body` / `16px`–`14px`):**
+- **Tier C — Row & Analytical Amount (`FontSize.body` or `FontSize.bodySmall` / `16px`–`14px`):**
   - Used for: Transaction list amounts, category breakdown sums, insight list rows.
-- **Tier D — Compact Supporting Amount (`FontSize.caption` or `FontSize.micro` / `12px`–`10px`):**
+- **Tier D — Compact Supporting Amount (`FontSize.caption` or `FontSize.micro` / `12px`–`11px`):**
   - Used for: Percentage changes, chart axis annotations, mini comparison tags.
 
 ### Formatting & Currency Alignment
@@ -108,6 +125,7 @@ Every financial figure in Arthik represents **real money**. Numbers must be clea
 - Align currency symbol: Wrap amount and `₹` in `flexDirection: 'row'` with `alignItems: 'center'`.
 - Never abbreviate financial figures (`1.2K`, `3.5L`) unless explicitly specified in compact chart tags.
 - Positive inflows use consistent `+₹` styling; expense outflows use `-₹` or unadorned `₹`.
+- Amount colour comes from `AmountText` `direction`: income = `colors.mintText`, expense = `colors.coralText` (see Text accent tokens). Never colour an amount with `mint` / `mintDark` / `peachCoral` directly: on Light they are 1.4–2.2:1.
 
 ---
 
@@ -119,12 +137,12 @@ Corner radii reflect surface elevation and interaction roles.
 
 | Token Name | Value | Semantic Role | Intended Usage | Allowed Exceptions |
 | :--- | :--- | :--- | :--- | :--- |
-| `BorderRadius.xs` | `4px` | Micro Accent Radius | Badge corners, tiny status dots, progress track caps | None |
-| `BorderRadius.sm` | `8px` | Component Accent Radius | Compact action buttons, toast notifications, small chips | None |
-| `BorderRadius.md` | `12px` | Control & Container Radius | Text inputs, dropdown menus, secondary cards | None |
-| `BorderRadius.lg` | `16px` | Surface & Sheet Radius | Primary content cards, alert dialogs, modal sheets | None |
-| `BorderRadius.hero` | `24px` | Hero Surface Radius | Branded hero cards, large surface cards | None |
-| `BorderRadius.pill` | `9999px` | Stadium Pill Radius | Segmented controls, filter toggle pills, floating capsule bar | None |
+| `BorderRadius.input` | `16px` | Control & Container Radius | Text inputs, modal inputs, compact containers, section cards inside sheets | None |
+| `BorderRadius.card` | `24px` | Surface Radius | Major content cards, alert dialogs, settings cards | None |
+| `BorderRadius.cardLarge` | `28px` | Hero & Sheet Radius | Hero / summary cards, modal sheets, date picker, update dialog | None |
+| `BorderRadius.pill` | `9999px` | Stadium Pill Radius | Every button, segmented controls, filter pills, chips, floating capsule bar | None |
+
+Small badge corners (`4`–`8`) stay literal where no token fits (§9.3 of `AGENTS.md`).
 
 > **Circle Geometry Exception:** Circles (such as icon buttons or avatars) use literal `borderRadius: size / 2` (e.g., width 40 $\to$ radius 20). Never use radius tokens for circles.
 
@@ -136,11 +154,14 @@ Corner radii reflect surface elevation and interaction roles.
 
 | Token Name | Value | Semantic Role | Intended Usage |
 | :--- | :--- | :--- | :--- |
-| `ControlHeight.compact` | `36px` | Compact Control Height | Compact filter chips, mini action buttons |
-| `ControlHeight.standard` | `48px` | Standard Touch Target | Secondary modal buttons, Segmented controls, tabs, search bars |
-| `ControlHeight.row` | `56px` | Row & Form Field Height | Standard text inputs, form toggle rows, date picker trigger |
-| `ControlHeight.cta` | `60px` | Full-Width Primary CTA | Primary bottom action buttons (Add Expense, Continue, Done, Got It) |
+| `ControlHeight.compact` | `36px` | Compact Control Height | In-card action chips, compact filter buttons (never a dialog button) |
+| `ControlHeight.standard` | `48px` | Standard Touch Target | **Every button in a centered dialog**, secondary page buttons (Log Out, Delete Account), segmented controls, search bars |
+| `ControlHeight.row` | `56px` | Row & Form Field Height | Text inputs (incl. the Gullak amount field), form toggle rows, date picker trigger |
+| `ControlHeight.cta` | `60px` | Primary CTA | **Every button in a bottom sheet footer** and every full-width primary action on a page (Save, Continue, Update Now, Got It) |
 
+- **Two-tier button rule (UI consistency pass, Nov 2026):** centered dialogs (alert, date picker, pause budget, edit profile, delete account, Vault guard) use 48. Bottom sheets (budget edit, cadence switch, Gullak deposit, period renewal, money back, review) and full-page primary actions use 60. Nothing in between: 46 / 50 / 52 / 56 are not button heights (`tests/uiConsistency.test.ts`). The only exception is the Add Transaction save button while the keyboard is open (48, so the form keeps its room).
+- **CTA labels:** a single full-width 60px CTA uses `FontSize.titleSmall` (18) bold, the same as `AppButton size="cta"`. Two side-by-side 60px sheet buttons use `FontSize.body` (16) bold. 48px buttons use `FontSize.body`.
+- **Close (X) buttons** on sheets and dialogs: 36dp circle (`borderRadius: 18`), 18px icon, `hitSlop` 8+ so the touch area is at least 44dp.
 - **Minimum Hit Area:** Every interactive element must provide at least a **44dp $\times$ 44dp** touch target (`hitSlop`).
 - **Filter Containers:** Screen, Tab, and Modal Segmented Controls must strictly use `ControlHeight.standard` (`48px`). Form-level toggles (e.g. Type, Payment Mode) strictly use `ControlHeight.row` (`56px`).
 
@@ -151,9 +172,20 @@ Corner radii reflect surface elevation and interaction roles.
 Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **AMOLED**.
 
 ### Theme Tokens (`src/config/theme.ts`)
-- **Light:** Clean white and light gray surfaces (`#FFFFFF`, `#F8FAFC`, subtle card borders `#E2E8F0`).
-- **Dark:** Deep navy/slate charcoal surfaces (`#0B1528`, cards `#132238`, cardSubtle `#1A263B`).
-- **AMOLED:** True pure black obsidian background (`#000000`, cards `#0A0A0A`, cardSubtle `#121212`, borders `#1E1E1E`).
+- **Light:** Off-white base `#F8F9FB`, white cards `#FFFFFF`, cardSubtle `#F5F6F9`, borders `#E0E2E8`.
+- **Dark:** Midnight navy base `#0B111E`, cards `#131D2F`, cardSubtle `#1A263B`, borders `#243248`.
+- **AMOLED:** Pure black base `#000000`, cards `#0A0A0A`, cardSubtle `#121212`, borders `#1F1F1F`.
+
+### Text accent tokens (mint / coral used as text)
+| Token | Light | Dark / AMOLED | Use |
+| :--- | :--- | :--- | :--- |
+| `colors.mintText` | `#2E7A53` (>= 4.8:1 on card, background, cardSubtle) | `#B8E0C8` (brand mint, unchanged) | Income amounts, positive totals, mint links on plain surfaces ("Swipe up or tap", network status) |
+| `colors.coralText` | `#B9473A` (>= 4.8:1) | `#F4B8AE` (brand coral, unchanged) | Expense amounts, amounts owed |
+
+The brand fills (`mintGreen`, `peachCoral`) stay for pills, badges and backgrounds. `tests/uiConsistency.test.ts` checks the Light contrast and that Dark / AMOLED keep the brand values.
+
+### Scrim (dimmed background behind popups)
+Every centered dialog and bottom sheet dims the screen with the same theme value from `src/lib/scrim.ts` (hook: `useScrimColor()`): Light `rgba(15, 23, 42, 0.45)`, Dark `rgba(0, 0, 0, 0.72)`, AMOLED `rgba(0, 0, 0, 0.88)`. Never write a popup's own black overlay.
 
 ### Pill & Container Surface Rule
 - **Segmented Control Containers:** Strictly use `colors.cardSubtle` with border `colors.borderSubtle`. Never use raw card background or pitch-black for pill tracks; tracks must maintain an elevated, subtle surface across all themes.
@@ -165,8 +197,22 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
 
 ### Canonical UI Primitives (`src/components/ui/`)
 1. **`<AppButton />`**:
-   - Variants: `primary`, `secondary`, `destructive`, `outline`, `ghost`.
-   - Standard height `ControlHeight.standard` (`48px`), pill or `BorderRadius.md` geometry, haptic feedback on press.
+   - Variants: `primary` (mint + navy text), `secondary` (cardSubtle + textPrimary, 1px borderSubtle), `outline`, `danger`, `ghost`.
+   - Sizes: `cta` 60 (18px label), `standard` 48 (16px label, default), `compact` 36 (14px label). Always `BorderRadius.pill`. Press = scale 0.97 spring (`Motion.springs.press` / `release`), off with reduce motion. Disabled = 50% opacity. `loading` shows a spinner in the label colour.
+   - `danger` uses the alert dialog palette (`alertButtonPalette('destructive', …)`): `#DC2626` + white in Light, soft red + navy text in Dark, soft red + black in AMOLED (all >= 4.5:1). An icon on a danger button must use the same text colour.
+   - Use it for every real button (Save, Cancel, Continue, Log Out, Delete Account). Hand-made buttons remain only where the look is special and documented (Add Transaction save, Add Category save, Budget / Cadence / Gullak sheet footers, auth screens).
+1b. **`<HeaderBackButton />`** (`src/components/ui/HeaderBackButton.tsx`):
+   - The only back button. Plain 24px `ArrowLeft` in `textPrimary`, no circle, `hitSlop` 10 (44dp), dims on press, `accessibilityLabel="Go back"`. Default action: go back if possible; pass `onPress` for a custom one (Reset Password falls back to Auth) and `disabled` while saving.
+   - Never draw an `ArrowLeft` back button by hand (the step-back arrows inside the Gullak deposit and period renewal sheets are the only other arrows). Pages with a title use it through `ScreenHeader`; only Auth and Profile Setup (arrow above their own big heading) use it directly.
+1b-ii. **`<ScreenHeader />`** (`src/components/ui/ScreenHeader.tsx`) — the title bar of every pushed page:
+   - **Header rule:** main tabs (History, Insights, Savings) show a 28px left-aligned title and no back button (iOS large-title pattern). Every pushed page uses `ScreenHeader`: a 48dp bar 4dp below the safe area, back arrow on the left, optional actions on the right (16dp apart, icons 20px with `hitSlop` 12), and a **20px bold title centred on the whole bar** (Apple HIG navigation bar, Material 3 center-aligned top app bar). Content starts 8dp below the bar.
+   - The title sits in an absolute layer inset by the same amount on both sides (the wider of back side and measured right side), so it is exactly centred and never jumps when the actions are measured. Long titles shrink to 80% on one line (`adjustsFontSizeToFit`), and the title is announced as a heading (`accessibilityRole="header"`, also on the three tab titles).
+   - Props: `title`, `showBack` (default true), `onBack`, `backDisabled`, `right`, `titleAccessory` (e.g. the category badge on Category Detail), `inset` (default true = screen gutter; pass false when the parent already pads), `style` (e.g. `marginTop: insets.top + Spacing.micro` on screens without a safe-area padded container).
+1b-iii. **`<EmptyState />`** (`src/components/ui/EmptyState.tsx`): the one empty state; see §11.
+1c. **Press feedback** (`src/lib/pressFeedback.ts`):
+   - Rows, icon buttons, chips, pills, links and small buttons: `PressableOpacity activeOpacity={PRESS_DIM_OPACITY}` (0.7). Always pass `activeOpacity`: the component's 0.2 default makes the element nearly vanish (`tests/uiConsistency.test.ts`).
+   - Real buttons: `AppButton` (scale).
+   - Only full-screen backdrops and invisible tap areas may use a raw `Pressable` without feedback (`tests/uiConsistency.test.ts` lists the three exceptions).
 2. **`<AmountText />`**:
    - Shared wrapper ensuring consistent `₹` symbol placement, font sizing, and optional rolling digit animations.
 3. **`<SegmentedControl />`**:
@@ -215,7 +261,7 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
 
 10. **`<AppAlertModal />`** (`src/components/ui/AppAlertModal.tsx`, store in `src/store/alertStore.ts`):
     - Unified, themed replacement for stock white Android `AlertDialog` across Light, Dark, and AMOLED themes.
-    - Glassmorphic card styling (`BorderRadius.card`), WCAG AAA text contrast (`colors.textPrimary` bold 18px title, `colors.textSecondary` medium 14.5px message), and backdrop scrim opacity (`0.45` Light, `0.72` Dark, `0.88` AMOLED).
+    - Glassmorphic card styling (`BorderRadius.card`), WCAG AAA text contrast (`colors.textPrimary` bold 18px title, `colors.textSecondary` medium 14.5px message), and the shared scrim from `src/lib/scrim.ts` (`0.45` slate Light, `0.72` Dark, `0.88` AMOLED), the same one every popup uses.
     - Apple-inspired spring physics (`scale: 0.93 -> 1.0`, `opacity: 0 -> 1` with damping 18, stiffness 260) with fast 130ms exit choreography.
     - Tactile pill buttons (`BorderRadius.pill`, 48px height): `0.96` press compression, `expo-haptics` tactile feedback, danger/mint/subtle variant styling from `src/lib/alertButtonPalette.ts`. Every button is >= 4.5:1 in all three themes: destructive is `#DC2626` + white in Light, `colors.danger` + dark text (`#1A2B4C`, AMOLED `#000`) in Dark/AMOLED (white on the soft red was 2.77:1). Button labels are capped at `FIXED_SHAPE_MAX_FONT_SCALE`.
     - Safe lifecycle: the first tap closes the dialog and every later tap is ignored (a double tap on Delete runs it once); the chosen action runs exactly once after the exit, even if the exit animation is interrupted; the entrance plays once per alert (`id`); an alert asked for while another is open is queued, not swapped in (the same title + message is ignored as a duplicate).
@@ -238,7 +284,7 @@ Built only from existing tokens and primitives (no new tokens): `SplitExtras` (s
 - **Horizontal Category Chip Scroll with Edge Fades**: Matches `ExpenseFormScreen.tsx` with horizontal chip scrolling (`categoryList`), left/right SVG LinearGradient edge faders (`reviewCategoryFadeLeft`, `reviewCategoryFadeRight`), animated scale press feedback, and category SVG gradient fills (`getCategoryChipGradient`). The chips show only the categories of the chosen side (income categories for income). There is no "None" chip: a category must be picked before the primary Save button turns on (only "Settle with <person>", "Mark as self transfer" and "Teach Format" work without one).
 - **Uniform 48px Stadium Pills**: "Remember preference", "Mark as Self Transfer", and "Save and split with friends" strictly share uniform 48px stadium pill height (`ControlHeight.standard`, `BorderRadius.pill`).
 - **Self Transfer Action & Invariant**: "Mark as Self Transfer" confirms and purges any pre-logged expense, updates status to `'transfer'`, registers the transfer rule in `self_transfer_rules`, and persists merchant preference to automatically route future transfers as non-expenses.
-- **Bottom Action Hierarchy**: 52px primary Save CTA with comfortable 38px touch targets for secondary actions ("Not a transaction" · "Delete transaction" / "Discard review").
+- **Bottom Action Hierarchy**: 60px primary Save CTA (`AppButton size="cta"`) with 44px touch targets for secondary actions ("Not a transaction" · "Delete transaction" / "Discard review").
 
 ---
 
@@ -256,6 +302,8 @@ Built only from existing tokens and primitives (no new tokens): `SplitExtras` (s
   - **Dynamic Banner Layout Transitions:** Banners like `AutoLogHomeBanner` employ `LinearTransition.duration(240)` and snappy 180ms `FadeIn`/`FadeOut` to avoid jarring hero card displacement.
   - **Empty State Parity:** Screen empty states (e.g. `NotificationsScreen`) coordinate `opacity: 0 -> 1` and `scale: 0.96 -> 1.0` over 180ms (`Motion.duration.snappy`, `curves.easeOut`).
   - **Modal Spring Settle & Error Disclosure:** Profile dialogs settle with `Motion.springs.settle` (`scale: 0.95 -> 1.0`, `translateY: 12 -> 0`, `opacity: 0 -> 1`), and form validation errors reveal smoothly via `LinearTransition.duration(180)` and `FadeIn.duration(160)`.
+- **Hand-made bottom sheets (Cadence Switch, Period Renewal, Vault guard):** one shared motion, `runSheetTransition` (`src/lib/sheetTransition.ts`): open = backdrop fade (220 ms; Vault 200 ms) + sheet spring `Motion.springs.sheet` from below; close = backdrop 160 ms + slide 180 ms on the iOS drawer curve `(0.32, 0.72, 0, 1)`, then unmount; reduce motion = instant. Each sheet passes its own off-screen distance (500 / 450 / 400). New hand-made sheets use it; `BottomSheetModal` keeps its own gesture-driven motion.
+- **Hidden popups do no work:** a popup that stays mounted while closed reads full-history store values through `useStoreWhileVisible` (last value while hidden, live value on open), so it never re-renders on background store changes.
 - **Pull-to-refresh:** one native Material circle for the whole app (`AppRefreshControl`; Home hosts it through `RefreshScrollShell`). It drops once, spins, and slides up once. All four screens use the same `usePullRefresh` handler (`src/hooks/usePullRefresh.ts`), which keeps the circle on for at least 700 ms and never switches it off or re-configures it while it is refreshing; otherwise the native circle vanishes and pops back (blink).
 - **Reduced Motion:** When `useReduceMotion()` (`src/hooks/useReduceMotion.ts`) is true, disable animations and use immediate snapping. It is the one app-wide hook: live (follows the OS setting while the app is open), one shared subscription (`src/lib/reduceMotionStore.ts`), and it starts from the value the system had when the app started, so there is no wrong first frame. Reanimated animations (`withTiming`, `withSpring`) already follow the system setting by default (`reduceMotion: ReduceMotion.System`), so no per-animation option is needed. `SegmentedControl`, `AnimatedToggle`, `useRingSweep` and `SplashScreen` still read Reanimated's `useReducedMotion()` (the same system value at startup). All layout transitions and spring effects bypass animation immediately when reduced motion is enabled.
 
@@ -287,7 +335,10 @@ Every call ends with `.catch(() => {})`. Save success is wired through `saveSucc
 
 Every data surface must cleanly handle 4 foundational states:
 1. **Loading State:** `<Skeleton />` shapes (`colors.cardSubtle`, UI-thread pulse) where content is replaced; `ActivityIndicator` only inside buttons, next to a short label, or for progress of an operation. Avoid full-screen blocking spinners where partial skeleton UI is possible.
-2. **Empty State:** Friendly vector icon (`GradientIconBadge`), clear headline, single-line explanation, and a prominent CTA button.
+2. **Empty State:** always the shared `<EmptyState />` (`src/components/ui/EmptyState.tsx`): `GradientIconBadge` (theme mint) with the icon, a bold title, one muted line (`bodySmall`, max 300dp wide, centred) and an optional compact `AppButton` (`secondary` by default; `primary` only when it is THE action of the screen, e.g. "Add Transaction" on Insights).
+   - `size="screen"` when the whole page is empty (72dp badge, 20px title): History, Notifications, Ledger, Automatic Logging Review. A screen empty state at the top of a scrolling list starts `EMPTY_STATE_TOP_OFFSET` (64dp) down.
+   - `size="section"` when one card or list inside a page is empty (56dp badge, 18px title): FAQ search, Savings history card, Category Detail list, Insights breakdown.
+   - It has no motion of its own; a screen that fades its empty state in (History, Notifications) keeps its own animated wrapper. The small inline "No expenses today" line on Home stays a line of text (it sits inside a compact list, not in place of a page).
 3. **Error State:** Non-intrusive alert banner or inline card with retry action.
 4. **Offline State:** Persistent non-blocking banner (`OfflineBanner`); all cached items remain readable and interactive.
 
@@ -298,7 +349,7 @@ Every data surface must cleanly handle 4 foundational states:
 1. **NEVER hardcode numeric spacing or font sizes:** Do not use `padding: 17`, `margin: 22`, or `fontSize: 19`.
 2. **NEVER use ad-hoc hex colors in screens:** All colors must resolve from `useTheme()` / `src/config/theme.ts`.
 3. **NEVER use low-contrast text on pills:** Never put white text on a mint green or peach pill; use `forestGreen`.
-4. **NEVER invent new button heights:** Do not use 40px, 44px, or 52px buttons; stick to 48px (standard) or 56px (row).
+4. **NEVER invent new button heights:** Do not use 46px, 50px, 52px or 56px buttons; dialog buttons are 48 (`standard`), sheet and page CTAs are 60 (`cta`). Icon-only buttons (32–48 circles) are geometry, not button heights.
 5. **NEVER create boxes-inside-boxes:** Avoid wrapping cards inside cards unless representing a distinctly nested interactive modal.
 6. **NEVER use radius tokens on circles:** For circular avatars or icon buttons, strictly use `borderRadius = size / 2`.
 7. **NEVER abbreviate real money:** Do not show `₹1.5K` for `₹1,500` on primary account balance or allowance cards.
@@ -314,13 +365,14 @@ Before declaring any UI task done, verify:
 - [ ] Outer horizontal padding is strictly `Spacing.gutter` (`24px`).
 - [ ] Typography uses semantic roles from `FontSize` & `FontFamily`.
 - [ ] Financial amounts follow Tier A/B/C/D rules with `formatCurrency`.
-- [ ] Buttons and inputs use `ControlHeight.standard` or `ControlHeight.row`.
+- [ ] Buttons follow the two-tier rule (48 in centered dialogs, 60 in sheets and page CTAs); inputs use `ControlHeight.row`.
+- [ ] Every tappable element gives press feedback (`AppButton` scale or `PRESS_DIM_OPACITY` dim); pushed pages use `ScreenHeader` (centred 20px title); popups use `useScrimColor()`.
 - [ ] Colors come from `useTheme()` and look sharp in **Light, Dark, and AMOLED**.
 - [ ] Interactive touch targets are $\ge 44\text{dp}$.
 - [ ] Every icon-only button has `accessibilityRole="button"` and an `accessibilityLabel` that says what it does ("Go back", "Close", "Delete transaction"). `tests/ux01IconButtonLabels.test.ts` fails on any touchable without text and without a label (UX-01).
 - [ ] Text fields set the keyboard correctly: `autoComplete` for name / email / password, `returnKeyType`, Enter moves to the next field and the last field submits (UX-02).
 - [ ] A full-screen backdrop behind a sheet / modal has `accessible={false}` and `importantForAccessibility="no"` (it still closes on tap), and every `Modal` has `onRequestClose` (UX-06).
-- [ ] No new hard-coded hex in screens / components: `tests/ux05to08Polish.test.ts` holds the count (491) and only lets it go down. `white`, `forestGreen`, `mint`, `coral` are the same in all three themes; use them instead of the literal (UX-08).
+- [ ] No new hard-coded hex in screens / components: `tests/ux05to08Polish.test.ts` holds the count (484) and only lets it go down. `white`, `forestGreen`, `mint`, `coral` are the same in all three themes; use them instead of the literal (UX-08).
 - [ ] A list that sits under a text field has `keyboardShouldPersistTaps="handled"` (first tap works) and `keyboardDismissMode="on-drag"` (UX-03).
 - [ ] Sliding controls use `SegmentedControl` with proper contrast.
 - [ ] No regression or visual glitches on small screens ($< 360\text{dp}$).

@@ -68,7 +68,7 @@ A manual top-up the user makes directly into their Gullak reserve, separate from
 - **From Income (`'income'`)**: Funds moved from tracked income into Gullak. Increases Gullak reserve while leaving total available budget unchanged. Capped by lifetime available income (`getAvailableIncomeBalance`).
 - **External (`'external'`)**: Fresh money from outside the app (cash gift, windfall, bonus). Increases both Gullak reserve and the period's available balance across Daily, Weekly, Monthly, and All views.
 Both sources appear alongside expenses in recent transactions (`HomeScreen`) and `HistoryScreen` (via `GullakDepositRow`), and open `GullakDepositDetailScreen`. Stored in `gullak_deposits` in Supabase and `gullakDeposits` in local state.
-- *Code location*: `src/store/dailyBudget/types.ts` (`GullakDeposit` interface; re-exported by `src/store/dailyBudgetStore.ts`), `src/store/dailyBudgetStore.ts` (`addGullakDeposit`, `getAvailableIncomeBalance`), `src/components/DepositGullakModal.tsx`, `src/screens/GullakDepositDetailScreen.tsx`, `src/components/GullakDepositRow.tsx`, `schema.sql` (`gullak_deposits` table)
+- *Code location*: `src/store/dailyBudget/types.ts` (`GullakDeposit` interface; re-exported by `src/store/dailyBudgetStore.ts`), `src/store/dailyBudget/gullakActions.ts` (`addGullakDeposit`), `src/store/dailyBudgetStore.ts` (`getAvailableIncomeBalance`), `src/components/DepositGullakModal.tsx`, `src/screens/GullakDepositDetailScreen.tsx`, `src/components/GullakDepositRow.tsx`, `schema.sql` (`gullak_deposits` table)
 - *_Avoid_*: Manual Deposit, Savings Top-up, Windfall
 
 **Daily Record**:
@@ -303,7 +303,7 @@ The strict invariant that Arthik functions as a financial vault: a user cannot e
 
 **Natural Cycle Rollover**:
 The transfer of unspent budget funds into the digital Gullak reserve that occurs exclusively upon the natural completion of a full calendar cycle (Daily at 23:59:59, Weekly on Sunday at 23:59:59, Monthly at month-end). Terminating or switching a cadence mid-period does NOT trigger a Gullak deposit.
-- *Code location*: `src/lib/budgetPeriods.ts` (`buildPeriodsToFinalize`), `src/store/dailyBudgetStore.ts` (`checkAndRollover`)
+- *Code location*: `src/lib/budgetPeriods.ts` (`buildPeriodsToFinalize`), `src/store/dailyBudget/syncActions.ts` (`checkAndRollover`)
 - *_Avoid_*: Premature Deposit, Mid-Cycle Rollover, Cutoff Deposit
 
 **Cadence Switch Carry-Forward**:
@@ -397,9 +397,19 @@ The unified UI component responsible for displaying financial amounts with India
 - *_Avoid_*: Raw String Amounts, Unaligned Currency Text
 
 **App Button Primitive**:
-The standardized interactive button component encapsulating primary, secondary, outline, danger, and ghost variants with fixed control heights.
+The standardized interactive button component encapsulating primary, secondary, outline, danger, and ghost variants with fixed control heights (60 page / sheet CTA, 48 dialog and secondary buttons, 36 compact). The `danger` variant uses the alert dialog's readable red (ADR 0021).
 - *Code location*: `src/components/ui/AppButton.tsx`, `docs/design-system.md`
 - *_Avoid_*: Raw Pressables, Custom Button Styles
+
+**Header Back Button**:
+The one back button of every pushed page: plain 24px arrow, 44dp touch area, dims on press, "Go back" for screen readers. It lives inside the **Screen Header**: a 48dp bar with the 20px page title centred and announced as a heading, and optional actions on the right. Main tabs have no back button and a 28px left-aligned title (ADR 0021).
+- *Code location*: `src/components/ui/HeaderBackButton.tsx`, `src/components/ui/ScreenHeader.tsx`
+- *_Avoid_*: Hand-drawn `ArrowLeft` buttons, circled back buttons, hand-made title rows
+
+**Empty State**:
+What a page, list or card shows when it has nothing yet: a gradient icon badge, a short bold title, one line saying what will appear or what to do, and at most one small button. `screen` size when the whole page is empty, `section` size inside a page (ADR 0021).
+- *Code location*: `src/components/ui/EmptyState.tsx`
+- *_Avoid_*: Text-only empty lists, flat grey icon circles, a different layout per screen
 
 ---
 

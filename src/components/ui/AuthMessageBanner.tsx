@@ -1,8 +1,10 @@
 import React from 'react';
-import { Text, StyleSheet, Pressable, Animated } from 'react-native';
+import { Text, StyleSheet, Animated } from 'react-native';
 import AlertCircle from 'lucide-react-native/icons/circle-alert';
 import X from 'lucide-react-native/icons/x';
 import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius } from '../../config/theme';
+import { PressableOpacity } from './PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 export interface AuthMessageBannerProps {
   message: string | null;
@@ -57,9 +59,9 @@ export const AuthMessageBanner: React.FC<AuthMessageBannerProps> = ({
       >
         {message}
       </Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Dismiss message" onPress={onDismiss} style={styles.bannerClose} hitSlop={8}>
+      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Dismiss message" onPress={onDismiss} style={styles.bannerClose} hitSlop={8}>
         <X size={16} color={iconColor} />
-      </Pressable>
+      </PressableOpacity>
     </Animated.View>
   );
 };

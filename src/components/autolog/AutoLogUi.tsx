@@ -1,29 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Check from 'lucide-react-native/icons/check';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
 import { useTheme } from '../../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../../config/theme';
+import { ScreenHeader as SharedScreenHeader } from '../ui/ScreenHeader';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, LetterSpacing } from '../../config/theme';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 /** Small building blocks shared by every Automatic Logging screen (Arthik design language). */
 
-export const ScreenHeader: React.FC<{ title: string; onBack?: () => void; right?: React.ReactNode }> = ({ title, onBack, right }) => {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.header}>
-      {onBack ? (
-        <Pressable onPress={onBack} hitSlop={8} accessibilityLabel="Go back">
-          <ArrowLeft size={28} color={colors.textPrimary} strokeWidth={2.5} />
-        </Pressable>
-      ) : null}
-      <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>{title}</Text>
-      <View style={{ flex: 1 }} />
-      {right}
-    </View>
-  );
-};
+/** Automatic Logging pages use the app-wide ScreenHeader; no onBack means no back arrow (setup complete, welcome back). */
+export const ScreenHeader: React.FC<{ title: string; onBack?: () => void; right?: React.ReactNode }> = ({ title, onBack, right }) => (
+  <SharedScreenHeader title={title} showBack={Boolean(onBack)} onBack={onBack} right={right} />
+);
 
 export const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; tone?: 'default' | 'mint' | 'peach' }> = ({ children, style, tone = 'default' }) => {
   const { colors, isDark } = useTheme();
@@ -88,7 +79,7 @@ export const NavRow: React.FC<{ icon: React.ReactNode; label: string; detail?: s
 }) => {
   const { colors } = useTheme();
   return (
-    <Pressable onPress={onPress} style={[styles.navRow, !last && { borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}>
+    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={onPress} style={[styles.navRow, !last && { borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}>
       <View style={[styles.navIcon, { backgroundColor: colors.cardSubtle }]}>{icon}</View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.navLabel, { color: danger ? colors.peachCoral : colors.textPrimary }]}>{label}</Text>
@@ -100,7 +91,7 @@ export const NavRow: React.FC<{ icon: React.ReactNode; label: string; detail?: s
         </View>
       ) : null}
       <ChevronRight size={18} color={colors.textSecondary} />
-    </Pressable>
+    </PressableOpacity>
   );
 };
 
@@ -114,9 +105,9 @@ export const CheckLine: React.FC<{ ok: boolean; label: string; onFix?: () => voi
         {!ok && optional ? <Text style={{ color: colors.textSecondary }}> (optional)</Text> : null}
       </Text>
       {!ok && onFix ? (
-        <Pressable onPress={onFix} hitSlop={8} style={[styles.fixBtn, { backgroundColor: colors.cardSubtle }]}>
+        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={onFix} hitSlop={8} style={[styles.fixBtn, { backgroundColor: colors.cardSubtle }]}>
           <Text style={[styles.fixText, { color: colors.textPrimary }]}>Fix</Text>
-        </Pressable>
+        </PressableOpacity>
       ) : null}
     </View>
   );
@@ -171,10 +162,8 @@ const styles = StyleSheet.create({
   beta: { borderWidth: 1, borderRadius: BorderRadius.pill, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center' },
   betaSmall: { paddingHorizontal: 6, paddingVertical: 1 },
   betaText: { fontSize: FontSize.micro, fontFamily: FontFamily.bold, letterSpacing: 0.8 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.gutter, paddingTop: Spacing.block, marginBottom: Spacing.element, gap: Spacing.block },
-  title: { fontSize: FontSize.titleLarge, lineHeight: LineHeight.titleLarge, fontFamily: FontFamily.bold, flexShrink: 1 },
   card: { borderRadius: BorderRadius.card, padding: Spacing.surface, marginBottom: Spacing.group, elevation: 1 },
-  sectionLabel: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: Spacing.element },
+  sectionLabel: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: LetterSpacing.label, textTransform: 'uppercase', marginBottom: Spacing.element },
   body: { fontSize: FontSize.bodySmall, lineHeight: LineHeight.bodySmall + 2, fontFamily: FontFamily.medium },
   heading: { fontSize: FontSize.titleMedium, lineHeight: LineHeight.titleMedium, fontFamily: FontFamily.bold, marginBottom: Spacing.element },
   bulletRow: { flexDirection: 'row', marginTop: Spacing.element, gap: Spacing.element },

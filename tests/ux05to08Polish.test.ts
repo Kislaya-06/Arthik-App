@@ -100,7 +100,8 @@ describe('UX-08: colours come from theme tokens', () => {
     const count = [...walk(path.join(SRC, 'screens')), ...walk(path.join(SRC, 'components'))]
       .map((file) => (readFileSync(file, 'utf8').match(HEX) ?? []).length)
       .reduce((a, b) => a + b, 0);
-    // 552 before UX-08, 491 after. Lower this number when more are moved to tokens; never raise it.
-    expect(count).toBeLessThanOrEqual(491);
+    // 552 before UX-08, 491 after, 484 after the UI consistency pass (ADR 0021). Lower this number when
+    // more are moved to tokens; never raise it.
+    expect(count).toBeLessThanOrEqual(484);
   });
 });

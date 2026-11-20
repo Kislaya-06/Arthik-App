@@ -2,7 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
+import { EmptyState, EMPTY_STATE_TOP_OFFSET } from '../components/ui/EmptyState';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import Users from 'lucide-react-native/icons/users';
@@ -29,7 +30,9 @@ import { buildPersonSummaries, type LedgerSplitLine, type PersonSummary } from '
 import { formatCurrency, round2 } from '../lib/formatters';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { SettleExpenseSheet, type SettleExpenseTarget } from '../components/split/SettleExpenseSheet';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, Motion } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, Motion, LetterSpacing } from '../config/theme';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Ledger'>;
 
@@ -120,12 +123,7 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.safeArea, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.canGoBack() && navigation.goBack()} hitSlop={10} accessibilityLabel="Go back">
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Ledger</Text>
-      </View>
+      <ScreenHeader title="Ledger" />
 
       {feedbackMessage ? (
         <View
@@ -152,13 +150,12 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section }]}
       >
         {people.length === 0 ? (
-          <View style={styles.empty}>
-            <Users size={40} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Nothing to track yet</Text>
-            <Text style={[styles.sub, { color: colors.textSecondary, textAlign: 'center' }]}>
-              When you split an expense with someone, what they owe you shows up here.
-            </Text>
-          </View>
+          <EmptyState
+            icon={Users}
+            title="Nothing to track yet"
+            subtitle="When you split an expense with someone, what they owe you shows up here."
+            style={styles.empty}
+          />
         ) : (
           <>
             <View style={[styles.summary, { backgroundColor: colors.mintGreen }]}>
@@ -179,7 +176,7 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                   layout={reduceMotion ? undefined : LinearTransition.duration(Motion.duration.snappy)}
                   style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
                 >
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     onPress={() => setOpenKey(open ? null : p.key)}
                     style={styles.personRow}
                     accessibilityRole="button"
@@ -196,11 +193,11 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                       {p.isSettled ? (
                         <StatusBadge variant="success" label="SETTLED" />
                       ) : (
-                        <Text style={[styles.owed, { color: colors.coral }]}>{formatCurrency(p.owed)}</Text>
+                        <Text style={[styles.owed, { color: colors.coralText }]}>{formatCurrency(p.owed)}</Text>
                       )}
                     </View>
                     <ChevronRotator isOpen={open} color={colors.textSecondary} reduceMotion={reduceMotion} />
-                  </Pressable>
+                  </PressableOpacity>
 
                   {open ? (
                     <Animated.View
@@ -271,7 +268,7 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                               {isSettled ? (
                                 <StatusBadge variant="success" label="SETTLED" />
                               ) : (
-                                <Text style={[styles.lineAmount, { color: colors.coral }]}>
+                                <Text style={[styles.lineAmount, { color: colors.coralText }]}>
                                   {formatCurrency(s.outstanding)} left
                                 </Text>
                               )}
@@ -300,7 +297,7 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
                               {day(pay.date)}
                             </Text>
                             <View style={styles.lineRight}>
-                              <Text style={[styles.lineAmount, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
+                              <Text style={[styles.lineAmount, { color: colors.mintText }]}>
                                 +{formatCurrency(pay.amount)}
                               </Text>
                               <ChevronRight size={14} color={colors.textMuted} strokeWidth={2.2} />
@@ -336,19 +333,6 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   flex: { flex: 1, minWidth: 0 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.gutter,
-    marginTop: Spacing.block,
-    marginBottom: Spacing.element,
-  },
-  headerTitle: {
-    marginLeft: Spacing.block,
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    fontFamily: FontFamily.bold,
-  },
   feedbackBanner: {
     marginHorizontal: Spacing.gutter,
     marginBottom: Spacing.element,
@@ -367,7 +351,7 @@ const styles = StyleSheet.create({
   },
   content: { paddingHorizontal: Spacing.gutter, gap: Spacing.block },
   summary: { borderRadius: BorderRadius.card, padding: Spacing.surface, gap: Spacing.micro },
-  summaryLabel: { fontSize: FontSize.caption, fontFamily: FontFamily.bold },
+  summaryLabel: { fontSize: FontSize.caption, letterSpacing: LetterSpacing.label, fontFamily: FontFamily.bold },
   summaryAmount: { fontSize: FontSize.display, lineHeight: LineHeight.display, fontFamily: FontFamily.bold },
   summarySub: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.medium },
   card: { borderRadius: BorderRadius.card, borderWidth: 1, overflow: 'hidden' },
@@ -383,7 +367,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.element,
   },
-  sectionLabel: { fontSize: FontSize.caption, fontFamily: FontFamily.bold },
+  sectionLabel: { fontSize: FontSize.caption, letterSpacing: LetterSpacing.label, fontFamily: FontFamily.bold },
   settleAllPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -414,6 +398,5 @@ const styles = StyleSheet.create({
     gap: 6,
     flexShrink: 0,
   },
-  empty: { alignItems: 'center', gap: Spacing.group, paddingTop: Spacing.section },
-  emptyTitle: { fontSize: FontSize.body, fontFamily: FontFamily.bold },
+  empty: { paddingTop: EMPTY_STATE_TOP_OFFSET },
 });

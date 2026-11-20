@@ -19,6 +19,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
 import { useAlertStore, AlertButton } from '../../store/alertStore';
 import { useTheme } from '../../store/themeStore';
+import { scrimColor } from '../../lib/scrim';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { FontFamily, BorderRadius } from '../../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../../lib/fontScale';
@@ -241,11 +242,7 @@ export const AppAlertModal: React.FC = () => {
   };
 
   // Backdrop scrim tint based on theme
-  const backdropColor = isAmoled
-    ? 'rgba(0, 0, 0, 0.88)'
-    : colors.isDark
-    ? 'rgba(0, 0, 0, 0.72)'
-    : 'rgba(15, 23, 42, 0.45)';
+  const backdropColor = scrimColor(colors.isDark, isAmoled);
 
   // Button layout logic
   const isDouble = buttons.length === 2;

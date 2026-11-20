@@ -14,6 +14,10 @@ import Trash2 from 'lucide-react-native/icons/trash';
 import X from 'lucide-react-native/icons/x';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { Spacing, FontFamily, Motion } from '../../config/theme';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { AppButton } from '../ui/AppButton';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
+import { useScrimColor } from '../../hooks/useScrimColor';
 
 export interface DeleteAccountModalProps {
   visible: boolean;
@@ -46,6 +50,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   isDark,
   styles,
 }) => {
+  const scrim = useScrimColor();
   const reduceMotion = useReduceMotion();
   const cardScale = useSharedValue(reduceMotion ? 1 : 0.95);
   const cardTranslateY = useSharedValue(reduceMotion ? 0 : 12);
@@ -84,7 +89,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       }}
     >
       <Pressable
-        style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.5)' }]}
+        style={[styles.modalOverlay, { backgroundColor: scrim }]}
         onPress={() => {
           if (!isDeleting) onClose();
         }}
@@ -150,18 +155,16 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
           ) : null}
 
           <View style={styles.modalActions}>
-            <Pressable
-              style={[styles.modalBtn, { backgroundColor: colors.cardSubtle }]}
+            <AppButton
+              label="Cancel"
               onPress={onClose}
+              variant="secondary"
               disabled={isDeleting}
-            >
-              <X size={16} color={colors.textSecondary} />
-              <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-                Cancel
-              </Text>
-            </Pressable>
+              icon={<X size={16} color={colors.textPrimary} />}
+              style={styles.modalBtnSlot}
+            />
 
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               style={[styles.modalBtn, { backgroundColor: deleteBtnBg }]}
               onPress={onConfirm}
               disabled={isDeleting}
@@ -176,7 +179,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                   </Text>
                 </>
               )}
-            </Pressable>
+            </PressableOpacity>
           </View>
         </Animated.View>
       </Pressable>

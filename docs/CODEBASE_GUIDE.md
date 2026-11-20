@@ -1,6 +1,6 @@
 # Arthik — Codebase Guide (kahan kya hai, kaun si file kya karti hai)
 
-Ye guide **ab ki state** par hai: pehla package + Pure Mode + CAR-001 Mode B + Split Expenses & Money Back + Home Card Details + AutoLog single-page review sab apply hone ke baad. Isme 204+ source files, 97 test suites (1567 tests), native Android module aur docs ka naksha hai.
+Ye guide **ab ki state** par hai: pehla package + Pure Mode + CAR-001 Mode B + Split Expenses & Money Back + Home Card Details + AutoLog single-page review sab apply hone ke baad. Isme ~309 source files (`src/`), 190 test files (2,652 tests, 20 Nov 2026), native Android module aur docs ka naksha hai. November 2026 ke facade split ke baad bade stores / engines / screens chhote modules mein bante hain (neeche har store ke section mein list hai).
 
 **Kaise bani:** maine har file ka header comment, exports, aur core money files (waterfall, budget periods, home calculations, notification policy, stores, AutoLog) seedha padhe hain. UI components (buttons, charts, modals) ke baare mein likha hai wo unke naam aur exports se hai, unki andar ki logic maine line-by-line nahi padhi. Jahan ye farak matter karta hai wahan likh diya hai.
 
@@ -91,7 +91,7 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
 - **Hal (`FIN-01`, `budgetUtils.ts`, `ExpenseFormScreen.tsx`, `VaultSpendingGuardModal.tsx`):** Agar user kisi puraani date (jaise Sunday, jab budget ya income nahi thi) ka expense log karta hai, toh `ExpenseFormScreen` par date picker ke neeche live contextual notice chip aati hai: agar Gullak mein paise hain toh bata deta hai ki ye kharch Gullak se katega (`GUL-001`); agar Gullak/vault mein paise kam hain, toh alert chip shortfall batati hai aur save dabane par `VaultSpendingGuardModal` seedha shortfall amount pre-fill karke open hota hai (`SEC-001`) taaki user bina form data khoe 1-tap me "Add Money & Save" kar sake. Gullak balance ko bhi hard-capped rakha gaya hai taaki wo kisi bhi mode mein kul account cash se zyada na ho sake (`GUL-001`).
 
 ### Samasya 11: "Kai din app na kholne par scheduled plan change drop hona" (FIN-02)
-- **Hal (`FIN-02`, `rollover.ts`, Rules `CAD-001`, `ROL-001`):** Pehle `applyScheduledPlanChanges` sirf `effectiveFrom === todayStr || effectiveFrom === yesterdayStr` check karta tha. Agar user ne 2 ya zyada din app nahi kholi (jaise Friday se Monday), toh scheduled cadence switch ya budget change drop ho jata tha. Ab canonical `resolvePlanForDate(planChanges, todayStr)` helper ka use hota hai, jisse multi-day gap hone par bhi mature ho chuka plan app khulte hi 100% reliably activate ho jata hai.
+- **Hal (`FIN-02`, `rollover.ts`, Rules `BPR-002`, `ROL-001`):** Pehle `applyScheduledPlanChanges` sirf `effectiveFrom === todayStr || effectiveFrom === yesterdayStr` check karta tha. Agar user ne 2 ya zyada din app nahi kholi (jaise Friday se Monday), toh scheduled cadence switch ya budget change drop ho jata tha. Ab canonical `resolvePlanForDate(planChanges, todayStr)` helper ka use hota hai, jisse multi-day gap hone par bhi mature ho chuka plan app khulte hi 100% reliably activate ho jata hai.
 
 ### Samasya 12: "Income delete ya kam karne par Gullak mein bina backing ke paise reh jana" (FIN-06)
 - **Hal (`FIN-06`, `gullakReconciliation.ts`, `dailyBudgetStore.ts`, `ExpenseDetailScreen.tsx`, `useExpenseForm.ts`, Rules `GUL-001`, `GUL-004`):** Agar user ne income ke din Gullak me deposit kiya tha (jaise ₹10,000 income me se ₹4,000 Gullak me daale) aur baad me user wo income delete karta hai ya ghata kar ₹3,000 karta hai, toh Gullak ke paas ₹1,000 ki backing khatam ho jaati hai. System user ko clear confirmation alert deta hai aur unbacked deficit ko Gullak se adjust kar deta hai (`adjustGullakIncomeDeposits`), taaki fake ya phantom savings balance na bache.
@@ -222,7 +222,7 @@ Commands: `npm test` (vitest), `npm run typecheck` (tsc), `npm start`.
 | `expense_shares` | **Retired** (Split feature hata diya). Table rakhi hai, app use nahi karti, data delete nahi hua |
 
 - `handle_new_user()` function naye user ke liye profile aur default categories banata hai.
-- **Migrations** (`supabase/migrations/`): budget modes (Oct), autolog profiles, release v2 flags, `20261017083146_retire_shares_reimbursements.sql` (purane reimbursement rows ko normal income banata hai), aur `20261018_split_and_money_back.sql` (split + money-back columns, class `recovery`).
+- **Migrations** (`supabase/migrations/`): budget modes (Oct), autolog profiles, release v2 flags, `20261017083146_retire_shares_reimbursements.sql` (purane reimbursement rows ko normal income banata hai), `20261018111651_split_and_money_back.sql` (split + money-back columns, class `recovery`), `20261018160000_multi_person_split.sql` (kai logon ke saath split), `20261022120000_income_categories.sql` (income categories, CAT-004), `20261030145341_performance_sync_version_bootstrap.sql` (expense change counter, OPT-69), `20261031120000_expenses_list_index.sql` (expense list index, OPT-65), aur `20261116120000_signup_name_safety_and_expense_counter.sql` (lamba/khaali naam sign-up ko na tode, SEC-04).
 - Row-level security: har user sirf apna data dekhta hai (ADR 0004).
 
 ---
@@ -255,7 +255,7 @@ Rule: naya money logic yahin jayega, test ke saath (MNY-001).
 | File | Kya karti hai |
 |---|---|
 | `budgetCalculations.ts` | Core hisaab: `calculateCycleFinancials` (ek period ka spendable/remaining/status), `evaluateDayStatus` (din saved/missed/even), `computeSpentByDate`, `computeIncomeByDate`, streak aur savings metrics, `DailyRecord` type |
-| `budgetPeriods.ts` (1114 lines, sabse bada engine) | Cadences, period ki seemayen (Monday week), kis date ka maalik kaun (`getDateOwner`: daily/weekly/monthly/paused), **budget pools** (`buildBudgetPools`), carry (`dailyCarryForDate`, `dailyCarryRemaining`, `carryForPeriod`, `periodCarryForPeriod`, `periodCarryRemaining`), period finalize, streaks. Pure, `new Date()` nahi |
+| `budgetPeriods.ts` (facade) + `src/lib/periods/` (`core`, `pools`, `carry`, `streak`, `calendar`, `periodSummary`, `finalize`) | Cadences, period ki seemayen (Monday week), kis date ka maalik kaun (`getDateOwner`: daily/weekly/monthly/paused), **budget pools** (`buildBudgetPools`), carry (`dailyCarryForDate`, `dailyCarryRemaining`, `carryForPeriod`, `periodCarryForPeriod`, `periodCarryRemaining`), period finalize, streaks. Pure, `new Date()` nahi |
 | `cadenceSwitch.ts` | Cadence badalte waqt: kya bacha hai, carry kitna, validation (`checkCadenceCapacity`), `buildCadenceSwitchPlan`, aur Mode B ka summary (`computeAllocationSummary`) jo modal ka text banata hai |
 | `budgetUtils.ts` | Phantom ₹500 rows pehchanna, hydrate ke waqt budget resolve karna, rollover budget |
 | `budgetModeUtils.ts` | Mode ke hisaab se kaunse tabs dikhein, subtitle/labels, streak cards |
@@ -288,14 +288,14 @@ Rule: naya money logic yahin jayega, test ke saath (MNY-001).
 `authLinkHandler.ts` + `deepLinkGuard.ts` (email deep links aur session fixation se bachav), `versionCheck.ts` (kam se kam version), `apkInstaller.ts` (APK download/install), `networkUtils.ts` (network failure pehchanna, timeout), `asyncStorageList.ts` (list save/load).
 
 ### UI helpers (paise ka hisaab nahi)
-`formatters.ts` (`round2`, currency), `profileUtils.ts` (user display name resolution, 15-character guardrail matching "Kislaya Agarwal", input clamping aur validation), `amountKeypad.ts` (calculator keypad: `2+3*4` jaisa expression), `chartUtils.ts` (charts ke paths/segments/data), `colorUtils.ts`, `iconUtils.ts`, `flameUtils.ts`, `rollingText.ts` + `quicksandMetrics.ts` (digits ka rolling animation), `pullToHistoryPhysics.ts` (Home se pull karke History kholne ki physics), `ambientBackground.ts` + `ambientGrain.ts` + `ambientWind.ts` (screen ka halka glow background), `animationUtils.ts`, `streakCalendarData.ts`, `expenseFilters.ts`, `noteSuggestions.ts`, `moneyExplainerContent.ts` (help popups ka text).
+`formatters.ts` (`round2`, currency), `profileUtils.ts` (user display name resolution, 15-character guardrail matching "Kislaya Agarwal", input clamping aur validation), `amountKeypad.ts` (calculator keypad: `2+3*4` jaisa expression), `chartUtils.ts` (facade; charts ke paths/segments/data `src/lib/charts/` mein: `donutSegments`, `monthlyCharts`, `gullakMilestones`, `dualRing`), `sheetTransition.ts` (Cadence / Renewal / Vault sheets ka ek hi enter-exit motion), `whileVisibleSelector.ts` (band popup store ki purani value rakhta hai, re-render nahi), `colorUtils.ts`, `iconUtils.ts`, `flameUtils.ts`, `rollingText.ts` + `quicksandMetrics.ts` (digits ka rolling animation), `pullToHistoryPhysics.ts` (Home se pull karke History kholne ki physics), `ambientBackground.ts` + `ambientGrain.ts` + `ambientWind.ts` (screen ka halka glow background), `animationUtils.ts`, `streakCalendarData.ts`, `expenseFilters.ts`, `noteSuggestions.ts`, `moneyExplainerContent.ts` (help popups ka text).
 
 ---
 
 ## 8. Stores: `src/store/` file by file
 
-### `dailyBudgetStore.ts` (874 lines) + `src/store/dailyBudget/`
-Budget ka poora dimaag. Persist key: `arthik-daily-budget-storage-v2` (version 4, `exceeded`→`missed` migration).
+### `dailyBudgetStore.ts` (~380 lines, facade) + `src/store/dailyBudget/`
+Budget ka poora dimaag. Actions submodule factories mein hain jo store ka apna `set` / `get` lete hain: `gullakActions.ts` (Gullak deposits, gap days), `syncActions.ts` (`syncWithExpenses`, `checkAndRollover`, `uploadPendingDailyRecords`), `recordActions.ts`. `planActions.ts` ab `planSync`, `pureDeficit`, `pendingPlan`, `cadenceActions`, `budgetModeActions` mein bata hai (sab `planActions.ts` se re-export); `hydrate.ts` ke saath `hydrateRemote.ts` aur `hydrateOffline.ts`. Persist key: `arthik-daily-budget-storage-v2` (version 4, `exceeded`→`missed` migration).
 
 State: `dailyRecords`, `gullakDeposits`, `totalAccumulatedSavings`, `savingsStreak`, `isBudgetModeEnabled`, `budgetCadence`, weekly/monthly amounts, `planChanges`, `budgetPeriods`, notification dedupe keys.
 
@@ -316,7 +316,8 @@ Is store ko chhote modules mein toda gaya hai (ADR 0013):
 
 Mukhya actions: `syncWithExpenses` (har kharch ke baad), `checkAndRollover` (din badalne par), `setBudgetCadence`, `setBudgetModeEnabled`, `addGullakDeposit`, `hydrateFromSupabase`.
 
-### `expenseStore.ts` (685 lines) + `src/store/expense/`
+### `expenseStore.ts` (~370 lines, facade) + `src/store/expense/`
+Actions factories: `mutationActions.ts` (add / update / delete), `loadActions.ts` (pending / cached load, offline save, sync; `isSyncInProgress` yahin), `failedSyncActions.ts`; save-timeout aur confirmed-cache helpers `saveGuards.ts` mein. `fetchExpenses` store mein hi hai (uske download counters `resetExpenses` ke saath shared hain).
 Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen par** aata hai (optimistic), phir Supabase ko jaata hai; internet na ho to AsyncStorage ki queue mein rukta hai.
 | File | Kaam |
 |---|---|
@@ -356,11 +357,11 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 
 | Screen | Kya karti hai |
 |---|---|
-| `HomeScreen.tsx` | Hero card (All/Daily/Weekly/Monthly), chips, bounded top-5 recent transactions (`selectRecentTransactions`). `calculatePeriodSummary` aur waterfall use karti hai |
-| `ExpenseFormScreen.tsx` (1152 lines) | Kharch/income add aur edit. Logic `useExpenseForm.ts` mein. Spending guard yahin se chalta hai |
+| `HomeScreen.tsx` (+ `HomeScreen.styles.ts`, `home/HomeRecentItems.tsx`) | Hero card (All/Daily/Weekly/Monthly), chips, bounded top-5 recent transactions (`selectRecentTransactions`). `calculatePeriodSummary` aur waterfall use karti hai |
+| `ExpenseFormScreen.tsx` (~870 lines; styles `ExpenseFormScreen.styles.ts`, chip `expenseForm/CategoryChipItem.tsx`) | Kharch/income add aur edit. Logic `useExpenseForm.ts` mein (types `hooks/expenseForm/types.ts`). Spending guard yahin se chalta hai |
 | `ExpenseDetailScreen.tsx` | Ek transaction ki detail + funding card + split repayments |
 | `LedgerScreen.tsx` | Split expenses ledger: who owes what, multi-person settlements, person detail modal |
-| `HistoryScreen.tsx` | Transactions ki list aur filters. Memoized `categoryFilterOptions`. List ab FlashList v2 hai (OPT-30): rows recycle hoti hain, din ke hisaab se header row + item rows `src/lib/historyRows.ts` banata hai. 4-din "See More" pagination wahi hai |
+| `HistoryScreen.tsx` (+ `HistoryScreen.styles.ts`, `history/HistoryRows.tsx`, `history/HistoryEmptyState.tsx`, `history/historyHelpers.ts`) | Transactions ki list aur filters. Rows `React.memo` hain aur parent ke stable swipe handlers lete hain (har row ki apni id), isliye ek swipe sirf badalne wali rows ko re-render karta hai (OPT-76). Memoized `categoryFilterOptions`. List ab FlashList v2 hai (OPT-30): rows recycle hoti hain, din ke hisaab se header row + item rows `src/lib/historyRows.ts` banata hai. 4-din "See More" pagination wahi hai |
 | `src/lib/historyRows.ts` | History ke types (`HistoryItem`, `HistorySection`, `HistoryRow`) aur `buildHistoryRows`, `buildHeaderRowIndexes` (date jump ke liye header row ka index) |
 | `SavingsScreen.tsx` (+ `.styles.ts`) | Budget hub, Gullak, streaks, deposits. Components `components/savings/*` |
 | `InsightsScreen.tsx` + `screens/insights/` | Weekly/Monthly/Yearly insights. Data `useInsightsData.ts` with memoized $O(1)$ category lookup map (`buildCategoryMap`) |
@@ -382,8 +383,8 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 - **Charts:** `CashFlowChart`, `YearlyCashFlowChart`, `SpendingFlowChart`, `DonutChart` (Home ring in both modes), `AnimatedCategoryDonut`, `BreathingStripShell` + Weekly/Monthly/Yearly strips, `YearlySavingsMilestoneCard`, `BehavioralInsightRow`.
 - **Form:** `BouncyTypeToggle`, `BouncyPaymentToggle`, `BouncyCategoryFilter` (Reanimated UI-thread worklet slider, touch dispatch, zero-shift typography), `KeyButton`, `ui/KeypadGrid`, `CustomDatePickerModal`, `transfer/TransferExtras` (self-transfer switch), `transfer/TransferDetailCard`.
 - **App-wide:** `BottomNavBar`, `AmbientBackground`, `AppLockOverlay`, `OfflineBanner`, `SyncFailedBanner`, `OtaUpdateModal`, `ErrorBoundary`, `AppRefreshControl`, `RefreshScrollShell` (dono ek hi `usePullRefresh` handler ke saath chalte hain, refresh circle ek baar neeche aata hai aur ek baar upar jaata hai).
-- **`components/ui/`:** design-system ke chhote tukde: `AppButton`, `AmountText`, `SegmentedControl`, `BottomSheetModal`, `StatusBadge`, `ItemRowShell`, `AuthFormField`, `AuthMessageBanner`, `Skeleton` (grey placeholder jahan content load ho raha hai, OPT-41). Chhote fixed shapes (badge, pill, keypad key, calendar day) ka text `maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}` (`src/lib/fontScale.ts`, 1.3) se bandha hai (OPT-42).
-- **`components/autolog/`:** `ReviewSheet` (pending review ka sawal-jawab), `WhyLoggedCard`, `AutoLogHomeBanner`, `AutoLogGate`, `EmailSourceInfo`, `AutoLogUi`.
+- **`components/ui/`:** design-system ke chhote tukde: `AppButton`, `AmountText`, `SegmentedControl`, `BottomSheetModal`, `StatusBadge`, `ItemRowShell`, `AuthFormField`, `AuthMessageBanner`, `Skeleton` (grey placeholder jahan content load ho raha hai, OPT-41), `ScreenHeader` (har pushed page ka title bar: back arrow, beech mein 20px title, right side actions, ADR 0021), `HeaderBackButton` (ek hi back button, ScreenHeader ke andar), `EmptyState` (har khaali page / list / card ka ek hi design: gradient badge + title + ek line + optional button), `PressableOpacity` (rows / icons / chips press par `PRESS_DIM_OPACITY` 0.7 tak dim hote hain). Popups ka dim background `useScrimColor()` (`src/lib/scrim.ts`) se aata hai. Chhote fixed shapes (badge, pill, keypad key, calendar day) ka text `maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}` (`src/lib/fontScale.ts`, 1.3) se bandha hai (OPT-42).
+- **`components/autolog/`:** `ReviewSheet` (pending review ka sawal-jawab; styles `ReviewSheet.styles.ts`, chip `review/CategoryChipItem.tsx`), `WhyLoggedCard`, `AutoLogHomeBanner`, `AutoLogGate`, `EmailSourceInfo`, `AutoLogUi`.
 - **Config:** `src/config/theme.ts` (colors, spacing, fonts, `CATEGORY_PALETTE`), `src/config/supabase.ts`.
 
 ## 11. Hooks (`src/hooks/`)

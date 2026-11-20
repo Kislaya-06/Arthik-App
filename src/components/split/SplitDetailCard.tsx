@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { useTheme } from '../../store/themeStore';
 import type { Expense } from '../../store/expenseStore';
@@ -7,6 +7,8 @@ import { Spacing, BorderRadius, FontSize, FontFamily } from '../../config/theme'
 import { formatCurrency, formatDate } from '../../lib/formatters';
 import { isRecoveryClass } from '../../lib/transactionUtils';
 import { getSplitView, recoveriesForExpense, recoverySlices, allocationsOf } from '../../lib/splitLedger';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 export interface SplitDetailCardProps {
   expense: Expense;
@@ -52,7 +54,7 @@ export const SplitDetailCard: React.FC<SplitDetailCardProps> = ({ expense, allEx
           <Text style={[styles.sub, { color: colors.textSecondary }]}>The expenses it was for were deleted.</Text>
         ) : (
           slices.map((s) => (
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               key={s.expenseId}
               disabled={!s.expense}
               onPress={() => onOpen(s.expenseId)}
@@ -68,7 +70,7 @@ export const SplitDetailCard: React.FC<SplitDetailCardProps> = ({ expense, allEx
                 </Text>
               </View>
               {s.expense ? <ChevronRight size={16} color={colors.textSecondary} /> : null}
-            </Pressable>
+            </PressableOpacity>
           ))
         )}
       </View>
@@ -151,7 +153,7 @@ export const SplitDetailCard: React.FC<SplitDetailCardProps> = ({ expense, allEx
             ? `for ${target}`
             : '';
         return (
-          <Pressable
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
             key={r.id}
             onPress={() => onOpen(r.id)}
             style={[styles.sliceRow, { borderTopColor: colors.borderSubtle }]}
@@ -165,7 +167,7 @@ export const SplitDetailCard: React.FC<SplitDetailCardProps> = ({ expense, allEx
               <Text style={[styles.sub, { color: colors.textSecondary }]}>{formatDate(r.expense_date || '')}</Text>
             </View>
             <ChevronRight size={16} color={colors.textSecondary} />
-          </Pressable>
+          </PressableOpacity>
         );
       })}
     </View>

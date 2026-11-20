@@ -15,8 +15,12 @@ import { isToday as checkIsToday } from 'date-fns/isToday';
 import { isYesterday as checkIsYesterday } from 'date-fns/isYesterday';
 import { isSameDay } from 'date-fns/isSameDay';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LetterSpacing } from '../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
+import { PressableOpacity } from './ui/PressableOpacity';
+import { AppButton } from './ui/AppButton';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { useScrimColor } from '../hooks/useScrimColor';
 
 interface CustomDatePickerModalProps {
   visible: boolean;
@@ -36,6 +40,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
   maxDate,
 }) => {
   const { colors } = useTheme();
+  const scrim = useScrimColor();
 
   // Internal selected date (only confirmed when user presses "Done")
   const [tempDate, setTempDate] = useState<Date>(value);
@@ -134,7 +139,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: scrim }]}>
         <Pressable style={styles.backdrop} onPress={onClose} accessible={false} importantForAccessibility="no" />
 
         <View
@@ -178,7 +183,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
 
           {/* Quick Shortcuts */}
           <View style={styles.shortcutsRow}>
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               onPress={selectToday}
               style={[
                 styles.shortcutChip,
@@ -198,9 +203,9 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               >
                 Today
               </Text>
-            </Pressable>
+            </PressableOpacity>
 
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               onPress={selectYesterday}
               style={[
                 styles.shortcutChip,
@@ -220,7 +225,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
               >
                 Yesterday
               </Text>
-            </Pressable>
+            </PressableOpacity>
           </View>
 
           {/* Month & Year Navigation Row */}
@@ -291,7 +296,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
 
               return (
                 <View key={`day-${cell.day}`} style={styles.dayCell}>
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     disabled={cell.isDisabled}
                     onPress={() => {
                       if (cell.date) {
@@ -329,7 +334,7 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
                     >
                       {cell.day}
                     </Text>
-                  </Pressable>
+                  </PressableOpacity>
                 </View>
               );
             })}
@@ -337,48 +342,8 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
 
           {/* Action Footer Buttons */}
           <View style={styles.actionsRow}>
-            <Pressable
-              onPress={onClose}
-              style={[
-                styles.cancelButton,
-                {
-                  backgroundColor: colors.cardSubtle,
-                  borderColor: colors.borderSubtle,
-                },
-              ]}
-            >
-              <Text
-                maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
-                style={[
-                  styles.cancelButtonText,
-                  { color: colors.textSecondary, fontFamily: FontFamily.bold },
-                ]}
-              >
-                Cancel
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handleConfirm}
-              style={({ pressed }) => [
-                styles.confirmButton,
-                {
-                  backgroundColor: colors.mintGreen,
-                  opacity: pressed ? 0.9 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                },
-              ]}
-            >
-              <Text
-                maxFontSizeMultiplier={FIXED_SHAPE_MAX_FONT_SCALE}
-                style={[
-                  styles.confirmButtonText,
-                  { color: colors.forestGreen, fontFamily: FontFamily.bold },
-                ]}
-              >
-                Done
-              </Text>
-            </Pressable>
+            <AppButton label="Cancel" onPress={onClose} variant="secondary" style={styles.cancelButton} />
+            <AppButton label="Done" onPress={handleConfirm} variant="primary" style={styles.confirmButton} />
           </View>
         </View>
       </View>
@@ -389,7 +354,6 @@ export const CustomDatePickerModal: React.FC<CustomDatePickerModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.surface,
@@ -426,7 +390,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 11,
-    letterSpacing: 1,
+    letterSpacing: LetterSpacing.label,
     textTransform: 'uppercase',
     marginBottom: Spacing.micro,
   },
@@ -515,23 +479,8 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    height: 48,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 15,
   },
   confirmButton: {
     flex: 1.4,
-    height: 48,
-    borderRadius: BorderRadius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmButtonText: {
-    fontSize: 15,
   },
 });

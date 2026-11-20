@@ -134,7 +134,8 @@ describe('OPT-53: dead exports removed, money code untouched', () => {
   });
 
   it('the real PUR-001 notification text is still built in planActions.ts', () => {
-    const src = read('src/store/dailyBudget/planActions.ts');
+    // planActions.ts was split (facade pass): the PUR-001 code now lives in its sibling pureDeficit.ts, verbatim.
+    const src = read('src/store/dailyBudget/planActions.ts') + read('src/store/dailyBudget/pureDeficit.ts');
     expect(src).toMatch(/title: 'Pure Mode deficit balanced'/);
     expect(src).toMatch(/type: 'pure_deficit_balanced'/);
   });

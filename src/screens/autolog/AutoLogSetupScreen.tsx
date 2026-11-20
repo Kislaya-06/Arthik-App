@@ -1,6 +1,6 @@
 import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, AppState, Linking, ActivityIndicator, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, AppState, Linking, ActivityIndicator, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -34,6 +34,8 @@ import { accountLabel, dateTime } from '../../features/autoLog/copy';
 import { useAutoLogStore } from '../../features/autoLog/store';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import type { RemoteAccount } from '../../features/autoLog/remote';
+import { PressableOpacity } from '../../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogSetup'>;
 type Step = 'dataLoss' | 'intro' | 'sms' | 'email' | 'battery' | 'discovery' | 'accounts' | 'review' | 'complete';
@@ -493,7 +495,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
                   const isPrev = previous.some((p) => keyOf(p) === a.key);
                   const isNew = mode === 'resetup' && !isPrev;
                   return (
-                    <Pressable
+                    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                       key={a.key}
                       onPress={() => toggle(a.key)}
                       style={[styles.accRow, idx < list.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}
@@ -510,7 +512,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
                       </View>
                       {isPrev ? <Text style={[styles.tag, { color: colors.mintGreenDark }]}>Previously tracked</Text> : null}
                       {isNew ? <Text style={[styles.tag, { color: colors.peachCoral }]}>New account found</Text> : null}
-                    </Pressable>
+                    </PressableOpacity>
                   );
                 })}
               </Card>

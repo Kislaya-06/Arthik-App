@@ -4,7 +4,6 @@ import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 export const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.gutter,
@@ -54,9 +53,9 @@ export const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.pill,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

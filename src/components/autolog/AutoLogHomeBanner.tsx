@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, StyleSheet, View } from 'react-native';
+import { Text, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import Inbox from 'lucide-react-native/icons/inbox';
 import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
@@ -9,6 +9,8 @@ import { useAutoLogStore } from '../../features/autoLog/store';
 import { navigateTo } from '../../navigation/navigationRef';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { Spacing, FontSize, FontFamily, BorderRadius, Motion } from '../../config/theme';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 /** Compact strip on Home. Renders nothing unless there is something to act on. */
 export const AutoLogHomeBanner: React.FC = () => {
@@ -27,7 +29,7 @@ export const AutoLogHomeBanner: React.FC = () => {
       exiting={reduceMotion ? undefined : FadeOut.duration(Motion.duration.snappy)}
       layout={reduceMotion ? undefined : LinearTransition.duration(Motion.duration.standard)}
     >
-      <Pressable
+      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
         onPress={() => navigateTo(isReview ? 'AutoLogReview' : 'AutoLogCenter')}
         style={[styles.wrap, { backgroundColor: isReview ? colors.peachSoft : colors.cardSubtle, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}
       >
@@ -44,7 +46,7 @@ export const AutoLogHomeBanner: React.FC = () => {
         </View>
         <Text style={[styles.cta, { color: isReview ? colors.peachCoral : colors.textSecondary }]}>{isReview ? 'Review' : 'Fix'}</Text>
         <ChevronRight size={16} color={colors.textSecondary} />
-      </Pressable>
+      </PressableOpacity>
     </Animated.View>
   );
 };

@@ -1,10 +1,9 @@
 import { StyleSheet, Platform } from 'react-native';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 export const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.gutter,
@@ -93,9 +92,9 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -144,7 +143,7 @@ export const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   fullWidthCancelBtn: {
-    height: 52,
+    height: ControlHeight.cta,
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
     alignItems: 'center',
@@ -169,7 +168,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.input,
     paddingHorizontal: Spacing.block,
-    height: 52,
+    height: ControlHeight.row,
     marginBottom: Spacing.element + 2,
   },
   modalCurrencySign: {
@@ -217,7 +216,7 @@ export const styles = StyleSheet.create({
     marginBottom: Spacing.group,
   },
   fullWidthSaveBtn: {
-    height: 52,
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
     flexDirection: 'row',
@@ -226,7 +225,7 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   fullWidthSaveText: {
-    fontSize: 16,
+    fontSize: FontSize.titleSmall,
     fontFamily: FontFamily.bold,
   },
   modalActionRow: {
@@ -235,7 +234,7 @@ export const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    height: 52,
+    height: ControlHeight.cta,
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
     alignItems: 'center',
@@ -243,11 +242,11 @@ export const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: FontSize.body,
-    fontFamily: FontFamily.semibold,
+    fontFamily: FontFamily.bold,
   },
   modalSaveBtn: {
     flex: 1.3,
-    height: 52,
+    height: ControlHeight.cta,
     borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',

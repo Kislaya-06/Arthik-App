@@ -176,10 +176,14 @@ export default function App() {
           const prevUserId = useAuthStore.getState().user?.id;
           if (prevUserId) await onBeforeSignOut(prevUserId);
           await setSession(null);
-          navigationRef.reset({
-            index: 0,
-            routes: [{ name: 'Auth' }],
-          });
+          // Before the navigator is mounted (session expired at cold start) there is nothing to reset:
+          // the splash routes a signed-out user to Auth itself. Calling reset() then only logs an error.
+          if (navigationRef.isReady()) {
+            navigationRef.reset({
+              index: 0,
+              routes: [{ name: 'Auth' }],
+            });
+          }
           return;
         }
 
@@ -198,7 +202,9 @@ export default function App() {
           if (session?.user?.id) {
             // Skip full hydration for INITIAL_SESSION during Splash — SplashScreen handles it.
             // This prevents duplicate competing Supabase requests on slow connections.
-            const currentRoute = navigationRef.getCurrentRoute()?.name;
+            // INITIAL_SESSION usually arrives before the navigator is mounted; asking for the route then
+            // logs "The 'navigation' object hasn't been initialized yet". Not ready = still on Splash.
+            const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : undefined;
             if (event === 'INITIAL_SESSION' && (!currentRoute || currentRoute === 'Splash')) {
               initAppLock(session.user.id);
               return;

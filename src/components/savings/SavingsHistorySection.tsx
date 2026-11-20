@@ -4,6 +4,7 @@ import { PressableOpacity } from '../ui/PressableOpacity';
 import Calendar from 'lucide-react-native/icons/calendar';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import { SegmentedControl } from '../ui/SegmentedControl';
+import { EmptyState } from '../ui/EmptyState';
 import { SavingsRecordRow } from '../SavingsRecordRow';
 import { ControlHeight } from '../../config/theme';
 import { styles } from '../../screens/SavingsScreen.styles';
@@ -60,15 +61,14 @@ export const SavingsHistorySection: React.FC<SavingsHistorySectionProps> = React
       {/* Past Records List */}
       {unifiedList.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Calendar size={36} color={colors.textSecondary} />
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            {activeFilter === 'Deposits' ? 'No Manual Deposits Yet' : 'No Past Savings History Yet'}
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            {activeFilter === 'Deposits'
+          <EmptyState
+            size="section"
+            icon={Calendar}
+            title={activeFilter === 'Deposits' ? 'No Manual Deposits Yet' : 'No Past Savings History Yet'}
+            subtitle={activeFilter === 'Deposits'
               ? 'Tap "Deposit to Gullak" above to add extra savings or cash directly into your jar.'
               : `At the end of each ${budgetCadence === 'weekly' ? 'week' : budgetCadence === 'monthly' ? 'month' : 'day'}, any unspent balance from your budget will automatically roll into your Savings Gullak and appear right here!`}
-          </Text>
+          />
         </View>
       ) : (
         <>

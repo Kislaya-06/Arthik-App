@@ -31,7 +31,7 @@ Every Markdown documentation file in this repository is cataloged below with its
 | [`notifications.md`](notifications.md) | **Notification Policy & Schedule Matrix** — max 1/day rule, evening nudge, Gullak reward, recaps, channels. | Notification Policy |
 | [`prd.md`](prd.md) | **Product Requirements Document (PRD)** — Indian cash+UPI problem statement, user personas, habit loops. | Product Baseline |
 | [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) | **Release Engineering SOP** — 4-phase APK build, OTA updates, asset naming, Supabase force-update flags. | Release SOP |
-| [`CODEBASE_GUIDE.md`](CODEBASE_GUIDE.md) | **Codebase Walkthrough & File Map** — 204 files, architectural layers, core money mechanics, where to change what. | Codebase Walkthrough |
+| [`CODEBASE_GUIDE.md`](CODEBASE_GUIDE.md) | **Codebase Walkthrough & File Map** — ~309 source files, architectural layers, core money mechanics, where to change what. | Codebase Walkthrough |
 
 ---
 
@@ -70,13 +70,14 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0018](adr/0018-settle-review-choose-then-confirm.md) | Payback Review: Choose the Person, Then Confirm | Active |
 | [0019](adr/0019-income-categories.md) | Income Categories and Required Category on Review | Active |
 | [0020](adr/0020-transform-only-pills-and-commit-after-landing.md) | Transform-Only Pills, Commit After Landing, and the Touch Fence | Active |
+| [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Heights, Scrim | Active |
 
 ---
 
 ## 3. How to Add a New ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0020` (i.e. `0021`).
+2. Next available number after `0021` (i.e. `0022`).
 3. Standard sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the new ADR supersedes an older one, mark `## Status: Superseded by NNNN` in the old ADR.
 5. Register the new ADR in the table above and in `docs/architecture.md §13`.

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   Animated,
   useAnimatedValue,
 } from 'react-native';
@@ -19,6 +18,8 @@ import {
 import { formatCurrency } from '../lib/formatters';
 import { YearlyCashFlowMonth } from '../lib/yearlyInsightsUtils';
 import { getCashFlowChartColors } from '../lib/chartUtils';
+import { PressableOpacity } from './ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 export interface YearlyCashFlowChartProps {
   title?: string;
@@ -178,7 +179,7 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
             });
 
             return (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 key={m.label}
                 style={[styles.monthCol, { opacity: colOpacity }]}
                 disabled={isFuture || (!onMonthPress && true)}
@@ -251,7 +252,7 @@ export const YearlyCashFlowChart: React.FC<YearlyCashFlowChartProps> = ({
                     <View style={[styles.currentMonthDot, { backgroundColor: inColor }]} />
                   )}
                 </View>
-              </Pressable>
+              </PressableOpacity>
             );
           })}
         </View>

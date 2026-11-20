@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Fix: Light Theme Amounts and Home Links Were Too Faint (ADR 0021 amendment 3, owner-approved) — OTA-safe, Dark / AMOLED unchanged**:
+  - **Problem**: on Light, expense amounts were coral on white (1.7:1), income amounts light green (2.2:1) and Home's "Swipe up or tap" mint on off-white (1.37:1). Readable text needs 4.5:1.
+  - **Fix**: new theme tokens `mintText` / `coralText` (Light `#2E7A53` / `#B9473A`, >= 4.8:1; Dark and AMOLED keep the exact brand mint / coral). Used by every amount through `AmountText` (Home, History, Category Detail, Savings, Gullak detail), Home's history link and network status, History's income-only day total and the Ledger amounts.
+  - **Tests**: 3 new checks in `uiConsistency` (Light contrast, Dark / AMOLED unchanged, usage). 190 files, 2,652 tests passing; `tsc --noEmit` clean. Checked on the emulator in Light and AMOLED.
+
+- **Performance & Code Health: Less Work After Every Save, Smaller Files (OPT-74..78) — OTA-safe, no logic, money or animation change**:
+  - **Hidden popups stop working in the background**: Budget Edit and Gullak Deposit stay mounted on the Savings tab while closed and re-ran full-history calculations on every expense change. They now keep their last values while closed (`useStoreWhileVisible`) and read fresh data the moment they open.
+  - **One money waterfall instead of five**: one save ran the full money waterfall about five times (Home ×2, Savings, Gullak popup, store sync); measured 2 ms at 3,000 and 5 ms at 10,000 expenses on a desktop, several times more on a phone. Same inputs now reuse the last result (pure function, immutable store data). WAT-001 numbers are identical (13 new tests compare cached vs uncached).
+  - **History swipe**: swiping one row re-rendered every visible row (a new callback per row defeated `React.memo`); now only the rows that change re-render.
+  - **Expense cache**: the whole confirmed list is no longer stringified again when it is the same list that was just written.
+  - **Code health**: oversized files split into focused modules, code moved verbatim, old import paths kept: `dailyBudgetStore` 1,061 → ~380, `expenseStore` 1,006 → ~370, `planActions` 977 → ~250, `hydrate` 726 → ~340, `budgetPeriods` 1,162 and `chartUtils` 1,116 → facades over `lib/periods/` and `lib/charts/`, big screens' styles and rows into `.styles.ts` and screen folders. The Cadence Switch, Period Renewal and Vault sheets share one enter / exit motion (`sheetTransition.ts`, same numbers per sheet).
+  - **Not done here (needs a new APK)**: remove the unused native date picker library, enable Android R8 / resource shrinking.
+  - **Tests**: new `waterfallCache` (13), `whileVisibleSelector` (5), `expenseCacheSourceMemo` (6); source-reading tests follow moved code via `tests/helpers/readSplitSource.ts`. Latest run: 190 files, 2,649 tests passing; `tsc --noEmit` clean. Smoke-tested on the emulator (Home, History swipe, Savings, Budget Edit, Deposit, Cadence Switch, Add Transaction, Insights).
+
+- **Fix: "navigation object hasn't been initialized" Console Error at Start-Up (`App.tsx`) — OTA-safe, no behaviour change**:
+  - **Bug**: the auth listener asked the navigator for the current route on `INITIAL_SESSION` (and reset to Auth on `SIGNED_OUT`) before the navigator was mounted, which printed a red Console Error on the dev build and did nothing.
+  - **Fix**: both calls now check `navigationRef.isReady()` first. Same decisions as before: not ready means the splash is still in charge (it hydrates the signed-in user, or routes a signed-out user to Auth).
+  - **Tests**: new `navigationReadyGuard` (3), including a check that no `navigationRef` call in `App.tsx` is unguarded.
+
+- **One Empty State & One Label Spacing (ADR 0021 amendment 2) — OTA-safe, no logic or animation change**:
+  - **Empty states**: empty pages looked four different ways (grey circle + link, bare icon, text only, text + button). Now one `EmptyState` everywhere: soft mint gradient badge, bold title, one short line, optional small button. Full-page size on History, Notifications, Ledger and Auto Logging Review; in-section size on FAQ search, Savings history, Category Detail and Insights. History and Notifications keep their exact fade-in. New titles: "No transactions yet" (Category Detail), "Nothing to show yet" (Insights).
+  - **Labels**: small CAPITAL labels ("TOTAL SPENT", "CATEGORY", form labels) had five different letter spacings; all 25 now share `LetterSpacing.label` (0.8). Badges and chart labels unchanged.
+  - **Tests**: `uiConsistency` (8 empty-state users, EmptyState anatomy, every uppercase caption label on the token, doc = token); `opt30HistoryFlashList` and `uiPrimitiveParity` updated for the shared constant / approved token. Latest run: 186 files, 2,622 tests passing; `tsc --noEmit` clean.
+
+- **Centred Page Titles & One Screen Header (ADR 0021 amendment) — OTA-safe, no logic or animation change**:
+  - **Titles**: page titles were centred on 4 pages and left-aligned on 11+, and sat at different heights. Every pushed page now uses one `ScreenHeader`: 48dp bar, back arrow left, actions right, 20px title exactly centred (Apple / Material 3 center-aligned bar), same height and the same gap to the content everywhere. Long titles shrink slightly instead of being cut.
+  - **TalkBack**: page titles (pushed pages and the History, Insights, Savings tabs) are now announced as headings.
+  - **Fix**: 15 tappable items (popup close / back buttons, chips, "See more", cancel-scheduled-change) dimmed to 20% on press and almost disappeared; now 70% like the rest. The period-renewal close / back buttons are 36dp like every close button. The force-update screen now sets a themed status bar.
+  - **Tests**: `uiConsistency` (titled pages use `ScreenHeader`, centred symmetric title, heading role, no 0.2 default dim), `ux01IconButtonLabels` accepts `ScreenHeader`, hex ceiling 491 → 484. Latest run: 186 files, 2,609 tests passing; `tsc --noEmit` clean.
+
+- **UI Consistency Pass: One Back Button, Tap Feedback Everywhere, Two Button Heights, One Scrim (ADR 0021) — OTA-safe, no logic change**:
+  - **Back button**: four different styles (24px, 28px bold, 26px, 20px in a circle) became one `HeaderBackButton` (24px arrow, 44dp touch area, dims on press). Pushed pages use a 20px title; Profile, FAQ and Automatic Logging no longer use the 28px tab title.
+  - **Tap feedback**: about 90 tappable items gave no response when pressed (Home header icons, Profile rows, dialog buttons, date chips, split pills, FAQ cards...). Rows, icons and chips now dim to 0.7 while pressed (`PRESS_DIM_OPACITY`); the update popup, Edit Profile, date picker, Delete Account Cancel, Log Out and Delete Account are now `AppButton`s with the same press spring as every other button.
+  - **Button heights**: popups used 48 / 52 / 56 / 60. Now centered dialogs are 48 and bottom sheets / page CTAs are 60 (Budget edit, Cadence switch, Gullak deposit footers; Gullak amount field 56). Vault guard "cancel" 36 → 48, Savings deposit button 46 → 48, Review sheet secondary actions 38 → 44 (touch targets). Single 60px CTA labels are 18px everywhere (Add Transaction, Add Category, Sign in, Reset password, Profile setup).
+  - **Fix (accessibility)**: the red Delete buttons (expense detail, Gullak deposit detail) had white text on the soft dark-theme red (2.77:1). `AppButton variant="danger"` now uses the alert dialog's readable red in every theme. Log Out's coral-on-peach text (about 1.6:1 in Light) is now a neutral button.
+  - **Scrim and close buttons**: every popup dims the screen the same amount per theme (`useScrimColor()`), and every close (X) button is a 36dp circle with an 18px icon and a 44dp+ touch area.
+  - **Docs**: `docs/design-system.md` token tables did not match `theme.ts` (wrong font sizes, radius names and colours); rewritten from the code, with the new rules. New ADR 0021; `AGENTS.md`, `docs/architecture.md`, `docs/README.md`, `docs/CODEBASE_GUIDE.md` updated.
+  - **Tests**: new `tests/uiConsistency.test.ts` (40 checks, including "design doc = tokens"); `ux01IconButtonLabels`, `opt41to46Polish`, `reviewSheetLayout` updated for the approved new values. Latest run: 186 files, 2,595 tests passing; `tsc --noEmit` clean.
+
 - **Offline-First Start-Up: the Splash Opens From the Phone (`src/lib/startupLoad.ts`, `SplashScreen.tsx`, `authStore.ts`, `networkStore.ts`, OPT-71, Rule `OFL-001`) — OTA-safe**:
   - **Problem**: the splash waited for the NETWORK: the connectivity check (up to 1.5 s), the profile request inside `setSession` (up to 3 s) and then categories, the whole expense download and budget hydration (up to 5 s). On a slow connection the user stared at the splash for seconds and felt the app was "loading", although every screen can be drawn from the data saved on the phone.
   - **Fix**: the app now opens as soon as the saved data is loaded (pending queue, categories, expenses, app lock); the server refresh runs in the background and never holds the splash. With a saved profile `setSession` returns at once and refreshes the profile quietly (a late answer is ignored after sign-out). `hydrateFromSupabase` is single-flight per user (the splash, Home and the sign-in listener no longer start duplicate runs). A phone with nothing saved yet (first run) keeps a short wait, at most 5 seconds.
@@ -1063,7 +1102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comprehensive Unit Test Suite (`tests/multiCadenceInsightsSavings.test.ts`)**:
   - Added 9 unit tests verifying HEA-002 parity, mid-week cadence switching, Option 2 percentages and thresholds, cross-month weekly period attribution, and monthly period aggregations.
 
-### Financial Correctness — Multi-Day Inactivity Scheduled Plan Catchup (FIN-02, `rollover.ts`, Rules `CAD-001` & `ROL-001`) — OTA-safe
+### Financial Correctness — Multi-Day Inactivity Scheduled Plan Catchup (FIN-02, `rollover.ts`, Rules `BPR-002` & `ROL-001`) — OTA-safe
 
 - **Resolved Inactivity Gap Plan Drop (`rollover.ts`, `applyScheduledPlanChanges`)**:
   - Replaced tight `c.effectiveFrom === todayStr || c.effectiveFrom === yesterdayStr` lookup with canonical `resolvePlanForDate(planChanges, todayStr)`.

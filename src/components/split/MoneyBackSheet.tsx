@@ -1,6 +1,6 @@
 import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import Check from 'lucide-react-native/icons/check';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
@@ -8,7 +8,7 @@ import { AppButton } from '../ui/AppButton';
 import { useTheme } from '../../store/themeStore';
 import { useExpenseStore } from '../../store/expenseStore';
 import { convertIncomeToMoneyBack } from '../../store/expense/moneyBack';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LetterSpacing } from '../../config/theme';
 import { formatCurrency, formatDate } from '../../lib/formatters';
 import {
   buildPeopleLedger,
@@ -20,6 +20,8 @@ import {
   MAX_PERSON_NAME,
   splitAllocationsOf,
 } from '../../lib/splitLedger';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 export interface MoneyBackSheetProps {
   visible: boolean;
@@ -132,9 +134,9 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
 
         <View style={styles.pills}>
           {([['settlement', 'Friend paid back'], ['refund', 'Refund']] as const).map(([k, label]) => (
-            <Pressable key={k} onPress={() => setKind(k)} style={chip(kind === k)} accessibilityRole="button" accessibilityState={{ selected: kind === k }}>
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} key={k} onPress={() => setKind(k)} style={chip(kind === k)} accessibilityRole="button" accessibilityState={{ selected: kind === k }}>
               <Text style={[styles.pillText, { color: kind === k ? colors.forestGreen : colors.textSecondary, fontFamily: kind === k ? FontFamily.bold : FontFamily.medium }]}>{label}</Text>
-            </Pressable>
+            </PressableOpacity>
           ))}
         </View>
 
@@ -146,11 +148,11 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
               <Text style={[styles.title, { color: colors.textPrimary }]}>Who paid you back?</Text>
               <View style={styles.pills}>
                 {people.map((p) => (
-                  <Pressable key={p.key} onPress={() => { setPersonKeyPicked(p.key); setUnticked([]); }} style={chip(p.key === personKeyPicked)} accessibilityRole="button">
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} key={p.key} onPress={() => { setPersonKeyPicked(p.key); setUnticked([]); }} style={chip(p.key === personKeyPicked)} accessibilityRole="button">
                     <Text style={[styles.pillText, { color: p.key === personKeyPicked ? colors.forestGreen : colors.textPrimary, fontFamily: FontFamily.semibold }]}>
                       {p.name} · owes {formatCurrency(p.owed)}
                     </Text>
-                  </Pressable>
+                  </PressableOpacity>
                 ))}
               </View>
               {person ? (
@@ -159,7 +161,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                   {person.openSplits.map((s) => {
                     const on = !unticked.includes(s.expenseId);
                     return (
-                      <Pressable
+                      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                         key={s.expenseId}
                         onPress={() => setUnticked((u) => (on ? [...u, s.expenseId] : u.filter((x) => x !== s.expenseId)))}
                         style={[styles.optionRow, { borderColor: on ? colors.mintGreenDark : colors.borderSubtle }]}
@@ -174,7 +176,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                           <Text style={[styles.sub, { color: colors.textSecondary }]}>{formatDate(s.date)}</Text>
                         </View>
                         <Text style={[styles.title, { color: colors.textPrimary }]}>{formatCurrency(s.outstanding)}</Text>
-                      </Pressable>
+                      </PressableOpacity>
                     );
                   })}
                 </>
@@ -197,7 +199,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
             {candidates.slice(0, 8).map((c) => {
               const active = refundExpenseId === c.id;
               return (
-                <Pressable
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   key={c.id}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
@@ -213,7 +215,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                     <Text style={[styles.sub, { color: colors.textSecondary }]}>{formatDate(c.date)}{c.remaining === amount ? ' · same amount' : ''}</Text>
                   </View>
                   <Text style={[styles.title, { color: colors.textPrimary }]}>{formatCurrency(c.remaining)}</Text>
-                </Pressable>
+                </PressableOpacity>
               );
             })}
 
@@ -223,7 +225,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                   Who is this refund for?
                 </Text>
                 <View style={styles.pills}>
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     onPress={() => {
                       Haptics.selectionAsync().catch(() => {});
                       setRefundTarget('everyone');
@@ -243,9 +245,9 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                     >
                       Split among everyone
                     </Text>
-                  </Pressable>
+                  </PressableOpacity>
 
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     onPress={() => {
                       Haptics.selectionAsync().catch(() => {});
                       setRefundTarget('user');
@@ -265,12 +267,12 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                     >
                       Just for me
                     </Text>
-                  </Pressable>
+                  </PressableOpacity>
 
                   {splitAllocs.map((a) => {
                     const isTarget = refundTarget.toLowerCase() === a.person.toLowerCase();
                     return (
-                      <Pressable
+                      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                         key={a.person}
                         onPress={() => {
                           Haptics.selectionAsync().catch(() => {});
@@ -291,7 +293,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                         >
                           {a.person}
                         </Text>
-                      </Pressable>
+                      </PressableOpacity>
                     );
                   })}
                 </View>
@@ -368,7 +370,7 @@ const styles = StyleSheet.create({
   breakdownHeader: {
     fontSize: FontSize.micro,
     fontFamily: FontFamily.bold,
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
     marginBottom: Spacing.micro,
   },
   breakdownItem: {

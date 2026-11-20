@@ -1,13 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  LayoutChangeEvent,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, LayoutChangeEvent, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import type { FlashListRef } from '@shopify/flash-list';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
@@ -32,18 +24,16 @@ import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import X from 'lucide-react-native/icons/x';
 import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
 import { format } from 'date-fns/format';
-import { isToday } from 'date-fns/isToday';
-import { isYesterday } from 'date-fns/isYesterday';
 import { parseISO } from 'date-fns/parseISO';
 import { isAfter } from 'date-fns/isAfter';
 import { addDays } from 'date-fns/addDays';
 import * as Haptics from 'expo-haptics';
 import { TabParamList, RootStackParamList } from '../types';
 import { formatCurrency } from '../lib/formatters';
-import { isIncomeTransaction, isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
+import { isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { ThemeColors, Spacing, BorderRadius, FontSize, FontFamily, LineHeight, Motion } from '../config/theme';
+import { Spacing, FontFamily, Motion } from '../config/theme';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -63,210 +53,15 @@ type Props = CompositeScreenProps<
 export type { HistoryItem } from '../lib/historyRows';
 type Section = HistorySection;
 
-/** Must match `emptyContainer.marginTop` in the styles below. */
-const EMPTY_STATE_TOP_MARGIN = 64;
-
-const historyKeyExtractor = (row: HistoryRow): string => row.key;
-/** Header rows and the two item kinds are recycled separately (they look different). */
-const historyItemType = (row: HistoryRow): string => row.type;
-
-
-import { TransactionRow } from '../components/TransactionRow';
 import { buildHistoryRows, buildHeaderRowIndexes } from '../lib/historyRows';
 import type { HistoryItem, HistoryRow, HistorySection } from '../lib/historyRows';
-import { GullakDepositRow } from '../components/GullakDepositRow';
-import { SwipeableHistoryRow } from '../components/SwipeableHistoryRow';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { styles, SEARCH_CONTAINER_HEIGHT, EMPTY_STATE_TOP_MARGIN } from './HistoryScreen.styles';
+import { TransactionRowItem, GullakRowItem } from './history/HistoryRows';
+import { EmptyStateView } from './history/HistoryEmptyState';
+import { getDateHeaderTitle, historyKeyExtractor, historyItemType } from './history/historyHelpers';
 
-interface TransactionRowItemProps {
-  item: Expense;
-  category?: Category;
-  onPress: (id: string) => void;
-  onDelete: (expense: Expense) => void;
-  colors: ThemeColors;
-  isOpen: boolean;
-  onSwipeOpen: () => void;
-  onSwipeClose: () => void;
-}
-
-const TransactionRowItem = React.memo<TransactionRowItemProps>(({
-  item,
-  category,
-  onPress,
-  onDelete,
-  colors,
-  isOpen,
-  onSwipeOpen,
-  onSwipeClose,
-}) => {
-  const isIncome = isIncomeTransaction(item, category);
-  const handlePress = useCallback(() => {
-    onPress(item.id);
-  }, [onPress, item.id]);
-
-  const handleDelete = useCallback(() => {
-    onDelete(item);
-  }, [onDelete, item]);
-
-  return (
-    <SwipeableHistoryRow
-      onDelete={handleDelete}
-      colors={colors}
-      isDark={colors.isDark}
-      isOpen={isOpen}
-      onSwipeOpen={onSwipeOpen}
-      onSwipeClose={onSwipeClose}
-    >
-      <TransactionRow
-        expense={item}
-        category={category}
-        isIncome={isIncome}
-        colors={colors}
-        isDark={colors.isDark}
-        onPress={handlePress}
-      />
-    </SwipeableHistoryRow>
-  );
-});
-
-interface GullakRowItemProps {
-  item: GullakDeposit;
-  onPress: (id: string) => void;
-  onDelete: (deposit: GullakDeposit) => void;
-  colors: ThemeColors;
-  isOpen: boolean;
-  onSwipeOpen: () => void;
-  onSwipeClose: () => void;
-}
-
-const GullakRowItem = React.memo<GullakRowItemProps>(({
-  item,
-  onPress,
-  onDelete,
-  colors,
-  isOpen,
-  onSwipeOpen,
-  onSwipeClose,
-}) => {
-  const handlePress = useCallback(() => {
-    onPress(item.id);
-  }, [onPress, item.id]);
-
-  const handleDelete = useCallback(() => {
-    onDelete(item);
-  }, [onDelete, item]);
-
-  return (
-    <SwipeableHistoryRow
-      onDelete={handleDelete}
-      deleteLabel="Withdraw"
-      colors={colors}
-      isDark={colors.isDark}
-      isOpen={isOpen}
-      onSwipeOpen={onSwipeOpen}
-      onSwipeClose={onSwipeClose}
-    >
-      <Pressable
-        onPress={handlePress}
-        android_ripple={{ color: colors.cardSubtle, borderless: false }}
-      >
-        <GullakDepositRow
-          deposit={item}
-          colors={colors}
-          isDark={colors.isDark}
-        />
-      </Pressable>
-    </SwipeableHistoryRow>
-  );
-});
-
-const dateHeaderCache = new Map<string, { day: string; title: string }>();
-
-function getDateHeaderTitle(dateStr: string, todayKey: string): string {
-  const cached = dateHeaderCache.get(dateStr);
-  if (cached && cached.day === todayKey) return cached.title;
-  const dateObj = parseISO(dateStr);
-  const dayName = format(dateObj, 'EEEE');
-  const dateFormatted = format(dateObj, 'd MMM');
-  let title = `${dayName}, ${dateFormatted}`.toUpperCase();
-  if (isToday(dateObj)) {
-    title = `TODAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
-  } else if (isYesterday(dateObj)) {
-    title = `YESTERDAY · ${dayName.toUpperCase()}, ${dateFormatted.toUpperCase()}`;
-  }
-  dateHeaderCache.set(dateStr, { day: todayKey, title });
-  return title;
-}
-
-const SEARCH_CONTAINER_HEIGHT = 48;
 const SEARCH_SECTION_HEIGHT = Spacing.block + SEARCH_CONTAINER_HEIGHT + (Spacing.element * 2);
-
-interface EmptyStateViewProps {
-  IconComponent: React.ComponentType<{ size: number; color: string }>;
-  title: string;
-  subtitle: string;
-  style: any;
-  isReady: boolean;
-  colors: ThemeColors;
-  reduceMotion: boolean;
-  actionButton?: {
-    label: string;
-    onPress: () => void;
-  };
-}
-
-const EmptyStateView: React.FC<EmptyStateViewProps> = React.memo(({
-  IconComponent,
-  title,
-  subtitle,
-  style,
-  isReady,
-  colors,
-  reduceMotion,
-  actionButton,
-}) => {
-  const anim = useSharedValue(0);
-
-  useEffect(() => {
-    if (reduceMotion) {
-      anim.value = 1;
-      return;
-    }
-    anim.value = 0;
-    anim.value = withTiming(1, {
-      duration: Motion.duration.snappy,
-      easing: REasing.bezier(0.23, 1, 0.32, 1),
-    });
-  }, [title, reduceMotion, anim]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: isReady ? anim.value : 0,
-      transform: [{ scale: interpolate(anim.value, [0, 1], [0.96, 1]) }],
-    };
-  });
-
-  return (
-    <Animated.View style={[styles.emptyContainer, style, animatedStyle]}>
-      <View style={[styles.iconCircle, { backgroundColor: colors.cardSubtle }]}>
-        <IconComponent size={32} color={colors.textSecondary} />
-      </View>
-      <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>{title}</Text>
-      <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>{subtitle}</Text>
-      {actionButton && (
-        <PressableOpacity
-          onPress={actionButton.onPress}
-          style={[styles.emptyActionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-          accessibilityRole="button"
-          accessibilityLabel={actionButton.label}
-        >
-          <Text style={[styles.emptyActionText, { color: colors.mintGreen, fontFamily: FontFamily.semibold }]}>
-            {actionButton.label}
-          </Text>
-        </PressableOpacity>
-      )}
-    </Animated.View>
-  );
-});
 
 export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const expenses = useExpenseStore((s) => s.expenses);
@@ -790,7 +585,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
             styles.sectionTotal,
             {
               color: isIncomeOnly
-                ? (isDark ? colors.mintGreen : colors.mintGreenDark)
+                ? colors.mintText
                 : colors.textMuted,
               fontFamily: FontFamily.bold,
             },
@@ -866,8 +661,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
           onDelete={handleDeleteGullak}
           colors={colors}
           isOpen={activeSwipeId === depositId}
-          onSwipeOpen={() => handleSwipeOpen(depositId)}
-          onSwipeClose={() => handleSwipeClose(depositId)}
+          onSwipeOpen={handleSwipeOpen}
+          onSwipeClose={handleSwipeClose}
         />
       );
     }
@@ -880,8 +675,8 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         onDelete={handleDeleteExpense}
         colors={colors}
         isOpen={activeSwipeId === expenseId}
-        onSwipeOpen={() => handleSwipeOpen(expenseId)}
-        onSwipeClose={() => handleSwipeClose(expenseId)}
+        onSwipeOpen={handleSwipeOpen}
+        onSwipeClose={handleSwipeClose}
       />
     );
   }, [
@@ -948,7 +743,6 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         subtitle={subtitle}
         style={{ minHeight: Math.max(0, listHeight - navBarInset - EMPTY_STATE_TOP_MARGIN) }}
         isReady={listHeight > 0}
-        colors={colors}
         reduceMotion={reduceMotion}
         actionButton={actionButton}
       />
@@ -963,10 +757,10 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Header Row */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+          <Text accessibilityRole="header" style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             History
           </Text>
-          <Pressable
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
             style={[styles.searchButton, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => setIsSearchVisible(!isSearchVisible)}
             accessible
@@ -974,7 +768,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
             accessibilityLabel={isSearchVisible ? 'Close search' : 'Open search'}
           >
             <Search size={20} color={colors.textPrimary} />
-          </Pressable>
+          </PressableOpacity>
         </View>
 
         {/* Search Bar Accordion */}
@@ -996,7 +790,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
                   autoCapitalize="none"
                 />
                 {searchQuery.length > 0 && (
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     onPress={() => setSearchQuery('')}
                     accessibilityRole="button"
                     accessibilityLabel="Clear search text"
@@ -1004,7 +798,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
                     style={styles.searchClearBtn}
                   >
                     <X size={16} color={colors.textSecondary} />
-                  </Pressable>
+                  </PressableOpacity>
                 )}
               </View>
             </Animated.View>
@@ -1054,143 +848,3 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: Spacing.gutter,
-  },
-  listArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Spacing.block,
-    marginBottom: Spacing.block,
-  },
-  headerTitle: {
-    fontSize: FontSize.titleLarge,
-    lineHeight: LineHeight.titleLarge,
-  },
-  searchButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  filterWrapper: {
-    marginTop: 0,
-    marginBottom: Spacing.element,
-  },
-  searchInnerWrapper: {
-    paddingTop: Spacing.block,
-    paddingBottom: Spacing.block,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    height: SEARCH_CONTAINER_HEIGHT,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: Spacing.element,
-    fontSize: FontSize.body,
-    padding: 0,
-  },
-
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing.block,
-    marginBottom: Spacing.element,
-  },
-  sectionTitle: {
-    fontSize: FontSize.caption,
-    letterSpacing: 1,
-    flex: 1,
-    marginRight: Spacing.element,
-  },
-  sectionTotal: {
-    fontSize: FontSize.caption,
-    flexShrink: 0,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.section,
-    marginTop: EMPTY_STATE_TOP_MARGIN,
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.gutter,
-  },
-  emptyTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    fontFamily: FontFamily.bold,
-    marginBottom: Spacing.element,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    fontFamily: FontFamily.medium,
-    textAlign: 'center',
-  },
-  emptyActionButton: {
-    marginTop: Spacing.block,
-    paddingVertical: Spacing.element,
-    paddingHorizontal: Spacing.surface,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyActionText: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-  },
-  searchClearBtn: {
-    padding: Spacing.micro,
-    marginLeft: Spacing.micro,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  seeMoreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    gap: Spacing.element,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.surface,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    marginTop: Spacing.block,
-    marginBottom: Spacing.element,
-  },
-  seeMoreText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.bold,
-  },
-});

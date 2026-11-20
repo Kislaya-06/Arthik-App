@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import Users from 'lucide-react-native/icons/users';
 import Plus from 'lucide-react-native/icons/plus';
 import X from 'lucide-react-native/icons/x';
@@ -10,6 +10,8 @@ import { formatCurrency } from '../../lib/formatters';
 import { MAX_PERSON_NAME, personKey } from '../../lib/splitLedger';
 import { AnimatedToggle } from '../AnimatedToggle';
 import type { SplitFormState } from '../../hooks/useExpenseForm';
+import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 export interface SplitExtrasProps {
   split: SplitFormState;
@@ -36,7 +38,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
   return (
     <View style={styles.container}>
       {/* ── Capsule Pill Trigger ── */}
-      <Pressable
+      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
         onPress={() => {
           if (!split.on) onFieldFocus?.();
           split.setOn(!split.on);
@@ -68,7 +70,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
           width={50}
           height={26}
         />
-      </Pressable>
+      </PressableOpacity>
 
       {/* ── Expanded Split Card ── */}
       {split.on && (
@@ -78,7 +80,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
             <Text style={[styles.headerTitle, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
               WHO SHARES THIS?
             </Text>
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               onPress={split.splitEqually}
               hitSlop={8}
               style={[styles.equalBtn, { backgroundColor: colors.inputBg, borderColor: colors.borderSubtle }]}
@@ -88,7 +90,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
               <Text style={[styles.equalBtnText, { color: activeColor, fontFamily: FontFamily.bold }]}>
                 Split equally
               </Text>
-            </Pressable>
+            </PressableOpacity>
           </View>
 
           {/* Members List */}
@@ -132,7 +134,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
 
                 {/* Remove button */}
                 {split.members.length > 1 && (
-                  <Pressable
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     onPress={() => split.removeMember(index)}
                     hitSlop={8}
                     style={styles.removeBtn}
@@ -140,7 +142,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
                     accessibilityLabel={`Remove person ${index + 1}`}
                   >
                     <X size={16} color={colors.textMuted} />
-                  </Pressable>
+                  </PressableOpacity>
                 )}
               </View>
             ))}
@@ -148,7 +150,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
 
           {/* Bottom Actions: + Add Person & Quick Suggestions */}
           <View style={styles.actionsRow}>
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               onPress={() => {
                 split.addMember();
                 const nextIndex = split.members.length;
@@ -165,10 +167,10 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
               <Text style={[styles.addPersonText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
                 Add Person
               </Text>
-            </Pressable>
+            </PressableOpacity>
 
             {suggestions.map((name) => (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 key={name}
                 onPress={() => {
                   split.addMember(name);
@@ -185,7 +187,7 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
                 <Text style={[styles.suggestionText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                   + {name}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
             ))}
           </View>
 

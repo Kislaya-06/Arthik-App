@@ -1,14 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Animated,
-  useAnimatedValue,
-  AppState,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, AppState, useWindowDimensions } from 'react-native';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { StatusBar } from 'expo-status-bar';
 import { AmbientBackground } from '../components/AmbientBackground';
@@ -23,7 +14,6 @@ import WifiOff from 'lucide-react-native/icons/wifi-off';
 import RefreshCw from 'lucide-react-native/icons/refresh-cw';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { hasUnsettledSplitExpenses } from '../lib/splitLedger';
-import { TransactionRow } from '../components/TransactionRow';
 import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { AutoLogHomeBanner } from '../components/autolog/AutoLogHomeBanner';
 import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
@@ -53,9 +43,9 @@ import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
 import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
 import { isDateInPeriod, FilterPeriod } from '../lib/dateFilters';
 import { useAuthStore } from '../store/authStore';
-import { useExpenseStore, Expense } from '../store/expenseStore';
+import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
-import { useDailyBudgetStore, GullakDeposit } from '../store/dailyBudgetStore';
+import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useNetworkStore } from '../store/networkStore';
 import { useNavBarStore } from '../store/navBarStore';
@@ -67,106 +57,17 @@ import { buildLedgerEntries, spendingTotalsByDateKey } from '../money/ledger';
 import { isIncomeTransaction } from '../lib/transactionUtils';
 import { getDisplayName } from '../lib/profileUtils';
 import { useTheme } from '../store/themeStore';
-import { GullakDepositRow } from '../components/GullakDepositRow';
 import { BouncyFilterToggle } from '../components/BouncyFilterToggle';
-import { Spacing, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { FontFamily } from '../config/theme';
 import { perfMark, perfSummary } from '../lib/perfMarks';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { styles } from './HomeScreen.styles';
+import { HomeTransactionItem, HomeGullakItem } from './home/HomeRecentItems';
 
 type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Home'>,
   NativeStackScreenProps<RootStackParamList>
 >;
-
-// ─── Staggered Transaction Row ───────────────────────────────────────────────
-const StaggerRow: React.FC<{ index: number; children: React.ReactNode }> = ({ index, children }) => {
-  const anim = useAnimatedValue(0);
-
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 220,
-      delay: Math.min(index * 35, 140),
-      useNativeDriver: true,
-    }).start();
-  }, [anim, index]);
-
-  return (
-    <Animated.View
-      style={{
-        opacity: anim,
-        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
-};
-
-interface HomeTransactionItemProps {
-  expense: Expense;
-  category: Category | undefined;
-  isIncome: boolean;
-  colors: ReturnType<typeof useTheme>['colors'];
-  isDark: boolean;
-  onPress: (id: string) => void;
-  index: number;
-}
-
-const HomeTransactionItem = React.memo<HomeTransactionItemProps>(({
-  expense,
-  category,
-  isIncome,
-  colors,
-  isDark,
-  onPress,
-  index,
-}) => {
-  const handlePress = useCallback(() => onPress(expense.id), [onPress, expense.id]);
-  return (
-    <StaggerRow index={index}>
-      <TransactionRow
-        expense={expense}
-        category={category}
-        isIncome={isIncome}
-        colors={colors}
-        isDark={isDark}
-        onPress={handlePress}
-      />
-    </StaggerRow>
-  );
-});
-
-interface HomeGullakItemProps {
-  deposit: GullakDeposit;
-  colors: ReturnType<typeof useTheme>['colors'];
-  isDark: boolean;
-  onPress: (id: string) => void;
-  index: number;
-}
-
-const HomeGullakItem = React.memo<HomeGullakItemProps>(({
-  deposit,
-  colors,
-  isDark,
-  onPress,
-  index,
-}) => {
-  const handlePress = useCallback(() => onPress(deposit.id), [onPress, deposit.id]);
-  return (
-    <StaggerRow index={index}>
-      <PressableOpacity
-        activeOpacity={0.75}
-        onPress={handlePress}
-      >
-        <GullakDepositRow
-          deposit={deposit}
-          colors={colors}
-          isDark={isDark}
-        />
-      </PressableOpacity>
-    </StaggerRow>
-  );
-});
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 /** App must have been away this long before Home quietly refreshes on resume. */
@@ -738,7 +639,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleNavigateLedger}
               accessibilityRole="button"
@@ -746,8 +647,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             >
               <Users size={20} color={colors.textPrimary} />
               {hasUnsettledSplits && <View style={styles.badgeDot} />}
-            </Pressable>
-            <Pressable
+            </PressableOpacity>
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleNavigateNotifications}
               accessibilityRole="button"
@@ -755,15 +656,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             >
               <Bell size={20} color={colors.textPrimary} />
               {unreadCount > 0 && <View style={styles.badgeDot} />}
-            </Pressable>
-            <Pressable
+            </PressableOpacity>
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               style={[styles.bellBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleNavigateProfile}
               accessibilityRole="button"
               accessibilityLabel="Profile and settings"
             >
               <User size={20} color={colors.textPrimary} />
-            </Pressable>
+            </PressableOpacity>
           </View>
         </View>
 
@@ -799,7 +700,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             ) : (
               <>
                 <RefreshCw size={13} color={isDark ? colors.mintGreen : colors.mintGreenDark} strokeWidth={2.2} />
-                <Text style={[styles.networkStatusText, { color: isDark ? colors.mintGreen : colors.mintGreenDark }]}>
+                <Text style={[styles.networkStatusText, { color: colors.mintText }]}>
                   Syncing changes...
                 </Text>
               </>
@@ -859,14 +760,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Transactions</Text>
           {recentTx.length > 0 && (
-            <PressableOpacity
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               onPress={handleCommitToHistory}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
               accessibilityLabel="View full transaction history"
               style={styles.historyAffordanceBtn}
             >
-              <Text style={[styles.historyAffordanceText, { color: colors.mintGreen, fontFamily: FontFamily.semibold }]}>
+              <Text style={[styles.historyAffordanceText, { color: colors.mintText, fontFamily: FontFamily.semibold }]}>
                 Swipe up or tap
               </Text>
               <ChevronRight size={13} color={colors.mintGreen} style={{ marginLeft: 2 }} />
@@ -966,173 +867,3 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     </RefreshScrollShell>
   );
 };
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  topSection: {
-    paddingHorizontal: Spacing.gutter,
-    flexShrink: 0,
-  },
-  portalWrapper: {
-    flex: 1,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-
-  // Header
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerGreeting: {
-    flex: 1,
-    marginRight: 14,
-    justifyContent: 'center',
-  },
-  helloText: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    fontFamily: FontFamily.medium,
-  },
-  nameText: {
-    fontSize: FontSize.display,
-    lineHeight: LineHeight.display,
-    fontFamily: FontFamily.bold,
-    marginTop: -4,
-    includeFontPadding: false,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexShrink: 0,
-  },
-  bellBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    position: 'relative',
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-  },
-  networkStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginTop: 8,
-    marginBottom: -2,
-  },
-  networkStatusText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.semibold,
-  },
-
-  // Filter toggle
-  filterToggleWrapper: {
-    marginTop: Spacing.block,
-  },
-  heroHint: { textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, marginTop: 6 },
-  filterDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.group,
-    marginBottom: Spacing.block,
-  },
-  filterDateLabel: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    fontFamily: FontFamily.semibold,
-    opacity: 0.85,
-    letterSpacing: 0.2,
-    textAlign: 'center',
-  },
-  setLimitAffordance: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 6,
-  },
-  setLimitDot: {
-    fontSize: FontSize.caption,
-    opacity: 0.5,
-    marginRight: 6,
-  },
-  setLimitText: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.semibold,
-  },
-
-  // Section header
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing.block,
-    paddingBottom: Spacing.element,
-    zIndex: 10,
-  },
-  sectionTitle: {
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-    fontFamily: FontFamily.bold,
-    letterSpacing: -0.2,
-  },
-  historyAffordanceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-  },
-  historyAffordanceText: {
-    fontSize: FontSize.caption,
-    lineHeight: LineHeight.caption,
-    fontFamily: FontFamily.semibold,
-  },
-  viewportSlotLine: {
-    height: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.micro,
-  },
-
-  // Rows block (clips row shadows/edges to the block, same as before)
-  recentTxViewport: {
-    overflow: 'hidden',
-  },
-
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 40,
-    paddingBottom: Spacing.surface,
-    paddingHorizontal: Spacing.gutter,
-  },
-  emptyText: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-    fontFamily: FontFamily.medium,
-    textAlign: 'center',
-  },
-});

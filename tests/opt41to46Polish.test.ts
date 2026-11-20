@@ -38,7 +38,8 @@ describe('OPT-41: skeletons only where they replace content', () => {
   it('spinners that sit in buttons or next to a label are untouched', () => {
     expect(read('src/components/StreakCalendarModal.tsx')).toMatch(/<ActivityIndicator size="small"/);
     expect(read('src/screens/ExpenseFormScreen.tsx')).toMatch(/Loading categories/);
-    expect(read('src/screens/ProfileScreen.tsx')).toMatch(/<ActivityIndicator size="small" color="#DC2626"/);
+    // Delete Account is an AppButton since the UI consistency pass: its spinner is the button's own `loading` state.
+    expect(read('src/screens/ProfileScreen.tsx')).toMatch(/label="Delete Account"[\s\S]*?loading=\{isDeleting\}/);
     expect(read('src/screens/autolog/AutoLogWelcomeBackScreen.tsx')).toMatch(/<ActivityIndicator/);
   });
 });
@@ -55,7 +56,8 @@ describe('OPT-42: large text safety on fixed-size shapes', () => {
     ['src/components/BouncyCategoryFilter.tsx', 3],
     ['src/components/KeyButton.tsx', 1],
     ['src/components/StreakCalendarModal.tsx', 2],
-    ['src/components/CustomDatePickerModal.tsx', 4],
+    // Cancel / Done are AppButtons now (their labels shrink to fit instead): 2 capped nodes remain.
+    ['src/components/CustomDatePickerModal.tsx', 2],
   ];
   for (const [file, count] of capped) {
     it(`${file} caps ${count} text node(s) with the shared constant`, () => {

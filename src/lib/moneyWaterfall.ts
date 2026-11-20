@@ -384,7 +384,46 @@ export interface WaterfallFromStateParams extends PoolResolverParams {
   ungovernedAsOverspend?: boolean;
 }
 
+/**
+ * Recent results of computeWaterfallFromState (WAT-001 performance).
+ * The waterfall is a pure function of its inputs, and one expense change used to run it about five times
+ * (Home twice, Savings, the Gullak popup, the store sync), each walking the whole history. A result is reused
+ * only when EVERY input field is the same reference / value (Object.is). Store state is never mutated in
+ * place (every change builds a new array / object), so a reused result is always the one a fresh computation
+ * would give (tests/waterfallCache.test.ts). Callers treat the result as read-only.
+ */
+const WATERFALL_CACHE_SIZE = 4;
+const waterfallCache: Array<{ keys: string[]; values: unknown[]; result: WaterfallResult }> = [];
+
+const sameInputs = (entry: { keys: string[]; values: unknown[] }, p: WaterfallFromStateParams): boolean => {
+  const keys = Object.keys(p);
+  if (keys.length !== entry.keys.length) return false;
+  for (let i = 0; i < entry.keys.length; i++) {
+    const k = entry.keys[i];
+    if (!(k in p) || !Object.is((p as unknown as Record<string, unknown>)[k], entry.values[i])) return false;
+  }
+  return true;
+};
+
 export function computeWaterfallFromState(p: WaterfallFromStateParams): WaterfallResult {
+  for (let i = 0; i < waterfallCache.length; i++) {
+    if (sameInputs(waterfallCache[i], p)) {
+      const hit = waterfallCache[i];
+      if (i > 0) {
+        waterfallCache.splice(i, 1);
+        waterfallCache.unshift(hit);
+      }
+      return hit.result;
+    }
+  }
+  const result = computeWaterfallUncached(p);
+  const keys = Object.keys(p);
+  waterfallCache.unshift({ keys, values: keys.map((k) => (p as unknown as Record<string, unknown>)[k]), result });
+  if (waterfallCache.length > WATERFALL_CACHE_SIZE) waterfallCache.length = WATERFALL_CACHE_SIZE;
+  return result;
+}
+
+function computeWaterfallUncached(p: WaterfallFromStateParams): WaterfallResult {
   const pools = buildBudgetPools(p.planChanges || [], p.todayStr);
   return computeMoneyWaterfall({
     txs: classifyForWaterfall(p.expenses, p.categories),

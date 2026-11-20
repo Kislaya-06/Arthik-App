@@ -32,6 +32,8 @@ import {
   MoneyExplainerTopic,
   getMoneyExplainerContent,
 } from '../lib/moneyExplainerContent';
+import { useScrimColor } from '../hooks/useScrimColor';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 let badgeGradCounter = 0;
 
@@ -160,6 +162,7 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
   topic,
   onClose,
 }) => {
+  const scrim = useScrimColor();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const content = getMoneyExplainerContent(topic);
@@ -247,7 +250,7 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
           importantForAccessibility="no"
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(15, 23, 42, 0.48)' },
+            { backgroundColor: scrim },
           ]}
           onPress={onClose}
         />
@@ -293,7 +296,7 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
               </Text>
             </View>
 
-            <PressableOpacity
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               accessibilityRole="button" accessibilityLabel="Close"
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -490,9 +493,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

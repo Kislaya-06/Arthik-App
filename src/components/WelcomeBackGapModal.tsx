@@ -12,7 +12,7 @@ import { BottomSheetModal } from './ui/BottomSheetModal';
 import { AppButton } from './ui/AppButton';
 import { formatAmountWithCommas } from '../lib/formatters';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, LetterSpacing } from '../config/theme';
 
 export interface WelcomeBackGapModalProps {
   visible: boolean;
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   amountLabel: {
     fontSize: FontSize.caption,
     fontFamily: FontFamily.bold,
-    letterSpacing: 0.8,
+    letterSpacing: LetterSpacing.label,
     marginBottom: Spacing.micro,
   },
   amountValue: {

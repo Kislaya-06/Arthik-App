@@ -25,10 +25,14 @@ import {
   FontSize,
   FontFamily,
   ControlHeight,
+  LetterSpacing,
 } from '../config/theme';
 import { useTheme } from '../store/themeStore';
+import { StatusBar } from 'expo-status-bar';
 import { DEFAULT_RELEASE_URL, resolveApkUrl, resolveReleasePageUrl } from '../lib/versionCheck';
 import { canInstallInApp, downloadApk, openInstaller, openUnknownSourcesSettings } from '../lib/apkInstaller';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 interface UpdateRequiredScreenProps {
   currentVersion: string;
@@ -164,6 +168,7 @@ export const UpdateRequiredScreen: React.FC<UpdateRequiredScreenProps> = ({
         },
       ]}
     >
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>
         <View
           style={[
@@ -242,18 +247,18 @@ export const UpdateRequiredScreen: React.FC<UpdateRequiredScreenProps> = ({
             <Text style={[styles.instructionFooter, { color: colors.textSecondary }]}>
               Didn't see "Update"? Android may first ask you to allow installs from Arthik. Turn on "Allow from this source", come back, and tap Install update.
             </Text>
-            <Pressable onPress={() => openUnknownSourcesSettings(packageName).catch(() => Linking.openSettings())} hitSlop={8}>
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => openUnknownSourcesSettings(packageName).catch(() => Linking.openSettings())} hitSlop={8}>
               <Text style={[styles.linkText, { color: colors.mintGreenDark }]}>Open "Install unknown apps" setting</Text>
-            </Pressable>
+            </PressableOpacity>
           </View>
         ) : null}
 
         {phase.kind === 'error' || !inApp ? (
-          <Pressable onPress={openInBrowser} hitSlop={8} style={{ marginTop: Spacing.element }}>
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={openInBrowser} hitSlop={8} style={{ marginTop: Spacing.element }}>
             <Text style={[styles.linkText, { color: colors.mintGreenDark }]}>
               {inApp ? 'Download in browser instead' : 'After downloading, tap the file in your notifications or Downloads to install.'}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         ) : phase.kind === 'idle' ? (
           <Text style={[styles.instructionFooter, { color: colors.textSecondary }]}>
             The download happens inside Arthik. When it finishes, Android will ask you to install the update.
@@ -324,7 +329,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
     fontSize: FontSize.caption,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
     marginBottom: Spacing.nano,
   },
   versionValue: {

@@ -15,7 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { HeaderBackButton } from '../components/ui/HeaderBackButton';
 import { supabase } from '../config/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/themeStore';
@@ -25,8 +25,10 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { AuthFormField } from '../components/ui/AuthFormField';
 import { AuthMessageBanner } from '../components/ui/AuthMessageBanner';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, LetterSpacing } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -348,9 +350,7 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           {navigation.canGoBack() && (
-            <Pressable accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} style={[styles.backBtn, { marginTop: Spacing.block }]} onPress={() => navigation.goBack()}>
-              <ArrowLeft size={26} color={colors.textPrimary} />
-            </Pressable>
+            <HeaderBackButton style={[styles.backBtn, { marginTop: Spacing.block }]} />
           )}
 
           {/* In-UI Message Banner (error or success) */}
@@ -438,11 +438,11 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               />
 
               {!isSignUp && (
-                <Pressable onPress={forgotLoading ? undefined : handleForgotPassword}>
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={forgotLoading ? undefined : handleForgotPassword}>
                   <Text style={styles.forgotPassword}>
                     {forgotLoading ? 'Sending...' : 'Forgot Password?'}
                   </Text>
-                </Pressable>
+                </PressableOpacity>
               )}
 
               <View style={styles.dividerContainer}>
@@ -487,14 +487,14 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </Animated.View>
 
-          <Pressable onPress={toggleMode} style={styles.toggleBtn}>
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={toggleMode} style={styles.toggleBtn}>
             <Text style={[styles.toggleText, { color: colors.textSecondary }]}>
               {isSignUp ? 'Already have an account? ' : 'New here? '}
               <Text style={[styles.toggleTextBold, { color: colors.textPrimary }]}>
                 {isSignUp ? 'Log in' : 'Sign up'}
               </Text>
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     color: '#8A8FA3',
     fontFamily: FontFamily.medium,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
   },
   inputWrapper: {
     borderWidth: 2,
@@ -607,7 +607,8 @@ const styles = StyleSheet.create({
   },
   googleBtnText: {
     marginLeft: Spacing.element,
-    fontSize: FontSize.body,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
   },
@@ -616,8 +617,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.block,
   },
   primaryBtnText: {
-    fontSize: FontSize.body,
-    lineHeight: LineHeight.body,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
     color: '#1A2B4C',
     fontFamily: FontFamily.bold,
   },

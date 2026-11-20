@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, Pressable, TextInput } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,6 +14,7 @@ import X from 'lucide-react-native/icons/x';
 import Check from 'lucide-react-native/icons/check';
 import Mail from 'lucide-react-native/icons/mail';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
+import { AppButton } from '../ui/AppButton';
 import { FontFamily, Motion } from '../../config/theme';
 import {
   clampNameInput,
@@ -21,6 +22,7 @@ import {
   validateProfileName,
   MAX_PROFILE_NAME_LENGTH,
 } from '../../lib/profileUtils';
+import { useScrimColor } from '../../hooks/useScrimColor';
 
 export interface EditProfileModalProps {
   visible: boolean;
@@ -48,9 +50,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   editSaving,
   onSave,
   colors,
-  isDark,
   styles,
 }) => {
+  const scrim = useScrimColor();
   const reduceMotion = useReduceMotion();
   const cardScale = useSharedValue(reduceMotion ? 1 : 0.95);
   const cardTranslateY = useSharedValue(reduceMotion ? 0 : 12);
@@ -131,7 +133,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }]} onPress={onClose}>
+      <Pressable style={[styles.modalOverlay, { backgroundColor: scrim }]} onPress={onClose}>
         <Animated.View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }, cardAnimatedStyle]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>Edit Profile</Text>
           <Text style={[styles.modalLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>First Name</Text>
@@ -251,21 +253,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           ) : null}
 
           <View style={styles.modalActions}>
-            <Pressable style={[styles.modalBtn, { backgroundColor: colors.cardSubtle }]} onPress={onClose}>
-              <X size={16} color={colors.textSecondary} />
-              <Text style={[styles.modalCancelText, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.modalBtn,
-                { backgroundColor: colors.mintGreen, opacity: isSaveDisabled ? 0.5 : 1 },
-              ]}
+            <AppButton
+              label="Cancel"
+              onPress={onClose}
+              variant="secondary"
+              icon={<X size={16} color={colors.textPrimary} />}
+              style={styles.modalBtnSlot}
+            />
+            <AppButton
+              label="Save"
               onPress={handleSavePress}
+              variant="primary"
               disabled={isSaveDisabled}
-            >
-              {editSaving ? <ActivityIndicator size="small" color={colors.forestGreen} /> : <Check size={16} color={colors.forestGreen} />}
-              <Text style={[styles.modalSaveText, { color: colors.forestGreen, fontFamily: FontFamily.bold }]}>Save</Text>
-            </Pressable>
+              loading={editSaving}
+              icon={<Check size={16} color={colors.forestGreen} />}
+              style={styles.modalBtnSlot}
+            />
           </View>
         </Animated.View>
       </Pressable>

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight, LetterSpacing } from '../config/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -7,20 +7,6 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.gutter,
-    paddingTop: Spacing.block,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.block,
-  },
-  backBtn: {
-    marginRight: Spacing.block,
-    marginTop: Spacing.micro,
-  },
-  headerTitle: {
-    fontSize: FontSize.titleLarge,
-    lineHeight: LineHeight.titleLarge,
   },
 
   // Profile Card (Executive Horizontal Row)
@@ -101,7 +87,7 @@ export const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: FontSize.caption,
-    letterSpacing: 1,
+    letterSpacing: LetterSpacing.label,
     textTransform: 'uppercase',
     paddingHorizontal: Spacing.surface,
     paddingTop: Spacing.surface,
@@ -181,17 +167,9 @@ export const styles = StyleSheet.create({
   },
 
   // Logout
+  // Log Out / Delete Account are AppButtons (48dp); these only place them.
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.pill,
-    paddingVertical: Spacing.surface,
     marginTop: Spacing.gutter,
-    gap: Spacing.element,
-  },
-  logoutText: {
-    fontSize: FontSize.body,
   },
   // Edit Profile Modal
   modalOverlay: {
@@ -211,7 +189,7 @@ export const styles = StyleSheet.create({
   modalLabel: {
     fontSize: FontSize.caption,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
     marginBottom: Spacing.element,
     marginTop: Spacing.group,
   },
@@ -258,6 +236,7 @@ export const styles = StyleSheet.create({
     gap: Spacing.group,
     marginTop: Spacing.gutter,
   },
+  // Dialog buttons are 48dp (ControlHeight.standard), like every centered dialog.
   modalBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -265,28 +244,18 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderRadius: BorderRadius.pill,
-    paddingVertical: Spacing.row,
+    height: ControlHeight.standard,
   },
-  modalCancelText: {
-    fontSize: FontSize.body,
+  modalBtnSlot: {
+    flex: 1,
   },
   modalSaveText: {
     color: '#1A2B4C',
     fontSize: FontSize.body,
   },
   deleteAccountBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.row,
-    borderRadius: BorderRadius.input,
-    borderWidth: 1,
-    marginTop: 14,
+    marginTop: Spacing.group,
     marginBottom: 40,
-    gap: Spacing.element,
-  },
-  deleteAccountText: {
-    fontSize: FontSize.body,
   },
   deleteWarningIconWrap: {
     width: 48,

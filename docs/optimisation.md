@@ -6,6 +6,7 @@
 >
 > **Written:** 23 Oct 2026, from a line-by-line read of the codebase at that date
 > (`src/` + `App.tsx` + `index.ts`: ~65,200 lines; 128 test files, 1,895 tests, `tsc` clean).
+> **Latest state (20 Nov 2026, after Phase 11):** ~71,300 lines in 309 source files; 190 test files, 2,652 tests, `tsc` clean.
 > **Location:** `docs/optimisation.md`. This is the **only** optimisation document of the repo and it is supreme for
 > optimisation work. The old `docs/OPTIMISATION_PLAN.md` has been deleted on purpose; nothing in this file depends on
 > it. Do not recreate it and do not look for it.
@@ -1307,6 +1308,40 @@ changes: pull to refresh twice → the second one finishes faster, numbers ident
 
 ---
 
+## Phase 11 — Re-render cost and code health (OTA-safe, November 2026)
+
+Found by a full repository audit after Phases 1–10 were done. All JS-only; money math, animations and behaviour unchanged.
+
+### OPT-74. Hidden popups no longer recompute on every expense change
+**Status:** ✅ Done 20 Nov 2026 — The Savings tab stays warm (`freezeOnBlur: false`, Appendix B) and keeps `BudgetEditModal` and `DepositGullakModal` mounted while closed. They subscribed to the whole expense list (and records / plan changes / deposits) and re-ran full-history work (carryable amount, spent-by-date, the money waterfall) on every add / edit / refresh. New `useStoreWhileVisible` (`src/hooks/useStoreWhileVisible.ts`, logic in `src/lib/whileVisibleSelector.ts`): while a popup is closed the selector returns its last value, so Zustand skips the re-render; on open the live value comes back at once; while closing the numbers do not change. Not unmounted on purpose (keeps the native fade-out and nested popups). Tests: `whileVisibleSelector` (5).
+
+### OPT-75. One money waterfall per state, not five
+**Status:** ✅ Done 20 Nov 2026 — One expense add ran `computeWaterfallFromState` about five times (Home twice, Savings, the Gullak popup, the store sync), each walking the whole history. Measured on desktop Node: 2.15 ms at 3,000 expenses, 5.17 ms at 10,000 (phones are several times slower). It is a pure function and the store never mutates its arrays / objects in place (checked: every record change starts from `{ ...get().dailyRecords }`), so it now reuses one of the last 4 results when EVERY input field is the same reference (`Object.is`). Callers only read the result. WAT-001 math untouched. Tests: `waterfallCache` (13) compare every cached result with an uncached computation, for each input changing.
+
+### OPT-76. History rows re-render only when they change
+**Status:** ✅ Done 20 Nov 2026 — `TransactionRowItem` / `GullakRowItem` are `React.memo`, but `renderItem` passed a new `() => handleSwipeOpen(id)` per row, so every swipe re-rendered every visible row (with its gesture objects). Rows now receive the stable handlers and pass their own id.
+
+### OPT-77. No whole-list stringify for a list that was already written
+**Status:** ✅ Done 20 Nov 2026 — `persistConfirmedCache` stringified the whole confirmed list after every confirmed save just to find out nothing changed. `expenseCacheMemo` now also remembers the list reference its JSON came from; the same list skips the stringify. Writes that do not pass a source (the sync) clear it, so an old reference can never skip a needed write. Batching (OPT-23) stays rejected. Tests: `expenseCacheSourceMemo` (6).
+
+### OPT-78. Facade split of the oversized files (AGENTS.md 6.1)
+**Status:** ✅ Done 20 Nov 2026 — Code moved verbatim (comments included) with an AST tool; every old import path still works (re-exports).
+- `dailyBudgetStore.ts` 1,061 → ~380: `gullakActions`, `syncActions`, `recordActions` factories (`set` / `get` passed in).
+- `expenseStore.ts` 1,006 → ~370: `mutationActions`, `loadActions` (takes `isSyncInProgress`), `failedSyncActions`, `saveGuards` (`persistConfirmedCache` now gets `isExpensesLoaded` from the caller instead of importing the store).
+- `planActions.ts` 977 → ~250: `planSync`, `pureDeficit`, `pendingPlan`, `cadenceActions`, `budgetModeActions`. `hydrate.ts` 726 → ~340: `hydrateRemote`, `hydrateOffline`.
+- `budgetPeriods.ts` 1,162 → facade over `src/lib/periods/` (7 modules); `chartUtils.ts` 1,116 → facade over `src/lib/charts/` (4 modules).
+- Screens: styles to `<Screen>.styles.ts`, rows / chips / empty state to `screens/history/`, `screens/home/`, `screens/expenseForm/`, `components/autolog/review/` (History 1,150 → ~850, Home 1,138 → ~870, Add Transaction 1,263 → ~870, Review sheet 1,117 → ~760). `useExpenseForm` types to `hooks/expenseForm/types.ts`.
+- Cadence Switch, Period Renewal and Vault sheets shared an identical enter / exit block (only the off-screen distance 500 / 450 / 400 and the entrance fade 220 / 220 / 200 ms differed): now `runSheetTransition` (`src/lib/sheetTransition.ts`); the replacement was only applied after the old block was matched character for character against the template with those numbers.
+- Source-reading tests follow the moved code through `tests/helpers/readSplitSource.ts` (assertions unchanged).
+
+### Found, not fixed (needs a decision or a measurement)
+- The main component functions of History / Home / Add Transaction / Review sheet (~700–800 lines each) and the `useExpenseForm` hook body (~950 lines, split + money-back sections share state with the amount / type / category): splitting them into sub-hooks changes structure, not only location. Do it only with a feel review.
+- `fetchExpenses` stays in `expenseStore.ts`: its three download counters (`activeFetchSeq`, `expensesFreshFromServer`, `lastDownloadVersion`) are shared with `resetExpenses` and a module getter.
+- The other six popups (Budget Edit, Deposit, Streak, Money Explainer, Date picker, Update) each have their own motion; one shell would change how they move.
+- Insights stays warm with ~55 memos on the expense list: profile on a real phone before changing anything (tabs are warm on purpose).
+
+---
+
 ## Appendix A — Things found that need a NEW APK (do NOT do them in this file)
 Keep for the next native release:
 - Native splash hand-off with `expo-splash-screen` (removes the last colour flash), and `app.json` splash colour
@@ -1315,6 +1350,8 @@ Keep for the next native release:
 - `react-native-keyboard-controller` for frame-perfect keyboard + input movement.
 - Crash and performance monitoring SDK (Sentry or Firebase Performance) for real-user startup and screen timings.
 - Android predictive back (`predictiveBackGestureEnabled`).
+- Remove the unused native `@react-native-community/datetimepicker` (no JS import; the app has its own `CustomDatePickerModal`) from `package.json` and the `app.json` plugins (smaller APK).
+- Android release shrinking: `expo-build-properties` with R8 minify + `shrinkResources` (smaller APK; verify the release build).
 
 ## Appendix B — Already good (do not "fix")
 So the agent does not waste time re-doing finished work:

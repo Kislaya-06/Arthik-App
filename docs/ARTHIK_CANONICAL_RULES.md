@@ -63,7 +63,7 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Money back is not income:** Money that comes back for an expense the user already paid (a friend paying their share back, or a refund) is a `'recovery'` row. It never counts as income, never raises Total Income, Available Income or any income chip. See `SPL-003..SPL-006`.
   3. **Real new money is income:** A salary, a gift, or any amount received beyond what was owed or still out is normal Income (`SPL-004`).
   4. **Old Data:** Any row that still carries the retired `'reimbursement'` class is read as normal income.
-- **Code Enforcement:** `src/lib/transactionUtils.ts` (`getTransactionClass`, `isRecoveryClass`, `isExcludedFromTotals`), `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`, `supabase/migrations/20261018_split_and_money_back.sql`
+- **Code Enforcement:** `src/lib/transactionUtils.ts` (`getTransactionClass`, `isRecoveryClass`, `isExcludedFromTotals`), `supabase/migrations/20261017083146_retire_shares_reimbursements.sql`, `supabase/migrations/20261018111651_split_and_money_back.sql`
 - **Verified By:** `tests/selfTransfersAndIncome.test.ts`, `tests/splitLedger.test.ts`
 
 ---
@@ -384,7 +384,7 @@ This document is the **single authoritative canonical source of truth** for all 
      - **"Save to Gullak"**: Creates finalized daily records for all confirmed inactive days with `budget = dailyBudgetAmount`, `spent = 0`, `saved = budget`, `status = 'saved'`, and `isFinalized = true`. Total Gullak savings, Inflow (Total Account Remaining), and streak metrics advance accurately and sync to Supabase `daily_savings_log`.
      - **"I spent money"**: Navigates to `ExpenseForm` with the oldest gap date prefilled so the user can accurately record their backdated expenses.
      - **"Skip for now" / Dismiss**: Records the gap dates as dismissed in local storage (`@arthik_dismissed_gap_dates_<userId>`), preventing phantom savings and avoiding repeated nagging.
-- **Code Enforcement:** `src/lib/gapFiller.ts` (`findInactiveGapDays`), `src/components/WelcomeBackGapModal.tsx`, `src/store/dailyBudgetStore.ts` (`saveGapDaysToGullak`, `dismissGapDays`), `src/screens/HomeScreen.tsx`
+- **Code Enforcement:** `src/lib/gapFiller.ts` (`findInactiveGapDays`), `src/components/WelcomeBackGapModal.tsx`, `src/store/dailyBudget/gullakActions.ts` (`saveGapDaysToGullak`, `dismissGapDays`), `src/screens/HomeScreen.tsx`
 - **Verified By:** `tests/gapFiller.test.ts`
 
 #### `HEA-001`: Legacy Default ₹500 Self-Healing
@@ -642,7 +642,7 @@ This document is the **single authoritative canonical source of truth** for all 
   7. Invariant: Total Income never decreases. Repeat Pure Mode cycles only balance the new incremental deficit.
   8. Display Guardrail: The auto-balance income is excluded from `periodIncome` on Home budget summary chips, but fully counted in all-time total income, inflows, and the waterfall.
   9. **Switch That Matured While the App Was Closed (owner decision 2026-11-19):** the same check runs once for it. Because a stale saved expense list could invent a deficit, it waits until the expense list comes from the server, and it measures the deficit before the new day's allowance exists (exactly like the switch does when the app is open). It runs once per switch (a durable marker, never twice) and does nothing if the app is not in Budget Mode any more.
-- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/deficitCheck.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudgetStore.ts` (`checkAndRollover`), `src/lib/homeCalculations.ts`, `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`)
+- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/deficitCheck.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudget/syncActions.ts` (`checkAndRollover`), `src/lib/homeCalculations.ts`, `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`)
 - **Verified By:** `tests/pureModeRules.test.ts`, `tests/dailyBudgetHydrate.test.ts`
 
 #### `PUR-002`: Pure Mode Ended-Pool Leftover Retention
@@ -676,7 +676,7 @@ This document is the **single authoritative canonical source of truth** for all 
      - Pure Mode → Budget Mode turns auto-save (`isAutoRenew`) ON; Budget Mode → Pure Mode turns it OFF; if Budget Mode was already on, the user's own choice stays (a paused allowance stays paused). One helper decides this for both the rollover and the cold-start hydration (`resolveAutoRenewForPlan`).
      - The new mode and auto-save are saved to the profile, so a later "pause auto-save" is never undone by the next start.
      - The first Budget Mode day gets its allowance at once: an unfinalized today record with budget 0 receives the daily amount, when Budget Mode, auto-save and a daily plan are on. A real budget (> 0) and a finalized day are never touched (`healZeroTodayAllowance`).
-- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudget/rollover.ts`, `src/store/dailyBudget/metrics.ts` (`healZeroTodayAllowance`), `src/store/dailyBudgetStore.ts` (`syncWithExpenses`, `checkAndRollover`), `src/lib/budgetModeUtils.ts` (`resolveAutoRenewForPlan`), `src/lib/budgetPeriods.ts`, `src/lib/vaultSpendingGuard.ts`, `src/screens/ProfileScreen.tsx`
+- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudget/rollover.ts`, `src/store/dailyBudget/metrics.ts` (`healZeroTodayAllowance`), `src/store/dailyBudget/syncActions.ts` (`syncWithExpenses`, `checkAndRollover`), `src/lib/budgetModeUtils.ts` (`resolveAutoRenewForPlan`), `src/lib/budgetPeriods.ts`, `src/lib/vaultSpendingGuard.ts`, `src/screens/ProfileScreen.tsx`
 - **Verified By:** `tests/budgetModesStore.test.ts`, `tests/cadenceFixes.test.ts`, `tests/vaultSpendingGuard.test.ts`, `tests/dailyBudgetHydrate.test.ts`, `tests/budgetModeUtils.test.ts`
 
 ### Domain 12: OFL — Offline-First Start-Up & Background Sync

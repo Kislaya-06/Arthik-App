@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import Plus from 'lucide-react-native/icons/plus';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -17,7 +17,7 @@ import { useTheme } from '../store/themeStore';
 import { useNetworkStore } from '../store/networkStore';
 import { CategoryRowItem } from '../components/CategoryRowItem';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { Spacing, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
+import { Spacing, FontSize, FontFamily, ControlHeight } from '../config/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManageCategories'>;
 
@@ -129,14 +129,7 @@ export const ManageCategoriesScreen: React.FC<Props> = ({ navigation, route }) =
       <StatusBar style={isDark ? 'light' : 'dark'} />
       
       {/* Header */}
-      <View style={styles.headerRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={10}>
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-          Manage Categories
-        </Text>
-      </View>
+      <ScreenHeader inset={false} title="Manage Categories" />
 
       <SegmentedControl
         options={KIND_OPTIONS}
@@ -193,18 +186,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FB',
     paddingHorizontal: Spacing.gutter,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: Spacing.block,
-  },
-  headerTitle: {
-    marginLeft: Spacing.block,
-    fontSize: FontSize.titleMedium,
-    lineHeight: LineHeight.titleMedium,
-  },
   kindToggle: {
-    marginTop: Spacing.block,
+    marginTop: 0,
   },
   categoryCount: {
     marginTop: Spacing.block,

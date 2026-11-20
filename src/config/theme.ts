@@ -25,6 +25,10 @@ export interface ThemeColors {
   navBarBg: string;
   chartTrack: string;
   danger: string;
+  /** Mint used as TEXT (income amounts, positive links). Light: deep mint, >= 4.8:1 on every light surface. Dark / AMOLED: the brand mint. */
+  mintText: string;
+  /** Coral used as TEXT (expense amounts). Light: deep coral, >= 4.8:1 on every light surface. Dark / AMOLED: the brand coral. */
+  coralText: string;
   isDark: boolean;
   // Keypad tokens
   keypadNumberBg: string;
@@ -71,6 +75,8 @@ export const LightColors: ThemeColors = {
   navBarBg: '#1A2B4C',
   chartTrack: '#E8E9EE',
   danger: '#EF4444',
+  mintText: '#2E7A53',
+  coralText: '#B9473A',
   isDark: false,
   keypadNumberBg: '#E2E8F0',
   keypadNumberBorder: '#CBD5E1',
@@ -115,6 +121,8 @@ export const DarkColors: ThemeColors = {
   navBarBg: '#131D2F', // floating bottom bar surface
   chartTrack: '#243248', // dark donut chart track
   danger: '#F87171',
+  mintText: '#B8E0C8',
+  coralText: '#F4B8AE',
   isDark: true,
   keypadNumberBg: '#334155',
   keypadNumberBorder: '#475569',
@@ -159,6 +167,8 @@ export const AmoledColors: ThemeColors = {
   navBarBg: '#050505', // floating bottom bar surface
   chartTrack: '#1A1A1A',
   danger: '#F87171',
+  mintText: '#B8E0C8',
+  coralText: '#F4B8AE',
   isDark: true,
   keypadNumberBg: '#141414',
   keypadNumberBorder: '#262626',
@@ -239,6 +249,16 @@ export const LineHeight = {
 } as const;
 
 /**
+ * Letter spacing tokens (in pixels)
+ * label: every small UPPERCASE label (section labels, form field labels, card captions such as
+ * "TOTAL SPENT"). One value so all of them read with the same rhythm. Badges, chart labels and
+ * fixed-size tiles keep their own tuned spacing (they are fixed shapes).
+ */
+export const LetterSpacing = {
+  label: 0.8,
+} as const;
+
+/**
  * Font family tokens
  * All four Quicksand font weights supported by the app (AGENTS.md 9.2).
  */
@@ -304,6 +324,7 @@ export const Theme = {
   spacing: Spacing,
   fontSize: FontSize,
   lineHeight: LineHeight,
+  letterSpacing: LetterSpacing,
   fonts: FontFamily,
   controls: ControlHeight,
   motion: Motion,

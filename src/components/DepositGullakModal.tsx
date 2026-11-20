@@ -40,6 +40,9 @@ import {
 import { Spacing, Motion } from '../config/theme';
 import { saveSuccessHaptic } from '../lib/saveFeedback';
 import { styles } from './DepositGullakModal.styles';
+import { useScrimColor } from '../hooks/useScrimColor';
+import { useStoreWhileVisible } from '../hooks/useStoreWhileVisible';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 export interface DepositGullakModalProps {
   visible: boolean;
@@ -53,6 +56,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   onClose,
 }) => {
   const { isDark } = useTheme();
+  const scrim = useScrimColor();
   const reduceMotion = useReduceMotion();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<'source' | 'amount'>('source');
@@ -85,8 +89,10 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const [isMounted, setIsMounted] = useState(visible);
   const addGullakDeposit = useDailyBudgetStore((s) => s.addGullakDeposit);
   const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
-  const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
-  const expenses = useExpenseStore((s) => s.expenses);
+  // Only followed while the popup is open (Savings keeps it mounted while closed): the balance below runs the
+  // full money waterfall, so a hidden popup must not recompute it on every expense change.
+  const gullakDeposits = useStoreWhileVisible(useDailyBudgetStore, (s) => s.gullakDeposits, visible);
+  const expenses = useStoreWhileVisible(useExpenseStore, (s) => s.expenses, visible);
   const availableIncome = useMemo(
     () => getAvailableIncomeBalance(),
     [getAvailableIncomeBalance, expenses, gullakDeposits]
@@ -210,6 +216,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
         style={[
           styles.modalOverlay,
           {
+            backgroundColor: scrim,
             paddingTop: insets.top,
             paddingBottom: Math.max(insets.bottom, Spacing.element),
           },
@@ -311,7 +318,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                     </Text>
                   </View>
                 </View>
-                <PressableOpacity
+                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                   accessibilityRole="button" accessibilityLabel="Close"
                   onPress={onClose}
                   hitSlop={12}
@@ -493,7 +500,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 {/* Header */}
                 <View style={styles.modalHeader}>
                   <View style={styles.titleWithIcon}>
-                    <PressableOpacity
+                    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                       onPress={() => {
                         Keyboard.dismiss();
                         goToStep('source');
@@ -529,7 +536,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                       </Text>
                     </View>
                   </View>
-                  <PressableOpacity
+                  <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                     onPress={onClose}
                     hitSlop={12}
                     style={[

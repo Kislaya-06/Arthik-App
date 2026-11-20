@@ -52,6 +52,17 @@ We decomposed `dailyBudgetStore` and `expenseStore` into focused, cohesive helpe
   - More files to manage in `src/store/`.
   - Developers adding new actions must follow the parameter-passing convention (`get`, `set`) rather than importing the hook directly inside helper modules.
 
+## Amendment (November 2026): action factories and the second split
+
+The facades had grown back to ~1,000 lines (`dailyBudgetStore.ts` 1,061, `expenseStore.ts` 1,006, `planActions.ts` 977, `hydrate.ts` 726). Actions that live inside the `create((set, get) => ({ ... }))` object are now moved verbatim into factories that receive the store's own `set` / `get` and return a `Pick` of the state type:
+
+```ts
+export const createGullakActions = (set, get): Pick<DailyBudgetState, 'addGullakDeposit' | ...> => ({ /* moved verbatim */ });
+// store: ...createGullakActions(set, get),
+```
+
+Rules: a factory never imports its own store (it uses `get()`); a module-level `let` moves only together with every action that touches it (`isSyncInProgress` with `loadActions`); state shared with the facade stays there (`fetchExpenses` and its download counters). Results: `dailyBudgetStore.ts` ~380 (`gullakActions`, `syncActions`, `recordActions`), `expenseStore.ts` ~370 (`mutationActions`, `loadActions`, `failedSyncActions`, `saveGuards`), `planActions.ts` ~250 (`planSync`, `pureDeficit`, `pendingPlan`, `cadenceActions`, `budgetModeActions`), `hydrate.ts` ~340 (`hydrateRemote`, `hydrateOffline`). Every old import path still works; all 2,649 tests passed unchanged in their assertions. See `docs/optimisation.md` OPT-78.
+
 ## What Would Have to Be True to Revisit
 We would revisit this decomposition only if:
 - Zustand is replaced by an alternative state management library with native modular slice composition (e.g., Redux Toolkit slices or MobX domain models).

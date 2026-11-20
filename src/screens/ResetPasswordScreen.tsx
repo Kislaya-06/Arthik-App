@@ -18,7 +18,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import KeyRound from 'lucide-react-native/icons/key-round';
 import Check from 'lucide-react-native/icons/check';
 import X from 'lucide-react-native/icons/x';
@@ -26,7 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
 import { AuthFormField } from '../components/ui/AuthFormField';
 import { AuthMessageBanner } from '../components/ui/AuthMessageBanner';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, LetterSpacing } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../store/themeStore';
 
@@ -186,29 +186,20 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
           showsVerticalScrollIndicator={false}
         >
           {/* Header & Back Button */}
-          <View style={styles.headerRow}>
-            <Pressable
-              accessibilityRole="button" accessibilityLabel="Go back"
-              style={styles.backBtn}
-              onPress={() => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Auth' }],
-                  });
-                }
-              }}
-              hitSlop={10}
-            >
-              <ArrowLeft size={24} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-              Reset Password
-            </Text>
-            <View style={{ width: 40 }} />
-          </View>
+          <ScreenHeader
+            inset={false}
+            title="Reset Password"
+            onBack={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Auth' }],
+                });
+              }
+            }}
+          />
 
           {/* Key Icon Illustration */}
           <View style={styles.iconContainer}>
@@ -351,25 +342,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Spacing.block,
-    marginBottom: Spacing.element,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: FontSize.titleMedium,
-    color: '#1A2B4C',
-  },
   iconContainer: {
     alignItems: 'center',
-    marginTop: Spacing.gutter,
+    marginTop: Spacing.block,
     marginBottom: Spacing.element,
   },
   iconCircle: {
@@ -404,7 +379,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     color: '#8A8FA3',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: LetterSpacing.label,
     marginBottom: Spacing.element,
     marginTop: Spacing.block,
   },
@@ -476,8 +451,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitBtnText: {
-    fontSize: FontSize.body,
-    lineHeight: LineHeight.body,
+    fontSize: FontSize.titleSmall,
+    lineHeight: LineHeight.titleSmall,
     color: '#1A2B4C',
   },
   submitBtnTextDisabled: {

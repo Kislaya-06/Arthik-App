@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Modal,
-  Pressable,
   Animated,
   Easing,
   useAnimatedValue,
@@ -31,6 +30,8 @@ import { scheduleOnRN } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
 import { ThemeColors, FontFamily, FontSize, Spacing, BorderRadius, Motion } from '../../config/theme';
 import { PressableOpacity } from './PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
+import { useScrimColor } from '../../hooks/useScrimColor';
 
 export interface BottomSheetModalProps {
   visible: boolean;
@@ -81,6 +82,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   avoidKeyboard = false,
   swipeToDismiss = false,
 }) => {
+  const scrim = useScrimColor();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -292,7 +294,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           {headerRight ? (
             headerRight
           ) : (
-            <Pressable
+            <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
               style={[
                 styles.closeBtn,
                 { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' },
@@ -304,7 +306,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
               accessibilityLabel="Close sheet"
             >
               <X size={18} color={colors.textPrimary} />
-            </Pressable>
+            </PressableOpacity>
           )}
         </View>
       )}
@@ -351,9 +353,10 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
       style={[
         styles.backdrop,
         {
+          backgroundColor: scrim,
           opacity: fadeAnim.interpolate({
             inputRange: [0, 1],
-            outputRange: [0, 0.55],
+            outputRange: [0, 1],
           }),
         },
       ]}
@@ -393,7 +396,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#000000',
   },
   dragWrapper: {
     width: '100%',

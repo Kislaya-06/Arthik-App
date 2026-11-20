@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -25,6 +28,8 @@ import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import ShoppingBag from 'lucide-react-native/icons/shopping-bag';
 import Sparkles from 'lucide-react-native/icons/sparkles';
 import Flame from 'lucide-react-native/icons/flame';
+import ChartPie from 'lucide-react-native/icons/chart-pie';
+import { EmptyState } from '../components/ui/EmptyState';
 import { parseISO } from 'date-fns/parseISO';
 import { format } from 'date-fns/format';
 import {
@@ -53,7 +58,6 @@ import { SpendingFlowChart } from '../components/SpendingFlowChart';
 import { CashFlowChart } from '../components/CashFlowChart';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { AmountText } from '../components/ui/AmountText';
-import { AppButton } from '../components/ui/AppButton';
 import { YearlySavingsMilestoneCard } from '../components/YearlySavingsMilestoneCard';
 import { WeeklyBreathingStrip } from '../components/WeeklyBreathingStrip';
 import { MonthlyBreathingStrip } from '../components/MonthlyBreathingStrip';
@@ -61,6 +65,8 @@ import { YearlyBreathingStrip } from '../components/YearlyBreathingStrip';
 import { YearlyCashFlowChart } from '../components/YearlyCashFlowChart';
 import { BehavioralInsightRow } from '../components/BehavioralInsightRow';
 import { getCategoryIcon } from '../lib/iconUtils';
+import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'Insights'>,
@@ -320,7 +326,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       >
         {/* ── Header Row ── */}
         <View style={styles.headerRow}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+          <Text accessibilityRole="header" style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
             Insights
           </Text>
           <View style={{ flex: 1, marginLeft: Spacing.group }}>
@@ -636,7 +642,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   const rowOpacity = isSelected ? 1 : isAnySelected ? 0.35 : 1;
 
                   return (
-                    <Pressable
+                    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                       key={seg.id}
                       style={[
                         styles.categoryStackItem,
@@ -669,7 +675,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                       {isSelected && (
                         <ChevronRight size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
                       )}
-                    </Pressable>
+                    </PressableOpacity>
                   );
                 })}
               </View>
@@ -677,7 +683,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Overflow Categories: Progressive Disclosure for Weekly & Monthly */}
             {(period === 'Weekly' || period === 'Monthly') && bottomCategories.length > 0 && (
-              <Pressable
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                 style={styles.expandCategoriesBtn}
                 onPress={() => setShowAllCategories((prev) => !prev)}
                 hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
@@ -698,7 +704,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 ) : (
                   <ChevronDown size={14} color={colors.mintGreen} />
                 )}
-              </Pressable>
+              </PressableOpacity>
             )}
 
             {/* Expanded categories (when showAllCategories is true and bottomCategories exist) */}
@@ -710,7 +716,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                   const rowOpacity = isSelected ? 1 : isAnySelected ? 0.35 : 1;
 
                   return (
-                    <Pressable
+                    <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
                       key={seg.id}
                       style={[
                         styles.legendItem,
@@ -742,7 +748,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                       {isSelected && (
                         <ChevronRight size={14} color={colors.textSecondary} style={{ marginLeft: 2 }} />
                       )}
-                    </Pressable>
+                    </PressableOpacity>
                   );
                 })}
               </View>
@@ -914,17 +920,14 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </>
         ) : (
-          <View style={styles.emptyState}>
-            <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-              Log an expense or income to unlock your spending breakdown.
-            </Text>
-            <AppButton
-              label="Add Transaction"
-              size="compact"
-              onPress={() => navigation.navigate('AddExpense')}
-              style={styles.emptyStateCta}
-            />
-          </View>
+          <EmptyState
+            size="section"
+            icon={ChartPie}
+            title="Nothing to show yet"
+            subtitle="Log an expense or income to unlock your spending breakdown."
+            action={{ label: 'Add Transaction', onPress: () => navigation.navigate('AddExpense'), variant: 'primary' }}
+            style={styles.emptyState}
+          />
         )}
       </ScrollView>
     </View>

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BottomSheetModal } from './ui/BottomSheetModal';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LetterSpacing } from '../config/theme';
 import { formatCurrency } from '../lib/formatters';
 import type { HeroDetails } from '../lib/heroDetails';
 
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     fontSize: FontSize.caption,
-    letterSpacing: 0.8,
+    letterSpacing: LetterSpacing.label,
   },
   heroDate: {
     fontSize: FontSize.caption,

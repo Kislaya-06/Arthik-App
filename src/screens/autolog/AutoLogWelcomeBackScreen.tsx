@@ -1,6 +1,6 @@
 import { toFriendlyMessage } from '../../lib/friendlyError';
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +18,8 @@ import * as service from '../../features/autoLog/service';
 import { formatGap, MAX_RECOVERY_DAYS } from '../../features/autoLog/matching';
 import { dateTime, STATE_COPY } from '../../features/autoLog/copy';
 import { useAutoLogStore } from '../../features/autoLog/store';
+import { PressableOpacity } from '../../components/ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogWelcomeBack'>;
 type Choice = 'recover' | 'learn';
@@ -70,7 +72,7 @@ export const AutoLogWelcomeBackScreen: React.FC<Props> = ({ navigation, route })
   const option = (key: Choice, icon: React.ReactNode, title: string, text: string, disabled?: string) => {
     const active = choice === key;
     return (
-      <Pressable
+      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
         disabled={!!disabled}
         onPress={() => setChoice(key)}
         style={[
@@ -86,7 +88,7 @@ export const AutoLogWelcomeBackScreen: React.FC<Props> = ({ navigation, route })
           </View>
         </View>
         <Body muted>{disabled || text}</Body>
-      </Pressable>
+      </PressableOpacity>
     );
   };
 
