@@ -351,7 +351,7 @@ Always use `useSafeAreaInsets` from `react-native-safe-area-context` (`paddingTo
 
 ## 11.2 Full APK build vs OTA Update
 - **Full APK (`eas build -p android --profile preview`)**: required when native code, permissions, native plugins, or app version changes.
-- **OTA update (`eas update --branch preview --message "..."`)**: JS/TS, UI, and logic changes only.
+- **OTA update (`eas update --branch preview --environment preview --message "..."`)**: JS/TS, UI, and logic changes only.
 - `runtimeVersion` is tied to `expo.version`. Bump version in `app.json` and `package.json` only when building a new APK binary. Update `CHANGELOG.md` in the same commit.
 
 ## 11.2a Releasing an APK & forcing the update
