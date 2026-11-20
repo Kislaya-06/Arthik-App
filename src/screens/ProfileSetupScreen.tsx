@@ -150,7 +150,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
           {/* Progress Row */}
           <View style={styles.progressRow}>
             <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>PROFILE SETUP</Text>
-            <Text style={[styles.progressStep, { color: colors.mintDark }]}>Step 1 of 1</Text>
+            <Text style={[styles.progressStep, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Step 1 of 1</Text>
           </View>
 
           {/* Progress Bar */}
@@ -227,7 +227,7 @@ export const ProfileSetupScreen: React.FC<Props> = ({ navigation }) => {
             errorText={nameLimitError}
             rightLabel={
               <View style={[styles.optionalBadge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : '#E8F5EC' }]}>
-                <Text style={[styles.optionalBadgeText, { color: colors.mintDark }]}>Optional</Text>
+                <Text style={[styles.optionalBadgeText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Optional</Text>
               </View>
             }
             colors={colors}

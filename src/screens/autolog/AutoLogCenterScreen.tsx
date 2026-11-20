@@ -181,8 +181,8 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={[styles.metaRow, { borderTopColor: colors.borderSubtle }]}>
                   <Text style={[styles.meta, { color: colors.textSecondary }]}>Last checked: {relative(s.lastChecked)}</Text>
                   <View style={styles.lockRow}>
-                    <Lock size={12} color={colors.mintGreenDark} />
-                    <Text style={[styles.meta, { color: colors.mintGreenDark }]}>Processed on this device</Text>
+                    <Lock size={12} color={colors.isDark ? colors.mintGreenDark : colors.mintText} />
+                    <Text style={[styles.meta, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Processed on this device</Text>
                   </View>
                 </View>
               </>
@@ -308,7 +308,7 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
                 }}
               />
             ))}
-            {devMsg ? <Text style={[styles.meta, { color: colors.mintGreenDark }]}>{devMsg}</Text> : null}
+            {devMsg ? <Text style={[styles.meta, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>{devMsg}</Text> : null}
           </Card>
         ) : null}
 

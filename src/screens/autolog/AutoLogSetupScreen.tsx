@@ -510,8 +510,8 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
                           {a.lastSeen ? ` · last seen ${dateTime(a.lastSeen)}` : ''}
                         </Text>
                       </View>
-                      {isPrev ? <Text style={[styles.tag, { color: colors.mintGreenDark }]}>Previously tracked</Text> : null}
-                      {isNew ? <Text style={[styles.tag, { color: colors.peachCoral }]}>New account found</Text> : null}
+                      {isPrev ? <Text style={[styles.tag, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Previously tracked</Text> : null}
+                      {isNew ? <Text style={[styles.tag, { color: colors.coralText }]}>New account found</Text> : null}
                     </PressableOpacity>
                   );
                 })}
@@ -567,7 +567,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={[styles.reviewSender, { color: colors.textSecondary }]}>{e.sender} · {dateTime(e.occurredAt)}</Text>
               <Text style={[styles.reviewBody, { color: colors.textPrimary }]} numberOfLines={3}>{e.body}</Text>
               {handled[e.id] ? (
-                <Text style={[styles.tag, { color: colors.mintGreenDark, marginTop: Spacing.element }]}>
+                <Text style={[styles.tag, { color: colors.isDark ? colors.mintGreenDark : colors.mintText, marginTop: Spacing.element }]}>
                   {handled[e.id] === 'learned' ? "✓ We'll use this format for future transactions." : '✓ Ignored'}
                 </Text>
               ) : (
@@ -658,7 +658,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
         {body}
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.block, borderTopColor: colors.borderSubtle, backgroundColor: colors.background }]}>
-        {toast ? <Text style={[styles.toast, { color: colors.mintGreenDark }]}>{toast}</Text> : null}
+        {toast ? <Text style={[styles.toast, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>{toast}</Text> : null}
         {footer}
       </View>
       <ReviewSheet

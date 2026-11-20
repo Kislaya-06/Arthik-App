@@ -140,7 +140,7 @@ export const SettleExpenseSheet: React.FC<SettleExpenseSheetProps> = ({
           <Text
             style={[
               styles.amountValue,
-              { color: isDark ? colors.mintGreen : colors.mintGreenDark },
+              { color: colors.mintText },
             ]}
           >
             {formatCurrency(settleAmount)}

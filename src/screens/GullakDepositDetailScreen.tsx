@@ -48,7 +48,7 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
           Deposit not found
         </Text>
         <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => navigation.goBack()} style={[styles.backButtonFallback, { backgroundColor: colors.mintGreenSoft }]}>
-          <Text style={[styles.backButtonText, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
+          <Text style={[styles.backButtonText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText, fontFamily: FontFamily.bold }]}>
             Go Back
           </Text>
         </PressableOpacity>

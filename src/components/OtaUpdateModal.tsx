@@ -75,7 +75,7 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
 
           {/* Badge chip */}
           <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.12)' : colors.mintGreenSoft }]}>
-            <Text style={[styles.badgeText, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
+            <Text style={[styles.badgeText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText, fontFamily: FontFamily.bold }]}>
               {versionBadge}
             </Text>
           </View>
@@ -90,11 +90,11 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
             <View style={[styles.highlightsBox, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}>
               <View style={styles.highlightsHeader}>
                 {isUpToDate ? (
-                  <CheckCircle2 size={12} color={colors.mintGreenDark} />
+                  <CheckCircle2 size={12} color={colors.isDark ? colors.mintGreenDark : colors.mintText} />
                 ) : (
-                  <Sparkles size={12} color={colors.mintGreenDark} />
+                  <Sparkles size={12} color={colors.isDark ? colors.mintGreenDark : colors.mintText} />
                 )}
-                <Text style={[styles.highlightsLabel, { color: colors.mintGreenDark, fontFamily: FontFamily.bold }]}>
+                <Text style={[styles.highlightsLabel, { color: colors.isDark ? colors.mintGreenDark : colors.mintText, fontFamily: FontFamily.bold }]}>
                   {isUpToDate ? "WHAT'S IN THIS VERSION" : "WHAT'S NEW"}
                 </Text>
               </View>

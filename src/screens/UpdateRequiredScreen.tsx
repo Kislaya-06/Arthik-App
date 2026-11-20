@@ -197,8 +197,8 @@ export const UpdateRequiredScreen: React.FC<UpdateRequiredScreenProps> = ({
                 { backgroundColor: isDark ? 'rgba(184, 224, 200, 0.15)' : colors.mintGreenSoft, borderColor: colors.mintGreenDark, borderWidth: 1 },
               ]}
             >
-              <Text style={[styles.versionLabel, { color: colors.mintGreenDark }]}>Required</Text>
-              <Text style={[styles.versionValue, { color: colors.mintGreenDark }]}>{displayRequired}</Text>
+              <Text style={[styles.versionLabel, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Required</Text>
+              <Text style={[styles.versionValue, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>{displayRequired}</Text>
             </View>
           </View>
         </View>
@@ -248,14 +248,14 @@ export const UpdateRequiredScreen: React.FC<UpdateRequiredScreenProps> = ({
               Didn't see "Update"? Android may first ask you to allow installs from Arthik. Turn on "Allow from this source", come back, and tap Install update.
             </Text>
             <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => openUnknownSourcesSettings(packageName).catch(() => Linking.openSettings())} hitSlop={8}>
-              <Text style={[styles.linkText, { color: colors.mintGreenDark }]}>Open "Install unknown apps" setting</Text>
+              <Text style={[styles.linkText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Open "Install unknown apps" setting</Text>
             </PressableOpacity>
           </View>
         ) : null}
 
         {phase.kind === 'error' || !inApp ? (
           <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={openInBrowser} hitSlop={8} style={{ marginTop: Spacing.element }}>
-            <Text style={[styles.linkText, { color: colors.mintGreenDark }]}>
+            <Text style={[styles.linkText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>
               {inApp ? 'Download in browser instead' : 'After downloading, tap the file in your notifications or Downloads to install.'}
             </Text>
           </PressableOpacity>

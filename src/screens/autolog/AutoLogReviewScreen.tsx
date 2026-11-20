@@ -155,8 +155,8 @@ const ReviewCardItem = React.memo<ReviewCardItemProps>(({
           ]}
           accessibilityLabel="Delete review"
         >
-          <Trash2 size={20} color={colors.peachCoral} strokeWidth={2.2} />
-          <Text style={[styles.deleteBtnText, { color: colors.peachCoral }]}>Delete</Text>
+          <Trash2 size={20} color={colors.coralText} strokeWidth={2.2} />
+          <Text style={[styles.deleteBtnText, { color: colors.coralText }]}>Delete</Text>
         </Pressable>
       </View>
 
@@ -172,7 +172,7 @@ const ReviewCardItem = React.memo<ReviewCardItemProps>(({
               {[directionWord(item), acc, dateTime(item.occurredAt)].filter(Boolean).join(' — ')}
             </Text>
             <View style={[styles.chip, { backgroundColor: colors.peachSoft }]}>
-              <Text style={[styles.chipText, { color: colors.peachCoral }]}>{reviewLabelFor(item)}</Text>
+              <Text style={[styles.chipText, { color: colors.coralText }]}>{reviewLabelFor(item)}</Text>
             </View>
             {unrecognized ? (
               <>
@@ -326,7 +326,7 @@ export const AutoLogReviewScreen: React.FC<Props> = ({ navigation }) => {
           ) : null
         }
       />
-      {toast ? <Text style={[styles.toast, { color: colors.mintGreenDark }]}>{toast}</Text> : null}
+      {toast ? <Text style={[styles.toast, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>{toast}</Text> : null}
       <Animated.FlatList
         data={items}
         keyExtractor={(e) => e.id}

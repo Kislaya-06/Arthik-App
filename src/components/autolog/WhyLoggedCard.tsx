@@ -100,8 +100,8 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
       <View style={styles.head}>
         <View style={[styles.chip, { backgroundColor: colors.mintGreenSoft }]}>
-          <Zap size={12} color={colors.mintGreenDark} />
-          <Text style={[styles.chipText, { color: colors.mintGreenDark }]}>
+          <Zap size={12} color={colors.isDark ? colors.mintGreenDark : colors.mintText} />
+          <Text style={[styles.chipText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>
             {main.origin === 'recovery' ? 'Recovered automatically' : 'Automatically detected'}
           </Text>
         </View>
@@ -149,7 +149,7 @@ export const WhyLoggedCard: React.FC<Props> = ({ expenseId, onEditAmount, onDele
         </View>
       ) : null}
 
-      {done ? <Text style={[styles.done, { color: colors.mintGreenDark }]}>{done}</Text> : null}
+      {done ? <Text style={[styles.done, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>{done}</Text> : null}
       <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} onPress={() => setReporting(true)} style={styles.report} hitSlop={6}>
         <Flag size={14} color={colors.textSecondary} />
         <Text style={[styles.reportText, { color: colors.textSecondary }]}>Report a problem</Text>

@@ -160,7 +160,7 @@ export const AuthFormField: React.FC<AuthFormFieldProps> = ({
       {errorText ? (
         <Text
           accessibilityLiveRegion="polite"
-          style={[styles.errorText, { color: colors.coral, fontFamily: FontFamily.medium }]}
+          style={[styles.errorText, { color: colors.coralText, fontFamily: FontFamily.medium }]}
         >
           {errorText}
         </Text>

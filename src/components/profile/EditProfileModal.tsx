@@ -191,7 +191,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               <Animated.Text
                 entering={reduceMotion ? undefined : FadeIn.duration(160)}
                 exiting={reduceMotion ? undefined : FadeOut.duration(120)}
-                style={[styles.modalErrorText, { color: colors.coral || colors.danger, fontFamily: FontFamily.medium }]}
+                style={[styles.modalErrorText, { color: colors.coralText, fontFamily: FontFamily.medium }]}
               >
                 {limitError}
               </Animated.Text>
@@ -199,7 +199,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               <Animated.Text
                 entering={reduceMotion ? undefined : FadeIn.duration(160)}
                 exiting={reduceMotion ? undefined : FadeOut.duration(120)}
-                style={[styles.modalErrorText, { color: colors.coral || colors.danger, fontFamily: FontFamily.medium }]}
+                style={[styles.modalErrorText, { color: colors.coralText, fontFamily: FontFamily.medium }]}
               >
                 {firstNameError}
               </Animated.Text>

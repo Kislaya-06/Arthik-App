@@ -153,7 +153,7 @@ export const BetaPill: React.FC<{ small?: boolean }> = ({ small }) => {
   const { colors } = useTheme();
   return (
     <View style={[styles.beta, { backgroundColor: colors.peachSoft, borderColor: colors.peachCoral }, small && styles.betaSmall]}>
-      <Text style={[styles.betaText, { color: colors.peachCoral }, small && { fontSize: 9 }]}>BETA</Text>
+      <Text style={[styles.betaText, { color: colors.coralText }, small && { fontSize: 9 }]}>BETA</Text>
     </View>
   );
 };

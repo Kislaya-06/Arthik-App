@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Ledger Looks Premium: Tally Bars, Initials, Clear Groups (owner-approved design) — OTA-safe, no logic / money / animation change**:
+  - **Hero**: under what you will get back, a tally bar and "₹X back of ₹Y shared" show at a glance how much has already come back.
+  - **People**: each person has an initial badge (same colour every time) and their own tally bar with "₹X back of ₹Y"; people are grouped "Owes you" and "Settled" (settled rows say "₹X shared · all paid back").
+  - **Settle all**: the tiny ~22px pill is now a 36dp `AppButton` ("Settle all ₹X"); expense and payment rows dim to 0.7 like the rest of the app.
+  - All numbers come from the same `buildPersonSummaries` totals as before (the hero adds them up for display). Checked on the emulator in Light and AMOLED with temporary on-screen sample data (removed; nothing written to the server). 190 files, 2,653 tests passing; `tsc --noEmit` clean.
+
+- **Fix: Remaining Faint Mint / Coral Text in Light Theme (ADR 0021 amendment 3 follow-up, owner-approved) — OTA-safe, Dark / AMOLED unchanged**:
+  - **Problem**: outside money amounts, 36 texts still used the light brand accents as text colour on Light (1.4–2.3:1): Automatic Logging tags, toasts and "Processed on this device", the BETA pill, Review chips and Delete, form error messages, the update popup badge, the Update Required screen, Profile Setup, Reset Password, Insights "show all", Settle sheet, Streak calendar and the Gullak detail back link. 8 icons next to them were equally faint.
+  - **Fix**: they use `mintText` / `coralText` on Light; Dark and AMOLED keep their exact previous colours. Only the Onboarding chart segments keep the brand fills (they are not text).
+  - **Tests**: new guard in `uiConsistency` fails on any text coloured with a light accent (checked by putting one back). 190 files, 2,653 tests passing; `tsc --noEmit` clean. Checked on the emulator in Light and AMOLED.
+
 - **Fix: Light Theme Amounts and Home Links Were Too Faint (ADR 0021 amendment 3, owner-approved) — OTA-safe, Dark / AMOLED unchanged**:
   - **Problem**: on Light, expense amounts were coral on white (1.7:1), income amounts light green (2.2:1) and Home's "Swipe up or tap" mint on off-white (1.37:1). Readable text needs 4.5:1.
   - **Fix**: new theme tokens `mintText` / `coralText` (Light `#2E7A53` / `#B9473A`, >= 4.8:1; Dark and AMOLED keep the exact brand mint / coral). Used by every amount through `AmountText` (Home, History, Category Detail, Savings, Gullak detail), Home's history link and network status, History's income-only day total and the Ledger amounts.

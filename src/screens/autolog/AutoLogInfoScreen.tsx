@@ -50,8 +50,8 @@ export const AutoLogInfoScreen: React.FC<Props> = ({ navigation, route }) => {
               ) : null}
               <Body muted style={{ marginTop: Spacing.element }}>Last checked: {relative(s.lastChecked)}</Body>
               <View style={styles.lock}>
-                <Lock size={14} color={colors.mintGreenDark} />
-                <Text style={[styles.lockText, { color: colors.mintGreenDark }]}>Processed on this device</Text>
+                <Lock size={14} color={colors.isDark ? colors.mintGreenDark : colors.mintText} />
+                <Text style={[styles.lockText, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Processed on this device</Text>
               </View>
             </Card>
             <Card>
