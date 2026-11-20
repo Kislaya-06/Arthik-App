@@ -76,7 +76,11 @@ describe('UX-03: with the keyboard open, the first tap works', () => {
     const history = read('screens/HistoryScreen.tsx');
     expect(history).toContain('keyboardShouldPersistTaps="handled"');
     expect(history).toContain('keyboardDismissMode="on-drag"');
-    expect(read('screens/FaqScreen.tsx').match(/keyboardShouldPersistTaps="handled"/g)).toHaveLength(2);
+    // FAQ: the question list keeps taps; the topic pills are the shared BouncyCategoryFilter (help-centre
+    // redesign), whose scroll view keeps taps too (so History's category pills also work with the keyboard open).
+    expect(read('screens/FaqScreen.tsx').match(/keyboardShouldPersistTaps="handled"/g)).toHaveLength(1);
+    expect(read('screens/FaqScreen.tsx')).toContain('<BouncyCategoryFilter');
+    expect(read('components/BouncyCategoryFilter.tsx')).toContain('keyboardShouldPersistTaps="handled"');
     expect(read('screens/FaqScreen.tsx')).toContain('keyboardDismissMode="on-drag"');
     expect(read('components/DepositGullakModal.tsx')).toContain('keyboardShouldPersistTaps="handled"');
   });

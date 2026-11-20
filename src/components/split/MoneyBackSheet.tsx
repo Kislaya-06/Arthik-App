@@ -133,7 +133,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
         </Text>
 
         <View style={styles.pills}>
-          {([['settlement', 'Friend paid back'], ['refund', 'Refund']] as const).map(([k, label]) => (
+          {([['settlement', 'Paid back'], ['refund', 'Refund']] as const).map(([k, label]) => (
             <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} key={k} onPress={() => setKind(k)} style={chip(kind === k)} accessibilityRole="button" accessibilityState={{ selected: kind === k }}>
               <Text style={[styles.pillText, { color: kind === k ? colors.forestGreen : colors.textSecondary, fontFamily: kind === k ? FontFamily.bold : FontFamily.medium }]}>{label}</Text>
             </PressableOpacity>
@@ -172,7 +172,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                           {on ? <Check size={14} color={colors.forestGreen} /> : null}
                         </View>
                         <View style={styles.flex}>
-                          <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{s.note || 'Expense'}</Text>
+                          <Text numberOfLines={2} style={[styles.title, { color: colors.textPrimary }]}>{s.note || 'Expense'}</Text>
                           <Text style={[styles.sub, { color: colors.textSecondary }]}>{formatDate(s.date)}</Text>
                         </View>
                         <Text style={[styles.title, { color: colors.textPrimary }]}>{formatCurrency(s.outstanding)}</Text>
@@ -211,7 +211,7 @@ export const MoneyBackSheet: React.FC<MoneyBackSheetProps> = ({ visible, incomeI
                   accessibilityRole="button"
                 >
                   <View style={styles.flex}>
-                    <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>{c.note || 'Expense'}</Text>
+                    <Text numberOfLines={2} style={[styles.title, { color: colors.textPrimary }]}>{c.note || 'Expense'}</Text>
                     <Text style={[styles.sub, { color: colors.textSecondary }]}>{formatDate(c.date)}{c.remaining === amount ? ' · same amount' : ''}</Text>
                   </View>
                   <Text style={[styles.title, { color: colors.textPrimary }]}>{formatCurrency(c.remaining)}</Text>

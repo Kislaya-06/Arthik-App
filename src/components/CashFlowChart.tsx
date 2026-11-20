@@ -460,7 +460,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 styles.metricValue,
                 { color: inAccent, fontFamily: FontFamily.bold },
               ]}
-              numberOfLines={1}
+              numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
             >
               {`+${formatCurrency(Math.round(totalIncome))}`}
             </Text>
@@ -489,7 +489,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 styles.metricValue,
                 { color: outAccent, fontFamily: FontFamily.bold },
               ]}
-              numberOfLines={1}
+              numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
             >
               {`−${formatCurrency(Math.round(totalSpent))}`}
             </Text>

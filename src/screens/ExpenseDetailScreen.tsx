@@ -384,8 +384,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {expense.note ? (
                 <Text
                   style={[styles.noteValue, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}
-                  numberOfLines={4}
-                  ellipsizeMode="tail"
                 >
                   {expense.note}
                 </Text>

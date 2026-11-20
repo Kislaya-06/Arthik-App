@@ -218,7 +218,7 @@ Every centered dialog and bottom sheet dims the screen with the same theme value
 3. **`<SegmentedControl />`**:
    - Container height 48px, deep text contrast.
    - **Liquid pill** (`src/lib/segmentedMotion.ts`): the pill's left and right edges ride two springs on the UI thread. The edge in the direction of travel uses `LEADING_EDGE_SPRING` (`stiffness 700, damping 46`), the back edge `trailingSpringFor(slots)` (`stiffness 420 + 80 per extra slot`, 0.97 of critical damping), so the pill stretches while it moves and lands at its exact width (under 1px overshoot). The trailing edge is distance-aware on purpose: with one fixed spring an All -> Monthly jump stretched the pill to 1.56x (a blob); now it is about 19% / 28% / 29% for 1 / 2 / 3 slots and every jump lands in about 285ms.
-   - **Transform-only drawing (ADR 0020)**: the pill is two round caps + a flat middle that is scaled + one shadow box (`pillPiecesFor`). `width` is never animated (a layout prop: Yoga + shadow-tree commit every frame), and only the flat middle is scaled, so the round corners never squash. Shadow = `PILL_BOX_SHADOW` on a fill-less box drawn under the pill. Pill colours must be opaque (`isOpaqueColor`; anything else falls back to one scaled box).
+   - **Transform-only drawing (ADR 0020)**: the pill is two round caps + a flat middle that is scaled + one shadow box (`pillPiecesFor`). `width` is never animated (a layout prop: Yoga + shadow-tree commit every frame), and only the flat middle is scaled, so the round corners never squash. Shadow = `PILL_BOX_SHADOW` on a fill-less box drawn under the pill. Pill colours must be opaque (`isOpaqueColor`; anything else falls back to one scaled box). The scaled pieces use a FIXED base width (`PILL_PIECE_BASE` in `SegmentedControl`, `BODY_BASE_WIDTH` in `BouncyCategoryFilter`), never the measured slot width: on the first layout the native view gets a new width one frame before the UI-thread transform does, which drew the pill stretched across every option for one frame.
    - **Label colour follows the pill**: each label is drawn twice (inactive colour + active colour on top). The top copy's *opacity* follows the pill's live centre (`labelActiveProgress`). Opacity on a View is a cheap GPU property, so this does not bring back the per-frame `setTextColor` cost removed in FIN-13.
    - **Geometry**: slot width comes from `optionWidthFor` (border excluded). Ignoring the border made the pill drift up to ~1.5px off the labels on the last option.
    - **Labels**: each label is drawn twice; the inactive-colour copy fades out (`inactiveLabelOpacity`) as the active copy fades in, so no grey fringe shows around the active text.
@@ -322,10 +322,20 @@ Haptics have a fixed meaning. Never add a haptic to scrolling or to every keypad
 | Swipe reveal | `impactAsync(Light)` |
 Every call ends with `.catch(() => {})`. Save success is wired through `saveSuccessHaptic()` (`src/lib/saveFeedback.ts`) in the expense form (both save paths), the Gullak deposit and the budget save.
 
+### Form field anatomy (every field, including switches)
+UPPERCASE section label (`LetterSpacing.label`) → the control (56dp `ControlHeight.row`, `BorderRadius.pill`, `colors.inputBg`, no border) → optional one-line helper (caption, `textSecondary`, indented by `Spacing.surface`). Text inputs (Add Transaction note, Add Category name), the date row and the Split / Transfer switch rows all follow it; a switch row carries one short line ("Split with friends", "Between my own accounts") and the explanation goes in the helper. Segmented options must fit at the control's normal size; shorten the label ("Paid back") instead of shrinking the font.
+
+### Inset grouped lists
+A list of settings-like rows (Profile settings, Manage Categories, FAQ questions, Ledger people) sits in one `colors.card` card (`BorderRadius.card`, 1px `borderSubtle`) with hairline / subtle dividers, not as rows on the bare background and not as one card per row. Expandable rows use the shared `ChevronRotator` (`src/components/ui/ChevronRotator.tsx`).
+
+### FAQs & Help (help-centre layout)
+48dp search field → the History topic pill filter (`BouncyCategoryFilter`, inside the gutter) → one group per topic: icon + topic name header, then an inset card of questions (16px semibold, 56dp minimum rows). A question opens in place (answer 14px on the 22px body line height) and the chevron turns. Nothing is open by default. No support button until a real support channel exists.
+
 ### Text that must stay readable (no `...` on important text)
 - Amounts never end in `...`: they shrink (`adjustsFontSizeToFit`) first.
 - Buttons, dialog buttons, sheet titles and badges: 1 line that shrinks to 85% (`minimumFontScale={0.85}`), never cut.
 - Row titles and subtitles (transactions, ledger, notifications, categories, Insights categories): up to 2 lines; the row grows.
+- Names, notes, merchants, banners and Auto Logging titles: at least 2 lines (never one clipped line). Detail screens show user text in full (Expense Detail note, insight details).
 - Only fixed-size shapes (pills, nav, keypad) stay at 1 line, capped by `FIXED_SHAPE_MAX_FONT_SCALE`; keep their copy short.
 - User-facing errors go through `toFriendlyMessage` (`src/lib/friendlyError.ts`): no database, server or code text on screen.
 - Splash shows "Just a moment, still loading..." only after 2.5 s.

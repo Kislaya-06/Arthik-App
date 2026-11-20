@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { GradientIconBadge } from '../components/GradientIconBadge';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
 import MoreHorizontal from 'lucide-react-native/icons/ellipsis';
 import Check from 'lucide-react-native/icons/check';
@@ -152,20 +153,16 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
       >
         {/* Live Preview */}
         <View style={styles.previewContainer}>
-          <View
-            style={[
-              styles.previewCircle,
-              {
-                backgroundColor: selectedColor,
-              },
-            ]}
-          >
-            {selectedIcon ? (
-              <PreviewIconComponent size={32} color="#000000" strokeWidth={2.2} />
-            ) : (
-              <MoreHorizontal size={24} color="#000000" strokeWidth={2.2} />
-            )}
-          </View>
+          {/* The exact badge the category will wear everywhere else (lists, History, Home). */}
+          <GradientIconBadge size={80} color={selectedColor} isDark={isDark}>
+            {({ iconColor }) =>
+              selectedIcon ? (
+                <PreviewIconComponent size={34} color={iconColor} strokeWidth={2.2} />
+              ) : (
+                <MoreHorizontal size={28} color={iconColor} strokeWidth={2.2} />
+              )
+            }
+          </GradientIconBadge>
           <Text style={[styles.previewLabel, { color: colors.textTertiary, fontFamily: FontFamily.bold }]}>
             PREVIEW
           </Text>
@@ -180,14 +177,7 @@ export const AddEditCategoryScreen: React.FC<Props> = ({ navigation, route }) =>
             {name.length}/24
           </Text>
         </View>
-        <View style={[
-          styles.inputContainer,
-          {
-            backgroundColor: colors.inputBg,
-            borderWidth: isDark ? 1 : 0,
-            borderColor: colors.borderSubtle,
-          }
-        ]}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.inputBg }]}>
           <TextInput
             style={[styles.textInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
             placeholder={kind === 'income' ? 'e.g. Salary, Freelance, Bonus' : 'e.g. Groceries, Travel, Rent'}
@@ -297,14 +287,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.block,
   },
-  previewCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E5E7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   previewLabel: {
     marginTop: Spacing.group,
     fontSize: FontSize.caption,
@@ -331,15 +313,16 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     color: '#B0B4C0',
   },
+  // Same 56dp pill as every other text field (Add Transaction note, sheets).
   inputContainer: {
-    backgroundColor: '#F1F2F5',
-    borderRadius: BorderRadius.input,
+    height: ControlHeight.row,
+    justifyContent: 'center',
+    borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.surface,
-    paddingVertical: Spacing.block,
   },
   textInput: {
     fontSize: FontSize.body,
-    color: '#1A2B4C',
+    paddingVertical: 0,
   },
 
   // Icon Grid

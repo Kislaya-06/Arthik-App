@@ -35,16 +35,17 @@ export const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     marginTop: -2,
   },
+  // Streak chip: the app's pill surface (like the filter pills), a living flame and warm text.
   streakBadge: {
     flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.input,
+    height: ControlHeight.compact,
+    paddingLeft: Spacing.element,
+    paddingRight: Spacing.group,
+    borderRadius: BorderRadius.pill,
     borderWidth: 1,
     gap: Spacing.micro,
-    overflow: 'visible',
   },
   streakBadgeText: {
     fontSize: FontSize.caption,

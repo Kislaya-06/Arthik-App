@@ -62,7 +62,7 @@ export const SplitDetailCard: React.FC<SplitDetailCardProps> = ({ expense, allEx
               accessibilityRole="button"
             >
               <View style={styles.flex}>
-                <Text numberOfLines={1} style={[styles.value, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
+                <Text numberOfLines={2} style={[styles.value, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
                   {s.expense?.note || 'Expense'}
                 </Text>
                 <Text style={[styles.sub, { color: colors.textSecondary }]}>

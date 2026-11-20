@@ -590,7 +590,7 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
               fontFamily: FontFamily.bold,
             },
           ]}
-          numberOfLines={1}
+          numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
         >
           {text}
         </Text>

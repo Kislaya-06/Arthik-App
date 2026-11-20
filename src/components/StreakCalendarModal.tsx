@@ -413,13 +413,13 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
                     style={[
                       styles.streakPill,
                       {
-                        backgroundColor: isDark ? 'rgba(244, 184, 174, 0.18)' : '#FDEEEC',
-                        borderColor: colors.peachCoral,
+                        backgroundColor: colors.cardSubtle,
+                        borderColor: colors.borderSubtle,
                       },
                     ]}
                   >
-                    <StreakFlame streak={savingsStreak} size={15} />
-                    <Text style={[styles.streakPillText, { color: '#E05638' }]}>
+                    <StreakFlame streak={savingsStreak} size={20} />
+                    <Text style={[styles.streakPillText, { color: colors.coralText }]}>
                       {savingsStreak}{streakPillUnit}
                     </Text>
                   </View>

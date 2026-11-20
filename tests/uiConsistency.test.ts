@@ -328,3 +328,45 @@ describe('No faint accent text anywhere (Light): text uses mintText / coralText'
     expect(offenders).toEqual([]);
   });
 });
+
+describe('Form fields share one anatomy (label, 56dp row, helper)', () => {
+  it('the Transfer and Split switches are plain form rows, not bordered capsules', () => {
+    const transfer = read('src/components/transfer/TransferExtras.tsx');
+    expect(transfer).toContain('>TRANSFER</Text>');
+    expect(transfer).toContain('height: ControlHeight.row,');
+    expect(transfer).not.toContain('pillTrigger');
+    const split = read('src/components/split/SplitExtras.tsx');
+    expect(split).toContain('>SPLIT</Text>');
+    expect(split).toMatch(/pillTrigger: \{[^}]*height: ControlHeight\.row,[^}]*\}/);
+    expect(split).not.toMatch(/pillTrigger: \{[^}]*borderWidth/);
+  });
+
+  it('"What is this money?" fits its three options at the normal size', () => {
+    const extras = read('src/components/split/MoneyBackExtras.tsx');
+    expect(extras).toContain("{ key: 'friend', label: 'Paid back' }");
+    expect(extras).not.toContain('fontSize={13}');
+  });
+
+  it('Add Category previews the real gradient badge and uses the 56dp pill field', () => {
+    const src = read('src/screens/AddEditCategoryScreen.tsx');
+    expect(src).toContain('<GradientIconBadge size={80} color={selectedColor}');
+    expect(src).toMatch(/inputContainer: \{[^}]*height: ControlHeight\.row,[^}]*borderRadius: BorderRadius\.pill/);
+  });
+});
+
+describe('FAQ is a help centre in the app language', () => {
+  const faq = read('src/screens/FaqScreen.tsx');
+  it('topics use the shared pill filter, questions sit in one card per topic, chevrons turn', () => {
+    expect(faq).toContain('<BouncyCategoryFilter');
+    expect(faq).toContain('<ChevronRotator');
+    expect(faq).toContain('styles.groupCard');
+    expect(faq).not.toContain('styles.badge');
+  });
+});
+
+describe('Nothing important is cut off', () => {
+  it('the expense note on Expense Detail is shown in full', () => {
+    const src = read('src/screens/ExpenseDetailScreen.tsx');
+    expect(src).not.toMatch(/numberOfLines=\{\d+\}[^>]*styles\.noteValue|styles\.noteValue[^>]*numberOfLines/);
+  });
+});

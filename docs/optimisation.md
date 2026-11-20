@@ -6,7 +6,7 @@
 >
 > **Written:** 23 Oct 2026, from a line-by-line read of the codebase at that date
 > (`src/` + `App.tsx` + `index.ts`: ~65,200 lines; 128 test files, 1,895 tests, `tsc` clean).
-> **Latest state (20 Nov 2026, after Phase 11):** ~71,300 lines in 309 source files; 190 test files, 2,653 tests, `tsc` clean.
+> **Latest state (20 Nov 2026, after Phase 11):** ~71,300 lines in 309 source files; 190 test files, 2,666 tests, `tsc` clean.
 > **Location:** `docs/optimisation.md`. This is the **only** optimisation document of the repo and it is supreme for
 > optimisation work. The old `docs/OPTIMISATION_PLAN.md` has been deleted on purpose; nothing in this file depends on
 > it. Do not recreate it and do not look for it.

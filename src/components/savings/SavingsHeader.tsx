@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { PressableOpacity } from '../ui/PressableOpacity';
+import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 import { StreakFlame } from '../StreakFlame';
 import { styles } from '../../screens/SavingsScreen.styles';
 
@@ -17,8 +18,9 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
   effectiveStreak,
   onOpenStreakCalendar,
   colors,
-  isDark,
 }) => {
+  const unit = budgetCadence === 'weekly' ? 'Week' : budgetCadence === 'monthly' ? 'Month' : 'Day';
+  const streakLabel = `${effectiveStreak} ${unit}${effectiveStreak === 1 ? '' : 's'} Streak`;
   return (
     <View style={styles.headerRow}>
       <View style={styles.headerTitleContainer}>
@@ -36,21 +38,18 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
         </Text>
       </View>
 
-      {/* Streak Badge (Bonus Feature #2 - Tappable for Calendar) */}
+      {/* Streak chip (opens the Streak Calendar) */}
       <PressableOpacity
-        activeOpacity={0.7}
+        activeOpacity={PRESS_DIM_OPACITY}
         onPress={onOpenStreakCalendar}
-        style={[
-          styles.streakBadge,
-          {
-            backgroundColor: isDark ? 'rgba(244, 184, 174, 0.18)' : '#FDEEEC',
-            borderColor: colors.peachCoral,
-          },
-        ]}
+        hitSlop={{ top: 6, bottom: 6 }}
+        accessibilityRole="button"
+        accessibilityLabel={`${streakLabel}. Open streak calendar`}
+        style={[styles.streakBadge, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}
       >
-        <StreakFlame streak={effectiveStreak} size={18} />
-        <Text style={[styles.streakBadgeText, { color: '#E05638' }]}>
-          {effectiveStreak} {budgetCadence === 'weekly' ? (effectiveStreak === 1 ? 'Week' : 'Weeks') : budgetCadence === 'monthly' ? (effectiveStreak === 1 ? 'Month' : 'Months') : (effectiveStreak === 1 ? 'Day' : 'Days')} Streak
+        <StreakFlame streak={effectiveStreak} size={22} />
+        <Text style={[styles.streakBadgeText, { color: colors.coralText }]} numberOfLines={1}>
+          {streakLabel}
         </Text>
       </PressableOpacity>
     </View>

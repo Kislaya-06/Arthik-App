@@ -14,8 +14,6 @@ import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import Search from 'lucide-react-native/icons/search';
 import X from 'lucide-react-native/icons/x';
-import ChevronDown from 'lucide-react-native/icons/chevron-down';
-import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import HelpCircle from 'lucide-react-native/icons/circle-question-mark';
 import PiggyBank from 'lucide-react-native/icons/piggy-bank';
 import Flame from 'lucide-react-native/icons/flame';
@@ -31,6 +29,9 @@ import { RootStackParamList } from '../types';
 import { configureLayoutAnimation } from '../lib/animationUtils';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
+import { BouncyCategoryFilter } from '../components/BouncyCategoryFilter';
+import { ChevronRotator } from '../components/ui/ChevronRotator';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Faq'>;
 type Category = 'All' | 'Budget Modes' | 'Daily Budget' | 'Gullak & Savings' | 'Streak & Rules' | 'Income & Expenses' | 'Automatic Logging' | 'Offline & Privacy';
@@ -121,12 +122,21 @@ const FAQ_DATA = [
    'Deleting your account from the Profile screen permanently deletes all your expenses, categories, and Gullak savings history from both your device and cloud servers. This action is irreversible.'],
 ].map(([id, category, question, answer]) => ({ id, category: category as Category, question, answer }));
 
+/** Topic filter options: "All" + every category, in the order above (same pill filter as History). */
+const TOPIC_OPTIONS = CATEGORIES.map((c) => ({ id: c === 'All' ? null : c, name: c }));
+
+/**
+ * FAQs & Help, laid out like a help centre (Swiggy / Zomato style, in Arthik's own tokens):
+ * search, the topic pill filter, then one inset card per topic with its questions separated by hairlines.
+ * A question opens in place; the chevron turns to show it. Nothing is open until the user asks.
+ */
 export const FaqScreen: React.FC<Props> = () => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const reduceMotion = useReduceMotion();
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState<Category>('All');
-  const [expandedId, setExpandedId] = useState<string | null>('bm_1');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
     configureLayoutAnimation(LayoutAnimation.Presets.easeInEaseOut);
@@ -141,19 +151,27 @@ export const FaqScreen: React.FC<Props> = () => {
     });
   }, [search, selectedCat]);
 
+  // One group per topic, in the topic order; empty topics are skipped.
+  const groups = useMemo(
+    () =>
+      CATEGORIES.filter((c) => c !== 'All')
+        .map((category) => ({ category, items: faqs.filter((f) => f.category === category) }))
+        .filter((g) => g.items.length > 0),
+    [faqs]
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Header */}
       <ScreenHeader title="FAQs & Help" />
 
-      {/* Search Bar */}
-      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-        <Search size={18} color={colors.textMuted} style={{ marginRight: Spacing.element }} />
+      {/* Search: same 48dp field as the app's other search bars */}
+      <View style={[styles.searchBar, { backgroundColor: colors.inputBg }]}>
+        <Search size={18} color={colors.textSecondary} />
         <TextInput
-          style={[styles.searchInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
-          placeholder="Search questions or keywords..."
+          style={[styles.searchInput, { color: colors.textPrimary }]}
+          placeholder="Search questions"
           placeholderTextColor={colors.textMuted}
           value={search}
           onChangeText={setSearch}
@@ -163,43 +181,24 @@ export const FaqScreen: React.FC<Props> = () => {
           returnKeyType="search"
         />
         {search.length > 0 && (
-          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Clear search text" onPress={() => setSearch('')} hitSlop={8}>
-            <X size={16} color={colors.textSecondary} />
+          <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Clear search text" onPress={() => setSearch('')} hitSlop={12}>
+            <X size={18} color={colors.textSecondary} />
           </PressableOpacity>
         )}
       </View>
 
-      {/* Category Filter Pills */}
-      <View style={{ marginBottom: Spacing.element }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillsScroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          {CATEGORIES.map((cat) => {
-            const active = selectedCat === cat;
-            return (
-              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
-                key={cat}
-                style={[
-                  styles.pill,
-                  active
-                    ? { backgroundColor: colors.mintGreenSoft, borderColor: colors.mintGreen }
-                    : { backgroundColor: colors.card, borderColor: colors.borderSubtle },
-                ]}
-                onPress={() => setSelectedCat(cat)}
-              >
-                <Text style={[styles.pillText, { color: active ? colors.mintGreenDark : colors.textSecondary, fontFamily: active ? FontFamily.bold : FontFamily.medium }]}>
-                  {cat}
-                </Text>
-              </PressableOpacity>
-            );
-          })}
-        </ScrollView>
+      {/* Topics: the same sliding pill filter as History */}
+      <View style={styles.filterWrapper}>
+        <BouncyCategoryFilter
+          options={TOPIC_OPTIONS}
+          value={selectedCat === 'All' ? null : selectedCat}
+          onChange={(id) => {
+            setExpandedId(null);
+            setSelectedCat((id ?? 'All') as Category);
+          }}
+        />
       </View>
 
-      {/* Accordion FAQ List */}
       <ScrollView
         contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, Spacing.block) + Spacing.section }]}
         showsVerticalScrollIndicator={false}
@@ -207,7 +206,7 @@ export const FaqScreen: React.FC<Props> = () => {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {faqs.length === 0 ? (
+        {groups.length === 0 ? (
           <EmptyState
             size="section"
             icon={HelpCircle}
@@ -216,43 +215,44 @@ export const FaqScreen: React.FC<Props> = () => {
             style={styles.empty}
           />
         ) : (
-          faqs.map((item) => {
-            const open = expandedId === item.id;
-            const Icon = ICONS[item.category] || HelpCircle;
+          groups.map((group) => {
+            const Icon = ICONS[group.category] || HelpCircle;
             return (
-              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
-                key={item.id}
-                style={[
-                  styles.card,
-                  { backgroundColor: colors.card, borderColor: open ? colors.mintGreen : colors.border, borderWidth: isDark || open ? 1 : 0 },
-                ]}
-                onPress={() => toggleExpand(item.id)}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1, marginRight: Spacing.element }}>
-                    <View style={[styles.badge, { backgroundColor: colors.cardSubtle }]}>
-                      <Icon size={12} color={colors.mintGreenDark} />
-                      <Text style={[styles.badgeText, { color: colors.textSecondary, fontFamily: FontFamily.semibold }]}>
-                        {item.category}
-                      </Text>
-                    </View>
-                    <Text style={[styles.qText, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
-                      {item.question}
-                    </Text>
-                  </View>
-                  <View style={[styles.chevron, { backgroundColor: colors.cardSubtle }]}>
-                    {open ? <ChevronUp size={16} color={colors.textPrimary} /> : <ChevronDown size={16} color={colors.textSecondary} />}
-                  </View>
+              <View key={group.category} style={styles.group}>
+                <View style={styles.groupHeader}>
+                  <Icon size={16} color={colors.textSecondary} />
+                  <Text style={[styles.groupTitle, { color: colors.textSecondary }]} accessibilityRole="header">
+                    {group.category}
+                  </Text>
                 </View>
 
-                {open && (
-                  <View style={[styles.answerBox, { borderTopColor: colors.borderSubtle }]}>
-                    <Text style={[styles.aText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
-                      {item.answer}
-                    </Text>
-                  </View>
-                )}
-              </PressableOpacity>
+                <View style={[styles.groupCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                  {group.items.map((item, index) => {
+                    const open = expandedId === item.id;
+                    return (
+                      <View
+                        key={item.id}
+                        style={index > 0 ? [styles.rowDivider, { borderTopColor: colors.borderSubtle }] : undefined}
+                      >
+                        <PressableOpacity
+                          activeOpacity={PRESS_DIM_OPACITY}
+                          onPress={() => toggleExpand(item.id)}
+                          style={styles.questionRow}
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded: open }}
+                          accessibilityLabel={item.question}
+                        >
+                          <Text style={[styles.question, { color: colors.textPrimary }]}>{item.question}</Text>
+                          <ChevronRotator isOpen={open} color={colors.textSecondary} reduceMotion={reduceMotion} />
+                        </PressableOpacity>
+                        {open ? (
+                          <Text style={[styles.answer, { color: colors.textSecondary }]}>{item.answer}</Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
             );
           })
         )}
@@ -266,31 +266,36 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.element,
     marginHorizontal: Spacing.gutter,
     paddingHorizontal: Spacing.surface,
     height: ControlHeight.standard,
     borderRadius: BorderRadius.pill,
-    marginBottom: Spacing.element,
-    elevation: 1,
   },
-  searchInput: { flex: 1, fontSize: FontSize.body, paddingVertical: 0 },
-  pillsScroll: { paddingHorizontal: Spacing.gutter, gap: Spacing.micro },
-  pill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: BorderRadius.pill, borderWidth: 1 },
-  pillText: { fontSize: FontSize.caption },
-  listContent: { paddingHorizontal: Spacing.gutter, paddingTop: Spacing.micro },
-  card: { borderRadius: BorderRadius.card, padding: Spacing.block, marginBottom: Spacing.element, elevation: 1 },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, marginBottom: 5, gap: 4 },
-  badgeText: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.3 },
-  qText: {
+  searchInput: { flex: 1, fontSize: FontSize.body, fontFamily: FontFamily.medium, paddingVertical: 0 },
+  filterWrapper: { marginTop: Spacing.block, marginBottom: Spacing.element, marginHorizontal: Spacing.gutter },
+  listContent: { paddingHorizontal: Spacing.gutter, paddingTop: Spacing.element, gap: Spacing.gutter },
+  group: { gap: Spacing.group },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.element, paddingHorizontal: Spacing.micro },
+  groupTitle: { fontSize: FontSize.bodySmall, lineHeight: LineHeight.bodySmall, fontFamily: FontFamily.bold },
+  groupCard: { borderRadius: BorderRadius.card, borderWidth: 1, overflow: 'hidden' },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth },
+  questionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.group,
+    minHeight: ControlHeight.row,
+    paddingHorizontal: Spacing.surface,
+    paddingVertical: Spacing.row,
+  },
+  question: { flex: 1, fontSize: FontSize.body, lineHeight: LineHeight.body, fontFamily: FontFamily.semibold },
+  answer: {
     fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
+    lineHeight: LineHeight.body,
+    fontFamily: FontFamily.medium,
+    paddingHorizontal: Spacing.surface,
+    paddingBottom: Spacing.surface,
+    marginTop: -Spacing.micro,
   },
-  chevron: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  answerBox: { borderTopWidth: 1, marginTop: Spacing.element, paddingTop: Spacing.element },
-  aText: {
-    fontSize: FontSize.bodySmall,
-    lineHeight: LineHeight.bodySmall,
-  },
-  empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: Spacing.gutter },
+  empty: { paddingVertical: 48, paddingHorizontal: Spacing.gutter },
 });

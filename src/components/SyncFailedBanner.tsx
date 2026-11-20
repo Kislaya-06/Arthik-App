@@ -207,7 +207,7 @@ export const SyncFailedBanner: React.FC = () => {
       >
         <AlertCircle size={15} color={textColor} />
         <Text
-          numberOfLines={1}
+          numberOfLines={2}
           style={[
             styles.text,
             { color: textColor, fontFamily: FontFamily.semibold },

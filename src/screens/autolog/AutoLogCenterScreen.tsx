@@ -268,7 +268,7 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
                 style={[styles.activity, i < s.recent.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }]}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.activityTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                  <Text style={[styles.activityTitle, { color: colors.textPrimary }]} numberOfLines={2}>
                     {money(e.amount)} · {eventTitle(e)}
                   </Text>
                   <Text style={[styles.activitySub, { color: e.status === 'pending' ? colors.peachCoral : colors.textSecondary }]}>

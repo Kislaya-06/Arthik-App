@@ -520,7 +520,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                       <View key={item.id} style={styles.subtextChipRow}>
                         <View style={styles.gullakSpendingBadge}>
                           <PiggyBankCoinIcon size={12} color="#DC2626" />
-                          <Text style={styles.gullakSpendingText} numberOfLines={1} ellipsizeMode="tail">
+                          <Text style={styles.gullakSpendingText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} ellipsizeMode="tail">
                             {item.text}
                           </Text>
                         </View>
@@ -541,7 +541,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                             styles.subtextChipText,
                             { color: effectiveIsOver ? '#DC2626' : textColorPrimary },
                           ]}
-                          numberOfLines={1}
+                          numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
                           ellipsizeMode="tail"
                         >
                           {item.text}
@@ -550,7 +550,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
                       {item.badgeText && (
                         <View style={styles.gullakSpendingBadge}>
                           <PiggyBankCoinIcon size={12} color="#DC2626" />
-                          <Text style={styles.gullakSpendingText} numberOfLines={1} ellipsizeMode="tail">
+                          <Text style={styles.gullakSpendingText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} ellipsizeMode="tail">
                             {item.badgeText}
                           </Text>
                         </View>
@@ -658,7 +658,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
             </PressableOpacity>
           )}
           {showRollover && carryNote ? (
-            <Text style={[styles.carryNote, { color: textColorPrimary }]} numberOfLines={1}>
+            <Text style={[styles.carryNote, { color: textColorPrimary }]} numberOfLines={2}>
               {carryNote}
             </Text>
           ) : null}

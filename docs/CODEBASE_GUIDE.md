@@ -1,6 +1,6 @@
 # Arthik — Codebase Guide (kahan kya hai, kaun si file kya karti hai)
 
-Ye guide **ab ki state** par hai: pehla package + Pure Mode + CAR-001 Mode B + Split Expenses & Money Back + Home Card Details + AutoLog single-page review sab apply hone ke baad. Isme ~309 source files (`src/`), 190 test files (2,653 tests, 20 Nov 2026), native Android module aur docs ka naksha hai. November 2026 ke facade split ke baad bade stores / engines / screens chhote modules mein bante hain (neeche har store ke section mein list hai).
+Ye guide **ab ki state** par hai: pehla package + Pure Mode + CAR-001 Mode B + Split Expenses & Money Back + Home Card Details + AutoLog single-page review sab apply hone ke baad. Isme ~309 source files (`src/`), 190 test files (2,666 tests, 20 Nov 2026), native Android module aur docs ka naksha hai. November 2026 ke facade split ke baad bade stores / engines / screens chhote modules mein bante hain (neeche har store ke section mein list hai).
 
 **Kaise bani:** maine har file ka header comment, exports, aur core money files (waterfall, budget periods, home calculations, notification policy, stores, AutoLog) seedha padhe hain. UI components (buttons, charts, modals) ke baare mein likha hai wo unke naam aur exports se hai, unki andar ki logic maine line-by-line nahi padhi. Jahan ye farak matter karta hai wahan likh diya hai.
 
@@ -370,7 +370,7 @@ Saare transactions. **Offline-first** (ADR 0001): kharch pehle **turant screen p
 | `NotificationsScreen.tsx` | In-app notification inbox |
 | `ManageCategoriesScreen`, `AddEditCategoryScreen`, `CategoryDetailScreen` | Categories ka kaam. Fine-grained Zustand selectors se unrelated store churn isolation. `CategoryDetailScreen` ki list FlashList hai (OPT-31) |
 | `GullakDepositDetailScreen.tsx` | Ek Gullak deposit ki detail |
-| `FaqScreen.tsx`, `UpdateRequiredScreen.tsx` | FAQ, zaroori update |
+| `FaqScreen.tsx`, `UpdateRequiredScreen.tsx` | FAQ (help-centre layout: search, History wala topic pill filter, har topic ka ek inset card, ghoomne wala `ChevronRotator`), zaroori update |
 | `screens/autolog/*` | AutoLog: Center (reset learned rules), Setup, Review (pending - swipe to delete & bulk clear), Accounts, Email, Info/Privacy, Intro, WelcomeBack |
 
 ---
