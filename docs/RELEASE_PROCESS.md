@@ -14,9 +14,10 @@ Agar tumhe heavy DevOps ya terminal jargons samajh nahi aate, toh bas ye 2 rules
 * **Scenario A: Sirf screens, styling, calculations, ya UI logic badla hai (`src/**`):**  
   👉 **Naya APK mat banao!** Bas ye single command chalao:  
   ```bash
-  eas update --branch preview --message "feature: short description"
+  eas update --branch preview --environment preview --message "feature: short description"
   ```  
   Users jab app kholenge, unka app internet se wirelessly silently update ho jayega (OTA update). User ko download dialog nahi aayega!
+  > `--environment preview` zaroori hai (naya eas-cli ise `--non-interactive` mode mein maangta hai, warna update fail hota hai). `preview` environment mein abhi koi EAS variable nahi hai, isliye Supabase config `app.json` → `extra` se hi bundle hota hai (20 Nov 2026 ki OTA isi command se gayi).
 * **Scenario B: Native Kotlin code (`modules/**`) ya `app.json` me permissions/plugins badle hain:**  
   👉 Tabhi naya APK banana mandatory hai.
 
@@ -65,7 +66,7 @@ Har GitHub release (tag `vX.Y.Z`) me **do assets** (same file):
 ### APK vs OTA
 | Kya badla | Kaise bhejna |
 |---|---|
-| Sirf `src/**` (JS/TS) | `eas update --branch preview --message "…"` — sirf same app version wale phones |
+| Sirf `src/**` (JS/TS) | `eas update --branch preview --environment preview --message "…"` — sirf same app version wale phones |
 | `modules/**` (Kotlin), `app.json` plugins/permissions, nayi native library | Naya APK + version bump (yeh doc) |
 
 ---
@@ -243,7 +244,7 @@ UPDATE public.app_config
 SET value = value || '{"force_update_enabled": false}'::jsonb, updated_at = NOW()
 WHERE key = 'version_control';
 ```
-**JS bug:** fix → tests → `eas update --branch preview --message "Fix: …"`
+**JS bug:** fix → tests → `eas update --branch preview --environment preview --message "Fix: …"`
 **Native bug:** `X.Y.(Z+1)` → Phase 1 se.
 **Automatic Logging Beta band (jinhone setup nahi kiya):**
 ```sql
