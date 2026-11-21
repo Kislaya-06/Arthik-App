@@ -3,6 +3,7 @@ import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -13,9 +14,15 @@ import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { useIsFocused } from '@react-navigation/native';
 import {
   getStreakFlameConfig,
+  flameBitsAt,
+  flameEnergy,
   flameFrameAt,
   flameGrowthFor,
+  flameHeartAt,
   flameLoopMs,
+  flameOutlineAt,
+  FLAME_HEADROOM,
+  FLAME_VIEWBOX,
   FLAME_PATHS,
   EMBER_CONFIGS,
   StreakFlameConfig,
@@ -24,6 +31,8 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 import { Motion } from '../config/theme';
 
 export { getStreakFlameConfig, FLAME_PATHS, EMBER_CONFIGS, StreakFlameConfig };
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export interface StreakFlameProps {
   streak: number;
@@ -41,9 +50,12 @@ function useSafeIsFocused(): boolean {
 }
 
 /**
- * A living streak flame: a gradient flame that flickers and leans on the UI thread, with no halo.
+ * A living streak flame, drawn like an animated emoji fire. Every frame the fire's outline is
+ * redrawn on the UI thread: the tip whips side to side, the side tongues lick up and down on their
+ * own beats, a hot yellow heart dances inside, and small flame bits break off the top and fade.
  * - Grows a little with every streak day (flameGrowthFor), so a long streak is a visibly bigger fire.
- * - Hotter colours and a livelier flicker per tier (getStreakFlameConfig).
+ * - Hotter colours and a livelier fire per tier (getStreakFlameConfig, flameEnergy).
+ * - No glow or halo behind it.
  * - Still when the streak is 0, when "reduce motion" is on, or while its screen is not visible.
  */
 export const StreakFlame: React.FC<StreakFlameProps> = ({ streak, size = 18, style, colorOverride }) => {
@@ -54,6 +66,9 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({ streak, size = 18, sty
   const animate = streak > 0 && !reduceMotion && isFocused;
   const loopMs = flameLoopMs(config);
   const { lickStretch, swayDegrees } = config;
+  const energy = flameEnergy(lickStretch);
+  // Flame bits only on a real streak (the still, dormant flame has none).
+  const bitCount = Math.min(config.emberCount, 2);
 
   // Unique gradient ids per instance (the badge and the calendar can be on screen together).
   const gradientId = useRef(`flame${Math.random().toString(36).slice(2, 9)}`).current;
@@ -81,69 +96,61 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({ streak, size = 18, sty
     prevStreakRef.current = streak;
   }, [streak, reduceMotion, settle]);
 
+  // The whole fire stretches up and settles from its base (the base never moves, like real fire).
   const bodyStyle = useAnimatedStyle(() => {
     const f = flameFrameAt(phase.value, lickStretch, swayDegrees);
     return {
-      transform: [
-        { scale: settle.value * growth },
-        { rotate: `${f.rotateDeg}deg` },
-        { scaleX: f.scaleX },
-        { scaleY: f.scaleY },
-      ],
+      transform: [{ scale: settle.value * growth }, { scaleX: f.scaleX }, { scaleY: f.scaleY }],
     };
   });
-  const innerStyle = useAnimatedStyle(() => {
+
+  const outerProps = useAnimatedProps(() => ({ d: flameOutlineAt(phase.value, energy) }));
+  const middleProps = useAnimatedProps(() => ({ d: flameOutlineAt(phase.value, energy, 0.7, 1.7) }));
+  const heartProps = useAnimatedProps(() => {
     const f = flameFrameAt(phase.value, lickStretch, swayDegrees);
-    return { opacity: f.innerOpacity, transform: [{ scale: f.innerScale }] };
+    return { d: flameHeartAt(phase.value, energy), opacity: f.innerOpacity };
   });
+  const bitsProps = useAnimatedProps(() => ({ d: flameBitsAt(phase.value, animate ? bitCount : 0) }));
 
   const outerColor = colorOverride || config.outerColor;
   const dormant = config.tier === 0;
   const box = { width: size, height: size };
+  // The drawing reaches above the icon box so the tip and flame bits can rise past it.
+  const headroom = (size * FLAME_HEADROOM) / 24;
+  const canvas = { top: -headroom, width: size, height: size + headroom };
 
   return (
     <Animated.View style={[box, styles.origin, bodyStyle, style]} pointerEvents="none">
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={StyleSheet.absoluteFill}>
+      <Svg viewBox={FLAME_VIEWBOX} fill="none" style={[styles.canvas, canvas]}>
         <Defs>
-          {/* Fire is hottest (yellow) at its base and reddest at its tip. */}
+          {/* Fire is reddest at its tips and turns orange towards the base. */}
           <LinearGradient id={`${gradientId}o`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={outerColor} />
-            <Stop offset="0.6" stopColor={outerColor} />
-            <Stop offset="1" stopColor={config.innerColor} stopOpacity={dormant ? 0.5 : 1} />
+            <Stop offset="0.2" stopColor={outerColor} />
+            <Stop offset="1" stopColor={config.midColor} stopOpacity={dormant ? 0.7 : 1} />
+          </LinearGradient>
+          <LinearGradient id={`${gradientId}m`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0.35" stopColor={config.midColor} />
+            <Stop offset="1" stopColor={config.innerColor} />
+          </LinearGradient>
+          {/* The heart is hottest (palest) at the bottom. */}
+          <LinearGradient id={`${gradientId}i`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0.45" stopColor={config.innerColor} />
+            <Stop offset="1" stopColor={config.coreColor ?? config.innerColor} />
           </LinearGradient>
         </Defs>
-        <Path d={FLAME_PATHS.outer} fill={`url(#${gradientId}o)`} fillRule="evenodd" clipRule="evenodd" />
+        <AnimatedPath animatedProps={bitsProps} fill={config.midColor} opacity={0.95} />
+        <AnimatedPath animatedProps={outerProps} fill={`url(#${gradientId}o)`} />
+        <AnimatedPath animatedProps={middleProps} fill={`url(#${gradientId}m)`} opacity={dormant ? 0.7 : 1} />
+        <AnimatedPath animatedProps={heartProps} fill={`url(#${gradientId}i)`} />
       </Svg>
-
-      {/* Inner tongue flickers on its own rhythm, so the flame looks alive rather than just "breathing". */}
-      <Animated.View style={[StyleSheet.absoluteFill, styles.innerOrigin, innerStyle]}>
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Defs>
-            <LinearGradient id={`${gradientId}i`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={config.innerColor} />
-              <Stop offset="1" stopColor={config.coreColor ?? config.innerColor} />
-            </LinearGradient>
-          </Defs>
-          <Path
-            d={FLAME_PATHS.inner}
-            fill={`url(#${gradientId}i)`}
-            fillRule="evenodd"
-            clipRule="evenodd"
-            opacity={dormant ? 0.6 : 0.95}
-          />
-          {config.coreColor && config.tier >= 2 && (
-            <Path d={FLAME_PATHS.core} fill={config.coreColor} fillRule="evenodd" clipRule="evenodd" opacity={0.9} />
-          )}
-        </Svg>
-      </Animated.View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  // Flame moves from its base, like a real fire (the tip moves, the base stays put).
+  // Fire moves from its base, like a real fire (the tip moves, the base stays put).
   origin: { transformOrigin: '50% 92%' },
-  innerOrigin: { transformOrigin: '50% 85%' },
+  canvas: { position: 'absolute', left: 0 },
 });
 
 export default StreakFlame;

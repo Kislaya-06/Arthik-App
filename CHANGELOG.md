@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Streak flame looks like an animated emoji fire (owner request) — OTA-safe, JS only, no new APK, no calculation change**:
+  - The flame next to "21 Days Streak" (Savings header and the Streak Calendar) was a flat shape that only stretched and leaned. It is now a three-layer fire (red outer fire, orange middle, yellow heart that is palest at the base) whose outline is redrawn every frame on the UI thread (`useAnimatedProps` on SVG paths, no React re-renders): the tip whips side to side, the left and right tongues lick up and down on their own beats, the heart dances inside, and small flame bits break off the top, rise and fade.
+  - New pure shape helpers in `src/lib/flameUtils.ts`: `flameOutlineAt`, `flameHeartAt`, `flameBitsAt`, `flameEnergy` (hotter tier = livelier fire), plus a `midColor` per tier. Every wave uses a whole-number frequency of the loop, so the loop never jumps. The drawing has a little room above the icon box (`FLAME_VIEWBOX`) so the tip and flame bits can rise past it; the icon still takes the same space in the layout.
+  - Unchanged: still no glow or halo behind it, it grows with the streak (`flameGrowthFor`), and it stays still when the streak is 0, with reduce motion on, or while the screen is not visible.
+  - **Tests**: `streakFlame` (+6): seamless loop of every layer, every shape closed and inside the drawing area, layers stay nested, flame bits hidden for part of their cycle, energy rises with the tier, the component animates through animated props only. 202 files, 2811 tests passing; `tsc --noEmit` clean.
+
 - **Add Transaction: self-transfer row tidied (owner request) — OTA-safe, JS only, no calculation change**:
   - "Between my own accounts" is now a one-line row inside the details card (between Split and Note), the same 56dp height as every other row. It was its own card with a two-line subtitle (88dp, a lone "Gullak" on the second line).
   - "Won’t count as income, expense or Gullak" (or the remembered-rule line) and the remember choice open inside the row only when the switch is on. The choice is two equal 36dp pills, "Yes, always" / "Only this time" (were "Always remember" / "Only this transaction", which wrapped onto two lines); the picked one fills mint like the other choice pills.

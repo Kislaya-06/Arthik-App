@@ -9,7 +9,26 @@ import {
   flameFrameAt,
   flameGrowthFor,
   flameLoopMs,
+  flameEnergy,
+  flameOutlineAt,
+  flameHeartAt,
+  flameBitsAt,
+  FLAME_BIT_VISIBLE_SHARE,
+  FLAME_HEADROOM,
 } from '../src/lib/flameUtils';
+
+/** All numbers of an SVG path, in order. */
+function pathNumbers(d: string): number[] {
+  return (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+}
+
+/** Point pairs (x, y) of a path made only of M / C / Z commands. */
+function pathPoints(d: string): { x: number; y: number }[] {
+  const nums = pathNumbers(d);
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i], y: nums[i + 1] });
+  return pts;
+}
 
 describe('StreakFlame Component & Tier Configuration Engine', () => {
   describe('Streak Tiers & Progression Matrix', () => {
@@ -176,6 +195,90 @@ describe('StreakFlame Component & Tier Configuration Engine', () => {
       expect(src).toMatch(/const animate = streak > 0 && !reduceMotion && isFocused;/);
       expect(src).toContain('withRepeat(');
       expect(src).toContain('flameGrowthFor(streak)');
+      // The fire is redrawn on the UI thread (animated path), never through React state.
+      expect(src).toContain('useAnimatedProps(');
+      expect(src).not.toMatch(/useState\(/);
+    });
+  });
+
+  describe('Living fire shapes (animated emoji fire)', () => {
+    const tiers = [0, 2, 5, 10, 20].map(getStreakFlameConfig);
+    const phases = Array.from({ length: 121 }, (_, i) => i / 120);
+
+    it('every tier has an orange middle colour', () => {
+      for (const c of tiers) expect(c.midColor).toMatch(/^#[0-9A-F]{6}$/);
+    });
+
+    it('hotter tiers make a livelier fire, always between 0 and 1', () => {
+      const energies = tiers.map((c) => flameEnergy(c.lickStretch));
+      for (let i = 1; i < energies.length; i++) expect(energies[i]).toBeGreaterThan(energies[i - 1]);
+      for (const e of energies) {
+        expect(e).toBeGreaterThanOrEqual(0);
+        expect(e).toBeLessThanOrEqual(1);
+      }
+      expect(flameEnergy(0.5)).toBe(0);
+      expect(flameEnergy(3)).toBe(1);
+    });
+
+    it('the outline, middle layer and heart loop seamlessly (phase 1 draws phase 0)', () => {
+      for (const c of tiers) {
+        const e = flameEnergy(c.lickStretch);
+        const pairs: [string, string][] = [
+          [flameOutlineAt(0, e), flameOutlineAt(1, e)],
+          [flameOutlineAt(0, e, 0.7, 1.7), flameOutlineAt(1, e, 0.7, 1.7)],
+          [flameHeartAt(0, e), flameHeartAt(1, e)],
+          [flameBitsAt(0, 2), flameBitsAt(1, 2)],
+        ];
+        for (const [a, b] of pairs) {
+          const na = pathNumbers(a);
+          const nb = pathNumbers(b);
+          expect(nb.length).toBe(na.length);
+          na.forEach((v, i) => expect(Math.abs(v - nb[i])).toBeLessThanOrEqual(0.011));
+        }
+      }
+    });
+
+    it('every shape is a closed, valid path that stays inside the drawing area', () => {
+      for (const c of tiers) {
+        const e = flameEnergy(c.lickStretch);
+        for (const p of phases) {
+          for (const d of [flameOutlineAt(p, e), flameOutlineAt(p, e, 0.7, 1.7), flameHeartAt(p, e), flameBitsAt(p, 2)]) {
+            expect(d.startsWith('M ')).toBe(true);
+            expect(d.endsWith('Z')).toBe(true);
+            for (const pt of pathPoints(d)) {
+              expect(Number.isFinite(pt.x) && Number.isFinite(pt.y)).toBe(true);
+              expect(pt.x).toBeGreaterThanOrEqual(0);
+              expect(pt.x).toBeLessThanOrEqual(24);
+              expect(pt.y).toBeGreaterThanOrEqual(-FLAME_HEADROOM);
+              expect(pt.y).toBeLessThanOrEqual(24);
+            }
+          }
+        }
+      }
+    });
+
+    it('layers stay nested: the heart tip is always below the middle tip, which is below the outer tip', () => {
+      for (const c of tiers) {
+        const e = flameEnergy(c.lickStretch);
+        for (const p of phases) {
+          const outerTipY = pathPoints(flameOutlineAt(p, e))[0].y;
+          const middleTipY = pathPoints(flameOutlineAt(p, e, 0.7, 1.7))[0].y;
+          const heartTipY = pathPoints(flameHeartAt(p, e))[0].y;
+          expect(middleTipY).toBeGreaterThan(outerTipY);
+          expect(heartTipY).toBeGreaterThan(middleTipY);
+        }
+      }
+    });
+
+    it('flame bits: none when count is 0, at most 2, and each is hidden for part of its cycle', () => {
+      const empty = 'M 12 23 Z';
+      for (const p of phases) expect(flameBitsAt(p, 0)).toBe(empty);
+      const subpaths = (d: string) => (d === empty ? 0 : d.split('M ').length - 1);
+      for (const p of phases) expect(subpaths(flameBitsAt(p, 9))).toBeLessThanOrEqual(2);
+      // A single bit lives for FLAME_BIT_VISIBLE_SHARE of its half-loop and is hidden for the rest.
+      const hidden = phases.filter((p) => flameBitsAt(p, 1) === empty).length;
+      expect(hidden / phases.length).toBeGreaterThan(1 - FLAME_BIT_VISIBLE_SHARE - 0.05);
+      expect(flameBitsAt(0, 1)).toBe(empty); // starts at nothing, so the loop never jumps
     });
   });
 });
