@@ -22,6 +22,15 @@ export const registerSyncCallback = (callback: () => Promise<void>) => {
 
 let toastTimeout: any = null;
 
+/** The offline banner covers the screen header, so it always closes by itself (Home's pill keeps showing offline). */
+const OFFLINE_BANNER_MS = 4000;
+const scheduleBannerHide = (set: (s: Partial<NetworkState>) => void) => {
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    set({ bannerVisible: false });
+  }, OFFLINE_BANNER_MS);
+};
+
 export const useNetworkStore = create<NetworkState>((set, get) => ({
   isOffline: false,
   bannerVisible: false,
@@ -38,6 +47,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           bannerVisible: true,
           bannerMessage: message || DEFAULT_OFFLINE_MSG,
         });
+        scheduleBannerHide(set);
       } else {
         // Already offline: update status, but don't force re-open if dismissed unless explicit message provided
         if (message) {
@@ -46,6 +56,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             bannerVisible: true,
             bannerMessage: message,
           });
+          scheduleBannerHide(set);
         } else {
           set({ isOffline: true });
         }
@@ -86,16 +97,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   triggerOfflineAlert: (message?: string) => {
-    if (toastTimeout) clearTimeout(toastTimeout);
     set({
       isOffline: true,
       bannerVisible: true,
       bannerMessage: message || DEFAULT_OFFLINE_MSG,
     });
     // Auto-dismiss toast banner after 4 seconds
-    toastTimeout = setTimeout(() => {
-      set({ bannerVisible: false });
-    }, 4000);
+    scheduleBannerHide(set);
   },
 
   dismissBanner: () => {

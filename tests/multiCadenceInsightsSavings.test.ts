@@ -59,7 +59,7 @@ describe('FIN-04: Multi-Cadence Insights Savings & Option 2 Monthly Share (INS-0
       expect(res.autoSaved).toBe(1200);
       expect(res.totalSaved).toBe(1200);
       expect(res.savedWeeksCount).toBe(1);
-      expect(res.pillLabel).toBe('🐷 1 Saved Week');
+      expect(res.pillLabel).toBe('1 Saved Week');
     });
 
     it('seamlessly handles mid-week cadence switch without double counting', () => {
@@ -131,7 +131,7 @@ describe('FIN-04: Multi-Cadence Insights Savings & Option 2 Monthly Share (INS-0
       const share = computeWeeklyShareOfMonthlyBudget(6000, 30000); // 20%
       expect(share.percentage).toBe(20);
       expect(share.status).toBe('on_track');
-      expect(share.pillText).toBe('🟢 On Track');
+      expect(share.pillText).toBe('On Track');
       expect(share.subtext).toContain('₹6,000 of ₹30,000 pool');
     });
 
@@ -139,8 +139,20 @@ describe('FIN-04: Multi-Cadence Insights Savings & Option 2 Monthly Share (INS-0
       const share = computeWeeklyShareOfMonthlyBudget(10500, 30000); // 35%
       expect(share.percentage).toBe(35);
       expect(share.status).toBe('heavy');
-      expect(share.pillText).toBe('⚠️ High Burn');
+      expect(share.pillText).toBe('High Burn');
+      // INS-002: status is shown by a coloured dot icon in the pill, not an emoji.
+      expect(share.pillIcon).toBe('highBurn');
+      expect(computeWeeklyShareOfMonthlyBudget(6000, 30000).pillIcon).toBe('onTrack');
       expect(share.subtext).toContain('₹10,500 of ₹30,000 pool');
+    });
+
+    it('INS-002: above 50% of the monthly budget the pill says "Critical Burn"', () => {
+      const share = computeWeeklyShareOfMonthlyBudget(16500, 30000); // 55%
+      expect(share.status).toBe('critical');
+      expect(share.pillText).toBe('Critical Burn');
+      expect(share.pillIcon).toBe('highBurn');
+      // exactly 50% is still High Burn
+      expect(computeWeeklyShareOfMonthlyBudget(15000, 30000).pillText).toBe('High Burn');
     });
 
     it('produces intelligent contextual takeaway for monthly users on weekly tab', () => {
@@ -263,7 +275,7 @@ describe('FIN-04: Multi-Cadence Insights Savings & Option 2 Monthly Share (INS-0
       expect(res.autoSaved).toBe(1800);
       expect(res.totalSaved).toBe(1800);
       expect(res.savedWeeksCount).toBe(2);
-      expect(res.pillLabel).toBe('🐷 2 Saved Weeks');
+      expect(res.pillLabel).toBe('2 Saved Weeks');
     });
 
     it('aggregates finalized monthly period for monthly users in monthly tab', () => {
@@ -296,7 +308,7 @@ describe('FIN-04: Multi-Cadence Insights Savings & Option 2 Monthly Share (INS-0
       expect(res.manualDeposits).toBe(1000);
       expect(res.totalSaved).toBe(7000);
       expect(res.savedMonthsCount).toBe(1);
-      expect(res.pillLabel).toBe('🐷 1 Saved Month');
+      expect(res.pillLabel).toBe('1 Saved Month');
     });
 
     it('triggers monthly and weekly cadence-aware discipline takeaways in monthly tab', () => {

@@ -31,6 +31,8 @@ import { openBatterySettings } from '../../features/autoLog/permissions';
 import { accountLabel, eventTitle, modeCopy, money, relative, statusLine, dateTime } from '../../features/autoLog/copy';
 import { PressableOpacity } from '../../components/ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
+import type { TrackedAccount } from '../../features/autoLog/types';
+import { AutostartGuideCard } from '../../components/autolog/AutostartGuideCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogCenter'>;
 
@@ -82,6 +84,18 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
     navigation.navigate('AutoLogSetup', { mode: 'first' });
+  };
+
+  const hideNewAccount = (a: TrackedAccount) => {
+    if (!userId) return;
+    Alert.alert(
+      `Hide ${accountLabel(a)}?`,
+      'Arthik will stop showing and logging it, even when new messages mention it. You can show it again in Tracked Accounts.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Hide', style: 'destructive', onPress: async () => { await service.hideAccount(userId, a.key); await s.refresh(userId); } },
+      ]
+    );
   };
 
   const pause = () => {
@@ -210,6 +224,16 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
                 <AppButton label="Not now" variant="outline" size="compact" style={{ flex: 1 }} onPress={async () => { if (userId) { await service.setTracked(userId, a.key, false); await s.refresh(userId); } }} />
                 <AppButton label="Track it" size="compact" style={{ flex: 1 }} onPress={async () => { if (userId) { await service.setTracked(userId, a.key, true); await s.refresh(userId); } }} />
               </View>
+              <PressableOpacity
+                activeOpacity={PRESS_DIM_OPACITY}
+                onPress={() => hideNewAccount(a)}
+                hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                style={styles.notMine}
+                accessibilityRole="button"
+                accessibilityLabel={`Not my account: hide ${accountLabel(a)}`}
+              >
+                <Text style={[styles.notMineText, { color: colors.textSecondary }]}>Not my account</Text>
+              </PressableOpacity>
             </Card>
           ))}
 
@@ -234,6 +258,9 @@ export const AutoLogCenterScreen: React.FC<Props> = ({ navigation }) => {
             <CheckLine ok={s.health.battery} label="Background access" onFix={openBatterySettings} />
           </Card>
         ) : null}
+
+        {/* ── Phone maker's background switch (Autostart etc.), which Android cannot open for us ── */}
+        {s.mode === 'live' && userId ? <AutostartGuideCard userId={userId} /> : null}
 
         {/* ── Today ── */}
         {isSetUp ? (
@@ -357,6 +384,8 @@ const styles = StyleSheet.create({
   meta: { fontSize: FontSize.caption, fontFamily: FontFamily.semibold },
   lockRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   row2: { flexDirection: 'row', gap: Spacing.group, marginTop: Spacing.group },
+  notMine: { alignSelf: 'center', marginTop: Spacing.group },
+  notMineText: { fontSize: FontSize.caption, fontFamily: FontFamily.semibold, textDecorationLine: 'underline' },
   stats: { flexDirection: 'row' },
   stat: { flex: 1 },
   statNum: { fontSize: FontSize.titleLarge, lineHeight: LineHeight.titleLarge, fontFamily: FontFamily.bold },

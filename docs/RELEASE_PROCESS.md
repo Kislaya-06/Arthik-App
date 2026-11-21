@@ -79,6 +79,7 @@ npm install
 npx expo install --check            # Dependencies are up to date
 npm run typecheck                   # 0 errors
 npm test                            # sab pass
+npm run test:native                 # Automatic Logging Kotlin tests (JDK chahiye)
 Select-String '"version"' app.json, package.json   # dono me X.Y.Z
 ```
 `CHANGELOG.md` me `[X.Y.Z]` entry ho. Phir:
@@ -286,7 +287,7 @@ Link: https://github.com/Kislaya-06/Arthik-App/releases/latest/download/Arthik.a
 ## Har release ka checklist
 ```
 [ ] version bump: app.json + package.json (X.Y.Z) + CHANGELOG [X.Y.Z]
-[ ] npm run typecheck · npm test
+[ ] npm run typecheck · npm test · npm run test:native
 [ ] eas build preview (same keystore) → Arthik-vX.Y.Z.apk + copy Arthik.apk
 [ ] purane release ke upar "Update" test, data safe
 [ ] VirusTotal → README badge/screenshot + download link → push

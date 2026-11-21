@@ -63,7 +63,9 @@ tests/                  # Vitest unit tests (run with npm test); helpers/autoLog
 docs/                   # architecture, AUTO_LOGGING, RELEASE_PROCESS, design-system, CODEBASE_GUIDE, adr/, specs/
 supabase/               # migrations/ (budget modes, autolog_profiles, release flags, sign-up name safety + expense change counter), functions/delete-user-account
 modules/arthik-autolog/ # Kotlin native module (FinancialFilter, SmsReceiver, PaymentNotificationListener,
-                        # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK
+                        # EventQueue, AutoLogHeadlessService, ArthikAutoLogModule) — change = new APK.
+                        # FinancialFilter (no Android types) has JUnit tests in jvm-test/ (outside the module, never packaged):
+                        # `npm run test:native`
 src/
 ├── components/   ui/ (AppButton, AmountText, SegmentedControl, BottomSheetModal, AppAlertModal, ScreenHeader, HeaderBackButton, EmptyState, ChevronRotator, PressableOpacity, …),
 │                 profile/ (PauseBudgetModal, EditProfileModal, DeleteAccountModal, styles),
@@ -74,8 +76,8 @@ src/
 │                 PeriodRenewalModal, CustomDatePickerModal, BudgetEditModal, MoneyExplainerModal,
 │                 StreakCalendarModal, DepositGullakModal, GradientIconBadge, PiggyBankCoinIcon,
 │                 CategoryRowItem, AppLockOverlay, SplashCover, OtaUpdateModal, PullToHistoryList, ErrorBoundary, OfflineBanner, SyncFailedBanner,
-│                 autolog/ (AutoLogUi + BetaPill, ReviewSheet, WhyLoggedCard, AutoLogHomeBanner, AutoLogGate, EmailSourceInfo)
-├── features/     autoLog/ (parser, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background, notificationActions,
+│                 autolog/ (AutoLogUi + BetaPill, ReviewSheet, WhyLoggedCard, AutoLogHomeBanner, AutoLogGate, EmailSourceInfo, RenameAccountSheet, AutostartGuideCard)
+├── features/     autoLog/ (parser, senders, accounts, merchants, digest, autostart, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background, notificationActions,
 │                 notify, permissions, remote, store, copy, types)
 ├── config/       supabase.ts (client + env; login session stored encrypted through lib/secureSessionStorage, SEC-02), theme.ts (LightColors / DarkColors, design tokens)
 ├── hooks/        useExpenseForm.ts (+ expenseForm/types.ts), useStoreWhileVisible.ts, useFormKeyboard.ts, useSavingsDashboard.ts, usePullRefresh.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts, useScrimColor.ts
@@ -83,6 +85,8 @@ src/
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
+│                 savingsHistoryGroups.ts (Savings history week / month groups + totals, display only), notificationGroups.ts (Notifications date sections),
+│                 homeNetworkPill.ts (Home offline / syncing pill waits while the top OfflineBanner is on screen),
 │                 streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts (locked list helpers `changeStoredList` / `removeFromStoredList`), queueLock.ts (one writer per queue key), startupLoad.ts (offline-first splash order, OFL-001), supabasePaging.ts (no silent 1,000-row cut), signOutCleanup.ts (Log Out removes the user's cached copies of server data, never the unsynced queues), secureSessionStorage.ts + expoSessionCipher.ts + sessionCodec.ts (SEC-02: Supabase session encrypted with AES-256-GCM, key in secure storage; plain-text fallback when encryption cannot be proven; never read `sb-*-auth-token` from AsyncStorage directly), navBarLayout.ts, settleReview.ts, chartUtils.ts (facade over charts/ donutSegments, monthlyCharts, gullakMilestones, dualRing), profileUtils.ts,
 │                 sheetTransition.ts (shared enter / exit motion of the Cadence, Period Renewal and Vault sheets), whileVisibleSelector.ts (hidden popups keep their last store value),
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install),
@@ -122,6 +126,7 @@ src/
 npm install                      # install dependencies
 npm test                         # vitest run — all unit tests
 npx tsc --noEmit                 # type check (covers src/ and tests/) — same as npm run typecheck
+npm run test:native              # Automatic Logging Kotlin unit tests on the JVM (needs a JDK on JAVA_HOME)
 npx vitest run tests/autoLogParser.test.ts tests/autoLogFlows.test.ts tests/autoLogEmail.test.ts   # Auto Logging only
 ```
 
@@ -219,7 +224,7 @@ Work with surgical precision and zero-breakage guarantee:
 - **REAL MONEY INVARIANT (FOUNDATIONAL RULE)**: Every rupee tracked in Arthik is **real money**. No balance, budget allowance, or deposit is virtual or play money. Daily budget allowances set by the user represent real cash funded into their account on those days. If Budget Mode is switched OFF (Pure Mode), past active days' allowances remain real deposited funds in all-time, monthly, and weekly Inflow — never delete, vanish, or ignore them.
 - Store/compare dates as `yyyy-MM-dd` strings. Parse with `parseISO`, never `new Date('...')`.
 - Use `date-fns` (`format`, `isToday`, `isYesterday`, `subDays`) for date math.
-- Render money only through `formatCurrency` / `formatAmountWithCommas` from `src/lib/formatters.ts` (`₹`, Indian grouping). Never inline `toLocaleString`.
+- Render money only through `formatCurrency` / `formatAmountWithCommas` from `src/lib/formatters.ts` (`₹`, Indian grouping). Never inline `toLocaleString`. Whole rupees show no decimals; paise always show two digits (₹13,834.50) via `formatRupeeNumber`, which `AmountText` shares.
 - Amounts in state are `number`. Keypad manages strings and converts once.
 - "Today" is the user's local day. Daily budget/streak calculations depend on it.
 
@@ -541,6 +546,11 @@ Read `docs/AUTO_LOGGING.md` before touching `src/features/autoLog/`, `modules/ar
 - **Discovery never creates transactions.** Only `origin: 'live' | 'recovery'` may call `ledger.createTransaction`.
 - **Never fuzzy-merge same-source events.** Only exact reference or identical message text within 5 minutes.
 - **New accounts start untracked.** Never flip `tracked` without a user action.
+- **Only the account's own bank creates an account (`AUT-005`).** Sender identity lives in `senders.ts` (bank / third_party / unknown; every header of one bank maps to one code). Non-bank messages (funds, insurers, brokers) are evidence only: never an account, a transaction or a review. New bank headers go in `BANKS` (aliases), new non-bank companies in `NON_BANK_SUFFIX` / `THIRD_PARTIES`, each with a test in `tests/autoLogAccountIdentity.test.ts`. Hidden accounts ("Not my account", `accounts.hidden`) are never listed, logged or re-added. Changing the cleanup rules (`accounts.tidyAccounts`) needs `ACCOUNT_TIDY_VERSION` bumped in `service.ts`.
+- **Bank alert without an account number (`AUT-006`)** goes to the user's only visible account of that kind at that bank, and only if tracked (`accounts.soleBankAccount`); otherwise review. Never guess between accounts.
+- **Category & Undo (`AUT-007`)**: remembered preference → user's own history (`ledger.historyCategoryFor`, 2+ entries, ≥ 60%) → ask. Merchant keys go through `merchants.merchantKey` (old key still read). "Logged" notifications always carry Undo (max 2 category buttons + Undo); `notificationActions.handleNotificationAction` handles both and must stay safe to run twice.
+- **Discovery writes in batches inside `db.inTransaction`**; never wrap Recovery or Live (they call the ledger / network) in a transaction.
+- **Never change the native module without asking first (owner rule, 2026-11-21).** Anything under `modules/arthik-autolog/android/` (Kotlin, module `build.gradle`, manifest), `app.json` plugins / permissions or native deps needs a new APK: stop, explain, and wait for a yes. Native tests live only in `modules/arthik-autolog/jvm-test/` and may only cover files that need no change (today `FinancialFilter.kt`).
 - **Ignore rules are narrow** (exact message fingerprint or exact template). Never amount-based.
 - **No message content leaves the device.** `autolog_profiles` stores only flags, timestamps, bank + last 4.
 - Native changes in `modules/arthik-autolog` require a new APK (bump the version); JS changes can ship by OTA.

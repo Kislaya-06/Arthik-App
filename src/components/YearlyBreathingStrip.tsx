@@ -67,8 +67,8 @@ export const YearlyBreathingStrip: React.FC<YearlyBreathingStripProps> = ({
 
   const rightPillText =
     savingsRate !== null && savingsRate > 0
-      ? `🐷 ${savingsRate}% Saved · ${savedDaysCount}d`
-      : `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
+      ? `${savingsRate}% Saved · ${savedDaysCount}d`
+      : `${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
 
   return (
     <BreathingStripShell
@@ -101,6 +101,7 @@ export const YearlyBreathingStrip: React.FC<YearlyBreathingStripProps> = ({
               : colors.forestGreen
             : colors.textPrimary,
         pillText: rightPillText,
+        pillIcon: 'gullak',
         pillVariant: 'neutral',
         onPress: onPressSavings,
         accessibilityLabel: `Annual Gullak savings: ${

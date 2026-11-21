@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle, TextStyle } fr
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontSize, FontFamily } from '../config/theme';
 import { RollingText } from './RollingText';
+import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 
 export interface BreathingStripTileConfig {
   label: string;
@@ -16,6 +17,8 @@ export interface BreathingStripTileConfig {
   adjustsFontSizeToFit?: boolean;
   minimumFontScale?: number;
   pillText?: string;
+  /** Drawn icon before the pill text (INS-002): Gullak piggy bank, or a status dot. Never an emoji in the text. */
+  pillIcon?: 'gullak' | 'onTrack' | 'highBurn';
   pillVariant?: 'mint' | 'neutral';
   pillTextColor?: string;
   onPress?: () => void;
@@ -24,7 +27,8 @@ export interface BreathingStripTileConfig {
 }
 
 export interface BreathingStripShellProps {
-  takeawayText: string;
+  /** null = no takeaway line (e.g. an empty week whose hero already says "No spending yet"). */
+  takeawayText: string | null;
   takeawayStatus?: 'coral' | 'mintGreen' | 'neutral' | string;
   dotColor?: string;
   leftTile: BreathingStripTileConfig;
@@ -118,6 +122,7 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
 
         {tile.pillText ? (() => {
           const isNeutralPill = tile.pillVariant === 'neutral' || (!tile.pillVariant && tile.pillText.includes('0 Saved Day'));
+          const pillTextColor = tile.pillTextColor || (isDark ? colors.mintGreen : colors.mintGreenDark);
           return (
             <View
               style={[
@@ -137,6 +142,16 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
                     },
               ]}
             >
+              {tile.pillIcon === 'gullak' ? (
+                <PiggyBankCoinIcon size={13} color={pillTextColor} />
+              ) : tile.pillIcon ? (
+                <View
+                  style={[
+                    styles.pillDot,
+                    { backgroundColor: tile.pillIcon === 'highBurn' ? colors.coralText : colors.mintText },
+                  ]}
+                />
+              ) : null}
               <Text
                 style={[
                   styles.savingsPillText,
@@ -168,23 +183,27 @@ export const BreathingStripShell: React.FC<BreathingStripShellProps> = ({
         style,
       ]}
     >
-      {/* ── Top Row: Smart Takeaway ── */}
-      <View style={styles.takeawayRow}>
-        <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-        <Text
-          style={[
-            styles.takeawayText,
-            { color: colors.textPrimary, fontFamily: FontFamily.semibold },
-          ]}
-        >
-          {takeawayText}
-        </Text>
-      </View>
+      {/* ── Top Row: Smart Takeaway (left out when it would only repeat the hero) ── */}
+      {takeawayText ? (
+        <>
+          <View style={styles.takeawayRow}>
+            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+            <Text
+              style={[
+                styles.takeawayText,
+                { color: colors.textPrimary, fontFamily: FontFamily.semibold },
+              ]}
+            >
+              {takeawayText}
+            </Text>
+          </View>
 
-      {/* Subtle Divider */}
-      <View
-        style={[styles.divider, { backgroundColor: colors.borderSubtle }]}
-      />
+          {/* Subtle Divider */}
+          <View
+            style={[styles.divider, { backgroundColor: colors.borderSubtle }]}
+          />
+        </>
+      ) : null}
 
       {/* ── Bottom Row: Dual Spacious Tiles ── */}
       <View style={styles.dualTilesRow}>
@@ -276,6 +295,9 @@ const styles = StyleSheet.create({
   },
   savingsPill: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.micro,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.pill,
@@ -284,5 +306,10 @@ const styles = StyleSheet.create({
   },
   savingsPillText: {
     fontSize: 11,
+  },
+  pillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
 });

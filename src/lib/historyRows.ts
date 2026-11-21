@@ -1,3 +1,5 @@
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
 import type { Expense } from '../store/expense/types';
 import type { GullakDeposit } from '../store/dailyBudgetStore';
 
@@ -44,4 +46,16 @@ export function buildHeaderRowIndexes(sections: readonly HistorySection[]): numb
     acc += 1 + section.data.length;
   }
   return out;
+}
+
+/**
+ * Right-hand line of a History row. The day heading already names the date, so the row shows the time
+ * it was logged, but only when it was logged on that same day (a back-dated entry's log time is not when
+ * the money moved, so it shows nothing).
+ */
+export function historyRowTimeLabel(expenseDate: string, createdAt: string | null | undefined): string {
+  if (!createdAt) return '';
+  const d = parseISO(createdAt);
+  if (Number.isNaN(d.getTime())) return '';
+  return format(d, 'yyyy-MM-dd') === expenseDate ? format(d, 'h:mm a') : '';
 }

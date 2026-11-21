@@ -34,13 +34,15 @@ import { accountLabel, dateTime } from '../../features/autoLog/copy';
 import { useAutoLogStore } from '../../features/autoLog/store';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import type { RemoteAccount } from '../../features/autoLog/remote';
+import { canonicalAccountKey } from '../../features/autoLog/senders';
 import { PressableOpacity } from '../../components/ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AutoLogSetup'>;
 type Step = 'dataLoss' | 'intro' | 'sms' | 'email' | 'battery' | 'discovery' | 'accounts' | 'review' | 'complete';
 
-const keyOf = (a: RemoteAccount) => `${a.bankCode}:${a.last4}`;
+/** Backups from older versions may use an old bank code ("SLCBNK"); compare by the real bank (AUT-005). */
+const keyOf = (a: RemoteAccount) => canonicalAccountKey(a.bankCode, a.last4);
 
 export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
@@ -84,6 +86,8 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
   // accounts
   const [accounts, setAccounts] = useState<TrackedAccount[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  /** Accounts that showed a balance or were seen often. Only a hint: never selected by itself (trust rule 4). */
+  const [recommended, setRecommended] = useState<Set<string>>(new Set());
   const [missingChoice, setMissingChoice] = useState<Record<string, 'keep' | 'remove'>>({});
 
   // review
@@ -152,6 +156,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
       setSummary(s);
       const all = await db.listAccounts();
       setAccounts(all);
+      setRecommended(new Set(await service.recommendedAccountKeys(userId)));
       const prevKeys = new Set(previous.map(keyOf));
       if (mode === 'resetup') setSelected(new Set(all.filter((a) => prevKeys.has(a.key)).map((a) => a.key)));
       if (mode === 'learn') setSelected(new Set());
@@ -478,8 +483,20 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           <Body muted style={{ marginBottom: Spacing.block }}>
             {mode === 'learn'
               ? "These accounts weren't part of your setup. Choose any you want Arthik to track."
-              : 'Choose which accounts Arthik should track. Unselected accounts are never logged.'}
+              : 'Choose which accounts Arthik should track. Unselected accounts are never logged. "Recommended" ones showed a balance or many payments.'}
           </Body>
+          {mode !== 'learn' && accountsForStep.some((a) => recommended.has(a.key) && !selected.has(a.key)) ? (
+            <AppButton
+              label="Select recommended"
+              variant="outline"
+              size="compact"
+              style={{ alignSelf: 'flex-start', marginBottom: Spacing.group }}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setSelected((prev) => new Set([...prev, ...accountsForStep.filter((a) => recommended.has(a.key)).map((a) => a.key)]));
+              }}
+            />
+          ) : null}
           {grouped.length === 0 ? (
             <Card>
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>No bank accounts found yet</Text>
@@ -512,6 +529,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
                       </View>
                       {isPrev ? <Text style={[styles.tag, { color: colors.isDark ? colors.mintGreenDark : colors.mintText }]}>Previously tracked</Text> : null}
                       {isNew ? <Text style={[styles.tag, { color: colors.coralText }]}>New account found</Text> : null}
+                      {!isPrev && !isNew && recommended.has(a.key) ? <Text style={[styles.tag, { color: colors.mintText }]}>Recommended</Text> : null}
                     </PressableOpacity>
                   );
                 })}

@@ -425,4 +425,35 @@ export const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     fontFamily: FontFamily.bold,
   },
+
+  // History grouped like the Ledger: an uppercase label + total, then the rows in one card
+  historyGroup: {
+    gap: Spacing.element,
+    marginBottom: Spacing.block,
+  },
+  historyGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.group,
+    paddingHorizontal: Spacing.micro,
+  },
+  historyGroupLabel: {
+    flexShrink: 1,
+    fontSize: FontSize.caption,
+    letterSpacing: LetterSpacing.label,
+    fontFamily: FontFamily.bold,
+  },
+  historyGroupTotal: {
+    flexShrink: 0,
+    maxWidth: '60%',
+    fontSize: FontSize.caption,
+    fontFamily: FontFamily.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  historyGroupCard: {
+    borderRadius: BorderRadius.card,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
 });

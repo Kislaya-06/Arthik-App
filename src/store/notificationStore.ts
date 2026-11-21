@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerStoreResetCallback } from './authStore';
+import { fixLegacyZeroOverCopy } from '../lib/notificationPolicy';
+
+/** Persisted-state migration (exported for tests): rewrites only the old "₹0 over" alerts, keeps everything else. */
+export function migrateNotificationState(persisted: any): any {
+  if (!persisted || !Array.isArray(persisted.notifications)) return persisted;
+  return { ...persisted, notifications: persisted.notifications.map(fixLegacyZeroOverCopy) };
+}
 
 export type NotificationType =
   | 'budget_warning'
@@ -12,6 +19,7 @@ export type NotificationType =
   | 'monthly_recap'
   | 'gullak_reward'
   | 'pure_deficit_balanced'
+  | 'autolog_digest'
   | 'general';
 
 export interface AppNotification {
@@ -106,6 +114,9 @@ export const useNotificationStore = create<NotificationState>()(
     {
       name: 'arthik-notifications-storage-v2',
       storage: createJSONStorage(() => AsyncStorage),
+      // v1 (2026-11): saved "₹0 over" budget alerts get the "budget is used up" wording (NOT-001). Runs once.
+      version: 1,
+      migrate: (persisted: any) => migrateNotificationState(persisted),
     }
   )
 );

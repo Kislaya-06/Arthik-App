@@ -7,6 +7,7 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID, randomBytes } from 'node:crypto';
+import { categoryFromHistory, HistoryRow } from '../../src/features/autoLog/merchants';
 
 // ─── expo-sqlite ───
 const files = new Map<string, DatabaseSync>();
@@ -114,6 +115,8 @@ export const ledger = {
   offline: false,
   /** People who still owe the user money (SPL-005): a credit whose sender contains `match` (case-insensitive) is theirs. */
   owing: [] as Array<{ match: string; name: string; owed: number }>,
+  /** The user's own saved transactions (note / category / type) the category can be learned from. */
+  history: [] as HistoryRow[],
 };
 const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 export const fakeLedger = {
@@ -134,7 +137,8 @@ export const fakeLedger = {
     if (t) t.type = type;
     return !!t;
   },
-  deleteTransaction: async (id: string) => ledger.txs.delete(id),
+  deleteTransaction: async (id: string) => (ledger.offline ? false : ledger.txs.delete(id)),
+  historyCategoryFor: (merchant: string | null, type: 'expense' | 'income') => categoryFromHistory(ledger.history, merchant, type),
   findManualLookalike: (amount: number, type: 'expense' | 'income', occurredAt: number) =>
     ledger.manual.find((m) => m.amount === amount && m.type === type && sameDay(m.occurredAt, occurredAt)),
   isExceedingVaultLiquidity: (_amount: number) => false,
@@ -182,6 +186,7 @@ export const resetEnv = () => {
   ledger.txs.clear();
   ledger.manual = [];
   ledger.owing = [];
+  ledger.history = [];
   ledger.offline = false;
   remote.rows.clear();
   remote.ok = true;

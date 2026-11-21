@@ -1,9 +1,9 @@
 import * as db from './db';
-import { setTransactionCategory } from './ledger';
-import { CATEGORY_ACTION_PREFIX, notificationIdFor, notifyCategoryNotSaved } from './notify';
+import { deleteTransaction, setTransactionCategory } from './ledger';
+import { CATEGORY_ACTION_PREFIX, UNDO_ACTION_ID, notificationIdFor, notifyCategoryNotSaved, notifyUndoFailed } from './notify';
 
 /**
- * Handles a category button tapped inside an Automatic Logging notification.
+ * Handles a button tapped inside an Automatic Logging notification (a category, or Undo).
  * Runs from the background notification task (app closed / in background) and from the app's own
  * notification listener (app open). The same function serves both, and it is safe to run twice.
  */
@@ -31,6 +31,17 @@ const readData = (raw: unknown): Record<string, unknown> | null => {
   return null;
 };
 
+/** The event a notification response belongs to, read from its data (null for anything not from Automatic Logging). */
+const readTarget = (p: Record<string, unknown>): { eventId: string; expenseId: string | null } | null => {
+  const request = asRecord(asRecord(p.notification)?.request);
+  const content = asRecord(request?.content);
+  const data = readData(content?.data) ?? readData(content?.dataString) ?? readData(p.data);
+  if (!data || data.type !== 'autolog') return null;
+  const eventId = typeof data.eventId === 'string' ? data.eventId : '';
+  if (!eventId) return null;
+  return { eventId, expenseId: typeof data.expenseId === 'string' ? data.expenseId : null };
+};
+
 /**
  * Reads a notification response (either the object the app listener gets, or the payload the background task gets)
  * and returns the category tap, or null when it is anything else (plain tap, other notification, other button).
@@ -42,14 +53,29 @@ export const parseCategoryTap = (payload: unknown): CategoryActionTap | null => 
   if (!actionId.startsWith(CATEGORY_ACTION_PREFIX)) return null;
   const categoryId = actionId.slice(CATEGORY_ACTION_PREFIX.length);
   if (!categoryId) return null;
+  const target = readTarget(p);
+  return target ? { categoryId, ...target } : null;
+};
 
-  const request = asRecord(asRecord(p.notification)?.request);
-  const content = asRecord(request?.content);
-  const data = readData(content?.data) ?? readData(content?.dataString) ?? readData(p.data);
-  if (!data || data.type !== 'autolog') return null;
-  const eventId = typeof data.eventId === 'string' ? data.eventId : '';
-  if (!eventId) return null;
-  return { categoryId, eventId, expenseId: typeof data.expenseId === 'string' ? data.expenseId : null };
+/** The Undo tap, or null when the response is anything else. */
+export const parseUndoTap = (payload: unknown): { eventId: string; expenseId: string | null } | null => {
+  const p = asRecord(payload);
+  if (!p || p.actionIdentifier !== UNDO_ACTION_ID) return null;
+  return readTarget(p);
+};
+
+const refreshUi = async () => {
+  try {
+    const { supabase } = await import('../../config/supabase');
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id;
+    if (userId) {
+      const { useAutoLogStore } = await import('./store');
+      await useAutoLogStore.getState().refresh(userId);
+    }
+  } catch {
+    // The screens refresh themselves the next time they are opened.
+  }
 };
 
 const dismiss = async (eventId: string) => {
@@ -86,26 +112,53 @@ export const applyCategoryTap = async (tap: CategoryActionTap): Promise<boolean>
     }
     if (event) await db.updateEvent(event.id, { needsCategory: false });
     await dismiss(tap.eventId);
-    try {
-      const { supabase } = await import('../../config/supabase');
-      const { data } = await supabase.auth.getSession();
-      const userId = data.session?.user?.id;
-      if (userId) {
-        const { useAutoLogStore } = await import('./store');
-        await useAutoLogStore.getState().refresh(userId);
-      }
-    } catch {
-      // The Review list refreshes itself the next time it is opened.
-    }
+    await refreshUi();
     return true;
   } catch {
     return false;
   }
 };
 
-export const handleCategoryResponse = async (payload: unknown): Promise<boolean> => {
+/**
+ * "Undo" on a logged notification: removes that one transaction and keeps the message as ignored, so the inbox
+ * catch-up never logs it again. A transaction still waiting to be written is simply never written. If it cannot
+ * be removed now (offline with the app closed), nothing changes and the user is told to remove it in the app.
+ * Safe to tap twice. Returns true when the transaction is gone.
+ */
+export const applyUndoTap = async (tap: { eventId: string; expenseId: string | null }): Promise<boolean> => {
+  try {
+    const event = await db.getEvent(tap.eventId);
+    if (!event || (event.status !== 'logged' && event.status !== 'queued')) {
+      await dismiss(tap.eventId); // already undone, or changed in the app meanwhile
+      return true;
+    }
+    const expenseId = event.expenseId ?? tap.expenseId;
+    if (event.status === 'logged' && expenseId && !(await deleteTransaction(expenseId))) {
+      await notifyUndoFailed(tap.eventId, expenseId);
+      return false;
+    }
+    await db.updateEvent(event.id, { status: 'ignored', reviewReason: null, needsCategory: false });
+    await db.addFeedback(event.id, expenseId, 'undo');
+    await dismiss(tap.eventId);
+    await refreshUi();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Every Automatic Logging notification button. Returns true when the response was one of them. */
+export const handleNotificationAction = async (payload: unknown): Promise<boolean> => {
+  const undo = parseUndoTap(payload);
+  if (undo) {
+    await applyUndoTap(undo);
+    return true;
+  }
   const tap = parseCategoryTap(payload);
   if (!tap) return false;
   await applyCategoryTap(tap);
   return true;
 };
+
+/** Older name, kept for callers that still use it. */
+export const handleCategoryResponse = handleNotificationAction;

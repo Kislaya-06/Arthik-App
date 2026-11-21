@@ -3,6 +3,7 @@ import { Text, View, StyleSheet, TextStyle, StyleProp } from 'react-native';
 import { useTheme } from '../../store/themeStore';
 import { FontFamily, LineHeight, FontSize } from '../../config/theme';
 import { RollingText } from '../RollingText';
+import { formatRupeeNumber } from '../../lib/formatters';
 
 export type AmountRole = 'hero' | 'primary' | 'row' | 'compact' | 'metric';
 export type AmountDirection = 'expense' | 'income' | 'neutral';
@@ -29,9 +30,6 @@ const formatterDec2 = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 2,
 });
 
-const formatterDecMax2 = new Intl.NumberFormat('en-IN', {
-  maximumFractionDigits: 2,
-});
 
 /**
  * Standardized AmountText primitive for Arthik.
@@ -57,10 +55,10 @@ export const AmountText: React.FC<AmountTextProps> = ({
   const isPositive = direction === 'income' && numVal > 0;
   const absVal = Math.abs(numVal);
 
-  // Format with Indian grouping using module-level cached formatters
+  // Indian grouping; by default whole rupees show no decimals and paise always show two digits.
   const formattedNumber = showDecimals
     ? formatterDec2.format(absVal)
-    : formatterDecMax2.format(absVal);
+    : formatRupeeNumber(absVal);
 
   // Determine prefix
   let prefix = '₹';

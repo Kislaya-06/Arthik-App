@@ -150,6 +150,8 @@ export interface MonthlyTakeawayParams {
 export interface SmartMonthlyTakeawayResult {
   text: string;
   status: 'coral' | 'mint' | 'neutral';
+  /** Nothing spent in the month: the hero already says so, so the strip hides this line. */
+  isEmptyPeriod?: boolean;
 }
 
 /**
@@ -179,6 +181,7 @@ export function computeSmartMonthlyTakeaway(params: MonthlyTakeawayParams): Smar
     return {
       text: 'No expenses logged this month.',
       status: 'neutral',
+      isEmptyPeriod: true,
     };
   }
 
@@ -339,11 +342,11 @@ export function computeMonthlyGullakSavings(
 
   const totalSaved = round2(autoSaved + manualDeposits);
 
-  let pillLabel = `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
+  let pillLabel = `${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
   if (cadence === 'weekly') {
-    pillLabel = `🐷 ${savedWeeksCount} ${savedWeeksCount === 1 ? 'Saved Week' : 'Saved Weeks'}`;
+    pillLabel = `${savedWeeksCount} ${savedWeeksCount === 1 ? 'Saved Week' : 'Saved Weeks'}`;
   } else if (cadence === 'monthly') {
-    pillLabel = `🐷 ${savedMonthsCount} ${savedMonthsCount === 1 ? 'Saved Month' : 'Saved Months'}`;
+    pillLabel = `${savedMonthsCount} ${savedMonthsCount === 1 ? 'Saved Month' : 'Saved Months'}`;
   }
 
   return {
@@ -741,7 +744,7 @@ export function computeMonthlyPeakWeek(
   if (currentTotal <= 0 || !weeks || weeks.length === 0) {
     return {
       status: 'empty',
-      text: 'No cash flow activity logged this month',
+      text: 'No spending logged this month',
     };
   }
 
@@ -767,7 +770,7 @@ export function computeMonthlyPeakWeek(
   if (maxWeek.spent <= 0) {
     return {
       status: 'empty',
-      text: 'No cash flow activity logged this month',
+      text: 'No spending logged this month',
     };
   }
 

@@ -16,7 +16,7 @@ import Moon from 'lucide-react-native/icons/moon';
 import Sun from 'lucide-react-native/icons/sun';
 import Sparkles from 'lucide-react-native/icons/sparkles';
 import Palette from 'lucide-react-native/icons/palette';
-import CircleAlert from 'lucide-react-native/icons/circle-alert';
+import Info from 'lucide-react-native/icons/info';
 import LogOut from 'lucide-react-native/icons/log-out';
 import { AppButton } from '../components/ui/AppButton';
 import { LIGHT_DESTRUCTIVE_BG } from '../lib/alertButtonPalette';
@@ -50,7 +50,7 @@ import { AnimatedToggle } from '../components/AnimatedToggle';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { useAutoLogStore } from '../features/autoLog/store';
 import { onBeforeSignOut } from '../features/autoLog/service';
-import { modeCopy } from '../features/autoLog/copy';
+import { profileRowHint } from '../features/autoLog/copy';
 import { BetaPill } from '../components/autolog/AutoLogUi';
 import { PauseBudgetModal } from '../components/profile/PauseBudgetModal';
 import { EditProfileModal } from '../components/profile/EditProfileModal';
@@ -352,6 +352,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const fullName = getDisplayName(profile, user?.user_metadata, user?.email);
+  // The signed-in email under the name (more useful than a generic "Personal Account" line).
+  const accountEmail = (profile?.email || user?.email || '').trim();
 
   const isEmailMatching = Boolean(user?.email && deleteEmailInput.trim().toLowerCase() === user.email.trim().toLowerCase());
   const deleteBtnBg = isEmailMatching ? '#DC2626' : (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2');
@@ -456,12 +458,16 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             >
               {fullName}
             </Text>
-            <Text
-              style={[styles.accountSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
-              numberOfLines={1}
-            >
-              Personal Account
-            </Text>
+            {accountEmail ? (
+              <Text
+                style={[styles.accountSubtitle, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
+                {accountEmail}
+              </Text>
+            ) : null}
           </View>
 
           <Pressable
@@ -559,7 +565,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {budgetSubtitle}
                 {(isBudgetModeEnabled || isScheduledSwitch) && !isScheduledSwitch && (
                   <Text style={{ color: isDark ? colors.mintGreen : colors.forestGreen, fontFamily: FontFamily.semibold }}>
-                    {' '}· Edit ✎
+                    {' '}· Edit
                   </Text>
                 )}
               </Text>
@@ -572,10 +578,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
-        {/* Account Settings Card */}
+        {/* Settings, in three groups like the Ledger: Tracking / Appearance / Privacy & Help */}
         <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-            ACCOUNT
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]} accessibilityRole="header">
+            TRACKING
           </Text>
 
           {/* 1. Manage Categories */}
@@ -609,7 +615,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <BetaPill small />
               </View>
               <Text style={{ fontSize: FontSize.caption, color: autoLogMode === 'live' && !autoLogAttention ? colors.mintGreenDark : colors.textSecondary, fontFamily: FontFamily.medium, marginTop: Spacing.nano }}>
-                {autoLogMode === 'off' ? 'Log bank SMS & UPI payments automatically' : modeCopy(autoLogMode, autoLogAttention).title}
+                {profileRowHint(autoLogMode, autoLogAttention)}
                 {autoLogPending > 0 ? ` · ${autoLogPending} to review` : ''}
               </Text>
             </View>
@@ -618,7 +624,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           )}
 
           {/* 2. Notifications */}
-          <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
+          <View style={[styles.settingRow, styles.lastSettingRow]}>
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <Bell size={18} color={colors.textPrimary} />
             </View>
@@ -630,6 +636,13 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               onValueChange={handleToggleNotifications}
             />
           </View>
+
+        </View>
+
+        <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]} accessibilityRole="header">
+            APPEARANCE
+          </Text>
 
           {/* 3. Theme Mode (Light, Dark, AMOLED) */}
           <View style={[styles.themeSettingContainer, { borderBottomColor: colors.borderSubtle }]}>
@@ -667,7 +680,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* 3b. Ambient Background (soft moving light at the top of screens) */}
-          <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
+          <View style={[styles.settingRow, styles.lastSettingRow]}>
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
               <Waves size={18} color={colors.textPrimary} />
             </View>
@@ -684,6 +697,13 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               onValueChange={setAmbientEnabled}
             />
           </View>
+
+        </View>
+
+        <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]} accessibilityRole="header">
+            PRIVACY & HELP
+          </Text>
 
           {/* 4. App Lock (Biometric) */}
           <View style={[styles.settingRow, { borderBottomColor: colors.borderSubtle }]}>
@@ -725,7 +745,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             disabled={otaStatus === 'checking'}
           >
             <View style={[styles.iconContainer, { backgroundColor: colors.cardSubtle }]}>
-              <CircleAlert size={18} color={colors.textPrimary} />
+              <Info size={18} color={colors.textPrimary} />
             </View>
             <Text style={[styles.settingLabel, { color: colors.textPrimary, fontFamily: FontFamily.bold }]}>
               App Version

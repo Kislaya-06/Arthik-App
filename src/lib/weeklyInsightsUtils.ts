@@ -128,6 +128,8 @@ export interface WeeklyMonthlyBudgetShare {
   percentage: number;
   status: 'on_track' | 'heavy' | 'critical';
   pillText: string;
+  /** Icon drawn in the pill before the text (INS-002: a coloured dot, never an emoji). */
+  pillIcon: 'onTrack' | 'highBurn';
   subtext: string;
 }
 
@@ -140,7 +142,8 @@ export function computeWeeklyShareOfMonthlyBudget(
     return {
       percentage: 0,
       status: 'on_track',
-      pillText: '🟢 On Track',
+      pillText: 'On Track',
+      pillIcon: 'onTrack',
       subtext: `₹${formatAmountWithCommas(String(weekSpent))} spent`,
     };
   }
@@ -148,13 +151,16 @@ export function computeWeeklyShareOfMonthlyBudget(
   const percentage = Math.round((weekSpent / mBudget) * 100);
   const status: 'on_track' | 'heavy' | 'critical' =
     percentage > 50 ? 'critical' : percentage > 25 ? 'heavy' : 'on_track';
-  const pillText = percentage > 25 ? '⚠️ High Burn' : '🟢 On Track';
+  // INS-002: On Track (<= 25%), High Burn (> 25%), Critical Burn (> 50%).
+  const pillText = status === 'critical' ? 'Critical Burn' : status === 'heavy' ? 'High Burn' : 'On Track';
+  const pillIcon: WeeklyMonthlyBudgetShare['pillIcon'] = percentage > 25 ? 'highBurn' : 'onTrack';
   const subtext = `₹${formatAmountWithCommas(String(weekSpent))} of ₹${formatAmountWithCommas(String(mBudget))} pool`;
 
   return {
     percentage,
     status,
     pillText,
+    pillIcon,
     subtext,
   };
 }
@@ -232,9 +238,9 @@ export function computeWeeklyGullakSavings(
 
   const totalSaved = round2(autoSaved + manualDeposits);
 
-  let pillLabel = `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
+  let pillLabel = `${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`;
   if (cadence === 'weekly') {
-    pillLabel = `🐷 ${savedWeeksCount} ${savedWeeksCount === 1 ? 'Saved Week' : 'Saved Weeks'}`;
+    pillLabel = `${savedWeeksCount} ${savedWeeksCount === 1 ? 'Saved Week' : 'Saved Weeks'}`;
   }
 
   return {
@@ -252,6 +258,8 @@ export function computeWeeklyGullakSavings(
 export interface SmartTakeawayResult {
   text: string;
   status: 'mint' | 'coral' | 'neutral';
+  /** Nothing spent in the week: the hero already says so, so the strip hides this line. */
+  isEmptyPeriod?: boolean;
 }
 
 export interface TakeawayEngineParams {
@@ -301,6 +309,7 @@ export function computeSmartWeeklyTakeaway(params: TakeawayEngineParams): SmartT
     return {
       text: 'No expenses logged this week.',
       status: 'neutral',
+      isEmptyPeriod: true,
     };
   }
 

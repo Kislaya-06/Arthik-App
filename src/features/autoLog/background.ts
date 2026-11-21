@@ -39,9 +39,9 @@ TaskManager.defineTask(AUTOLOG_BG_TASK, async () => {
 
 TaskManager.defineTask(AUTOLOG_NOTIFICATION_ACTION_TASK, async ({ data }: { data?: unknown }) => {
   try {
-    // Only category buttons are handled; every other response is ignored here.
-    const { handleCategoryResponse } = await import('./notificationActions');
-    await handleCategoryResponse(data);
+    // Only Automatic Logging buttons (category, Undo) are handled; every other response is ignored here.
+    const { handleNotificationAction } = await import('./notificationActions');
+    await handleNotificationAction(data);
   } catch {}
 });
 

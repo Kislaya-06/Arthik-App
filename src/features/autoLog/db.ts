@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import type { AutoLogEvent, EventStatus, ReviewReason, TrackedAccount } from './types';
+import { legacyMerchantKey, merchantKey } from './merchants';
 
 /**
  * On-device, encrypted (SQLCipher) store for Automatic Logging.
@@ -12,7 +13,7 @@ import type { AutoLogEvent, EventStatus, ReviewReason, TrackedAccount } from './
  */
 
 const KEY_NAME = 'arthik_autolog_db_key_v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 3; // 2: accounts.hidden ("Not my account", AUT-005) · 3: accounts.nickname
 
 const dbName = (userId: string) => `autolog_${userId.replace(/[^a-zA-Z0-9]/g, '')}.db`;
 
@@ -34,7 +35,8 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY NOT NULL, value TEXT);
 CREATE TABLE IF NOT EXISTS accounts (
   key TEXT PRIMARY KEY NOT NULL, bank TEXT NOT NULL, bank_code TEXT NOT NULL, last4 TEXT NOT NULL,
   kind TEXT NOT NULL DEFAULT 'bank', tracked INTEGER NOT NULL DEFAULT 0, is_new INTEGER NOT NULL DEFAULT 0,
-  first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, msg_count INTEGER NOT NULL DEFAULT 0
+  first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, msg_count INTEGER NOT NULL DEFAULT 0,
+  hidden INTEGER NOT NULL DEFAULT 0, nickname TEXT
 );
 CREATE TABLE IF NOT EXISTS events (
   id TEXT PRIMARY KEY NOT NULL, source TEXT NOT NULL, origin TEXT NOT NULL, sender TEXT NOT NULL,
@@ -75,6 +77,17 @@ const openFresh = async (name: string, key: string) => {
   return db;
 };
 
+/** Adds columns that databases created by older versions do not have. Never drops anything. */
+const migrate = async (db: SQLite.SQLiteDatabase) => {
+  const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accounts)');
+  if (!cols.some((c) => c.name === 'hidden')) {
+    await db.execAsync('ALTER TABLE accounts ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (!cols.some((c) => c.name === 'nickname')) {
+    await db.execAsync('ALTER TABLE accounts ADD COLUMN nickname TEXT;');
+  }
+};
+
 export const openDb = async (userId: string): Promise<SQLite.SQLiteDatabase> => {
   if (current && current.userId === userId) return current.db;
   if (opening) {
@@ -106,7 +119,8 @@ export const openDb = async (userId: string): Promise<SQLite.SQLiteDatabase> => 
     }
     await db.execAsync('PRAGMA journal_mode = WAL;');
     await db.execAsync(SCHEMA);
-    await db.runAsync("INSERT OR IGNORE INTO meta (key, value) VALUES ('schema', ?)", String(SCHEMA_VERSION));
+    await migrate(db);
+    await db.runAsync("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)", String(SCHEMA_VERSION));
     current = { userId, db };
     return db;
   })();
@@ -133,6 +147,23 @@ const requireDb = () => {
   return current.db;
 };
 
+/**
+ * Runs `fn` as one database transaction: all of it is saved, or (on an error) none of it.
+ * Used to batch Discovery writes. Never put a network call inside (callers are already serialised).
+ */
+export const inTransaction = async <T>(fn: () => Promise<T>): Promise<T> => {
+  const db = requireDb();
+  await db.execAsync('BEGIN');
+  try {
+    const out = await fn();
+    await db.execAsync('COMMIT');
+    return out;
+  } catch (err) {
+    try { await db.execAsync('ROLLBACK'); } catch {}
+    throw err;
+  }
+};
+
 // ─── meta ───────────────────────────────────────────────────────────────────
 
 export const getMeta = async (key: string): Promise<string | null> => {
@@ -153,14 +184,22 @@ export const getMetaNum = async (key: string): Promise<number | null> => {
 
 interface AccountRow {
   key: string; bank: string; bank_code: string; last4: string; kind: string; tracked: number; is_new: number;
-  first_seen: number; last_seen: number; msg_count: number;
+  first_seen: number; last_seen: number; msg_count: number; hidden: number; nickname: string | null;
 }
 const toAccount = (r: AccountRow): TrackedAccount => ({
   key: r.key, bank: r.bank, bankCode: r.bank_code, last4: r.last4, kind: r.kind as TrackedAccount['kind'],
   tracked: r.tracked === 1, isNew: r.is_new === 1, firstSeen: r.first_seen, lastSeen: r.last_seen, msgCount: r.msg_count,
+  hidden: r.hidden === 1, nickname: r.nickname ?? null,
 });
 
+/** Accounts the user can see and choose. Hidden ("Not my account") ones are left out everywhere. */
 export const listAccounts = async (): Promise<TrackedAccount[]> =>
+  (await requireDb().getAllAsync<AccountRow>('SELECT * FROM accounts WHERE hidden = 0 ORDER BY bank, last4')).map(toAccount);
+
+export const listHiddenAccounts = async (): Promise<TrackedAccount[]> =>
+  (await requireDb().getAllAsync<AccountRow>('SELECT * FROM accounts WHERE hidden = 1 ORDER BY bank, last4')).map(toAccount);
+
+export const listAllAccounts = async (): Promise<TrackedAccount[]> =>
   (await requireDb().getAllAsync<AccountRow>('SELECT * FROM accounts ORDER BY bank, last4')).map(toAccount);
 
 export const getAccount = async (key: string): Promise<TrackedAccount | null> => {
@@ -197,6 +236,53 @@ export const setAccountTracked = async (key: string, tracked: boolean) => {
 
 export const removeAccount = async (key: string) => {
   await requireDb().runAsync('DELETE FROM accounts WHERE key = ?', key);
+};
+
+/** Hiding always stops tracking. Showing again keeps it off until the user turns it on (trust rule 4). */
+export const setAccountHidden = async (key: string, hidden: boolean) => {
+  await requireDb().runAsync(
+    hidden ? 'UPDATE accounts SET hidden = 1, tracked = 0, is_new = 0 WHERE key = ?' : 'UPDATE accounts SET hidden = 0 WHERE key = ?',
+    key
+  );
+};
+
+/** The user's own name for an account ("Salary account"); null clears it. Kept on the phone only. */
+export const setAccountNickname = async (key: string, nickname: string | null) => {
+  await requireDb().runAsync('UPDATE accounts SET nickname = ? WHERE key = ?', nickname, key);
+};
+
+/** Points every event of one account at another (or at no account). Money already logged is never touched. */
+export const reassignEvents = async (fromKey: string, toKey: string | null) => {
+  await requireDb().runAsync('UPDATE events SET account_key = ? WHERE account_key = ?', toKey, fromKey);
+};
+
+/**
+ * Moves an account saved under an old key to its real key. If the real account already exists the two become
+ * one: tracked if the user tracked either, visible if either was visible, counts and dates combined.
+ */
+export const moveAccount = async (fromKey: string, to: { key: string; bank: string; bankCode: string }) => {
+  const db = requireDb();
+  const src = await getAccount(fromKey);
+  if (!src || fromKey === to.key) return;
+  const dst = await getAccount(to.key);
+  if (!dst) {
+    await db.runAsync('UPDATE accounts SET key = ?, bank = ?, bank_code = ? WHERE key = ?', to.key, to.bank, to.bankCode, fromKey);
+  } else {
+    const firsts = [src.firstSeen, dst.firstSeen].filter((n) => n > 0);
+    await db.runAsync(
+      `UPDATE accounts SET tracked = ?, is_new = ?, hidden = ?, first_seen = ?, last_seen = ?, msg_count = ?, nickname = ? WHERE key = ?`,
+      src.tracked || dst.tracked ? 1 : 0,
+      src.isNew && dst.isNew ? 1 : 0,
+      src.hidden && dst.hidden ? 1 : 0,
+      firsts.length ? Math.min(...firsts) : 0,
+      Math.max(src.lastSeen, dst.lastSeen),
+      src.msgCount + dst.msgCount,
+      dst.nickname ?? src.nickname,
+      to.key
+    );
+    await removeAccount(fromKey);
+  }
+  await reassignEvents(fromKey, to.key);
 };
 
 // ─── events ─────────────────────────────────────────────────────────────────
@@ -320,6 +406,15 @@ export const statsSince = async (since: number) => {
   return { detected: r?.detected ?? 0, matched: r?.matched ?? 0, pending: r?.pending ?? 0, logged: r?.logged ?? 0 };
 };
 
+/** Transactions logged automatically in [from, to) (weekly summary). */
+export const loggedBetween = async (from: number, to: number): Promise<number> => {
+  const r = await requireDb().getFirstAsync<{ n: number }>(
+    "SELECT count(*) AS n FROM events WHERE status = 'logged' AND origin != 'discovery' AND occurred_at >= ? AND occurred_at < ?",
+    from, to
+  );
+  return r?.n ?? 0;
+};
+
 export const pruneOldEvents = async (olderThan: number) => {
   // Keep explanations for logged transactions; drop old noise.
   await requireDb().runAsync(
@@ -356,12 +451,15 @@ export const countTemplates = async (): Promise<number> =>
 export const templateExists = async (template: string): Promise<boolean> =>
   !!(await requireDb().getFirstAsync('SELECT 1 FROM templates WHERE template = ?', template));
 
-export const merchantKey = (m: string) => m.toLowerCase().replace(/[^a-z0-9]/g, '');
+export { merchantKey };
 
+/** The remembered choice for a merchant. Looks under the normalised key first, then the key older versions used. */
 export const getMerchantPref = async (merchant: string | null) => {
   if (!merchant) return null;
+  const key = merchantKey(merchant);
+  const legacy = legacyMerchantKey(merchant);
   return requireDb().getFirstAsync<{ category_id: string | null; type: string | null }>(
-    'SELECT category_id, type FROM merchant_prefs WHERE merchant = ?', merchantKey(merchant)
+    'SELECT category_id, type FROM merchant_prefs WHERE merchant IN (?, ?) ORDER BY (merchant = ?) DESC LIMIT 1', key, legacy, key
   );
 };
 

@@ -1,4 +1,5 @@
 import type { AccountKind, CreditKind, Direction, ParsedKind, ParsedMessage } from './types';
+import { resolveBank, resolveEmailSender, senderCore } from './senders';
 
 /**
  * On-device parsers for bank SMS and payment-app notifications.
@@ -10,58 +11,9 @@ import type { AccountKind, CreditKind, Direction, ParsedKind, ParsedMessage } fr
  */
 
 // ─── Banks ──────────────────────────────────────────────────────────────────
-
-const BANKS: Array<[RegExp, string, string]> = [
-  [/HDFC/, 'HDFC', 'HDFC Bank'],
-  [/SBI|SBIINB|SBIUPI|SBMSMS|CBSSBI|ATMSBI/, 'SBI', 'SBI'],
-  [/ICICI/, 'ICICI', 'ICICI Bank'],
-  [/AXIS/, 'AXIS', 'Axis Bank'],
-  [/KOTAK|KOTAKB/, 'KOTAK', 'Kotak Bank'],
-  [/PNB/, 'PNB', 'PNB'],
-  [/BOB|BARODA/, 'BOB', 'Bank of Baroda'],
-  [/BOIIND|BOI/, 'BOI', 'Bank of India'],
-  [/CANBNK|CANARA/, 'CANARA', 'Canara Bank'],
-  [/UNIONB|UBOI/, 'UNION', 'Union Bank'],
-  [/IDFC/, 'IDFC', 'IDFC FIRST Bank'],
-  [/YESBNK|YESBK/, 'YES', 'Yes Bank'],
-  [/INDUS/, 'INDUSIND', 'IndusInd Bank'],
-  [/AUBANK|AUBNK/, 'AU', 'AU Bank'],
-  [/FEDBNK|FEDERAL/, 'FEDERAL', 'Federal Bank'],
-  [/SCBANK|STANCH/, 'SCB', 'Standard Chartered'],
-  [/CITI/, 'CITI', 'Citi'],
-  [/HSBC/, 'HSBC', 'HSBC'],
-  [/RBL/, 'RBL', 'RBL Bank'],
-  [/IDBI/, 'IDBI', 'IDBI Bank'],
-  [/IPPB/, 'IPPB', 'India Post Payments Bank'],
-  [/PAYTMB|PYTMBK/, 'PAYTMPB', 'Paytm Payments Bank'],
-  [/AIRBNK|AIRTEL/, 'AIRTEL', 'Airtel Payments Bank'],
-  [/JIOPBS|JIOPAY/, 'JIO', 'Jio Payments Bank'],
-  [/AMEX/, 'AMEX', 'American Express'],
-  [/ONECRD|ONECARD/, 'ONECARD', 'OneCard'],
-  [/SLICE/, 'SLICE', 'slice'],
-  [/INDBNK|INDIAN/, 'INDIAN', 'Indian Bank'],
-  [/IOB/, 'IOB', 'Indian Overseas Bank'],
-  [/CENTBK|CBOI/, 'CENTRAL', 'Central Bank'],
-  [/UCOBNK|UCO/, 'UCO', 'UCO Bank'],
-  [/BANDHN|BANDHAN/, 'BANDHAN', 'Bandhan Bank'],
-  [/DBS/, 'DBS', 'DBS Bank'],
-];
-
-/** "VM-HDFCBK-S" → "HDFCBK" */
-export const senderCore = (sender: string): string => {
-  let s = (sender || '').toUpperCase().trim();
-  s = s.replace(/^[A-Z]{2}-/, '').replace(/-[A-Z]$/, '');
-  return s.replace(/[^A-Z0-9]/g, '');
-};
-
-export const resolveBank = (sender: string): { code: string; name: string } => {
-  const core = senderCore(sender);
-  for (const [re, code, name] of BANKS) {
-    if (re.test(core)) return { code, name };
-  }
-  const code = core.slice(0, 8) || 'BANK';
-  return { code, name: code.charAt(0) + code.slice(1).toLowerCase() };
-};
+// Sender identity (banks, aliases, non-bank companies) lives in ./senders (AUT-005). Re-exported here so the
+// existing import paths keep working.
+export { senderCore, resolveBank, resolveEmailSender } from './senders';
 
 // ─── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -88,6 +40,14 @@ const RE_CURRENCY_AMT = /(?:rs\.?|inr|₹)\s*:?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?
 const RE_VERB_AMT =
   /(debited|credited|spent|paid|sent|received|withdrawn|deducted|charged|deposited)\s+(?:by|for|with|of)?\s*(?:rs\.?|inr|₹)?\s*:?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i;
 const RE_BALANCE_BEFORE = /(avl\.?|avail(?:able)?|bal(?:ance)?|limit|outstanding|o\/s|due)\s*(?:bal(?:ance)?|amt|amount|lmt|limit)?\s*(?:is|:|-|of)?\s*$/i;
+
+/**
+ * AUT-005: the message states the account's balance or card limit. Only the bank that holds the account
+ * knows it, so an unknown sender that shows it is that account's own bank (never a fund or a biller).
+ */
+const RE_SHOWS_BALANCE =
+  /\b(?:avl|avail(?:able)?|clr|closing|current)\.?\s*(?:bal(?:ance)?|lmt|limit)\b|\bbal(?:ance)?\s*(?:is|:|-)?\s*(?:rs\.?|inr|₹)/i;
+export const mentionsBalance = (text: string): boolean => RE_SHOWS_BALANCE.test(text || '');
 
 const toAmount = (raw?: string): number | undefined => {
   if (!raw) return undefined;
@@ -302,7 +262,14 @@ export const maskSensitive = (text: string): string =>
 export const parseSms = (sender: string, body: string): ParsedMessage => {
   const text = (body || '').replace(/\s+/g, ' ').trim();
   const bank = resolveBank(sender);
-  const base = { source: 'sms' as const, bank: bank.name, bankCode: bank.code, template: templateOf(sender, text) };
+  const base = {
+    source: 'sms' as const,
+    bank: bank.name,
+    bankCode: bank.code,
+    template: templateOf(sender, text),
+    senderRole: bank.role,
+    showsBalance: mentionsBalance(text),
+  };
 
   const kindOnly = (kind: ParsedKind): ParsedMessage => ({ ...base, kind });
 
@@ -402,36 +369,6 @@ const RE_ADVICE_SENTENCE = /(otp|one[ -]?time password|\bpin\b|password|cvv|do n
 
 const RE_EMAIL_PROMO_SENDER = /(newsletter|offers?|deals?|promo|marketing|rewards?|updates@|news@)/i;
 
-/** Payment providers that send their own transaction emails (in addition to the BANKS list). */
-const KNOWN_PROVIDERS: Array<[RegExp, string, string]> = [
-  [/PAYTM/, 'PAYTM', 'Paytm'],
-  [/PHONEPE/, 'PHONEPE', 'PhonePe'],
-  [/GOOGLEPAY|GPAY/, 'GPAY', 'Google Pay'],
-  [/AMAZONPAY/, 'AMAZONPAY', 'Amazon Pay'],
-  [/CRED/, 'CRED', 'CRED'],
-  [/MOBIKWIK/, 'MOBIKWIK', 'MobiKwik'],
-  [/RAZORPAY/, 'RAZORPAY', 'Razorpay'],
-  [/NAVI/, 'NAVI', 'Navi'],
-  [/JUPITER/, 'JUPITER', 'Jupiter'],
-  [/FI\b|FIMONEY|EPIFI/, 'FI', 'Fi'],
-];
-
-/** Bank / provider behind an email sender display name like "HDFC Bank InstaAlerts". */
-export const resolveEmailSender = (
-  senderName: string
-): { code: string; name: string; recognized: boolean; kind: 'bank' | 'provider' | 'unknown' } => {
-  const core = (senderName || '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ');
-  const compact = core.replace(/\s+/g, '');
-  for (const [re, code, name] of BANKS) {
-    if (re.test(compact)) return { code, name, recognized: true, kind: 'bank' };
-  }
-  for (const [re, code, name] of KNOWN_PROVIDERS) {
-    if (re.test(compact) || re.test(core)) return { code, name, recognized: true, kind: 'provider' };
-  }
-  const name = (senderName || 'Email').trim().slice(0, 40) || 'Email';
-  return { code: compact.slice(0, 10) || 'EMAIL', name, recognized: false, kind: 'unknown' };
-};
-
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 
 /**
@@ -486,6 +423,7 @@ export const parseEmail = (senderName: string, body: string, arrivedAt: number):
     template: templateOf(`EMAIL-${who.code}`, full),
     senderRecognized: who.recognized,
     senderIsBank: who.kind === 'bank',
+    senderRole: who.kind === 'bank' ? ('bank' as const) : who.kind === 'third_party' ? ('third_party' as const) : ('unknown' as const),
   };
   if (RE_EMAIL_SECURITY.test(full)) return { ...base, kind: 'otp' };
 

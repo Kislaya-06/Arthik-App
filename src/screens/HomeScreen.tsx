@@ -48,6 +48,7 @@ import { useCategoryStore, Category } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useNetworkStore } from '../store/networkStore';
+import { shouldShowHomeNetworkPill } from '../lib/homeNetworkPill';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
@@ -83,6 +84,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const showNavBar = useNavBarStore((s) => s.showNavBar);
   const isOffline = useNetworkStore((s) => s.isOffline);
   const isSyncing = useNetworkStore((s) => s.isSyncing);
+  const networkBannerVisible = useNetworkStore((s) => s.bannerVisible);
   const pendingSyncCount = useMemo(() => expenses.filter((e) => e.pending).length, [expenses]);
 
   // Instagram-style pull-up-to-History lives entirely inside PullToHistoryList.
@@ -669,7 +671,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </View>
 
         {/* Network & Offline Status Indicator (Visibility of System Status) */}
-        {(isOffline || isSyncing) && (
+        {shouldShowHomeNetworkPill({ isOffline, isSyncing, bannerVisible: networkBannerVisible }) && (
           <View
             style={[
               styles.networkStatusPill,

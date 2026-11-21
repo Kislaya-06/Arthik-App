@@ -6,15 +6,15 @@ import AlertCircle from 'lucide-react-native/icons/circle-alert';
 import Coins from 'lucide-react-native/icons/coins';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { format } from 'date-fns/format';
-import { isYesterday } from 'date-fns/isYesterday';
 import { parseISO } from 'date-fns/parseISO';
+import { savingsRowDateLabel, savingsRowValue } from '../lib/savingsHistoryGroups';
 
 import { DailyRecord, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
 import { useTheme } from '../store/themeStore';
 import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
 import { formatCurrency } from '../lib/formatters';
-import { FontFamily } from '../config/theme';
+import { FontFamily, Spacing } from '../config/theme';
 import { AmountText } from './ui/AmountText';
 
 export interface SavingsRecordRowProps {
@@ -25,6 +25,8 @@ export interface SavingsRecordRowProps {
   onDeleteDeposit?: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
+  /** Last row of its group card: no divider under it. */
+  isLast?: boolean;
 }
 
 const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
@@ -35,6 +37,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   onDeleteDeposit,
   colors,
   isDark,
+  isLast = false,
 }) => {
   const isPeriod = !!period;
   const isDeposit = !isPeriod && !!deposit;
@@ -65,14 +68,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     }
     const rawDate = deposit?.date || rec?.date;
     if (!rawDate) return '';
-    try {
-      const dateObj = parseISO(rawDate);
-      return isYesterday(dateObj)
-        ? `Yesterday, ${format(dateObj, 'd MMM')}`
-        : format(dateObj, isDeposit ? 'd MMM yyyy' : 'EEE, d MMM yyyy');
-    } catch {
-      return rawDate;
-    }
+    return savingsRowDateLabel(rawDate, isDeposit ? 'deposit' : 'daily', new Date());
   }, [isPeriod, period, rec?.date, deposit?.date, isDeposit]);
 
   const mainTitle = useMemo(() => {
@@ -95,15 +91,16 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     return `Spent ${formatCurrency(rec!.spent)} of ${formatCurrency(rec!.budget)}`;
   }, [isPeriod, period, isDeposit, dateLabel, isUnknown, rec]);
 
-  const incomeGreen = isDark ? colors.mintGreen : colors.mintGreenDark;
-  const warningRed = isDark ? colors.peachCoral : '#DC2626';
+  // Money text: readable deep mint / coral on Light, the brand mint / coral on Dark and AMOLED (ADR 0021).
+  const incomeGreen = colors.mintText;
+  const warningRed = colors.coralText;
 
   const { amountColor, statusText, statusColor } = useMemo(() => {
     if (isPeriod && period) {
       if (isSaved) {
         return {
           amountColor: incomeGreen,
-          statusText: 'Saved 🎉',
+          statusText: 'Saved',
           statusColor: incomeGreen,
         };
       }
@@ -137,7 +134,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     if (isSaved) {
       return {
         amountColor: incomeGreen,
-        statusText: 'Saved 🎉',
+        statusText: 'Saved',
         statusColor: incomeGreen,
       };
     }
@@ -180,7 +177,8 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
       style={[
         styles.recordRow,
         {
-          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+          borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+          borderBottomColor: colors.borderSubtle,
         },
       ]}
       activeOpacity={0.7}
@@ -227,21 +225,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
           ) : (
             <AmountText
               role="row"
-              value={
-                isPeriod && period
-                  ? isSaved
-                    ? period.amountSaved
-                    : isMissed
-                    ? Math.max(0, period.spentAmount - period.budgetAmount)
-                    : 0
-                  : isDeposit
-                  ? deposit!.amount
-                  : isSaved
-                  ? rec!.saved
-                  : isMissed
-                  ? rec!.spent - rec!.budget
-                  : 0
-              }
+              value={savingsRowValue({ dailyRecord: rec, deposit, period }).amount}
               direction={isSaved || isDeposit ? 'income' : isMissed ? 'expense' : 'neutral'}
               signed={isSaved || isDeposit || isMissed}
               color={amountColor}
@@ -269,9 +253,8 @@ const styles = StyleSheet.create({
   recordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
+    paddingVertical: Spacing.group,
+    paddingHorizontal: Spacing.block,
   },
   recordIconBox: {
     width: 48,

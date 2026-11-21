@@ -13,7 +13,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { PressableOpacity } from './ui/PressableOpacity';
-import Svg, { Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Circle, Rect } from 'react-native-svg';
 import X from 'lucide-react-native/icons/x';
 import CheckCircle2 from 'lucide-react-native/icons/circle-check';
 import ShieldCheck from 'lucide-react-native/icons/shield-check';
@@ -37,7 +37,7 @@ import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 
 let badgeGradCounter = 0;
 
-// ─── 1. Tactile Gradient Exclamation Circle Badge ────────────────────────────
+// ─── 1. Tactile Gradient Info Circle Badge ("how it works", never a warning) ─
 export interface MoneyHelpBadgeProps {
   onPress: () => void;
   size?: number;
@@ -91,6 +91,8 @@ export const MoneyHelpBadge: React.FC<MoneyHelpBadgeProps> = ({
         activeOpacity={0.75}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         testID={testID || 'money-help-badge'}
+        accessibilityRole="button"
+        accessibilityLabel="How this works"
         style={[
           styles.badgeCircle,
           {
@@ -120,19 +122,17 @@ export const MoneyHelpBadge: React.FC<MoneyHelpBadgeProps> = ({
             stroke={colors.moneyBadgeBorder}
             strokeWidth={1}
           />
+          {/* Drawn "i" (information), not a warning "!": the badge opens a "how it works" explainer. */}
+          <Circle cx={radius} cy={size * 0.29} r={size * 0.075} fill={colors.moneyBadgeText} />
+          <Rect
+            x={radius - size * 0.065}
+            y={size * 0.43}
+            width={size * 0.13}
+            height={size * 0.33}
+            rx={size * 0.065}
+            fill={colors.moneyBadgeText}
+          />
         </Svg>
-        <Text
-          style={[
-            styles.exclamationText,
-            {
-              color: colors.moneyBadgeText,
-              fontSize: Math.max(11, Math.round(size * 0.65)),
-              fontFamily: FontFamily.bold,
-            },
-          ]}
-        >
-          !
-        </Text>
       </PressableOpacity>
     </Animated.View>
   );
@@ -451,10 +451,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-  },
-  exclamationText: {
-    lineHeight: 14,
-    textAlign: 'center',
   },
   backdrop: {
     flex: 1,

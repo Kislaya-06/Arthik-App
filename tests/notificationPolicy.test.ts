@@ -316,6 +316,21 @@ describe('in-app event copy', () => {
     const withGullakOnly = limitCopy({ kind: 'exceeded', cadence: 'daily', spent: 800, budget: 500, remaining: 0, incomeCovered: 0, gullakCovered: 300 });
     expect(withGullakOnly.body).toBe("₹300 over limit: drawn from your Gullak.");
   });
+  it('NOT-001: spending exactly the budget says "used up", never "₹0 over"', () => {
+    expect(limitCopy({ kind: 'exceeded', cadence: 'daily', spent: 250, budget: 250, remaining: 0 })).toEqual({
+      title: "Today's budget is used up",
+      body: '₹250 spent of ₹250. Nothing left for your Gullak today.',
+    });
+    expect(limitCopy({ kind: 'exceeded', cadence: 'weekly', spent: 7000, budget: 7000, remaining: 0 })).toEqual({
+      title: "This week's budget is used up",
+      body: '₹7,000 spent of ₹7,000. Nothing left for your Gullak this week.',
+    });
+    expect(limitCopy({ kind: 'exceeded', cadence: 'monthly', spent: 30000, budget: 30000, remaining: 0 }).title).toBe(
+      "This month's budget is used up"
+    );
+    // One paisa over is a real overspend and keeps the "over" wording.
+    expect(limitCopy({ kind: 'exceeded', cadence: 'daily', spent: 250.01, budget: 250, remaining: 0 }).title).toBe("Over today's limit");
+  });
   it('over a weekly / monthly budget', () => {
     expect(limitCopy({ kind: 'exceeded', cadence: 'weekly', spent: 7400, budget: 7000, remaining: 0 }).title).toBe("Over this week's budget");
     expect(limitCopy({ kind: 'exceeded', cadence: 'monthly', spent: 32000, budget: 30000, remaining: 0 }).body).toBe('₹32,000 of ₹30,000 — ₹2,000 over.');

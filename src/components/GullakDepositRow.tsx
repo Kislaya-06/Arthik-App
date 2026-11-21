@@ -12,21 +12,24 @@ export type GullakDepositRowProps = {
   deposit: GullakDeposit;
   colors?: ReturnType<typeof useTheme>['colors'];
   isDark?: boolean;
+  /** Under a History day heading the date is already shown, so the row leaves it out. */
+  hideDate?: boolean;
 };
 
-const GullakDepositRowBase: React.FC<GullakDepositRowProps> = ({ deposit, colors: propColors, isDark: propIsDark }) => {
+const GullakDepositRowBase: React.FC<GullakDepositRowProps> = ({ deposit, colors: propColors, isDark: propIsDark, hideDate = false }) => {
   const theme = useTheme();
   const colors = propColors ?? theme.colors;
   const isDark = propIsDark ?? theme.isDark;
   const bg = '#ADEBB3';
 
   const dateStr = useMemo(() => {
+    if (hideDate) return '';
     try {
       return format(parseISO(deposit.date), 'd MMM');
     } catch {
       return deposit.date;
     }
-  }, [deposit.date]);
+  }, [deposit.date, hideDate]);
 
   const sourceLabel = deposit.source === 'income' ? 'From Income' : 'External Deposit';
   const hasNote = Boolean(deposit.note && deposit.note.trim().length > 0);

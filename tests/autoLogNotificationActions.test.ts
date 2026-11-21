@@ -10,13 +10,15 @@ vi.mock('../src/features/autoLog/db', () => ({ getEvent: (...a: unknown[]) => ge
 vi.mock('../src/features/autoLog/ledger', () => ({ setTransactionCategory: (...a: unknown[]) => setTransactionCategory(...(a as [])) }));
 vi.mock('../src/features/autoLog/notify', () => ({
   CATEGORY_ACTION_PREFIX: 'cat:',
+  UNDO_ACTION_ID: 'autolog:undo',
+  notifyUndoFailed: async () => {},
   notificationIdFor: (k: string) => `autolog-${k}`,
   notifyCategoryNotSaved: (...a: unknown[]) => notifyCategoryNotSaved(...(a as [])),
 }));
 vi.mock('expo-notifications', () => ({ dismissNotificationAsync: (...a: unknown[]) => dismissNotificationAsync(...(a as [])) }));
 vi.mock('../src/config/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }));
 
-import { parseCategoryTap, applyCategoryTap, handleCategoryResponse } from '../src/features/autoLog/notificationActions';
+import { parseCategoryTap, parseUndoTap, applyCategoryTap, handleCategoryResponse } from '../src/features/autoLog/notificationActions';
 
 const response = (actionIdentifier: string, data: unknown = { type: 'autolog', eventId: 'ev1', expenseId: 'ex1' }) => ({
   actionIdentifier,
@@ -96,5 +98,14 @@ describe('handleCategoryResponse', () => {
     getEvent.mockResolvedValue({ id: 'ev1', expenseId: 'ex1', needsCategory: true });
     expect(await handleCategoryResponse(response('cat:food'))).toBe(true);
     expect(setTransactionCategory).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('parseUndoTap', () => {
+  it('reads the Undo button and nothing else', () => {
+    expect(parseUndoTap(response('autolog:undo'))).toEqual({ eventId: 'ev1', expenseId: 'ex1' });
+    expect(parseUndoTap(response('cat:food'))).toBeNull();
+    expect(parseUndoTap(response('autolog:undo', { type: 'budget_warning', eventId: 'ev1' }))).toBeNull();
+    expect(parseUndoTap(null)).toBeNull();
   });
 });

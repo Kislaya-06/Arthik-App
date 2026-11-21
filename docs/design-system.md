@@ -120,7 +120,7 @@ Every financial figure in Arthik represents **real money**. Numbers must be clea
   - Used for: Percentage changes, chart axis annotations, mini comparison tags.
 
 ### Formatting & Currency Alignment
-- Always use `formatCurrency` or `formatAmountWithCommas` from `src/lib/formatters.ts` (Indian numbering: ₹1,50,000).
+- Always use `formatCurrency` or `formatAmountWithCommas` from `src/lib/formatters.ts` (Indian numbering: ₹1,50,000). Whole rupees show no decimals; an amount with paise always shows two digits (₹13,834.50, never ₹13,834.5) — `formatRupeeNumber`, shared with `AmountText`.
 - Hide redundant `.00` on whole numbers; retain meaningful paise where entered or calculated.
 - Align currency symbol: Wrap amount and `₹` in `flexDirection: 'row'` with `alignItems: 'center'`.
 - Never abbreviate financial figures (`1.2K`, `3.5L`) unless explicitly specified in compact chart tags.
@@ -226,6 +226,10 @@ Every centered dialog and bottom sheet dims the screen with the same theme value
    - **`commitOnSettle`**: heavy screens (Home, Expense | Income, Insights, Savings history) receive `onChange` only when the pill has LANDED (both edges within 1px; exact per tap from `pillLandingMs`, ~300-350ms). A React commit during the glide pauses Reanimated's UI commits and freezes the pill, so nothing commits mid-glide. `PILL_COMMIT_MS` (= `PILL_SETTLE_MS`, 320ms) is only the fallback before the control is measured. The soft landing tick (iOS) fires at the same landing time. Rapid taps debounce clean. Any other touch delivers the pending value first (touch fence, `selectionCommitFence.ts`), so a form can never save a stale value. Cheap forms (Cash/UPI, Profile) report at once.
 4. **`<GradientIconBadge />`**:
    - Mandatory for all category icons, feature badges, and Gullak/PiggyBank symbols. Pre-configured gradient pairs.
+   - **Grouped lists (Ledger pattern)**: long lists of similar rows (Ledger, Savings history, Notifications) are split into groups. Each group has an UPPERCASE label (`FontSize.caption`, `LetterSpacing.label`, bold, `textSecondary`) with an optional total on the right (History day-header wording "−₹X  •  +₹Y", `mintText` / `coralText`), then ONE card (`colors.card`, `borderSubtle`, `BorderRadius.card`) holding the rows, separated by a hairline `borderSubtle` divider (none under the last row). "See More" shows whole groups, never half a group. Dates inside a group skip the year when it is this year. Row amounts use `mintText` / `coralText`.
+   - **Keypad (`KeyButton`, `keypad*` tokens)**: digits sit on the neutral key surface; operators (÷ × − +) use a soft mint tint with a mint sign, and delete a soft coral tint with a coral icon (Light: `#E8F5EC` / `#2E7A53`, `#FCE9E6` / `#B9473A`; Dark & AMOLED: 16% brand tints with `#B8E0C8` / `#F4B8AE`). Never solid fills: the amount and the Save button must lead.
+   - **No emoji as icons in data**: pills, badges and rows that show numbers or status use drawn icons (Lucide, `PiggyBankCoinIcon`, a coloured status dot), never emoji in the text (🐷 🟢 ⚠️ 🎉 📅 🪙 ✎ were removed in 2026-11). Insights pills pass `pillIcon: 'gullak' | 'onTrack' | 'highBurn'` to `BreathingStripShell` (INS-002). A one-off celebration title (e.g. "You're Up to Date 🎉") may keep its emoji.
+   - **Info badge (`MoneyHelpBadge`, `src/components/MoneyExplainerModal.tsx`)**: the small tappable circle next to a title that opens a "how it works" explainer. Brand mint gradient (`moneyBadge*` tokens) with a drawn SVG "i", announced as "How this works". It is information, so it never uses warning amber or a "!" (that reads as an error).
 5. **`<RollingText />`**:
    - Vertical odometer-style digit rolling animations on amount updates and screen focus across Home, Savings, and Insights.
    - Zero-flash planning: rolls are planned synchronously during render on frame 0, mounting `DigitWheel`s immediately from the old value to the new value with zero frames of static new text leaking to the display.
@@ -348,10 +352,11 @@ Every data surface must cleanly handle 4 foundational states:
 1. **Loading State:** `<Skeleton />` shapes (`colors.cardSubtle`, UI-thread pulse) where content is replaced; `ActivityIndicator` only inside buttons, next to a short label, or for progress of an operation. Avoid full-screen blocking spinners where partial skeleton UI is possible.
 2. **Empty State:** always the shared `<EmptyState />` (`src/components/ui/EmptyState.tsx`): `GradientIconBadge` (theme mint) with the icon, a bold title, one muted line (`bodySmall`, max 300dp wide, centred) and an optional compact `AppButton` (`secondary` by default; `primary` only when it is THE action of the screen, e.g. "Add Transaction" on Insights).
    - `size="screen"` when the whole page is empty (72dp badge, 20px title): History, Notifications, Ledger, Automatic Logging Review. A screen empty state at the top of a scrolling list starts `EMPTY_STATE_TOP_OFFSET` (64dp) down.
+   - **Say "nothing here" once per page**: when a period is empty, the hero states it once and one `EmptyState` gives the action. Supporting pieces must not repeat it: the Insights breathing strip drops its takeaway line (`isEmptyPeriod`), the weekly Spending Flow chart is hidden (7 empty bars say nothing), and the monthly Cash Flow subtitle shows the month name instead of a "no spending" line.
    - `size="section"` when one card or list inside a page is empty (56dp badge, 18px title): FAQ search, Savings history card, Category Detail list, Insights breakdown.
    - It has no motion of its own; a screen that fades its empty state in (History, Notifications) keeps its own animated wrapper. The small inline "No expenses today" line on Home stays a line of text (it sits inside a compact list, not in place of a page).
 3. **Error State:** Non-intrusive alert banner or inline card with retry action.
-4. **Offline State:** Persistent non-blocking banner (`OfflineBanner`); all cached items remain readable and interactive.
+4. **Offline State:** Non-blocking top banner (`OfflineBanner`) that closes by itself after 4 s (it sits over the screen header), then Home's inline "Offline · Changes saved locally" pill keeps showing it (`shouldShowHomeNetworkPill`); all cached items remain readable and interactive.
 
 ---
 

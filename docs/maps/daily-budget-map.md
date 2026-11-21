@@ -413,6 +413,9 @@ graph TD
    - Budget Mode toggle (`isBudgetModeEnabled`), cadence switching (`budgetCadence`), and allowance pausing (`PauseBudgetModal`).
 7. **`src/screens/NotificationsScreen.tsx`**:
    - Budget threshold alert preferences, evening rollover nudges, and notification status sync.
+   - Inbox is shown in date sections (TODAY / YESTERDAY / THIS WEEK / THIS MONTH / month names), one card each (`src/lib/notificationGroups.ts`).
+7a. **`src/components/savings/SavingsHistorySection.tsx` + `SavingsRecordRow.tsx`**:
+   - Savings history grouped by week (daily budget) or month (weekly / monthly), with each group's total in its header. Row amounts and group totals both come from `savingsRowValue` (`src/lib/savingsHistoryGroups.ts`); display only, no new money math.
 8. **`src/screens/GullakDepositDetailScreen.tsx`**:
    - Manual Gullak deposits history, external inflow attribution, and deposit removal.
 9. **`src/screens/ExpenseDetailScreen.tsx`**:

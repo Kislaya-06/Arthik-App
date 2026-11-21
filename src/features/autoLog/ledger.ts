@@ -7,6 +7,7 @@ import { useDailyBudgetStore } from '../../store/dailyBudgetStore';
 import { cancelTonightNudge } from '../../lib/notificationService';
 import { grossAmountOf, buildPeopleLedger, matchIncomingToPeople } from '../../lib/splitLedger';
 import { formatCurrency } from '../../lib/formatters';
+import { categoryFromHistory } from './merchants';
 
 /**
  * Bridge between Automatic Logging and Arthik's normal transaction store.
@@ -146,6 +147,16 @@ export const deleteTransaction = async (expenseId: string): Promise<boolean> => 
   } catch {
     return false;
   }
+};
+
+/**
+ * The category the user usually gives this merchant in their own saved transactions (2+ entries, clear majority).
+ * Needs the app's data, so it returns null while the app is closed (the user is then asked as before).
+ */
+export const historyCategoryFor = (merchant: string | null, type: 'expense' | 'income'): string | null => {
+  if (!merchant || !storeReady()) return null;
+  const id = categoryFromHistory(useExpenseStore.getState().expenses, merchant, type);
+  return id && isValidUUID(id) ? id : null;
 };
 
 /** A manually-entered transaction that looks like the same payment (same amount, type, day). */

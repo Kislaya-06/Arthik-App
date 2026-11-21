@@ -148,6 +148,8 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       });
       expect(res.text).toBe('No expenses logged this week.');
       expect(res.status).toBe('neutral');
+      // The hero already says it: the strip hides this line for an empty week (no repeated "nothing" text).
+      expect(res.isEmptyPeriod).toBe(true);
     });
 
     it('returns over-budget alert when week exceeds budget', () => {
@@ -167,6 +169,7 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       expect(res.text).toContain('Weekly spend exceeded budget by ₹500.');
       expect(res.text).toContain('Saturday had the highest outflow.');
       expect(res.status).toBe('coral');
+      expect(res.isEmptyPeriod).toBeFalsy();
     });
 
     it('returns savings celebration when 5+ days saved', () => {

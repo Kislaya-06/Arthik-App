@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Automatic Logging: Smarter, Faster, More in Your Control (owner-approved, canonical `AUT-006`, `AUT-007`) — OTA-safe, JS only, no new APK**:
+  - **No-number bank alerts** (`AUT-006`): UPI Lite / short alerts with no account number are logged on the user's only tracked account of that kind at that bank. Two accounts there, a card spend vs a bank account, or not tracked → still "Which account?".
+  - **Category memory** (`AUT-007`): "Zomato", "ZOMATO LTD" and "zomato.payu" are one merchant (`merchants.merchantKey`; preferences saved before still work). With no remembered choice, the category the user gave that merchant in at least 2 of their own entries (60%+) is used.
+  - **Undo on every "logged" notification**: up to 2 category buttons + Undo. Undo removes that transaction without opening the app and the message is never logged again; offline with the app closed it says "Could not undo".
+  - **Weekly summary**: once a week (Monday) "N payments logged for you · M need your review", also in the in-app bell.
+  - **Faster Discovery**: messages are saved in batches of 200 inside one database transaction (rolled back on error). Recovery is unchanged.
+  - **Accounts**: add a name to an account ("Salary account"), see how many messages it was seen in, "Not my account" also on the "New account found" card, "Recommended" tag + "Select recommended" in setup (never pre-selected), and a one-time Autostart guide for Xiaomi / OPPO / vivo / Samsung / Huawei / ASUS phones. Local database schema 3 adds `accounts.nickname`.
+  - **Native tests**: 12 JUnit tests for the native privacy gate `FinancialFilter` (`npm run test:native`, `modules/arthik-autolog/jvm-test`). The native module itself is unchanged (no new APK); a Kotlin refactor for wider native tests was reverted at the owner's request.
+  - **Tests**: new `autoLogImprovements`, `autoLogHelpers`; updated `autoLogNotifyButtons` (2 categories + Undo) and `autoLogNotificationActions`. 200 files, 2,764 tests passing; `tsc --noEmit` clean; 12 Kotlin tests passing.
+
+- **Automatic Logging Shows Only Real Bank Accounts (owner-approved, new canonical rule `AUT-005`) — OTA-safe, JS only, no new APK**:
+  - **Why**: Tracked Accounts listed accounts the user never had ("SBI ••1213", "Slcbnk ••4391"). In India only the bank that holds an account sends its alerts, but mutual funds, insurers and billers also quote "your A/c XX1213", often under a header with a bank's name in it (`SBIMFS` = SBI Mutual Fund matched "SBI"). And slice writes from two headers (`SLCBNK`, `SLICEIT`), so one account showed twice. UPI IDs (`@ybl`, `@oksbi`) were not the cause.
+  - **Layer 1, who sent it** (`src/features/autoLog/senders.ts`): every sender is a `bank`, a `third_party` (fund, insurer, broker, lender: `SBIMF…`, `HDFCLI`, `AXISMF`, CAMS, KFintech…) or `unknown`. All headers of one bank map to one code (slice: `SLCBNK` / `SLICE…` / `NESFB…`). Emails from "SBI Mutual Fund", "HDFC Life" are no longer bank emails. Codes of known banks never change.
+  - **Layer 2, only the bank creates an account** (`src/features/autoLog/accounts.ts`, `engine.processSms` / `processEmail`): a non-bank message never creates an account, a transaction or a review; it is kept as evidence under the account with the same last 4 digits, so the same SIP / premium debit is never counted twice. An unknown header creates an account only when it already owns it, shows the balance, or no other account has those digits (small banks keep working).
+  - **Layer 3, cleanup of old data** (`tidyAccounts`, runs once after the update, daily, and after every scan): merges old-code duplicates (tracked if either was), removes accounts only non-bank senders ever named (even if tracked — they could only double count) and untracked unknown-header look-alikes. Their messages move to the real account. Logged transactions are never touched. The server's tracked list is re-synced; restoring an old backup uses the real bank.
+  - **Layer 4, "Not my account"** (Tracked Accounts screen): hides any account for good (never listed, never logged, never re-added); a "Hidden accounts" card shows it again (still off until turned on). Local database schema 2 adds `accounts.hidden` (added on open, nothing dropped).
+  - **Tests**: new `autoLogAccountIdentity` (22 tests). 198 files, 2,732 tests passing; `tsc --noEmit` clean.
+
+- **Four Follow-up Fixes from the Screen Audit (owner-approved) — OTA-safe, no calculation change**:
+  - **"Critical Burn" pill (`INS-002`)**: on the Weekly tab for monthly-budget users, a week above 50% of the monthly budget now says "Critical Burn" (coral dot), as the canonical rule says. Before, the code worked out the critical status but still showed "High Burn". 25–50% stays "High Burn", up to 25% "On Track".
+  - **Finished weeks and months**: the left tile no longer shows a "Safe daily pace" (e.g. ₹1,650 / day for a week that is over). It now shows "Daily burn", what was really spent per day in that period (the same number Pure Mode shows), with "Finalized · Within / Over budget". The current week and month still show the safe pace. Canonical rule `INS-001` now says this (point 4, owner approved 2026-11-21).
+  - **Offline banner no longer covers the header**: the top "You are offline" banner raised by the network now closes by itself after 4 seconds, like the one shown when saving offline. It used to stay over Home's greeting and its bell / profile buttons until closed by hand. Home's offline pill keeps showing the state afterwards; nothing changes in saving or syncing.
+  - **Old "₹0 over" alerts fixed**: alerts saved before the new wording are rewritten once on the phone to "Today's budget is used up — ₹250 spent of ₹250. Nothing left for your Gullak today." (notification store `version: 1` migrate, `fixLegacyZeroOverCopy`). Real overspends and all other notifications are untouched.
+  - **Tests**: `multiCadenceInsightsSavings` (Critical Burn), `breathingStrips` (finished periods), new `networkBannerAutoHide` and `notificationLegacyCopy`. 197 files, 2,710 tests passing; `tsc --noEmit` clean. Checked on the emulator (old alert rewritten, past week tile, offline banner closing by itself).
+
+- **History Rows Stop Repeating the Date (owner-approved) — OTA-safe, no logic / money change**:
+  - Each History row sat under its day heading ("FRIDAY, 23 OCT") and still printed "23 Oct" again. Rows now show the time the entry was logged (e.g. "11:37 PM") when it was logged on that same day, and nothing for a back-dated entry (its log time is not when the money moved). Gullak deposit rows in History leave the date out too. Day totals in the headings stay, so every heading looks the same.
+  - Home's Recent Transactions and Category Detail still show the date (they have no day headings). `TransactionRow dateMode="historyTime"`, `GullakDepositRow hideDate`, helper `historyRowTimeLabel` (`src/lib/historyRows.ts`).
+  - **Tests**: new `historyRowTime`. 195 files, 2,699 tests passing; `tsc --noEmit` clean. Checked on the emulator (History and Home).
+
+- **One Offline Message at a Time on Home (owner-approved) — OTA-safe, no logic / sync change**:
+  - Going offline used to show the top banner ("You are offline, changes will sync when connected") and Home's "Offline · Changes saved locally" pill at the same time (and both said "Syncing" when the connection came back). Home's pill now waits while the top banner is on screen and appears once it is closed, so being offline is never hidden (`shouldShowHomeNetworkPill`, `src/lib/homeNetworkPill.ts`). Offline queues and syncing are untouched.
+  - **Tests**: new `homeNetworkPill`. 194 files, 2,696 tests passing; `tsc --noEmit` clean. Checked on the emulator with Wi-Fi and data turned off and back on.
+
+- **Calmer Amount Keypad (owner-approved) — OTA-safe, no logic change**:
+  - On Add / Edit Transaction the ÷ × − + keys were solid mint with black signs and the delete key solid coral, louder than the digits and the Save button. They now use a soft mint / coral tint with a mint / coral sign (`keypad*` tokens in `src/config/theme.ts`, Light, Dark and AMOLED). Digits, key sizes and behaviour are unchanged.
+  - Checked on the emulator in AMOLED and Light (typed an amount, left without saving). 193 files, 2,693 tests passing; `tsc --noEmit` clean.
+
+- **Icons Instead of Emoji in Data (owner-approved, `INS-002` wording updated) — OTA-safe, no logic / money change**:
+  - **Insights pills** (Weekly, Monthly, Yearly): "🐷 4 Saved Days" is now the app's piggy-bank icon + "4 Saved Days"; "🟢 On Track" / "⚠️ High Burn" now show a mint / coral dot before the text. `BreathingStripShell` draws the icon from `pillIcon` (`'gullak' | 'onTrack' | 'highBurn'`).
+  - **Cadence switch sheet**: 🪙 next to "Gullak" is the piggy-bank icon and 📅 in the date pill is a calendar icon. **Profile**: "Edit ✎" is now "Edit".
+  - Celebration titles ("You're Up to Date 🎉", "Welcome back 👋", "Password Reset Successful 🎉") keep their emoji on purpose.
+  - Canonical rule `INS-002` now describes the badges with icons instead of emoji (owner approved 2026-11-20). The thresholds and numbers are unchanged.
+  - **Tests**: `multiCadenceInsightsSavings` (pill text without emoji, `pillIcon`), `breathingStrips` (Gullak pill icon, no emoji). 193 files, 2,693 tests passing; `tsc --noEmit` clean. Checked on the emulator (Weekly and Yearly pills, Profile).
+
+- **Profile Settings in Clear Groups (owner-approved) — OTA-safe, no logic / money change**:
+  - Settings are split into three cards: **Tracking** (Manage Categories, Automatic Logging, Notifications), **Appearance** (Theme, Ambient Background) and **Privacy & Help** (App Lock, FAQs & Help, App Version), instead of one long "Account" list.
+  - Your email now shows under your name instead of the filler "Personal Account" (nothing is sent anywhere; it is the email you signed in with).
+  - **Automatic Logging row**: when the setup on this phone is missing it says "Tap to set it up again" instead of the error-like "Auto-Logging setup not found" (`profileRowHint`; the Automatic Logging screens keep their shared wording).
+  - **App Version** uses an info icon instead of an alert icon.
+  - **Tests**: new `autoLogProfileHint`. 193 files, 2,693 tests passing; `tsc --noEmit` clean. Checked on the emulator in AMOLED and Light.
+
+- **Insights Says "Nothing Yet" Once (owner-approved) — OTA-safe, no logic / money change**:
+  - **Empty week**: the page used to say the same thing four times ("No spending yet this week", "No expenses logged this week.", "No daily expenses", "Nothing to show yet") and showed 7 empty bars. Now the hero says it once, the strip keeps only its two tiles (Safe daily pace, Auto-saved), the empty Spending Flow chart is hidden, and the By Category empty state with "Add Transaction" stays as the one call to action.
+  - **Empty month**: the strip drops the same repeated line, and the Cash Flow card shows the month name ("November 2026") instead of "No cash flow activity logged this month", which was wrong when money had come in.
+  - Weeks and months with spending look exactly as before.
+  - **Tests**: `weeklyInsightsData`, `monthlyInsightsData` (empty-period flag, "no spending" wording). 192 files, 2,689 tests passing; `tsc --noEmit` clean. Checked on the emulator (empty week, a week with spending, empty month).
+
+- **Savings History & Notifications Look Like the Ledger (owner-approved design) — OTA-safe, no logic / money change**:
+  - **Savings history**: rows are grouped by week (daily budget) or month (weekly / monthly budget) with a label like "THIS WEEK", "LAST WEEK" or "19 – 25 OCT" and that group's total on the right ("+₹1,650", or "−₹X  •  +₹Y" like History). Each group sits in one card. "See More" shows whole weeks, so a total always matches the rows under it. Dates skip the year when it is this year ("Wed, 18 Nov"), and "Saved 🎉" is now just "Saved".
+  - **Readable amounts on Light**: Savings history amounts and "Saved" / "Over budget" now use `mintText` / `coralText` (deep mint / coral on Light, the same brand colours as before on Dark and AMOLED).
+  - **Notifications**: grouped into TODAY, YESTERDAY, THIS WEEK, THIS MONTH and month names, each in one card.
+  - **Money**: group totals add up exactly the amounts the rows show (`savingsRowValue`, `src/lib/savingsHistoryGroups.ts`); nothing new is calculated or stored.
+  - **Tests**: new `savingsHistoryGroups` (row value, week / month groups and labels, totals, whole-group paging, date labels) and `notificationGroups`. 192 files, 2,688 tests passing; `tsc --noEmit` clean. Checked on the emulator in AMOLED and Light.
+
+- **Clear Money Text & Calm Info Badge: Paise Always Two Digits, No "₹0 over" Alert, "i" Instead of "!" (owner-approved) — OTA-safe, no calculation change**:
+  - **Fix (amounts)**: an amount with paise now always shows two digits, e.g. the Gullak total reads ₹13,834.50 instead of ₹13,834.5. Whole rupees stay as they were (₹52,000). One shared helper, `formatRupeeNumber` (`src/lib/formatters.ts`), is used by `formatCurrency` and `AmountText`, so every screen agrees.
+  - **Fix (budget alert)**: spending exactly your budget no longer says "Over today's limit — ₹0 over". It now says "Today's budget is used up — ₹250 spent of ₹250. Nothing left for your Gullak today." (weekly / monthly wording too). When the alert fires is unchanged; real overspends keep the "over" wording (`NOT-001`).
+  - **Tests**: `formatters`, `amountText`, `notificationPolicy` (new cases); `realTimeIncomeGullakDeduction` text expectations updated to the two-digit paise format (same amounts). 190 files, 2,671 tests passing; `tsc --noEmit` clean.
+  - **Fix (info badge)**: the orange "!" next to "Your Daily Gullak" (Savings), "Smart Budget & Gullak" (Profile) and in the budget / deposit / pause sheets looked like a warning, but it only opens "how it works". `MoneyHelpBadge` is now a mint badge with a drawn "i" and a screen-reader label ("How this works"); the `moneyBadge*` tokens moved from amber to brand mint in Light, Dark and AMOLED. Size, pulse and tap are unchanged. Checked on the emulator in AMOLED and Light.
+
 - **Living Streak Flame + Savings Filter Flicker Fix — OTA-safe, no logic / money change**:
   - **Fix (Savings "Day-by-Day Savings History" filter)**: the first time the Savings tab opened, the green pill stretched from "All" to "Deposits" for a moment and snapped back. Cause: the pill's middle piece was scaled from the measured option width, and on the first layout the native view got that width one frame before the UI-thread transform did. It now scales from a fixed base width (`PILL_PIECE_BASE`), the same approach the category filter already uses. This fix had been lost when commit `e13d348` was reverted as a whole.
   - **Streak flame**: the glowing circle behind the flame is gone. The flame is a gradient fire that flickers and leans on the UI thread (`flameFrameAt`, a seamless loop) and grows a little with every streak day up to 30 days (`flameGrowthFor`). Hotter tiers keep their warmer colours and livelier flicker. It stays still when the streak is 0, with reduce motion on, or while the screen is not visible.

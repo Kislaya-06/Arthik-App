@@ -14,6 +14,7 @@ import AlertCircle from 'lucide-react-native/icons/circle-alert';
 import Coins from 'lucide-react-native/icons/coins';
 import CalendarDays from 'lucide-react-native/icons/calendar-days';
 import Bell from 'lucide-react-native/icons/bell';
+import Zap from 'lucide-react-native/icons/zap';
 import Trash2 from 'lucide-react-native/icons/trash';
 import CheckCheck from 'lucide-react-native/icons/check-check';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,7 +32,8 @@ import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
-import { Spacing, FontSize, FontFamily, LineHeight, Motion } from '../config/theme';
+import { Spacing, FontSize, FontFamily, LineHeight, Motion, BorderRadius, LetterSpacing } from '../config/theme';
+import { groupNotificationsByDate } from '../lib/notificationGroups';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
@@ -77,6 +79,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const markAsRead = useNotificationStore((s) => s.markAsRead);
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
   const clearNotifications = useNotificationStore((s) => s.clearNotifications);
+  // Sections like the Ledger: TODAY / YESTERDAY / THIS WEEK / THIS MONTH / month names, each in one card.
+  const groups = React.useMemo(() => groupNotificationsByDate(notifications, new Date()), [notifications]);
 
   const getCompactTime = (isoString: string): string => {
     try {
@@ -113,6 +117,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       case 'daily_reminder':
       case 'pure_deficit_balanced':
         return <Coins size={20} color={iconColor} strokeWidth={2.2} />;
+      case 'autolog_digest':
+        return <Zap size={20} color={iconColor} strokeWidth={2.2} />;
       default:
         return <Bell size={20} color={iconColor} strokeWidth={2.2} />;
     }
@@ -130,6 +136,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       case 'weekly_recap':
       case 'monthly_recap':
       case 'pure_deficit_balanced':
+      case 'autolog_digest':
         return '#B8D4F4';
       case 'daily_reminder':
         return '#EBAEE6';
@@ -142,6 +149,10 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     markAsRead(notif.id);
     if (notif.type === 'weekly_recap' || notif.type === 'monthly_recap') {
       navigation.navigate('AppTabs', { screen: 'Insights' });
+      return;
+    }
+    if (notif.type === 'autolog_digest') {
+      navigation.navigate('AutoLogCenter');
       return;
     }
     if (
@@ -198,66 +209,76 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {notifications.map((n) => {
-            const timeAgo = getCompactTime(n.createdAt);
+          {groups.map((group) => (
+            <View key={group.key} style={styles.group}>
+              <Text style={[styles.groupLabel, { color: colors.textSecondary }]} accessibilityRole="header">
+                {group.label}
+              </Text>
+              <View style={[styles.groupCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                {group.items.map((n, index) => {
+                  const timeAgo = getCompactTime(n.createdAt);
 
-            return (
-              <PressableOpacity
-                key={n.id}
-                style={[
-                  styles.notifRow,
-                  {
-                    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => handleNotificationPress(n)}
-              >
-                <GradientIconBadge size={44} color={getIconBg(n.type)} isDark={isDark}>
-                  {({ iconColor }) => getIcon(n.type, iconColor)}
-                </GradientIconBadge>
-
-                <View style={styles.notifContent}>
-                  <View style={styles.notifTitleRow}>
-                    <Text
+                  return (
+                    <PressableOpacity
+                      key={n.id}
                       style={[
-                        styles.notifTitle,
+                        styles.notifRow,
                         {
-                          color: colors.textPrimary,
-                          fontFamily: n.read ? FontFamily.semibold : FontFamily.bold,
+                          borderBottomWidth: index === group.items.length - 1 ? 0 : StyleSheet.hairlineWidth,
+                          borderBottomColor: colors.borderSubtle,
                         },
                       ]}
-                      numberOfLines={2}
+                      activeOpacity={0.7}
+                      onPress={() => handleNotificationPress(n)}
                     >
-                      {n.title}
-                    </Text>
-                    <View style={styles.notifRightMeta}>
-                      <Text style={[styles.notifTime, { color: colors.textMuted }]}>
-                        {timeAgo}
-                      </Text>
-                      {!n.read && (
-                        <View
-                          style={[
-                            styles.unreadDot,
-                            { backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark },
-                          ]}
-                        />
-                      )}
-                    </View>
-                  </View>
+                      <GradientIconBadge size={44} color={getIconBg(n.type)} isDark={isDark}>
+                        {({ iconColor }) => getIcon(n.type, iconColor)}
+                      </GradientIconBadge>
 
-                  <Text
-                    style={[
-                      styles.notifMessage,
-                      { color: colors.textSecondary, fontFamily: FontFamily.medium },
-                    ]}
-                  >
-                    {n.message}
-                  </Text>
-                </View>
-              </PressableOpacity>
-            );
-          })}
+                      <View style={styles.notifContent}>
+                        <View style={styles.notifTitleRow}>
+                          <Text
+                            style={[
+                              styles.notifTitle,
+                              {
+                                color: colors.textPrimary,
+                                fontFamily: n.read ? FontFamily.semibold : FontFamily.bold,
+                              },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {n.title}
+                          </Text>
+                          <View style={styles.notifRightMeta}>
+                            <Text style={[styles.notifTime, { color: colors.textMuted }]}>
+                              {timeAgo}
+                            </Text>
+                            {!n.read && (
+                              <View
+                                style={[
+                                  styles.unreadDot,
+                                  { backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark },
+                                ]}
+                              />
+                            )}
+                          </View>
+                        </View>
+
+                        <Text
+                          style={[
+                            styles.notifMessage,
+                            { color: colors.textSecondary, fontFamily: FontFamily.medium },
+                          ]}
+                        >
+                          {n.message}
+                        </Text>
+                      </View>
+                    </PressableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
         </ScrollView>
       )}
     </View>
@@ -273,14 +294,29 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.gutter,
+    paddingTop: Spacing.element,
     paddingBottom: 30,
+    gap: Spacing.block,
+  },
+  group: {
+    gap: Spacing.element,
+  },
+  groupLabel: {
+    fontSize: FontSize.caption,
+    letterSpacing: LetterSpacing.label,
+    fontFamily: FontFamily.bold,
+    paddingHorizontal: Spacing.micro,
+  },
+  groupCard: {
+    borderRadius: BorderRadius.card,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   notifRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 13,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
+    paddingVertical: Spacing.row,
+    paddingHorizontal: Spacing.block,
   },
   notifIconWrap: {
     width: 48,

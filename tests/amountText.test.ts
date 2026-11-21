@@ -78,4 +78,11 @@ describe('AmountText Primitive (Seam: src/components/ui/AmountText.tsx)', () => 
     const el = AmountText({ value: 1250.5, showDecimals: true }) as any;
     expect(el.props.children).toEqual(['₹', '1,250.50']);
   });
+
+  it('shows paise with two digits by default (₹13,834.50, never ₹13,834.5)', () => {
+    const el = AmountText({ value: 13834.5, role: 'hero' }) as any;
+    const [, numberEl] = el.props.children;
+    expect(numberEl.props.children).toBe('13,834.50');
+    expect(el.props.accessibilityLabel).toBe('13,834.50 rupees');
+  });
 });

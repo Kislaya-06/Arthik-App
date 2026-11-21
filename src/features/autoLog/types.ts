@@ -3,6 +3,8 @@
  * See docs/AUTO_LOGGING.md for the full product model (Discovery / Recovery / Live).
  */
 
+import type { SenderRole } from './senders';
+
 export type Direction = 'debit' | 'credit';
 export type EventSource = 'sms' | 'notification' | 'email';
 
@@ -42,6 +44,10 @@ export interface ParsedMessage {
   senderIsBank?: boolean;
   /** When the transaction happened, if the message says so (emails often arrive hours later). */
   txnTime?: number;
+  /** AUT-005: the sender is the account's own bank, a non-bank company (fund, insurer, biller) or unknown. */
+  senderRole?: SenderRole;
+  /** The message states the account balance / card limit (only the account's own bank knows it). */
+  showsBalance?: boolean;
 }
 
 export type EventStatus =
@@ -102,6 +108,10 @@ export interface TrackedAccount {
   firstSeen: number;
   lastSeen: number;
   msgCount: number;
+  /** "Not my account": never listed, never logged, never re-added by new messages (AUT-005). */
+  hidden: boolean;
+  /** The user's own name for it ("Salary account"), shown instead of the bank name. */
+  nickname: string | null;
 }
 
 export type AutoLogMode = 'off' | 'live' | 'paused' | 'signed_out' | 'setup_missing';

@@ -57,6 +57,7 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
     : `Across ${transactionCount} logged ${transactionCount === 1 ? 'transaction' : 'transactions'}`;
 
   const isMonthlyCadence = isBudgetMode && budgetCadence === 'monthly';
+  const showSafePace = isBudgetMode && isCurrentWeek;
 
   const rightTileConfig =
     isMonthlyCadence && monthlyBudgetShare
@@ -70,6 +71,7 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
               : '#E05638'
             : colors.textPrimary,
         pillText: monthlyBudgetShare.pillText,
+        pillIcon: monthlyBudgetShare.pillIcon,
         pillVariant: monthlyBudgetShare.status === 'on_track' ? ('mint' as const) : ('neutral' as const),
         subtext: monthlyBudgetShare.subtext,
         onPress: onPressSavings,
@@ -89,7 +91,8 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
             : colors.textPrimary,
         pillText:
           savedPillLabel ||
-          `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
+          `${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
+        pillIcon: 'gullak' as const,
         pillVariant: 'neutral' as const,
         onPress: onPressSavings,
         accessibilityLabel: `Gullak savings this week: ${totalWeekSavings > 0
@@ -100,18 +103,19 @@ export const WeeklyBreathingStrip: React.FC<WeeklyBreathingStripProps> = ({
 
   return (
     <BreathingStripShell
-      takeawayText={takeaway.text}
+      takeawayText={takeaway.isEmptyPeriod ? null : takeaway.text}
       takeawayStatus={takeaway.status}
       leftTile={{
-        label: isBudgetMode ? 'SAFE DAILY PACE' : 'DAILY BURN',
-        value: isBudgetMode
+        // A finished week has nothing left to pace: it shows what was really spent per day instead.
+        label: showSafePace ? 'SAFE DAILY PACE' : 'DAILY BURN',
+        value: showSafePace
           ? `₹${formatAmountWithCommas(String(safeDailyPace))}`
           : `₹${formatAmountWithCommas(String(weeklyDailyBurnPace))}`,
         unit: '/ day',
         subtext: leftSubtext,
-        accessibilityLabel: isBudgetMode
+        accessibilityLabel: showSafePace
           ? `Safe daily spending pace: ${formatCurrency(safeDailyPace)} per day with ${remainingDays} days remaining.`
-          : `Average daily burn: ${formatCurrency(weeklyDailyBurnPace)} per day across ${transactionCount} transactions.`,
+          : `Average daily burn: ${formatCurrency(weeklyDailyBurnPace)} per day across ${transactionCount} transactions.${isBudgetMode ? ` ${leftSubtext}.` : ''}`,
       }}
       rightTile={rightTileConfig}
     />

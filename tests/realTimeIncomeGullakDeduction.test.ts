@@ -41,7 +41,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
         todaySpent: 100,
       });
 
-      expect(summary.primarySubtext).toContain('₹2,823.8 income');
+      expect(summary.primarySubtext).toContain('₹2,823.80 income');
       expect(summary.primarySubtext).toContain('₹3,630 deposits to Gullak');
     });
   });
@@ -59,7 +59,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
         todaySpent: 700, // overspent by 200
       });
 
-      expect(summary.primarySubtext).toContain('₹2,623.8 income');
+      expect(summary.primarySubtext).toContain('₹2,623.80 income');
       expect(summary.primarySubtext).toContain('₹3,630 deposits to Gullak');
       expect(summary.remainingIncome).toBe(2623.8);
       expect(summary.remainingDeposits).toBe(3630);
@@ -83,7 +83,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
       });
 
       expect(summary.primarySubtext).toContain('₹0 income');
-      expect(summary.primarySubtext).toContain('₹3,453.8 deposits to Gullak');
+      expect(summary.primarySubtext).toContain('₹3,453.80 deposits to Gullak');
       expect(summary.remainingIncome).toBe(0);
       expect(summary.remainingDeposits).toBe(3453.8);
       expect(summary.isSpendingFromGullak).toBe(true);
@@ -112,7 +112,7 @@ describe('Real-Time Income Deduction & Gullak Absorption (Subtext Chips & Saving
         },
       });
 
-      expect(summary.primarySubtext).toContain('₹2,823.8 income');
+      expect(summary.primarySubtext).toContain('₹2,823.80 income');
       expect(summary.primarySubtext).toContain('₹3,630 deposits to Gullak');
       expect(summary.remainingIncome).toBe(2823.8);
     });

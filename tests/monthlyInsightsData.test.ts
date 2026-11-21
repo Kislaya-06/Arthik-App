@@ -288,6 +288,12 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(earlyPeak.status).toBe('in_progress');
       expect(earlyPeak.text).toContain('W1 in progress');
     });
+
+    it('a month with money in but nothing spent says "no spending", never "no cash flow"', () => {
+      const weeks = [{ label: 'W1', spent: 0, income: 1750 }, { label: 'W2', spent: 0, income: 1750 }] as any;
+      expect(computeMonthlyPeakWeek(weeks, 0)).toEqual({ status: 'empty', text: 'No spending logged this month' });
+      expect(computeMonthlyPeakWeek(weeks, 50).text).toBe('No spending logged this month');
+    });
   });
 
   describe('Ticket 5: Smart Monthly Takeaway Narrative Engine', () => {
@@ -309,6 +315,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       });
       expect(takeaway.status).toBe('neutral');
       expect(takeaway.text).toBe('No expenses logged this month.');
+      expect(takeaway.isEmptyPeriod).toBe(true);
     });
 
     it('returns over-budget coral status with formatted over amount', () => {
