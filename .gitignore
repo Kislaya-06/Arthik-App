@@ -70,9 +70,6 @@ supabase/.temp/
 /ARTHIK_REFACTOR_PLAN_UPDATED.md
 *.mp4
 
-# graphify output (local knowledge graph)
-graphify-out/
-
 # Automatic Logging native JVM tests (npm run test:native)
 modules/arthik-autolog/jvm-test/build/
 modules/arthik-autolog/jvm-test/.gradle/
