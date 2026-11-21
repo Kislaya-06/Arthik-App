@@ -345,10 +345,22 @@ describe('Add Transaction details are one inset grouped card (FormGroup / FormRo
     expect(screen).not.toContain('datePickerButton');
     expect(read('src/screens/ExpenseFormScreen.styles.ts')).not.toMatch(/inputContainer:/);
 
+    // Self-transfer is a one-line row INSIDE the details card (no own card, no two-line subtitle);
+    // its meaning shows under the title only once the switch is on.
     const transfer = read('src/components/transfer/TransferExtras.tsx');
-    expect(transfer).toContain('<FormGroup>');
+    expect(transfer).not.toContain('<FormGroup');
     expect(transfer).toContain('<FormRow');
+    expect(transfer).not.toMatch(/<FormRow[^>]*\bsubtitle=/);
     expect(transfer).not.toContain('>TRANSFER</Text>');
+    expect(screen.indexOf('<TransferExtras')).toBeGreaterThan(screen.indexOf('<FormGroup'));
+    expect(screen.indexOf('<TransferExtras')).toBeLessThan(screen.indexOf('</FormGroup>'));
+    // "Yes, always" is never a dead (disabled) button: without a note it takes the user to the note field.
+    expect(transfer).not.toMatch(/disabled=\{disabled\}/);
+    expect(transfer).toMatch(/if \(m === 'always' && !p\.canRemember\) p\.onNeedNote\?\.\(\)/);
+    expect(screen).toContain('onNeedNote={() => noteInputRef.current?.focus()}');
+    // The Save button is 60dp always: it never shrinks while the keyboard is open (owner, 2026-11-21).
+    expect(screen).toContain('const buttonHeight = ControlHeight.cta;');
+    expect(screen).not.toContain('saveButtonKeyboard');
     const split = read('src/components/split/SplitExtras.tsx');
     expect(split).toContain('<FormRow');
     expect(split).not.toContain('>SPLIT</Text>');

@@ -1257,10 +1257,10 @@ Started 16 Nov 2026. **Same rows, same numbers.** Only how the rows are asked fo
 
 ### OPT-73. Remembered self-transfer notes work without internet
 **Status:** ✅ Done 19 Nov 2026 — `src/store/transferRulesStore.ts` (saved list, offline add queue, `syncPendingTransferRules`), flushed first in `syncPendingExpenses` (`src/store/expenseStore.ts`), cache key removed on Log Out (`src/lib/signOutCleanup.ts`); `tests/transferRulesOffline.test.ts`, `tests/signOutCleanup.test.ts`. Canonical: `TXN-003` (5), `OFL-001`.
-**Problem found:** the rule list was only downloaded online and never saved, so offline a transfer was not recognised (it would be counted as a normal expense or income). "Always remember" while offline failed silently and the transaction lost its `transfer_rule_id`.
+**Problem found:** the rule list was only downloaded online and never saved, so offline a transfer was not recognised (it would be counted as a normal expense or income). "Always remember" (now labelled "Yes, always") while offline failed silently and the transaction lost its `transfer_rule_id`.
 **Fix:** the list is saved on the phone and shown first. A rule added offline (or when the request fails on the network) is kept locally at once and queued; a server rejection that is not a network problem still throws as before. The queue is sent before the expense queues, because `expenses.transfer_rule_id` is a foreign key to the rule.
 **Must NOT change:** online add and download behaviour; the matching rules; the table and its policies.
-**Check on device:** airplane mode → log a transfer with "Always remember" → it is saved; turn the internet on → the rule appears in Supabase and the expense syncs without error.
+**Check on device:** airplane mode → log a transfer with "Yes, always" → it is saved; turn the internet on → the rule appears in Supabase and the expense syncs without error.
 
 ### OPT-72. Offline queues never lose a change (locks, keep-what-was-added, settings flush)
 **Status:** ✅ Done 19 Nov 2026 — `src/lib/asyncStorageList.ts` (`changeStoredList`, `removeFromStoredList`), `src/store/dailyBudget/pendingStorage.ts` (locked saves, `clearSentPendingSettings`, `removeSyncedFromQueue`), `src/store/expense/syncPending.ts` (`flushSideQueues`), `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudgetStore.ts`, `src/store/categoryStore.ts`; `tests/offlineQueueSafety.test.ts` (12), `tests/categoryQueueSafety.test.ts` (4). Canonical: `OFL-001` (3, 4).

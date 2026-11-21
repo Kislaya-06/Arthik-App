@@ -201,7 +201,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const morph = useSharedValue(0);
   const tickScale = useSharedValue(0.88);
   const tickOpacity = useSharedValue(0);
-  const buttonHeight = isKeyboardOpen ? 50 : ControlHeight.cta;
+  // One size always (owner, 2026-11-21): the Save button no longer shrinks while the keyboard is open.
+  const buttonHeight = ControlHeight.cta;
 
   const isButtonGreen = isSaveEnabled || isSubmitting || isMorphing || showTick;
 
@@ -607,7 +608,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           />
         </View>
 
-        {/* ── Optional details: ONE light inset card (date, split, note) ── */}
+        {/* ── Optional details: ONE light inset card (date, split, self-transfer, note), every row one 56dp line ── */}
         <FormGroup onLayout={handleDetailsLayout}>
           <FormRow
             icon={Calendar}
@@ -635,6 +636,19 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               onFieldFocus={handleSplitFocus}
               onReveal={handleSplitReveal}
               onLayout={handleExtrasRowLayout}
+            />
+          )}
+
+          {/* Self-transfer (new transactions only): one line like the other rows; its meaning opens once it is on */}
+          {!isEdit && (
+            <TransferExtras
+              isSelfTransfer={isSelfTransfer}
+              onToggleSelfTransfer={toggleSelfTransfer}
+              rememberMode={rememberMode}
+              onRememberMode={setRememberMode}
+              canRemember={canRememberTransfer}
+              ruleMatched={transferRuleMatched}
+              onNeedNote={() => noteInputRef.current?.focus()}
             />
           )}
 
@@ -782,19 +796,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           totalVaultLiquidity={vaultLiquidity.totalVaultLiquidity}
         />
 
-        {/* Self-transfer (new transactions only): its own one-row card */}
-        {!isEdit && (
-          <View style={styles.transferWrap}>
-            <TransferExtras
-              isSelfTransfer={isSelfTransfer}
-              onToggleSelfTransfer={toggleSelfTransfer}
-              rememberMode={rememberMode}
-              onRememberMode={setRememberMode}
-              canRemember={canRememberTransfer}
-              ruleMatched={transferRuleMatched}
-            />
-          </View>
-        )}
       </ScrollView>
       </View>
 
@@ -805,7 +806,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           {
             backgroundColor: colors.card,
             borderTopColor: colors.borderSubtle,
-            paddingBottom: isKeyboardOpen ? 12 : Math.max(insets.bottom, 14) + 8,
+            // Same bottom room always: with the keyboard open the button neither shrinks nor drops onto the gesture bar.
+            paddingBottom: Math.max(insets.bottom, 14) + 8,
           },
         ]}
       >
@@ -882,7 +884,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                   backgroundColor: 'transparent',
                   opacity: pressed && !isMorphing ? 0.9 : 1,
                 },
-                isKeyboardOpen && styles.saveButtonKeyboard,
               ]}
             >
               {showTick ? (

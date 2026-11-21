@@ -137,7 +137,7 @@ Maan lo Monthly mein ₹13,000 bacha tha. Ab user Weekly ₹5,000 karta hai.
 - **Hal (`pendingStorage.ts`, `asyncStorageList.ts`, `syncPending.ts`, `categoryStore.ts`):** (1) Settings, plan change, period, Gullak aur category queues bina lock ke badli jaati thi, do saves ek saath hon to ek kho jaata tha. (2) Sync network call se pehle queue padhta tha aur baad mein purani list wapas likhta tha, to sync ke dauran add hua deposit/category mit jaata tha. (3) Sirf weekly/monthly amount ya cadence wala settings patch kabhi server par nahi jaata tha. Ab har queue change `runExclusive` ke andar hai, flush sirf confirmed items hatata hai, aur har queued setting bheji jaati hai.
 
 ### Samasya 23: "Offline mein self-transfer pehchana nahi jaata" (OPT-73, Rules `TXN-003`, `OFL-001`)
-- **Hal (`transferRulesStore.ts`):** Remembered notes ki list ab phone mein save hoti hai, to offline bhi transfer pehchana jaata hai. Offline "Always remember" ka rule turant local save hota hai, queue mein jaata hai, aur expense queue se **pehle** server ko bheja jaata hai (foreign key).
+- **Hal (`transferRulesStore.ts`):** Remembered notes ki list ab phone mein save hoti hai, to offline bhi transfer pehchana jaata hai. Offline "Yes, always" (remember) ka rule turant local save hota hai, queue mein jaata hai, aur expense queue se **pehle** server ko bheja jaata hai (foreign key).
 
 ---
 
