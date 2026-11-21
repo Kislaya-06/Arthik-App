@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: '100%',
-    height: ControlHeight.standard,
+    height: ControlHeight.cta, // bottom sheet: same height as every sheet / page button
     borderRadius: BorderRadius.pill,
     flexDirection: 'row',
     alignItems: 'center',
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     width: '100%',
-    height: ControlHeight.standard,
+    height: ControlHeight.cta,
     alignItems: 'center',
     justifyContent: 'center',
   },

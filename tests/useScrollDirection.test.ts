@@ -122,3 +122,26 @@ describe('useScrollDirection (hide the bottom bar when scrolling down, show it w
     expect(h.result.current).toBe(first);
   });
 });
+
+describe('useScrollDirection: the bar comes back at the end of the list', () => {
+  beforeEach(() => {
+    useNavBarStore.setState({ isVisible: true });
+  });
+  // 2,000px of content in an 800px window: the end is reached at y = 1,200.
+  const scrollIn = (y: number) =>
+    ({ nativeEvent: { contentOffset: { y }, contentSize: { height: 2000 }, layoutMeasurement: { height: 800 } } }) as any;
+
+  it('reaching the bottom while scrolling down shows the bar, so the tabs are usable after the last row', () => {
+    const h = renderHook(() => useScrollDirection());
+    h.result.current(scrollIn(600));
+    expect(visible()).toBe(false);
+    h.result.current(scrollIn(1200));
+    expect(visible()).toBe(true);
+  });
+
+  it('scrolling down in the middle still hides it', () => {
+    const h = renderHook(() => useScrollDirection());
+    h.result.current(scrollIn(900));
+    expect(visible()).toBe(false);
+  });
+});

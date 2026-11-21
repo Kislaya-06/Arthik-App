@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, ControlHeight } from '../config/theme';
 import { EMPTY_STATE_TOP_OFFSET } from '../components/ui/EmptyState';
 
 /** Must match `emptyContainer.marginTop` in the styles below. */
@@ -95,12 +95,12 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   seeMoreBtn: {
+    height: ControlHeight.compact,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
     gap: Spacing.element,
-    paddingVertical: 10,
     paddingHorizontal: Spacing.surface,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,

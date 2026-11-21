@@ -751,9 +751,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           carryNote={carryNote}
           onOpenDetails={isBudgetModeEnabled ? handleOpenHeroDetails : undefined}
         />
-        {isBudgetModeEnabled ? (
-          <Text style={[styles.heroHint, { color: colors.textMuted }]}>Tap for budget breakdown</Text>
-        ) : null}
 
         {/* Automatic Logging: only visible when something needs review/attention */}
         <AutoLogHomeBanner />
@@ -770,7 +767,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               style={styles.historyAffordanceBtn}
             >
               <Text style={[styles.historyAffordanceText, { color: colors.mintText, fontFamily: FontFamily.semibold }]}>
-                Swipe up or tap
+                See all
               </Text>
               <ChevronRight size={13} color={colors.mintGreen} style={{ marginLeft: 2 }} />
             </PressableOpacity>

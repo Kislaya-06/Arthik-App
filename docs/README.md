@@ -70,7 +70,7 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0018](adr/0018-settle-review-choose-then-confirm.md) | Payback Review: Choose the Person, Then Confirm | Active |
 | [0019](adr/0019-income-categories.md) | Income Categories and Required Category on Review | Active |
 | [0020](adr/0020-transform-only-pills-and-commit-after-landing.md) | Transform-Only Pills, Commit After Landing, and the Touch Fence | Active |
-| [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Heights, Scrim | Active |
+| [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Size Ladder (60 / 48 / 36), Scrim | Active |
 
 ---
 

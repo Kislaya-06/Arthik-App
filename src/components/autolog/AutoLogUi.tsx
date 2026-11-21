@@ -5,7 +5,7 @@ import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
 import { useTheme } from '../../store/themeStore';
 import { ScreenHeader as SharedScreenHeader } from '../ui/ScreenHeader';
-import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, LetterSpacing } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, LetterSpacing, ControlHeight } from '../../config/theme';
 import { PressableOpacity } from '../ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   badgeText: { color: '#FFFFFF', fontSize: FontSize.micro, fontFamily: FontFamily.bold },
   checkLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.group, paddingVertical: Spacing.element },
   checkLabel: { flex: 1, fontSize: FontSize.bodySmall, fontFamily: FontFamily.semibold },
-  fixBtn: { paddingHorizontal: Spacing.block, paddingVertical: 6, borderRadius: BorderRadius.pill },
+  fixBtn: { height: ControlHeight.compact, justifyContent: 'center', paddingHorizontal: Spacing.block, borderRadius: BorderRadius.pill },
   fixText: { fontSize: FontSize.caption, fontFamily: FontFamily.bold },
   checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   stepDots: { flexDirection: 'row', gap: 6, alignItems: 'center' },

@@ -3,6 +3,9 @@ import { NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useNavBarStore } from '../store/navBarStore';
 import { useFocusEffect } from '@react-navigation/native';
 
+/** Within this many px of the end of the list counts as "at the end". */
+const END_SLOP = 24;
+
 export function useScrollDirection() {
   const showNavBar = useNavBarStore((s) => s.showNavBar);
   const hideNavBar = useNavBarStore((s) => s.hideNavBar);
@@ -24,6 +27,16 @@ export function useScrollDirection() {
 
       // Always show at the very top
       if (currentScrollY <= 0) {
+        if (!useNavBarStore.getState().isVisible) {
+          showNavBar();
+        }
+        lastScrollY.current = currentScrollY;
+        return;
+      }
+
+      // Also show at the very end: after the last row there is nothing left to read, and the tabs must be reachable.
+      const { contentSize, layoutMeasurement } = event.nativeEvent;
+      if (contentSize && layoutMeasurement && currentScrollY + layoutMeasurement.height >= contentSize.height - END_SLOP) {
         if (!useNavBarStore.getState().isVisible) {
           showNavBar();
         }

@@ -265,21 +265,10 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.container}>
 
         {/* Header Row */}
+        {/* Edit / Delete live once, at the bottom (thumb reach), not again as header icons. */}
         <ScreenHeader
           inset={false}
           title={isIncome ? 'Transaction Detail' : 'Expense Detail'}
-          right={
-            <>
-              {!isRecoveryClass(expense) && (
-                <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Edit transaction" onPress={handleEdit} hitSlop={12}>
-                  <SquarePen size={20} color={colors.textPrimary} />
-                </PressableOpacity>
-              )}
-              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY} accessibilityRole="button" accessibilityLabel="Delete transaction" onPress={handleDelete} hitSlop={12}>
-                <Trash2 size={20} color={colors.coral} />
-              </PressableOpacity>
-            </>
-          }
         />
 
         <ScrollView
@@ -313,6 +302,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Type Badge */}
           <View style={styles.typeBadgeContainer}>
             <StatusBadge
+              style={styles.typeBadgeCentered}
               variant={expense.transaction_class === 'self_transfer' || isRecoveryClass(expense) ? 'neutral' : isIncome ? 'success' : 'danger'}
               label={
                 expense.transaction_class === 'self_transfer' ? 'TRANSFER'
@@ -350,8 +340,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             </View>
 
-            {/* Deducted From / Destination Row */}
-            {fundingInfo && !isRecoveryClass(expense) && (
+            {/* Deducted From / Destination Row. In Budget Mode the Funding Source card below says the same, so the row
+                shows only where that card is not drawn (Pure Mode, income). */}
+            {fundingInfo && !isRecoveryClass(expense) && !(isBudgetModeEnabled && !fundingInfo.isIncome && !fundingInfo.isTransfer) && (
               <View style={[styles.cardRow, { borderBottomColor: colors.borderSubtle }]}>
                 <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
                   {isIncome ? 'Destination' : 'Deducted from'}
@@ -459,14 +450,20 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={handleEdit}
                 variant="primary"
                 size="cta"
+                icon={<SquarePen size={18} color={colors.forestGreen} />}
+                accessibilityLabel="Edit transaction"
               />
             )}
+            {/* Destructive, so quieter than the main action; the confirm dialog guards it. */}
             <AppButton
               label={isRecoveryClass(expense) ? 'Delete Money Back' : isIncome ? 'Delete Transaction' : 'Delete Expense'}
               onPress={handleDelete}
-              variant="danger"
+              variant="ghost"
               size="cta"
-              style={{ marginTop: isRecoveryClass(expense) ? 0 : Spacing.block }}
+              icon={<Trash2 size={18} color={colors.coralText} />}
+              textStyle={{ color: colors.coralText }}
+              accessibilityLabel="Delete transaction"
+              style={{ marginTop: isRecoveryClass(expense) ? 0 : Spacing.element }}
             />
           </View>
 
@@ -555,6 +552,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.block,
   },
+  // StatusBadge sits at flex-start by default; centred here under the centred amount.
+  typeBadgeCentered: { alignSelf: 'center' },
   typeBadgePill: {
     backgroundColor: '#FDEEE4',
     borderRadius: BorderRadius.pill,

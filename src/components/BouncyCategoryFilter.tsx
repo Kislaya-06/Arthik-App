@@ -19,6 +19,7 @@ import Animated, {
   useReducedMotion,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useTheme } from '../store/themeStore';
 import { Spacing, BorderRadius, FontFamily, FontSize, ControlHeight, ThemeColors, Motion } from '../config/theme';
 import { FIXED_SHAPE_MAX_FONT_SCALE } from '../lib/fontScale';
@@ -239,6 +240,16 @@ export const BouncyCategoryFilter = React.memo<Props>(({
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
 
+  // Edge fades: shown only on a side that has more pills to scroll to (a pill cut flat at the edge looked broken).
+  const [edgeFade, setEdgeFade] = useState({ left: false, right: false });
+  const contentWidthRef = useRef(0);
+  const updateEdgeFade = useCallback(() => {
+    const x = scrollXRef.current;
+    const max = contentWidthRef.current - containerWidthRef.current;
+    const next = { left: x > 2, right: max - x > 2 };
+    setEdgeFade((prev) => (prev.left === next.left && prev.right === next.right ? prev : next));
+  }, []);
+
   // Content-space x + width for each option, keyed by id ?? 'all'
   const [layouts, setLayouts] = useState<Record<string, { x: number; width: number }>>({});
 
@@ -451,6 +462,7 @@ export const BouncyCategoryFilter = React.memo<Props>(({
     <View
       onLayout={(e) => {
         containerWidthRef.current = e.nativeEvent.layout.width;
+        updateEdgeFade();
       }}
       onTouchStart={handleTouchStart}
       style={[
@@ -474,6 +486,11 @@ export const BouncyCategoryFilter = React.memo<Props>(({
         scrollEventThrottle={16}
         onScroll={(e) => {
           scrollXRef.current = e.nativeEvent.contentOffset.x;
+          updateEdgeFade();
+        }}
+        onContentSizeChange={(w) => {
+          contentWidthRef.current = w;
+          updateEdgeFade();
         }}
       >
         {/* Sliding highlight — absolute in scroll-content space, so it travels with items.
@@ -534,9 +551,29 @@ export const BouncyCategoryFilter = React.memo<Props>(({
           );
         })}
       </ScrollView>
+      {edgeFade.left ? <EdgeFade side="left" color={colors.cardSubtle} /> : null}
+      {edgeFade.right ? <EdgeFade side="right" color={colors.cardSubtle} /> : null}
     </View>
   );
 });
+
+/** Soft fade into the pill track at an edge with more pills behind it. Never takes touches. */
+const EdgeFade: React.FC<{ side: 'left' | 'right'; color: string }> = ({ side, color }) => {
+  const id = `bouncyFilterFade_${side}`;
+  return (
+    <View pointerEvents="none" style={[styles.edgeFade, side === 'left' ? { left: 0 } : { right: 0 }]}>
+      <Svg width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={color} stopOpacity={side === 'left' ? 1 : 0} />
+            <Stop offset="1" stopColor={color} stopOpacity={side === 'left' ? 0 : 1} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#${id})`} />
+      </Svg>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   pill: {
@@ -544,6 +581,12 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
     overflow: 'hidden', // clips scroll content at rounded corners → both ends stay rounded
+  },
+  edgeFade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 28,
   },
   content: {
     flexDirection: 'row',

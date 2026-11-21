@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, AppState, Easing, Image, StyleSheet, View, useWindowDimensions, useAnimatedValue } from 'react-native';
 import Svg, { Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -156,6 +156,33 @@ const Gust: React.FC<{ slot: number; palette: Palette; screenWidth: number; heig
   );
 };
 
+/** Tinted base + a glow centred on the top edge: the strongest light is at the very top. */
+const ToneWash: React.FC<{ palette: Palette; width: number; height: number; idSuffix: string }> = ({
+  palette,
+  width,
+  height,
+  idSuffix,
+}) => (
+  <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+    <Defs>
+      <LinearGradient id={`ambient-wash${idSuffix}`} x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0" stopColor={palette.wash} stopOpacity={palette.washAlpha} />
+        <Stop offset="1" stopColor={palette.wash} stopOpacity={palette.washAlpha * WASH_BOTTOM_SHARE} />
+      </LinearGradient>
+      <RadialGradient id={`ambient-glow${idSuffix}`} cx="50%" cy="50%" r="50%">
+        {GLOW_PROFILE.map((s) => (
+          <Stop key={s.offset} offset={s.offset} stopColor={palette.glow} stopOpacity={palette.glowAlpha * s.share} />
+        ))}
+      </RadialGradient>
+    </Defs>
+    <Rect x="0" y="0" width={width} height={height} fill={`url(#ambient-wash${idSuffix})`} />
+    <Ellipse cx={width / 2} cy={0} rx={width * GLOW_RX} ry={height * GLOW_RY} fill={`url(#ambient-glow${idSuffix})`} />
+  </Svg>
+);
+
+/** How long the old colour takes to fade out when the colour changes on a screen (Add Transaction: Expense <-> Income). */
+const TONE_FADE_MS = 240;
+
 export interface AmbientBackgroundProps {
   /** Override the colour. By default it follows the screen's route (Savings violet, Insights orange, everything else green). */
   tone?: ToneKey;
@@ -181,6 +208,29 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ tone }) =>
   const visible = AMBIENT_ENABLED && userEnabled && hydrated;
   const running = visible && focused && appActive && !reduceMotion;
 
+  // When the colour changes while the screen is open, the old wash fades out over the new one (no hard swap).
+  // Layout effect: the old layer is in place before the first frame with the new colour is drawn.
+  const prevPaletteRef = useRef(palette);
+  const [fadingPalette, setFadingPalette] = useState<Palette | null>(null);
+  const fadeOut = useAnimatedValue(1);
+  useLayoutEffect(() => {
+    const prev = prevPaletteRef.current;
+    prevPaletteRef.current = palette;
+    if (prev === palette || reduceMotion) return;
+    setFadingPalette(prev);
+    fadeOut.setValue(1);
+    const anim = Animated.timing(fadeOut, {
+      toValue: 0,
+      duration: TONE_FADE_MS,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+    anim.start(({ finished }) => {
+      if (finished) setFadingPalette(null);
+    });
+    return () => anim.stop();
+  }, [palette, reduceMotion, fadeOut]);
+
   if (!visible) return null;
 
   return (
@@ -190,22 +240,12 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ tone }) =>
       accessible={false}
       importantForAccessibility="no-hide-descendants"
     >
-      {/* Tinted base + a glow centred on the top edge: the strongest light is at the very top */}
-      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-        <Defs>
-          <LinearGradient id="ambient-wash" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={palette.wash} stopOpacity={palette.washAlpha} />
-            <Stop offset="1" stopColor={palette.wash} stopOpacity={palette.washAlpha * WASH_BOTTOM_SHARE} />
-          </LinearGradient>
-          <RadialGradient id="ambient-glow" cx="50%" cy="50%" r="50%">
-            {GLOW_PROFILE.map((s) => (
-              <Stop key={s.offset} offset={s.offset} stopColor={palette.glow} stopOpacity={palette.glowAlpha * s.share} />
-            ))}
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width={width} height={height} fill="url(#ambient-wash)" />
-        <Ellipse cx={width / 2} cy={0} rx={width * GLOW_RX} ry={height * GLOW_RY} fill="url(#ambient-glow)" />
-      </Svg>
+      <ToneWash palette={palette} width={width} height={height} idSuffix="" />
+      {fadingPalette && (
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeOut }]} pointerEvents="none">
+          <ToneWash palette={fadingPalette} width={width} height={height} idSuffix="-out" />
+        </Animated.View>
+      )}
 
       {/* Gusts of wind from the left and right edges (under the grain, so they are seen only through it) */}
       {Array.from({ length: GUST_SLOTS }).map((_, slot) => (

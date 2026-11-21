@@ -183,7 +183,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 ### 4.12b Home Card Details
 
-The Home card keeps Remaining, Total Income / Total Expense and ONE chip (`pickPrimaryChip`: Gullak drawn → over limit → budget used up → budget left → income). Tapping the card opens `HeroDetailsSheet` with Budget, Money in (including "Money back", never income) and Gullak for the selected period (`buildHeroDetails`). A running week / month shows "till today" / "till <date>". Display only: no money rule is involved.
+The Home card keeps Remaining, Available / Spent and ONE chip (`pickPrimaryChip`: Gullak drawn → over limit → budget used up → budget left → income; the "Exceeded … limit by ₹X" chip is never shown because the title and amount already say it). The spent ring shows the real percent (₹460 of ₹250 = 184%, second lap above 100%, `UX-004`). A chevron after the card title shows it opens; Recent Transactions links with "See all". Tapping the card opens `HeroDetailsSheet` with Budget, Money in (including "Money back", never income) and Gullak for the selected period (`buildHeroDetails`). A running week / month shows "till today" / "till <date>". Display only: no money rule is involved.
 
 ### 4.13 Split Expenses, Money Back, Refunds & Self-Transfers
 

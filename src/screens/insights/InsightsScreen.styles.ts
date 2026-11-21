@@ -39,14 +39,6 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  heroCircle1: {
-    position: 'absolute', top: -50, right: -20,
-    width: 200, height: 200, borderRadius: 100, opacity: 0.5,
-  },
-  heroCircle2: {
-    position: 'absolute', bottom: -80, right: 40,
-    width: 150, height: 150, borderRadius: 75, opacity: 0.3,
-  },
   heroLabel: {
     fontSize: FontSize.body,
     fontFamily: FontFamily.bold,

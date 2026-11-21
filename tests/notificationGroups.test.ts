@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupNotificationsByDate } from '../src/lib/notificationGroups';
+import { groupNotificationsByDate, stackRepeatedNotifications, notificationTimeLabel } from '../src/lib/notificationGroups';
 
 // Friday 20 Nov 2026, 10:00 local (week Mon 16 – Sun 22)
 const NOW = new Date(2026, 10, 20, 10, 0, 0);
@@ -47,5 +47,49 @@ describe('groupNotificationsByDate (Notifications screen sections)', () => {
 
   it('empty list → no groups', () => {
     expect(groupNotificationsByDate([], NOW)).toEqual([]);
+  });
+});
+
+describe('stackRepeatedNotifications: routine Gullak savings fold into one row', () => {
+  const r = (id: string, type = 'savings_rollover') => ({ id, type });
+
+  it('folds 3 or more Gullak savings in a row into one stack, in order', () => {
+    const out = stackRepeatedNotifications([r('a'), r('b'), r('c'), r('d')]);
+    expect(out).toEqual([{ kind: 'stack', key: 'stack-a', items: [r('a'), r('b'), r('c'), r('d')] }]);
+  });
+
+  it('leaves one or two in a row as they are', () => {
+    const out = stackRepeatedNotifications([r('a'), r('b'), r('x', 'budget_exceeded'), r('c')]);
+    expect(out.map((e) => e.kind)).toEqual(['single', 'single', 'single', 'single']);
+  });
+
+  it('never folds alerts: a budget alert breaks the run and stays on its own', () => {
+    const out = stackRepeatedNotifications([r('a'), r('b'), r('c'), r('x', 'budget_exceeded'), r('d')]);
+    expect(out.map((e) => (e.kind === 'stack' ? `stack:${e.items.length}` : e.item.id))).toEqual(['stack:3', 'x', 'd']);
+  });
+
+  it('never folds budget alerts even when there are many', () => {
+    const out = stackRepeatedNotifications([r('a', 'budget_exceeded'), r('b', 'budget_exceeded'), r('c', 'budget_exceeded')]);
+    expect(out.every((e) => e.kind === 'single')).toBe(true);
+  });
+});
+
+describe('notificationTimeLabel: the time under a date heading never repeats the heading', () => {
+  // NOW = Friday 20 Nov 2026, 10:00 local
+  const at = (y: number, m: number, d: number, h: number, min = 0) => new Date(y, m, d, h, min, 0).toISOString();
+
+  it('very recent: "Just now", then minutes', () => {
+    expect(notificationTimeLabel(at(2026, 10, 20, 9, 59, ), NOW)).toBe('1m ago');
+    expect(notificationTimeLabel(new Date(NOW.getTime() - 20_000).toISOString(), NOW)).toBe('Just now');
+  });
+
+  it('earlier today and yesterday show the clock time (the heading already says the day)', () => {
+    expect(notificationTimeLabel(at(2026, 10, 20, 7, 5), NOW)).toBe('7:05 AM');
+    expect(notificationTimeLabel(at(2026, 10, 19, 16, 28), NOW)).toBe('4:28 PM');
+  });
+
+  it('earlier this week shows the weekday, older shows the date', () => {
+    expect(notificationTimeLabel(at(2026, 10, 17, 9), NOW)).toBe('Tue');
+    expect(notificationTimeLabel(at(2026, 9, 27, 9), NOW)).toBe('27 Oct');
   });
 });

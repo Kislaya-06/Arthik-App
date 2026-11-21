@@ -13,16 +13,20 @@ import type { HeroSubtextChip } from './homeCalculations';
 // The one chip on the card
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** "Exceeded daily limit by ₹210": the card's title ("Daily Budget Exceeded") and big red amount already say it. */
+const REPEATS_TITLE = /^exceeded (daily|weekly|monthly|total) limit by /i;
+
 /**
  * Priority, most important first:
  *  1. Money drawn from Gullak
- *  2. Over the limit
+ *  2. Over the limit (only when it is NOT the card title said again)
  *  3. Budget used up
  *  4. Budget left
  *  5. Anything else (income, deposits)
- * Returns null when there is nothing to say.
+ * Returns null when there is nothing new to say.
  */
-export function pickPrimaryChip(chips: HeroSubtextChip[]): HeroSubtextChip | null {
+export function pickPrimaryChip(allChips: HeroSubtextChip[]): HeroSubtextChip | null {
+  const chips = allChips.filter((c) => c.badgeText || !REPEATS_TITLE.test(c.text));
   if (chips.length === 0) return null;
   const rank = (c: HeroSubtextChip): number => {
     const t = c.text.toLowerCase();

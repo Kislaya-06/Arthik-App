@@ -39,7 +39,7 @@ describe('OPT-17: Same press feel everywhere (TouchableOpacity -> PressableOpaci
       'src/components/DepositGullakModal.tsx',
       'src/components/BudgetEditModal.tsx',
       'src/components/SavingsRecordRow.tsx',
-      'src/components/WelcomeBackGapModal.tsx',
+      // WelcomeBackGapModal: its last hand-made touchable ("Skip for now") is now an AppButton (button size ladder).
       'src/components/savings/SavingsHistorySection.tsx',
       'src/components/savings/BudgetHubSection.tsx',
       'src/components/savings/SavingsHeader.tsx',

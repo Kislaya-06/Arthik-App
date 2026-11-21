@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Text, StyleSheet, Animated, Easing } from 'react-native';
+import { Text, View, StyleSheet, Animated, Easing } from 'react-native';
+import { GradientIconBadge } from '../../GradientIconBadge';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useTheme } from '../../../store/themeStore';
 import { Category } from '../../../store/categoryStore';
@@ -69,7 +70,15 @@ export const CategoryChipItem: React.FC<{
             <Rect x={0} y={0} width="100%" height="100%" rx={21} ry={21} fill={`url(#${gradId})`} />
           </Svg>
         )}
-        <IconComp size={15} color={contentColor} strokeWidth={isSelected ? 2.2 : 2.0} />
+        {isSelected ? (
+          <View style={styles.categoryChipIconSlot}>
+            <IconComp size={15} color={contentColor} strokeWidth={2.2} />
+          </View>
+        ) : (
+          <GradientIconBadge size={24} color={chipColor} isDark={isDark}>
+            {({ iconColor }) => <IconComp size={14} color={iconColor} strokeWidth={2.2} />}
+          </GradientIconBadge>
+        )}
         <Text
           numberOfLines={1}
           ellipsizeMode="tail"

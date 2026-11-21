@@ -1,29 +1,35 @@
 import React, { useRef } from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput, LayoutChangeEvent } from 'react-native';
 import Users from 'lucide-react-native/icons/users';
 import Plus from 'lucide-react-native/icons/plus';
 import X from 'lucide-react-native/icons/x';
 import User from 'lucide-react-native/icons/user';
 import { useTheme } from '../../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LetterSpacing } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../../config/theme';
 import { formatCurrency } from '../../lib/formatters';
 import { MAX_PERSON_NAME, personKey } from '../../lib/splitLedger';
 import { AnimatedToggle } from '../AnimatedToggle';
 import type { SplitFormState } from '../../hooks/useExpenseForm';
 import { PressableOpacity } from '../ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
+import { FormRow } from '../ui/FormGroup';
 
 export interface SplitExtrasProps {
   split: SplitFormState;
+  /** A name or share field got focus (the keyboard is coming): scroll it into view. */
   onFieldFocus?: (relativeY?: number) => void;
+  /** The switch turned the split on: scroll the editor into view (no keyboard). */
+  onReveal?: () => void;
+  onLayout?: (e: LayoutChangeEvent) => void;
 }
 
 /**
- * Split expense section under the form (SPL-001):
- * - Capsule pill trigger with theme AnimatedToggle
- * - Clean, spacious card for adding multiple people with custom or equal shares
+ * Split expense row of the Add Transaction details card (SPL-001):
+ * - a switch row ("Split with friends")
+ * - once on, the editor opens inside the same row: people with custom or equal shares
+ * The screen renders it only while `split.visible`, so the card never gets an empty row.
  */
-export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus }) => {
+export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus, onReveal, onLayout }) => {
   const { colors, isDark } = useTheme();
   const rowOffsets = useRef<Record<number, number>>({});
   if (!split.visible) return null;
@@ -34,47 +40,26 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
     .slice(0, 4);
 
   const activeColor = isDark ? colors.mintGreen : colors.forestGreen;
+  const toggle = (on: boolean) => {
+    if (on) onReveal?.();
+    split.setOn(on);
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Same anatomy as every other form field: label, then the 56dp row. */}
-      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>SPLIT</Text>
-      <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
-        onPress={() => {
-          if (!split.on) onFieldFocus?.();
-          split.setOn(!split.on);
-        }}
-        style={[styles.pillTrigger, { backgroundColor: colors.inputBg }]}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: split.on }}
-        accessibilityLabel="Split this expense"
-      >
-        <View style={styles.pillLeft}>
-          <Users size={18} color={split.on ? activeColor : colors.textSecondary} />
-          <Text
-            style={[styles.pillTitle, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.85}
-          >
-            Split with friends
-          </Text>
-        </View>
-
-        <AnimatedToggle
-          value={split.on}
-          onValueChange={(on) => {
-            if (on) onFieldFocus?.();
-            split.setOn(on);
-          }}
-          width={50}
-          height={26}
-        />
-      </PressableOpacity>
-
-      {/* ── Expanded Split Card ── */}
+    <FormRow
+      icon={Users}
+      iconColor={split.on ? activeColor : undefined}
+      title="Split with friends"
+      onPress={() => toggle(!split.on)}
+      onLayout={onLayout}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: split.on }}
+      accessibilityLabel="Split this expense"
+      right={<AnimatedToggle value={split.on} onValueChange={toggle} onColor={activeColor} />}
+    >
+      {/* ── Split editor (opens inside the row) ── */}
       {split.on && (
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+        <View style={styles.editor}>
           {/* Header Row: Title + Split Equally Action */}
           <View style={styles.headerRow}>
             <Text style={[styles.headerTitle, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
@@ -213,47 +198,13 @@ export const SplitExtras: React.FC<SplitExtrasProps> = ({ split, onFieldFocus })
           ) : null}
         </View>
       )}
-    </View>
+    </FormRow>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginTop: Spacing.block, // 16px vertical breathing space from PAID VIA
-    marginBottom: Spacing.block, // same gap to the next label as every other field
-    gap: Spacing.group, // 12px between pill and expanded card
-  },
-  fieldLabel: {
-    fontSize: FontSize.caption,
-    fontFamily: FontFamily.bold,
-    letterSpacing: LetterSpacing.label,
-    textTransform: 'uppercase',
-  },
-  pillTrigger: {
-    height: ControlHeight.row,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-  },
-  pillLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+  editor: {
     gap: Spacing.group,
-    marginRight: Spacing.element,
-  },
-  pillTitle: {
-    flexShrink: 1,
-    fontSize: FontSize.body,
-    includeFontPadding: false,
-  },
-  card: {
-    borderRadius: BorderRadius.card,
-    padding: Spacing.block,
-    gap: Spacing.group,
-    borderWidth: 1,
   },
   headerRow: {
     flexDirection: 'row',
@@ -265,8 +216,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   equalBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    height: ControlHeight.compact,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.group,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
   },
@@ -328,8 +280,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    height: ControlHeight.compact,
+    paddingHorizontal: Spacing.group,
     borderRadius: BorderRadius.pill,
     borderWidth: 1,
   },

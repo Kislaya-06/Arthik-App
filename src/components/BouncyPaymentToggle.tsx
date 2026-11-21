@@ -3,7 +3,7 @@ import Wallet from 'lucide-react-native/icons/wallet';
 import CheckSquare from 'lucide-react-native/icons/square-check-big';
 import CreditCard from 'lucide-react-native/icons/credit-card';
 import { useTheme } from '../store/themeStore';
-import { ControlHeight } from '../config/theme';
+import { ControlHeight, FontSize } from '../config/theme';
 import { SegmentedControl, SegmentedOption } from './ui/SegmentedControl';
 
 export const EXPENSE_PAYMENT_OPTIONS = [
@@ -27,7 +27,8 @@ export interface BouncyPaymentToggleProps {
 
 /**
  * Standardized BouncyPaymentToggle, consolidated to use the canonical SegmentedControl primitive.
- * Enforces ControlHeight.row (56) matching the Date Picker trigger and standard form input row height.
+ * The "PAID VIA" / "ADDED VIA" section of Add Transaction: a full-width 48dp track on cardSubtle with icons, the same
+ * height as the Expense | Income switch and the Home period filter (a primary choice, made on every entry).
  */
 export const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({
   value,
@@ -58,10 +59,11 @@ export const BouncyPaymentToggle: React.FC<BouncyPaymentToggleProps> = ({
       options={segOptions}
       selectedKey={value}
       onChange={(key) => onChange(key as 'cash' | 'upi' | 'card')}
-      height={ControlHeight.row}
+      height={ControlHeight.standard}
       activePillColor={resolvedActivePill}
       activeTextColor={resolvedActiveText}
-      backgroundColor={colors.inputBg}
+      backgroundColor={colors.cardSubtle}
+      fontSize={FontSize.body}
       iconSize={16}
       style={style}
     />

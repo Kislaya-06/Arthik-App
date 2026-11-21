@@ -456,7 +456,7 @@ export function computeMonthlyComparison(
       return {
         percentageChange: null,
         isIncrease: true,
-        trendLabel: 'No spend in prev month',
+        trendLabel: 'Nothing spent last month',
         matchedPrevTotal: 0,
         currentTotal: currTotal,
       };
@@ -465,8 +465,8 @@ export function computeMonthlyComparison(
       percentageChange: null,
       isIncrease: true,
       trendLabel: isCurrentMonth
-        ? `+₹${formatAmountWithCommas(String(currTotal))} vs same days prev month`
-        : `+₹${formatAmountWithCommas(String(currTotal))} vs prev month`,
+        ? `+₹${formatAmountWithCommas(String(currTotal))} vs same days last month`
+        : `+₹${formatAmountWithCommas(String(currTotal))} vs last month`,
       matchedPrevTotal: 0,
       currentTotal: currTotal,
     };
@@ -482,8 +482,8 @@ export function computeMonthlyComparison(
       percentageChange: null,
       isIncrease,
       trendLabel: diff === 0
-        ? (isCurrentMonth ? 'Same as same days prev month' : 'Same as prev month')
-        : `${sign}₹${formatAmountWithCommas(String(Math.abs(diff)))} ${isCurrentMonth ? 'vs same days prev month' : 'vs prev month'}`,
+        ? (isCurrentMonth ? 'Same as same days last month' : 'Same as last month')
+        : `${sign}₹${formatAmountWithCommas(String(Math.abs(diff)))} ${isCurrentMonth ? 'vs same days last month' : 'vs last month'}`,
       matchedPrevTotal,
       currentTotal: currTotal,
     };
@@ -491,8 +491,8 @@ export function computeMonthlyComparison(
 
   const percentageChange = Math.round((Math.abs(diff) / matchedPrevTotal) * 100);
   const trendLabel = isCurrentMonth
-    ? `${percentageChange}% vs same days prev month`
-    : `${percentageChange}% vs prev month`;
+    ? `${percentageChange}% vs same days last month`
+    : `${percentageChange}% vs last month`;
 
   return {
     percentageChange,

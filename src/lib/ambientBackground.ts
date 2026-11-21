@@ -13,8 +13,9 @@
  *  - Nothing loops. Every gust is planned at random when it starts (side, height, size, speed, strength) and the gaps
  *    between gusts are random too, so there is no point where a cycle "restarts" and nothing can stutter.
  *
- * Colour follows the screen: green (Home / History / add-expense form, the Home hero card's mint), violet (Savings, the
- * Gullak card) and orange (Insights, the Insights hero card).
+ * Colour follows the screen: green (Home / History, the Home hero card's mint), violet (Savings, the Gullak card) and
+ * orange (Insights, the Insights hero card). The add / edit form passes its own tone: orange (spending) on Expense, green on
+ * Income.
  *
  * Pure (no React / React Native): unit-tested. Randomness is injected, so the tests are deterministic.
  */
@@ -72,10 +73,10 @@ export interface Tone {
 export const TONES: Record<ToneKey, Tone> = {
   // Home hero card mint (#C4EBD4 / #B8E0C8 / #A8DCBE)
   home: { deep: '#0E2A24', mid: '#2F6B57', light: '#B8E0C8', core: '#CEF0DE' },
-  // Gullak card violet (#8B5CF6 -> #581C87)
-  savings: { deep: '#1E1040', mid: '#5B2FB5', light: '#8B5CF6', core: '#C4B0FF' },
-  // Insights hero card (#F07167 -> #FED0A8)
-  insights: { deep: '#3A140F', mid: '#B5402F', light: '#F07167', core: '#FED0A8' },
+  // Gullak card violet (ScreenHue.gullak: #8267C1 -> #412E60), softened
+  savings: { deep: '#1C1530', mid: '#54428F', light: '#8267C1', core: '#C9BEEB' },
+  // Insights hero card (ScreenHue.insights: #E0887B -> #F3D7BE), softened
+  insights: { deep: '#341A16', mid: '#A3584B', light: '#E0887B', core: '#F3D7BE' },
 };
 
 /** Screen (route) name -> colour. Everything else (History, the add / edit form) uses the Home green. */

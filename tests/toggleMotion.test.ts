@@ -7,6 +7,7 @@ import {
   SLIDE_SPRING,
   thumbLayout,
   toggleGeometry,
+  toggleThumbOnColor,
 } from '../src/lib/toggleMotion';
 
 const read = (p: string) => readFileSync(resolve(__dirname, '..', p), 'utf8');
@@ -125,5 +126,23 @@ describe('AnimatedToggle: one component, whole-app coverage', () => {
       expect(code).not.toMatch(/<Switch[\s>]/);
       expect(code).toMatch(/<AnimatedToggle/);
     }
+  });
+});
+
+describe('toggleThumbOnColor: the thumb stays readable on the filled ON track', () => {
+  it('is the deep navy on a light fill (brand mint), like active pill text', () => {
+    expect(toggleThumbOnColor('#B8E0C8')).toBe('#1A2B4C');
+  });
+
+  it('is white on a dark fill (navy, used by the self-transfer switch in Light)', () => {
+    expect(toggleThumbOnColor('#1A2B4C')).toBe('#FFFFFF');
+  });
+});
+
+describe('AnimatedToggle: the ON state is a filled track, not "ON / OFF" text', () => {
+  const src = read('src/components/AnimatedToggle.tsx');
+  it('draws no ON / OFF words and fills the track with the on-colour', () => {
+    expect(src).not.toMatch(/>\s*(ON|OFF)\s*</);
+    expect(src).toMatch(/fillLayerStyle/);
   });
 });

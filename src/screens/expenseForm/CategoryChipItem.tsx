@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useEffect, useRef } from 'react';
-import { Text, StyleSheet, Animated, Easing, useAnimatedValue } from 'react-native';
+import { Text, View, StyleSheet, Animated, Easing, useAnimatedValue } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { Category } from '../../store/categoryStore';
 import { getCategoryIcon } from '../../lib/iconUtils';
@@ -8,7 +8,8 @@ import { useTheme } from '../../store/themeStore';
 import { FontFamily } from '../../config/theme';
 import { PressableOpacity } from '../../components/ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
-import { styles } from '../ExpenseFormScreen.styles';
+import { GradientIconBadge } from '../../components/GradientIconBadge';
+import { styles, CATEGORY_CHIP_BADGE } from '../ExpenseFormScreen.styles';
 
 // ─── Animated Category Chip ─────────────────────────────────────────────────
 export const CategoryChipItem = React.memo<{
@@ -91,11 +92,17 @@ export const CategoryChipItem = React.memo<{
             />
           </Svg>
         )}
-        <IconComp
-          size={16}
-          color={contentColor}
-          strokeWidth={isSelected ? 2.2 : 2.0}
-        />
+        {/* Category colour lives in a small badge; once picked, the whole chip takes the colour and the icon sits plain
+            in the same 24dp slot, so the chip never changes width. */}
+        {isSelected ? (
+          <View style={styles.categoryChipIconSlot}>
+            <IconComp size={16} color={contentColor} strokeWidth={2.2} />
+          </View>
+        ) : (
+          <GradientIconBadge size={CATEGORY_CHIP_BADGE} color={chipColor} isDark={isDark}>
+            {({ iconColor }) => <IconComp size={14} color={iconColor} strokeWidth={2.2} />}
+          </GradientIconBadge>
+        )}
         <Text
           numberOfLines={1}
           ellipsizeMode="tail"

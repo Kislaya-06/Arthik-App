@@ -34,8 +34,9 @@ export const ExpenseFundingCard: React.FC<{ funding: ExpenseFundingBreakdown }> 
           {rows.length > 1 ? 'SPLIT FUNDING BREAKDOWN' : 'FUNDING SOURCE'}
         </Text>
         {funding.isOverBudget && (
-          <View style={[styles.badge, { backgroundColor: isG ? colors.peachSoft : colors.mintGreenSoft }]}>
-            <Text style={[styles.badgeText, { color: iconColor }]}>{isG ? 'Gullak Used' : 'Over Limit'}</Text>
+          // Over the limit is a warning whoever paid it, so it is never drawn in the "all good" green.
+          <View style={[styles.badge, { backgroundColor: colors.peachSoft }]}>
+            <Text style={[styles.badgeText, { color: colors.coralText }]}>{isG ? 'Gullak Used' : 'Over Limit'}</Text>
           </View>
         )}
       </View>

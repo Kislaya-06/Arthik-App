@@ -79,7 +79,9 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
   }, [isDeposit, deposit, dateLabel]);
 
   const subtitle = useMemo(() => {
+    // A day / period with nothing spent says so plainly ("Spent ₹0 of ₹250" repeated down the list read as noise).
     if (isPeriod && period) {
+      if (!(period.spentAmount > 0)) return `Nothing spent · ${formatCurrency(period.budgetAmount)} budget`;
       return `Spent ${formatCurrency(period.spentAmount)} of ${formatCurrency(period.budgetAmount)}`;
     }
     if (isDeposit) {
@@ -88,6 +90,7 @@ const SavingsRecordRowBase: React.FC<SavingsRecordRowProps> = ({
     if (isUnknown) {
       return `Spent ${formatCurrency(rec!.spent)} (Budget untracked)`;
     }
+    if (!(rec!.spent > 0)) return `Nothing spent · ${formatCurrency(rec!.budget)} budget`;
     return `Spent ${formatCurrency(rec!.spent)} of ${formatCurrency(rec!.budget)}`;
   }, [isPeriod, period, isDeposit, dateLabel, isUnknown, rec]);
 

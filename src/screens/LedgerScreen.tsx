@@ -125,6 +125,7 @@ export const LedgerScreen: React.FC<Props> = ({ navigation }) => {
             icon={Users}
             title="Nothing to track yet"
             subtitle="When you split an expense with someone, what they owe you shows up here."
+            action={{ label: 'Add an expense to split', onPress: () => navigation.navigate('AddExpense') }}
             style={styles.empty}
           />
         ) : (

@@ -654,6 +654,16 @@ This document is the **single authoritative canonical source of truth** for all 
   2. Zero (`₹0`) or negative amounts are rejected at keypad entry, form validation, and database schema constraint.
 - **Code Enforcement:** `schema.sql`, `src/lib/amountKeypad.ts`, `src/screens/ExpenseFormScreen.tsx`
 
+#### `UX-004`: Home Spent Ring Shows the Real Percentage
+- **Status:** `APPROVED` (Owner approved on 2026-11-21)
+- **Canonical Definition:**
+  1. The Home card's spent ring (Budget Mode and Pure Mode) shows `spent ÷ money of the period`, rounded to a whole percent. The money of the period is the card's own "Available" figure: Budget Mode `totalAvailable` (budget + income + deposits of the selected pill), Pure Mode the period's Inflow. Spending ₹460 of ₹250 shows **184%**, never a capped 100%.
+  2. Above 100% the ring draws a second, darker lap over the first, from the top. It draws at most two laps (200% and above = both laps full); the text keeps the real percent up to 999% and shows `999%+` above that.
+  3. When the period has no money at all (Available ₹0), no real percent exists: any spending shows one full red lap with `100%`; no spending shows an empty ring with `0%`.
+  4. Display only. It never changes any balance, budget, Gullak or status; it reads the same numbers the card already shows (`MNY-001`).
+- **Code Enforcement:** `src/lib/heroRing.ts` (`heroRingProgress`), `src/components/DonutChart.tsx`, `src/components/BrandedHeroCard.tsx`
+- **Tests:** `tests/heroRing.test.ts`
+
 ---
 
 ### Domain 11: PUR — Pure Mode Lifecycle & Rebalancing

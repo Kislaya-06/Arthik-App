@@ -9,7 +9,7 @@ import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { GradientIconBadge } from '../GradientIconBadge';
 import { MoneyHelpBadge } from '../MoneyExplainerModal';
 import { AmountText } from '../ui/AmountText';
-import { Spacing, Motion } from '../../config/theme';
+import { Spacing, Motion, ScreenHue } from '../../config/theme';
 import { styles } from '../../screens/SavingsScreen.styles';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 
@@ -68,7 +68,7 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
       style={[
         styles.heroCard,
         {
-          backgroundColor: '#581C87',
+          backgroundColor: ScreenHue.gullak.to,
           borderColor: 'rgba(255, 255, 255, 0.12)',
           borderWidth: 1,
           overflow: 'hidden',
@@ -91,8 +91,8 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
         >
           <Defs>
             <SvgLinearGradient id="gullakCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#8B5CF6" />
-              <Stop offset="100%" stopColor="#581C87" />
+              <Stop offset="0%" stopColor={ScreenHue.gullak.from} />
+              <Stop offset="100%" stopColor={ScreenHue.gullak.to} />
             </SvgLinearGradient>
           </Defs>
           <Rect
@@ -207,8 +207,8 @@ export const SavingsHeroCard: React.FC<SavingsHeroCardProps> = React.memo(({
             },
           ]}
         >
-          <Plus size={17} color="#5B21B6" />
-          <Text style={[styles.depositCtaBtnText, { color: '#5B21B6' }]}>
+          <Plus size={17} color={ScreenHue.gullak.ink} />
+          <Text style={[styles.depositCtaBtnText, { color: ScreenHue.gullak.ink }]}>
             Deposit to Gullak
           </Text>
         </Animated.View>

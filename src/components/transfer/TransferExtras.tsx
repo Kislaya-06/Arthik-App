@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Repeat from 'lucide-react-native/icons/repeat';
 import { useTheme } from '../../store/themeStore';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, LetterSpacing } from '../../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily } from '../../config/theme';
 import { AnimatedToggle } from '../AnimatedToggle';
+import { FormGroup, FormRow } from '../ui/FormGroup';
 import { PressableOpacity } from '../ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
@@ -21,44 +22,32 @@ export const TransferExtras: React.FC<TransferExtrasProps> = (p) => {
   const { colors, isDark } = useTheme();
   const activeColor = isDark ? colors.mintGreen : colors.forestGreen;
 
+  // Its own one-row card under the details card: the explanation is the row's subtitle.
   return (
-    <View style={styles.wrap}>
-      {/* Same anatomy as every other form field: label, 56dp row, helper line. */}
-      <Text style={[styles.label, { color: colors.textSecondary }]}>TRANSFER</Text>
-      <View style={styles.field}>
-        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
-          onPress={() => p.onToggleSelfTransfer(!p.isSelfTransfer)}
-          style={[styles.row, { backgroundColor: colors.inputBg }]}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: p.isSelfTransfer }}
-          accessibilityLabel="Transfer between your own accounts"
-        >
-          <View style={styles.rowLeft}>
-            <Repeat size={18} color={p.isSelfTransfer ? activeColor : colors.textSecondary} />
-            <Text
-              style={[styles.rowTitle, { color: colors.textPrimary }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
-            >
-              Between my own accounts
-            </Text>
-          </View>
+    <FormGroup>
+      <FormRow
+        icon={Repeat}
+        iconColor={p.isSelfTransfer ? activeColor : undefined}
+        title="Between my own accounts"
+        subtitle={
+          p.ruleMatched && p.isSelfTransfer
+            ? 'Matches a transfer you asked Arthik to remember'
+            : 'Won’t count as income, expense or Gullak'
+        }
+        onPress={() => p.onToggleSelfTransfer(!p.isSelfTransfer)}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: p.isSelfTransfer }}
+        accessibilityLabel="Transfer between your own accounts"
+        right={
           <AnimatedToggle
             value={p.isSelfTransfer}
             onValueChange={p.onToggleSelfTransfer}
             onColor={activeColor}
           />
-        </PressableOpacity>
-        <Text style={[styles.helper, { color: colors.textSecondary }]}>
-          {p.ruleMatched && p.isSelfTransfer
-            ? 'Matches a transfer you asked Arthik to remember'
-            : 'Won’t count as income, expense or Gullak'}
-        </Text>
-      </View>
-
+        }
+      >
       {p.isSelfTransfer && !p.ruleMatched ? (
-        <View style={[styles.card, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}>
+        <View style={[styles.card, { backgroundColor: colors.cardSubtle }]}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Remember this for future matching transfers?</Text>
           <View style={styles.pills}>
             {(['always', 'once'] as const).map((m) => {
@@ -85,36 +74,17 @@ export const TransferExtras: React.FC<TransferExtrasProps> = (p) => {
           )}
         </View>
       ) : null}
-    </View>
+      </FormRow>
+    </FormGroup>
   );
 };
 
 const styles = StyleSheet.create({
-  wrap: { gap: Spacing.group },
-  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: LetterSpacing.label, textTransform: 'uppercase' },
-  field: { gap: Spacing.element },
-  row: {
-    height: ControlHeight.row,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-  },
-  rowLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.group,
-    marginRight: Spacing.element,
-  },
-  rowTitle: { flexShrink: 1, fontSize: FontSize.body, fontFamily: FontFamily.medium, includeFontPadding: false },
-  helper: { fontSize: FontSize.caption, lineHeight: LineHeight.caption, fontFamily: FontFamily.medium, paddingHorizontal: Spacing.surface },
+  // Inside the row: a soft panel, no border of its own (no card inside a card).
   card: {
-    borderRadius: BorderRadius.card,
+    borderRadius: BorderRadius.input,
     padding: Spacing.block,
     gap: Spacing.element,
-    borderWidth: 1,
   },
   title: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.bold },
   sub: { fontSize: FontSize.micro, fontFamily: FontFamily.medium, marginTop: 2 },

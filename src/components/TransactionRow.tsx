@@ -3,7 +3,6 @@ import { Animated } from 'react-native';
 import DollarSign from 'lucide-react-native/icons/dollar-sign';
 import Wallet from 'lucide-react-native/icons/wallet';
 import { format } from 'date-fns/format';
-import { parseISO } from 'date-fns/parseISO';
 import { Expense } from '../store/expenseStore';
 import { Category } from '../store/categoryStore';
 import { useTheme } from '../store/themeStore';
@@ -13,7 +12,7 @@ import { ItemRowShell } from './ui/ItemRowShell';
 import { isRecoveryClass } from '../lib/transactionUtils';
 import { grossAmountOf } from '../lib/splitLedger';
 import { formatCurrency } from '../lib/formatters';
-import { historyRowTimeLabel } from '../lib/historyRows';
+import { historyRowTimeLabel, recentRowDateLabel } from '../lib/historyRows';
 
 export type TxRowProps = {
   expense: Expense;
@@ -44,17 +43,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
 
   const dateStr = useMemo(() => {
     if (dateMode === 'historyTime') return historyRowTimeLabel(expense.expense_date, expense.created_at);
-    try {
-      if (expense.created_at) {
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-        if (expense.expense_date === todayStr) {
-          return format(parseISO(expense.created_at), 'h:mm a');
-        }
-      }
-      return format(parseISO(expense.expense_date), 'd MMM');
-    } catch {
-      return expense.expense_date;
-    }
+    return recentRowDateLabel(expense.expense_date, expense.created_at, format(new Date(), 'yyyy-MM-dd'));
   }, [expense.expense_date, expense.created_at, dateMode]);
 
   const modeLabel =

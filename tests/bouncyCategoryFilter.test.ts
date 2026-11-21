@@ -124,6 +124,8 @@ import { renderHook } from './helpers/hookRuntime';
 import { BouncyCategoryFilter } from '../src/components/BouncyCategoryFilter';
 
 const read = (p: string) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+// The pill holds the horizontal ScrollView plus optional edge fades; the items are the ScrollView's 2nd child.
+const itemsOf = (pill: any) => ([] as any[]).concat(pill.props.children).find((c: any) => c?.props?.horizontal).props.children[1];
 
 describe('BouncyCategoryFilter UI-Thread Reanimated Animation Parity (Source & Safeguards)', () => {
   const src = read('src/components/BouncyCategoryFilter.tsx');
@@ -226,7 +228,7 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
       onChange,
     });
 
-    const items = result.current.props.children.props.children[1];
+    const items = itemsOf(result.current);
 
     // Report layout for 'all'
     items[0].props.onLayout({
@@ -257,16 +259,16 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
     });
 
     // Measure both tabs
-    let items = result.current.props.children.props.children[1];
+    let items = itemsOf(result.current);
     items[0].props.onLayout({ nativeEvent: { layout: { x: 4.19, width: 56.76 } } });
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[1].props.onLayout({ nativeEvent: { layout: { x: 60.95, width: 138.67 } } });
 
     // Clear initial traces from layout snaps
     trace.length = 0;
 
     // Get fresh items with updated layout closures
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
 
     // Press Entertainment
     items[1].props.onPress();
@@ -290,12 +292,12 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
       onChange,
     });
 
-    let items = result.current.props.children.props.children[1];
+    let items = itemsOf(result.current);
     items[0].props.onLayout({ nativeEvent: { layout: { x: 4.19, width: 56.76 } } });
 
     reanimatedSpies.withSpringCalls.length = 0;
 
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     // Press 'All' again while 'All' is already active
     items[0].props.onPress();
 
@@ -313,13 +315,13 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
       onChange,
     });
 
-    let items = result.current.props.children.props.children[1];
+    let items = itemsOf(result.current);
     // Only 'All' is measured; 'Transport' (index 2) is unmeasured
     items[0].props.onLayout({ nativeEvent: { layout: { x: 4.19, width: 56.76 } } });
 
     reanimatedSpies.withSpringCalls.length = 0;
 
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     // Press unmeasured 'Transport'
     items[2].props.onPress();
 
@@ -337,13 +339,13 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
       onChange,
     });
 
-    let items = result.current.props.children.props.children[1];
+    let items = itemsOf(result.current);
     items[0].props.onLayout({ nativeEvent: { layout: { x: 4.19, width: 56.76 } } });
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[1].props.onLayout({ nativeEvent: { layout: { x: 60.95, width: 138.67 } } });
 
     // Press Entertainment to initiate slide
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[1].props.onPress();
 
     const pillLeft = reanimatedSpies.sharedValues[0];
@@ -373,7 +375,7 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
       onChange,
     });
 
-    let items = result.current.props.children.props.children[1];
+    let items = itemsOf(result.current);
     items[0].props.onLayout({ nativeEvent: { layout: { x: 4.19, width: 56.76 } } });
 
     const pillLeft = reanimatedSpies.sharedValues[0];
@@ -383,7 +385,7 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
     expect(pillWidth.value).toBe(56.76);
 
     // Simulate dynamic font size change or window resize updating layout of 'All'
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[0].props.onLayout({
       nativeEvent: { layout: { x: 6.0, width: 68.0 } },
     });
@@ -401,17 +403,17 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
       onChange,
     });
 
-    let items = result.current.props.children.props.children[1];
+    let items = itemsOf(result.current);
     items[0].props.onLayout({ nativeEvent: { layout: { x: 4.19, width: 56.76 } } });
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[1].props.onLayout({ nativeEvent: { layout: { x: 60.95, width: 138.67 } } });
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[2].props.onLayout({ nativeEvent: { layout: { x: 199.62, width: 107.81 } } });
 
     reanimatedSpies.reset();
 
     // 1. Rapid tap Entertainment
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[1].props.onPress();
     expect(reanimatedSpies.cancelAnimationCalls.length).toBeGreaterThan(0);
     expect(reanimatedSpies.withSpringCalls).toContainEqual(
@@ -419,14 +421,14 @@ describe('BouncyCategoryFilter Behavioral Lifecycle & Immediate Dispatch (Phase 
     );
 
     // 2. Immediate mid-flight interruption to Transport
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[2].props.onPress();
     expect(reanimatedSpies.withSpringCalls).toContainEqual(
       expect.objectContaining({ toValue: 199.62 })
     );
 
     // 3. Immediate mid-flight interruption back to All
-    items = result.current.props.children.props.children[1];
+    items = itemsOf(result.current);
     items[0].props.onPress();
     expect(reanimatedSpies.withSpringCalls).toContainEqual(
       expect.objectContaining({ toValue: 4.19 })
@@ -464,7 +466,7 @@ describe('BouncyCategoryFilter: list update waits for the highlight to LAND (no 
 
   const mount = (onChange: any, value: string | null = null) => {
     const r = renderHook((props: any) => Component(props), { options: opts, value, onChange, commitOnSettle: true });
-    const items = () => r.result.current.props.children.props.children[1];
+    const items = () => itemsOf(r.result.current);
     items()[0].props.onLayout({ nativeEvent: { layout: { x: 4, width: 56 } } });
     items()[1].props.onLayout({ nativeEvent: { layout: { x: 60, width: 138 } } });
     items()[2].props.onLayout({ nativeEvent: { layout: { x: 198, width: 108 } } });

@@ -10,7 +10,7 @@ import { PiggyBankCoinIcon } from '../PiggyBankCoinIcon';
 import { GradientIconBadge } from '../GradientIconBadge';
 import { AnimatedToggle } from '../AnimatedToggle';
 import { AmountText } from '../ui/AmountText';
-import { Spacing, FontFamily } from '../../config/theme';
+import { Spacing, FontFamily, ScreenHue } from '../../config/theme';
 import { formatCurrency } from '../../lib/formatters';
 import { useTheme } from '../../store/themeStore';
 import { useSavingsDashboard } from '../../hooks/useSavingsDashboard';
@@ -18,6 +18,10 @@ import { styles } from '../../screens/SavingsScreen.styles';
 import { PRESS_DIM_OPACITY } from '../../lib/pressFeedback';
 
 const OVER_BUDGET_CORAL = '#FF7A6E';
+// Text on the violet card: coral text there was ~1.8:1. Small labels use white (the coral dot, bar and the words
+// "Over budget" carry the state); the large amount uses a light coral that keeps >= 3:1 for large text.
+const OVER_TEXT_SMALL = '#FFFFFF';
+const OVER_TEXT_LARGE = '#FFD2CB';
 const OVER_BUDGET_CORAL_DOT = '#FF6B5E';
 
 export interface BudgetHubSectionProps {
@@ -86,7 +90,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
       style={[
         styles.unifiedBudgetCard,
         {
-          backgroundColor: '#581C87',
+          backgroundColor: ScreenHue.gullak.to,
           borderColor: 'rgba(255, 255, 255, 0.12)',
           borderWidth: 1,
           overflow: 'hidden',
@@ -110,8 +114,8 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
         >
           <Defs>
             <SvgLinearGradient id="allowanceCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#8B5CF6" />
-              <Stop offset="100%" stopColor="#581C87" />
+              <Stop offset="0%" stopColor={ScreenHue.gullak.from} />
+              <Stop offset="100%" stopColor={ScreenHue.gullak.to} />
             </SvgLinearGradient>
           </Defs>
           <Rect
@@ -165,7 +169,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                 styles.ucStatusText,
                 {
                   color: cardIsOver
-                    ? OVER_BUDGET_CORAL
+                    ? OVER_TEXT_SMALL
                     : cardProgressRatio >= 0.8
                     ? '#FDE68A'
                     : '#FFFFFF',
@@ -186,7 +190,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
               <Text
                 style={[
                   styles.ucHeroLabel,
-                  { color: cardIsOver ? OVER_BUDGET_CORAL : 'rgba(255, 255, 255, 0.75)' },
+                  { color: cardIsOver ? OVER_TEXT_SMALL : 'rgba(255, 255, 255, 0.75)' },
                 ]}
               >
                 {cardIsOver ? 'EXCEEDED BY' : 'LEFT TO SPEND'}
@@ -195,7 +199,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                 <AmountText
                   role="primary"
                   value={cardTarget}
-                  color={cardIsOver ? OVER_BUDGET_CORAL : '#FFFFFF'}
+                  color={cardIsOver ? OVER_TEXT_LARGE : '#FFFFFF'}
                   rolling
                 />
               </View>
@@ -331,7 +335,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                       color: isScheduledSwitch && !activeToggleValue
                         ? '#FDE68A'
                         : isOverBudget
-                        ? OVER_BUDGET_CORAL
+                        ? OVER_TEXT_SMALL
                         : 'rgba(255, 255, 255, 0.85)',
                       fontFamily: (isScheduledSwitch && !activeToggleValue) || isOverBudget
                         ? FontFamily.semibold
@@ -350,7 +354,6 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
               onValueChange={handleToggle}
               width={52}
               height={26}
-              onColor="#FFFFFF"
               offColor="#FFFFFF"
               trackColor="rgba(255, 255, 255, 0.2)"
             />

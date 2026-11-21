@@ -154,16 +154,16 @@ Small badge corners (`4`–`8`) stay literal where no token fits (§9.3 of `AGEN
 
 | Token Name | Value | Semantic Role | Intended Usage |
 | :--- | :--- | :--- | :--- |
-| `ControlHeight.compact` | `36px` | Compact Control Height | In-card action chips, compact filter buttons (never a dialog button) |
-| `ControlHeight.standard` | `48px` | Standard Touch Target | **Every button in a centered dialog**, secondary page buttons (Log Out, Delete Account), segmented controls, search bars |
-| `ControlHeight.row` | `56px` | Row & Form Field Height | Text inputs (incl. the Gullak amount field), form toggle rows, date picker trigger |
-| `ControlHeight.cta` | `60px` | Primary CTA | **Every button in a bottom sheet footer** and every full-width primary action on a page (Save, Continue, Update Now, Got It) |
+| `ControlHeight.compact` | `36px` | Compact Control Height | Small pill actions inside content: Change, See More, Edit profile, Split equally, Add person, Create Category, empty-state actions, AutoLog "Fix" (never a dialog button) |
+| `ControlHeight.standard` | `48px` | Standard Touch Target | **Every button in a centered dialog** (alert, date picker, pause budget, edit profile, delete account, update popup, money explainer), full-width buttons inside a card or content block (Deposit to Gullak, Automatic Logging review choices), segmented controls, search bars |
+| `ControlHeight.row` | `56px` | Row & Form Field Height | Stand-alone text inputs (Add Category name, the Gullak amount field, auth fields); minimum height of a grouped form row (`FormRow`) |
+| `ControlHeight.cta` | `60px` | Page / sheet button | **Every full-width button at the bottom of a page or bottom sheet**, and every button stacked with it: Save, Continue, Edit / Delete Expense, Log Out, Delete Account, "Not now", "Skip for now" |
 
-- **Two-tier button rule (UI consistency pass, Nov 2026):** centered dialogs (alert, date picker, pause budget, edit profile, delete account, Vault guard) use 48. Bottom sheets (budget edit, cadence switch, Gullak deposit, period renewal, money back, review) and full-page primary actions use 60. Nothing in between: 46 / 50 / 52 / 56 are not button heights (`tests/uiConsistency.test.ts`). The only exception is the Add Transaction save button while the keyboard is open (48, so the form keeps its room).
+- **Button size ladder (21 Nov 2026, like large apps: one size per role, never per screen):** 60 for page and bottom-sheet buttons (budget edit, cadence switch, Gullak deposit, period renewal, money back, Vault spending guard, welcome back), and a button stacked with a 60 button is 60 too, whatever its variant (outline, ghost, danger). 48 for centered dialogs and for full-width buttons inside a card / content block. 36 for small pill actions inside content. Pill heights come from `ControlHeight`, never from `paddingVertical`. Nothing in between: 44 / 46 / 50 / 52 / 56 are not button heights (`tests/uiConsistency.test.ts`, `tests/buttonSizeLadder.test.ts`). The only exception is the Add Transaction save button while the keyboard is open (48, so the form keeps its room). Keypad keys and icon buttons (32–48 circles) are not buttons in this sense.
 - **CTA labels:** a single full-width 60px CTA uses `FontSize.titleSmall` (18) bold, the same as `AppButton size="cta"`. Two side-by-side 60px sheet buttons use `FontSize.body` (16) bold. 48px buttons use `FontSize.body`.
 - **Close (X) buttons** on sheets and dialogs: 36dp circle (`borderRadius: 18`), 18px icon, `hitSlop` 8+ so the touch area is at least 44dp.
 - **Minimum Hit Area:** Every interactive element must provide at least a **44dp $\times$ 44dp** touch target (`hitSlop`).
-- **Filter Containers:** Screen, Tab, and Modal Segmented Controls must strictly use `ControlHeight.standard` (`48px`). Form-level toggles (e.g. Type, Payment Mode) strictly use `ControlHeight.row` (`56px`).
+- **Filter Containers:** Screen, Tab, and Modal Segmented Controls must strictly use `ControlHeight.standard` (`48px`), including the Add Transaction choices Paid via / Added via and What is this money? (full width, on `cardSubtle`). The Add Transaction Expense | Income switch is the one exception: 56dp (`ControlHeight.row`), because it switches the whole page.
 
 ---
 
@@ -179,13 +179,23 @@ Arthik supports three distinct themes: **Light**, **Dark**, and true obsidian **
 ### Text accent tokens (mint / coral used as text)
 | Token | Light | Dark / AMOLED | Use |
 | :--- | :--- | :--- | :--- |
-| `colors.mintText` | `#2E7A53` (>= 4.8:1 on card, background, cardSubtle) | `#B8E0C8` (brand mint, unchanged) | Income amounts, positive totals, mint links on plain surfaces ("Swipe up or tap", network status) |
+| `colors.mintText` | `#2E7A53` (>= 4.8:1 on card, background, cardSubtle) | `#B8E0C8` (brand mint, unchanged) | Income amounts, positive totals, mint links on plain surfaces ("See all", network status) |
 | `colors.coralText` | `#B9473A` (>= 4.8:1) | `#F4B8AE` (brand coral, unchanged) | Expense amounts, amounts owed |
 
 Every text (and the icon next to it) uses these tokens, never `mint` / `mintGreen` / `mintDark` / `mintGreenDark` / `coral` / `peachCoral` directly. Where Dark used `mintGreenDark` on purpose, write `colors.isDark ? colors.mintGreenDark : colors.mintText`. The brand fills (`mintGreen`, `peachCoral`) stay for pills, badges, chart segments and backgrounds. `tests/uiConsistency.test.ts` checks the Light contrast and that Dark / AMOLED keep the brand values.
 
 ### Scrim (dimmed background behind popups)
 Every centered dialog and bottom sheet dims the screen with the same theme value from `src/lib/scrim.ts` (hook: `useScrimColor()`): Light `rgba(15, 23, 42, 0.45)`, Dark `rgba(0, 0, 0, 0.72)`, AMOLED `rgba(0, 0, 0, 0.88)`. Never write a popup's own black overlay.
+
+### Screen hues (`ScreenHue` in `src/config/theme.ts`)
+Home mint is the brand. Savings (Gullak) and Insights each keep one hero colour, softened so the three tabs read as one product:
+| Token | Value | Use |
+| :--- | :--- | :--- |
+| `ScreenHue.gullak.from` → `.to` | `#8267C1` → `#412E60` | Gullak hero card, Daily Allowance card, Deposit sheet, Budget edit sheet (gradient + solid fallback). White text >= 4.5:1 on `from`. |
+| `ScreenHue.gullak.ink` | `#412E60` | Violet used as text on white (Deposit button, active pill text on white). |
+| `ScreenHue.insights.from` → `.to` | `#E0887B` → `#F3D7BE` | Insights spend hero card (dark text `#2D1E1E`). No decorative circles on it. |
+
+The ambient top glow (`TONES` in `src/lib/ambientBackground.ts`) uses the same softened values. Never write these hex values in a component; import `ScreenHue`. Add Transaction passes `tone` by side: the Insights coral on Expense (spending), Home mint on Income. When a screen's tone changes, `AmbientBackground` fades the old wash + glow out over 240 ms (none with reduce motion).
 
 ### Pill & Container Surface Rule
 - **Segmented Control Containers:** Strictly use `colors.cardSubtle` with border `colors.borderSubtle`. Never use raw card background or pitch-black for pill tracks; tracks must maintain an elevated, subtle surface across all themes.
@@ -237,11 +247,13 @@ Every centered dialog and bottom sheet dims the screen with the same theme value
 6. **`<AnimatedToggle />`** (the only on/off switch; no native `<Switch />` anywhere):
    - "Squish" motion from `src/lib/toggleMotion.ts`, all on the UI thread (Reanimated): fast and fluid slide (`SLIDE_SPRING` stiffness 720, damping 44) with subtle press cushion (`PRESS_STRETCH_FACTOR` 0.25) so the thumb does not awkwardly elongate in place before moving. During the slide the thumb is longest mid-trip (front edge leads, back edge lags, `sin(pi * progress)`), then lands with a tiny squash.
    - One clamped slide spring (`SLIDE_SPRING`), so the thumb never pokes past the track end. The resting edge stays on the track end while pressed, so the stretch always grows toward the middle.
-   - Thumb and ON/OFF text cross-fade over `colorDuration` (200ms) using layer **opacity**, never per-frame colour interpolation (FIN-13 rule). Selection haptic on every change. Honours OS reduce-motion (instant, no stretch).
-   - Resting look is unchanged (1px border, 2.5/3px padding, same thumb size and travel for 50x26, 52x26 and 58x30). Public props unchanged; optional `stretch`, `colorDuration`, `pressScale`, `haptics`.
+   - Look (21 Nov 2026): no "ON / OFF" words. OFF = neutral track (Light `#E2E8F0`, Dark/AMOLED `rgba(255,255,255,0.16)`) with a white thumb; ON = the whole track filled with `onColor` (default `colors.mintGreen`) and a thumb that contrasts with that fill (`toggleThumbOnColor`: navy `#1A2B4C` on a light fill, white on a dark fill). `offColor` is the OFF thumb colour, `trackColor` the OFF track.
+   - Fill and thumb cross-fade over `colorDuration` (200ms) using layer **opacity**, never per-frame colour interpolation (FIN-13 rule). Selection haptic on every change. Honours OS reduce-motion (instant, no stretch).
+   - Geometry is unchanged (1px border, 2.5/3px padding, same thumb size and travel for 50x26, 52x26 and 58x30). Public props unchanged; optional `stretch`, `colorDuration`, `pressScale`, `haptics`.
    - Controlled: the thumb moves only when `value` changes, so a handler that refuses the change keeps the switch where it was.
 7. **`<BouncyCategoryFilter />`**:
    - Horizontal category filter pill bar for `HistoryScreen`.
+   - Edge fades: a 28px fade into `colors.cardSubtle` appears on a side only while more pills are hidden there (left after scrolling, right until the end). They never take touches. The Add form's category chips do the same: their left fade appears only once the row is scrolled (at rest it darkened the first chip). Their badge anatomy is under "Add Transaction amount, chips & save button".
    - UI-thread `react-native-reanimated` worklets (`useSharedValue`, `useAnimatedStyle`, `withSpring`, `cancelAnimation`).
    - Hardware-accelerated transform-only animation (`transform: [{ translateX: pillX.value }]`, static `left: 0`), preventing per-frame Android native relayout passes.
    - Apple-calibrated critically damped spring slide (`stiffness: 447.4, damping: 49, mass: 1, overshootClamping: true`) preserving pure stadium pill geometry (`BorderRadius.pill`) with zero scale distortion.
@@ -275,17 +287,30 @@ Every centered dialog and bottom sheet dims the screen with the same theme value
 
 ### Home Card Details Sheet & Hero Card Geometry (`BrandedHeroCard`)
 - `HeroDetailsSheet` is a `BottomSheetModal` (with `swipeToDismiss`: grab handle 40×5, drag follows the finger, backdrop lightens with the drag, closes past 28% of the sheet height or on a flick > 900pt/s, otherwise springs back) with `colors.cardSubtle` section cards (`BorderRadius.input`, `Spacing.block`), caption section labels and `FontSize.bodySmall` rows. No new tokens.
-- The Home ring (`DonutChart`, used in BOTH Budget Mode and Pure Mode) sweeps on the UI thread via `useRingSweep` and are emptied after the screen is left, never on return, so coming back to Home never blinks.
+- The Home ring (`DonutChart`, used in BOTH Budget Mode and Pure Mode) sweeps on the UI thread via `useRingSweep`: from empty the first time it is shown, then it glides from where it is whenever the value changes (pill switch, new expense). Coming back to Home does NOT replay the sweep (an unchanged number stays still, like an instrument).
+- The ring shows the REAL spent percent (`UX-004`, `src/lib/heroRing.ts`): ₹460 of ₹250 = `184%`. Above 100% a second, darker lap (`#991B1B` over the `#EF4444` first lap) is drawn from the top, at most two laps; the text caps at `999%+`.
+- Card copy never says the same thing twice: in the over state the title ("Daily Budget Exceeded") and the red amount say by how much, so the "Exceeded … limit by ₹X" chip is dropped (`pickPrimaryChip`) and the strip says what it means ("Nothing goes to Gullak tonight"). The footer columns are **Available** (budget + income + deposits of the pill, the ring's base) and **Spent**; Pure Mode keeps Inflow / Outflow. The allowance is never called "Income".
+- The card opens its breakdown: a 16px chevron after the title says so (no hint line under the card). The Recent Transactions link reads **See all ›**.
 - Splash: entrance/exit are single Reanimated clocks; the bloom is a full-screen centred layer above all splash content; handoff goes through the mint `SplashCover` (above the navigator, below the app-lock overlay). The Home card is a `Pressable` and keeps exactly one primary chip.
 - **Hero Card Subtext Chips Boundary Enclosure**: In `BrandedHeroCard`, `subtextContainer` is nested inside `topSection`, sharing the exact `paddingRight: podSize + GAP + 6` constraint to prevent chips from protruding into the top-right circular chart pod and SVG socket cutout.
 - **Fintech Gullak Alert Badges**: When money is drawn from Gullak, it renders as a dedicated alert badge (`gullakSpendingBadge`) with a `PiggyBankCoinIcon`, bold red typography (`#DC2626`), and `maxWidth: '100%'` with text truncation protection. If remaining income is zero, redundant `+₹0 income` chips are discarded in favor of the standalone Gullak chip.
 
+### Expense Detail actions & funding (`ExpenseDetailScreen`, `ExpenseFundingCard`)
+- Edit and Delete appear ONCE, at the bottom (thumb reach): `AppButton` primary "Edit Expense" (pencil icon) and a quiet `ghost` "Delete Expense" in `colors.coralText` with a trash icon (the confirm dialog guards it). No header icons.
+- The type badge (`EXPENSE` / `INCOME` / `TRANSFER` / `MONEY BACK`) is centred under the centred amount.
+- In Budget Mode the Funding Source card explains where the money came from, so the "Deducted from" row is not repeated in the details card (it stays in Pure Mode and for income, where the card is not drawn).
+- The "Over Limit" / "Gullak Used" badge is a warning: `colors.peachSoft` with `colors.coralText`, never green.
+
+### Spending Flow chart (`SpendingFlowChart`)
+- Spending bars use the expense coral (Dark `#F6C4BB → #E0887B`, Light `#F0A193 → #C9604F`); the peak day label is `colors.coralText`. Green is kept for "good" (saved, income).
+- Empty-day tracks are faint (Dark `rgba(255,255,255,0.03)`, Light `colors.cardSubtle`) so an empty day never reads as a bar.
+
 ### Split & Money Back Components (`src/components/split/`)
-Built only from existing tokens and primitives (no new tokens): `SplitExtras` (switch row + name field + share field + suggestion pills, same anatomy as `TransferExtras`), `MoneyBackExtras` (mode pills + person / expense option rows), `MoneyBackSheet` (`BottomSheetModal` with `AppButton` footer), `SplitDetailCard` (detail-screen card, `BorderRadius.card`, `Spacing.surface`). Pills use `BorderRadius.pill`; the active pill uses `colors.mintGreen` with `colors.forestGreen` text.
+Built only from existing tokens and primitives (no new tokens): `SplitExtras` (a `FormRow` switch in the Add Transaction details card; once on, name / share fields + suggestion pills open inside the row; the switch calls `onReveal`, only text fields call `onFieldFocus`), `TransferExtras` (its own one-row `FormGroup`), `MoneyBackExtras` (mode pills + person / expense option rows), `MoneyBackSheet` (`BottomSheetModal` with `AppButton` footer), `SplitDetailCard` (detail-screen card, `BorderRadius.card`, `Spacing.surface`). Pills use `BorderRadius.pill`; the active pill uses `colors.mintGreen` with `colors.forestGreen` text.
 
 ### AutoLog Review Sheet Specifications (`src/components/autolog/ReviewSheet.tsx`)
 - **Compact Split-Row Receipt Card**: Top summary card employs a balanced split row (`summarySplitRow`): large amount (26px, `FontFamily.bold`) and merchant title on the left; compact account pill (`accountPill`, `BorderRadius.pill`) and date/source on the right. Raw SMS text is condensed into a 1-line italic quote box (`summaryQuoteBox`), eliminating 30% vertical height and right-side void space.
-- **Horizontal Category Chip Scroll with Edge Fades**: Matches `ExpenseFormScreen.tsx` with horizontal chip scrolling (`categoryList`), left/right SVG LinearGradient edge faders (`reviewCategoryFadeLeft`, `reviewCategoryFadeRight`), animated scale press feedback, and category SVG gradient fills (`getCategoryChipGradient`). The chips show only the categories of the chosen side (income categories for income). There is no "None" chip: a category must be picked before the primary Save button turns on (only "Settle with <person>", "Mark as self transfer" and "Teach Format" work without one).
+- **Horizontal Category Chip Scroll with Edge Fades**: Matches `ExpenseFormScreen.tsx` with horizontal chip scrolling (`categoryList`), left/right SVG LinearGradient edge faders (`reviewCategoryFadeLeft`, `reviewCategoryFadeRight`), animated scale press feedback, the same 24dp category `GradientIconBadge` in unpicked chips, and category SVG gradient fills (`getCategoryChipGradient`). The chips show only the categories of the chosen side (income categories for income). There is no "None" chip: a category must be picked before the primary Save button turns on (only "Settle with <person>", "Mark as self transfer" and "Teach Format" work without one).
 - **Uniform 48px Stadium Pills**: "Remember preference", "Mark as Self Transfer", and "Save and split with friends" strictly share uniform 48px stadium pill height (`ControlHeight.standard`, `BorderRadius.pill`).
 - **Self Transfer Action & Invariant**: "Mark as Self Transfer" confirms and purges any pre-logged expense, updates status to `'transfer'`, registers the transfer rule in `self_transfer_rules`, and persists merchant preference to automatically route future transfers as non-expenses.
 - **Bottom Action Hierarchy**: 60px primary Save CTA (`AppButton size="cta"`) with 44px touch targets for secondary actions ("Not a transaction" · "Delete transaction" / "Discard review").
@@ -326,8 +351,21 @@ Haptics have a fixed meaning. Never add a haptic to scrolling or to every keypad
 | Swipe reveal | `impactAsync(Light)` |
 Every call ends with `.catch(() => {})`. Save success is wired through `saveSuccessHaptic()` (`src/lib/saveFeedback.ts`) in the expense form (both save paths), the Gullak deposit and the budget save.
 
-### Form field anatomy (every field, including switches)
-UPPERCASE section label (`LetterSpacing.label`) → the control (56dp `ControlHeight.row`, `BorderRadius.pill`, `colors.inputBg`, no border) → optional one-line helper (caption, `textSecondary`, indented by `Spacing.surface`). Text inputs (Add Transaction note, Add Category name), the date row and the Split / Transfer switch rows all follow it; a switch row carries one short line ("Split with friends", "Between my own accounts") and the explanation goes in the helper. Segmented options must fit at the control's normal size; shorten the label ("Paid back") instead of shrinking the font.
+### Form field anatomy (stand-alone fields)
+UPPERCASE section label (`LetterSpacing.label`) → the control (56dp `ControlHeight.row`, `BorderRadius.pill`, `colors.inputBg`, no border) → optional one-line helper (caption, `textSecondary`, indented by `Spacing.surface`). Used where a form has one or two fields (Add Category name, the Gullak amount field, auth fields). Segmented options must fit at the control's normal size; shorten the label ("Paid back") instead of shrinking the font.
+
+### Grouped form (Add Transaction, `FormGroup` / `FormRow`)
+Choices made on every entry stay full-size sections; optional details go in ONE inset grouped card instead of a stack of labelled pills (ADR 0021, 2026-11-21 amendment).
+- **Order**: (income only) WHAT IS THIS MONEY? → CATEGORY chips → PAID VIA / ADDED VIA → details card (Date · Split with friends (expense) · Note) → Transfer card (one row, its explanation as subtitle). Sections are caption (`sectionLabel`, 12dp to the control) + control, `Spacing.gutter` between groups.
+- **Choice controls** (Paid via, What is this money?) are full-width 48dp (`ControlHeight.standard`) `SegmentedControl` tracks on `cardSubtle`, labels 16px; Paid via shows icons (16px). Never a thin 36dp track for a primary choice. The Expense | Income switch is one step bigger (full-width 56dp, `ControlHeight.row`) because it switches the whole page.
+- **Switches** in rows are the app-wide `AnimatedToggle` size (58x30, as on Profile); never a smaller one in the same form.
+- `FormGroup` (`src/components/ui/FormGroup.tsx`): `colors.card`, 1px `borderSubtle`, `BorderRadius.card`, gutter margins; hairline `borderSubtle` dividers between rows, inset to start under the title (none under the last row); `false` / `null` rows leave no gap.
+- `FormRow`: 56dp minimum, a plain 20px line icon in `textSecondary` in a 24dp slot (the ON accent for a switch that is on; no icon tile), 16px semibold title, optional caption subtitle, a right accessory (value + chevron, switch, counter), `middle` to put a text field in place of the title, and `children` for content under the header line (full row width, `Spacing.block` padding, `Spacing.group` gap). Inline editors (split people) open inside their row; a panel inside a row is a borderless `cardSubtle` block (never a card inside a card).
+
+### Add Transaction amount, chips & save button
+- **Hero amount**: digits 56 bold, `₹` 40 semibold, both in one colour: `textMuted` while empty, then the side's amount colour (`coralText` expense, `mintText` income, like `AmountText`), `danger` when dividing by 0. No underline. No per-digit animation or haptic (the scale punch was removed for instant typing; see the haptics map).
+- **Category chips** (also the Automatic Logging review sheet): 42dp stadium, `Spacing.element` inset on the left so a 24dp `GradientIconBadge` (category colour, 14px icon) sits concentric. A picked chip takes the category gradient and shows the plain icon in the same 24dp slot, so the chip never changes width. The `+` (manage) chip is a 42dp circle.
+- **Save button**: grey (`cardSubtle` + `borderSubtle`) until an amount exists, then eases to `mintGreen` over 200 ms (`interpolateColor` on the UI thread; the label colour switches once). With an amount the label names it: "Save ₹250" / "Update ₹250" (`formatCurrency`, shrinks to 85% before it is cut); without one it reads "Save Expense" / "Save Transaction".
 
 ### Inset grouped lists
 A list of settings-like rows (Profile settings, Manage Categories, FAQ questions, Ledger people) sits in one `colors.card` card (`BorderRadius.card`, 1px `borderSubtle`) with hairline / subtle dividers, not as rows on the bare background and not as one card per row. Expandable rows use the shared `ChevronRotator` (`src/components/ui/ChevronRotator.tsx`).

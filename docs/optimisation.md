@@ -1358,7 +1358,7 @@ So the agent does not waste time re-doing finished work:
 - Tabs use `freezeOnBlur: false` on purpose (no Android unfreeze hitch on tab switch); every core tab stays warm.
 - `AmbientBackground` uses native-driver animations, stops in background and on hidden tabs, respects reduce motion.
 - `BottomSheetModal` already uses RNGH + Reanimated.
-- `DonutChart` + `useRingSweep` already sweep on the UI thread, blink-free.
+- `DonutChart` + `useRingSweep` already sweep on the UI thread, blink-free; since 21 Nov 2026 the sweep runs only on first show and on value change, never again on a revisit (`UX-004` added a second lap, `max = 2`).
 - Home, Expense | Income and History pills commit only after the pill has landed (`commitOnSettle`, exact landing time per tap, ADR 0020) and draw the pill transform-only; other segmented controls report at once via `startTransition`.
 - Home `fullWaterfall` is memoised separately from the pill switch.
 - `syncWithExpenses` only writes when today's record really changed.

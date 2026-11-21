@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { PressableOpacity } from './ui/PressableOpacity';
 import Sparkles from 'lucide-react-native/icons/sparkles';
 import Plus from 'lucide-react-native/icons/plus';
 import PiggyBank from 'lucide-react-native/icons/piggy-bank';
@@ -126,14 +125,14 @@ export const WelcomeBackGapModal: React.FC<WelcomeBackGapModalProps> = ({
             disabled={isSaving}
           />
 
-          <PressableOpacity
+          <AppButton
+            label="Skip for now"
             onPress={onDismiss}
+            variant="ghost"
+            size="cta"
             disabled={isSaving}
             style={styles.skipButton}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.skipText, { color: colors.textMuted }]}>Skip for now</Text>
-          </PressableOpacity>
+          />
         </View>
       </View>
     </BottomSheetModal>
@@ -204,13 +203,6 @@ const styles = StyleSheet.create({
     gap: Spacing.element,
   },
   skipButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.element,
     marginTop: Spacing.element,
-  },
-  skipText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: FontFamily.medium,
   },
 });

@@ -222,6 +222,22 @@ describe('useFormKeyboard (the custom keypad and the system keyboard on the add 
       expect(scrollTo).toHaveBeenCalledWith({ y: 446, animated: true });
     });
 
+    it('turning the split switch on scrolls to it and hides the keypad but never marks the keyboard open (no field focused, so no keyboardDidHide would ever reset it)', () => {
+      const { h, scrollTo } = newHook();
+      h.result.current.setSplitOffset(300);
+      h.result.current.handleSplitReveal();
+      expect(h.result.current.isKeyboardOpen).toBe(false);
+      expect(lastAnim().cfg).toMatchObject({ toValue: 0 });
+      expect(scrollTo).toHaveBeenCalledWith({ y: 276, animated: true });
+    });
+
+    it('offsets set from a grouped card are used when a field there gets focus', () => {
+      const { h, scrollTo } = newHook();
+      h.result.current.setNoteOffset(520);
+      h.result.current.handleNoteFocus();
+      expect(scrollTo).toHaveBeenCalledWith({ y: 508, animated: true });
+    });
+
     it('re-scrolls when system keyboardDidShow fires while split field was focused', () => {
       const { h, scrollTo } = newHook();
       h.result.current.handleSplitLayout({ nativeEvent: { layout: { y: 300 } } } as any);
