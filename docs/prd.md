@@ -87,7 +87,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Gullak balance | Total accumulated savings headline with PiggyBank badge. |
 | Dynamic Allowance Card | Displays active cadence bounds (e.g. *"29 Sep – 5 Oct"*), unspent balance, paused auto-renew hints, and luminous warm coral over-budget alerts. |
 | Scheduled Switch Banner | Unboxed, luminous banner displaying countdown to 12:00 AM, target amount, and 1-tap cancel. |
-| Savings timeline | Chronological list of past saved days + weekly/monthly periods + manual deposits. |
+| Savings timeline | Past saved days, weekly / monthly periods and manual deposits, grouped by week (daily budget) or month (weekly / monthly) with each group's total. |
 | Filter | All / This Week / This Month / Deposits. |
 | Streak Calendar | Visual calendar (StreakCalendarModal) showing saved/missed/neutral days and monthly matrices. |
 | Deposit management | Add and remove manual Gullak deposits. |
@@ -106,7 +106,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 |---|---|
 | Period navigation | Weekly / Monthly / Yearly with tactile bouncy filter pills. |
 | Category breakdown | Spending split by category with dynamic palettes. |
-| Spending flow chart | Consistent green gradient flow bars with peak clarity. Hidden for a week with no spending (the hero and the By Category empty state already say so). |
+| Spending flow chart | Daily bars in the spend (coral) colour with the peak day called out. Hidden for a week with no spending (the hero and the By Category empty state already say so). |
 | Timeline dots | Dynamic bounds derived from earliest transaction (no phantom dots). |
 
 ### 4.7 Categories ✅ Shipped
@@ -124,7 +124,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| Email magic link | Passwordless sign-in. |
+| Email + password | Sign-in with autofill and Enter-key flow. |
 | Google OAuth | One-tap sign-in. |
 | Password reset | Deep-link flow with ResetPassword screen. |
 | Profile setup | Name + budget setup on first login. |
@@ -158,13 +158,13 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| 3-Theme System | Light, Dark, and battery-saving AMOLED Pure Black (`DarkColors.amoled`) with 3-theme picker on Profile. |
+| 3-Theme System | Light, Dark, and battery-saving AMOLED Pure Black (`AmoledColors`) with 3-theme picker on Profile. |
 | In-App Mandatory Updates | In-app APK downloading with progress bar and automatic package installer trigger (`REQUEST_INSTALL_PACKAGES` via `apkInstaller.ts` + `UpdateRequiredScreen`). |
 | OTA updates | Branded in-app update modal with What's New highlights (`OtaUpdateModal`). |
-| Force-Update Gate | Non-dismissible screen for legacy app versions (controlled via Supabase `app_config` and `version_control` tables). |
+| Force-Update Gate | Non-dismissible screen for legacy app versions (controlled by the Supabase `app_config` row `version_control`; links trusted only from Arthik's GitHub releases, SEC-03). |
 | EAS Build | APK via `preview` profile, AAB via `production`. |
 
-### 4.12 Automatic Logging Engine (v2.0 & v2.1) ✅ Shipped
+### 4.12 Automatic Logging (Beta) ✅ Shipped
 
 | Feature | Detail |
 |---|---|
@@ -172,14 +172,14 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Exclusive Authoritative Sources (Option A) | **Bank SMS** and **Bank Transaction Emails** (Gmail, Outlook, Samsung Email, Yahoo Mail, Proton Mail) are the exclusive inputs. Third-party payment app notifications (GPay, PhonePe, Paytm) are excluded to prevent duplicate review noise. |
 | 100% On-Device Privacy | Raw SMS and email alert bodies are parsed strictly on-device using regex tokenizers and template hashing; zero raw communication text ever touches the network or cloud. |
 | On-Device Encrypted Storage | High-security local SQLite database using **SQLCipher** via `expo-sqlite`, secured with a 256-bit encryption key in `expo-secure-store`. |
-| Cross-Source Reconciliation | Unifies bank SMS and email alerts into a single transaction when both describe the same payment within a 15-minute window (`src/features/autoLog/matching.ts`). |
-| Human-in-the-Loop Review | Confirmed bank transactions on tracked accounts auto-log immediately; new accounts, untracked accounts, transfers, or ambiguous merchants route to `Pending Review` (`AutoLogReviewSheet`). Arthik never guesses. |
-| Swipe-to-Delete & Bulk Clear | `AutoLogReviewScreen` supports fluid swipe-to-reveal item deletion with spring physics and layout transitions, 1-tap "Clear All" bulk dismiss with confirmation, and direct discard inside `ReviewSheet` — always preserving deduplication hashes while pruning unneeded ledger rows. |
+| Cross-Source Reconciliation | Unifies bank SMS and email alerts into a single transaction when both describe the same payment: same reference (up to 30 days) or a strong match on amount, account, merchant and time (within 48 hours) (`src/features/autoLog/matching.ts`). |
+| Human-in-the-Loop Review | Confirmed bank transactions on tracked accounts auto-log immediately; new accounts, untracked accounts, transfers, or ambiguous merchants route to `Pending Review` (`ReviewSheet` (`src/components/autolog/ReviewSheet.tsx`)). Arthik never guesses. |
+| Swipe-to-Delete & Bulk Clear | `AutoLogReviewScreen`: swipe to delete one review, or Clear All (with confirmation); discarded messages stay recognised so they are never logged again. |
 | Reset Learned Rules | `AutoLogCenterScreen` allows 1-tap factory reset of learned merchant categories and custom ignore rules (`merchant_prefs` and `rules`) without touching tracked bank accounts or past ledger transactions. |
 | Real Accounts Only (`AUT-005`) | Only the bank that holds an account can add it to Tracked Accounts. Mutual fund, insurance and biller messages that quote the account (e.g. SBI Mutual Fund for an HDFC account) never add an account or log money; a bank writing from several headers (slice) shows once; accounts saved wrongly by older versions are cleaned once on the phone; "Not my account" hides any account for good (`senders.ts`, `accounts.ts`). |
 | Smarter Logging (`AUT-006`, `AUT-007`) | Bank alerts without an account number are logged when the user has one account at that bank; categories are learned from the user's own entries; every "logged" notification has Undo; a weekly summary notification; account nicknames, "Recommended" accounts in setup, and phone-maker Autostart steps. |
 | Historical Discovery Scanner | Scans past SMS on-device up to 90 days to discover bank accounts and formats before turning live tracking ON. |
-| AutoLog UI Suite | Comprehensive screens: `AutoLogCenterScreen`, `AutoLogSetupScreen`, `AutoLogReviewScreen`, `AutoLogIntroScreen`, `AutoLogInfoScreen`, `AutoLogAccountsScreen`, `AutoLogEmailScreen`. |
+| AutoLog UI Suite | Comprehensive screens: `AutoLogCenterScreen`, `AutoLogSetupScreen`, `AutoLogReviewScreen`, `AutoLogIntroScreen`, `AutoLogInfoScreen`, `AutoLogAccountsScreen`, `AutoLogEmailScreen`, `AutoLogWelcomeBackScreen`. |
 
 ### 4.12b Home Card Details
 
@@ -271,7 +271,7 @@ These are **not committed**. They are tracked here to inform architectural decis
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Offline queue corruption on crash mid-write | Low | High | AsyncStorage writes are atomic per key; rollback on app restart reads queue state |
+| Offline queue loss on crash mid-write | Low | High | Write-ahead queue before every request (OPT-60), one writer per key (`runExclusive`, OPT-61), flushes remove only confirmed items (OPT-72) |
 | Rollover fires before hydration (budget miscalculation) | Low | High | `registerExpensesLoadedGetter` guard in `checkAndRollover`; tested in `dailyBudgetStore.test.ts` |
 | Income misclassification after category rename | Medium | Medium | `isIncomeTransaction` prioritizes explicit `type` field; keywords are an inert legacy fallback only (`TXN-002`) |
 | OTA to wrong runtime version | Low | High | `runtimeVersion.policy: "appVersion"` prevents mismatched bundle delivery |

@@ -322,12 +322,13 @@ The transaction record always preserves the true transaction time.
 
 ## 18. Matching Without a Reference ID
 
-When a bank email or SMS omits the reference ID, matching relies on a 4-factor multi-attribute score:
-1. **Exact Amount Match** (`Math.abs(e1.amount - e2.amount) < 0.01`)
-2. **Exact Account Match** (Same bank + same last 4 digits)
-3. **Same Financial Direction** (Both debits or both credits)
-4. **Time Window** (Occurred within a 15-minute sliding window)
-5. **Merchant Token Similarity** (Clean merchant names agree or one is a substring of the other)
+When a bank email or SMS omits the reference ID, matching uses a score (`matching.identityScore`), only for events within 48 hours of each other:
+1. **Same amount and direction** — required (1 point)
+2. **Same last 4 digits** — +2 (different last 4 → never a match)
+3. **Same merchant** — +2 (different merchant → never a match)
+4. **Same day** — +1; **within 30 minutes** — +1
+
+Score ≥ 3 with exactly one candidate merges; two or more candidates ≥ 3 → review ("Might be a duplicate"); weaker → review.
 
 ---
 
@@ -371,8 +372,9 @@ Result:
 
 ## 22. Cross-Source Matching Windows
 
-- **Reference Match**: Up to 7 days (accommodates batch email statements or delayed weekend alerts).
-- **Attribute Match (No Ref ID)**: 15-minute sliding window (`TRANSFER_WINDOW_MS = 15 * 60 * 1000`).
+- **Reference Match**: Up to 30 days (`REFERENCE_WINDOW_MS`; accommodates delayed alerts).
+- **Attribute Match (No Ref ID)**: scored within 48 hours (`IDENTITY_WINDOW_MS`): amount + direction, same last 4, same merchant, same day, within 30 minutes. Score ≥ 3 with exactly one candidate merges; two or more is ambiguous (review); weaker goes to review.
+- **Own-account transfer pair**: debit and credit within 15 minutes (`TRANSFER_WINDOW_MS`).
 
 ---
 
@@ -441,17 +443,17 @@ When Bank SMS is absent (international roaming, card e-commerce, DND active), Em
 ## 29. Historical Account Discovery
 
 During initial onboarding / setup:
-- Arthik scans past messages on-device up to 30–90 days to discover bank accounts (last 4 digits), banks, and formats.
+- Arthik scans past SMS on-device (last 90 days, at most 5,000 messages) to discover bank accounts (last 4 digits), banks, and formats. Old emails are never read: email detection starts when the user turns it on.
 - **Strict Invariant**: Historical discovery is strictly for learning account profiles. Historical emails or SMS are **never silently imported as historical past expenses**.
 
 ---
 
-## 30. User Feedback & Machine Learning on Device
+## 30. Learning From the User (on device)
 
-When a user edits an auto-logged transaction or confirms an item in Pending Review:
-- User-assigned categories for a merchant are saved to on-device rules (`rules` table).
-- Future transactions from the same merchant automatically inherit the preferred category.
-- Rules are strictly merchant/template-specific; never amount-specific.
+When a user confirms an item in Pending Review and ticks "Remember":
+- The merchant's category is saved on the phone (`merchant_prefs` table).
+- Without a remembered choice, the category comes from the user's own history for that merchant (2+ entries, ≥ 60 % the same category, `AUT-007`); otherwise the user is asked.
+- Ignore rules (`rules` table) are merchant / template specific; never amount specific.
 
 ---
 
@@ -496,7 +498,7 @@ Arthik seamlessly tracks multiple savings accounts, salary accounts, credit card
 ## 35. 100% On-Device Privacy Architecture
 
 - **Zero Cloud Communication Reading**: Raw email notification text and SMS bodies are parsed strictly in local memory on the Android device.
-- **Zero Remote Storage**: Communication content is never sent to Supabase, Anthropic, Google, or any remote server.
+- **Zero Remote Storage**: Communication content is never sent to Supabase or any other server.
 - **Hardware-Encrypted Database**: The local AutoLog database is encrypted with **SQLCipher** via `expo-sqlite`, with a 256-bit encryption key stored in Android hardware Keystore via `expo-secure-store`.
 - **Minimal Metadata Sync**: Only lightweight account metadata (`autolog_profiles`: enabled status, tracked account numbers, last-4 digits) syncs to Supabase for multi-device profile restoration; never email text.
 
@@ -504,12 +506,8 @@ Arthik seamlessly tracks multiple savings accounts, salary accounts, credit card
 
 ## 36. Privacy Center & Transparency UI
 
-The Privacy Center (`AutoLogInfoScreen`) provides users full visibility:
-- **SMS Access**: Granted / Denied
-- **Email Notification Access**: Granted / Denied (Listener active for Gmail / Outlook)
-- **Tracked Accounts Count**: e.g., 2 accounts tracked
-- **On-Device Cryptography Status**: SQLCipher Active
-- **Clear Database & Reset Button**: Allows immediate on-device database wiping.
+- `AutoLogInfoScreen` explains in plain words what is read, what is never read, and that nothing leaves the phone.
+- `AutoLogCenterScreen` shows status, permissions (SMS, notification / email access), tracked accounts, today's counts, and offers **Reset learned rules** (merchant categories and ignore rules back to defaults) and **Turn off Automatic Logging**.
 
 ---
 
@@ -610,23 +608,22 @@ Incoming Event (SMS or Email)
 
 ---
 
-## 47. Pending Review Sheet (`AutoLogReviewSheet`)
+## 47. Pending Review Sheet (`ReviewSheet`)
 
-The review interface offers rapid, 1-tap resolution:
-- **Accept as Expense** (with optional category chip selection)
-- **Classify as Income**
-- **Mark as Transfer**
-- **Ignore / Delete**
-- **"Always remember this category for [Merchant]"** checkbox
+The review sheet resolves an item in one screen:
+- **Expense or Income**, with a required category of that side (`CAT-004`)
+- **Between my own accounts** (self-transfer, optionally remembered)
+- **Expense, split with someone** (`SPL-001`) and **Paid back by someone?** for credits (`SPL-005`)
+- **Remember for this merchant** (off by default)
+- **Ignore** this message, or messages like it from this sender
 
 ---
 
 ## 48. Correction & Undo Architecture
 
-- Users can tap any auto-logged transaction in `HistoryScreen` or `ExpenseDetailScreen` to edit or delete it.
-- Deleting an auto-logged transaction offers:
-  1. *"Delete expense only"*
-  2. *"Delete and ignore future alerts from this sender/format"*
+- Users can open any auto-logged transaction from History and edit or delete it like a manual one.
+- **Undo** on the "logged" notification removes it without opening the app (`AUT-007`).
+- "Why was this logged?" → **Report a problem** → *Not a transaction* deletes it and can also ignore similar messages (`WhyLoggedCard`).
 
 ---
 
@@ -657,13 +654,7 @@ The event-driven notification listener architecture is strictly superior for use
 
 ---
 
-## 51. Future Extensibility
-
-The `CommonTransaction` pipeline is engineered to accept future automated sources (such as Open Banking / Account Aggregator feeds or statement imports) through the identical deduplication and confidence engine without breaking changes.
-
----
-
-## 52. Core Product Laws of Automatic Logging
+## 51. Core Product Laws of Automatic Logging
 
 1. **Dual-Core Authority**: Bank SMS and Bank Email alerts are the two authoritative transaction inputs; payment app intermediaries are excluded.
 2. **Never Double-Count**: Multiple alerts for the same financial event must collapse into exactly one transaction.
@@ -675,7 +666,7 @@ The `CommonTransaction` pipeline is engineered to accept future automated source
 
 ---
 
-## 53. Complete Lifecycle State Machine
+## 52. Complete Lifecycle State Machine
 
 ```text
 User Enables AutoLog
@@ -698,9 +689,3 @@ Parser → Account Check → Deduplication Matching
               ├── Tracked Account & High Confidence? → Log (`status = 'logged'`)
               └── Untracked / Ambiguous / Vault Exceeded? → Queue (`status = 'pending'`)
 ```
-
----
-
-## 54. North-Star Vision
-
-> **"Arthik effortlessly captures every rupee you spend from your bank alerts, guarantees zero duplicate entries, guards your real money with complete on-device privacy, and never pesters you with unnecessary manual chores."**

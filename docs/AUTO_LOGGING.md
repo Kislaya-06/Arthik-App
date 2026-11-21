@@ -1,6 +1,6 @@
-# Automatic Logging — Architecture (v2.0)
+# Automatic Logging (Beta) — Architecture
 
-Product spec: `Arthik_Auto_Logging_Final_Product_Spec`. This file explains **how the code implements it**.
+This file explains **how the code implements** Automatic Logging. Product behaviour for the email source: [`specs/EMAIL_AUTO_LOGGING_SPEC.md`](specs/EMAIL_AUTO_LOGGING_SPEC.md). The "spec §" numbers in §5 point to the original product spec, which is not kept in this repo.
 
 ## 1. The problem, in one line
 Typing every UPI payment is tedious. Bank SMS and bank transaction emails already describe every confirmed payment with exact account numbers and amounts. By focusing strictly on these **two authoritative bank sources** (Bank SMS + Bank Email alerts), Arthik turns real bank transactions into expenses automatically while eliminating phantom duplicate reviews from payment-app intermediaries (Option A).
@@ -51,8 +51,8 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | `src/features/autoLog/service.ts` | Lifecycle: entry decision, setup, discovery, recovery, pause, sign-out, turn off. |
 | `src/features/autoLog/ledger.ts` | Bridge into `expenseStore` / Supabase. |
 | `src/features/autoLog/background.ts` | Headless task + periodic task + notification-action task (category buttons tapped while the app is closed). Imported in `index.ts`. |
-| `src/features/autoLog/notify.ts` | Local notifications (preview, logged, needs review). The "logged" one carries up to 3 category buttons when an expense has no category. |
-| `src/features/autoLog/notificationActions.ts` | Reads a category-button tap and saves only the category (`setTransactionCategory`), then removes the notification. Used by the background task and the app's notification listener. |
+| `src/features/autoLog/notify.ts` | Local notifications (preview, logged, needs review). The "logged" one always carries **Undo**, plus up to 2 category buttons when an expense has no category (`AUT-007`). |
+| `src/features/autoLog/notificationActions.ts` | Handles a category or Undo tap (`handleNotificationAction`): a category tap saves only the category (`setTransactionCategory`), Undo removes the transaction; then the notification is removed. Safe to run twice. Used by the background task and the app's notification listener. |
 | `src/lib/quickCategoryPick.ts`, `src/lib/quickCategories.ts` | The user's most used expense categories for those buttons; saved on the phone so they exist while the app is closed. |
 | `src/features/autoLog/store.ts` | Zustand UI snapshot (not persisted). |
 | `src/features/autoLog/remote.ts` | `autolog_profiles` table (no message content). |
@@ -66,7 +66,7 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 |---|---|
 | Balance never an amount (§39) | `parser.extractAmount` + `RE_BALANCE_BEFORE` |
 | Future / mandate / collect / failed ≠ txn (§39) | `parser.RE_FUTURE`, `RE_FAILED` |
-| Never fuzzy-merge same source (§38.2) | `matching.isSameSourceDuplicate` (ref or identical text ≤2s only) |
+| Never fuzzy-merge same source (§38.2) | `matching.isSameSourceDuplicate` (same reference, or identical text within `SAME_MESSAGE_WINDOW_MS` = 2 s) |
 | SMS & Email Dual-Core Priority (§16, §40) | Bank SMS and Bank Email are Tier-1 authoritative sources. Confirmed transactions on tracked accounts auto-log immediately; unknown category logs with `needs_category = 1` for 1-tap review. On the review sheet a category is required to save (there is no "None" option) and only categories of the chosen side are shown (`CAT-004`), so a reviewed transaction never comes back asking for a category. |
 | Cross-Source Reconciliation (SMS ↔ Email) | When a payment generates both an SMS and an Email (or vice versa), they link together under "Why Logged" as a single transaction (`status = 'merged'`). |
 | Repeat Transactions Protected (§38.2) | Real separate payments (e.g. ₹25 spent again 20 min later) have distinct timestamps/references and are ALWAYS logged as separate expenses; never falsely deduplicated. |
@@ -87,7 +87,7 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Money back from a person (`SPL-005`) | A logged credit can be a friend paying back. `ledger.moneyBackQuestionFor` (name + amount first, then name only) adds "X owes you ₹Y. Is this their payment?" to the notification while the app data is loaded; `ReviewSheet` lists everyone who owes money ("Paid back by someone?", name matches first) and `ExpenseDetailScreen` / `MoneyBackSheet` ask the same question for any logged income. Arthik only asks, never settles by itself. Tapping a person only CHOOSES them (nothing is chosen by itself; a likely match just gets a "Likely match" tag) and the footer button becomes "Settle with <person> · ₹X"; pressing it completes the review without asking for a category (SPL-005 points 5–6, ADR 0017 and 0018). More money than owed: a note says the extra stays income. A remembered "income" preference does not auto-log a credit from a person who still owes money: `engine.paybackHoldQuestion` + `paybackGuard.shouldHoldCreditForPayback` send it to review with the settle question (SPL-005 point 7). A debit review also has "Expense, split with someone" (`SPL-001`). |
 | Manual entry look-alike | `ledger.findManualLookalike` → `possible_duplicate` |
 | Review Dismissal & Swipe Delete | `AutoLogReviewScreen.tsx` + `reviews.discardEvent`: swipe-to-reveal delete button with UI-thread spring and layout animation, plus header Clear All action; removes pre-logged ledger items and marks event as ignored without losing deduplication hash. |
-| Concise Review Sheet & Direct Discard | `ReviewSheet.tsx`: 1-page concise bottom sheet combining compact fintech split-row receipt card, horizontal scrollable category chips with left/right SVG fade gradients (matching `ExpenseFormScreen`), 48px stadium pills for Remember Preference, Mark as Self Transfer (automating `self_transfer_rules` and `merchant_prefs` transfer routing), and Save & split, with a 60px primary Save CTA (`AppButton size="cta"`) and 44px secondary escape hatches (ADR 0021). |
+| Concise Review Sheet & Direct Discard | `ReviewSheet.tsx`: 1-page concise bottom sheet combining compact fintech split-row receipt card, horizontal scrollable category chips with left/right SVG fade gradients (matching `ExpenseFormScreen`), 48px stadium pills for Remember Preference, Mark as Self Transfer (automating `self_transfer_rules` and `merchant_prefs` transfer routing), and Save & split, with a 60dp primary Save button (`AppButton size="cta"`) and text-link secondary actions (44dp touch target). |
 | Reset Learned Rules | `AutoLogCenterScreen.tsx` + `db.resetLearnedRules`: clears `merchant_prefs` and `rules` back to factory clean slate without touching tracked accounts or past transaction ledger history. |
 | Vault Spending Guard (ADR 0011) | `ledger.isExceedingVaultLiquidity` → `exceeds_liquidity` review (zero funds in Income & Gullak with amount > budget blocks silent deficit creation) |
 | Data loss ≠ silent restore (§30–36) | `service.evaluateEntry`: no local DB + `autolog_profiles.enabled` → re-setup |
@@ -111,9 +111,9 @@ Known trade-off: an unknown small bank whose account shares its last 4 digits wi
 - **Server:** `autolog_profiles` — enabled, setup/last-active/signed-out timestamps, tracked accounts as `{bank, bankCode, last4, kind}`.
 
 ## 7. Limits and constants (`matching.ts`)
-Remembered "own transfer" notes saved from a review (`ledger.saveSelfTransferRule` → `transferRulesStore.addRule`) also work offline: they are saved on the phone, queued, and sent before the expenses that point to them (`TXN-003`, `OFL-001`).
+Discovery: last 90 days, max 5,000 SMS. Recovery: gaps up to 30 days (longer → Learn only). Same message delivered twice: 2 s (email repost 60 s). SMS ↔ email identity window 48 h; same reference matches up to 30 days. Transfer window 15 min.
 
-Discovery: last 90 days, max 5,000 SMS. Recovery: gaps up to 30 days (longer → Learn only). Cross-source window 15 min. Notification wait 20 min. Transfer window 15 min.
+Remembered "own transfer" notes saved from a review (`ledger.saveSelfTransferRule` → `transferRulesStore.addRule`) also work offline: they are saved on the phone, queued, and sent before the expenses that point to them (`TXN-003`, `OFL-001`).
 
 ## 8. Tests
 - `tests/autoLogEmail.test.ts` — email source: parser, identity scoring, every multi-source scenario from the email spec.
@@ -123,7 +123,7 @@ Discovery: last 90 days, max 5,000 SMS. Recovery: gaps up to 30 days (longer →
 - `tests/autoLogHelpers.test.ts` — merchant keys, history category, week start and summary text, Autostart guide per phone maker.
 - **Native (Kotlin):** `modules/arthik-autolog/jvm-test/src/test/...` — `FinancialFilterTest` (12 tests: bank SMS kept; personal, OTP, no-money and blank messages dropped; bank email kept despite an OTP footer; security mails dropped; email app allow-list). Run with `npm run test:native` (needs a JDK on `JAVA_HOME`; the first run downloads Gradle and Kotlin). The module itself is unchanged.
 - `tests/autoLogFlows.test.ts` — the real `db.ts`, `engine.ts`, `service.ts`, `reviews.ts` running against Node's built-in SQLite (`node:sqlite`, Node 22+). Native module, ledger, server and notifications are test doubles from `tests/helpers/autoLogTestEnv.ts`. Every trust rule in spec §47 has a test.
-- Not unit-tested: the rest of the Kotlin module (queue file, multi-part SMS joining, email notification reading, inbox paging, headless start). Testing them needs the logic moved out of the Android classes, which is a native change (new APK), so it waits for an APK release the owner approves. Also the React screens — test those on a device (see `MANUAL_STEPS.md`). In dev builds the Center screen has **Developer test tools** that push fake events through the real pipeline.
+- Not unit-tested: the rest of the Kotlin module (queue file, multi-part SMS joining, email notification reading, inbox paging, headless start). Testing them needs the logic moved out of the Android classes, which is a native change (new APK), so it waits for an APK release the owner approves. Also the React screens — test those on a device. In dev builds the Center screen has **Developer test tools** that push fake events through the real pipeline.
 
 ## 9. Email notifications (v2.1)
 
@@ -138,7 +138,7 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
              parseEmail (advice sentences like "never share your OTP" removed first)
              ─► noise filter ─► non-bank company? evidence only (AUT-005)
              ─► rules ─► account (bank: exact key · provider/unknown: tracked last 4 if unique)
-             ─► findIdentity(sms + notification + email)
+             ─► findIdentity(sms + email)
                    match ─► merge as a source (or take over a waiting notification / pending item)
                    ambiguous / weak ─► Pending Review "Might be a duplicate"
                    none ─► unknown sender? review · no account? review · type rules ─► log
@@ -146,7 +146,7 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
 
 **Identity scoring** (`matching.ts`): same reference → 100 (any delay ≤ 30 days). Otherwise: amount + direction = 1, same last 4 = +2, same merchant = +2, same day = +1, within 30 min = +1, window 48 h. Different last 4 / merchant / reference → never. Same source → never (without reference). Score ≥ 3 with exactly one candidate → merge. Two or more ≥ 3 → ambiguous. Only weaker candidates → review (no silent duplicate, no arbitrary merge).
 
-**SMS and notifications also check emails:** a bank SMS that arrives after an email joins that transaction; a payment notification matching an email is merged into it.
+**SMS also checks emails:** a bank SMS that arrives after an email joins that transaction (and the other way round).
 
 | File | Email part |
 |---|---|
@@ -158,12 +158,12 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
 | `engine.ts` | `processEmail`, `findIdentity`, email checks in `processSms` |
 | `service.ts` | `setEmailEnabled`, `isEmailEnabled`, `emailSupported`, queue type `email` |
 | `screens/autolog/AutoLogEmailScreen.tsx`, `components/autolog/EmailSourceInfo.tsx` | UI |
-| `tests/autoLogEmail.test.ts` | 32 tests |
+| `tests/autoLogEmail.test.ts` | Email parser, identity rules, every multi-source scenario |
 
 **Limits:** only what the email notification shows (long emails are cut by the email app); emails whose notifications are muted are not seen; no historical email discovery (old emails are never read).
 
 ## 10. Known limitations (MVP)
-- Parser formats added 16 Nov 2026 (AL-01..AL-09, `tests/autoLogParser.test.ts`): loan account vs paying account, "Rs.450 Dr./Cr.", "Rs:200.00", Axis "UPI/P2M/ref/payee", card "spent ... on X", "reference number is", bank channel prefixes in names.
+- Formats read since 16 Nov 2026 (AL-01..AL-09, `tests/autoLogParser.test.ts`): loan account vs paying account, "Rs.450 Dr./Cr.", "Rs:200.00", Axis "UPI/P2M/ref/payee", card "spent ... on X", "reference number is", bank channel prefixes in names.
 - Still not read: foreign-currency spends (go to review). UPI Lite / alerts without an account number are logged only when the user has exactly one account of that kind at that bank (`AUT-006`); otherwise they ask "Which account?". ATM withdrawals and investments are logged as normal expenses.
 - Android only. iOS has no SMS access.
 - Bank SMS formats vary; unknown formats go to review and are learned from user answers.

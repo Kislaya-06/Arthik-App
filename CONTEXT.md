@@ -282,13 +282,13 @@ The recurring calendar cycle defining how a budget is measured and renewed: `'da
 - *_Avoid_*: Frequency, Interval, Periodicity
 
 **Budget Period**:
-A structured period window (`BudgetPeriod`) representing an active or finalized cadence cycle. Records the cadence, calendar bounds (`periodStart` to `periodEnd`), effective active bounds (`activeStart` to `activeEnd`), allocated budget (`budgetAmount`), total non-income spending (`spentAmount`), amount rolled over to Gullak (`amountSaved`), status (`saved`, `exceeded`, `even`), and proration flag (`isProrated`).
-- *Code location*: `src/lib/budgetPeriods.ts` (`BudgetPeriod` interface, `buildPeriodsToFinalize`, `getCurrentPeriodSummary`), `src/store/dailyBudgetStore.ts` (`budgetPeriods`)
+A structured period window (`BudgetPeriodRecord`) representing an active or finalized cadence cycle. Records the cadence, calendar bounds (`periodStart` to `periodEnd`), effective active bounds (`activeStart` to `activeEnd`), allocated budget (`budgetAmount`), total non-income spending (`spentAmount`), amount rolled over to Gullak (`amountSaved`), status (`saved`, `missed`, `even`, `unknown`; `BUD-008`), and proration flag (`isProrated`).
+- *Code location*: `src/types/index.ts` (`BudgetPeriodRecord`), `src/lib/periods/finalize.ts` (`buildPeriodsToFinalize`), `src/lib/periods/periodSummary.ts` (`getCurrentPeriodSummary`), `src/store/dailyBudgetStore.ts` (`budgetPeriods`)
 - *_Avoid_*: Cycle, Budget Block, Spending Window
 
 **Active Slice**:
 The continuous date interval `[activeStart, activeEnd]` within a calendar period during which a specific budget plan was active. Slices prevent overlapping, account for mid-period plan switches, and ensure no day or rupee is double-counted.
-- *Code location*: `src/lib/budgetPeriods.ts` (`buildPlanSlices`, `walkPlanSlices`)
+- *Code location*: `src/lib/periods/finalize.ts` (`PeriodSlice`, built inside `buildPeriodsToFinalize`)
 - *_Avoid_*: Active Segment, Sub-period, Time Slice
 
 **Non-Prorated Budget (Zero-Proration Policy)**:
@@ -315,12 +315,12 @@ The mechanism by which unspent funds from a prematurely terminated cadence trans
 
 **Cadence-Native Streak**:
 The streak evaluation unit matching the active cadence: Daily evaluates consecutive saved days, Weekly evaluates consecutive saved weeks (Monday–Sunday), and Monthly evaluates consecutive saved calendar months. Mid-period daily variations do not break a Weekly or Monthly streak.
-- *Code location*: `src/lib/budgetPeriods.ts` (`computeCadenceStreak`), `src/store/dailyBudgetStore.ts` (`bestStreakByCadence`)
+- *Code location*: `src/lib/periods/streak.ts` (`computeCadenceStreak`, re-exported by `src/lib/budgetPeriods.ts`), `src/store/dailyBudgetStore.ts` (`bestStreakByCadence`)
 - *_Avoid_*: Universal Daily Streak, Pace Streak
 
 **Paused**:
 The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red. Pause changes the screen, not the money: spending on a paused day still comes from the period's budget pool (if alive), then income, then Gullak (ADR 0012).
-- *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`getWeeklyStreakCards`, `getMonthlyStreakGrid`)
+- *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`buildWeeklyStreakCards`, `buildMonthlyStreakMatrix`)
 - *_Avoid_*: Stopped, Inactive, Broken, Skipped
 
 **Budget Pool**:
@@ -374,7 +374,7 @@ Finalized weekly and monthly governed accounting periods.
 
 **`gullak_deposits`**:
 Direct deposits credited to the Gullak savings reserve.
-- Columns: `id`, `user_id`, `amount`, `source` (`'income' | 'external'`), `note`, `deposit_date`, `created_at`.
+- Columns: `id`, `user_id`, `amount`, `date`, `source` (`'income' | 'external'`), `note`, `created_at`.
 - *Code location*: `src/store/dailyBudgetStore.ts`, `src/components/DepositGullakModal.tsx`, `schema.sql` (`gullak_deposits` table)
 
 ---

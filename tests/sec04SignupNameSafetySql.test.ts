@@ -3,8 +3,8 @@ import { readFileSync } from 'fs';
 import path from 'path';
 
 /**
- * SEC-04 / OPT-69 server side. The SQL itself was run against a real Postgres on 16 Nov 2026 (39 checks, see
- * placementguide.md of that day). These tests keep the three copies of the SQL in step, so `schema.sql`
+ * SEC-04 / OPT-69 server side. The SQL itself was run against a real Postgres on 16 Nov 2026 (39 checks). These
+ * tests keep the three copies of the SQL in step, so `schema.sql`
  * (source of truth) can never drift from the migration the owner runs.
  */
 const read = (file: string) =>

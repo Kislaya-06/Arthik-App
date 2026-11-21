@@ -288,14 +288,14 @@ export const ControlHeight = {
 
 /**
  * Screen hue tokens: the one hero colour of the Savings tab (Gullak violet) and of Insights (coral).
- * Home mint is the brand; these two are calm, low-saturation tints of the same family so the three tabs read as
- * one product, not three templates. White text on `gullak.from` stays >= 4.5:1; Insights text is dark (#2D1E1E).
- * `gullak.ink` is the violet used as TEXT on white (Deposit button, active pill text on white).
+ * Vivid original hues (owner request 2026-11-21: the softened tints looked dull, so they were restored).
+ * Insights text on its card is dark (#2D1E1E).
+ * `gullak.ink` is the violet used as TEXT on white (Deposit button).
  * Every Gullak card / sheet gradient and the ambient glow (lib/ambientBackground TONES) use these values.
  */
 export const ScreenHue = {
-  gullak: { from: '#8267C1', to: '#412E60', ink: '#412E60' },
-  insights: { from: '#E0887B', to: '#F3D7BE' },
+  gullak: { from: '#8B5CF6', to: '#581C87', ink: '#5B21B6' },
+  insights: { from: '#F07167', to: '#FED0A8' },
 } as const;
 
 /**

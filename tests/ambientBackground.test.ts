@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { ScreenHue } from '../src/config/theme';
 import {
   AMBIENT_ENABLED,
   AMBIENT_HEADER_BLOCK,
@@ -111,11 +112,16 @@ describe('ambient background: colour follows the screen', () => {
     expect(toneForRoute(undefined)).toBe('home');
   });
 
-  it("uses the app's own card colours (softened Savings violet and Insights coral, ScreenHue)", () => {
+  it("uses the app's own card colours (vivid Savings violet and Insights coral, ScreenHue)", () => {
     expect(TONES.home.light).toBe('#B8E0C8');
-    expect(TONES.savings.light).toBe('#8267C1');
-    expect(TONES.insights.light).toBe('#E0887B');
-    expect(TONES.insights.core).toBe('#F3D7BE');
+    expect(TONES.savings.light).toBe('#8B5CF6');
+    expect(TONES.insights.light).toBe('#F07167');
+    expect(TONES.insights.core).toBe('#FED0A8');
+    // The glow always matches the cards (owner request 2026-11-21: vivid original hues, not the dull tints).
+    expect(TONES.savings.light).toBe(ScreenHue.gullak.from);
+    expect(TONES.insights.light).toBe(ScreenHue.insights.from);
+    expect(TONES.insights.core).toBe(ScreenHue.insights.to);
+    expect(ScreenHue.gullak).toEqual({ from: '#8B5CF6', to: '#581C87', ink: '#5B21B6' });
   });
 
   it('every tone goes from a very dark base to a light, but not glaring, wind colour', () => {

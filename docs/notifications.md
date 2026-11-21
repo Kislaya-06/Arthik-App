@@ -13,7 +13,7 @@ Single source of truth: [`src/lib/notificationPolicy.ts`](../src/lib/notificatio
 ## Why the evening nudge matters (domain rule)
 In Budget Mode an empty day is a *full-allowance* day: the whole allowance rolls into the Gullak at midnight. Not logging inflates the Gullak, so for Gullak users the nudge is about accuracy, and its copy says so.
 
-**Interaction with Automatic Logging**: If an expense is logged automatically (via Bank SMS or Bank Email alert) while the app is closed, it is directly recorded into transactions. Because an expense is recorded for today, tonight's 20:30 evening nudge is cancelled/omitted and rollover accounts for the real spent amount (e.g. ₹349 spent out of ₹500 saves ₹151, not ₹500), so the Gullak is never falsely inflated.
+**Interaction with Automatic Logging**: If an expense is logged automatically (from a bank SMS or bank email alert) while the app is closed, it is recorded as a transaction at once. Because an expense is recorded for today, tonight's 20:30 evening nudge is cancelled/omitted and rollover accounts for the real spent amount (e.g. ₹349 spent out of ₹500 saves ₹151, not ₹500), so the Gullak is never falsely inflated.
 
 ## Matrix
 | Moment | Pure Mode (no Gullak) | Gullak, daily | Gullak, weekly / monthly | Channel |
@@ -47,7 +47,7 @@ When the user switches from Pure Mode to Budget Mode while in deficit ($R < 0$),
 - **Title**: *"Pure Mode deficit balanced"*
 - **Message**: *"You spent ₹{D} more than you had in Pure Mode. We added ₹{D} to Total Income so everything is balanced."*
 - **Stable ID**: `pure_deficit_${dateStr}_${D}` (ensures idempotency across multiple sync passes).
-- **Note on PUR-002**: The historical `pure_end_*` notification (which claimed unspent pool funds became income when a period ended in Pure Mode) has been deleted. Unspent funds are retained as `pureLeftover` without dispatching notifications.
+- **PUR-002**: a pool that ends in Pure Mode sends no notification; its unspent money stays as `pureLeftover`.
 
 ### Scheduled Mode Switch Notifications (`PUR-003`)
 When toggling between Pure Mode and Budget Mode, the switch takes effect tomorrow and an inbox notification confirms the schedule:

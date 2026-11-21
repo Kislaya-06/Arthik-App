@@ -13,8 +13,8 @@ We configured `app.json` with `"runtimeVersion": { "policy": "appVersion" }`.
 
 1. **Strict Version Parity**: An OTA update branch (e.g. `preview` or `production`) only targets devices that are currently executing the exact matching `expo.version` string defined in `app.json` (e.g. `1.2.3`).
 2. **Binary Bump Gate**: Whenever native dependencies, Android permissions, native plugins, or major architectural changes occur, the developer bumps `expo.version` in `app.json` and cuts a new full binary build (`eas build -p android`). Existing installed binaries on older versions will never receive the incompatible JS bundle.
-3. **Automatic Update Check**: On app startup, `App.tsx` listens for available updates on launch via `Updates.checkForUpdateAsync()` and prompts the user to reload gracefully when an update is downloaded.
-4. **Mandatory In-App APK Updates for Binary Bumps**: When an installed binary falls behind the database `app_config.min_version`, the app displays a non-dismissible `UpdateRequiredScreen` that downloads and triggers the Android APK package installer natively (`apkInstaller.ts` + `REQUEST_INSTALL_PACKAGES`), ensuring seamless upgrades for users without Google Play Store dependency.
+3. **Automatic Update Check**: On app startup, `App.tsx` listens for available updates on launch via `Updates.checkForUpdateAsync()` and shows the "What's new" modal (`OtaUpdateModal`, highlights from `app.json` `expo.extra.otaUpdate`) when an update is downloaded.
+4. **Mandatory In-App APK Updates for Binary Bumps**: When an installed binary falls behind `app_config.version_control.min_supported_version` (with `force_update_enabled`), the app displays a non-dismissible `UpdateRequiredScreen` that downloads and triggers the Android APK package installer natively (`apkInstaller.ts` + `REQUEST_INSTALL_PACKAGES`), ensuring seamless upgrades for users without Google Play Store dependency.
 
 ## Consequences
 - **Positive**: Complete prevention of native ABI mismatch crashes. Predictable update targeting. Fast, frictionless patch deployment for TS/JS and UI changes without requiring full APK downloads or manual sideloading.

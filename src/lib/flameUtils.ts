@@ -3,8 +3,6 @@ export interface StreakFlameConfig {
   tierName: 'dormant' | 'spark' | 'blaze' | 'inferno' | 'supernova';
   outerColor: string;
   innerColor: string;
-  /** Orange middle layer between the red outer fire and the yellow heart. */
-  midColor: string;
   coreColor?: string;
   emberCount: number;
   flickerSpeed: number; // ms for one loop
@@ -60,7 +58,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       tierName: 'dormant',
       outerColor: '#D97757',
       innerColor: '#EAA690',
-      midColor: '#E39072',
       emberCount: 0,
       flickerSpeed: 1800,
       lickStretch: 1.05,
@@ -74,7 +71,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       tierName: 'spark',
       outerColor: '#FF5722',
       innerColor: '#FFC107',
-      midColor: '#FF9800',
       coreColor: '#FFF9C4',
       emberCount: 1,
       flickerSpeed: 1100,
@@ -89,7 +85,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       tierName: 'blaze',
       outerColor: '#FF3D00',
       innerColor: '#FFD54F',
-      midColor: '#FF9100',
       coreColor: '#FFFFFF',
       emberCount: 2,
       flickerSpeed: 920,
@@ -104,7 +99,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
       tierName: 'inferno',
       outerColor: '#E62E00',
       innerColor: '#FFE082',
-      midColor: '#FF8F00',
       coreColor: '#FFFFFF',
       emberCount: 3,
       flickerSpeed: 760,
@@ -118,7 +112,6 @@ export function getStreakFlameConfig(streak: number): StreakFlameConfig {
     tierName: 'supernova',
     outerColor: '#D50000',
     innerColor: '#FFEA00',
-    midColor: '#FF9100',
     coreColor: '#FFFFFF',
     emberCount: 4,
     flickerSpeed: 620,
@@ -255,6 +248,22 @@ export function flameOutlineAt(phase: number, energy: number, scale = 1, shift =
   );
 }
 
+function teardrop(tipX: number, tipY: number, halfWidth: number, widestY: number, bottom: number): string {
+  'worklet';
+  const r = FIRE_BASE_X + halfWidth;
+  const l = FIRE_BASE_X - halfWidth;
+  const k = (widestY - tipY) * 0.82;
+  const b = (bottom - widestY) * 0.65;
+  const bx = halfWidth * 0.5;
+  return (
+    `M ${n(tipX)} ${n(tipY)} ` +
+    `C ${n(tipX + halfWidth * 0.17)} ${n(tipY + k * 0.75)} ${n(r)} ${n(widestY - k * 0.35)} ${n(r)} ${n(widestY)} ` +
+    `C ${n(r)} ${n(widestY + b)} ${n(FIRE_BASE_X + bx)} ${n(bottom)} ${n(FIRE_BASE_X)} ${n(bottom)} ` +
+    `C ${n(FIRE_BASE_X - bx)} ${n(bottom)} ${n(l)} ${n(widestY + b)} ${n(l)} ${n(widestY)} ` +
+    `C ${n(l)} ${n(widestY - k * 0.35)} ${n(tipX - halfWidth * 0.17)} ${n(tipY + k * 0.75)} ${n(tipX)} ${n(tipY)} Z`
+  );
+}
+
 /** The yellow heart of the fire: a teardrop whose tip dances on its own rhythm. */
 export function flameHeartAt(phase: number, energy: number): string {
   'worklet';
@@ -264,16 +273,18 @@ export function flameHeartAt(phase: number, energy: number): string {
   const ix = FIRE_BASE_X + e * (0.7 * s(2 * t + 0.8) + 0.3 * s(5 * t));
   const iy = 11.6 + e * (1.2 * s(3 * t + 1.4) + 0.4 * s(7 * t + 0.2));
   const w = 3.6 * (1 + e * 0.06 * s(4 * t + 2.0));
-  const bottom = 21.6;
-  const r = FIRE_BASE_X + w;
-  const l = FIRE_BASE_X - w;
-  return (
-    `M ${n(ix)} ${n(iy)} ` +
-    `C ${n(ix + 0.6)} ${n(iy + 2.6)} ${n(r)} ${n(14.8)} ${n(r)} ${n(17.6)} ` +
-    `C ${n(r)} ${n(20.2)} ${n(13.8)} ${n(bottom)} ${n(FIRE_BASE_X)} ${n(bottom)} ` +
-    `C ${n(10.2)} ${n(bottom)} ${n(l)} ${n(20.2)} ${n(l)} ${n(17.6)} ` +
-    `C ${n(l)} ${n(14.8)} ${n(ix - 0.6)} ${n(iy + 2.6)} ${n(ix)} ${n(iy)} Z`
-  );
+  return teardrop(ix, iy, w, 17.6, 21.6);
+}
+
+/** The white-hot centre inside the heart (same rhythm as the heart, so it always stays inside it). */
+export function flameCoreAt(phase: number, energy: number): string {
+  'worklet';
+  const t = phase * 2 * Math.PI;
+  const e = energy;
+  const s = Math.sin;
+  const cx = FIRE_BASE_X + e * 0.5 * (0.7 * s(2 * t + 0.8) + 0.3 * s(5 * t));
+  const cy = 15.2 + e * 0.5 * (1.2 * s(3 * t + 1.4) + 0.4 * s(7 * t + 0.2));
+  return teardrop(cx, cy, 1.4, 18.4, 20.4);
 }
 
 /** Share of its own cycle a flame bit is visible (it is hidden for the rest, so the loop is seamless). */
