@@ -341,6 +341,39 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       expect((mocks.addExpense.mock.calls[0] as any)[2]).toBe('Tea and snacks');
     });
 
+    // TXN-003: "Yes, always" can always be picked on the form, but a transfer is remembered only by a descriptive
+    // note, never by amount alone. Picked without a note, the transfer is saved once and no rule is created.
+    it('self-transfer with "Yes, always" but no note is saved once: no remembered rule (TXN-003)', async () => {
+      const { useTransferRulesStore } = await import('../src/store/transferRulesStore');
+      const s = setup();
+      press(s, ['5', '0', '0']);
+      s.r().toggleSelfTransfer(true);
+      s.r().setRememberMode('always');
+      expect(s.r().canRememberTransfer).toBe(false);
+      await act(async () => {
+        await s.r().handleSave();
+      });
+      expect(useTransferRulesStore.getState().addRule).not.toHaveBeenCalled();
+      expect(mocks.addExpense).toHaveBeenCalledWith(
+        500, null, expect.any(String), 'upi', '2026-10-04', 'expense',
+        expect.objectContaining({ transactionClass: 'self_transfer', transferRuleId: null })
+      );
+    });
+
+    it('self-transfer with "Yes, always" and a descriptive note creates the remembered rule (TXN-003)', async () => {
+      const { useTransferRulesStore } = await import('../src/store/transferRulesStore');
+      const s = setup();
+      press(s, ['5', '0', '0']);
+      s.r().toggleSelfTransfer(true);
+      s.r().setRememberMode('always');
+      s.r().handleNoteChange('HDFC to SBI savings');
+      expect(s.r().canRememberTransfer).toBe(true);
+      await act(async () => {
+        await s.r().handleSave();
+      });
+      expect(useTransferRulesStore.getState().addRule).toHaveBeenCalledWith('HDFC to SBI savings', 'HDFC to SBI savings');
+    });
+
     it('does nothing when the amount is zero or a division by zero', async () => {
       const s = setupWithCategory();
       await act(async () => {

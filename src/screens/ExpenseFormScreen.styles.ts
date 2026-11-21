@@ -165,9 +165,6 @@ export const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
-  transferWrap: {
-    marginTop: Spacing.block,
-  },
   suggestionsScroll: {
     marginTop: Spacing.group,
   },
@@ -244,10 +241,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 0,
-  },
-  saveButtonKeyboard: {
-    marginTop: 0,
-    height: ControlHeight.standard,
   },
   saveButtonEnabled: {
     ...Platform.select({
