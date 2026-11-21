@@ -133,9 +133,10 @@ export default function App() {
 
     // Handle user tapping on a device notification in notification shade
     const unregisterNotif = registerNotificationResponseListener((data, response) => {
-      // A category button on an Automatic Logging notification: save it quietly, never navigate.
-      if (typeof (response as any)?.actionIdentifier === 'string' && (response as any).actionIdentifier.startsWith('cat:')) {
-        import('./src/features/autoLog/notificationActions').then((m) => m.handleCategoryResponse(response)).catch(() => {});
+      // A button on an Automatic Logging notification (category or Undo): act quietly, never navigate.
+      const actionId = (response as any)?.actionIdentifier;
+      if (typeof actionId === 'string' && (actionId.startsWith('cat:') || actionId === 'autolog:undo')) {
+        import('./src/features/autoLog/notificationActions').then((m) => m.handleNotificationAction(response)).catch(() => {});
         return;
       }
       const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;

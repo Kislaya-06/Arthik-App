@@ -24,8 +24,11 @@ In Budget Mode an empty day is a *full-allowance* day: the whole allowance rolls
 | Sunday 19:00 (≥ 3 expenses that week) | "This week: ₹4,820 spent — Food led with ₹1,900 · 12% less than last week" | "…5 of 7 days under budget · ₹850 added to your Gullak" | weekly: "Week wrap: ₹5,200 of ₹7,000 — ₹1,800 left…" | Recaps |
 | Last evening of month 21:00 (≥ 6 expenses) | "October: ₹32,400 spent — Top: Food ₹9,800 · 61 transactions" | "+ ₹4,150 added to your Gullak" | monthly: "October wrap: ₹X of ₹Y" | Recaps |
 | Crossing the limit (in app) | – | "Over today's limit — ₹X over: ₹A covered from Income, ₹B drawn from Gullak." | "Over this week's / month's budget" | Budget alerts (silent banner) |
+| Spending exactly the limit (in app, same alert slot) | – | "Today's budget is used up — ₹500 spent of ₹500. Nothing left for your Gullak today." (never "₹0 over") | "This week's / month's budget is used up — … Nothing left for your Gullak this week / month." | Budget alerts (silent banner) |
 | 80% used (in app) | – | in-app bell only | in-app bell only | – |
 | Next-day rollover, scheduled budget applied (in app) | – | in-app bell only | in-app bell only | – |
+
+Alerts saved before this wording (old "₹0 over" text) are rewritten once on the phone with the same new text (`fixLegacyZeroOverCopy`, notification store `version: 1` migrate). Real overspends and every other notification are left as they were.
 
 Tapping: nudge → Add Expense; recaps → Insights; Gullak / limit alerts → Savings (Home if Budget Mode is off).
 
@@ -61,13 +64,17 @@ When toggling between Pure Mode and Budget Mode, the switch takes effect tomorro
 When Automatic Logging logs a credit (while the app data is loaded) and the sender's name matches a person who still owes money, the "✓ ₹X logged" notification asks "Name owes you ₹Y. Is this their payment? Tap to answer." instead of the plain "Income" line. Name and amount are checked first, then name only. Tapping it opens the transaction, which offers "Yes, settle it". When the app data is not loaded (app closed) the normal notification is sent and the transaction screen asks the same question. Arthik never settles by itself. If "income" was remembered for that sender, such a credit is no longer logged automatically: it waits in review and the "needs review" notification asks the same "Name owes you ₹Y. Is this their payment?" question (SPL-005 point 7).
 
 ## Automatic Logging: choose a category from the notification
-When Automatic Logging logs an **expense** with no known category, the "✓ ₹X logged" notification shows up to **3 action buttons** with the user's most used expense categories (Android's limit is 3; notifications cannot be swiped or dragged, so buttons are the way).
+When Automatic Logging logs an **expense** with no known category, the "✓ ₹X logged" notification shows the user's **2 most used expense categories** plus **Undo** (Android's limit is 3 buttons; notifications cannot be swiped or dragged, so buttons are the way). Every other "logged" notification (known category, income, money-back question, no saved categories) shows **Undo** only (`AUT-007`).
+- **Undo** (`autolog:undo`) removes that transaction without opening the app and keeps the message ignored so it is never logged again; a second tap does nothing. If it cannot be removed (offline with the app closed) the notification becomes "Could not undo. Tap to remove it in Arthik.".
 - Tapping a button saves the category (only the category: `setTransactionCategory`), removes the notification and never opens the app. Tapping the notification body still opens the transaction.
 - The top categories come from `pickQuickCategories` (`src/lib/quickCategoryPick.ts`: most used first, newest breaks ties, filled from the category list for new users, never income categories). `startQuickCategorySync` (`src/lib/quickCategories.ts`) saves them on the phone (`@arthik_quick_categories_<userId>`) so they exist while the app is closed.
 - Buttons are registered as a notification category named from the set of category ids (`arthik-autolog-cat-<hash>`); button ids are `cat:<categoryId>`; the notification data carries `eventId` and `expenseId`.
-- App closed or in background: background task `arthik-autolog-notification-action` (`background.ts`) runs `handleCategoryResponse`. App open: the same handler runs from the notification listener in `App.tsx` and does not navigate. Running twice is harmless.
-- No buttons for income, money-back questions (SPL-005), an already known category, or when no categories are saved yet. If the save fails (for example offline) the notification becomes "Category not saved. Tap to choose it in Arthik." and the transaction stays in Review as "Logged · choose a category".
+- App closed or in background: background task `arthik-autolog-notification-action` (`background.ts`) runs `handleNotificationAction` (category or Undo). App open: the same handler runs from the notification listener in `App.tsx` and does not navigate. Running twice is harmless.
+- No category buttons for income, money-back questions (SPL-005), an already known category, or when no categories are saved yet. If the save fails (for example offline) the notification becomes "Category not saved. Tap to choose it in Arthik." and the transaction stays in Review as "Logged · choose a category".
 - The merchant is NOT remembered from a button tap (same default as the Review screen).
+
+## Automatic Logging: weekly summary
+On the first check of a new week (weeks start Monday), Automatic Logging sends one notification about the week before: "Your week with Automatic Logging · N payments logged for you · M need your review." (or "Nothing to review."). It is also saved in the in-app bell (type `autolog_digest`, tap opens Automatic Logging). The first week after setup / the update only records the week; nothing is sent for an empty week or when notifications are off for that check. Channel: Automatic Logging. Code: `digest.ts`, `service.processQueue`, `notify.notifyWeeklyDigest`.
 
 ## How it stays true
 `notificationSync.ts` rebuilds the whole plan from the latest data (3 s after any expense / budget change, on app foreground, after login) and replaces the OS schedule; an identical plan is not rescheduled. Logging an expense therefore cancels tonight's nudge immediately.

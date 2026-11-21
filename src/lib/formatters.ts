@@ -9,18 +9,29 @@ import { parseISO } from 'date-fns/parseISO';
  */
 export const round2 = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
 
-const inCurrencyFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+const wholeRupeeFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+const paiseFormatter = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * Formats a non-negative amount with Indian grouping and no ₹ sign.
+ * Whole rupees show no decimals; an amount with paise always shows two digits (never a lone ".5").
+ * e.g. 125000 → "1,25,000", 1250.5 → "1,250.50", 52000.004 → "52,000"
+ */
+export const formatRupeeNumber = (abs: number): string => {
+  const r = round2(abs);
+  return Number.isInteger(r) ? wholeRupeeFormatter.format(r) : paiseFormatter.format(r);
+};
 
 /**
  * Formats a number as Indian Rupee currency string.
- * Preserves decimals if present (up to 2 decimal places), otherwise formats as whole number.
- * e.g. 52000.75 → "₹52,000.75", 52000 → "₹52,000"
+ * Whole rupees show no decimals; an amount with paise shows exactly 2 decimal places.
+ * e.g. 52000.75 → "₹52,000.75", 13834.5 → "₹13,834.50", 52000 → "₹52,000"
  */
 export const formatCurrency = (n: number): string => {
   const val = Number(n) || 0;
   const isNeg = val < 0;
   const absVal = Math.abs(val);
-  const formatted = inCurrencyFormatter.format(absVal);
+  const formatted = formatRupeeNumber(absVal);
   return (isNeg ? '-₹' : '₹') + formatted;
 };
 

@@ -35,15 +35,17 @@ beforeEach(() => {
 });
 
 describe('Automatic Logging notification: category buttons', () => {
-  it('adds one button per top category when an expense was logged without a category', async () => {
+  it('adds the top 2 categories and Undo when an expense was logged without a category (Android shows 3 buttons)', async () => {
+    saved = [{ id: 'food', name: 'Food' }, { id: 'bills', name: 'A very long category name' }, { id: 'travel', name: 'Travel' }];
     await notifyLogged('ev1', 250, 'Zomato', 'ex1', false, null, true);
     const req = scheduled[0];
     expect(req.identifier).toBe('autolog-ev1');
     expect(req.content.data).toMatchObject({ type: 'autolog', eventId: 'ev1', expenseId: 'ex1', screen: 'ExpenseDetail' });
     const actions = categories[req.content.categoryIdentifier];
-    expect(actions.map((a) => a.identifier)).toEqual(['cat:food', 'cat:travel', 'cat:bills']);
+    expect(actions.map((a) => a.identifier)).toEqual(['cat:food', 'cat:bills', 'autolog:undo']);
     expect(actions.every((a) => a.options.opensAppToForeground === false)).toBe(true);
-    expect(actions[2].buttonTitle.length).toBeLessThanOrEqual(16);
+    expect(actions[1].buttonTitle.length).toBeLessThanOrEqual(16);
+    expect(actions[2].buttonTitle).toBe('Undo');
     expect(req.content.body).toContain('Choose a category');
   });
 
@@ -56,23 +58,25 @@ describe('Automatic Logging notification: category buttons', () => {
     expect(scheduled[2].content.categoryIdentifier).not.toBe(scheduled[0].content.categoryIdentifier);
   });
 
-  it('adds no buttons when the category is already known', async () => {
+  const buttonsOf = (req: any) => (categories[req.content.categoryIdentifier] ?? []).map((a: any) => a.identifier);
+
+  it('adds only Undo when the category is already known', async () => {
     await notifyLogged('ev1', 250, 'Zomato', 'ex1', false, null, false);
-    expect(scheduled[0].content.categoryIdentifier).toBeUndefined();
+    expect(buttonsOf(scheduled[0])).toEqual(['autolog:undo']);
     expect(scheduled[0].content.body).toContain('Automatically detected');
   });
 
-  it('adds no buttons for income or for a money-back question', async () => {
+  it('adds only Undo for income or for a money-back question', async () => {
     await notifyLogged('ev1', 500, 'Raj', 'ex1', true, null, true);
     await notifyLogged('ev2', 500, 'Raj', 'ex2', true, 'Raj owes you ₹500. Is this their payment?', true);
-    expect(scheduled[0].content.categoryIdentifier).toBeUndefined();
-    expect(scheduled[1].content.categoryIdentifier).toBeUndefined();
+    expect(buttonsOf(scheduled[0])).toEqual(['autolog:undo']);
+    expect(buttonsOf(scheduled[1])).toEqual(['autolog:undo']);
   });
 
-  it('keeps the old notification when there are no saved categories yet', async () => {
+  it('adds only Undo when there are no saved categories yet', async () => {
     saved = [];
     await notifyLogged('ev1', 250, 'Zomato', 'ex1', false, null, true);
-    expect(scheduled[0].content.categoryIdentifier).toBeUndefined();
+    expect(buttonsOf(scheduled[0])).toEqual(['autolog:undo']);
     expect(scheduled[0].content.body).toContain('Automatically detected');
   });
 

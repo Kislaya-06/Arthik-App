@@ -476,6 +476,8 @@ Native modules and regex recognize canonical Indian bank alert sender domains an
 
 Emails from unrecognized personal senders or non-whitelisted domains are ignored or routed to review with `reviewReason: 'unknown_sender'`.
 
+Bank-branded companies that are not the bank ("SBI Mutual Fund", "HDFC Life", "ICICI Lombard") are `third_party` senders (`AUT-005`, `senders.resolveEmailSender`): their emails never create an account, a transaction or a review; they are kept as evidence only.
+
 ---
 
 ## 33. Account Filtering Sovereignty

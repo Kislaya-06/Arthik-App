@@ -34,6 +34,14 @@ const ensureChannel = async () => {
 
 /** Action button ids look like `cat:<categoryId>`. Used by background.ts and App.tsx to recognise a category tap. */
 export const CATEGORY_ACTION_PREFIX = 'cat:';
+/** "Undo" on a logged notification: removes that transaction without opening the app. */
+export const UNDO_ACTION_ID = 'autolog:undo';
+/** Android shows at most 3 buttons: up to 2 categories + Undo. */
+const MAX_CATEGORY_BUTTONS = 2;
+
+/** True for every button Automatic Logging puts on its notifications (category or Undo). */
+export const isAutoLogActionId = (id: unknown): boolean =>
+  typeof id === 'string' && (id.startsWith(CATEGORY_ACTION_PREFIX) || id === UNDO_ACTION_ID);
 
 /** Notification id of an event (the same id is reused so the notification updates in place). */
 export const notificationIdFor = (eventKey: string) => `autolog-${eventKey}`;
@@ -50,24 +58,25 @@ const hashIds = (ids: string[]) => {
 };
 
 /**
- * Registers the buttons for these categories and returns the notification category id to attach.
+ * Registers the buttons (categories, then Undo) and returns the notification category id to attach.
  * Android builds the buttons from the category when the notification is posted, so every distinct set of
- * categories gets its own id (a later change to the user's top categories never alters one already on screen).
+ * buttons gets its own id (a later change to the user's top categories never alters one already on screen).
  */
-const prepareCategoryButtons = async (list: QuickCategory[]): Promise<string | null> => {
+const prepareButtons = async (list: QuickCategory[], withUndo: boolean): Promise<string | null> => {
   const N = await getNotifications();
-  if (!N || Platform.OS !== 'android' || list.length === 0) return null;
+  if (!N || Platform.OS !== 'android' || (list.length === 0 && !withUndo)) return null;
   try {
-    const categoryId = `arthik-autolog-cat-${hashIds(list.map((c) => c.id))}`;
-    await N.setNotificationCategoryAsync(
-      categoryId,
-      list.map((c) => ({
+    const ids = [...list.map((c) => c.id), ...(withUndo ? [UNDO_ACTION_ID] : [])];
+    const categoryId = `arthik-autolog-cat-${hashIds(ids)}`;
+    await N.setNotificationCategoryAsync(categoryId, [
+      ...list.map((c) => ({
         identifier: `${CATEGORY_ACTION_PREFIX}${c.id}`,
         buttonTitle: buttonTitle(c.name),
         // The whole point: choosing a category must not open the app.
         options: { opensAppToForeground: false },
-      }))
-    );
+      })),
+      ...(withUndo ? [{ identifier: UNDO_ACTION_ID, buttonTitle: 'Undo', options: { opensAppToForeground: false } }] : []),
+    ]);
     return categoryId;
   } catch {
     return null;
@@ -89,7 +98,8 @@ const present = async (
   title: string,
   body: string,
   data: Record<string, string>,
-  categoryButtons?: QuickCategory[]
+  categoryButtons?: QuickCategory[],
+  withUndo = false
 ) => {
   const N = await getNotifications();
   if (!N) return;
@@ -97,7 +107,7 @@ const present = async (
     const perm = await N.getPermissionsAsync();
     if (perm.status !== 'granted') return;
     await ensureChannel();
-    const categoryIdentifier = categoryButtons?.length ? await prepareCategoryButtons(categoryButtons) : null;
+    const categoryIdentifier = categoryButtons?.length || withUndo ? await prepareButtons(categoryButtons ?? [], withUndo) : null;
     await N.scheduleNotificationAsync({
       identifier,
       content: {
@@ -137,7 +147,7 @@ export const notifyLogged = (
     let buttons: QuickCategory[] = [];
     if (wantsButtons) {
       const userId = await currentUserId();
-      if (userId) buttons = await loadQuickCategories(userId);
+      if (userId) buttons = (await loadQuickCategories(userId)).slice(0, MAX_CATEGORY_BUTTONS);
     }
     await present(
       notificationIdFor(key),
@@ -148,9 +158,31 @@ export const notifyLogged = (
             buttons.length ? 'Choose a category' : 'Automatically detected'
           }`,
       { screen: 'ExpenseDetail', expenseId, eventId: key },
-      buttons
+      buttons,
+      true
     );
   })();
+};
+
+/** Shown when "Undo" was tapped but the transaction could not be removed (for example no internet). */
+export const notifyUndoFailed = (key: string, expenseId: string) =>
+  present(notificationIdFor(key), 'Could not undo', 'Tap to remove it in Arthik.', { screen: 'ExpenseDetail', expenseId, eventId: key });
+
+/** Weekly summary (service.processQueue, once per new week). Also kept in the in-app bell. */
+export const notifyWeeklyDigest = async (title: string, body: string, weekKey: string) => {
+  await present(`autolog-digest-${weekKey}`, title, body, { screen: 'AutoLogCenter' });
+  try {
+    const { useNotificationStore } = await import('../../store/notificationStore');
+    useNotificationStore.getState().addNotification({
+      id: `autolog_digest_${weekKey}`,
+      title,
+      message: body,
+      type: 'autolog_digest',
+      data: { screen: 'AutoLogCenter' },
+    });
+  } catch {
+    // The bell is a convenience; the summary was still shown.
+  }
 };
 
 /** Shown when a category button was tapped but the change could not be saved (for example no internet). */

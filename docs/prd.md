@@ -106,7 +106,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 |---|---|
 | Period navigation | Weekly / Monthly / Yearly with tactile bouncy filter pills. |
 | Category breakdown | Spending split by category with dynamic palettes. |
-| Spending flow chart | Consistent green gradient flow bars with peak clarity. |
+| Spending flow chart | Consistent green gradient flow bars with peak clarity. Hidden for a week with no spending (the hero and the By Category empty state already say so). |
 | Timeline dots | Dynamic bounds derived from earliest transaction (no phantom dots). |
 
 ### 4.7 Categories ✅ Shipped
@@ -176,6 +176,8 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Human-in-the-Loop Review | Confirmed bank transactions on tracked accounts auto-log immediately; new accounts, untracked accounts, transfers, or ambiguous merchants route to `Pending Review` (`AutoLogReviewSheet`). Arthik never guesses. |
 | Swipe-to-Delete & Bulk Clear | `AutoLogReviewScreen` supports fluid swipe-to-reveal item deletion with spring physics and layout transitions, 1-tap "Clear All" bulk dismiss with confirmation, and direct discard inside `ReviewSheet` — always preserving deduplication hashes while pruning unneeded ledger rows. |
 | Reset Learned Rules | `AutoLogCenterScreen` allows 1-tap factory reset of learned merchant categories and custom ignore rules (`merchant_prefs` and `rules`) without touching tracked bank accounts or past ledger transactions. |
+| Real Accounts Only (`AUT-005`) | Only the bank that holds an account can add it to Tracked Accounts. Mutual fund, insurance and biller messages that quote the account (e.g. SBI Mutual Fund for an HDFC account) never add an account or log money; a bank writing from several headers (slice) shows once; accounts saved wrongly by older versions are cleaned once on the phone; "Not my account" hides any account for good (`senders.ts`, `accounts.ts`). |
+| Smarter Logging (`AUT-006`, `AUT-007`) | Bank alerts without an account number are logged when the user has one account at that bank; categories are learned from the user's own entries; every "logged" notification has Undo; a weekly summary notification; account nicknames, "Recommended" accounts in setup, and phone-maker Autostart steps. |
 | Historical Discovery Scanner | Scans past SMS on-device up to 90 days to discover bank accounts and formats before turning live tracking ON. |
 | AutoLog UI Suite | Comprehensive screens: `AutoLogCenterScreen`, `AutoLogSetupScreen`, `AutoLogReviewScreen`, `AutoLogIntroScreen`, `AutoLogInfoScreen`, `AutoLogAccountsScreen`, `AutoLogEmailScreen`. |
 

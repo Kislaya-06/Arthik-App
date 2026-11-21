@@ -1,6 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
 import { ArthikAutoLog, isAutoLogNativeAvailable } from '../../../modules/arthik-autolog';
 import * as db from './db';
+import { recommendedAccountKeys as recommendedKeys, tidyAccounts as tidyAccountList } from './accounts';
+import { weekStartOf, weeklyDigestCopy } from './digest';
+import { bankNameOf, canonicalBankCode } from './senders';
 import { flushQueued, processEmail, processSms, RawSms, smsFingerprint, sweepAwaiting } from './engine';
 import { DISCOVERY_DAYS, DISCOVERY_MAX_MESSAGES } from './matching';
 import { hasSmsPermission } from './permissions';
@@ -20,6 +23,12 @@ const serial = <T>(fn: () => Promise<T>): Promise<T> => {
 };
 
 const DAY = 86400_000;
+/** Bump when the account cleanup rules change, so every phone runs the cleanup once more (AUT-005). */
+const ACCOUNT_TIDY_VERSION = '1';
+/** Discovery writes this many messages per database transaction (one disk sync per batch, not per message). */
+const DISCOVERY_BATCH = 200;
+/** Longest nickname the user can give an account. */
+export const NICKNAME_MAX = 24;
 const dismissKey = (userId: string) => `arthik_autolog_dataloss_dismissed_${userId.replace(/[^a-zA-Z0-9]/g, '')}`;
 
 export const isSupported = () => isAutoLogNativeAvailable();
@@ -225,10 +234,13 @@ export const processQueue = (userId: string, opts: { notify: boolean } = { notif
       upsertRemoteProfile(userId, { last_active_at: new Date(now).toISOString() });
     }
     const lastPrune = (await db.getMetaNum('last_prune')) ?? 0;
+    const tidyDue = (await db.getMeta('accounts_tidy')) !== ACCOUNT_TIDY_VERSION;
     if (now - lastPrune > DAY) {
       await db.setMeta('last_prune', String(now));
       await db.pruneOldEvents(now - 180 * DAY);
     }
+    if (tidyDue || now - lastPrune > DAY) await tidyAndSync(userId);
+    await maybeSendWeeklyDigest(now, opts.notify);
     return true;
   });
 
@@ -278,7 +290,7 @@ const scan = async (
     logged: 0, needsReview: 0, matched: 0, found: 0,
   };
   const suspiciousIds: string[] = [];
-  for (let i = 0; i < collected.length; i++) {
+  const handle = async (i: number) => {
     const r = await processSms(collected[i], { origin, notify: false });
     if (r.learnedTemplate) summary.formatsLearned++;
     if (origin === 'discovery' && r.reviewReason === 'unrecognized' && r.eventId) suspiciousIds.push(r.eventId);
@@ -288,8 +300,23 @@ const scan = async (
       if (r.status === 'transfer') summary.found++;
     }
     if (i % 25 === 0) onProgress?.({ checked: total, total, phase: 'understanding' });
+  };
+  if (origin === 'discovery') {
+    // Discovery only writes to the local database (never the ledger or the network), so a batch can be one
+    // transaction: much faster on a phone, and a crash never leaves a half-written batch.
+    for (let start = 0; start < collected.length; start += DISCOVERY_BATCH) {
+      const end = Math.min(start + DISCOVERY_BATCH, collected.length);
+      await db.inTransaction(async () => {
+        for (let i = start; i < end; i++) await handle(i);
+      });
+    }
+  } else {
+    // Recovery may create transactions (ledger / network): one message at a time, never inside a transaction.
+    for (let i = 0; i < collected.length; i++) await handle(i);
   }
   summary.matched = summary.logged;
+  // Messages are read oldest first, so an unknown sender may have been seen before the bank it quotes.
+  await tidyAndSync(userId);
   summary.newAccountKeys = (await db.listAccounts()).map((a) => a.key).filter((k) => !before0.has(k));
   // Most recent suspicious messages first, at most 12 — reviewing should feel finite.
   const sus: AutoLogEvent[] = [];
@@ -326,7 +353,10 @@ export const completeSetup = (
     const all = await db.listAccounts();
     for (const a of all) await db.setAccountTracked(a.key, opts.trackedKeys.includes(a.key));
     for (const k of opts.keepAccounts) {
-      await db.upsertAccountManual({ key: `${k.bankCode}:${k.last4}`, bank: k.bank, bankCode: k.bankCode, last4: k.last4, kind: k.kind }, true);
+      // A backup saved by an older version may name the bank by an old code ("SLCBNK") → its real bank.
+      const code = canonicalBankCode(k.bankCode);
+      const bank = code === k.bankCode ? k.bank : bankNameOf(code);
+      await db.upsertAccountManual({ key: `${code}:${k.last4}`, bank, bankCode: code, last4: k.last4, kind: k.kind }, true);
     }
     const now = Date.now();
     await db.setMeta('setup_complete', '1');
@@ -412,6 +442,88 @@ export const setTracked = (userId: string, key: string, tracked: boolean) =>
     await db.setAccountTracked(key, tracked);
     await syncRemoteAccounts(userId);
   });
+
+/** Runs the account cleanup (AUT-005) and re-syncs the tracked list when it changed. Call inside `serial`. */
+const tidyAndSync = async (userId: string) => {
+  try {
+    const changed = await tidyAccountList();
+    await db.setMeta('accounts_tidy', ACCOUNT_TIDY_VERSION);
+    if (changed && (await db.getMeta('setup_complete')) === '1') await syncRemoteAccounts(userId);
+    return changed;
+  } catch (err) {
+    if (__DEV__) console.warn('[AutoLog] account cleanup failed:', err);
+    return false;
+  }
+};
+
+export const tidyAccounts = (userId: string) =>
+  serial(async () => {
+    await db.openDb(userId);
+    return tidyAndSync(userId);
+  });
+
+/**
+ * Weekly summary: on the first check of a new week (Monday start), one notification about the week before.
+ * The first week after setup / this update only records the week; quiet when nothing happened or notify is off.
+ */
+const maybeSendWeeklyDigest = async (now: number, notify: boolean) => {
+  const week = weekStartOf(now);
+  const seen = await db.getMetaNum('digest_week');
+  if (seen === week) return;
+  await db.setMeta('digest_week', String(week));
+  if (seen == null || !notify) return;
+  const previous = weekStartOf(week - 1);
+  const copy = weeklyDigestCopy({ logged: await db.loggedBetween(previous, week), pending: await db.countPending() });
+  if (!copy) return;
+  const { notifyWeeklyDigest } = await import('./notify');
+  await notifyWeeklyDigest(copy.title, copy.body, String(week));
+};
+
+/** Accounts worth suggesting in setup (showed a balance or seen often). Never selects or tracks them. */
+export const recommendedAccountKeys = async (userId: string): Promise<string[]> => {
+  await db.openDb(userId);
+  return recommendedKeys();
+};
+
+/** The user's own name for an account. Blank clears it; longer than NICKNAME_MAX is cut. Stays on this phone. */
+export const renameAccount = (userId: string, key: string, name: string) =>
+  serial(async () => {
+    await db.openDb(userId);
+    const clean = name.replace(/\s+/g, ' ').trim().slice(0, NICKNAME_MAX).trim();
+    await db.setAccountNickname(key, clean || null);
+  });
+
+/** The phone-maker Autostart steps are shown until the user taps "Done" (kept per user on this phone). */
+export const isAutostartGuideDone = async (userId: string): Promise<boolean> => {
+  await db.openDb(userId);
+  return (await db.getMeta('autostart_guide_done')) === '1';
+};
+
+export const markAutostartGuideDone = (userId: string) =>
+  serial(async () => {
+    await db.openDb(userId);
+    await db.setMeta('autostart_guide_done', '1');
+  });
+
+/** "Not my account": hidden for good, never logged, never re-added by new messages (AUT-005). */
+export const hideAccount = (userId: string, key: string) =>
+  serial(async () => {
+    await db.openDb(userId);
+    await db.setAccountHidden(key, true);
+    await syncRemoteAccounts(userId);
+  });
+
+/** Shows a hidden account again. It stays off until the user turns it on. */
+export const unhideAccount = (userId: string, key: string) =>
+  serial(async () => {
+    await db.openDb(userId);
+    await db.setAccountHidden(key, false);
+  });
+
+export const listHiddenAccounts = async (userId: string): Promise<TrackedAccount[]> => {
+  await db.openDb(userId);
+  return db.listHiddenAccounts();
+};
 
 export const removeTrackedAccount = (userId: string, key: string) =>
   serial(async () => {

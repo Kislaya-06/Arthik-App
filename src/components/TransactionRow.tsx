@@ -13,6 +13,7 @@ import { ItemRowShell } from './ui/ItemRowShell';
 import { isRecoveryClass } from '../lib/transactionUtils';
 import { grossAmountOf } from '../lib/splitLedger';
 import { formatCurrency } from '../lib/formatters';
+import { historyRowTimeLabel } from '../lib/historyRows';
 
 export type TxRowProps = {
   expense: Expense;
@@ -23,6 +24,8 @@ export type TxRowProps = {
   onPress?: () => void;
   phaseAOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
   phaseATranslateY?: Animated.AnimatedInterpolation<number> | Animated.Value;
+  /** 'historyTime': under a History day heading, show only the time it was logged (never the date again). */
+  dateMode?: 'date' | 'historyTime';
 };
 
 const TransactionRowBase: React.FC<TxRowProps> = ({
@@ -34,11 +37,13 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
   onPress,
   phaseAOpacity,
   phaseATranslateY,
+  dateMode = 'date',
 }) => {
   const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : (isIncome ? Wallet : DollarSign);
   const catColor = category?.color ?? (isIncome ? '#ADEBB3' : '#FFD3AC');
 
   const dateStr = useMemo(() => {
+    if (dateMode === 'historyTime') return historyRowTimeLabel(expense.expense_date, expense.created_at);
     try {
       if (expense.created_at) {
         const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -50,7 +55,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
     } catch {
       return expense.expense_date;
     }
-  }, [expense.expense_date, expense.created_at]);
+  }, [expense.expense_date, expense.created_at, dateMode]);
 
   const modeLabel =
     expense.payment_mode === 'upi'

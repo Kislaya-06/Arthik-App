@@ -268,7 +268,7 @@ Self-transfers are identified ONLY by `transaction_class === 'self_transfer'` (`
 Insights breathing strips reconcile savings across all budget cadences without relying on nonexistent daily records for non-daily modes:
 - **Weekly & Monthly Cadence Savings**: Weekly and Monthly insights aggregate finalized savings directly from `budget_periods` (`status === 'saved'`). Cross-month weekly periods attribute their savings at `activeEnd` matching true cash accounting rollovers.
 - **Mid-Interval Cadence Switching**: Daily records and period slices combine additively (`autoSaved = dailySaved + periodSaved`) ensuring zero data loss and exact reconciliation.
-- **Option 2 (Month Budget Share %)**: When monthly cadence users view the Weekly Insights tab, the second card renders `MONTH BUDGET SHARE` (showing current week's spend percentage of total monthly pool, status badge `🟢 On Track` / `⚠️ High Burn`, and contextual subtext `₹X of ₹Y pool`) paired with cadence-aware discipline takeaways.
+- **Option 2 (Month Budget Share %)**: When monthly cadence users view the Weekly Insights tab, the second card renders `MONTH BUDGET SHARE` (showing current week's spend percentage of total monthly pool, status badge `On Track` (mint dot, ≤ 25%) / `High Burn` (coral dot, > 25%) / `Critical Burn` (coral dot, > 50%), drawn icons instead of emoji (`pillIcon`, INS-002), and contextual subtext `₹X of ₹Y pool`) paired with cadence-aware discipline takeaways.
 
 ---
 
@@ -356,7 +356,7 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage (latest run, 20 Nov 2026)**: 190 test files, 2,666 tests (Node 22+). Earlier snapshot, v2.1.0: 120 test files, 1777 tests. Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
+**Coverage (latest run, 21 Nov 2026)**: 200 test files, 2,764 tests (Node 22+), plus 12 Kotlin JUnit tests for the Automatic Logging privacy gate `FinancialFilter` (`npm run test:native`, module unchanged). Earlier snapshot, v2.1.0: 120 test files, 1777 tests. Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
 
 | Test file | What it covers |
 |---|---|
@@ -372,6 +372,9 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 | `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
 | `authSessionFastStart.test.ts` | OFL-001 / OPT-71: `setSession` with a saved profile finishes at once and refreshes the profile in the background; late answer never revives a signed-out user |
 | `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
+| `autoLogImprovements.test.ts` | `AUT-006` no-number bank alerts, `AUT-007` category memory + Undo, Discovery batches / rollback, recommended accounts, nickname, weekly summary |
+| `autoLogHelpers.test.ts` | Merchant keys, history category, week start + summary text, Autostart guide |
+| `autoLogAccountIdentity.test.ts` | `AUT-005`: sender roles (bank / non-bank / unknown), bank header aliases, non-bank evidence never double counts, cleanup of old accounts, "Not my account" |
 | `autoLogEmail.test.ts` | Bank email notification parsing, sender resolution, multi-source identity matching |
 | `autoLogFixes.test.ts` | Regression tests for AutoLog parser and edge cases |
 | `autoLogFlows.test.ts` | End-to-end AutoLog engine, review dismissal/discard, bulk clear, learned rules reset |

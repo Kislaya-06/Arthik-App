@@ -338,10 +338,45 @@ export interface LimitCopyInput {
 
 const PERIOD_WORD: Record<Cadence, string> = { daily: "today's", weekly: "this week's", monthly: "this month's" };
 
+const LEGACY_ZERO_OVER: Array<{ title: string; re: RegExp; cadence: Cadence }> = [
+  { title: "Over today's limit", re: /^(₹[\d,.]+) spent of (₹[\d,.]+) — ₹0 over\. Today won't add to your Gullak\.$/, cadence: 'daily' },
+  { title: "Over this week's budget", re: /^(₹[\d,.]+) of (₹[\d,.]+) — ₹0 over\.$/, cadence: 'weekly' },
+  { title: "Over this month's budget", re: /^(₹[\d,.]+) of (₹[\d,.]+) — ₹0 over\.$/, cadence: 'monthly' },
+];
+
+/**
+ * NOT-001: alerts saved before the "used up" wording said "₹0 over". Rewrites only those, with the same text a
+ * new alert gets (`limitCopy`); every other notification is returned as the same object.
+ */
+export function fixLegacyZeroOverCopy<T extends { type: string; title: string; message: string }>(n: T): T {
+  if (n.type !== 'budget_exceeded') return n;
+  for (const l of LEGACY_ZERO_OVER) {
+    const m = n.title === l.title ? l.re.exec(n.message) : null;
+    if (!m) continue;
+    const word = PERIOD_WORD[l.cadence];
+    const period = l.cadence === 'daily' ? 'today' : l.cadence === 'weekly' ? 'this week' : 'this month';
+    return {
+      ...n,
+      title: `${word.charAt(0).toUpperCase() + word.slice(1)} budget is used up`,
+      message: `${m[1]} spent of ${m[2]}. Nothing left for your Gullak ${period}.`,
+    };
+  }
+  return n;
+}
+
 export function limitCopy(i: LimitCopyInput): Copy {
   const word = PERIOD_WORD[i.cadence];
   if (i.kind === 'exceeded') {
     const over = Math.max(0, i.spent - i.budget);
+    // NOT-001: spending exactly the budget is "used up", not an overspend (never "₹0 over").
+    if (Math.round(over * 100) <= 0) {
+      const period = i.cadence === 'daily' ? 'today' : i.cadence === 'weekly' ? 'this week' : 'this month';
+      const Word = word.charAt(0).toUpperCase() + word.slice(1);
+      return {
+        title: `${Word} budget is used up`,
+        body: `${money(i.spent)} spent of ${money(i.budget)}. Nothing left for your Gullak ${period}.`,
+      };
+    }
     let body = '';
     if (i.incomeCovered && i.incomeCovered > 0 && i.gullakCovered && i.gullakCovered > 0) {
       body = `${money(over)} over limit: ${money(i.incomeCovered)} covered from Income, ${money(i.gullakCovered)} drawn from Gullak.`;

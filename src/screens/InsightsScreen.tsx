@@ -530,8 +530,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {/* ── Weekly Spending Flow Section ── */}
-        {period === 'Weekly' && (
+        {/* ── Weekly Spending Flow Section (hidden for a week with no spending: 7 empty bars say nothing) ── */}
+        {period === 'Weekly' && currentTotal > 0 && (
           <View style={{ marginTop: Spacing.surface }}>
             <SpendingFlowChart
               title="Spending Flow"
@@ -553,7 +553,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={{ marginTop: Spacing.surface }}>
             <CashFlowChart
               title="Cash Flow"
-              subTitle={monthlyPeakWeek.text || format(currentInterval.start, 'MMMM yyyy')}
+              // Nothing spent: the hero already says so, the subtitle just names the month.
+              subTitle={monthlyPeakWeek.status === 'empty' || !monthlyPeakWeek.text
+                ? format(currentInterval.start, 'MMMM yyyy')
+                : monthlyPeakWeek.text}
               data={monthlyCashFlowData.weeks}
               maxAmount={monthlyCashFlowData.maxAmount}
               totalIncome={monthlyCashFlowData.totalIncome}

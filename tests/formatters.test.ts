@@ -6,6 +6,7 @@ import {
   cleanAmountString,
   formatDate,
   round2,
+  formatRupeeNumber,
 } from '../src/lib/formatters';
 
 describe('round2', () => {
@@ -53,6 +54,28 @@ describe('formatCurrency', () => {
   it('formats large numbers according to the Indian grouping system (lakhs and crores)', () => {
     // 1 crore = 1,00,00,000
     expect(formatCurrency(10000000)).toBe('₹1,00,00,000');
+  });
+
+  it('shows paise with two digits whenever an amount has paise (never a lone ".5")', () => {
+    expect(formatCurrency(13834.5)).toBe('₹13,834.50');
+    expect(formatCurrency(17.5)).toBe('₹17.50');
+    expect(formatCurrency(-0.5)).toBe('-₹0.50');
+    expect(formatCurrency(0.05)).toBe('₹0.05');
+  });
+
+  it('keeps whole rupees without decimals, also after rounding away tiny drift', () => {
+    expect(formatCurrency(52000.004)).toBe('₹52,000');
+    expect(formatCurrency(52000.999)).toBe('₹52,001');
+    expect(formatCurrency(17.500000000000004)).toBe('₹17.50');
+  });
+});
+
+describe('formatRupeeNumber (shared by formatCurrency and AmountText)', () => {
+  it('whole amount → no decimals, amount with paise → exactly two decimals', () => {
+    expect(formatRupeeNumber(125000)).toBe('1,25,000');
+    expect(formatRupeeNumber(1250.5)).toBe('1,250.50');
+    expect(formatRupeeNumber(1250.555)).toBe('1,250.56');
+    expect(formatRupeeNumber(0)).toBe('0');
   });
 });
 

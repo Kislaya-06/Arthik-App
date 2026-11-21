@@ -111,7 +111,7 @@ modules/
 src/
 ├── components/          # UI primitives (ui/), feature components, autolog/
 ├── config/              # Supabase client, theme tokens
-├── features/autoLog/    # Automatic Logging: parser, engine, encrypted DB, lifecycle, rollout
+├── features/autoLog/    # Automatic Logging: parser, sender identity, accounts, engine, encrypted DB, lifecycle, rollout
 ├── hooks/               # useExpenseForm, useSavingsDashboard, useScrollDirection, …
 ├── lib/                 # Pure domain logic (budget periods, Gullak, insights, version check, apkInstaller)
 ├── navigation/          # Root stack, tabs, navigationRef
@@ -189,6 +189,7 @@ Checks:
 ```bash
 npm run typecheck
 npm test
+npm run test:native   # Automatic Logging native (Kotlin) unit tests, needs a JDK
 ```
 
 ---

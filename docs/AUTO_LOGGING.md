@@ -26,7 +26,7 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
                service.processQueue()  ── serialised, one job at a time
                                ▼
                      engine.processSms / processEmail
-       parse → noise filter → user rules → tracked-account filter → dedupe
+       parse → noise filter → account identity (AUT-005) → user rules → tracked-account filter → dedupe
        → card bill / own transfer → cross-source match (SMS ↔ Email) → confidence
                                ▼
             logged  |  pending (Pending Review)  |  ignored / transfer / merged
@@ -38,7 +38,12 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Path | Role |
 |---|---|
 | `modules/arthik-autolog/` | Local Expo module (Kotlin): SMS read/receive, email notification listener, queue, headless service, settings intents. Autolinked from `./modules`. |
-| `src/features/autoLog/parser.ts` | Pure SMS + email parsers, templates, masking. Unit-tested. |
+| `src/features/autoLog/parser.ts` | Pure SMS + email parsers, templates, masking, `mentionsBalance`. Unit-tested. |
+| `src/features/autoLog/senders.ts` | Who sent a message (`AUT-005`): bank registry with every header of a bank (aliases), non-bank companies (funds, insurers, brokers), `resolveBank` / `resolveEmailSender` (re-exported by `parser.ts`), `canonicalAccountKey`. |
+| `src/features/autoLog/accounts.ts` | Account identity (`AUT-005`): `messageAccountRole` (may this message own the account?), `accountForDigits`, `tidyAccounts` (cleanup of accounts saved by older versions); `soleBankAccount` (`AUT-006`); `recommendedAccountKeys` (setup hint). |
+| `src/features/autoLog/merchants.ts` | `merchantKey` (one key per merchant: company words, gateways and web parts removed; old key still read), `categoryFromHistory` (`AUT-007`). |
+| `src/features/autoLog/digest.ts` | Weekly summary: `weekStartOf` (Monday), `weeklyDigestCopy`. |
+| `src/features/autoLog/autostart.ts` | Phone-maker Autostart steps (`autostartGuide`), shown by `components/autolog/AutostartGuideCard.tsx`. |
 | `src/features/autoLog/matching.ts` | Pure matching rules + time windows. Unit-tested. |
 | `src/features/autoLog/db.ts` | Encrypted SQLite (SQLCipher) per user. Key in SecureStore. |
 | `src/features/autoLog/engine.ts` | The decision pipeline. |
@@ -53,7 +58,8 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | `src/features/autoLog/remote.ts` | `autolog_profiles` table (no message content). |
 | `src/features/autoLog/rollout.ts` | Beta rollout: `app_config.feature_flags.autolog` audience, existing-user detection, one-time intro. |
 | `src/screens/autolog/*` | Center, Setup, Welcome Back, Pending Review, Accounts, Info/Privacy, Email. |
-| `src/components/autolog/*` | Shared UI, ReviewSheet, WhyLoggedCard, HomeBanner, Gate, EmailSourceInfo. |
+| `src/components/autolog/*` | Shared UI, ReviewSheet, WhyLoggedCard, HomeBanner, Gate, EmailSourceInfo, RenameAccountSheet, AutostartGuideCard. |
+| `modules/arthik-autolog/jvm-test/` | JVM unit tests for `FinancialFilter.kt` (the native privacy gate, no Android types), run with `npm run test:native`. Outside the native module and never packaged, so it needs no new APK. |
 
 ## 5. Key rules → where they live
 | Rule (spec §) | Code |
@@ -68,6 +74,14 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Legacy Previews Quietly Resolved | `engine.sweepAwaiting` gracefully reconciles any lingering `awaiting_sms` events with confirmed SMS/Email, or sets them to `ignored` without generating phantom review alerts. |
 | Own transfer / card bill not expense (§38.4) | `engine.processSms` / `processEmail` transfer block, `isOwnTransferPair` |
 | Only tracked accounts (§7, trust rule 4) | new accounts inserted with `tracked = 0`, shown as "New account found" |
+| Only the account's own bank creates an account (`AUT-005`) | see §5a |
+| Bank alert without account number (`AUT-006`) | `accounts.soleBankAccount`: the one visible account of that kind at that bank, if tracked; otherwise review "Which account?" |
+| Category learned from the user (`AUT-007`) | remembered merchant preference (`db.getMerchantPref`, normalised key, old key still read) → `ledger.historyCategoryFor` (2+ own entries, ≥ 60%) → ask |
+| Undo from the notification (`AUT-007`) | "logged" notification buttons: up to 2 categories + **Undo** (`notify.ts`, `UNDO_ACTION_ID`); `notificationActions.applyUndoTap` deletes the transaction, marks the event ignored, safe twice; failure → "Could not undo" |
+| Discovery speed | `service.scan` writes Discovery in batches of 200 inside one database transaction (`db.inTransaction`, rolled back on error). Recovery never uses a transaction (it may call the ledger / network). |
+| Weekly summary | `service.processQueue` → once per new week (Monday), about the week before: "N payments logged for you · M need your review" (`digest.ts`, `notify.notifyWeeklyDigest`, also in the in-app bell as `autolog_digest`). The first week only records the week; quiet on empty weeks or when notify is off. |
+| Account nickname & recommended | `accounts.nickname` (schema 3, phone only, ≤ 24 characters, `service.renameAccount`) shown by `copy.accountLabel`; setup shows "Recommended" (balance seen or 3+ messages) and "Select recommended", never pre-selected. |
+| Autostart guide | Center card with the phone maker's steps (Xiaomi / Redmi / POCO, OPPO / realme / OnePlus, vivo / iQOO, Samsung, Huawei / Honor, ASUS) and "Open settings"; hidden after "Done" (meta `autostart_guide_done`). |
 | Narrow ignore rules (§11) | `rules` table: exact fingerprint or exact template; never amount-based |
 | Unknown merchant → ask category (§17) | logged with `needs_category = 1` → appears in Pending Review |
 | Money back from a person (`SPL-005`) | A logged credit can be a friend paying back. `ledger.moneyBackQuestionFor` (name + amount first, then name only) adds "X owes you ₹Y. Is this their payment?" to the notification while the app data is loaded; `ReviewSheet` lists everyone who owes money ("Paid back by someone?", name matches first) and `ExpenseDetailScreen` / `MoneyBackSheet` ask the same question for any logged income. Arthik only asks, never settles by itself. Tapping a person only CHOOSES them (nothing is chosen by itself; a likely match just gets a "Likely match" tag) and the footer button becomes "Settle with <person> · ₹X"; pressing it completes the review without asking for a category (SPL-005 points 5–6, ADR 0017 and 0018). More money than owed: a note says the extra stays income. A remembered "income" preference does not auto-log a credit from a person who still owes money: `engine.paybackHoldQuestion` + `paybackGuard.shouldHoldCreditForPayback` send it to review with the settle question (SPL-005 point 7). A debit review also has "Expense, split with someone" (`SPL-001`). |
@@ -80,8 +94,20 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | Account Deletion Factory Wipe | `authStore.deleteAccount`: physically unlinks encrypted SQLite DB (`deleteLocalData(userId)`), purges SecureStore encryption keys, and executes `AsyncStorage.clear()`. |
 | Clear cache keeps state (§36) | DB lives in app data, not cache |
 
+## 5a. Account identity (`AUT-005`)
+Only the bank that holds an account sends its alerts (UPI apps and handles like `@ybl` / `@oksbi` never do). Funds, insurers and billers also quote "your A/c XX1234", often under a header with a bank's name in it (`SBIMFS` = SBI Mutual Fund). Four layers keep the account list real:
+
+| Layer | What | Code |
+|---|---|---|
+| 1. Who sent it | `bank` / `third_party` / `unknown` per header. All headers of one bank map to one code (slice: `SLCBNK`, `SLICE…`, `NESFB…` → `SLICE`). A header that continues a bank's name with a company suffix (`MF`, `AMC`, `LI`, `GEN`, `ERG`, `LOM`, `SEC`, `CAP`, `PRU`, `MET`, `HFL`…) is that company, not the bank. Emails: a bank name plus "Mutual Fund", "Life", "Insurance"… is `third_party`. | `senders.ts` |
+| 2. Only the bank creates an account | `messageAccountRole`: bank → owner; third party → evidence; unknown → owner only if it already owns the account, shows the balance (`mentionsBalance`), or no other account has those digits. Evidence is stored `ignored` under `accountForDigits` (live only) and never becomes a transaction or a review, so a SIP debit plus the bank's own alert log once. | `accounts.ts`, `engine.recordEvidence` |
+| 3. Cleanup of old data | `tidyAccounts`: old code of a known bank → merged into the bank's account (`db.moveAccount`, tracked if either was); accounts only non-bank senders named (sender read from the event template) → removed even if tracked; untracked unknown-header accounts sharing digits with a known bank's account and never showing a balance → removed. Messages move to the one account with those digits (`db.reassignEvents`). Runs once per `ACCOUNT_TIDY_VERSION` (meta `accounts_tidy`), daily, and at the end of every Discovery / Recovery scan; re-syncs `autolog_profiles.tracked_accounts` when something changed. Restoring a backup (`completeSetup.keepAccounts`, Setup `keyOf`) uses `canonicalAccountKey`. | `accounts.ts`, `service.tidyAndSync` |
+| 4. "Not my account" | `accounts.hidden` (schema 2, added on open by `db.migrate`). `service.hideAccount` hides and stops tracking; `listAccounts` leaves hidden ones out, so they are never listed or re-added; new messages naming them stay `untracked`. "Hidden accounts" card → `unhideAccount` (stays off). | `db.ts`, `AutoLogAccountsScreen.tsx` |
+
+Known trade-off: an unknown small bank whose account shares its last 4 digits with another account and never shows a balance is treated as evidence. The user can still see it from its own messages once one shows a balance.
+
 ## 6. Storage
-- **On device (encrypted):** events (masked text for review), accounts, rules, templates, merchant prefs, feedback. Old noise pruned after 180 days.
+- **On device (encrypted):** events (masked text for review), accounts (incl. `hidden`, `nickname`), rules, templates, merchant prefs, feedback (incl. `undo`). Old noise pruned after 180 days. Schema version 3 (columns added on open by `db.migrate`, nothing dropped).
 - **Server:** `autolog_profiles` — enabled, setup/last-active/signed-out timestamps, tracked accounts as `{bank, bankCode, last4, kind}`.
 
 ## 7. Limits and constants (`matching.ts`)
@@ -92,8 +118,12 @@ Discovery: last 90 days, max 5,000 SMS. Recovery: gaps up to 30 days (longer →
 ## 8. Tests
 - `tests/autoLogEmail.test.ts` — email source: parser, identity scoring, every multi-source scenario from the email spec.
 - `tests/autoLogParser.test.ts` — pure parser + matching rules.
+- `tests/autoLogAccountIdentity.test.ts` — `AUT-005`: sender roles, bank aliases, non-bank evidence (no double count), cleanup of old accounts, "Not my account".
+- `tests/autoLogImprovements.test.ts` — `AUT-006`, `AUT-007` (category memory, Undo), Discovery batches and rollback, recommended accounts, nickname, Autostart "Done", weekly summary.
+- `tests/autoLogHelpers.test.ts` — merchant keys, history category, week start and summary text, Autostart guide per phone maker.
+- **Native (Kotlin):** `modules/arthik-autolog/jvm-test/src/test/...` — `FinancialFilterTest` (12 tests: bank SMS kept; personal, OTP, no-money and blank messages dropped; bank email kept despite an OTP footer; security mails dropped; email app allow-list). Run with `npm run test:native` (needs a JDK on `JAVA_HOME`; the first run downloads Gradle and Kotlin). The module itself is unchanged.
 - `tests/autoLogFlows.test.ts` — the real `db.ts`, `engine.ts`, `service.ts`, `reviews.ts` running against Node's built-in SQLite (`node:sqlite`, Node 22+). Native module, ledger, server and notifications are test doubles from `tests/helpers/autoLogTestEnv.ts`. Every trust rule in spec §47 has a test.
-- Not unit-tested: the Kotlin module and the React screens — test those on a device (see `MANUAL_STEPS.md`). In dev builds the Center screen has **Developer test tools** that push fake events through the real pipeline.
+- Not unit-tested: the rest of the Kotlin module (queue file, multi-part SMS joining, email notification reading, inbox paging, headless start). Testing them needs the logic moved out of the Android classes, which is a native change (new APK), so it waits for an APK release the owner approves. Also the React screens — test those on a device (see `MANUAL_STEPS.md`). In dev builds the Center screen has **Developer test tools** that push fake events through the real pipeline.
 
 ## 9. Email notifications (v2.1)
 
@@ -106,7 +136,8 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
    (email switch ON? group summary? FinancialFilter.isFinancialEmail)
         ─► queue {type:'email'} ─► service.processQueue ─► engine.processEmail
              parseEmail (advice sentences like "never share your OTP" removed first)
-             ─► noise filter ─► rules ─► account (bank: exact key · provider/unknown: tracked last 4 if unique)
+             ─► noise filter ─► non-bank company? evidence only (AUT-005)
+             ─► rules ─► account (bank: exact key · provider/unknown: tracked last 4 if unique)
              ─► findIdentity(sms + notification + email)
                    match ─► merge as a source (or take over a waiting notification / pending item)
                    ambiguous / weak ─► Pending Review "Might be a duplicate"
@@ -122,7 +153,7 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
 | `FinancialFilter.kt` | `EMAIL_APPS`, `isFinancialEmail` |
 | `PaymentNotificationListener.kt` | `onEmailNotification` |
 | `EventQueue.kt`, `ArthikAutoLogModule.kt` | `email_enabled` switch |
-| `parser.ts` | `parseEmail`, `resolveEmailSender`, `extractTxnTime` |
+| `parser.ts` / `senders.ts` | `parseEmail`, `extractTxnTime` / `resolveEmailSender` (funds and insurers are `third_party`, never a bank email) |
 | `matching.ts` | `identityScore`, `decideIdentity`, `IDENTITY_WINDOW_MS` |
 | `engine.ts` | `processEmail`, `findIdentity`, email checks in `processSms` |
 | `service.ts` | `setEmailEnabled`, `isEmailEnabled`, `emailSupported`, queue type `email` |
@@ -133,9 +164,9 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
 
 ## 10. Known limitations (MVP)
 - Parser formats added 16 Nov 2026 (AL-01..AL-09, `tests/autoLogParser.test.ts`): loan account vs paying account, "Rs.450 Dr./Cr.", "Rs:200.00", Axis "UPI/P2M/ref/payee", card "spent ... on X", "reference number is", bank channel prefixes in names.
-- Still not read: foreign-currency spends (go to review), UPI Lite messages without an account number (ask "Which account?"). ATM withdrawals and investments are logged as normal expenses.
+- Still not read: foreign-currency spends (go to review). UPI Lite / alerts without an account number are logged only when the user has exactly one account of that kind at that bank (`AUT-006`); otherwise they ask "Which account?". ATM withdrawals and investments are logged as normal expenses.
 - Android only. iOS has no SMS access.
 - Bank SMS formats vary; unknown formats go to review and are learned from user answers.
 - Transfers are detected only when both accounts are tracked.
-- Some OEMs (Xiaomi, Oppo, Vivo, Realme) also need "Autostart" enabled; the app shows Background ⚠ but cannot open that OEM screen directly.
+- Some OEMs (Xiaomi, Oppo, Vivo, Realme) also need "Autostart" enabled; Android cannot open that OEM screen directly, so the Center shows the maker's steps and opens Arthik's App info.
 - Feedback ("Report a problem") is stored on device only; no upload.

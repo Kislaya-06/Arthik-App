@@ -13,6 +13,10 @@ vi.mock('../src/components/RollingText', () => ({
   RollingText: (props: any) => ({ type: 'RollingText', props }),
 }));
 
+vi.mock('../src/components/PiggyBankCoinIcon', () => ({
+  PiggyBankCoinIcon: (props: any) => ({ type: 'PiggyBankCoinIcon', props }),
+}));
+
 vi.mock('../src/store/themeStore', () => {
   const dummyColors = {
     card: '#FFFFFF',
@@ -37,6 +41,61 @@ import { MonthlyBreathingStrip } from '../src/components/MonthlyBreathingStrip';
 import { YearlyBreathingStrip } from '../src/components/YearlyBreathingStrip';
 
 describe('Breathing Strips (Seam: WeeklyBreathingStrip, MonthlyBreathingStrip, YearlyBreathingStrip)', () => {
+  describe('Finished periods never show a "safe daily pace" (nothing is left to pace)', () => {
+    it('weekly: a past week in Budget Mode shows its daily burn, with the finalized note', () => {
+      const el = WeeklyBreathingStrip({
+        takeaway: { text: 'Great discipline!', status: 'mint' as any },
+        isBudgetMode: true,
+        safeDailyPace: 1650,
+        isCurrentWeek: false,
+        remainingDays: 0,
+        transactionCount: 1,
+        totalWeekSavings: 1650,
+        savedDaysCount: 7,
+        weeklyDailyBurnPace: 14,
+      }) as any;
+      const left = el.props.leftTile;
+      expect(left.label).toBe('DAILY BURN');
+      expect(left.value).toBe('₹14');
+      expect(left.subtext).toBe('Finalized · Within budget');
+      expect(JSON.stringify(left)).not.toContain('1,650');
+    });
+
+    it('monthly: a past month in Budget Mode shows its daily burn', () => {
+      const el = MonthlyBreathingStrip({
+        takeaway: { text: 'Done.', status: 'mint' as any },
+        isBudgetMode: true,
+        safeDailyPace: 7500,
+        isCurrentMonth: false,
+        remainingDays: 0,
+        transactionCount: 4,
+        totalMonthSavings: 0,
+        savedDaysCount: 0,
+        isOverBudget: true,
+        monthlyDailyBurnPace: 160,
+      }) as any;
+      expect(el.props.leftTile.label).toBe('DAILY BURN');
+      expect(el.props.leftTile.value).toBe('₹160');
+      expect(el.props.leftTile.subtext).toBe('Finalized · Over budget');
+    });
+
+    it('the current week still shows the safe daily pace', () => {
+      const el = WeeklyBreathingStrip({
+        takeaway: { text: 'x', status: 'mint' as any },
+        isBudgetMode: true,
+        safeDailyPace: 450,
+        isCurrentWeek: true,
+        remainingDays: 4,
+        transactionCount: 1,
+        totalWeekSavings: 0,
+        savedDaysCount: 0,
+        weeklyDailyBurnPace: 14,
+      }) as any;
+      expect(el.props.leftTile.label).toBe('SAFE DAILY PACE');
+      expect(el.props.leftTile.value).toBe('₹450');
+    });
+  });
+
   describe('WeeklyBreathingStrip', () => {
     it('renders budget mode with safe daily pace and remaining days correctly', () => {
       const el = WeeklyBreathingStrip({
@@ -58,6 +117,9 @@ describe('Breathing Strips (Seam: WeeklyBreathingStrip, MonthlyBreathingStrip, Y
       expect(JSON.stringify(el)).toContain('450');
       expect(JSON.stringify(el)).toContain('/ day');
       expect(JSON.stringify(el)).toContain('4 days left to pace safely');
+      // INS-002: the saved pill uses the app's piggy-bank icon, never an emoji in the text.
+      expect(JSON.stringify(el)).toContain('"pillIcon":"gullak"');
+      expect(JSON.stringify(el)).not.toContain('🐷');
       // Verify right tile savings
       expect(JSON.stringify(el)).toContain('AUTO-SAVED TO GULLAK');
       expect(JSON.stringify(el)).toContain('+₹300');
@@ -185,6 +247,8 @@ describe('Breathing Strips (Seam: WeeklyBreathingStrip, MonthlyBreathingStrip, Y
       expect(JSON.stringify(el)).toContain('−₹15k');
       expect(JSON.stringify(el)).toContain('₹50k In · ₹65k Out');
       expect(JSON.stringify(el)).toContain('0 Saved Days');
+      expect(JSON.stringify(el)).toContain('"pillIcon":"gullak"');
+      expect(JSON.stringify(el)).not.toContain('🐷');
     });
 
     it('renders net outflow in pure mode when inflow is 0', () => {

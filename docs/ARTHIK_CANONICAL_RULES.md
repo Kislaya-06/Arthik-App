@@ -424,7 +424,9 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Monthly Safe Daily Pace:** `Math.round(remainingMonthlyBudget / Math.max(1, remainingDaysInMonth))`, where `remainingDaysInMonth = totalDaysInMonth - elapsedDays + 1` explicitly includes the current active day.
   3. **Display:** Rendered on both `WeeklyBreathingStrip` and `MonthlyBreathingStrip` as:
      *"Safe daily spending pace: ₹X per day with Y days remaining."*
-- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`
+  4. **Finished Periods (owner decision 2026-11-21):** The safe pace is shown only for the current week / month. A finished week or month has nothing left to pace, so its left tile shows **Daily Burn** instead: `Math.round(periodSpent / daysInPeriod)` (7 for a week, the month's day count for a month), the same number Pure Mode shows, with the note "Finalized · Within budget" or "Finalized · Over budget".
+- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`, `src/components/WeeklyBreathingStrip.tsx`, `src/components/MonthlyBreathingStrip.tsx` (`showSafePace`)
+- **Verified By:** `tests/breathingStrips.test.ts` ("Finished periods never show a safe daily pace")
 
 #### `INS-002`: Auto-Saved to Gullak Metrics & Multi-Cadence Savings Cards (Weekly & Monthly Insights)
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17; Multi-Cadence & Option 2 refined 2026-10-19)
@@ -436,13 +438,12 @@ This document is the **single authoritative canonical source of truth** for all 
      - **Monthly Cadence (Monthly Tab):** Aggregates `amountSaved` from finalized monthly `budget_periods` (`status === 'saved'`).
      - **Mid-Interval Cadence Switches:** Slices are additive (`autoSaved = dailySaved + periodSaved`) ensuring zero data loss and exact reconciliation.
   2. **Manual Deposits:** Sums all manual Gullak deposits made within the interval.
-  3. **Cadence-Aware Saved Counts & Dynamic Badges:**
-     - Daily: Tallies `savedDaysCount` with badge `🐷 X Saved Days`.
-     - Weekly (on Weekly tab or Monthly tab with weekly periods): Tallies `savedWeeksCount` with badge `🐷 X Saved Weeks`.
-     - Monthly: Tallies `savedMonthsCount` with badge `🐷 1 Saved Month`.
+  3. **Cadence-Aware Saved Counts & Dynamic Badges** (badges show the Gullak piggy-bank icon `PiggyBankCoinIcon` before the text, never an emoji; owner decision 2026-11-20):
+     - Daily: Tallies `savedDaysCount` with badge `X Saved Days`.
+     - Weekly (on Weekly tab or Monthly tab with weekly periods): Tallies `savedWeeksCount` with badge `X Saved Weeks`.
+     - Monthly: Tallies `savedMonthsCount` with badge `1 Saved Month`.
   4. **Option 2 (Month Budget Share % on Weekly Tab for Monthly Users):**
-     - When a monthly cadence user views the Weekly Insights tab, instead of an irrelevant ₹0 Gullak tile, the right card transforms into `MONTH BUDGET SHARE` displaying the week's spending percentage of the total monthly budget (`percentage%`), a status pill (`🟢 On Track` if $\le 25\%$, `⚠️ High Burn` if $> 25\%$, `🚨 Critical Burn` if $> 50\%$), and dynamic subtext (`₹X of ₹Y pool`).
-     - Accompanied by intelligent cadence-aware discipline takeaways.
+     - When a monthly cadence user views the Weekly Insights tab, instead of an irrelevant ₹0 Gullak tile, the right card transforms into `MONTH BUDGET SHARE` displaying the week's spending percentage of the total monthly budget (`percentage%`), a status pill with a coloured dot instead of an emoji (`On Track` with a mint dot if $\le 25\%$, `High Burn` with a coral dot if $> 25\%$, `Critical Burn` if $> 50\%$), and dynamic subtext (`₹X of ₹Y pool`).     - Accompanied by intelligent cadence-aware discipline takeaways.
 - **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts` (`computeWeeklyGullakSavings`, `computeWeeklyShareOfMonthlyBudget`, `computeSmartWeeklyTakeaway`), `src/lib/monthlyInsightsUtils.ts` (`computeMonthlyGullakSavings`, `computeSmartMonthlyTakeaway`), `src/components/WeeklyBreathingStrip.tsx`, `src/components/MonthlyBreathingStrip.tsx`, `src/screens/insights/useInsightsData.ts`, `src/screens/InsightsScreen.tsx`
 - **Verified By:** `tests/multiCadenceInsightsSavings.test.ts`, `tests/weeklyInsightsData.test.ts`, `tests/monthlyInsightsData.test.ts`
 
@@ -548,6 +549,34 @@ This document is the **single authoritative canonical source of truth** for all 
   3. **Hardware Keystore:** The database encryption key is randomly generated on first boot and secured in Android Keystore via `expo-secure-store`.
   4. **User Review Sovereignty:** Only after an expense is parsed and accepted (or auto-approved under strict high-confidence rules) does the clean, finalized transaction record sync to Supabase.
 - **Reference:** [`docs/AUTO_LOGGING.md#privacy-and-security`](AUTO_LOGGING.md)
+
+#### `AUT-005`: Account Identity — Only the Account's Own Bank Creates an Account
+- **Status:** `APPROVED` (Owner approved on 2026-11-21)
+- **Canonical Definition:**
+  In India only the bank that holds an account sends its debit / credit alerts. UPI apps and UPI handles (`@ybl`, `@oksbi`) never do. Mutual funds, insurers, brokers and billers also quote "your A/c XX1234", often under a header with a bank's name in it (`SBIMFS` = SBI Mutual Fund). So:
+  1. **Bank:** a message from the account's own bank (every header of that bank counts as the same bank, e.g. slice `SLCBNK` + `SLICEIT`) may create or update the account `bank:last4`.
+  2. **Not a bank:** a message from a company that is not a bank (fund, insurer, broker, lender, registrar) never creates an account, never creates a transaction and never creates a review. It is kept only as evidence under the account with the same last 4 digits. The bank's own alert logs the money, so the same debit is never counted twice.
+  3. **Unknown sender:** a header Arthik does not know may create the account only when it already owns it, the message shows the account balance / card limit (only the account's own bank knows it), or no other account has those last 4 digits (a small bank Arthik does not know yet). Otherwise it is evidence (point 2).
+  4. **Cleanup of older data:** accounts saved under an old code of a known bank are merged into the bank's account (tracked if the user tracked either). Accounts that only non-bank senders ever named are removed, even when tracked (they could only double count). Accounts from an unknown header that share their digits with a known bank's account, never showed a balance and are not tracked are removed. Their messages move to the account with the same digits when there is exactly one. Transactions already logged are never touched.
+  5. **"Not my account":** the user can hide any account. A hidden account is never listed, never logged and never re-added by new messages; it can be shown again (still untracked until the user turns it on). Hiding stops tracking.
+  6. New accounts still start untracked; nothing here ever turns tracking ON by itself (a merge keeps the user's own choice).
+- **Reference:** [`docs/AUTO_LOGGING.md`](AUTO_LOGGING.md) §5a, `src/features/autoLog/senders.ts`, `src/features/autoLog/accounts.ts`
+- **Verified By:** `tests/autoLogAccountIdentity.test.ts`
+
+#### `AUT-006`: Bank Message Without an Account Number
+- **Status:** `APPROVED` (Owner approved on 2026-11-21)
+- **Canonical Definition:**
+  Some bank alerts name no account (UPI Lite, short alerts). Such a message from the bank itself belongs to the user's only visible account of the same kind (bank account or card) at that bank, and only if that account is tracked. If the bank has two or more visible accounts of that kind (tracked or not), the kind differs (a card spend is never put on a bank account), the account is not tracked, or the sender is not a bank, nothing is guessed: the message goes to review ("Which account?"). Hidden accounts ("Not my account") do not count.
+- **Reference:** `src/features/autoLog/accounts.ts` (`soleBankAccount`), `engine.processSms`
+- **Verified By:** `tests/autoLogImprovements.test.ts`
+
+#### `AUT-007`: Automatic Category and Undo
+- **Status:** `APPROVED` (Owner approved on 2026-11-21)
+- **Canonical Definition:**
+  1. **Category:** an automatically logged transaction gets, in order, the category the user remembered for that merchant, else the category the user gave that merchant in their own saved transactions (at least 2 entries of the same type with that merchant as the note, one category on at least 60% of them), else none (the user is asked). Merchant names are compared after removing company words, payment gateways and web parts ("Zomato Private Limited", "zomato.payu" and "Zomato" are one merchant). Amount, type, date and account never change because of this.
+  2. **Undo:** every "logged" notification has an Undo button. Undo removes that one transaction and keeps the message as ignored, so it is never logged again. A transaction still waiting to be written is simply never written. If it cannot be removed (offline with the app closed), nothing changes and the user is told to remove it in the app.
+- **Reference:** `src/features/autoLog/merchants.ts`, `ledger.historyCategoryFor`, `notificationActions.applyUndoTap`
+- **Verified By:** `tests/autoLogHelpers.test.ts`, `tests/autoLogImprovements.test.ts`, `tests/autoLogNotifyButtons.test.ts`
 
 ---
 
@@ -704,5 +733,5 @@ With the owner's final approvals on 2026-10-17, this document represents the **s
 2. **Split & Money Back (`SPL`):** An expense can be shared with one or more people; money that comes back (a friend's share, a refund) is a money-back row that reduces the original expense, never income.
 3. **Status Unification:** The codebase and database use one vocabulary: `'saved' | 'missed' | 'even' | 'unknown'` (plus the never-saved in-progress marker `'active'`).
 4. **Universal Carry-Forward Law:** Carry-over unspent money never double-counts in all-time inflow. Mode A adds to spendable target; Mode B funds days with ₹0 fresh cash needed from user.
-5. **AutoLog Privacy:** Dual bank sources (SMS + Email), payment app notifications dropped, zero-knowledge encrypted on-device SQLite database (SQLCipher) with hardware Keystore. Granular specs in [`docs/AUTO_LOGGING.md`](AUTO_LOGGING.md).
+5. **AutoLog Privacy:** Dual bank sources (SMS + Email), payment app notifications dropped, only the account's own bank creates an account (`AUT-005`), no-number bank alerts only for the one account at that bank (`AUT-006`), category from the user's own history and Undo (`AUT-007`), zero-knowledge encrypted on-device SQLite database (SQLCipher) with hardware Keystore. Granular specs in [`docs/AUTO_LOGGING.md`](AUTO_LOGGING.md).
 6. **Mode Transition Scheduling (`PUR-003`):** Switching Pure Mode ↔ Budget Mode takes effect next day at 12:00 AM, protecting running budgets and midnight Gullak rollovers (new accounts on day one or accounts with 0 expenses logged switch immediately, `BPR-002` #3). Same-day reversal cleanly cancels pending schedules and inbox notices.

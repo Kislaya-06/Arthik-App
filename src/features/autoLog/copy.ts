@@ -18,7 +18,15 @@ export const STATE_COPY = {
 export const modeCopy = (mode: AutoLogMode, attention: boolean) =>
   mode === 'live' && attention ? STATE_COPY.attention : STATE_COPY[mode];
 
-export const accountLabel = (a: Pick<TrackedAccount, 'bank' | 'last4'>) => `${a.bank} ••••${a.last4}`;
+/** One-line hint under "Automatic Logging" on Profile: an action when setup is missing, else the shared title. */
+export const profileRowHint = (mode: AutoLogMode, attention: boolean): string => {
+  if (mode === 'off') return 'Log bank SMS & UPI payments automatically';
+  if (mode === 'setup_missing') return 'Tap to set it up again';
+  return modeCopy(mode, attention).title;
+};
+
+export const accountLabel = (a: Pick<TrackedAccount, 'bank' | 'last4'> & { nickname?: string | null }) =>
+  `${a.nickname || a.bank} ••••${a.last4}`;
 
 export const accountLabelFromKey = (key: string | null, accounts: TrackedAccount[]) => {
   if (!key) return null;

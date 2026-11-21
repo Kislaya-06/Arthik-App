@@ -7,6 +7,8 @@ import X from 'lucide-react-native/icons/x';
 import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
 import ArrowRight from 'lucide-react-native/icons/arrow-right';
 import Sparkles from 'lucide-react-native/icons/sparkles';
+import Calendar from 'lucide-react-native/icons/calendar';
+import { PiggyBankCoinIcon } from './PiggyBankCoinIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
@@ -249,7 +251,7 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
               ]}
             >
               <View style={styles.gullakHeaderRow}>
-                <Text style={{ fontSize: 16, marginRight: 6 }}>🪙</Text>
+                <PiggyBankCoinIcon size={16} color={colors.mintText} style={{ marginRight: 6 }} />
                 <Text style={[styles.gullakTitle, { color: colors.textPrimary }]}>Gullak</Text>
               </View>
               <Text style={[styles.gullakRowText, { color: colors.textPrimary }]}>
@@ -324,8 +326,9 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                       },
                     ]}
                   >
+                    <Calendar size={12} color={colors.textSecondary} />
                     <Text style={[styles.datePillText, { color: colors.textSecondary }]}>
-                      📅 {targetPeriodInfo.dateRange}{isToDaily ? '' : ` (${targetPeriodInfo.remainingDays} days)`}
+                      {targetPeriodInfo.dateRange}{isToDaily ? '' : ` (${targetPeriodInfo.remainingDays} days)`}
                     </Text>
                   </View>
                 </View>
@@ -691,6 +694,9 @@ const styles = StyleSheet.create({
   },
   datePill: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.micro,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.pill,

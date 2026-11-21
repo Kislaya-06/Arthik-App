@@ -59,6 +59,7 @@ export const TransactionRowItem = React.memo<TransactionRowItemProps>(({
         colors={colors}
         isDark={colors.isDark}
         onPress={handlePress}
+        dateMode="historyTime"
       />
     </SwipeableHistoryRow>
   );
@@ -113,6 +114,7 @@ export const GullakRowItem = React.memo<GullakRowItemProps>(({
           deposit={item}
           colors={colors}
           isDark={colors.isDark}
+          hideDate
         />
       </Pressable>
     </SwipeableHistoryRow>

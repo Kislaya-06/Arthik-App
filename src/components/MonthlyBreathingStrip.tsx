@@ -38,6 +38,7 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
   const { colors, isDark } = useTheme();
 
   const remainingDaysLabel = remainingDays === 1 ? '1 day' : `${remainingDays} days`;
+  const showSafePace = isBudgetMode && isCurrentMonth;
 
   const leftSubtext = isBudgetMode
     ? isCurrentMonth
@@ -53,18 +54,19 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
 
   return (
     <BreathingStripShell
-      takeawayText={takeaway.text}
+      takeawayText={takeaway.isEmptyPeriod ? null : takeaway.text}
       takeawayStatus={takeaway.status}
       leftTile={{
-        label: isBudgetMode ? 'SAFE DAILY PACE' : 'DAILY BURN',
-        value: isBudgetMode
+        // A finished month has nothing left to pace: it shows what was really spent per day instead.
+        label: showSafePace ? 'SAFE DAILY PACE' : 'DAILY BURN',
+        value: showSafePace
           ? `₹${formatAmountWithCommas(String(safeDailyPace))}`
           : `₹${formatAmountWithCommas(String(monthlyDailyBurnPace))}`,
         unit: '/ day',
         subtext: leftSubtext,
-        accessibilityLabel: isBudgetMode
+        accessibilityLabel: showSafePace
           ? `Safe daily spending pace: ${formatCurrency(safeDailyPace)} per day with ${remainingDays} days remaining.`
-          : `Average daily burn: ${formatCurrency(monthlyDailyBurnPace)} per day across ${transactionCount} transactions.`,
+          : `Average daily burn: ${formatCurrency(monthlyDailyBurnPace)} per day across ${transactionCount} transactions.${isBudgetMode ? ` ${leftSubtext}.` : ''}`,
       }}
       rightTile={{
         label: 'AUTO-SAVED TO GULLAK',
@@ -80,7 +82,8 @@ export const MonthlyBreathingStrip: React.FC<MonthlyBreathingStripProps> = ({
             : colors.textPrimary,
         pillText:
           savedPillLabel ||
-          `🐷 ${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
+          `${savedDaysCount} ${savedDaysCount === 1 ? 'Saved Day' : 'Saved Days'}`,
+        pillIcon: 'gullak',
         pillVariant: 'neutral',
         onPress: onPressSavings,
         accessibilityLabel: `Gullak savings this month: ${totalMonthSavings > 0

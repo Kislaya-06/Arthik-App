@@ -14,7 +14,8 @@ import {
   isSameSourceDuplicate,
 } from './matching';
 import * as db from './db';
-import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor, isExceedingVaultLiquidity, moneyBackQuestionFor, owingPersonMatchFor } from './ledger';
+import { accountForDigits, messageAccountRole, soleBankAccount } from './accounts';
+import { createTransaction, deleteTransaction, findManualLookalike, paymentModeFor, isExceedingVaultLiquidity, moneyBackQuestionFor, owingPersonMatchFor, historyCategoryFor } from './ledger';
 import { shouldHoldCreditForPayback } from './paybackGuard';
 import { notifyLogged, notifyNeedsReview } from './notify';
 import type { AutoLogEvent, EventOrigin, EventStatus, ParsedMessage, ReviewReason } from './types';
@@ -209,6 +210,19 @@ const finalizePending = async (e: AutoLogEvent, reason: ReviewReason, opts: Proc
   return { status: e.status, eventId: e.id, reviewReason: reason, accountKey: e.accountKey };
 };
 
+/**
+ * AUT-005: a fund, insurer, broker or biller quoting the user's account is evidence, never a transaction or a
+ * review of its own: the account's bank sends its own alert for the same money (no double counting). Stored as
+ * 'ignored' (live only) under the account it names, so the inbox catch-up does not read it again.
+ */
+const recordEvidence = async (e: AutoLogEvent, last4: string | undefined, opts: ProcessOptions): Promise<ProcessResult> => {
+  e.accountKey = await accountForDigits(last4);
+  e.status = 'ignored';
+  e.reviewReason = null;
+  if (opts.origin !== 'discovery') await db.insertEvent(e);
+  return { status: 'ignored', accountKey: e.accountKey };
+};
+
 /** Creates the transaction for a decided event. Falls back to `queued` if it cannot be written now. */
 export const logEvent = async (
   e: AutoLogEvent,
@@ -254,6 +268,9 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
     }
     return { status: 'ignored' };
   }
+
+  // Only the account's own bank may name the account (AUT-005); everyone else is evidence.
+  if ((await messageAccountRole(parsed)) === 'evidence') return recordEvidence(e, parsed.last4, opts);
 
   // Account bookkeeping. New accounts are always UNtracked until the user chooses (trust rule 4).
   let isNewAccount = false;
@@ -301,6 +318,9 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
   }
 
   // ── Tracked-account filter ──
+  // AUT-006: the bank's own SMS without an account number (UPI Lite, short alerts) can only be the user's one
+  // account of that kind at that bank. Two accounts there, or not tracked → still ask "Which account?".
+  if (!e.accountKey && parsed.senderRole === 'bank') e.accountKey = await soleBankAccount(parsed.bankCode, parsed.accountKind || 'bank');
   if (!e.accountKey) return { ...(await finalizePending(e, 'no_account', opts)), isNewAccount };
   const account = await db.getAccount(e.accountKey);
   if (!account || !account.tracked) {
@@ -413,7 +433,7 @@ export const processSms = async (raw: RawSms, opts: ProcessOptions): Promise<Pro
     return { ...(await finalizePending(e, 'exceeds_liquidity', opts)), isNewAccount };
   }
 
-  await logEvent(e, type, pref?.category_id ?? null, account.kind, opts);
+  await logEvent(e, type, pref?.category_id ?? historyCategoryFor(e.merchant, type), account.kind, opts);
   await db.insertEvent(e);
   if (takeOverRoot) await db.updateEvent(takeOverRoot.id, { status: 'merged', matchedId: e.id, reviewReason: null });
   return { status: e.status, eventId: e.id, accountKey: e.accountKey, isNewAccount };
@@ -452,6 +472,8 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
     await db.insertEvent(e);
     return { status: 'ignored' };
   }
+  // A fund / insurer email ("SBI Mutual Fund") is never a bank email (AUT-005).
+  if (parsed.senderRole === 'third_party') return recordEvidence(e, parsed.last4, opts);
 
   // Which account? A bank's own email names it exactly (bank + last 4). A payment provider or an
   // unknown sender only knows the last 4 digits → use the tracked account with those digits, if exactly one.
@@ -588,7 +610,7 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
     return { ...r, isNewAccount };
   }
 
-  await logEvent(e, type, pref?.category_id ?? null, account.kind, opts);
+  await logEvent(e, type, pref?.category_id ?? historyCategoryFor(e.merchant, type), account.kind, opts);
   await db.insertEvent(e);
   await finishTakeOver();
   return { status: e.status, eventId: e.id, accountKey: e.accountKey, isNewAccount };
@@ -616,7 +638,7 @@ export const flushQueued = async () => {
     const acc = e.accountKey ? await db.getAccount(e.accountKey) : null;
     const pref = await db.getMerchantPref(e.merchant);
     const type = e.direction === 'credit' ? 'income' : 'expense';
-    await logEvent(e, type, pref?.category_id ?? null, acc?.kind ?? null, { origin: e.origin, notify: false });
+    await logEvent(e, type, pref?.category_id ?? historyCategoryFor(e.merchant, type), acc?.kind ?? null, { origin: e.origin, notify: false });
     await db.updateEvent(e.id, { status: e.status, expenseId: e.expenseId, needsCategory: e.needsCategory });
   }
 };
