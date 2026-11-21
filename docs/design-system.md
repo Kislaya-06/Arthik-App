@@ -11,9 +11,9 @@
 
 The Arthik Design System is governed by two complementary layers of authority:
 
-1. **Runtime Token Source of Truth:** [`src/config/theme.ts`](file:///d:/Arthik-App/src/config/theme.ts)  
+1. **Runtime Token Source of Truth:** [`src/config/theme.ts`](../src/config/theme.ts)  
    Every numeric spacing, radius, font size, control height, and color value lives strictly in `src/config/theme.ts`. No file may hardcode alternative or ad-hoc design numbers.
-2. **Canonical Design Specification & Contract:** [`docs/design-system.md`](file:///d:/Arthik-App/docs/design-system.md) (This Document)  
+2. **Canonical Design Specification & Contract:** [`docs/design-system.md`](design-system.md) (This Document)  
    Contains the human & AI design contract, core principles, token reference tables, component anatomy, motion physics, financial amount hierarchy, anti-patterns, and the audit checklist.
 
 ### Token Governance & Adding New Tokens
@@ -188,14 +188,14 @@ Every text (and the icon next to it) uses these tokens, never `mint` / `mintGree
 Every centered dialog and bottom sheet dims the screen with the same theme value from `src/lib/scrim.ts` (hook: `useScrimColor()`): Light `rgba(15, 23, 42, 0.45)`, Dark `rgba(0, 0, 0, 0.72)`, AMOLED `rgba(0, 0, 0, 0.88)`. Never write a popup's own black overlay.
 
 ### Screen hues (`ScreenHue` in `src/config/theme.ts`)
-Home mint is the brand. Savings (Gullak) and Insights each keep one hero colour, softened so the three tabs read as one product:
+Home mint is the brand. Savings (Gullak) and Insights each keep one vivid hero colour (owner request 2026-11-21: the softened tints `#8267C1` / `#E0887B` looked dull and were reverted to the original hues):
 | Token | Value | Use |
 | :--- | :--- | :--- |
-| `ScreenHue.gullak.from` → `.to` | `#8267C1` → `#412E60` | Gullak hero card, Daily Allowance card, Deposit sheet, Budget edit sheet (gradient + solid fallback). White text >= 4.5:1 on `from`. |
-| `ScreenHue.gullak.ink` | `#412E60` | Violet used as text on white (Deposit button, active pill text on white). |
-| `ScreenHue.insights.from` → `.to` | `#E0887B` → `#F3D7BE` | Insights spend hero card (dark text `#2D1E1E`). No decorative circles on it. |
+| `ScreenHue.gullak.from` → `.to` | `#8B5CF6` → `#581C87` | Gullak hero card, Daily Allowance card, Deposit sheet, Budget edit sheet (gradient + solid fallback). White text is ~4.2:1 on `from` and higher towards `to`, so card text on it stays large or bold. |
+| `ScreenHue.gullak.ink` | `#5B21B6` | Violet used as text on white (Deposit button). Text on white pills inside the violet sheets uses `gullak.to`. |
+| `ScreenHue.insights.from` → `.to` | `#F07167` → `#FED0A8` | Insights spend hero card (dark text `#2D1E1E`). No decorative circles on it. |
 
-The ambient top glow (`TONES` in `src/lib/ambientBackground.ts`) uses the same softened values. Never write these hex values in a component; import `ScreenHue`. Add Transaction passes `tone` by side: the Insights coral on Expense (spending), Home mint on Income. When a screen's tone changes, `AmbientBackground` fades the old wash + glow out over 240 ms (none with reduce motion).
+The ambient top glow (`TONES` in `src/lib/ambientBackground.ts`) uses the same values. Never write these hex values in a component; import `ScreenHue`. Add Transaction passes `tone` by side: the Insights coral on Expense (spending), Home mint on Income. When a screen's tone changes, `AmbientBackground` fades the old wash + glow out over 240 ms (none with reduce motion).
 
 ### Pill & Container Surface Rule
 - **Segmented Control Containers:** Strictly use `colors.cardSubtle` with border `colors.borderSubtle`. Never use raw card background or pitch-black for pill tracks; tracks must maintain an elevated, subtle surface across all themes.
@@ -313,7 +313,7 @@ Built only from existing tokens and primitives (no new tokens): `SplitExtras` (a
 - **Horizontal Category Chip Scroll with Edge Fades**: Matches `ExpenseFormScreen.tsx` with horizontal chip scrolling (`categoryList`), left/right SVG LinearGradient edge faders (`reviewCategoryFadeLeft`, `reviewCategoryFadeRight`), animated scale press feedback, the same 24dp category `GradientIconBadge` in unpicked chips, and category SVG gradient fills (`getCategoryChipGradient`). The chips show only the categories of the chosen side (income categories for income). There is no "None" chip: a category must be picked before the primary Save button turns on (only "Settle with <person>", "Mark as self transfer" and "Teach Format" work without one).
 - **Uniform 48px Stadium Pills**: "Remember preference", "Mark as Self Transfer", and "Save and split with friends" strictly share uniform 48px stadium pill height (`ControlHeight.standard`, `BorderRadius.pill`).
 - **Self Transfer Action & Invariant**: "Mark as Self Transfer" confirms and purges any pre-logged expense, updates status to `'transfer'`, registers the transfer rule in `self_transfer_rules`, and persists merchant preference to automatically route future transfers as non-expenses.
-- **Bottom Action Hierarchy**: 60px primary Save CTA (`AppButton size="cta"`) with 44px touch targets for secondary actions ("Not a transaction" · "Delete transaction" / "Discard review").
+- **Bottom Action Hierarchy**: 60dp primary Save button (`AppButton size="cta"`) and text-link secondary actions with a 44dp touch target ("Not a transaction" · "Delete transaction" / "Discard review").
 
 ---
 

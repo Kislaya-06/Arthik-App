@@ -1,6 +1,6 @@
 # Arthik — Architecture
 
-> **Version:** v2.1.0 (October 2026)
+> **Version:** 2.1.0 APK + OTA updates (November 2026)
 > **Platform:** Android (Expo SDK 57, React Native 0.86)
 > **Backend:** Supabase (Postgres + Auth + RLS)
 
@@ -50,7 +50,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/split/**`, `src/components/profile/**`, `src/components/savings/**`, `HeroDetailsSheet.tsx`, `WelcomeBackGapModal.tsx`, `SplashCover.tsx` |
 | **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`, `useExpenseForm.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
-| **Tests** | Vitest unit tests (190 files, 2,666 tests) | `tests/**` |
+| **Tests** | Vitest unit tests (`npm test`) + Kotlin JUnit for `FinancialFilter` (`npm run test:native`) | `tests/**`, `modules/arthik-autolog/jvm-test/` |
 | **Automatic Logging** | On-device SMS / notification / email → transactions | `modules/arthik-autolog/**`, `src/features/autoLog/**` — see [AUTO_LOGGING.md](AUTO_LOGGING.md) |
 | **Schema** | Postgres DDL + RLS (source of truth) | `schema.sql` |
 
@@ -61,13 +61,13 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 
 ## 3. Stores
 
-Twelve core Zustand stores (plus AutoLog store). Each owns a well-defined domain. To avoid monolithic file explosion, high-complexity stores (`dailyBudgetStore`, `expenseStore`) are decomposed into cohesive sub-modules in dedicated subdirectories while maintaining their canonical root export interface (see [ADR 0013](adr/0013-store-module-split.md)). Since the November 2026 facade split, store actions that grew live in submodule factories that receive the store's own `set` / `get` and are spread into the store (`dailyBudget/gullakActions`, `syncActions`, `recordActions`; `expense/mutationActions`, `loadActions`, `failedSyncActions`); pure engines follow the same rule (`budgetPeriods.ts` over `src/lib/periods/*`, `chartUtils.ts` over `src/lib/charts/*`). Every old import path still works.
+Fourteen Zustand stores in `src/store/` (plus the Automatic Logging store in `src/features/autoLog/store.ts`). Each owns a well-defined domain. To avoid monolithic file explosion, high-complexity stores (`dailyBudgetStore`, `expenseStore`) are decomposed into cohesive sub-modules in dedicated subdirectories while maintaining their canonical root export interface (see [ADR 0013](adr/0013-store-module-split.md)). Since the November 2026 facade split, store actions that grew live in submodule factories that receive the store's own `set` / `get` and are spread into the store (`dailyBudget/gullakActions`, `syncActions`, `recordActions`; `expense/mutationActions`, `loadActions`, `failedSyncActions`); pure engines follow the same rule (`budgetPeriods.ts` over `src/lib/periods/*`, `chartUtils.ts` over `src/lib/charts/*`). Every old import path still works.
 
 | Store | Domain | Persisted? | Reset on sign-out? |
 |---|---|---|---|
 | `authStore` | Session, user profile, sign-in/out | No | — (orchestrates resets) |
-| `expenseStore` | Transaction CRUD, offline queues, sync (split: `pendingQueues`, `syncPending`, `payload`, `recoveryMiddleware`, `moneyBack`, `types`) | No (manual AsyncStorage) | ✅ `resetExpenses` |
-| `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks (split: `classifiers`, `expenseBridge`, `hydrate`, `metrics`, `pendingStorage`, `planActions`, `rollover`, `selfHealing`, `types`) | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
+| `expenseStore` | Transaction CRUD, offline queues, sync (split: `pendingQueues`, `syncPending`, `payload`, `recoveryMiddleware`, `moneyBack`, `versionProbe`, `saveGuards`, `mutationActions`, `loadActions`, `failedSyncActions`, `types`) | No (manual AsyncStorage) | ✅ `resetExpenses` |
+| `dailyBudgetStore` | Multi-cadence budgets, periods, Gullak, streaks (split: see [`maps/daily-budget-map.md`](maps/daily-budget-map.md)) | ✅ `persist` (AsyncStorage key `arthik-daily-budget-storage-v2`) | ✅ `resetDailyBudget` |
 | `categoryStore` | User categories, placeholders, cache | No (manual AsyncStorage) | ✅ `resetCategories` |
 | `notificationStore` | In-app notification list, unread count | No (manual AsyncStorage) | ✅ `clearNotifications` |
 | `networkStore` | Online/offline flag, banner state | No | — |
@@ -77,6 +77,8 @@ Twelve core Zustand stores (plus AutoLog store). Each owns a well-defined domain
 | `transferRulesStore` | Remembered self-transfer notes (`self_transfer_rules` table) | No | ✅ `reset` |
 | `ambientStore` | Ambient background animation state, toggle | ✅ `persist` (AsyncStorage key `arthik-ambient-preference`) | — |
 | `otaStore` | Expo OTA update check, pending release highlights, in-app update prompt | No | — |
+| `alertStore` | Queue of themed alert dialogs (`AppAlertModal`) | No | — |
+| `splashCoverStore` | Mint cover that hides the splash → first screen hand-off | No | — |
 
 ### Cross-store wiring (no circular imports)
 
@@ -276,7 +278,7 @@ Insights breathing strips reconcile savings across all budget cadences without r
 
 See [ADR 0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md).
 
-- **Auth**: Supabase email magic link + Google OAuth (`expo-auth-session`)
+- **Auth**: Supabase email + password and Google OAuth (PKCE, `expo-auth-session`)
 - **Keys**: Only `anon` key in bundle. Never `service_role`.
 - **RLS**: Every table enforces `user_id = auth.uid()` on all operations.
 - **Provisioning**: Default profile + categories created via `SECURITY DEFINER` trigger `handle_new_user()`.
@@ -290,10 +292,10 @@ See [ADR 0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md).
 ## 8. Navigation
 
 React Navigation v7 with:
-- **Root Stack**: `NativeStack` — `Splash`, `Auth`, `Onboarding`, `ProfileSetup`, `AppTabs`, `AddExpense`, `EditExpense`, `ExpenseDetail`, `GullakDepositDetail`, `CategoryDetail`, `ManageCategories`, `AddEditCategory`, `Notifications`, `Profile`, `Savings`, `ResetPassword`, `Faq`
+- **Root Stack**: `NativeStack` — `Splash`, `Onboarding`, `Auth`, `ProfileSetup`, `AppTabs`, `AddExpense`, `EditExpense`, `ExpenseDetail`, `GullakDepositDetail`, `CategoryDetail`, `ManageCategories`, `AddEditCategory`, `Ledger`, `Notifications`, `Profile`, `Savings`, `ResetPassword`, `Faq`, and the Automatic Logging screens (`AutoLogIntro`, `AutoLogSetup`, `AutoLogCenter`, `AutoLogReview`, `AutoLogAccounts`, `AutoLogEmail`, `AutoLogInfo`, `AutoLogWelcomeBack`). `UpdateRequiredScreen` is not a route: `App.tsx` shows it instead of the navigator when a force update is on.
 - **Tab Navigator** (inside Root Stack as `AppTabs`):
-  - **Pure Mode**: 4 tabs (`Home`, `History`, `AddExpensePlaceholder` [Add], `Insights`). Direct attempts to access `Savings` safely redirect to `Home`.
-  - **Budget Mode**: 5 tabs (`Home`, `Savings`, `AddExpensePlaceholder` [Add], `History`, `Insights`) with smooth capsule bar transition.
+  - Tab screens: `Home`, `History`, `Savings`, `Insights`; the centre **Add** button is drawn by `BottomNavBar` and opens `AddExpense`.
+  - **Pure Mode** shows Home, History, Add, Insights; opening `Savings` redirects to `Home`. **Budget Mode** shows Home, Savings, Add, History, Insights.
 
 Cold start: `Splash` ends on solid mint, `useSplashCoverStore.show()` turns on the always-mounted mint `SplashCover` (App.tsx), `navigation.replace` swaps the route underneath, and `revealSoon()` dissolves the cover once the destination has laid out (hard cap 1.4s).
 
@@ -303,13 +305,13 @@ All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`).
 
 ## 9. UI & Motion System
 
-- **9.1 Theme & Design Tokens**: `src/config/theme.ts` — `LightColors`, `DarkColors` (with true AMOLED obsidian `DarkColors.amoled`), `Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`. 3-theme picker supported on Profile (Light, Dark, AMOLED).
+- **9.1 Theme & Design Tokens**: `src/config/theme.ts` — `LightColors`, `DarkColors`, `AmoledColors`, `Spacing`, `BorderRadius`, `FontSize`, `FontFamily`, `ControlHeight`. 3-theme picker supported on Profile (Light, Dark, AMOLED).
 - **9.2 Rolling-Digit Numbers (`RollingText`)**: Vertical digit-by-digit odometer rolling animations on amount updates across Home, Savings, Insights, and Category Details. Instant static presentation on screen focus without delay. Runs natively on the UI thread without layout shifts or text spasms. Premium feel: 240ms soft-landing ease, 10ms left-to-right digit ripple, with unchanged digits remaining static and `forceSpin` available for filter transitions. Zero-flash synchronous render planning prevents any 1-frame static leak of new values before wheels mount.
-- **9.2b Squish toggle (`AnimatedToggle`, `src/lib/toggleMotion.ts`)**: the single on/off switch used on Profile (4), Savings Budget Hub, Split, Self-transfer and AutoLog accounts. Press stretch, mid-trip stretch, landing squash, opacity colour cross-fade, selection haptic, reduce-motion support. ON = filled track (mint by default) with a contrasting thumb (`toggleThumbOnColor`); no ON/OFF words. Whole animation runs on the UI thread (the old version used JS-thread colour interpolation).
+- **9.2b Squish toggle (`AnimatedToggle`, `src/lib/toggleMotion.ts`)**: the single on/off switch used on Profile (4), Savings Budget Hub, Split, Self-transfer and AutoLog accounts. Press stretch, mid-trip stretch, landing squash, opacity colour cross-fade, selection haptic, reduce-motion support. ON = filled track (mint by default) with a contrasting thumb (`toggleThumbOnColor`); no ON/OFF words. Whole animation runs on the UI thread.
 - **9.1a UI consistency contract (ADR 0021)**: every pushed page uses `ScreenHeader` (48dp bar, `HeaderBackButton` = 24px arrow / 44dp touch / dim on press, right actions, 20px title centred on the bar with a symmetric inset, announced as a heading); main tabs keep the 28px left-aligned title. Tappable rows / icons / chips dim to `PRESS_DIM_OPACITY` (0.7, `src/lib/pressFeedback.ts`); real buttons are `AppButton` (scale 0.97). Button size ladder: 60 for page / bottom-sheet buttons (and every button stacked with one), 48 for centered dialogs and full-width buttons inside a card, 36 for small pill actions; heights always from `ControlHeight`. Every popup dims the screen with `useScrimColor()` (`src/lib/scrim.ts`). `AppButton variant="danger"` uses the alert dialog's readable red. Empty pages / lists / cards use `EmptyState` (gradient badge + title + one line + optional compact button, `screen` / `section` size). Small uppercase labels share `LetterSpacing.label` (0.8). See [ADR 0021](adr/0021-ui-consistency-contract.md).
 - **9.2a Segmented pills (`SegmentedControl`, `src/lib/segmentedMotion.ts`)**: Liquid two-edge pill (stretches in flight, distance-aware trailing spring, lands exactly in ~285ms), label colour cross-fade by pill position, tick on real change (+ iOS landing tick), reduce-motion aware. The pill is drawn transform-only (two round caps + a scaled flat middle + one `boxShadow` box, `pillPiecesFor`), never by animating `width`. Heavy screens use `commitOnSettle`: `onChange` arrives only when the pill has LANDED (both edges within 1px, `pillLandingMs`), because any React commit pauses Reanimated's UI commits until it is mounted. A touch fence (`src/lib/selectionCommitFence.ts`, flushed from `App.tsx`'s root `onTouchStart`) delivers a pending value before any other touch, so a form can never save a stale value. See [ADR 0020](adr/0020-transform-only-pills-and-commit-after-landing.md).
 - **9.3 Ambient Background & Light Flow (`AmbientBackground`, `ambientStore`)**: Subtle, organic blurred gradient light bands moving slowly across the top of the screen surface. Automatically throttled/paused when tab/screen loses focus (`useSafeIsFocused`), app goes to background (`useAppActive`), or `useReduceMotion()` is active. User-toggleable in Profile.
-- **9.4 Home Pull-to-Refresh & Pull-to-History Physics (`PullToHistoryContainer`, `pullToHistoryPhysics.ts`)**: Replaces default scroll view with unified drag, momentum, and pull-up gestures. Calibrated Instagram Vanish-mode spring physics (stiffness 42, damping 11.6, ~0.88 damping ratio) with countdown progress ring. Pull-down uses unified native refresh circle (`AppRefreshControl`) with haptic feedback and throttle cooldown.
+- **9.4 Home Pull-to-Refresh & Pull-to-History Physics (`PullToHistoryList`, `pullToHistoryPhysics.ts`)**: Replaces default scroll view with unified drag, momentum, and pull-up gestures. Calibrated Instagram Vanish-mode spring physics (stiffness 42, damping 11.6, ~0.88 damping ratio) with countdown progress ring. Pull-down uses unified native refresh circle (`AppRefreshControl`) with haptic feedback and throttle cooldown.
 - **9.5 Icons & Badges**: `lucide-react-native` (1.24+). Feature icons and badges strictly utilize `GradientIconBadge`.
 - **9.6 Charts**: `react-native-svg` (15.15) — animated donut rings (Home ring in both modes), and gradient flow bars.
 - **9.7 Safe Area & Bottom Nav**: `useSafeAreaInsets` from `react-native-safe-area-context`. Floating capsule `BottomNavBar` driven by `navBarStore` + `useScrollDirection`. All nav SPACING (bottom gap above system navigation, side margin, center + slot, label room) comes from `src/lib/navBarLayout.ts` via `useNavBarMetrics`; tab screens use `useNavBarContentInset()` for bottom padding and Home uses `getNavTopOffset(inset, width)`, so the bar and the content never disagree. The tab animation itself (per-tab capsule fade, label expand, icon press bounce) is unchanged.
@@ -320,7 +322,7 @@ All routes typed in `src/types/index.ts` (`RootStackParamList`, `TabParamList`).
 
 See [`docs/notifications.md`](notifications.md) for the full product specification. The single source of truth is [`src/lib/notificationPolicy.ts`](../src/lib/notificationPolicy.ts) (tested via `tests/notificationPolicy.test.ts`).
 
-- **Max 1 Per Day Rule (CRITICAL)**: At most **ONE** scheduled push notification per calendar day (priority order: Monthly recap > Weekly recap > Gullak reward > Evening nudge).
+- **Deliver Every Necessary Notification**: each scheduled message fires when its trigger is met; there is no per-day cap (a morning Gullak reward and an evening recap can both arrive on the same day).
 - **Never-Nag Invariant**: Evening nudge (20:30) exists only on days with zero expenses logged, and goes quiet after 3 consecutive unopened evenings. Logging an expense immediately cancels tonight's nudge via `notificationSync.ts`.
 - **Morning Gullak Reward**: Fires at 08:30 next morning for daily cadence users when yesterday was logged and ended with savings.
 - **Periodic Recaps**: Sunday 19:00 weekly recap (≥ 3 expenses) and month-end 21:00 monthly recap (≥ 6 expenses).
@@ -335,9 +337,9 @@ See [ADR 0006](adr/0006-ota-updates-tied-to-app-version.md).
 
 | Scenario | Command | Requires new APK? |
 |---|---|---|
-| JS/TS/UI fix | `eas update --branch preview` | No |
+| JS/TS/UI fix, `app.json` OTA highlights | `eas update --branch preview --environment preview` | No |
 | New native module or permission | `eas build -p android --profile preview` | **Yes** |
-| `app.json` change | `eas build -p android --profile preview` | **Yes** |
+| Native `app.json` config (plugins, permissions, android / ios keys) | `eas build -p android --profile preview` | **Yes** |
 | Version bump | Both build + update | **Yes** |
 
 `runtimeVersion.policy = "appVersion"` — OTA only reaches devices on the exact matching `expo.version`.
@@ -356,176 +358,13 @@ See [ADR 0009](adr/0009-vitest-unit-test-coverage.md).
 
 **Framework**: Vitest (v5), `npm test` → `vitest run`, config at `vitest.config.mjs`.
 
-**Coverage (latest run, 21 Nov 2026)**: 200 test files, 2,764 tests (Node 22+), plus 12 Kotlin JUnit tests for the Automatic Logging privacy gate `FinancialFilter` (`npm run test:native`, module unchanged). Earlier snapshot, v2.1.0: 120 test files, 1777 tests. Split & money back adds `splitLedger`, `splitMoneyBackStore`, `splitMultiPerson`, and `splitPureModeTransitions`; the Home card details add `heroDetails`. v2 adds `autoLogParser`, `autoLogFlows`, `autoLogEmail`, `autoLogRollout`, `appUpdate`, offline characterization suites (`expenseSyncPending`, `dailyBudgetHydrate`, `dailyBudgetStore`), `bouncyCategoryFilter` & `SegmentedControl` UI-thread worklets, SectionList progressive section pagination, `recentTransactions` bounded selection, and granular store selector test suites.
-
-| Test file | What it covers |
-|---|---|
-| `ambientBackground.test.ts` | Band math, phase wrapping, smootherstep easing, native animation parameters |
-| `ambientStore.test.ts` | Ambient background toggle, AsyncStorage persistence, multi-user isolation |
-| `amountKeypad.test.ts` | Calculator operators, ceiling limits, backspace, decimal paise parsing |
-| `amountText.test.ts` | Currency symbol alignment, Indian grouping, rolling prop pass-through |
-| `animationUtils.test.ts` | Spring physics, layout transitions, easing curves |
-| `appButton.test.ts` | Button variants, tactile press feedback, loading state, disabled guards |
-| `appLockStore.test.ts` | Biometric toggle, persistence, multi-user isolation, sign-out reset |
-| `appUpdate.test.ts` | In-app APK updates, permission prompts, download progress, install intents; SEC-03 trusted update links (only Arthik's GitHub repository) |
-| `apkInstallerTrustedLink.test.ts` | SEC-03: `downloadApk` refuses a link from outside the repository before downloading; the update screen filters the browser fallback |
-| `authLinkHandler.test.ts` | Deep link parsing, recovery token, debounce, session exchange |
-| `authSessionFastStart.test.ts` | OFL-001 / OPT-71: `setSession` with a saved profile finishes at once and refreshes the profile in the background; late answer never revives a signed-out user |
-| `authStore.test.ts` | Auth session hydration, sign-in/out lifecycle, user profile store |
-| `autoLogImprovements.test.ts` | `AUT-006` no-number bank alerts, `AUT-007` category memory + Undo, Discovery batches / rollback, recommended accounts, nickname, weekly summary |
-| `autoLogHelpers.test.ts` | Merchant keys, history category, week start + summary text, Autostart guide |
-| `autoLogAccountIdentity.test.ts` | `AUT-005`: sender roles (bank / non-bank / unknown), bank header aliases, non-bank evidence never double counts, cleanup of old accounts, "Not my account" |
-| `autoLogEmail.test.ts` | Bank email notification parsing, sender resolution, multi-source identity matching |
-| `autoLogFixes.test.ts` | Regression tests for AutoLog parser and edge cases |
-| `autoLogFlows.test.ts` | End-to-end AutoLog engine, review dismissal/discard, bulk clear, learned rules reset |
-| `autoLogParser.test.ts` | Regex tokenizers, transaction extraction, noise rejection, dedupe tokens |
-| `autoLogRollout.test.ts` | Feature flag rollout targeting, existing-user migration checks |
-| `bottomSheetModal.test.ts` | BottomSheetModal backdrop dismiss, pan gestures, snap points |
-| `bouncyCategoryFilter.test.ts` | UI-thread Reanimated worklet parity, Apple spring constants, zero-shift typography, immediate touch dispatch, lastActiveLayout isolation |
-| `brandedHeroCard.test.ts` | Branded hero card metrics, dynamic pace presentation, non-binding hints |
-| `breathingStrips.test.ts` | Weekly, Monthly, and Yearly breathing strip rendering and pulse physics |
-| `budgetAlerts.test.ts` | Real-time budget alerts: threshold crossings, rollover summaries, resume notifications |
-| `budgetCalculations.test.ts` | Streaks, rollover, status evaluation (`saved`/`missed`/`even`/`unknown`), duplicate prevention |
-| `budgetModeUtils.test.ts` | Unprorated pacing previews, calendar streak cards, monthly matrices, `resolveAutoRenewForPlan` (auto-save when a scheduled plan decides the mode, PUR-003) |
-| `budgetModesStore.test.ts` | Pure mode vs budget mode toggles, cadence configuration, next-day scheduling, same-day reversal protection (PUR-003), persistence, offline queues |
-| `budgetPeriods.test.ts` | Period timeline engine, active slices, finalization, idempotency |
-| `budgetUtils.test.ts` | Budget resolution helpers, fallback logic, allowance math |
-| `cadenceFixes.test.ts` | Next-day switch planning, Additive vs Allocation carry-forward, capacity limits |
-| `cadenceSwitch.test.ts` | Next-day switch planning, Additive vs Allocation carry-forward, capacity limits |
-| `canonicalStatusAndGuard.test.ts` | Canonical rule acceptance: BUD-008 missed status, SEC-001 digital vault spending guard |
-| `carryAllocationWeeklyMonthly.test.ts` | CAR-001 Mode B allocation carry-forward across weekly and monthly cadences |
-| `categoryStore.test.ts` | CRUD, ordering, user isolation, orphan prevention, sign-out reset, expense/income kind on add |
-| `incomeCategories.test.ts` | Category kind helpers, migration + schema seeding, Manage Categories toggle, review sheet requires a category (no "None") |
-| `chartUtils.test.ts` | SVG donut sweep calculations, flow bar coordinate mapping, color palettes |
-| `colorUtils.test.ts` | Dynamic hex resolution, contrast math, gradient pairs |
-| `dailyBudgetHydrate.test.ts` | Supabase hydration fast-path, persist-hydration gate, legacy row self-healing, scheduled Pure ↔ Budget switch maturing on a cold start or while the app is open (auto-save, profile save, first-day allowance, PUR-003, FIN-16), PUR-001 deficit check after a cold-start switch, single-flight hydration |
-| `categoryQueueSafety.test.ts` | OFL-001 / OPT-72: category add / update / delete queues keep items added while a sync request is in flight |
-| `networkConnectivity.test.ts` | OFL-001 / OPT-71: "connected, reachability not known yet" is online; real offline and the reconnect sync still work |
-| `offlineQueueSafety.test.ts` | OFL-001 / OPT-72: settings, plan change, period and Gullak queues: no lost update, items added mid-sync stay queued, every queued profile setting is sent |
-| `splashOfflineFirst.test.ts` | OFL-001 / OPT-71: the splash opens through `runLocalFirstStartup` and loads only saved data before opening |
-| `startupLoad.test.ts` | OFL-001 / OPT-71: the app opens right after the saved data loads, the server refresh never blocks it (first-run exception capped at 5 s) |
-| `transferRulesOffline.test.ts` | OFL-001 / OPT-73: remembered transfer notes saved on the phone, queued offline, sent before the expenses |
-| `dailyBudgetPlanActions.test.ts` | Allowance updates, cadence switching, scheduled next-day plan actions, queue sync |
-| `dailyBudgetRollover.test.ts` | Midnight rollover cycle, period finalization, daily record grouping |
-| `dailyBudgetStore.test.ts` | Rollover finalization, hydration guard, Gullak deposits, store reset |
-| `dailyBudgetSyncWithExpenses.test.ts` | Cross-store expense synchronization with daily records and spend totals |
-| `dateFilters.test.ts` | Date range boundary logic, ISO string manipulation |
-| `deepLinkGuard.test.ts` | Session fixation prevention, deep link validation |
-| `expenseFilters.test.ts` | Transaction filtering, category sorting, payment mode slices |
-| `expenseStore.test.ts` | Offline queues (create/update/delete), optimistic pending, reconnect sync |
-| `expenseSyncPending.test.ts` | Offline pending expense synchronization, retry logic, error classification |
-| `fetchExpensesTimeout.test.ts` | FIN-05: Range pagination per-page timeout scaling, retry resilience, cancellation guard, and NetInfo connectivity validation |
-| `fetchExpensesNoChange.test.ts` | OPT-20: same server data par `expenses` array wahi rehta hai aur cache dobara nahi likhta; badla hua ya naya row phir bhi pakda jaata hai |
-| `expenseListEquality.test.ts` | OPT-20: `sameExpenseList` (same list, ek field badla, row add, reorder, nested `split_allocations`) |
-| `expenseCacheMemo.test.ts` | OPT-20: cache memo (pehli write hamesha hoti hai, same key + same JSON par skip, forget) |
-| `opt60to64OfflineSafety.test.ts` | OPT-60..64: write-ahead queue (add/edit/delete), 10 s save timeout + late answer, queue lock, idempotent add, no duplicate on cold start, fresh-from-server flag, 1,000-row paging |
-| `signOutCleanup.test.ts` | SEC-01: Log Out removes the user's cached expenses / categories / profile, keeps every unsynced queue and other users' data, waits for a running cache write |
-| `secureSessionStorage.test.ts` | SEC-02: encrypt + read back, app restart, plain session of an older version is kept and upgraded, a newer session is never overwritten, plain fallback on every cipher / secure-storage problem, unreadable value → no session + `onUnreadable`, changed ciphertext refused |
-| `secureSessionStorageSupabase.test.ts` | SEC-02 inside the real Supabase client: a user signed in before the update stays signed in and the stored session becomes encrypted; local sign-out removes it; lost key → no session |
-| `expoSessionCipher.test.ts` | SEC-02: the wrapper around the expo-crypto AES API (key size, IV / ciphertext split, wrong key refused) |
-| `sessionCodec.test.ts` | SEC-02: UTF-8 and base64 helpers match Node for every byte value and length; invalid input is refused |
-| `opt70ExpensePagingTieBreaker.test.ts` | OPT-70: every expense page is ordered by `expense_date`, `created_at`, `id` (newest first); 2,001 rows over 3 pages arrive exactly once |
-| `opt69ExpenseVersionProbe.test.ts` | OPT-69: no counter request on the first download; counter read after sync and before the download; same counter skips the download and keeps the same array; changed counter, counter 0, missing function, network error, timeout and failed download all download as before |
-| `sec04SignupNameSafetySql.test.ts` | SEC-04 / OPT-69 SQL: `handle_new_user()` and the expense change counter are the same text in `schema.sql`, the 16 Nov migration and Part B of the 30 Oct migration; name limits match the profile rules; function name matches the app's call |
-| `opt21AutoLogShallow.test.ts` | OPT-21: AutoLog Center/Info screens poora store subscribe nahi karte (`useShallow`) |
-| `opt22HomeResumeRefresh.test.ts` | OPT-22: Home 5 min se zyada background rehne par resume par chup-chaap refresh karta hai |
-| `historyRows.test.ts` | OPT-30: History rows (header + items), keys, aur date-jump header index (See More window ke andar/bahar) |
-| `opt30HistoryFlashList.test.ts` | OPT-30/31: FlashList JS-only hai, History ka scroll-to-top / date jump / empty state / pull-to-refresh wiring, CategoryDetail FlashList |
-| `pullRefreshBlink.test.ts` | Pull-to-refresh blink fix: shared `usePullRefresh` (700 ms hold, circle on before work, ignores second pull), all 4 screens use it, Home shell never disables the circle while refreshing |
-| `quickCategories.test.ts`, `autoLogNotificationActions.test.ts`, `autoLogNotifyButtons.test.ts` | Notification category buttons: top categories pick, button tap reading and saving (only category), buttons shown only for uncategorised expenses |
-| `reduceMotionStore.test.ts` | OPT-43: shared reduce-motion store (startup value, OS answer, live change, ek hi subscription, OS fail hone par bhi safe) |
-| `opt41to46Polish.test.ts` | OPT-41..46: Skeleton rules aur AutoLog use, large-text caps, ek reduce-motion source, haptics map, Add/Edit expense neeche se khulna |
-| `opt50to53Cleanup.test.ts` | OPT-50..53: dead files/exports/asset ab bhi gone hain, kisi ka reference nahi, har `console.*` dev-only hai (guard scan), paise ke functions aur PUR-001 notification bachi hain |
-| `financialCorrectnessMatrix.test.ts` | 16-scenario financial matrix: zero proration, switches, mutations, boundary math |
-| `formatters.test.ts` | `formatCurrency`, `formatAmountWithCommas`, `round2`, Indian numbering |
-| `granularCategorySelectors.test.ts` | Granular Zustand store selector isolation in CategoryDetail and ManageCategories screens, rerender prevention |
-| `gullakDeposits.test.ts` | Income vs external Gullak deposits, balance limits, timeline logs |
-| `gullakIncomeDeleteEditGuard.test.ts` | FIN-06: Income deletion and reduction Gullak deficit calculation, auto-adjustment, and user alert confirmation |
-| `gullakReconciliationHardCap.test.ts` | Gullak hard-cap reconciliation (GUL-001) preventing deposits exceeding net account liquidity |
-| `heroDetails.test.ts` | Hero card details breakdown sheet, money in/out lines, money-back isolation |
-| `homeCalculations.test.ts` | Home screen derived metrics, live spent, remaining balance |
-| `homeSpendingNewUser.test.ts` | Cold-start user calculations, zero-data rendering guards |
-| `incomeClassifier.test.ts` | Unified income classifier logic, fallback keywords inertness (TXN-002) |
-| `insightsData.test.ts` | Analytical aggregations across weekly, monthly, and yearly intervals |
-| `moneyExplainerContent.test.ts` | Explainer modal copy resolution, cadence help topic routing |
-| `moneyFixesFour.test.ts` | Real-money invariant regression suite for 4 critical money bugs |
-| `moneyWaterfall.test.ts` | Single source of truth money waterfall engine (WAT-001, WAT-002) |
-| `moneyWaterfallStore.test.ts` | Integration between money waterfall and daily budget store metrics |
-| `monthlyCardConsistency.test.ts` | Monthly hero card and detail card financial consistency across date slices |
-| `monthlyInsightsData.test.ts` | Monthly aggregations, category breakdowns, week-over-week comparisons |
-| `multiCadenceInsightsSavings.test.ts` | FIN-04: Multi-cadence savings reconciliation across weekly and monthly periods, cross-month attribution, mid-interval switches, and Option 2 share % |
-| `navBarStore.test.ts` | Bottom navigation bar visibility state and toggle actions |
-| `networkUtils.test.ts` | NetInfo state listener, reconnect queue trigger |
-| `noteSuggestions.test.ts` | Autocomplete ranking by recency, frequency, and category affinity |
-| `otaStore.test.ts` | In-app OTA modal triggers, version comparisons |
-| `part2Consistency.test.ts` | Pure Mode invariants, category classification, carry-over rules |
-| `paymentAndIconUtils.test.ts` | Payment mode resolution, icon key validation |
-| `piggyBankCoinIcon.test.ts` | Gullak piggy icon and coin rendering |
-| `profileUtils.test.ts` | Profile data sanitization, avatar upload URL derivation |
-| `pullToHistoryPhysics.test.ts` | Reanimated worklet drag gesture physics, haptic threshold triggers |
-| `pureModeRules.test.ts` | Pure mode allowance immunity, unspent immunity, negative balance allowance |
-| `realTimeIncomeGullakDeduction.test.ts` | Real-time income-funded Gullak deposits deduction from daily budget pools |
-| `recentTransactions.test.ts` | Home screen recent transaction slice, sorting, date grouping |
-| `reviewSheetLayout.test.ts` | AutoLog ReviewSheet compact layout and bottom-sheet rendering |
-| `rollingText.test.ts` | FIN-09: Number ticker digit roll planning, cross-filter forced spin, digit diff computation |
-| `scaffoldExercises.test.ts` | Scaffolding validation |
-| `segmentedControl.test.ts` | Segmented pill control selection, sliding indicator layout, `commitOnSettle` reports only the last tap after landing; touch fence delivers Income before Save; re-tap claim |
-| `toggleMotion.test.ts` | Squish switch: resting geometry equals old toggle for all 3 sizes, stretch anchoring, mid-trip stretch, never leaves the track, landing squash bound, no native `<Switch />` |
-| `segmentedMotion.test.ts` | Liquid pill: settle within `PILL_SETTLE_MS` for 1-4 slot jumps, `PILL_COMMIT_MS` fallback is a true landing, same landing time for all distances, 120fps frame simulation of every slot move (in-bounds, no wobble, stretch 10-35%), slot geometry, label fade |
-| `homeFilterMicroChoreography.test.ts` | Home pill commits after landing; no overlapping 220ms timer |
-| `waterfallCache.test.ts` | WAT-001 performance: `computeWaterfallFromState` reuses a result only when every input is the same reference; every cached result equals an uncached computation, for each input changing |
-| `whileVisibleSelector.test.ts` | Hidden popups (`BudgetEditModal`, `DepositGullakModal`) keep their last store value while closed and read the live one on open |
-| `expenseCacheSourceMemo.test.ts` | The confirmed expense cache skips the whole-list stringify for the same list reference; a write without a source clears it |
-| `navigationReadyGuard.test.ts` | `App.tsx` auth listener: `getCurrentRoute` / `reset` / `dispatch` on `navigationRef` only after `isReady()` (INITIAL_SESSION / SIGNED_OUT can arrive before the navigator mounts) |
-| `uiConsistency.test.ts` | ADR 0021: only `HeaderBackButton` draws a back arrow, every titled pushed page uses `ScreenHeader` (centred title, symmetric inset, heading role), no `PressableOpacity` on the 0.2 default, 8 empty states use `EmptyState`, every caption-size uppercase label uses `LetterSpacing.label`, every raw `Pressable` gives press feedback (or is a backdrop / listed), no 46 / 50 / 52 button heights, sheet footers 60 and dialog buttons 48, danger button >= 4.5:1 in all themes, one scrim, `docs/design-system.md` token tables equal `theme.ts` |
-| `pillButterySmooth.test.ts` | ADR 0020: exact landing time for every slot width and History move, seamless transform-only piece geometry, no layout prop or Text colour in any pill animated style, touch fence |
-| `appAlertModalBehaviour.test.ts` | Themed dialog: double tap runs Delete once, interrupted exit still runs the action, entrance plays once, queued alerts, edge-to-edge scrim, WCAG 4.5:1 buttons in all themes |
-| `selfTransfersAndIncome.test.ts` | Self-transfer classification and exclusions from income totals |
-| `splitEqualSharePrecision.test.ts` | FIN-07: Split equally remainder absorption and integer paise distribution preventing validation lockouts |
-| `notificationPolicy.test.ts` | Pure notification policy: max 1/day, priority order, evening nudge, Gullak reward, recaps |
-| `notificationStore.test.ts` | Add/dedup/cap-50, read status, multi-user isolation |
-| `notificationSync.test.ts` | OS notification plan builder, diff-based scheduling, cancellation |
-| `offlineStartup.test.ts` | Offline cold-launch boot sequence without network access |
-| `otaStore.test.ts` | OTA update detection, modal prompt state, version binding |
-| `part2Consistency.test.ts` | Multi-cadence and carry-forward state consistency verification |
-| `paymentAndIconUtils.test.ts` | Payment labels/icons, unified income classification (`isIncomeTransaction`) |
-| `piggyBankCoinIcon.test.ts` | Indian Rupee (₹) coin badge geometry, SVG path scaling, and theme stroke bindings |
-| `profileUtils.test.ts` | 15-character name limit guardrail, display name resolution, initial letter extraction |
-| `pullToHistoryPhysics.test.ts` | Instagram-calibrated rubber band pull physics, damping ratio, ring travel linearity |
-| `pureModeRules.test.ts` | Acceptance suite for Pure Mode rules: SEC-001 amend, PUR-001 deficit switch, PUR-002 leftover retention |
-| `realTimeIncomeGullakDeduction.test.ts` | Real-time income deduction from Gullak overspend and waterfall priority |
-| `recentTransactions.test.ts` | Single-pass bounded top-5 transaction selection (`selectRecentTransactions`), tie-breaker stability, allocation reduction |
-| `rollingText.test.ts` | Digit-by-digit vertical odometer roll, layout effect mount/reveal, decimal handling |
-| `segmentedControl.test.ts` | Two-edge liquid pill, outer hitSlop, touch release selection, commit-after-landing |
-| `selfTransfersAndIncome.test.ts` | Pure classification of self-transfers excluded from income/expense totals (TXN-003) |
-| `splitLedger.test.ts` | Multi-person debt tracking, settlements, and summaries |
-| `splitMoneyBackStore.test.ts` | Money back and refund store operations |
-| `splitMultiPerson.test.ts` | Multi-person expense splitting and participant allocation |
-| `splitPureModeTransitions.test.ts` | Pure Mode transitions for split expenses |
-| `streakCalendarData.test.ts` | Calendar month grid data generation for savings streak modal |
-| `streakFlame.test.ts` | Streak counter tiers, milestone badge triggers, flame stages |
-| `themeStore.test.ts` | Light/dark/AMOLED toggle, Appearance listener, persistence |
-| `transactionFunding.test.ts` | Waterfall transaction funding card breakdown resolution |
-| `transactionUtils.test.ts` | Pure predicates: isCountedExpense, isCountedIncome, isExcludedFromTotals |
-| `uiPrimitiveParity.test.ts` | UI primitive styling, typography tokens, and prop pass-through parity |
-| `useExpenseForm.test.ts` | Expense and income form hook logic, split expense handling, validations |
-| `useFocusEntry.test.ts` | Screen focus entry animation state and layout timing |
-| `useFormKeyboard.test.ts` | Custom keypad numeric entry, backspace, and cursor positioning |
-| `useInsightsData.test.ts` | Insights hook aggregations, category map caching, interval navigation |
-| `useSavingsDashboard.test.ts` | Savings screen dashboard state aggregation and view model |
-| `useScrollDirection.test.ts` | Scroll direction detection for floating bottom navigation bar |
-| `vaultSpendingGuard.test.ts` | Digital Vault Spending Guard, net liquidity evaluation, inflow blockers |
-| `vaultSpendingGuardAndBudgetEdit.test.ts` | In-sheet Add Money & Save workflow, zero-spend immediate budget adjustments (Daily/Weekly/Monthly) |
-| `versionCheck.test.ts` | Semver comparison, update-required screen gating |
-| `ux01IconButtonLabels.test.ts` | UX-01: scans every `.tsx` in `src/`; a touchable with no text must have an `accessibilityLabel` or be listed with a reason (backdrops, wrappers) |
-| `ux05to08Polish.test.ts` | UX-05..08: avatar is not tappable; 7 backdrops hidden from the screen reader and every Modal has `onRequestClose`; Edit profile autofill + Enter; the four theme-invariant tokens stay equal in all palettes; hard-coded hex count only goes down |
-| `ux02to04FormsAndKeyboard.test.ts` | UX-02..04: autofill hints and Enter-key flow on Auth / Reset password / Profile setup; first-tap lists under search fields; sign-in errors announced |
-| `weeklyInsightsData.test.ts` | Weekly day-by-day aggregations, daily averages, weekend vs weekday spend |
-| `yearlyInsightsData.test.ts` | 12-month calendar aggregation, annual savings, largest month-over-month increases |
-| `yearlyInsightsInflowDeposits.test.ts` | FIN-03: Annual and 12-month inflow deposit filtering, income double-counting prevention (GUL-004) |
-| `autoLogSettleReview.test.ts` | Payback review loop clearance on settle (ReviewSheet and moneyBack) |
-| `splitPartialPaybackCategories.test.ts` | Oldest split first settlement and category-exact payback restoration (SPL-003) |
-| `money/*.test.ts` | Canonical calculation layer tests: dateKeys, ledger, budgetAllowance (BUD-009), budgetStatus, overspendFunding |
+Tests live in `tests/<subject>.test.ts`; the file name says what it covers. Run `npm test` for the current count (docs do not record it). Conventions:
+- **Money and rules**: a test that protects a canonical rule names the rule ID (`BUD-008`, `CAR-001`, `SPL-003` …) in its title.
+- **Change records**: `opt<NN>…`, `sec<NN>…` and `ux<NN>…` files guard the matching item in [`optimisation.md`](optimisation.md) or the UX rounds.
+- **Automatic Logging**: `autoLog*.test.ts`; flow tests use `tests/helpers/autoLogTestEnv.ts` (real db + engine + service on `node:sqlite`, fake native / ledger / server).
+- **Source-reading tests** (UI contracts such as `uiConsistency`, `pillButterySmooth`, `buttonSizeLadder`) read split files through `tests/helpers/readSplitSource.ts`, so a pure code move never changes an assertion.
+- **Date-dependent tests** freeze the clock (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`).
+- **Native**: `npm run test:native` runs the Kotlin JUnit tests for `FinancialFilter` (`modules/arthik-autolog/jvm-test/`, never packaged).
 
 ---
 

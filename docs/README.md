@@ -28,19 +28,20 @@ Every Markdown documentation file in this repository is cataloged below with its
 | [`architecture.md`](architecture.md) | **System Architecture (v2.1.0)** — 11 layers, stores, offline-first queues, startup hydration, security, tests. | Master Architecture |
 | [`design-system.md`](design-system.md) | **Unified Design System & UI Specification** — canonical design contract, principles, token tables, component specs. | UI / Design Truth |
 | [`AUTO_LOGGING.md`](AUTO_LOGGING.md) | **Automatic Logging Architecture (v2.0)** — Kotlin modules, SQLCipher encrypted SQLite, parsing, deduplication engine. | Auto-Log Engine |
-| [`notifications.md`](notifications.md) | **Notification Policy & Schedule Matrix** — max 1/day rule, evening nudge, Gullak reward, recaps, channels. | Notification Policy |
+| [`notifications.md`](notifications.md) | **Notification Policy & Schedule Matrix** — what is sent when, evening nudge, Gullak reward, recaps, channels. | Notification Policy |
 | [`prd.md`](prd.md) | **Product Requirements Document (PRD)** — Indian cash+UPI problem statement, user personas, habit loops. | Product Baseline |
 | [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) | **Release Engineering SOP** — 4-phase APK build, OTA updates, asset naming, Supabase force-update flags. | Release SOP |
-| [`CODEBASE_GUIDE.md`](CODEBASE_GUIDE.md) | **Codebase Walkthrough & File Map** — ~309 source files, architectural layers, core money mechanics, where to change what. | Codebase Walkthrough |
+| [`CODEBASE_GUIDE.md`](CODEBASE_GUIDE.md) | **Codebase Walkthrough & File Map** — source files, architectural layers, core money mechanics, where to change what. | Codebase Walkthrough |
+| [`optimisation.md`](optimisation.md) | **Performance, Offline-Safety & Security Record** — what each OPT / SEC item changed, what is still open, what needs a new APK. | Change Record |
 
 ---
 
 ### Deep Technical Maps & Feature Specifications
 
-| Path | Purpose & Role | Lines |
-|---|---|---|
-| [`maps/daily-budget-map.md`](maps/daily-budget-map.md) | **Daily Budget Submodules Map** — detailed function and data mapping of `src/store/dailyBudget/*`. | 507 |
-| [`specs/EMAIL_AUTO_LOGGING_SPEC.md`](specs/EMAIL_AUTO_LOGGING_SPEC.md) | **Email Notification Auto-Logging Spec** — bank email parsing boundaries, dual-core deduplication, privacy controls. | 705 |
+| Path | Purpose & Role |
+|---|---|
+| [`maps/daily-budget-map.md`](maps/daily-budget-map.md) | **Daily Budget Submodules Map** — detailed function and data mapping of `src/store/dailyBudget/*`. |
+| [`specs/EMAIL_AUTO_LOGGING_SPEC.md`](specs/EMAIL_AUTO_LOGGING_SPEC.md) | **Email Notification Auto-Logging Spec** — bank email parsing boundaries, dual-core deduplication, privacy controls. |
 
 ---
 
@@ -88,5 +89,5 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 
 Documentation in Arthik is maintained continuously alongside the code:
 - Whenever any feature, bugfix, architectural change, or test suite update is made, **all relevant documentation files MUST be updated in the exact same task**.
-- Test counts, store submodules, routes, notification rules, and product behaviors must never drift from code reality.
-- See [`../AGENTS.md §17`](../AGENTS.md) and [`§19`](../AGENTS.md) for enforcement rules.
+- Store submodules, routes, notification rules, and product behaviors must never drift from code reality. Docs do not record test counts (they go stale on every change); run `npm test`.
+- See [`../AGENTS.md`](../AGENTS.md) §14 (documentation sync) and §20 (rule conflicts) for enforcement rules.

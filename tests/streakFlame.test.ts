@@ -13,6 +13,7 @@ import {
   flameOutlineAt,
   flameHeartAt,
   flameBitsAt,
+  flameCoreAt,
   FLAME_BIT_VISIBLE_SHARE,
   FLAME_HEADROOM,
 } from '../src/lib/flameUtils';
@@ -205,8 +206,11 @@ describe('StreakFlame Component & Tier Configuration Engine', () => {
     const tiers = [0, 2, 5, 10, 20].map(getStreakFlameConfig);
     const phases = Array.from({ length: 121 }, (_, i) => i / 120);
 
-    it('every tier has an orange middle colour', () => {
-      for (const c of tiers) expect(c.midColor).toMatch(/^#[0-9A-F]{6}$/);
+    it('keeps the original fire colours (red tips, yellow base, white-hot centre); no extra orange layer colour', () => {
+      for (const c of tiers) expect(Object.keys(c)).not.toContain('midColor');
+      const src = fs.readFileSync(path.resolve(__dirname, '../src/components/StreakFlame.tsx'), 'utf8');
+      expect(src).toContain('flameCoreAt(');
+      expect(src).toContain('stopColor={config.coreColor ?? config.innerColor}');
     });
 
     it('hotter tiers make a livelier fire, always between 0 and 1', () => {
@@ -227,6 +231,7 @@ describe('StreakFlame Component & Tier Configuration Engine', () => {
           [flameOutlineAt(0, e), flameOutlineAt(1, e)],
           [flameOutlineAt(0, e, 0.7, 1.7), flameOutlineAt(1, e, 0.7, 1.7)],
           [flameHeartAt(0, e), flameHeartAt(1, e)],
+          [flameCoreAt(0, e), flameCoreAt(1, e)],
           [flameBitsAt(0, 2), flameBitsAt(1, 2)],
         ];
         for (const [a, b] of pairs) {
@@ -242,7 +247,7 @@ describe('StreakFlame Component & Tier Configuration Engine', () => {
       for (const c of tiers) {
         const e = flameEnergy(c.lickStretch);
         for (const p of phases) {
-          for (const d of [flameOutlineAt(p, e), flameOutlineAt(p, e, 0.7, 1.7), flameHeartAt(p, e), flameBitsAt(p, 2)]) {
+          for (const d of [flameOutlineAt(p, e), flameOutlineAt(p, e, 0.7, 1.7), flameHeartAt(p, e), flameCoreAt(p, e), flameBitsAt(p, 2)]) {
             expect(d.startsWith('M ')).toBe(true);
             expect(d.endsWith('Z')).toBe(true);
             for (const pt of pathPoints(d)) {
@@ -257,7 +262,7 @@ describe('StreakFlame Component & Tier Configuration Engine', () => {
       }
     });
 
-    it('layers stay nested: the heart tip is always below the middle tip, which is below the outer tip', () => {
+    it('layers stay nested: core tip below heart tip, below middle tip, below outer tip', () => {
       for (const c of tiers) {
         const e = flameEnergy(c.lickStretch);
         for (const p of phases) {
@@ -266,6 +271,7 @@ describe('StreakFlame Component & Tier Configuration Engine', () => {
           const heartTipY = pathPoints(flameHeartAt(p, e))[0].y;
           expect(middleTipY).toBeGreaterThan(outerTipY);
           expect(heartTipY).toBeGreaterThan(middleTipY);
+          expect(pathPoints(flameCoreAt(p, e))[0].y).toBeGreaterThan(heartTipY);
         }
       }
     });

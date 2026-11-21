@@ -1,7 +1,7 @@
 # Arthik
 
 > A premium, offline-first personal expense and savings tracker for India — built with React Native, Expo & Supabase.
-> ⚡ **Automatic Logging (Beta)** — bank SMS, UPI payment notifications and (new in 2.1) bank emails become transactions automatically, processed on your phone.
+> ⚡ **Automatic Logging (Beta)** — bank SMS and bank alert emails become transactions automatically, processed on your phone.
 
 [![React Native](https://img.shields.io/badge/React_Native-0.86-blue.svg)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-SDK_57-black.svg)](https://expo.dev/)
@@ -9,7 +9,6 @@
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](https://supabase.com/)
 [![Version](https://img.shields.io/badge/Version-2.1.0-green.svg)](https://github.com/Kislaya-06/Arthik-App/releases/latest)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F67_Clean-brightgreen.svg?logo=virustotal)](https://www.virustotal.com/gui/file/fe28fa0f8c19f036ebbeffcbee7f26162e130069cb50d16fe6e498d32d16b271)
-[![Tests](https://img.shields.io/badge/Tests-1794_passing-brightgreen.svg)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -22,7 +21,7 @@ Arthik is **100% safe, ad-free, tracker-free, and open-source**. Every release A
   <img src="./assets/virustotal-scan.png" alt="VirusTotal Security Scan 0/67 Clean" width="100%" />
 </p>
 
-> **🔒 Privacy-First Guarantee**: All bank SMS parsing, UPI notification detection and bank-email notification detection run **strictly on your device**. Personal SMS and emails, OTPs, login/security mails, balance queries and personal chats are filtered out. No SMS text, email content, notification data or raw financial messages ever leave your phone.
+> **🔒 Privacy-First Guarantee**: All bank SMS parsing and bank-email notification detection run **strictly on your device**. Personal SMS and emails, OTPs, login/security mails, balance queries and personal chats are filtered out. No SMS text, email content, notification data or raw financial messages ever leave your phone.
 
 ---
 
@@ -50,26 +49,26 @@ You don't need to come back here. When a new version is required, Arthik shows a
 
 ## ✨ Features
 
-### ⚡ Automatic Logging — *Beta* (Android, v2.0)
+### ⚡ Automatic Logging — *Beta* (Android)
 Log expenses and income without typing them.
-- **Bank SMS + payment-app notifications** (Google Pay, PhonePe, Paytm, Navi, BHIM, CRED, Amazon Pay, MobiKwik, super.money) become transactions automatically.
+- **Bank SMS and bank alert emails** become transactions automatically. Payment-app notifications (Google Pay, PhonePe …) are not used: they miss the account number and caused duplicate reviews.
 - **Processed on your phone.** SMS text is never uploaded. Personal SMS and OTPs are filtered out before anything else runs. Detection data lives in an encrypted on-device database.
 - **You choose the accounts.** Arthik finds your bank accounts (last 4 digits); only the ones you select are tracked.
 - **Never guesses.** Unclear payments (money from a person, an unreadable message, a payment that looks like one you already added) wait in **Pending Review**.
-- **One payment = one entry.** A PhonePe notification and the bank SMS for the same payment are matched into one transaction; two genuine ₹20 payments stay two.
+- **One payment = one entry.** The bank SMS and the bank email for the same payment are matched into one transaction; two genuine ₹20 payments stay two.
 - **Discovery, not backfill.** Old messages are used only to learn your banks and formats — they are never added to your history.
 - **Transparent.** Every automatic transaction shows its sources and *"Why was this logged?"*, with **Report a problem**.
-- **Learns from you.** "Remember Zomato → Food", "Ignore similar messages" (exact format only, never "every ₹20").
-- **Bank emails too (v2.1, optional).** For banks and cards that email instead of sending an SMS: alert emails from Gmail, Outlook and other email apps are read from their notifications, on your phone. SMS, app notification and email for the same payment become **one** transaction — even when the email arrives hours later. Unclear matches wait in review.
-- **Review management & discard.** Swipe to delete pending reviews with fluid spring physics and layout reflow animations, 1-tap "Clear All" with confirmation dialog, and direct review discarding inside review sheets.
-- **Reset learned rules.** 1-tap factory reset of learned merchant categories and ignore preferences from settings without touching tracked accounts or past transaction ledger history.
+- **Learns from you.** "Remember Zomato → Food", categories from your own history, "Ignore similar messages" (exact format only, never "every ₹20"). Pick a category or **Undo** right from the notification.
+- **Bank emails too (v2.1, optional).** For banks and cards that email instead of sending an SMS: alert emails from Gmail, Outlook and other email apps are read from their notifications, on your phone. The SMS and the email for the same payment become **one** transaction — even when the email arrives hours later. Unclear matches wait in review.
+- **Review management.** Swipe to delete a pending review, or Clear All (with confirmation).
+- **Reset learned rules.** Clears learned merchant categories and ignore rules; tracked accounts and past transactions stay.
 - **Welcome back.** After signing out or pausing, choose to *recover* the missed period or only *learn* from it.
 
 > Beta is rolling out gradually, starting with people who used Arthik before v2.0. It is controlled server-side (no app update needed to widen it).
 
 ### Core
 - 🧾 **Expense & income tracking** — custom spring keypad (with calculator), Cash / UPI / Card, categories, notes with suggestions.
-- 🎯 **Budget Modes: Daily, Weekly, Monthly** — or **Pure Mode** with no limits (Inflow vs Outflow rings). Instant adjustments when ₹0 spent in active period (`BPR-002`); next-day rollover protection when spending has occurred (`PUR-003`).
+- 🎯 **Budget Modes: Daily, Weekly, Monthly** — or **Pure Mode** with no limits. Mode switches take effect at midnight (`PUR-003`); budget changes apply today when nothing is spent yet (`BPR-002`).
 - 🤝 **Split Expenses & Money Back** — split expenses with one or more friends (`SPL-001`), see live breakdown, track who owes what on the Ledger screen (`SPL-002`), and record money back or refunds without inflating income (`SPL-003..SPL-006`).
 - 🐷 **Gullak** — unspent budget rolls into your savings jar at the end of every period; smart zero-spend gap filler recovers inactive days' unspent budget (`ROL-004`); add manual deposits too.
 - 🔥 **Streaks & calendar** — scaled to your cadence; paused periods never break a streak.
@@ -77,7 +76,7 @@ Log expenses and income without typing them.
 - 🛡️ **Vault Spending Guard** — real-money discipline: overspending past allowances draws from unspent Income and Gullak; when account liquidity is depleted (`accountRemaining <= 0`), in-sheet Add Money & Save allows adding funds without losing typed expense data (`SEC-001`). Pure Mode spending is never blocked.
 - 📈 **Insights** — weekly, monthly and yearly breakdowns, cash-flow and savings charts.
 - 📶 **Offline-first** — everything works offline; changes sync automatically with retries and a failed-sync recovery list.
-- 🔔 **Smart notifications** — max one nudge a day, budget alerts, rollover summaries.
+- 🔔 **Smart notifications** — an evening nudge only on days with nothing logged, budget alerts, Gullak savings, weekly and monthly recaps.
 - 🎨 **Light, Dark & AMOLED** themes with ambient backgrounds.
 - 🔒 **Biometric app lock**, Google / Email sign-in, full account deletion.
 - ⬆️ **In-app updates** — mandatory updates download inside the app and open Android's installer; OTA for small fixes.
@@ -99,7 +98,7 @@ Log expenses and income without typing them.
 | Updates | EAS Build (APK), EAS Update (OTA), in-app APK updater (`expo-file-system`, `expo-intent-launcher`) |
 | UI | `lucide-react-native`, Quicksand, `react-native-svg`, Reanimated, Gesture Handler |
 | Dates | `date-fns`, Indian number formatting (₹) |
-| Tests | Vitest (190 files, 2,666 tests) |
+| Tests | Vitest (`npm test`), Kotlin JUnit (`npm run test:native`) |
 
 ---
 
@@ -174,16 +173,8 @@ Install it on your device, then start Metro:
 npm run dev          # one device: adb reverse + expo start
 ```
 
-#### Dual Hot-Reload (Phone + Emulator Together)
-To run hot-reload simultaneously across both a physical phone (via USB debugging) and Android emulator:
-```powershell
-# 1. Install dev build on all connected devices:
-.\install-dev-apk.ps1
-
-# 2. Reverse ports for all devices and launch Metro:
-.\dev-both.ps1
-```
-*(Or manually run `adb -s <device-id> reverse tcp:8081 tcp:8081` for each device, then `npx expo start`).*
+#### Phone + Emulator Together
+`npm run dev` fails with "more than one device". Run `adb -s <device-id> reverse tcp:8081 tcp:8081` for each device, then `npx expo start --port 8081`.
 
 Checks:
 ```bash
@@ -207,6 +198,9 @@ All tables use Row Level Security scoped to `auth.uid()`.
 | `budget_plan_changes` | Cadence / budget timeline |
 | `budget_periods` | Finalized weekly / monthly periods |
 | `gullak_deposits` | Manual savings deposits |
+| `self_transfer_rules` | Remembered notes for transfers between your own accounts |
+| `expense_sync_versions` | Expense change counter (refresh skips the download when nothing changed) |
+| `expense_shares` | Table of the first split feature; the app no longer uses it (splits now live on `expenses`, `SPL-001`) |
 | `autolog_profiles` | Automatic Logging on/off, timestamps, tracked accounts as bank + last 4 digits. **No SMS content.** |
 | `app_config` | `version_control` (force update) and `feature_flags` (Beta rollout) — public read |
 
@@ -218,7 +212,7 @@ Full checklist: [`docs/RELEASE_PROCESS.md`](./docs/RELEASE_PROCESS.md).
 
 ```bash
 eas build -p android --profile preview                       # release APK (versionCode auto-increments)
-eas update --branch preview --message "Fix: …"               # OTA for JS-only fixes (same app version)
+eas update --branch preview --environment preview --message "Fix: …"   # OTA for JS-only fixes (same app version)
 ```
 Release assets: **`Arthik-vX.Y.Z.apk`** (required, used by force-update links) **+ `Arthik.apk`** (same file, powers the always-latest link). Tag `vX.Y.Z`.
 Force-update everyone: update the `version_control` row in `app_config` (min version + the versioned direct APK link).

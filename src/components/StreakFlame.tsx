@@ -15,6 +15,7 @@ import { useIsFocused } from '@react-navigation/native';
 import {
   getStreakFlameConfig,
   flameBitsAt,
+  flameCoreAt,
   flameEnergy,
   flameFrameAt,
   flameGrowthFor,
@@ -52,7 +53,8 @@ function useSafeIsFocused(): boolean {
 /**
  * A living streak flame, drawn like an animated emoji fire. Every frame the fire's outline is
  * redrawn on the UI thread: the tip whips side to side, the side tongues lick up and down on their
- * own beats, a hot yellow heart dances inside, and small flame bits break off the top and fade.
+ * own beats, a hot yellow heart with a white-hot centre dances inside, and small flame bits break off
+ * the top and fade. Colours are the tier's red / yellow / white (getStreakFlameConfig), unchanged.
  * - Grows a little with every streak day (flameGrowthFor), so a long streak is a visibly bigger fire.
  * - Hotter colours and a livelier fire per tier (getStreakFlameConfig, flameEnergy).
  * - No glow or halo behind it.
@@ -110,6 +112,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({ streak, size = 18, sty
     const f = flameFrameAt(phase.value, lickStretch, swayDegrees);
     return { d: flameHeartAt(phase.value, energy), opacity: f.innerOpacity };
   });
+  const coreProps = useAnimatedProps(() => ({ d: flameCoreAt(phase.value, energy) }));
   const bitsProps = useAnimatedProps(() => ({ d: flameBitsAt(phase.value, animate ? bitCount : 0) }));
 
   const outerColor = colorOverride || config.outerColor;
@@ -123,25 +126,30 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({ streak, size = 18, sty
     <Animated.View style={[box, styles.origin, bodyStyle, style]} pointerEvents="none">
       <Svg viewBox={FLAME_VIEWBOX} fill="none" style={[styles.canvas, canvas]}>
         <Defs>
-          {/* Fire is reddest at its tips and turns orange towards the base. */}
+          {/* Same colours as before: deep red tips turning bright yellow at the base. */}
           <LinearGradient id={`${gradientId}o`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0.2" stopColor={outerColor} />
-            <Stop offset="1" stopColor={config.midColor} stopOpacity={dormant ? 0.7 : 1} />
+            <Stop offset="0" stopColor={outerColor} />
+            <Stop offset="0.6" stopColor={outerColor} />
+            <Stop offset="1" stopColor={config.innerColor} stopOpacity={dormant ? 0.5 : 1} />
           </LinearGradient>
+          {/* Inner tongue: the same red-to-yellow fire, lighter because it starts lower. */}
           <LinearGradient id={`${gradientId}m`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0.35" stopColor={config.midColor} />
+            <Stop offset="0" stopColor={outerColor} />
             <Stop offset="1" stopColor={config.innerColor} />
           </LinearGradient>
           {/* The heart is hottest (palest) at the bottom. */}
           <LinearGradient id={`${gradientId}i`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0.45" stopColor={config.innerColor} />
+            <Stop offset="0" stopColor={config.innerColor} />
             <Stop offset="1" stopColor={config.coreColor ?? config.innerColor} />
           </LinearGradient>
         </Defs>
-        <AnimatedPath animatedProps={bitsProps} fill={config.midColor} opacity={0.95} />
+        <AnimatedPath animatedProps={bitsProps} fill={outerColor} opacity={0.95} />
         <AnimatedPath animatedProps={outerProps} fill={`url(#${gradientId}o)`} />
-        <AnimatedPath animatedProps={middleProps} fill={`url(#${gradientId}m)`} opacity={dormant ? 0.7 : 1} />
-        <AnimatedPath animatedProps={heartProps} fill={`url(#${gradientId}i)`} />
+        <AnimatedPath animatedProps={middleProps} fill={`url(#${gradientId}m)`} opacity={dormant ? 0.6 : 0.9} />
+        <AnimatedPath animatedProps={heartProps} fill={`url(#${gradientId}i)`} fillOpacity={dormant ? 0.6 : 0.95} />
+        {config.coreColor && config.tier >= 2 && (
+          <AnimatedPath animatedProps={coreProps} fill={config.coreColor} opacity={0.9} />
+        )}
       </Svg>
     </Animated.View>
   );
