@@ -89,7 +89,6 @@ export const styles = StyleSheet.create({
   filterToggleWrapper: {
     marginTop: Spacing.block,
   },
-  heroHint: { textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, marginTop: 6 },
   filterDateRow: {
     flexDirection: 'row',
     alignItems: 'center',

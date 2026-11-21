@@ -329,16 +329,55 @@ describe('No faint accent text anywhere (Light): text uses mintText / coralText'
   });
 });
 
-describe('Form fields share one anatomy (label, 56dp row, helper)', () => {
-  it('the Transfer and Split switches are plain form rows, not bordered capsules', () => {
+describe('Add Transaction details are one inset grouped card (FormGroup / FormRow), not a stack of pills', () => {
+  it('primary choices (category, paid via, what is this money) are full-size sections; date, split and note are rows of ONE FormGroup; transfer is its own one-row card', () => {
+    const screen = read('src/screens/ExpenseFormScreen.tsx');
+    expect(screen.match(/<FormGroup\b/g)).toHaveLength(1);
+    expect(screen).toContain('title="Date"');
+    expect(screen).toContain('icon={PenLine}');
+    expect(screen).toContain("{isIncome ? 'ADDED VIA' : 'PAID VIA'}");
+    // What is this money? comes before the category (it decides whether a category is needed).
+    expect(screen.indexOf('<MoneyBackExtras')).toBeLessThan(screen.indexOf('Category Selector'));
+    // Rows use a plain line icon, no tile per row.
+    expect(read('src/components/ui/FormGroup.tsx')).not.toContain('iconTile');
+    // Old pill fields are gone: no separate DATE / NOTE labels, no 56dp pill inputs.
+    expect(screen).not.toContain('NOTE (OPTIONAL)');
+    expect(screen).not.toContain('datePickerButton');
+    expect(read('src/screens/ExpenseFormScreen.styles.ts')).not.toMatch(/inputContainer:/);
+
     const transfer = read('src/components/transfer/TransferExtras.tsx');
-    expect(transfer).toContain('>TRANSFER</Text>');
-    expect(transfer).toContain('height: ControlHeight.row,');
-    expect(transfer).not.toContain('pillTrigger');
+    expect(transfer).toContain('<FormGroup>');
+    expect(transfer).toContain('<FormRow');
+    expect(transfer).not.toContain('>TRANSFER</Text>');
     const split = read('src/components/split/SplitExtras.tsx');
-    expect(split).toContain('>SPLIT</Text>');
-    expect(split).toMatch(/pillTrigger: \{[^}]*height: ControlHeight\.row,[^}]*\}/);
-    expect(split).not.toMatch(/pillTrigger: \{[^}]*borderWidth/);
+    expect(split).toContain('<FormRow');
+    expect(split).not.toContain('>SPLIT</Text>');
+    expect(split).not.toContain('pillTrigger');
+  });
+
+  it('the split switch reveals the editor without claiming the keyboard (Save button kept its keyboard size)', () => {
+    const split = read('src/components/split/SplitExtras.tsx');
+    expect(split).toMatch(/if \(on\) onReveal\?\.\(\)/);
+    expect(split).not.toMatch(/if \(on\) onFieldFocus\?\.\(\)/);
+    expect(read('src/screens/ExpenseFormScreen.tsx')).toContain('onReveal={handleSplitReveal}');
+  });
+
+  it('both switches in the form are the one app-wide toggle size (58x30), no smaller one', () => {
+    for (const f of ['src/components/split/SplitExtras.tsx', 'src/components/transfer/TransferExtras.tsx']) {
+      expect(read(f)).toMatch(/<AnimatedToggle\b/);
+      expect(read(f)).not.toMatch(/<AnimatedToggle[^>]*\b(width|height)=/);
+    }
+  });
+
+  it('choice controls are full 48dp tracks on cardSubtle (never thin); the mode switch is one step bigger (56dp, full width)', () => {
+    const pay = read('src/components/BouncyPaymentToggle.tsx');
+    expect(pay).toContain('height={ControlHeight.standard}');
+    expect(pay).toContain('backgroundColor={colors.cardSubtle}');
+    expect(pay).not.toContain('ControlHeight.compact');
+    const money = read('src/components/split/MoneyBackExtras.tsx');
+    expect(money).toContain('height={ControlHeight.standard}');
+    expect(money).toContain('>WHAT IS THIS MONEY?</Text>');
+    expect(read('src/components/BouncyTypeToggle.tsx')).toContain('height={ControlHeight.row}');
   });
 
   it('"What is this money?" fits its three options at the normal size', () => {

@@ -327,10 +327,11 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
       }
       return formatCadenceRolloverStrip(cadencePeriodSummary, budgetCadence);
     }
+    // Over budget: the title and amount already say by how much; the strip says what it means for tonight.
     return isOverBudget
-      ? `Over limit by ${formatCurrency(todayRecordSpent - todayBudget)} today`
+      ? 'Nothing goes to Gullak tonight'
       : `${formatCurrency(todayRemaining)} rolls over to Gullak tonight`;
-  }, [isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, isOverBudget, todayRecordSpent, todayBudget, todayRemaining]);
+  }, [isCadenceMode, cadencePeriodSummary, budgetCadence, activeFilter, isOverBudget, todayRemaining]);
 
   // Curated Card Colors (Mint Green signature card)
   // Contrast: Dark Navy typography on Mint Green (#B8E0C8) provides 9.8:1 AAA contrast
@@ -347,8 +348,6 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
     );
     return only ? [only] : [];
   }, [effectiveSubtext, isBudgetModeEnabled, isSpendingFromGullak, gullakDrawnAmount, periodIncome]);
-
-  const filterLabelPrefix = activeFilter === 'All' ? 'Total' : activeFilter;
 
   // ── Smooth number transition for all values (Remaining/Expense, Income, Expense) ──
   const effectiveTargets = useMemo(() => {
@@ -491,15 +490,18 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
         <View style={styles.cardInner}>
           {/* Top Section: Constrained width to clear the notched chart pod */}
           <View style={[styles.topSection, { paddingRight: podSize + GAP + 6 }]}>
-            {/* Label & Amount */}
-            <Text
-              style={[styles.primaryLabel, { color: textColorSecondary }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
-            >
-              {effectivePrimaryLabel}
-            </Text>
+            {/* Label & Amount. The chevron says the card opens its breakdown (no separate hint line under it). */}
+            <View style={styles.primaryLabelRow}>
+              <Text
+                style={[styles.primaryLabel, { color: textColorSecondary }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {effectivePrimaryLabel}
+              </Text>
+              {onOpenDetails ? <ChevronRight size={16} color={textColorSecondary} strokeWidth={2.5} /> : null}
+            </View>
             <RollingText
               text={formatCurrency(effectiveTargets.targetPrimary)}
               style={primaryAmountStyle}
@@ -568,9 +570,8 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
             <View style={styles.metricsRow}>
               {/* Income Column */}
               <View style={styles.metricCol}>
-                <Text style={styles.metricColLabel}>
-                  {`${filterLabelPrefix} Income`}
-                </Text>
+                {/* Budget + income + deposits of the period (the ring's base). Not "Income": the allowance is not income. */}
+                <Text style={styles.metricColLabel}>Available</Text>
                 <View style={styles.metricAmountRow}>
                   <RollingText
                     text={`+${formatCurrency(effectiveTargets.targetIncome)}`}
@@ -586,9 +587,7 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
 
               {/* Expense Column */}
               <View style={styles.metricCol}>
-                <Text style={styles.metricColLabel}>
-                  {`${filterLabelPrefix} Expense`}
-                </Text>
+                <Text style={styles.metricColLabel}>Spent</Text>
                 <View style={styles.metricAmountRow}>
                   <RollingText
                     text={`−${formatCurrency(effectiveTargets.targetSpent)}`}
@@ -678,19 +677,17 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
           ]}
           pointerEvents="none"
         >
-          {/* One expense ring in BOTH modes: the income side is always the full base ring (spent / income). */}
+          {/* One expense ring in BOTH modes: spent / money of the period, real percent with a second lap (UX-004). */}
           <DonutChart
             size={82}
             strokeWidth={9.5}
             spent={effectiveTargets.targetSpent}
-            total={Math.max(
-              isBudgetModeEnabled ? totalAvailable : effectiveTargets.targetIncome,
-              effectiveTargets.targetSpent
-            )}
+            total={isBudgetModeEnabled ? totalAvailable : effectiveTargets.targetIncome}
             colors={colors}
             trackColor="rgba(255, 255, 255, 0.65)"
             baseColor="rgba(255, 255, 255, 0.92)"
             spentColor={effectiveIsOver ? '#EF4444' : '#E05A47'}
+            overflowColor="#991B1B"
             textColor={effectiveIsOver ? '#EF4444' : textColorPrimary}
             subtextColor={textColorSecondary}
             triggerKey={activeFilter}
@@ -728,11 +725,17 @@ const styles = StyleSheet.create({
   topSection: {
     justifyContent: 'flex-start',
   },
+  primaryLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginBottom: 3,
+  },
   primaryLabel: {
     fontSize: FontSize.body, // 16px (~1.5x of 11px metricColLabel for strong card heading hierarchy)
     fontFamily: FontFamily.bold,
     letterSpacing: 0.15,
-    marginBottom: 3,
+    flexShrink: 1,
   },
   primaryAmount: {
     fontSize: 32,

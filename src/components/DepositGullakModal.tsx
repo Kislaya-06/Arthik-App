@@ -37,7 +37,7 @@ import {
   evaluateExpression,
   formatExpressionWithCommas,
 } from '../lib/amountKeypad';
-import { Spacing, Motion } from '../config/theme';
+import { Spacing, Motion, ScreenHue } from '../config/theme';
 import { saveSuccessHaptic } from '../lib/saveFeedback';
 import { styles } from './DepositGullakModal.styles';
 import { useScrimColor } from '../hooks/useScrimColor';
@@ -226,7 +226,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
           style={[
             styles.modalContent,
             {
-              backgroundColor: '#581C87',
+              backgroundColor: ScreenHue.gullak.to,
               borderColor: 'rgba(255, 255, 255, 0.15)',
               borderWidth: 1,
               transform: [
@@ -258,8 +258,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
             >
               <Defs>
                 <SvgLinearGradient id="depositModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor="#8B5CF6" />
-                  <Stop offset="100%" stopColor="#581C87" />
+                  <Stop offset="0%" stopColor={ScreenHue.gullak.from} />
+                  <Stop offset="100%" stopColor={ScreenHue.gullak.to} />
                 </SvgLinearGradient>
               </Defs>
               <Rect x="0" y="0" width="100" height="100" fill="url(#depositModalGrad)" />
@@ -730,11 +730,11 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                       : 'Deposit to Gullak'
                   }
                 >
-                  <Check size={18} color={isValidAmount ? '#581C87' : 'rgba(255, 255, 255, 0.4)'} />
+                  <Check size={18} color={isValidAmount ? ScreenHue.gullak.to : 'rgba(255, 255, 255, 0.4)'} />
                   <Text
                     style={[
                       styles.fullWidthSaveText,
-                      { color: isValidAmount ? '#581C87' : 'rgba(255, 255, 255, 0.4)' },
+                      { color: isValidAmount ? ScreenHue.gullak.to : 'rgba(255, 255, 255, 0.4)' },
                     ]}
                   >
                     {isValidAmount
@@ -753,7 +753,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 StyleSheet.absoluteFill,
                 styles.celebrationOverlay,
                 {
-                  backgroundColor: '#581C87',
+                  backgroundColor: ScreenHue.gullak.to,
                   opacity: celebrationOpacity,
                   transform: [{ scale: celebrationScale }],
                 },
@@ -770,8 +770,8 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
                 >
                   <Defs>
                     <SvgLinearGradient id="celebModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <Stop offset="0%" stopColor="#8B5CF6" />
-                      <Stop offset="100%" stopColor="#581C87" />
+                      <Stop offset="0%" stopColor={ScreenHue.gullak.from} />
+                      <Stop offset="100%" stopColor={ScreenHue.gullak.to} />
                     </SvgLinearGradient>
                   </Defs>
                   <Rect x="0" y="0" width="100" height="100" fill="url(#celebModalGrad)" />

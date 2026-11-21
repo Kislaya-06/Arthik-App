@@ -436,7 +436,7 @@ export const MoneyExplainerModal: React.FC<MoneyExplainerModalProps> = ({
           {/* Sticky "Got It" CTA */}
           <AppButton
             label="Got It"
-            size="cta"
+            size="standard"
             onPress={onClose}
             style={styles.gotItButton}
           />

@@ -1,11 +1,12 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, Platform, KeyboardAvoidingView, Keyboard, ActivityIndicator, Animated, useAnimatedValue } from 'react-native';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, Text, TextInput, ScrollView, Pressable, Platform, KeyboardAvoidingView, Keyboard, ActivityIndicator, Animated, useAnimatedValue, LayoutChangeEvent } from 'react-native';
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSpring,
   interpolate,
+  interpolateColor,
   Easing as REasing,
   Extrapolation,
 } from 'react-native-reanimated';
@@ -19,6 +20,7 @@ import { AmbientBackground } from '../components/AmbientBackground';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
 import Calendar from 'lucide-react-native/icons/calendar';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import PenLine from 'lucide-react-native/icons/pen-line';
 import Plus from 'lucide-react-native/icons/plus';
 import Check from 'lucide-react-native/icons/check';
 import AlertTriangle from 'lucide-react-native/icons/triangle-alert';
@@ -38,7 +40,7 @@ import {
 import { Category } from '../store/categoryStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyButton } from '../components/KeyButton';
-import { formatAmountWithCommas } from '../lib/formatters';
+import { formatAmountWithCommas, formatCurrency } from '../lib/formatters';
 import { useTheme } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { useFormKeyboard } from '../hooks/useFormKeyboard';
@@ -50,6 +52,7 @@ import {
 } from '../hooks/useExpenseForm';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
+import { FormGroup, FormRow } from '../components/ui/FormGroup';
 import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
 import { styles } from './ExpenseFormScreen.styles';
 import { CategoryChipItem } from './expenseForm/CategoryChipItem';
@@ -78,11 +81,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     isKeyboardOpen,
     keypad,
     handleAmountPress,
-    handleNoteLayout,
     handleNoteFocus,
     handleNoteBlur,
     handleSplitLayout,
     handleSplitFocus,
+    handleSplitReveal,
+    setNoteOffset,
+    setSplitOffset,
     showKeypad,
     hideKeypad,
     handleKeypadDragEnd,
@@ -137,6 +142,35 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const isIncome = transactionType === 'income';
 
+  // The note and split / money-back rows sit inside the details card, so their scroll position (for the keyboard)
+  // is the card's Y in the scroll content plus the row's Y in the card.
+  const detailsYRef = useRef(0);
+  const noteRowYRef = useRef(0);
+  const extrasRowYRef = useRef(0);
+  const syncFieldOffsets = useCallback(() => {
+    setNoteOffset(detailsYRef.current + noteRowYRef.current);
+    setSplitOffset(detailsYRef.current + extrasRowYRef.current);
+  }, [setNoteOffset, setSplitOffset]);
+  const handleDetailsLayout = useCallback((e: LayoutChangeEvent) => {
+    detailsYRef.current = e.nativeEvent.layout.y;
+    syncFieldOffsets();
+  }, [syncFieldOffsets]);
+  const handleNoteRowLayout = useCallback((e: LayoutChangeEvent) => {
+    noteRowYRef.current = e.nativeEvent.layout.y;
+    syncFieldOffsets();
+  }, [syncFieldOffsets]);
+  const handleExtrasRowLayout = useCallback((e: LayoutChangeEvent) => {
+    extrasRowYRef.current = e.nativeEvent.layout.y;
+    syncFieldOffsets();
+  }, [syncFieldOffsets]);
+  // Hero amount: muted while empty, then the side's amount colour (income mintText / expense coralText, like AmountText).
+  const hasTypedAmount = hasOperator ? evaluatedAmount > 0 : Boolean(amount);
+  const amountColor = isDivisionByZero
+    ? colors.danger
+    : hasTypedAmount
+    ? (isIncome ? colors.mintText : colors.coralText)
+    : colors.textMuted;
+
   const onTypeChange = useCallback(
     (type: 'expense' | 'income') => {
       handleTypeChange(type);
@@ -147,6 +181,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Animation: Error shake on invalid save (amount scale punch removed for instant typing)
   const amountShake = useAnimatedValue(0);
+  // Category chips: the left fade only shows once the row is scrolled (at rest it sat on the first chip).
+  const categoryScrollX = useAnimatedValue(0);
 
   const triggerErrorShake = useCallback(() => {
     Animated.sequence([
@@ -168,6 +204,32 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const buttonHeight = isKeyboardOpen ? 50 : ControlHeight.cta;
 
   const isButtonGreen = isSaveEnabled || isSubmitting || isMorphing || showTick;
+
+  // The button eases into mint when an amount is typed (UI-thread backgroundColor, never a per-frame Text colour).
+  const saveReady = useSharedValue(isButtonGreen ? 1 : 0);
+  useEffect(() => {
+    saveReady.value = withTiming(isButtonGreen ? 1 : 0, {
+      duration: 200,
+      easing: REasing.bezier(0.23, 1, 0.32, 1),
+    });
+  }, [isButtonGreen, saveReady]);
+
+  const idleFill = colors.cardSubtle;
+  const readyFill = colors.mintGreen;
+  const idleBorder = isDivisionByZero ? colors.danger : colors.borderSubtle;
+  const saveFillStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(saveReady.value, [0, 1], [idleFill, readyFill]),
+    borderColor: interpolateColor(saveReady.value, [0, 1], [idleBorder, readyFill]),
+  }), [idleFill, readyFill, idleBorder]);
+
+  // With an amount the label says what will be saved ("Save ₹250"), like "Pay ₹250" in payment apps.
+  const saveLabel = isDivisionByZero
+    ? 'Cannot divide by 0'
+    : evaluatedAmount > 0
+    ? `${isEdit ? 'Update' : 'Save'} ${formatCurrency(evaluatedAmount)}`
+    : isEdit
+    ? (isIncome ? 'Update Transaction' : 'Update Expense')
+    : (isIncome ? 'Save Transaction' : 'Save Expense');
 
   const morphStyle = useAnimatedStyle(() => ({
     width: buttonFullWidth > 0
@@ -312,7 +374,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
-      <AmbientBackground />
+      {/* Top glow follows the side: spending coral (the Insights hue) for Expense, Home mint for Income. */}
+      <AmbientBackground tone={isIncome ? 'home' : 'insights'} />
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* ── Header ── */}
@@ -362,8 +425,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text
               style={[
                 styles.currencySymbol,
-                { color: isDivisionByZero ? colors.danger : colors.textMuted },
-                { fontFamily: FontFamily.bold },
+                { color: amountColor, fontFamily: FontFamily.semibold },
               ]}
             >
               ₹
@@ -373,12 +435,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               adjustsFontSizeToFit
               style={[
                 styles.amountValue,
-                isDivisionByZero
-                  ? { color: colors.danger }
-                  : (hasOperator ? evaluatedAmount > 0 : amount)
-                  ? { color: colors.textPrimary }
-                  : { color: colors.textMuted },
-                { fontFamily: FontFamily.bold },
+                { color: amountColor, fontFamily: FontFamily.bold },
               ]}
             >
               {isDivisionByZero
@@ -388,12 +445,6 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 : formatAmountWithCommas(amount) || '0'}
             </Text>
           </Animated.View>
-          <View
-            style={[
-              styles.amountUnderline,
-              { backgroundColor: isDivisionByZero ? colors.danger : colors.border },
-            ]}
-          />
         </Pressable>
 
       {/* ── Scrollable Section (Category, Note, Date, Payment) ── */}
@@ -408,6 +459,16 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
+        {/* Income only: what kind of money came in. First, because it decides whether a category is needed (SPL-003). */}
+        {moneyBack.visible && (
+          <MoneyBackExtras
+            moneyBack={moneyBack}
+            amount={evaluatedAmount}
+            onFieldFocus={handleSplitFocus}
+            onLayout={handleSplitLayout}
+          />
+        )}
+
         {/* Category Selector — expense categories for expenses, income categories for income (CAT-004).
             Hidden while recording money that came back: that has no category of its own (SPL-003). */}
         {(transactionType === 'expense' || !moneyBack.visible || moneyBack.mode === 'income') && (
@@ -444,11 +505,13 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             ) : (
               <View style={styles.categoryScrollContainer}>
-                <ScrollView
+                <Animated.ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   keyboardShouldPersistTaps="always"
                   contentContainerStyle={styles.categoryList}
+                  onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: categoryScrollX } } }], { useNativeDriver: true })}
+                  scrollEventThrottle={16}
                 >
                   {categories.map((cat: Category) => {
                     const isPlaceholder = Boolean(cat.isPlaceholder) || areCategoriesPlaceholder;
@@ -488,10 +551,16 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                   >
                     <Plus size={16} color={colors.textPrimary} />
                   </Pressable>
-                </ScrollView>
+                </Animated.ScrollView>
 
-                {/* Left Fade Overlay (padding area) */}
-                <View pointerEvents="none" style={styles.categoryFadeLeft}>
+                {/* Left Fade Overlay: hidden at rest, fades in over the first 16px of scroll */}
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.categoryFadeLeft,
+                    { opacity: categoryScrollX.interpolate({ inputRange: [0, 16], outputRange: [0, 1], extrapolate: 'clamp' }) },
+                  ]}
+                >
                   <Svg width="100%" height="100%" preserveAspectRatio="none">
                     <Defs>
                       <LinearGradient id="expenseCategoryFadeLeft" x1="0" y1="0" x2="1" y2="0">
@@ -502,7 +571,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                     </Defs>
                     <Rect width="100%" height="100%" fill="url(#expenseCategoryFadeLeft)" />
                   </Svg>
-                </View>
+                </Animated.View>
 
                 {/* Right Fade Overlay (padding area) */}
                 <View pointerEvents="none" style={styles.categoryFadeRight}>
@@ -522,26 +591,124 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
 
-        {/* Date Picker */}
-        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-          DATE
-        </Text>
-        <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
-          onPress={() => {
-            Keyboard.dismiss();
-            hideKeypad();
-            setShowDatePicker(true);
-          }}
-          style={[styles.datePickerButton, { backgroundColor: colors.inputBg }]}
-        >
-          <View style={styles.datePickerLeft}>
-            <Calendar size={18} color={colors.textSecondary} />
-            <Text style={[styles.datePickerText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}>
-              {formattedDate}
-            </Text>
-          </View>
-          <ChevronRight size={18} color={colors.textSecondary} />
-        </PressableOpacity>
+        {/* ── Paid via / Added via: a primary choice made on every entry, so it is a full-size section ── */}
+        <View style={styles.choiceSection}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
+            {isIncome ? 'ADDED VIA' : 'PAID VIA'}
+          </Text>
+          <BouncyPaymentToggle
+            value={paymentMode}
+            onChange={(mode) => {
+              hideKeypad();
+              setPaymentMode(mode);
+            }}
+            options={isIncome ? INCOME_PAYMENT_OPTIONS : EXPENSE_PAYMENT_OPTIONS}
+            activeColor={isIncome ? colors.mintGreen : colors.peachCoral}
+          />
+        </View>
+
+        {/* ── Optional details: ONE light inset card (date, split, note) ── */}
+        <FormGroup onLayout={handleDetailsLayout}>
+          <FormRow
+            icon={Calendar}
+            title="Date"
+            onPress={() => {
+              Keyboard.dismiss();
+              hideKeypad();
+              setShowDatePicker(true);
+            }}
+            accessibilityLabel={`Date, ${formattedDate}`}
+            right={
+              <View style={styles.rowValue}>
+                <Text numberOfLines={1} style={[styles.rowValueText, { color: colors.textSecondary }]}>
+                  {formattedDate}
+                </Text>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </View>
+            }
+          />
+
+          {/* Split with someone (expenses only). Rendered only when visible, so the card never shows an empty row. */}
+          {split.visible && (
+            <SplitExtras
+              split={split}
+              onFieldFocus={handleSplitFocus}
+              onReveal={handleSplitReveal}
+              onLayout={handleExtrasRowLayout}
+            />
+          )}
+
+          {/* Note: the text field IS the row (no separate label) */}
+          <FormRow
+            icon={PenLine}
+            onLayout={handleNoteRowLayout}
+            middle={
+              <TextInput
+                ref={noteInputRef}
+                value={note}
+                onChangeText={handleNoteChange}
+                maxLength={MAX_NOTE_CHARS}
+                placeholder="Add a note (optional)"
+                placeholderTextColor={colors.textMuted}
+                keyboardAppearance={isDark ? 'dark' : 'light'}
+                style={[styles.noteInput, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
+                accessibilityLabel="Note"
+                onFocus={() => {
+                  setIsNoteFocused(true);
+                  handleNoteFocus();
+                }}
+                onBlur={() => {
+                  setIsNoteFocused(false);
+                  handleNoteBlur();
+                }}
+              />
+            }
+            right={
+              note.length > 0 ? (
+                <Text
+                  accessibilityLabel={`${countWords(note)} of ${MAX_NOTE_WORDS} words`}
+                  style={[
+                    styles.noteCounterText,
+                    {
+                      color:
+                        countWords(note) >= MAX_NOTE_WORDS || note.length >= MAX_NOTE_CHARS
+                          ? colors.coralText
+                          : colors.textMuted,
+                      fontFamily: FontFamily.semibold,
+                    },
+                  ]}
+                >
+                  {countWords(note)}/{MAX_NOTE_WORDS}
+                </Text>
+              ) : null
+            }
+          />
+        </FormGroup>
+
+        {/* Recent notes to reuse, right under the note row while it has focus */}
+        {showSuggestions && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="always"
+            style={styles.suggestionsScroll}
+            contentContainerStyle={styles.suggestionsList}
+          >
+            {noteSuggestions.map((suggestion) => (
+              <PressableOpacity activeOpacity={PRESS_DIM_OPACITY}
+                key={suggestion}
+                onPress={() => handleSelectNoteSuggestion(suggestion)}
+                style={[styles.suggestionChip, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}
+              >
+                <Text style={[styles.suggestionText, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                  {suggestion}
+                </Text>
+              </PressableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Dynamic Backdated Spending Notice (FIN-01 / UX Transparency) */}
         {backdatedSpendingNotice && (
@@ -615,124 +782,9 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
           totalVaultLiquidity={vaultLiquidity.totalVaultLiquidity}
         />
 
-        {/* Paid Via / Added Via Toggle */}
-        <Text style={[styles.sectionLabel, styles.formSectionPadding, { color: colors.textSecondary, fontFamily: FontFamily.bold }]}>
-          {transactionType === 'income' ? 'MONEY ADDED VIA' : 'PAID VIA'}
-        </Text>
-        <View style={styles.formSectionPadding}>
-          <BouncyPaymentToggle
-            value={paymentMode}
-            onChange={(mode) => {
-              hideKeypad();
-              setPaymentMode(mode);
-            }}
-            options={transactionType === 'income' ? INCOME_PAYMENT_OPTIONS : EXPENSE_PAYMENT_OPTIONS}
-            activeColor={transactionType === 'income' ? colors.mintGreen : colors.peachCoral}
-          />
-        </View>
-
-        {/* Split with someone (expenses) / what kind of money came in (income) */}
-        <View style={styles.formSectionPadding} onLayout={handleSplitLayout}>
-          <SplitExtras split={split} onFieldFocus={handleSplitFocus} />
-          <MoneyBackExtras moneyBack={moneyBack} amount={evaluatedAmount} onFieldFocus={handleSplitFocus} />
-        </View>
-
-        {/* Note Input — onLayout tracks Y for keyboard-scroll */}
-        <View onLayout={handleNoteLayout}>
-          <View style={styles.sectionLabelRow}>
-            <Text
-              style={[
-                styles.sectionLabel,
-                styles.sectionLabelNoMargin,
-                { color: colors.textSecondary, fontFamily: FontFamily.bold },
-              ]}
-            >
-              NOTE (OPTIONAL)
-            </Text>
-            <Text
-              style={[
-                styles.noteCounterText,
-                {
-                  color:
-                    countWords(note) >= MAX_NOTE_WORDS || note.length >= MAX_NOTE_CHARS
-                      ? colors.peachCoral
-                      : colors.textMuted,
-                  fontFamily: FontFamily.semibold,
-                },
-              ]}
-            >
-              {countWords(note)}/{MAX_NOTE_WORDS} words
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                backgroundColor: colors.inputBg,
-                marginBottom: showSuggestions ? Spacing.element : Spacing.block,
-              },
-            ]}
-          >
-            <TextInput
-              ref={noteInputRef}
-              value={note}
-              onChangeText={handleNoteChange}
-              maxLength={MAX_NOTE_CHARS}
-              placeholder="Add a note..."
-              placeholderTextColor={colors.textMuted}
-              keyboardAppearance={isDark ? 'dark' : 'light'}
-              style={[styles.inputText, { color: colors.textPrimary, fontFamily: FontFamily.medium }]}
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
-              onFocus={() => {
-                setIsNoteFocused(true);
-                handleNoteFocus();
-              }}
-              onBlur={() => {
-                setIsNoteFocused(false);
-                handleNoteBlur();
-              }}
-            />
-          </View>
-
-          {showSuggestions && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="always"
-              style={styles.suggestionsScroll}
-              contentContainerStyle={styles.suggestionsList}
-            >
-              {noteSuggestions.map((suggestion) => (
-                <Pressable
-                  key={suggestion}
-                  onPress={() => handleSelectNoteSuggestion(suggestion)}
-                  style={({ pressed }) => [
-                    styles.suggestionChip,
-                    {
-                      backgroundColor: colors.inputBg,
-                      borderColor: colors.borderSubtle,
-                      opacity: pressed ? 0.75 : 1,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.suggestionText,
-                      { color: colors.textSecondary, fontFamily: FontFamily.medium },
-                    ]}
-                  >
-                    {suggestion}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-
-        {/* Self-transfer (new transactions only) */}
+        {/* Self-transfer (new transactions only): its own one-row card */}
         {!isEdit && (
-          <View style={styles.formSectionPadding}>
+          <View style={styles.transferWrap}>
             <TransferExtras
               isSelfTransfer={isSelfTransfer}
               onToggleSelfTransfer={toggleSelfTransfer}
@@ -811,10 +863,9 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 height: buttonHeight,
                 borderRadius: BorderRadius.pill,
                 alignSelf: 'center',
-                backgroundColor: isButtonGreen ? colors.mintGreen : colors.cardSubtle,
-                borderColor: !isButtonGreen && isDivisionByZero ? colors.danger : (!isButtonGreen ? colors.borderSubtle : 'transparent'),
-                borderWidth: !isButtonGreen ? 1 : 0,
+                borderWidth: 1,
               },
+              saveFillStyle,
               isButtonGreen ? styles.saveButtonEnabled : null,
               morphStyle,
             ]}
@@ -843,6 +894,8 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
               ) : (
                 <Reanimated.Text
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
                   style={[
                     styles.saveButtonText,
                     {
@@ -856,11 +909,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
                     textOpacityStyle,
                   ]}
                 >
-                  {isDivisionByZero
-                    ? 'Cannot divide by 0'
-                    : isEdit
-                    ? (transactionType === 'income' ? 'Update Transaction' : 'Update Expense')
-                    : (transactionType === 'income' ? 'Save Transaction' : 'Save Expense')}
+                  {saveLabel}
                 </Reanimated.Text>
               )}
             </Pressable>

@@ -5,15 +5,19 @@ import Svg, { Circle } from 'react-native-svg';
 import { ThemeColors, FontFamily } from '../config/theme';
 import { RollingText } from './RollingText';
 import { useRingSweep } from '../hooks/useRingSweep';
+import { heroRingProgress } from '../lib/heroRing';
 
 export type DonutProps = {
   spent: number;
+  /** Money of the period. Spending above it draws a second lap (UX-004). */
   total: number;
   colors: ThemeColors;
   size?: number;
   strokeWidth?: number;
   trackColor?: string;
   spentColor?: string;
+  /** Second lap (spending above 100%). Darker than spentColor so the lap reads as "more than all of it". */
+  overflowColor?: string;
   baseColor?: string;
   textColor?: string;
   subtextColor?: string;
@@ -33,6 +37,7 @@ const DonutChartBase: React.FC<DonutProps> = ({
   strokeWidth = DEFAULT_STROKE_WIDTH,
   trackColor,
   spentColor,
+  overflowColor,
   baseColor,
   textColor,
   subtextColor,
@@ -43,19 +48,30 @@ const DonutChartBase: React.FC<DonutProps> = ({
   const CIRCUMFERENCE = 2 * Math.PI * R;
   const CENTER = SIZE / 2;
 
-  const hasData = total > 0;
-  const targetSpentRatio = hasData ? Math.max(0, Math.min(spent / total, 1)) : 0;
-  const targetSpentPercentage = hasData ? Math.round((spent / total) * 100) : 0;
-  const isOverspent = hasData && spent > total;
+  // Real percent, up to two drawn laps (UX-004).
+  const ring = heroRingProgress(spent, total);
+  const hasData = total > 0 || spent > 0;
+  const isOverspent = ring.isOver;
 
-  // Sweeps up from empty on every visit, on the UI thread, without a blink on return (see useRingSweep).
-  const anim = useRingSweep(targetSpentRatio, 240);
+  // Sweeps on the UI thread on first show and whenever the value changes; never replays on a revisit (see useRingSweep).
+  const anim = useRingSweep(ring.ratio, 240, 2);
 
   // strokeDashoffset from progress; the rounded cap is hidden at 0 so no zero-length dot is drawn.
-  const spentProps = useAnimatedProps(() => ({
-    strokeDashoffset: CIRCUMFERENCE * (1 - anim.value),
-    strokeOpacity: Math.min(1, anim.value / 0.005),
-  }));
+  const spentProps = useAnimatedProps(() => {
+    const lap = Math.min(1, anim.value);
+    return {
+      strokeDashoffset: CIRCUMFERENCE * (1 - lap),
+      strokeOpacity: Math.min(1, lap / 0.005),
+    };
+  });
+  // Second lap: only the part above 100% (0 until the first lap is full).
+  const overflowProps = useAnimatedProps(() => {
+    const lap = Math.max(0, Math.min(1, anim.value - 1));
+    return {
+      strokeDashoffset: CIRCUMFERENCE * (1 - lap),
+      strokeOpacity: Math.min(1, lap / 0.005),
+    };
+  });
 
   return (
     <View style={[styles.container, { width: SIZE, height: SIZE }]}>
@@ -102,11 +118,29 @@ const DonutChartBase: React.FC<DonutProps> = ({
             transform={`rotate(-90 ${CENTER} ${CENTER})`}
           />
         )}
+
+        {/* Second lap (spent more than the period had), drawn over the first from the top */}
+        {isOverspent && (
+          <AnimatedCircle
+            cx={CENTER}
+            cy={CENTER}
+            r={R}
+            stroke={overflowColor || colors.coralText}
+            strokeWidth={STROKE_WIDTH}
+            fill="none"
+            strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+            strokeDashoffset={CIRCUMFERENCE}
+            strokeLinecap="round"
+            strokeOpacity={0}
+            animatedProps={overflowProps}
+            transform={`rotate(-90 ${CENTER} ${CENTER})`}
+          />
+        )}
       </Svg>
 
       <View style={styles.centerContent} pointerEvents="none">
         <RollingText
-          text={`${targetSpentPercentage}%`}
+          text={ring.percentLabel}
           style={StyleSheet.flatten([
             styles.percentageText,
             {

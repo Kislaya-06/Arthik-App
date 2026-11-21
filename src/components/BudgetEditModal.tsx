@@ -41,7 +41,7 @@ import { isCountedExpense } from '../lib/transactionUtils';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
 import { CadenceSwitchModal } from './CadenceSwitchModal';
-import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, Motion } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, Motion, ScreenHue } from '../config/theme';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useScrimColor } from '../hooks/useScrimColor';
@@ -422,7 +422,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
           style={[
             styles.modalContent,
             {
-              backgroundColor: '#581C87',
+              backgroundColor: ScreenHue.gullak.to,
               borderColor: 'rgba(255, 255, 255, 0.15)',
               borderWidth: 1,
               opacity: sheetAnim,
@@ -459,8 +459,8 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
             >
               <Defs>
                 <SvgLinearGradient id="budgetModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor="#8B5CF6" />
-                  <Stop offset="100%" stopColor="#581C87" />
+                  <Stop offset="0%" stopColor={ScreenHue.gullak.from} />
+                  <Stop offset="100%" stopColor={ScreenHue.gullak.to} />
                 </SvgLinearGradient>
               </Defs>
               <Rect
@@ -558,7 +558,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
                 backgroundColor="rgba(255, 255, 255, 0.12)"
                 borderColor="rgba(255, 255, 255, 0.2)"
                 activePillColor="#FFFFFF"
-                activeTextColor="#581C87"
+                activeTextColor={ScreenHue.gullak.to}
                 inactiveTextColor="rgba(255, 255, 255, 0.85)"
               />
             </View>
@@ -630,13 +630,13 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
               >
                 <Check
                   size={18}
-                  color={evaluatedAmount > 0 ? '#581C87' : 'rgba(255, 255, 255, 0.4)'}
+                  color={evaluatedAmount > 0 ? ScreenHue.gullak.to : 'rgba(255, 255, 255, 0.4)'}
                   style={{ marginRight: 6 }}
                 />
                 <Text
                   style={[
                     styles.modalSaveText,
-                    { color: evaluatedAmount > 0 ? '#581C87' : 'rgba(255, 255, 255, 0.4)' },
+                    { color: evaluatedAmount > 0 ? ScreenHue.gullak.to : 'rgba(255, 255, 255, 0.4)' },
                   ]}
                 >
                   Save Budget

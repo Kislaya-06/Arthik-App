@@ -15,11 +15,20 @@ describe('pickPrimaryChip: one chip on the card', () => {
     expect(pickPrimaryChip([chip('a', 'Budget used up'), chip('gullak_only', 'Drawn ₹5 from Gullak')])!.id).toBe('gullak_only');
   });
 
-  it('then over the limit, then budget used up, then budget left, then income', () => {
-    expect(pickPrimaryChip([chip('a', '+₹10 income'), chip('b', 'Exceeded daily limit by ₹2.5')])!.id).toBe('b');
+  it('then budget used up, then budget left, then income', () => {
     expect(pickPrimaryChip([chip('a', '₹100 budget'), chip('b', 'Budget used up')])!.id).toBe('b');
     expect(pickPrimaryChip([chip('a', '+₹10 income'), chip('b', '₹100 budget (3 days)')])!.id).toBe('b');
     expect(pickPrimaryChip([chip('a', '+₹10 income'), chip('b', '₹5 deposits to Gullak')])!.id).toBe('a');
+  });
+
+  it('never repeats the card title: "Exceeded … limit by ₹X" is already the title and the big amount', () => {
+    expect(pickPrimaryChip([chip('b', 'Exceeded daily limit by ₹210')])).toBeNull();
+    expect(pickPrimaryChip([chip('a', '+₹10 income'), chip('b', 'Exceeded daily limit by ₹2.5')])!.id).toBe('a');
+    expect(pickPrimaryChip([chip('b', 'Exceeded total limit by ₹500')])).toBeNull();
+  });
+
+  it('still shows an over-budget chip that is NOT the title (weekly plan seen on the Daily pill)', () => {
+    expect(pickPrimaryChip([chip('b', 'Weekly budget exceeded by ₹300')])!.id).toBe('b');
   });
 
   it('works on the real chips for the owner\'s weekly screenshot (budget used up + income + drawn)', () => {

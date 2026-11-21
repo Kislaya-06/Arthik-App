@@ -25,6 +25,10 @@ export interface UseFormKeyboardReturn {
   handleNoteBlur: () => void;
   handleSplitLayout: (e: LayoutChangeEvent) => void;
   handleSplitFocus: (relativeY?: number) => void;
+  /** A switch opened the split / money-back section: scroll to it and hide the keypad, keyboard state untouched. */
+  handleSplitReveal: () => void;
+  setNoteOffset: (y: number) => void;
+  setSplitOffset: (y: number) => void;
   showKeypad: () => void;
   hideKeypad: () => void;
   handleKeypadDrag: (dy: number) => void;
@@ -199,6 +203,29 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     splitSectionY.current = e.nativeEvent.layout.y;
   }, []);
 
+  // Positions inside a grouped card: the screen adds the card's own Y, so these take the Y in the scroll content.
+  const setNoteOffset = useCallback((y: number) => {
+    noteSectionY.current = y;
+  }, []);
+
+  const setSplitOffset = useCallback((y: number) => {
+    splitSectionY.current = y;
+  }, []);
+
+  // A switch opened the split section (or another inline section): bring it into view and tuck the keypad away.
+  // No text field has focus, so the system keyboard stays closed: never mark it open here, or the Save button
+  // would keep its keyboard size forever (no keyboardDidHide ever arrives).
+  const handleSplitReveal = useCallback(() => {
+    hideKeypad();
+    activeSplitY.current = splitSectionY.current;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, activeSplitY.current - 24),
+        animated: true,
+      });
+    });
+  }, [hideKeypad]);
+
   const handleSplitFocus = useCallback(
     (relativeY = 0) => {
       isNoteFocusedRef.current = false;
@@ -229,6 +256,9 @@ export function useFormKeyboard(): UseFormKeyboardReturn {
     handleNoteBlur,
     handleSplitLayout,
     handleSplitFocus,
+    handleSplitReveal,
+    setNoteOffset,
+    setSplitOffset,
     showKeypad,
     hideKeypad,
     handleKeypadDrag,

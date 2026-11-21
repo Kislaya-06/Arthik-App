@@ -12,7 +12,8 @@ export interface BouncyTypeToggleProps {
 
 /**
  * Standardized BouncyTypeToggle, consolidated to use the canonical SegmentedControl primitive.
- * Enforces ControlHeight.row (56) matching the Date Picker trigger and standard form input row height.
+ * The Add Transaction mode switch: the page's main switch, so it is one step bigger than the 48dp choices under it
+ * (Paid via, What is this money?): a full-width 56dp track.
  */
 export const BouncyTypeToggle: React.FC<BouncyTypeToggleProps> = React.memo(({
   value,
@@ -33,7 +34,7 @@ export const BouncyTypeToggle: React.FC<BouncyTypeToggleProps> = React.memo(({
       onChange={(key) => onChange(key as 'expense' | 'income')}
       height={ControlHeight.row}
       activeTextColor={colors.forestGreen}
-      backgroundColor={colors.inputBg}
+      backgroundColor={colors.cardSubtle}
       fontSize={FontSize.body}
       commitOnSettle
       style={style}

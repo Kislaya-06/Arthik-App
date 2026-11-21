@@ -111,11 +111,11 @@ describe('ambient background: colour follows the screen', () => {
     expect(toneForRoute(undefined)).toBe('home');
   });
 
-  it("uses the app's own card colours", () => {
+  it("uses the app's own card colours (softened Savings violet and Insights coral, ScreenHue)", () => {
     expect(TONES.home.light).toBe('#B8E0C8');
-    expect(TONES.savings.light).toBe('#8B5CF6');
-    expect(TONES.insights.light).toBe('#F07167');
-    expect(TONES.insights.core).toBe('#FED0A8');
+    expect(TONES.savings.light).toBe('#8267C1');
+    expect(TONES.insights.light).toBe('#E0887B');
+    expect(TONES.insights.core).toBe('#F3D7BE');
   });
 
   it('every tone goes from a very dark base to a light, but not glaring, wind colour', () => {

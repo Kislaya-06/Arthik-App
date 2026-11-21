@@ -96,3 +96,23 @@ export function thumbLayout(progress: number, press: number, g: ToggleGeometry):
   const scaleY = width > 0 ? g.thumbSize / width : 1;
   return { left, width, scaleY };
 }
+
+/** Deep navy used for text on mint (same as active pill text, `colors.forestGreen`). */
+const THUMB_ON_DARK = '#1A2B4C';
+const THUMB_ON_LIGHT = '#FFFFFF';
+
+/**
+ * Thumb colour while ON, chosen from the filled track so it always reads: navy on a light fill (brand mint),
+ * white on a dark fill. Takes '#RRGGBB'; anything else gets the navy thumb.
+ */
+export function toggleThumbOnColor(fill: string): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(fill.trim());
+  if (!m) return THUMB_ON_DARK;
+  const n = parseInt(m[1], 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const luminance = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return luminance > 0.35 ? THUMB_ON_DARK : THUMB_ON_LIGHT;
+}

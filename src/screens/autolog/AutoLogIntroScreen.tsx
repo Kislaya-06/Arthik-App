@@ -89,7 +89,7 @@ export const AutoLogIntroScreen: React.FC<Props> = ({ navigation }) => {
             navigation.replace('AutoLogSetup', { mode: 'first' });
           }}
         />
-        <AppButton label="Not now" variant="ghost" style={{ marginTop: Spacing.element }} onPress={() => navigation.goBack()} />
+        <AppButton size="cta" label="Not now" variant="ghost" style={{ marginTop: Spacing.element }} onPress={() => navigation.goBack()} />
         <Text style={[styles.hint, { color: colors.textSecondary }]}>You can turn it on later from Profile → Automatic Logging.</Text>
       </View>
     </View>

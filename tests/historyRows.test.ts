@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildHistoryRows, buildHeaderRowIndexes } from '../src/lib/historyRows';
+import { buildHistoryRows, buildHeaderRowIndexes, recentRowDateLabel } from '../src/lib/historyRows';
 import type { HistorySection, HistoryItem } from '../src/lib/historyRows';
 
 const expenseItem = (id: string, date = '2026-10-20'): HistoryItem =>
@@ -98,5 +98,19 @@ describe('OPT-30: buildHeaderRowIndexes (date jump target)', () => {
 
   it('is empty for no days', () => {
     expect(buildHeaderRowIndexes([])).toEqual([]);
+  });
+});
+
+describe('recentRowDateLabel: right-hand date of a Home / Category row', () => {
+  it('shows the time for an entry of today', () => {
+    expect(recentRowDateLabel('2026-11-21', '2026-11-21T16:28:00', '2026-11-21')).toBe('4:28 PM');
+  });
+
+  it('says "Yesterday" for an entry of yesterday', () => {
+    expect(recentRowDateLabel('2026-11-20', '2026-11-20T09:00:00', '2026-11-21')).toBe('Yesterday');
+  });
+
+  it('shows the day and month for older entries', () => {
+    expect(recentRowDateLabel('2026-10-23', '2026-10-23T23:37:00', '2026-11-21')).toBe('23 Oct');
   });
 });

@@ -61,6 +61,7 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
   editProfileBtn: {
+    height: ControlHeight.compact,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -68,7 +69,6 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.pill,
     paddingHorizontal: 12,
-    paddingVertical: 7,
   },
   editProfileText: {
     fontSize: FontSize.caption,

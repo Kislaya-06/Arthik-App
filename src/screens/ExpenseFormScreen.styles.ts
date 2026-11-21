@@ -1,10 +1,14 @@
 import { Platform, StyleSheet } from 'react-native';
-import { Spacing, BorderRadius, FontSize, ControlHeight, LineHeight, LetterSpacing } from '../config/theme';
+import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, LetterSpacing } from '../config/theme';
+
+/** Category badge inside a chip (circle geometry, §9.3). Chip inset = Spacing.element on every side, so the badge sits concentric. */
+export const CATEGORY_CHIP_BADGE = 24;
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // Mode switch: full width, 56dp, one step bigger than the 48dp choices below it.
   typeToggleWrapper: {
     paddingHorizontal: Spacing.gutter,
     marginTop: 0,
@@ -23,17 +27,13 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Hero amount: the ₹ is smaller and lighter than the digits, so the number leads.
   currencySymbol: {
-    fontSize: 48,
+    fontSize: 40,
     marginRight: Spacing.micro,
   },
   amountValue: {
     fontSize: 56,
-  },
-  amountUnderline: {
-    height: 1,
-    width: 80,
-    marginTop: Spacing.element,
   },
   bodyWrapper: {
     flex: 1,
@@ -44,9 +44,6 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: Spacing.section,
-  },
-  formSectionPadding: {
-    paddingHorizontal: Spacing.gutter,
   },
   sectionLabel: {
     fontSize: FontSize.caption,
@@ -72,7 +69,7 @@ export const styles = StyleSheet.create({
   categoryScrollContainer: {
     position: 'relative',
     minHeight: 44,
-    marginBottom: Spacing.block,
+    marginBottom: Spacing.gutter,
   },
   categoryList: {
     flexDirection: 'row',
@@ -99,17 +96,25 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: 10,
+    paddingLeft: Spacing.element,
+    paddingRight: Spacing.block,
+    paddingVertical: Spacing.element,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  categoryChipIconSlot: {
+    width: CATEGORY_CHIP_BADGE,
+    height: CATEGORY_CHIP_BADGE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryChipText: {
     fontSize: FontSize.bodySmall,
     marginLeft: Spacing.element,
   },
   manageCategoryChip: {
-    paddingHorizontal: Spacing.group,
+    paddingLeft: Spacing.group,
+    paddingRight: Spacing.group,
     justifyContent: 'center',
   },
   emptyCategoriesContainer: {
@@ -127,23 +132,44 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   createCategoryBtn: {
+    height: ControlHeight.compact,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.block,
-    paddingVertical: Spacing.element,
     borderRadius: BorderRadius.pill,
   },
   createCategoryBtnText: {
     fontSize: FontSize.bodySmall,
   },
-  inputContainer: {
-    height: ControlHeight.row,
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    justifyContent: 'center',
-    marginBottom: Spacing.block,
-    marginHorizontal: Spacing.gutter,
+  // A primary choice (Paid via): caption, then the full-width control; same gap to the next group as Category.
+  choiceSection: {
+    paddingHorizontal: Spacing.gutter,
+    marginBottom: Spacing.gutter,
+  },
+  // ── Details card rows ──
+  // The value keeps its natural width on one line; the title gives way first.
+  rowValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.micro,
+  },
+  rowValueText: {
+    fontSize: FontSize.body,
+    lineHeight: LineHeight.body,
+    fontFamily: FontFamily.medium,
+  },
+  noteInput: {
+    flex: 1,
+    minHeight: 40,
+    fontSize: FontSize.body,
+    padding: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  transferWrap: {
+    marginTop: Spacing.block,
   },
   suggestionsScroll: {
-    marginBottom: Spacing.block,
+    marginTop: Spacing.group,
   },
   suggestionsList: {
     flexDirection: 'row',
@@ -159,33 +185,6 @@ export const styles = StyleSheet.create({
   suggestionText: {
     fontSize: FontSize.bodySmall,
   },
-  inputText: {
-    height: '100%',
-    fontSize: FontSize.body,
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-  datePickerButton: {
-    height: ControlHeight.row,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.surface,
-    marginBottom: Spacing.block,
-    marginHorizontal: Spacing.gutter,
-  },
-  datePickerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  datePickerText: {
-    marginLeft: Spacing.group,
-    fontSize: FontSize.body,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
   backdatedNoticeCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,8 +193,7 @@ export const styles = StyleSheet.create({
     borderRadius: BorderRadius.card,
     borderWidth: 1,
     marginHorizontal: Spacing.gutter,
-    marginTop: -Spacing.element,
-    marginBottom: Spacing.block,
+    marginTop: Spacing.group,
   },
   backdatedNoticeLeftIcon: {
     marginRight: 12,

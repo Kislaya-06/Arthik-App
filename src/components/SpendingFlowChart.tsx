@@ -124,9 +124,10 @@ const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
           styles.track,
           {
             width: trackWidth,
+            // Faint on purpose: an empty day must not read as a bar.
             backgroundColor: isDark
-              ? 'rgba(255, 255, 255, 0.05)'
-              : colors.chartTrack,
+              ? 'rgba(255, 255, 255, 0.03)'
+              : colors.cardSubtle,
           },
         ]}
       >
@@ -167,7 +168,7 @@ const FlowBarColumn: React.FC<FlowBarColumnProps> = React.memo(({
           styles.dayLabel,
           {
             color: isPeak
-              ? (isDark ? colors.mintGreen : colors.mintGreenDark)
+              ? colors.coralText
               : (isDark ? colors.textMuted : colors.textSecondary),
             fontFamily: isPeak ? FontFamily.bold : FontFamily.medium,
           },
@@ -214,8 +215,9 @@ export const SpendingFlowChart: React.FC<SpendingFlowChartProps> = ({
     return Math.max(...data.map((d) => d.amount), 0);
   }, [data]);
 
-  const gradStart = isDark ? '#ADEBB3' : '#7CD49A';
-  const gradEnd = isDark ? '#3DA862' : '#2E8C4A';
+  // Spending is drawn in the app's expense coral (green means "good" everywhere else in Arthik).
+  const gradStart = isDark ? '#F6C4BB' : '#F0A193';
+  const gradEnd = isDark ? '#E0887B' : '#C9604F';
 
   return (
     <View style={styles.card}>

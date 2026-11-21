@@ -670,7 +670,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 options={[
                   { key: 'light', label: 'Light', icon: Sun },
                   { key: 'dark', label: 'Dark', icon: Moon },
-                  { key: 'amoled', label: 'AMOLED', icon: Sparkles, badge: 'Recommended' },
+                  { key: 'amoled', label: 'AMOLED', icon: Sparkles },
                 ]}
                 selectedKey={activeTheme}
                 onChange={(key) => setThemeMode(key as 'light' | 'dark' | 'amoled')}
@@ -761,7 +761,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Log Out Button */}
-        <AppButton
+        <AppButton size="cta"
           label="Log Out"
           onPress={handleLogout}
           variant="secondary"
@@ -770,7 +770,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         />
 
         {/* Delete Account Button (Required for Play Store / App Store compliance) */}
-        <AppButton
+        <AppButton size="cta"
           label="Delete Account"
           onPress={handleDeleteAccount}
           variant="outline"

@@ -138,7 +138,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       // Matched previous spend up to Sept 10: 1000 + 2000 = 3000 (excludes Sept 25!)
       expect(comp.matchedPrevTotal).toBe(3000);
       expect(comp.percentageChange).toBe(0);
-      expect(comp.trendLabel).toBe('0% vs same days prev month');
+      expect(comp.trendLabel).toBe('0% vs same days last month');
     });
 
     it('caps day 31 in current month to 30 days of previous month without error', () => {
@@ -150,7 +150,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(comp.matchedPrevTotal).toBe(8000);
       expect(comp.percentageChange).toBe(63); // (8000 - 3000) / 8000 = 62.5% -> 63%
       expect(comp.isIncrease).toBe(false);
-      expect(comp.trendLabel).toBe('63% vs same days prev month');
+      expect(comp.trendLabel).toBe('63% vs same days last month');
     });
 
     it('handles zero previous spend safely without NaN or Infinity', () => {
@@ -160,7 +160,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       const comp = computeMonthlyComparison(octOnlyExpenses, mockCategories, octInterval, sepInterval, 0, today);
 
       expect(comp.percentageChange).toBeNull();
-      expect(comp.trendLabel).toBe('No spend in prev month');
+      expect(comp.trendLabel).toBe('Nothing spent last month');
     });
 
     it('shows +₹spend vs same days when matched days had ₹0 but full previous month had spend', () => {
@@ -176,7 +176,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       expect(comp.currentTotal).toBe(260);
       expect(comp.matchedPrevTotal).toBe(0);
       expect(comp.percentageChange).toBeNull();
-      expect(comp.trendLabel).toBe('+₹260 vs same days prev month');
+      expect(comp.trendLabel).toBe('+₹260 vs same days last month');
     });
   });
 

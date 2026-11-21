@@ -51,7 +51,7 @@ import { useAuthStore } from '../store/authStore';
 import { TabParamList, RootStackParamList } from '../types';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useTheme } from '../store/themeStore';
-import { Spacing, BorderRadius, FontFamily, ControlHeight } from '../config/theme';
+import { Spacing, BorderRadius, FontFamily, ControlHeight, ScreenHue } from '../config/theme';
 import { formatCurrency, formatAmountWithCommas } from '../lib/formatters';
 import { AnimatedCategoryDonut } from '../components/AnimatedCategoryDonut';
 import { SpendingFlowChart } from '../components/SpendingFlowChart';
@@ -356,17 +356,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               <Svg width="100%" height="100%">
                 <Defs>
                   <LinearGradient id="heroGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-                    <Stop offset="0%" stopColor="#F07167" />
-                    <Stop offset="100%" stopColor="#FED0A8" />
+                    <Stop offset="0%" stopColor={ScreenHue.insights.from} />
+                    <Stop offset="100%" stopColor={ScreenHue.insights.to} />
                   </LinearGradient>
                 </Defs>
                 <Rect width="100%" height="100%" fill="url(#heroGradient)" />
               </Svg>
             </View>
-
-            {/* Decorative background circles */}
-            <View style={[styles.heroCircle1, { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]} />
-            <View style={[styles.heroCircle2, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />
 
             <Text
               style={styles.heroLabel}

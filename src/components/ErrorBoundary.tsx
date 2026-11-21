@@ -153,8 +153,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#1A2B4C',
-    borderRadius: 14,
-    paddingVertical: 14,
+    // Same as every full-width page button (ControlHeight.cta, pill). Literal on purpose: this screen must render
+    // even when the rest of the app failed to load.
+    height: 60,
+    borderRadius: 30,
     paddingHorizontal: 28,
     width: '100%',
   },

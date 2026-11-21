@@ -105,8 +105,8 @@ export const AutoLogEmailScreen: React.FC<Props> = ({ navigation }) => {
             <>
               <AppButton label="Open notification access" size="cta" onPress={openNotificationAccess} />
               <View style={styles.row2}>
-                <AppButton label="App info" variant="outline" style={{ flex: 1 }} onPress={openAppDetails} />
-                <AppButton label="Turn off" variant="ghost" style={{ flex: 1 }} loading={busy} onPress={() => toggle(false)} />
+                <AppButton size="cta" label="App info" variant="outline" style={{ flex: 1 }} onPress={openAppDetails} />
+                <AppButton size="cta" label="Turn off" variant="ghost" style={{ flex: 1 }} loading={busy} onPress={() => toggle(false)} />
               </View>
             </>
           ) : enabled ? (

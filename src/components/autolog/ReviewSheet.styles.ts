@@ -142,11 +142,18 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.block,
-    paddingVertical: 10,
+    paddingLeft: Spacing.element,
+    paddingRight: Spacing.block,
     borderWidth: 1,
     overflow: 'hidden',
     height: 42,
+  },
+  // Same 24dp category badge slot as the Add Transaction chips (concentric: (42 - 2 - 24) / 2 = Spacing.element).
+  categoryChipIconSlot: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryChipText: {
     fontSize: FontSize.bodySmall,

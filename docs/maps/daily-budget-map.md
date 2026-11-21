@@ -425,7 +425,7 @@ graph TD
 11. **`src/navigation/index.tsx` & `src/components/BottomNavBar.tsx`**:
     - Selects `isBudgetModeEnabled` to dynamically switch between 4-tab (Pure Mode) and 5-tab (Budget Mode) layouts.
 12. **`src/components/BrandedHeroCard.tsx`**:
-    - Renders live allowance, Gullak balance, and unspent waterfall metrics.
+    - Renders live allowance, Gullak balance, and unspent waterfall metrics. Footer columns are "Available" (budget + income + deposits) and "Spent"; the spent ring shows the real percent with a second lap above 100% (`UX-004`, `src/lib/heroRing.ts`).
 13. **`src/components/StreakCalendarModal.tsx`**:
     - `savingsStreak`, `bestStreak`, `dailyRecords`, `bestStreakByCadence`.
 14. **`src/components/BudgetEditModal.tsx` & `src/components/DepositGullakModal.tsx`**:
@@ -498,7 +498,7 @@ With the introduction of Budget Modes, the store orchestrates two high-level tra
   - Spending is never blocked: user may spend into negative without `VaultSpendingGuardModal` or AutoLog liquidity blockers (`SEC-001` amend).
   - Unspent budget from pools that ended in Pure Mode is retained as `pureLeftover` without inflating income or sending notifications (`PUR-002`). Pure spending draws from `pureLeftover` first.
   - Switching to Budget Mode with negative remaining ($R < 0$) automatically creates one real income transaction for deficit $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated to the earliest expense causing Gullak draw $\ge D$ (`PUR-001`), and posts a `pure_deficit_balanced` notification.
-  - Hero Card tap is disabled in Pure Mode (`onOpenDetails` and hint guarded), preventing opening the multi-cadence period breakdown sheet.
+  - Hero Card tap is disabled in Pure Mode (`onOpenDetails` and the title chevron guarded), preventing opening the multi-cadence period breakdown sheet.
 - **Budget Mode (`isBudgetModeEnabled: true`)**:
   - Enables the 5th `'Savings'` tab with fluid spring entrance/exit.
   - Solvency guard enforces that expenses are blocked if account liquidity $\le 0$ (`SEC-001`). Overspending past weekly/monthly budget is allowed as long as total account liquidity (budget + income + Gullak) > 0.

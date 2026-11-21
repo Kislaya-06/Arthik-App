@@ -1,5 +1,6 @@
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
+import { subDays } from 'date-fns/subDays';
 import type { Expense } from '../store/expense/types';
 import type { GullakDeposit } from '../store/dailyBudgetStore';
 
@@ -58,4 +59,18 @@ export function historyRowTimeLabel(expenseDate: string, createdAt: string | nul
   const d = parseISO(createdAt);
   if (Number.isNaN(d.getTime())) return '';
   return format(d, 'yyyy-MM-dd') === expenseDate ? format(d, 'h:mm a') : '';
+}
+
+/**
+ * Right-hand line of a Home / Category row (no day heading above it): the time for today's entries,
+ * "Yesterday" for yesterday's, the day and month for older ones. `today` is the local day, 'yyyy-MM-dd'.
+ */
+export function recentRowDateLabel(expenseDate: string, createdAt: string | null | undefined, today: string): string {
+  try {
+    if (createdAt && expenseDate === today) return format(parseISO(createdAt), 'h:mm a');
+    if (expenseDate === format(subDays(parseISO(today), 1), 'yyyy-MM-dd')) return 'Yesterday';
+    return format(parseISO(expenseDate), 'd MMM');
+  } catch {
+    return expenseDate;
+  }
 }

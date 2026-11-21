@@ -33,7 +33,8 @@ import { GradientIconBadge } from '../components/GradientIconBadge';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { Spacing, FontSize, FontFamily, LineHeight, Motion, BorderRadius, LetterSpacing } from '../config/theme';
-import { groupNotificationsByDate } from '../lib/notificationGroups';
+import { groupNotificationsByDate, stackRepeatedNotifications, notificationTimeLabel } from '../lib/notificationGroups';
+import { ChevronRotator } from '../components/ui/ChevronRotator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
@@ -81,26 +82,16 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const clearNotifications = useNotificationStore((s) => s.clearNotifications);
   // Sections like the Ledger: TODAY / YESTERDAY / THIS WEEK / THIS MONTH / month names, each in one card.
   const groups = React.useMemo(() => groupNotificationsByDate(notifications, new Date()), [notifications]);
-
-  const getCompactTime = (isoString: string): string => {
-    try {
-      const date = parseISO(isoString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffSec = Math.floor(diffMs / 1000);
-      const diffMin = Math.floor(diffSec / 60);
-      const diffHour = Math.floor(diffMin / 60);
-      const diffDay = Math.floor(diffHour / 24);
-
-      if (diffSec < 60) return 'Just now';
-      if (diffMin < 60) return `${diffMin}m ago`;
-      if (diffHour < 24) return `${diffHour}h ago`;
-      if (diffDay < 7) return `${diffDay}d ago`;
-      return format(date, 'd MMM');
-    } catch {
-      return 'Recently';
-    }
-  };
+  // Daily "₹X added to your Gullak" messages fold into one row per run (3+ in a row); a tap opens them.
+  const [openStacks, setOpenStacks] = React.useState<Set<string>>(() => new Set());
+  const toggleStack = React.useCallback((key: string) => {
+    setOpenStacks((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const getIcon = (type: AppNotification['type'], iconColor = '#1A2B4C') => {
     switch (type) {
@@ -172,6 +163,75 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const formatDay = (iso: string): string => {
+    try {
+      return format(parseISO(iso), 'd MMM');
+    } catch {
+      return '';
+    }
+  };
+
+  const renderRow = (n: AppNotification, isLast: boolean) => {
+    const timeAgo = notificationTimeLabel(n.createdAt, new Date());
+    return (
+      <PressableOpacity
+        key={n.id}
+        style={[
+          styles.notifRow,
+          {
+            borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+            borderBottomColor: colors.borderSubtle,
+          },
+        ]}
+        activeOpacity={0.7}
+        onPress={() => handleNotificationPress(n)}
+      >
+        <GradientIconBadge size={44} color={getIconBg(n.type)} isDark={isDark}>
+          {({ iconColor }) => getIcon(n.type, iconColor)}
+        </GradientIconBadge>
+
+        <View style={styles.notifContent}>
+          <View style={styles.notifTitleRow}>
+            <Text
+              style={[
+                styles.notifTitle,
+                {
+                  color: colors.textPrimary,
+                  fontFamily: n.read ? FontFamily.semibold : FontFamily.bold,
+                },
+              ]}
+              numberOfLines={2}
+            >
+              {n.title}
+            </Text>
+            <View style={styles.notifRightMeta}>
+              <Text style={[styles.notifTime, { color: colors.textMuted }]}>
+                {timeAgo}
+              </Text>
+              {!n.read && (
+                <View
+                  style={[
+                    styles.unreadDot,
+                    { backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark },
+                  ]}
+                />
+              )}
+            </View>
+          </View>
+
+          <Text
+            style={[
+              styles.notifMessage,
+              { color: colors.textSecondary, fontFamily: FontFamily.medium },
+            ]}
+          >
+            {n.message}
+          </Text>
+        </View>
+      </PressableOpacity>
+    );
+  };
+
   return (
     <View
       style={[
@@ -215,65 +275,58 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
                 {group.label}
               </Text>
               <View style={[styles.groupCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-                {group.items.map((n, index) => {
-                  const timeAgo = getCompactTime(n.createdAt);
-
+                {stackRepeatedNotifications(group.items).map((entry, entryIndex, entries) => {
+                  const isLastEntry = entryIndex === entries.length - 1;
+                  if (entry.kind === 'single') return renderRow(entry.item, isLastEntry);
+                  const isOpen = openStacks.has(entry.key);
+                  const newest = entry.items[0];
+                  const oldest = entry.items[entry.items.length - 1];
+                  const range = `${formatDay(oldest.createdAt)} – ${formatDay(newest.createdAt)}`;
+                  const hasUnread = entry.items.some((x) => !x.read);
                   return (
-                    <PressableOpacity
-                      key={n.id}
-                      style={[
-                        styles.notifRow,
-                        {
-                          borderBottomWidth: index === group.items.length - 1 ? 0 : StyleSheet.hairlineWidth,
-                          borderBottomColor: colors.borderSubtle,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => handleNotificationPress(n)}
-                    >
-                      <GradientIconBadge size={44} color={getIconBg(n.type)} isDark={isDark}>
-                        {({ iconColor }) => getIcon(n.type, iconColor)}
-                      </GradientIconBadge>
-
-                      <View style={styles.notifContent}>
-                        <View style={styles.notifTitleRow}>
-                          <Text
-                            style={[
-                              styles.notifTitle,
-                              {
-                                color: colors.textPrimary,
-                                fontFamily: n.read ? FontFamily.semibold : FontFamily.bold,
-                              },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {n.title}
-                          </Text>
-                          <View style={styles.notifRightMeta}>
-                            <Text style={[styles.notifTime, { color: colors.textMuted }]}>
-                              {timeAgo}
+                    <View key={entry.key}>
+                      <PressableOpacity
+                        style={[
+                          styles.notifRow,
+                          {
+                            borderBottomWidth: isLastEntry && !isOpen ? 0 : StyleSheet.hairlineWidth,
+                            borderBottomColor: colors.borderSubtle,
+                          },
+                        ]}
+                        activeOpacity={PRESS_DIM_OPACITY}
+                        onPress={() => toggleStack(entry.key)}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: isOpen }}
+                        accessibilityLabel={`${entry.items.length} savings added to your Gullak, ${range}`}
+                      >
+                        <GradientIconBadge size={44} color={getIconBg(newest.type)} isDark={isDark}>
+                          {({ iconColor }) => getIcon(newest.type, iconColor)}
+                        </GradientIconBadge>
+                        <View style={styles.notifContent}>
+                          <View style={styles.notifTitleRow}>
+                            <Text
+                              style={[
+                                styles.notifTitle,
+                                { color: colors.textPrimary, fontFamily: hasUnread ? FontFamily.bold : FontFamily.semibold },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {`${entry.items.length} savings added to your Gullak`}
                             </Text>
-                            {!n.read && (
-                              <View
-                                style={[
-                                  styles.unreadDot,
-                                  { backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark },
-                                ]}
-                              />
-                            )}
+                            <View style={styles.notifRightMeta}>
+                              <ChevronRotator isOpen={isOpen} color={colors.textMuted} reduceMotion={reduceMotion} />
+                              {hasUnread && (
+                                <View style={[styles.unreadDot, { backgroundColor: isDark ? colors.mintGreen : colors.mintGreenDark }]} />
+                              )}
+                            </View>
                           </View>
+                          <Text style={[styles.notifMessage, { color: colors.textSecondary, fontFamily: FontFamily.medium }]}>
+                            {isOpen ? range : `${range} · Tap to see each one`}
+                          </Text>
                         </View>
-
-                        <Text
-                          style={[
-                            styles.notifMessage,
-                            { color: colors.textSecondary, fontFamily: FontFamily.medium },
-                          ]}
-                        >
-                          {n.message}
-                        </Text>
-                      </View>
-                    </PressableOpacity>
+                      </PressableOpacity>
+                      {isOpen ? entry.items.map((n, i) => renderRow(n, isLastEntry && i === entry.items.length - 1)) : null}
+                    </View>
                   );
                 })}
               </View>

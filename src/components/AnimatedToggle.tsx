@@ -10,7 +10,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
-import { FontFamily } from '../config/theme';
 import {
   DEFAULT_COLOR_DURATION_MS,
   DEFAULT_PRESS_SCALE,
@@ -18,6 +17,7 @@ import {
   TRACK_SPRING,
   thumbLayout,
   toggleGeometry,
+  toggleThumbOnColor,
 } from '../lib/toggleMotion';
 
 interface AnimatedToggleProps {
@@ -25,12 +25,15 @@ interface AnimatedToggleProps {
   onValueChange: (val: boolean) => void;
   width?: number;
   height?: number;
+  /** Track fill while ON. Default brand mint. */
   onColor?: string;
+  /** Thumb colour while OFF. Default white. */
   offColor?: string;
+  /** Track colour while OFF. */
   trackColor?: string;
   /** Extra thumb width while pressed, in px. Default: half the thumb diameter. */
   stretch?: number;
-  /** Colour cross-fade time in ms (thumb + ON/OFF text). Default 320. */
+  /** Colour cross-fade time in ms (track fill + thumb). Default 200. */
   colorDuration?: number;
   /** Track grows to this scale while pressed (touch version of "hover scale"). Default 1.035. */
   pressScale?: number;
@@ -48,8 +51,10 @@ interface AnimatedToggleProps {
  *  - Press: the thumb stretches sideways and the track lifts slightly.
  *  - Travel: one slide spring; the thumb is longest mid-trip (front edge leads, back edge lags).
  *  - Land: tiny squash, then rest. The thumb never leaves the track (slide spring is clamped).
- *  - Colours: thumb and ON/OFF text cross-fade over `colorDuration` using OPACITY of stacked layers, not
- *    per-frame colour interpolation (that was the Android paint-invalidation trap from FIN-13).
+ *  - ON is a filled track (brand mint by default) with a contrasting thumb (navy on mint, white on a dark fill;
+ *    `toggleThumbOnColor`); OFF is a neutral track with a white thumb. No "ON / OFF" words: position and fill
+ *    say it, like every native switch. Fill and thumb cross-fade over `colorDuration` using OPACITY of stacked
+ *    layers, not per-frame colour interpolation (that was the Android paint-invalidation trap from FIN-13).
  *  - Haptic selection tick on every change. Honours the OS "reduce motion" setting (instant, no stretch).
  *
  * Controlled: the thumb only moves when `value` changes, so a handler that refuses the change
@@ -108,19 +113,17 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   const geometry = useMemo(() => toggleGeometry(width, height, stretch), [width, height, stretch]);
   const { padding, thumbSize } = geometry;
 
-  // Track remains a constant light/dark color as per the premium toggle style
-  const trackBg = trackColor || (isDark ? 'rgba(255, 255, 255, 0.1)' : '#F2F2F2');
-
-  const defaultOffColor = isDark ? '#666666' : '#C4C4C4';
-  const defaultOnColor = colors.mintGreen;
-  const actualOffColor = offColor || defaultOffColor;
-  const actualOnColor = onColor || defaultOnColor;
+  // OFF track: neutral, dark enough in Light that the white thumb still stands out.
+  const trackBg = trackColor || (isDark ? 'rgba(255, 255, 255, 0.16)' : '#E2E8F0');
+  const actualOnColor = onColor || colors.mintGreen; // ON track fill
+  const thumbOff = offColor || '#FFFFFF';
+  const thumbOn = toggleThumbOnColor(actualOnColor);
 
   const trackBorder = trackColor
     ? 'rgba(255, 255, 255, 0.2)'
     : isDark
-    ? 'rgba(255, 255, 255, 0.05)'
-    : '#E5E5E5';
+    ? 'rgba(255, 255, 255, 0.06)'
+    : '#D5DCE5';
 
   const trackStyle = useAnimatedStyle(() => ({
     transform: [{ scale: trackScale.value }],
@@ -136,8 +139,7 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
   });
 
   const onLayerStyle = useAnimatedStyle(() => ({ opacity: colorP.value }));
-  const textOnStyle = useAnimatedStyle(() => ({ opacity: colorP.value }));
-  const textOffStyle = useAnimatedStyle(() => ({ opacity: 1 - colorP.value }));
+  const fillLayerStyle = useAnimatedStyle(() => ({ opacity: colorP.value }));
 
   return (
     <Pressable
@@ -164,27 +166,11 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
           trackStyle,
         ]}
       >
-        {/* OFF Text (Right Side) */}
-        <Animated.Text
-          style={[
-            styles.text,
-            { right: height <= 26 ? 4 : padding + 3, color: actualOffColor },
-            textOffStyle,
-          ]}
-        >
-          OFF
-        </Animated.Text>
-
-        {/* ON Text (Left Side) */}
-        <Animated.Text
-          style={[
-            styles.text,
-            { left: height <= 26 ? 4.5 : padding + 3.5, color: actualOnColor },
-            textOnStyle,
-          ]}
-        >
-          ON
-        </Animated.Text>
+        {/* ON fill: the whole track takes the on-colour */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.fillLayer, { backgroundColor: actualOnColor, borderRadius: height / 2 }, fillLayerStyle]}
+        />
 
         {/* Squish thumb: off-colour base + on-colour layer fading in on top */}
         <Animated.View
@@ -196,13 +182,13 @@ export const AnimatedToggle: React.FC<AnimatedToggleProps> = ({
         >
           <Animated.View
             pointerEvents="none"
-            style={[styles.thumbLayer, { backgroundColor: actualOffColor, borderRadius: thumbSize / 2 }]}
+            style={[styles.thumbLayer, { backgroundColor: thumbOff, borderRadius: thumbSize / 2 }]}
           />
           <Animated.View
             pointerEvents="none"
             style={[
               styles.thumbLayer,
-              { backgroundColor: actualOnColor, borderRadius: thumbSize / 2 },
+              { backgroundColor: thumbOn, borderRadius: thumbSize / 2 },
               onLayerStyle,
             ]}
           />
@@ -233,12 +219,12 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  text: {
+  fillLayer: {
     position: 'absolute',
-    fontFamily: FontFamily.bold,
-    fontSize: 9.5,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });
 

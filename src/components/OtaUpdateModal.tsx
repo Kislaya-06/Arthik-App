@@ -131,7 +131,7 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
             </View>
           ) : isUpToDate ? (
             <View style={{ width: '100%', alignItems: 'center' }}>
-              <AppButton label="Got it" onPress={onDismiss} variant="primary" size="cta" style={styles.fullWidth} />
+              <AppButton label="Got it" onPress={onDismiss} variant="primary" size="standard" style={styles.fullWidth} />
             </View>
           ) : (
             <View style={{ width: '100%', alignItems: 'center' }}>
@@ -139,7 +139,7 @@ export const OtaUpdateModal: React.FC<OtaUpdateModalProps> = ({
                 label={error ? 'Try Again' : 'Update Now'}
                 onPress={error ? (onRetry || onUpdate) : onUpdate}
                 variant="primary"
-                size="cta"
+                size="standard"
                 icon={error ? <RefreshCw size={16} color={colors.forestGreen} /> : undefined}
                 style={styles.fullWidth}
               />

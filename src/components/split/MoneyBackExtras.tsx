@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput, LayoutChangeEvent } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../store/themeStore';
 import { useExpenseStore } from '../../store/expenseStore';
@@ -22,10 +22,11 @@ export interface MoneyBackExtrasProps {
   /** Amount typed on the keypad, for the live summary. */
   amount: number;
   onFieldFocus?: (relativeY?: number) => void;
+  onLayout?: (e: LayoutChangeEvent) => void;
 }
 
 /** What kind of money came in? Money that is only coming back is never income (SPL-003). */
-export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb, amount, onFieldFocus }) => {
+export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb, amount, onFieldFocus, onLayout }) => {
   const { colors, isDark } = useTheme();
   const expenses = useExpenseStore((s) => s.expenses);
   if (!mb.visible) return null;
@@ -34,17 +35,19 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
   const selectedExpense = mb.refundExpenseId ? expenses.find((e) => e.id === mb.refundExpenseId) : undefined;
   const splitAllocs = selectedExpense ? splitAllocationsOf(selectedExpense) : [];
 
+  // First section of an income on Add Transaction (it decides whether a category is needed at all, SPL-003).
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} onLayout={onLayout}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>WHAT IS THIS MONEY?</Text>
       <SegmentedControl
         options={MODES}
         selectedKey={mb.mode}
         onChange={(key) => mb.setMode(key as MoneyBackMode)}
-        height={ControlHeight.row}
+        height={ControlHeight.standard}
         activePillColor={colors.mintGreen}
         activeTextColor={colors.forestGreen}
-        backgroundColor={colors.inputBg}
+        backgroundColor={colors.cardSubtle}
+        fontSize={FontSize.body}
       />
 
       {mb.mode === 'friend' ? (
@@ -268,10 +271,10 @@ export const MoneyBackExtras: React.FC<MoneyBackExtrasProps> = ({ moneyBack: mb,
 };
 
 const styles = StyleSheet.create({
-  wrap: { gap: Spacing.group, marginTop: Spacing.block, marginBottom: Spacing.block },
+  wrap: { gap: Spacing.group, paddingHorizontal: Spacing.gutter, marginBottom: Spacing.gutter },
+  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: LetterSpacing.label, textTransform: 'uppercase' },
   flex: { flex: 1 },
   card: { borderRadius: BorderRadius.input, padding: Spacing.block, gap: Spacing.element },
-  label: { fontSize: FontSize.caption, fontFamily: FontFamily.bold, letterSpacing: LetterSpacing.label, textTransform: 'uppercase' },
   title: { fontSize: FontSize.bodySmall, fontFamily: FontFamily.bold },
   sub: { fontSize: FontSize.caption, fontFamily: FontFamily.medium, marginTop: 2 },
   input: { height: ControlHeight.standard, borderRadius: BorderRadius.input, paddingHorizontal: Spacing.block, fontSize: FontSize.body },

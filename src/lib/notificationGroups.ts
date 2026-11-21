@@ -40,3 +40,53 @@ export function groupNotificationsByDate<T extends { createdAt: string }>(items:
   }
   return groups;
 }
+
+/** Routine "₹X added to your Gullak" messages. Only these fold; alerts and recaps always stand alone. */
+const STACKABLE_TYPES = new Set(['savings_rollover']);
+/** Fewer than this in a row are shown one by one. */
+const MIN_STACK = 3;
+
+export type NotificationEntry<T> =
+  | { kind: 'single'; item: T }
+  | { kind: 'stack'; key: string; items: T[] };
+
+/**
+ * Inside one date section, 3 or more Gullak savings in a row become ONE row ("8 savings added to your Gullak"),
+ * which opens to show each of them. Nothing is hidden or removed: every notification stays in the bell. Order kept.
+ */
+export function stackRepeatedNotifications<T extends { id: string; type: string }>(items: T[]): NotificationEntry<T>[] {
+  const out: NotificationEntry<T>[] = [];
+  let run: T[] = [];
+  const flush = () => {
+    if (run.length >= MIN_STACK) out.push({ kind: 'stack', key: `stack-${run[0].id}`, items: run });
+    else for (const item of run) out.push({ kind: 'single', item });
+    run = [];
+  };
+  for (const item of items) {
+    if (STACKABLE_TYPES.has(item.type)) {
+      run.push(item);
+    } else {
+      flush();
+      out.push({ kind: 'single', item });
+    }
+  }
+  flush();
+  return out;
+}
+
+/**
+ * Right-hand time of a notification row. The date heading above it already names the day, so the row never repeats
+ * it ("1d ago" under YESTERDAY): under an hour → "Just now" / "12m ago"; today or yesterday → the clock time;
+ * earlier this week → the weekday; older → "27 Oct". A bad date shows nothing.
+ */
+export function notificationTimeLabel(createdAt: string, now: Date): string {
+  const d = parseISO(createdAt);
+  if (Number.isNaN(d.getTime())) return '';
+  const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const days = differenceInCalendarDays(now, d);
+  if (days <= 1) return format(d, 'h:mm a');
+  if (differenceInCalendarDays(d, startOfWeek(now, { weekStartsOn: 1 })) >= 0) return format(d, 'EEE');
+  return format(d, 'd MMM');
+}

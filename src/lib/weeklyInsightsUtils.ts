@@ -557,7 +557,7 @@ export function computeDayMatchedPreviousComparison(
         ? 'First day of the week'
         : currentTotal === 0
         ? 'No spending yet this week'
-        : 'No prev week data';
+        : 'Nothing to compare yet';
 
       return {
         percentageChange: null,
@@ -600,7 +600,7 @@ export function computeDayMatchedPreviousComparison(
     return {
       percentageChange: null,
       isIncrease: true,
-      trendLabel: 'No prev week data',
+      trendLabel: 'Nothing to compare yet',
     };
   }
 
@@ -615,8 +615,8 @@ export function computeDayMatchedPreviousComparison(
       percentageChange: absDiff > 0 ? absDiff : null,
       isIncrease,
       trendLabel: diff === 0
-        ? 'Same as prev week'
-        : `${sign}₹${formatAmountWithCommas(String(absDiff))} vs prev week`,
+        ? 'Same as last week'
+        : `${sign}₹${formatAmountWithCommas(String(absDiff))} vs last week`,
     };
   }
 
@@ -625,7 +625,7 @@ export function computeDayMatchedPreviousComparison(
   return {
     percentageChange: pct,
     isIncrease,
-    trendLabel: `${pct}% vs prev week`,
+    trendLabel: `${pct}% vs last week`,
   };
 }
 

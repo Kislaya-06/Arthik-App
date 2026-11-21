@@ -77,3 +77,18 @@ The owner approved the two items left over from the re-audit:
 
 - A new design direction for headers (for example collapsing large titles on scroll) approved by the owner.
 - A platform change that gives `Pressable` a built-in default press style, which would make `PRESS_DIM_OPACITY` redundant.
+
+## Amendment (2026-11-21, owner request): button size ladder
+
+The owner saw buttons of different heights doing the same job (Log Out and Delete Account at 48 next to 60 buttons on other pages; Change, See More and Edit pills made from padding, 26–40dp). Decision: three heights only, chosen by role. 60 (`ControlHeight.cta`) for every full-width page / bottom-sheet button and every button stacked with one; 48 (`standard`) for centered dialogs and full-width buttons inside a card; 36 (`compact`) for small pill actions inside content. Pill heights are set with `ControlHeight`, never with `paddingVertical`. Centered dialogs that used 60 (update popup, money explainer) now use 48; the Vault spending guard (a bottom sheet) now uses 60. Guarded by `tests/buttonSizeLadder.test.ts`.
+
+## Amendment (2026-11-21, owner request): Add Transaction is an inset grouped form
+
+Replaces the Add Transaction part of Amendment 4 ("Form anatomy"). The owner found the page a stack of identical pills (type, date, payment, split, note, transfer, each with its own UPPERCASE label) and asked for a layout like large finance apps, with permission to change the rules that stood in the way.
+
+- **Order by use frequency**: the choices made on every entry stay full-size sections (caption + control): for an income first "What is this money?" (it decides whether a category is needed), then Category (chips), then **Paid via / Added via** (full-width 48dp track with icons on `cardSubtle`). A first try put Paid via inside the card as a 36dp track; the owner found it too thin, so it moved back out at full size.
+- **Optional details card**: Date, Split with friends (expense only) and Note are rows of ONE inset grouped card (`src/components/ui/FormGroup.tsx`: `FormGroup` + `FormRow`: 56dp rows, a plain 20px line icon in `textSecondary` (no icon tile: a tile per row read like a settings page), 16px semibold title, hairline dividers inset under the title, none under the last row). The date shows its value on the right with a chevron; the note field is the row itself ("Add a note (optional)", word counter on the right once typing); the split editor opens inside its row (no card inside a card). Transfer is its own one-row card below, with its explanation as the row subtitle.
+- The **Expense | Income** switch is the page's main switch, so it is one step bigger than the 48dp choices: a full-width 56dp track (`ControlHeight.row`). A centred 48dp version was tried and read as the same size as Paid via.
+- **One toggle size**: the Split and Transfer switches both use the app-wide `AnimatedToggle` size (58x30, like Profile); Split was 50x26. Sizes differ only where they mark a different role.
+- **Bug fixed with it**: turning "Split with friends" on called the text-field focus handler, which marked the keyboard open; no keyboard opened, so no `keyboardDidHide` ever reset it and the Save button stayed at its keyboard size (48dp) after the switch was turned off. The switch now calls `handleSplitReveal` (scroll + hide keypad, keyboard state untouched); only real text-field focus marks the keyboard open (`tests/useFormKeyboard.test.ts`, `tests/uiConsistency.test.ts`).
+- Other forms (Add Category name, Gullak amount, auth fields) keep the label + 56dp pill field anatomy. No money logic changed; payment options (UX-001 / UX-002) and the amount rule (UX-003) are unchanged.

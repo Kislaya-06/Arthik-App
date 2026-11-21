@@ -265,6 +265,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           <AppButton label="Set up again" size="cta" onPress={next} />
           <AppButton
             label="Not now"
+            size="cta"
             variant="ghost"
             style={{ marginTop: Spacing.element }}
             onPress={async () => {
@@ -376,7 +377,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
             icon={<Mail size={18} color={colors.textPrimary} />}
             onPress={() => chooseEmail(true)}
           />
-          <AppButton label="Not now" variant="ghost" style={{ marginTop: Spacing.element }} disabled={emailBusy} onPress={() => chooseEmail(false)} />
+          <AppButton size="cta" label="Not now" variant="ghost" style={{ marginTop: Spacing.element }} disabled={emailBusy} onPress={() => chooseEmail(false)} />
         </>
       ) : (
         <>
@@ -387,8 +388,8 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
             onPress={openNotificationAccess}
           />
           <View style={styles.row2}>
-            <AppButton label="App info" variant="outline" style={{ flex: 1 }} onPress={openAppDetails} />
-            <AppButton label="Skip for now" variant="ghost" style={{ flex: 1 }} onPress={() => chooseEmail(false)} />
+            <AppButton size="cta" label="App info" variant="outline" style={{ flex: 1 }} onPress={openAppDetails} />
+            <AppButton size="cta" label="Skip for now" variant="ghost" style={{ flex: 1 }} onPress={() => chooseEmail(false)} />
           </View>
         </>
       );
@@ -420,7 +421,7 @@ export const AutoLogSetupScreen: React.FC<Props> = ({ navigation, route }) => {
       ) : (
         <>
           <AppButton label="Open battery settings" size="cta" onPress={openBatterySettings} />
-          <AppButton label="I'll do it later" variant="ghost" style={{ marginTop: Spacing.element }} onPress={next} />
+          <AppButton size="cta" label="I'll do it later" variant="ghost" style={{ marginTop: Spacing.element }} onPress={next} />
         </>
       );
       break;
