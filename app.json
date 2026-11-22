@@ -178,7 +178,8 @@
           "Delightful Ticker Motion: Seamless digit roll animation across all filter switches including Mondays, with zero-lag background waterfall calculations",
           "Form Consistency: 'Transfer between accounts' now uses a sleek capsule pill with custom animated toggle matching the rest of the form",
           "Sliding Income Toggle: 'What is this money?' upgraded to an executive sliding toggle with balanced vertical spacing and glitch-free alignment",
-          "Instant Response: Re-render optimizations, memoized components, and instant ledger early-exit checks deliver fluid 60fps across Home, Savings, and Insights"
+          "Instant Response: Re-render optimizations, memoized components, and instant ledger early-exit checks deliver fluid 60fps across Home, Savings, and Insights",
+          "Safer Sign-In, App Lock & Alerts: sign-in links now work only with a one-time code, App Lock stays on after opening the app and covers open sheets, notification Undo and category buttons wait until you unlock, Log Out clears your notifications, and emails that only say \"Paytm\" or \"CRED\" go to Review instead of being logged"
         ]
       }
     }

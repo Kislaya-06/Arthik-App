@@ -136,7 +136,9 @@ export default function App() {
       // A button on an Automatic Logging notification (category or Undo): act quietly, never navigate.
       const actionId = (response as any)?.actionIdentifier;
       if (typeof actionId === 'string' && (actionId.startsWith('cat:') || actionId === 'autolog:undo')) {
-        import('./src/features/autoLog/notificationActions').then((m) => m.handleNotificationAction(response)).catch(() => {});
+        import('./src/features/autoLog/notificationActions')
+          .then((m) => m.handleNotificationAction(response, { locked: useAppLockStore.getState().isLocked }))
+          .catch(() => {});
         return;
       }
       const isBudgetModeEnabled = useDailyBudgetStore.getState().isBudgetModeEnabled;

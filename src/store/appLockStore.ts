@@ -211,6 +211,20 @@ export const useAppLockStore = create<AppLockState>((set, get) => ({
   },
 }));
 
+/**
+ * Whether Arthik is locked right now. With the app running the live state decides; with the app closed
+ * (notification task in a fresh JS context) an enabled App Lock means locked, as the app always starts locked.
+ */
+export const isAppLockedNow = async (): Promise<boolean> => {
+  const s = useAppLockStore.getState();
+  if (s.isAppLockEnabled) return s.isLocked;
+  try {
+    return (await AsyncStorage.getItem(GLOBAL_STORAGE_KEY)) === 'true';
+  } catch {
+    return true; // cannot tell: fail closed (the user can still do it in the app)
+  }
+};
+
 // Register multi-user store reset callback (Section 6.1 & 7)
 registerStoreResetCallback(() => {
   useAppLockStore.getState().reset();

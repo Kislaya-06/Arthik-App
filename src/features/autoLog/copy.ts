@@ -50,7 +50,7 @@ export const REVIEW_LABEL: Record<ReviewReason, string> = {
   notification_only: "Bank SMS didn't arrive",
   no_account: 'Account unclear',
   ambiguous_match: 'Might be a duplicate',
-  unknown_sender: 'New email sender',
+  unknown_sender: 'Check this email',
   possible_transfer: 'Own account transfer?',
   exceeds_liquidity: 'Exceeds spending limit',
 };

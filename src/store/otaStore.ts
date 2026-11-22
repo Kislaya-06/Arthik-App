@@ -54,6 +54,7 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
           'History Gesture Polish: Eliminated button underlay blink during screen transitions for buttery-smooth swipe-to-delete',
           'Split an expense with a friend and see exactly what they owe you',
           'When a friend pays you back, it is no longer counted as income',
+          'Safer Sign-In, App Lock & Alerts: sign-in links now work only with a one-time code, App Lock stays on after opening the app and covers open sheets, notification Undo and category buttons wait until you unlock, Log Out clears your notifications, and emails that only say "Paytm" or "CRED" go to Review instead of being logged',
         ],
   };
 };

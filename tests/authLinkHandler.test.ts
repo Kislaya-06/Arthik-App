@@ -51,7 +51,7 @@ const makeToken = (payloadObj: Record<string, any>): string => {
   return `${header}.${payload}.signature`;
 };
 
-import { handleAuthDeepLink } from '../src/lib/authLinkHandler';
+import { handleAuthDeepLink, hasRecoveryGrant } from '../src/lib/authLinkHandler';
 
 describe('authLinkHandler (Seam: handleAuthDeepLink)', () => {
   beforeEach(() => {
@@ -92,17 +92,38 @@ describe('authLinkHandler (Seam: handleAuthDeepLink)', () => {
       });
     });
 
-    it('sets session and routes to ResetPassword for valid recovery tokens', async () => {
-      const token = makeToken({ sub: 'user_rec_1', email: 'user@example.com' });
-      const validUrl = `arthik://reset-password#access_token=${token}&refresh_token=mock_refresh_123&type=recovery`;
+    it('ignores raw recovery tokens (PKCE only) and asks for a fresh link', async () => {
+      const token = makeToken({ sub: 'user_rec_1', email: 'user@example.com', exp: 1 });
+      const tokenUrl = `arthik://reset-password#access_token=${token}&refresh_token=attacker_refresh&type=recovery`;
 
-      const handled = await handleAuthDeepLink(validUrl);
+      const handled = await handleAuthDeepLink(tokenUrl);
 
       expect(handled).toBe(true);
-      expect(mockSetSession).toHaveBeenCalledWith({
-        access_token: token,
-        refresh_token: 'mock_refresh_123',
+      expect(mockSetSession).not.toHaveBeenCalled();
+      expect(mockSetSessionStore).not.toHaveBeenCalled();
+      expect(mockNavigateTo).toHaveBeenCalledWith('ResetPassword', {
+        initialError: 'This password reset link is not valid. Please request a new link.',
       });
+    });
+
+    it('grants a password change only to the account a real recovery code signed in', async () => {
+      mockExchangeCode.mockResolvedValueOnce({ data: { session: { user: { id: 'rec_user' } } }, error: null });
+      await handleAuthDeepLink('arthik://reset-password?code=rec-grant');
+      expect(hasRecoveryGrant('rec_user')).toBe(true);
+      expect(hasRecoveryGrant('someone_else')).toBe(false);
+
+      // A normal sign-in callback is not a recovery.
+      mockExchangeCode.mockResolvedValueOnce({ data: { session: { user: { id: 'plain_user' } } }, error: null });
+      await handleAuthDeepLink('arthik://auth/callback?code=plain');
+      expect(hasRecoveryGrant('plain_user')).toBe(false);
+    });
+
+    it('exchanges a recovery code and routes to ResetPassword', async () => {
+      const handled = await handleAuthDeepLink('arthik://reset-password?code=rec-code-1');
+
+      expect(handled).toBe(true);
+      expect(mockExchangeCode).toHaveBeenCalledWith('rec-code-1');
+      expect(mockSetSessionStore).toHaveBeenCalled();
       expect(mockNavigateTo).toHaveBeenCalledWith('ResetPassword');
     });
   });
@@ -120,6 +141,20 @@ describe('authLinkHandler (Seam: handleAuthDeepLink)', () => {
       expect(handled).toBe(true);
       expect(mockExchangeCode).toHaveBeenCalledWith('oauth-valid-code-456');
       expect(mockSetSessionStore).toHaveBeenCalled();
+    });
+
+    it('never installs raw callback tokens, signed in or out (no login CSRF / silent switch)', async () => {
+      const token = makeToken({ sub: 'victim', email: 'v@example.com', exp: 1 });
+      for (const user of [null, { id: 'victim', email: 'v@example.com' }]) {
+        mockCurrentUser = user;
+        const handled = await handleAuthDeepLink(
+          `arthik://auth/callback#access_token=${token}&refresh_token=attacker_${user ? 'in' : 'out'}`
+        );
+        expect(handled).toBe(true);
+      }
+      expect(mockSetSession).not.toHaveBeenCalled();
+      expect(mockSetSessionStore).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
     });
 
     it('returns false for unrelated deep link paths', async () => {

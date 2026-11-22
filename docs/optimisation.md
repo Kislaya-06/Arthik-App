@@ -83,8 +83,24 @@ After Phase 1: 6.01 MB, 2,074 modules (−25.5 %). Dev-only timing marks live in
 |---|---|---|
 | SEC-01 | Log Out removes this phone's copies of the user's server data (never the unsynced queues) | `src/lib/signOutCleanup.ts` |
 | SEC-02 | Login session stored encrypted (AES-256-GCM, key in secure storage) | `src/lib/secureSessionStorage.ts`, `expoSessionCipher.ts`, `sessionCodec.ts` |
-| SEC-03 | Update links trusted only inside Arthik's own GitHub repository | `src/lib/versionCheck.ts`, `src/lib/apkInstaller.ts` |
+| SEC-03 | Update links trusted only as Arthik's own GitHub release links (narrowed 22 Nov 2026: raw files, branches and pull-request paths refused) | `src/lib/versionCheck.ts`, `src/lib/apkInstaller.ts` |
 | SEC-04 | Sign-up cannot fail on a long or blank name (database only) | `supabase/migrations/20261116120000_signup_name_safety_and_expense_counter.sql` (Part 1), `schema.sql` |
+
+### Phase 11 — Security audit fixes (22 Nov 2026)
+| ID | What changed | Where |
+|---|---|---|
+| SEC-05 | Auth links are PKCE only: raw tokens in an `arthik://` link (or the Google sign-in return URL) are never applied | `src/lib/authLinkHandler.ts`, `src/screens/AuthScreen.tsx`, `src/lib/deepLinkGuard.ts` |
+| SEC-06 | A session of a different user (no sign-out in between) resets every store first | `src/store/authStore.ts` (`setSession`) |
+| SEC-07 | App Lock cover: own `Modal` window, hooks above the early return, re-renders on navigation (no fail-open after the splash, no crash on lock) | `src/components/AppLockOverlay.tsx`, `src/lib/appLockGate.ts` |
+| SEC-08 | Automatic Logging notification buttons change nothing while App Lock is locked | `src/features/autoLog/notificationActions.ts`, `src/store/appLockStore.ts` (`isAppLockedNow`) |
+| SEC-09 | Log Out clears tray notifications; tray recaps archived into the bell only while signed in | `src/store/authStore.ts`, `src/lib/notificationSync.ts` |
+| SEC-10 | Payment-provider emails (Paytm, CRED, …) go to review instead of being logged | `src/features/autoLog/engine.ts` (`AUT-001`) |
+| SEC-11 | RLS: expenses may only reference the caller's own transfer rule / share / category, shares only the caller's own expense; `autolog_profiles` policies `TO authenticated`; `handle_new_user` `search_path = ''`; bootstrap RPCs added to `schema.sql` (owner runs the SQL) | `supabase/migrations/20261122120000_rls_reference_ownership.sql`, `schema.sql` |
+| SEC-12 | Delete Account keeps other accounts' unsynced queues and the shared AutoLog DB key; stops capture and clears the native queue | `src/store/authStore.ts` (`deleteAccount`), `src/features/autoLog/service.ts` (`wipeOnAccountDelete`) |
+| SEC-13 | ResetPassword changes the password only after a real recovery code in this app run | `src/lib/authLinkHandler.ts` (`hasRecoveryGrant`), `src/screens/ResetPasswordScreen.tsx` |
+| SEC-14 | Automatic Logging channel `lockscreenVisibility: PRIVATE` (Android applies it to new channels only) | `src/features/autoLog/notify.ts` |
+
+Not done (owner decision, 22 Nov 2026): hide Recents preview / block screenshots (`expo-screen-capture`, new APK), OTA code signing (with the next APK), pinned APK SHA-256 (same trust root as the URL), recent-login check in `delete-user-account` (kept as is). `npm audit --omit=dev` (22 Nov 2026): 14 findings, all in build tooling (`@expo/cli`, metro, `react-devtools-core`, `xcode`), none in the app bundle; fix with the next Expo SDK upgrade, not `npm audit fix` (it can move `expo-updates`, a native package).
 
 ### Phase 10 — Sync efficiency (16–19 Nov 2026)
 | ID | What changed | Where |

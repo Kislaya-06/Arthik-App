@@ -2,7 +2,7 @@ import { Alert } from 'react-native';
 import { supabase } from '../config/supabase';
 import { navigateTo } from '../navigation/navigationRef';
 import { useAuthStore } from '../store/authStore';
-import { evaluateDeepLinkSessionAction, isSameUserIdentity } from './deepLinkGuard';
+import { isSameUserIdentity } from './deepLinkGuard';
 
 /**
  * Prompts user for explicit confirmation before switching active sessions via an external deep link.
@@ -35,6 +35,12 @@ function promptAccountSwitch(currentEmail?: string, incomingEmail?: string): Pro
 
 let lastHandledUrl = '';
 let lastHandledTime = 0;
+
+/** The account a real recovery code signed in during this app run. Navigation params can be faked by a link; this cannot. */
+let recoveryUserId: string | null = null;
+
+/** True when `userId` arrived through a password-reset code in this app run (ResetPassword may change the password). */
+export const hasRecoveryGrant = (userId?: string | null) => !!userId && userId === recoveryUserId;
 
 /**
  * Robustly parses query parameters and hash fragments from a URL.
@@ -88,8 +94,6 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
     const { path, params } = parseDeepLink(url);
 
     const type = (params.type || '').toLowerCase();
-    const accessToken = params.access_token;
-    const refreshToken = params.refresh_token;
     const code = params.code;
     const errorCode = params.error_code || params.error;
     const errorDescription = params.error_description || '';
@@ -117,63 +121,39 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
       const currentUser = useAuthStore.getState().user;
       const currentSession = useAuthStore.getState().session;
 
-      // Subcase 1A: Direct tokens (access_token & refresh_token)
-      if (accessToken && refreshToken) {
-        const action = evaluateDeepLinkSessionAction({
-          currentUser,
-          isRecovery: true,
-          accessToken,
+      // PKCE only: raw tokens in a link are never trusted (any app can send arthik:// links).
+      if (!code) {
+        navigateTo('ResetPassword', {
+          initialError: 'This password reset link is not valid. Please request a new link.',
         });
+        return true;
+      }
 
-        if (action.type === 'PROMPT_SWITCH') {
-          const confirmed = await promptAccountSwitch(currentUser?.email, action.incomingEmail);
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {
+        if (__DEV__) console.error('[AuthDeepLink] Failed to exchange recovery code:', error.message);
+        navigateTo('ResetPassword', {
+          initialError: 'Password reset code is invalid or expired. Please request a new link.',
+        });
+        return true;
+      }
+
+      if (data?.session) {
+        // If a user was already logged in and the code exchanged to a DIFFERENT account, prompt before applying
+        if (currentUser && !isSameUserIdentity(currentUser, data.session.user)) {
+          const confirmed = await promptAccountSwitch(currentUser?.email, data.session.user.email);
           if (!confirmed) {
-            return true; // Cancelled by user; preserve current session and abort
-          }
-          await useAuthStore.getState().signOut();
-        }
-
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (error) {
-          if (__DEV__) console.error('[AuthDeepLink] Failed to set recovery session:', error.message);
-          navigateTo('ResetPassword', {
-            initialError: 'Could not restore password reset session. Please request a new link.',
-          });
-          return true;
-        } else if (data?.session) {
-          await useAuthStore.getState().setSession(data.session);
-        }
-      } else if (code) {
-        // Subcase 1B: PKCE code exchange
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          if (__DEV__) console.error('[AuthDeepLink] Failed to exchange recovery code:', error.message);
-          navigateTo('ResetPassword', {
-            initialError: 'Password reset code is invalid or expired. Please request a new link.',
-          });
-          return true;
-        }
-
-        if (data?.session) {
-          // If a user was already logged in and the code exchanged to a DIFFERENT account, prompt before applying
-          if (currentUser && !isSameUserIdentity(currentUser, data.session.user)) {
-            const confirmed = await promptAccountSwitch(currentUser?.email, data.session.user.email);
-            if (!confirmed) {
-              if (currentSession) {
-                await supabase.auth.setSession({
-                  access_token: currentSession.access_token,
-                  refresh_token: currentSession.refresh_token,
-                });
-              }
-              return true;
+            if (currentSession) {
+              await supabase.auth.setSession({
+                access_token: currentSession.access_token,
+                refresh_token: currentSession.refresh_token,
+              });
             }
+            return true;
           }
-          await useAuthStore.getState().setSession(data.session);
         }
+        await useAuthStore.getState().setSession(data.session);
+        recoveryUserId = data.session.user.id;
       }
 
       // Navigate to the ResetPassword screen
@@ -192,29 +172,8 @@ export async function handleAuthDeepLink(url: string | null): Promise<boolean> {
       const currentUser = useAuthStore.getState().user;
       const currentSession = useAuthStore.getState().session;
 
-      if (accessToken && refreshToken) {
-        const action = evaluateDeepLinkSessionAction({
-          currentUser,
-          isRecovery: false,
-          accessToken,
-        });
-
-        if (action.type === 'PROMPT_SWITCH') {
-          const confirmed = await promptAccountSwitch(currentUser?.email, action.incomingEmail);
-          if (!confirmed) {
-            return true; // Cancelled by user; preserve current session
-          }
-          await useAuthStore.getState().signOut();
-        }
-
-        const { data } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (data?.session) {
-          await useAuthStore.getState().setSession(data.session);
-        }
-      } else if (code) {
+      // PKCE only: a callback without a code (e.g. raw tokens) is ignored.
+      if (code) {
         let session = useAuthStore.getState().session;
         if (!session) {
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);

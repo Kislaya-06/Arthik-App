@@ -28,6 +28,7 @@ import { AuthFormField } from '../components/ui/AuthFormField';
 import { AuthMessageBanner } from '../components/ui/AuthMessageBanner';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight, LineHeight, LetterSpacing } from '../config/theme';
 import { useAuthStore } from '../store/authStore';
+import { hasRecoveryGrant } from '../lib/authLinkHandler';
 import { useTheme } from '../store/themeStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
@@ -110,6 +111,12 @@ export const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
     }
     if (password !== confirmPassword) {
       showError('Passwords do not match. Please verify and try again.');
+      return;
+    }
+
+    // Only after a real reset link (any app can open this screen with arthik://reset-password).
+    if (!hasRecoveryGrant(useAuthStore.getState().user?.id)) {
+      showError('Please open the password reset link from your email again.');
       return;
     }
 

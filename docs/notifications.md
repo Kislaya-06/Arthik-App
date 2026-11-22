@@ -73,11 +73,14 @@ When Automatic Logging logs an **expense** with no known category, the "✓ ₹X
 - App closed or in background: background task `arthik-autolog-notification-action` (`background.ts`) runs `handleNotificationAction` (category or Undo). App open: the same handler runs from the notification listener in `App.tsx` and does not navigate. Running twice is harmless.
 - No category buttons for income, money-back questions (SPL-005), an already known category, or when no categories are saved yet. If the save fails (for example offline) the notification becomes "Category not saved. Tap to choose it in Arthik." and the transaction stays in Review as "Logged · choose a category".
 - The merchant is NOT remembered from a button tap (same default as the Review screen).
+- **Lock screen**: the Automatic Logging channel is created with `lockscreenVisibility: PRIVATE` (amounts hidden on the lock screen). Android applies channel settings only when a channel is first created, so existing installs keep the user's own setting.
+- **App Lock (`AUT-007` point 3)**: while Arthik is locked (app listener: `isLocked`; app closed: App Lock on, `isAppLockedNow`) a button changes nothing and the notification becomes "Arthik is locked · Nothing changed. Tap to open Arthik and do it there.".
 
 ## Automatic Logging: weekly summary
 On the first check of a new week (weeks start Monday), Automatic Logging sends one notification about the week before: "Your week with Automatic Logging · N payments logged for you · M need your review." (or "Nothing to review."). It is also saved in the in-app bell (type `autolog_digest`, tap opens Automatic Logging). The first week after setup / the update only records the week; nothing is sent for an empty week or when notifications are off for that check. Channel: Automatic Logging. Code: `digest.ts`, `service.processQueue`, `notify.notifyWeeklyDigest`.
 
 ## How it stays true
+Delivered recaps / Gullak rewards are copied into the in-app bell (`archiveDeliveredNotifications`) only while someone is signed in, and Log Out clears the tray (`dismissAllNotificationsAsync`), so one account's amounts never reach another account's bell (SEC-01).
 `notificationSync.ts` rebuilds the whole plan from the latest data (3 s after any expense / budget change, on app foreground, after login) and replaces the OS schedule; an identical plan is not rescheduled. Logging an expense therefore cancels tonight's nudge immediately.
 
 ## Channels (Android; users can mute each separately in system settings)

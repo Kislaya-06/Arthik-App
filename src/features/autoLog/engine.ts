@@ -175,7 +175,7 @@ const reviewQuestion: Record<ReviewReason, string> = {
   notification_only: 'Bank confirmation did not arrive.',
   no_account: 'Which account was this?',
   ambiguous_match: 'This may already be logged. Please check.',
-  unknown_sender: 'Financial email from a new sender.',
+  unknown_sender: 'Arthik cannot confirm who sent this email. Please check it.',
   possible_transfer: 'Is this a transfer between your own accounts?',
   exceeds_liquidity: 'Exceeds spending limit. Zero funds in Income & Gullak.',
 };
@@ -555,7 +555,8 @@ export const processEmail = async (raw: RawEmail, opts: ProcessOptions): Promise
   };
 
   // New transaction from email (email-only is valid, spec email §7, §28).
-  if (!parsed.senderRecognized) {
+  // A payment provider (Paytm, CRED…) is named only by the display name anyone can set → review (AUT-001).
+  if (!parsed.senderRecognized || !parsed.senderIsBank) {
     const r = await finalizePending(e, 'unknown_sender', opts); // spec email §32
     await finishTakeOver();
     return { ...r, isNewAccount };

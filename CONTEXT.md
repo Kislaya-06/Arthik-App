@@ -195,8 +195,8 @@ The ordered async boot sequence in `App.tsx` that guarantees stores are populate
 ### 4. App Lock
 
 **App Lock**:
-A device-level biometric gate (fingerprint, face, or device PIN) that locks Arthik on launch or after returning from background. Enabled or disabled via `setAppLockEnabled`, which always requires a successful biometric authentication before toggling. The lock state (`isLocked`) gates all navigation until `authenticate` succeeds.
-- *Code location*: `src/store/appLockStore.ts` (`useAppLockStore`), `src/screens/AuthScreen.tsx`
+A device-level biometric gate (fingerprint, face, or device PIN) that locks Arthik on launch or after returning from background. Enabled or disabled via `setAppLockEnabled`, which always requires a successful biometric authentication before toggling. The lock state (`isLocked`) gates all navigation until `authenticate` succeeds. The lock screen draws in its own window above every sheet and dialog, and Automatic Logging notification buttons change nothing while the app is locked.
+- *Code location*: `src/store/appLockStore.ts` (`useAppLockStore`, `isAppLockedNow`), `src/components/AppLockOverlay.tsx`, `src/lib/appLockGate.ts`
 - *_Avoid_*: PIN Lock, Password Lock, Passcode
 
 **App Lock Persistence**:

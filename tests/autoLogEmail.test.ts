@@ -89,11 +89,16 @@ describe('parseEmail', () => {
   ])('%s → not a transaction', (_l, body) => {
     expect(parseEmail(HDFC_EMAIL, body, now).kind).not.toBe('txn');
   });
-  it('a payment provider email (only last 4 known) uses the tracked account with those digits', async () => {
+  it('a payment provider email is never logged by itself: anyone can use that display name (AUT-001)', async () => {
     await goLive();
     receiveEmail('Paytm', 'Paid Rs. 150.00 to SWIGGY using your card XX1234. Order ID 4567.', Date.now());
+    receiveEmail('CRED', 'Paid Rs. 90.00 to ACME using your card XX1234.', Date.now() + 60 * 60_000);
     await run();
-    expect(txs().map((t) => t.amount)).toEqual([150]);
+    expect(txs()).toEqual([]);
+    expect((await db.listPending()).map((p) => [p.amount, p.reviewReason]).sort()).toEqual([
+      [150, 'unknown_sender'],
+      [90, 'unknown_sender'],
+    ]);
   });
   it('unknown sender is marked unrecognised', () => {
     expect(resolveEmailSender('Some Shop Billing').recognized).toBe(false);

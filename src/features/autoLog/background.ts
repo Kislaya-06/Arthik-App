@@ -41,7 +41,8 @@ TaskManager.defineTask(AUTOLOG_NOTIFICATION_ACTION_TASK, async ({ data }: { data
   try {
     // Only Automatic Logging buttons (category, Undo) are handled; every other response is ignored here.
     const { handleNotificationAction } = await import('./notificationActions');
-    await handleNotificationAction(data);
+    const { isAppLockedNow } = await import('../../store/appLockStore');
+    await handleNotificationAction(data, { locked: await isAppLockedNow() });
   } catch {}
 });
 

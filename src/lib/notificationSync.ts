@@ -298,6 +298,8 @@ const ARCHIVE_TYPES: Record<string, NotificationType> = {
 
 /** Keep delivered recaps / rewards in the in-app bell too. */
 export async function archiveDeliveredNotifications(): Promise<void> {
+  // Tray items carry no user id: archiving while signed out would hand them to the next account (SEC-01).
+  if (!useAuthStore.getState().user) return;
   await collectDeliveredForInbox((item) => {
     const type = ARCHIVE_TYPES[item.type];
     if (!type) return;

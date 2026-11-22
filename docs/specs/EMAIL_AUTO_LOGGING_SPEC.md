@@ -478,6 +478,8 @@ Native modules and regex recognize canonical Indian bank alert sender domains an
 
 Emails from unrecognized personal senders or non-whitelisted domains are ignored or routed to review with `reviewReason: 'unknown_sender'`.
 
+**What the app can actually see (`AUT-001` point 3):** the Android email notification gives only the sender's display name, never the address or domain, so the domain list above cannot be checked on the phone. The display name is chosen by whoever sends the email. Therefore only a known bank name may log by itself; payment-provider names (Paytm, PhonePe, CRED, Navi, Jupiter, Fi, …) and unknown names go to review as `unknown_sender` ("Check this email").
+
 Bank-branded companies that are not the bank ("SBI Mutual Fund", "HDFC Life", "ICICI Lombard") are `third_party` senders (`AUT-005`, `senders.resolveEmailSender`): their emails never create an account, a transaction or a review; they are kept as evidence only.
 
 ---

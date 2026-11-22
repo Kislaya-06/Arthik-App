@@ -230,8 +230,10 @@ SELECT value FROM public.app_config WHERE key = 'version_control';
 ```
 `release_url` must also be a direct APK link — v1.x phones read only that one.
 
-> **Only Arthik's own GitHub repository (SEC-03):** `apk_url` and `release_url` must both be links inside
-> `https://github.com/Kislaya-06/Arthik-App/` (both formats above are correct). Any other link is not downloaded; the
+> **Only Arthik's own GitHub releases (SEC-03):** `apk_url` and `release_url` must both be release links of
+> `https://github.com/Kislaya-06/Arthik-App/` (`releases/download/vX.Y.Z/<file>.apk`, `releases/latest/download/<file>.apk`,
+> `releases`, `releases/latest`, `releases/tag/vX.Y.Z`; both formats above are correct). Raw files, branches and
+> pull-request paths of the repository are refused. Any other link is not downloaded; the
 > app opens the official release page in the browser instead. To host the APK elsewhere, first change
 > `TRUSTED_RELEASE_PREFIX` in `src/lib/versionCheck.ts` and ship that by OTA.
 

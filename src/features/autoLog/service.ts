@@ -418,6 +418,15 @@ export const onBeforeSignOut = async (userId: string) => {
   }
 };
 
+/** Account deleted on the server: stop capture and remove this user's on-phone Automatic Logging data. */
+export const wipeOnAccountDelete = (userId: string) =>
+  serial(async () => {
+    setCapture(false);
+    setNativeEmail(false);
+    try { ArthikAutoLog?.clearQueue(); } catch {}
+    await db.deleteLocalData(userId);
+  });
+
 export const turnOff = (userId: string) =>
   serial(async () => {
     setCapture(false);

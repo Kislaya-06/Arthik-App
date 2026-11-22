@@ -69,10 +69,23 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 ### Security
 - Login session stored encrypted on the phone (SEC-02); Log Out removes this phone's copy of your data but keeps
   unsynced changes (SEC-01); app updates download only from Arthik's own GitHub releases (SEC-03).
+- **Security audit fixes (22 Nov 2026, OTA)**: sign-in links work only with a one-time code, so a link from another
+  app can no longer sign you into a different account (SEC-05); switching accounts without Log Out never mixes one
+  account's spending into another's savings (SEC-06); App Lock now stays on after the splash, covers open sheets and no
+  longer shows an error screen when it locks (SEC-07); notification Undo / category buttons do nothing while Arthik is
+  locked (SEC-08, `AUT-007`); Log Out clears your notifications so the next account never sees them (SEC-09); payment
+  app emails (Paytm, CRED…) go to Review instead of being logged, as anyone can use that name (SEC-10, `AUT-001`);
+  update links accept only Arthik's release files (SEC-03).
+- **Hardening (22 Nov 2026, OTA)**: deleting your account no longer erases another account's unsynced changes on the
+  same phone and stops Automatic Logging capture (SEC-12); a new password can be set only after opening a real reset
+  link (SEC-13); Automatic Logging notifications hide amounts on the lock screen on new installs (SEC-14).
 
 ### Database (owner runs the SQL once; app code ships by OTA)
 - Split expenses columns; income categories migration; expenses list index (OPT-65); sign-up name safety + expense
   change counter (SEC-04, `supabase/migrations/20261116120000_signup_name_safety_and_expense_counter.sql`).
+- Rows may only point at your own rows (transfer rule, money-back share, category; a share only on your own
+  expense), Automatic Logging profile rules for signed-in users only, sign-up trigger with an empty search path
+  (SEC-11, `supabase/migrations/20261122120000_rls_reference_ownership.sql`).
 
 ## [2.1.0] — 2026-10-07 — Bank emails in Automatic Logging (new APK)
 

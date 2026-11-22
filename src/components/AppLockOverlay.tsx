@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, AppState } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, AppState, Modal } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,6 +16,9 @@ import { useAuthStore } from '../store/authStore';
 import { navigationRef } from '../navigation/navigationRef';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { Spacing, FontSize, FontFamily, Motion } from '../config/theme';
+import { isLockScreenShown } from '../lib/appLockGate';
+
+const routeName = () => (navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : 'Splash');
 
 export const AppLockOverlay: React.FC = () => {
   const { colors, isDark } = useTheme();
@@ -67,21 +70,24 @@ export const AppLockOverlay: React.FC = () => {
     }
   }, [authenticate, isLocked]);
 
-  if (!user || !isAppLockEnabled || !shouldRender) {
-    return null;
-  }
+  // Route as state: leaving the splash must re-render the overlay, or Home would stay uncovered.
+  const [currentRoute, setCurrentRoute] = useState(routeName);
+  useEffect(() => navigationRef.addListener('state', () => setCurrentRoute(routeName())), []);
 
-  const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : 'Splash';
-  if (currentRoute === 'Splash') {
-    return null;
-  }
-
+  // Every hook runs before the early return below (a changing hook count crashes the app).
   const animatedContainerStyle = useAnimatedStyle(() => ({
     opacity: opacityVal.value,
     transform: [{ scale: scaleVal.value }],
   }));
 
+  if (!isLockScreenShown({ hasUser: !!user, enabled: isAppLockEnabled, rendered: shouldRender, route: currentRoute })) {
+    return null;
+  }
+
+  // Own Modal window: sheets/dialogs are separate windows, so an in-tree view could sit under them.
+  // Back does nothing while locked.
   return (
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={() => {}}>
     <Animated.View
       pointerEvents={isLocked ? 'auto' : 'none'}
       style={[
@@ -143,6 +149,7 @@ export const AppLockOverlay: React.FC = () => {
         </View>
       </View>
     </Animated.View>
+    </Modal>
   );
 };
 

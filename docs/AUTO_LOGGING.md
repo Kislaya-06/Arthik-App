@@ -52,7 +52,7 @@ Bank Email ──► Listener.kt ────┤   drops personal senders, OTPs,
 | `src/features/autoLog/ledger.ts` | Bridge into `expenseStore` / Supabase. |
 | `src/features/autoLog/background.ts` | Headless task + periodic task + notification-action task (category buttons tapped while the app is closed). Imported in `index.ts`. |
 | `src/features/autoLog/notify.ts` | Local notifications (preview, logged, needs review). The "logged" one always carries **Undo**, plus up to 2 category buttons when an expense has no category (`AUT-007`). |
-| `src/features/autoLog/notificationActions.ts` | Handles a category or Undo tap (`handleNotificationAction`): a category tap saves only the category (`setTransactionCategory`), Undo removes the transaction; then the notification is removed. Safe to run twice. Used by the background task and the app's notification listener. |
+| `src/features/autoLog/notificationActions.ts` | Handles a category or Undo tap (`handleNotificationAction`): a category tap saves only the category (`setTransactionCategory`), Undo removes the transaction; then the notification is removed. Safe to run twice. Used by the background task and the app's notification listener. While App Lock is locked (`{ locked: true }`) nothing changes and "Arthik is locked" asks the user to do it in the app (`AUT-007` point 3). |
 | `src/lib/quickCategoryPick.ts`, `src/lib/quickCategories.ts` | The user's most used expense categories for those buttons; saved on the phone so they exist while the app is closed. |
 | `src/features/autoLog/store.ts` | Zustand UI snapshot (not persisted). |
 | `src/features/autoLog/remote.ts` | `autolog_profiles` table (no message content). |
@@ -137,11 +137,11 @@ Email app notification ─► PaymentNotificationListener.onEmailNotification
         ─► queue {type:'email'} ─► service.processQueue ─► engine.processEmail
              parseEmail (advice sentences like "never share your OTP" removed first)
              ─► noise filter ─► non-bank company? evidence only (AUT-005)
-             ─► rules ─► account (bank: exact key · provider/unknown: tracked last 4 if unique)
+             ─► rules ─► account (bank: exact key · provider/unknown: tracked last 4 if unique; provider/unknown never log alone → review, AUT-001)
              ─► findIdentity(sms + email)
                    match ─► merge as a source (or take over a waiting notification / pending item)
                    ambiguous / weak ─► Pending Review "Might be a duplicate"
-                   none ─► unknown sender? review · no account? review · type rules ─► log
+                   none ─► not a known bank name (provider / unknown)? review · no account? review · type rules ─► log
 ```
 
 **Identity scoring** (`matching.ts`): same reference → 100 (any delay ≤ 30 days). Otherwise: amount + direction = 1, same last 4 = +2, same merchant = +2, same day = +1, within 30 min = +1, window 48 h. Different last 4 / merchant / reference → never. Same source → never (without reference). Score ≥ 3 with exactly one candidate → merge. Two or more ≥ 3 → ambiguous. Only weaker candidates → review (no silent duplicate, no arbitrary merge).

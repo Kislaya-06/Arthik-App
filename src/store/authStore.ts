@@ -49,21 +49,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
 
   setSession: async (session) => {
+    const runResets = () =>
+      resetCallbacks.forEach((cb) => {
+        try {
+          cb();
+        } catch (err) {
+          if (__DEV__) console.error('Error running store reset callback:', err);
+        }
+      });
+
     if (!session) {
-      if (get().user) {
-        resetCallbacks.forEach((cb) => {
-          try {
-            cb();
-          } catch (err) {
-            if (__DEV__) console.error('Error running store reset callback:', err);
-          }
-        });
-      }
+      if (get().user) runResets();
       set({ session: null, user: null, profile: null, loading: false, initialized: true });
       return;
     }
 
     const user = session.user;
+    // A different account without sign-out (recovery switch, auth events): drop the previous
+    // user's in-memory data so it can never be written into this account's rows.
+    const previous = get().user;
+    if (previous && previous.id !== user.id) {
+      runResets();
+      set({ profile: null });
+    }
     set({ session, user, loading: true });
 
     // Cache user for offline cold launch
@@ -177,6 +185,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await AsyncStorage.removeItem('@arthik_cached_user');
     } catch (_) {}
+    // SEC-01: delivered notifications show this user's amounts and carry no user id; clear them.
+    try {
+      await Notifications.dismissAllNotificationsAsync();
+    } catch (_) {}
     await supabase.auth.signOut();
     set({ session: null, user: null, profile: null, loading: false });
     // SEC-01: the session on this phone has ended, so remove this user's copies of server data
@@ -277,24 +289,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (__DEV__) console.error('Error cancelling notifications on delete:', err);
       }
 
-      // Clean up on-device AutoLog SQLite database & SecureStore keys
+      // Clean up this user's Automatic Logging: stop capture, clear the native message queue, delete the DB.
+      // The DB key in SecureStore is shared by every account's DB on this phone, so it stays.
       try {
-        const { deleteLocalData } = await import('../features/autoLog/db');
-        await deleteLocalData(userId);
+        const { wipeOnAccountDelete } = await import('../features/autoLog/service');
+        await wipeOnAccountDelete(userId);
       } catch (err) {
-        if (__DEV__) console.error('Error deleting AutoLog local db on delete:', err);
+        if (__DEV__) console.error('Error deleting AutoLog local data on delete:', err);
       }
       try {
         const SecureStore = await import('expo-secure-store');
-        await SecureStore.deleteItemAsync('arthik_autolog_db_key_v1').catch(() => {});
         await SecureStore.deleteItemAsync(`arthik_autolog_dismiss_${userId}`).catch(() => {});
       } catch (err) {
         if (__DEV__) console.error('Error removing SecureStore keys on delete:', err);
       }
 
-      // Clean up ALL local key-value storage (AsyncStorage) so device is factory-clean
+      // Clean up local key-value storage, except OTHER accounts' unsynced changes (the server lacks them).
       try {
-        await AsyncStorage.clear();
+        const keep = (k: string) =>
+          (k.startsWith('@arthik_pending_') || k.startsWith('@arthik_failed_sync_')) && !k.endsWith(`_${userId}`);
+        await AsyncStorage.multiRemove((await AsyncStorage.getAllKeys()).filter((k) => !keep(k)));
       } catch (err) {
         if (__DEV__) console.error('Error clearing AsyncStorage on delete:', err);
       }

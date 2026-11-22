@@ -28,6 +28,9 @@ const ensureChannel = async () => {
     vibrationPattern: [0],
     enableVibrate: false,
     showBadge: true,
+    // Amounts and merchants stay hidden on the lock screen. Android applies this only when the channel is
+    // first created (existing installs keep the user's own setting).
+    lockscreenVisibility: N.AndroidNotificationVisibility.PRIVATE,
   });
   channelReady = true;
 };
@@ -189,7 +192,15 @@ export const notifyWeeklyDigest = async (title: string, body: string, weekKey: s
 export const notifyCategoryNotSaved = (key: string, expenseId: string) =>
   present(notificationIdFor(key), 'Category not saved', 'Tap to choose it in Arthik.', { screen: 'ExpenseDetail', expenseId, eventId: key });
 
-export const notifyNeedsReview = (key: string, amount: number | null, merchant: string | null, question: string) =>
+/** Shown when a notification button was tapped while App Lock is on: nothing changed (AUT-007). */
+export const notifyUnlockToChange = (key: string, expenseId: string) =>
+  present(notificationIdFor(key), 'Arthik is locked', 'Nothing changed. Tap to open Arthik and do it there.', {
+    screen: 'ExpenseDetail',
+    expenseId,
+    eventId: key,
+  });
+
+export const notifyNeedsReview =(key: string, amount: number | null, merchant: string | null, question: string) =>
   present(notificationIdFor(key), `${amt(amount)}${merchant ? ` · ${merchant}` : ''}`, `${question} Tap to review.`, {
     screen: 'AutoLogReview',
   });

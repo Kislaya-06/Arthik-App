@@ -5,20 +5,26 @@ const updateEvent = vi.fn(async () => {});
 const setTransactionCategory = vi.fn(async () => true);
 const notifyCategoryNotSaved = vi.fn(async () => {});
 const dismissNotificationAsync = vi.fn(async () => {});
+const deleteTransaction = vi.fn(async () => true);
+const notifyUnlockToChange = vi.fn(async () => {});
 
 vi.mock('../src/features/autoLog/db', () => ({ getEvent: (...a: unknown[]) => getEvent(...a), updateEvent: (...a: unknown[]) => updateEvent(...(a as [])) }));
-vi.mock('../src/features/autoLog/ledger', () => ({ setTransactionCategory: (...a: unknown[]) => setTransactionCategory(...(a as [])) }));
+vi.mock('../src/features/autoLog/ledger', () => ({
+  setTransactionCategory: (...a: unknown[]) => setTransactionCategory(...(a as [])),
+  deleteTransaction: (...a: unknown[]) => deleteTransaction(...(a as [])),
+}));
 vi.mock('../src/features/autoLog/notify', () => ({
   CATEGORY_ACTION_PREFIX: 'cat:',
   UNDO_ACTION_ID: 'autolog:undo',
   notifyUndoFailed: async () => {},
+  notifyUnlockToChange: (...a: unknown[]) => notifyUnlockToChange(...(a as [])),
   notificationIdFor: (k: string) => `autolog-${k}`,
   notifyCategoryNotSaved: (...a: unknown[]) => notifyCategoryNotSaved(...(a as [])),
 }));
 vi.mock('expo-notifications', () => ({ dismissNotificationAsync: (...a: unknown[]) => dismissNotificationAsync(...(a as [])) }));
 vi.mock('../src/config/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }));
 
-import { parseCategoryTap, parseUndoTap, applyCategoryTap, handleCategoryResponse } from '../src/features/autoLog/notificationActions';
+import { parseCategoryTap, parseUndoTap, applyCategoryTap, handleCategoryResponse, handleNotificationAction } from '../src/features/autoLog/notificationActions';
 
 const response = (actionIdentifier: string, data: unknown = { type: 'autolog', eventId: 'ev1', expenseId: 'ex1' }) => ({
   actionIdentifier,
@@ -102,6 +108,17 @@ describe('handleCategoryResponse', () => {
 });
 
 describe('parseUndoTap', () => {
+  it('changes nothing while App Lock is locked and asks the user to open Arthik (AUT-007)', async () => {
+    getEvent.mockResolvedValue({ id: 'ev1', expenseId: 'ex1', needsCategory: true, status: 'logged' });
+    expect(await handleNotificationAction(response('cat:food'), { locked: true })).toBe(true);
+    expect(await handleNotificationAction(response('autolog:undo'), { locked: true })).toBe(true);
+    expect(setTransactionCategory).not.toHaveBeenCalled();
+    expect(deleteTransaction).not.toHaveBeenCalled();
+    expect(updateEvent).not.toHaveBeenCalled();
+    expect(notifyUnlockToChange).toHaveBeenCalledTimes(2);
+    expect(notifyUnlockToChange).toHaveBeenCalledWith('ev1', 'ex1');
+  });
+
   it('reads the Undo button and nothing else', () => {
     expect(parseUndoTap(response('autolog:undo'))).toEqual({ eventId: 'ev1', expenseId: 'ex1' });
     expect(parseUndoTap(response('cat:food'))).toBeNull();

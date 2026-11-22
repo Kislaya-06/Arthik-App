@@ -53,7 +53,7 @@ vi.mock('../src/store/authStore', () => ({
   registerStoreResetCallback: vi.fn(),
 }));
 
-import { useAppLockStore } from '../src/store/appLockStore';
+import { useAppLockStore, isAppLockedNow } from '../src/store/appLockStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 describe('appLockStore (Seam: useAppLockStore)', () => {
@@ -171,6 +171,20 @@ describe('appLockStore (Seam: useAppLockStore)', () => {
       useAppLockStore.setState({ isAppLockEnabled: false, isLocked: false });
       useAppLockStore.getState().lock();
       expect(useAppLockStore.getState().isLocked).toBe(false);
+    });
+
+    it('isAppLockedNow: uses the live state when the app is running, else the saved device flag', async () => {
+      useAppLockStore.setState({ isAppLockEnabled: true, isLocked: false });
+      expect(await isAppLockedNow()).toBe(false); // open and unlocked
+      useAppLockStore.setState({ isAppLockEnabled: true, isLocked: true });
+      expect(await isAppLockedNow()).toBe(true);
+
+      // App closed (fresh store): an enabled lock means the app is locked.
+      useAppLockStore.setState({ isAppLockEnabled: false, isLocked: false });
+      await AsyncStorage.setItem(GLOBAL_KEY, 'true');
+      expect(await isAppLockedNow()).toBe(true);
+      await AsyncStorage.setItem(GLOBAL_KEY, 'false');
+      expect(await isAppLockedNow()).toBe(false);
     });
 
     it('clears lock state and removes global storage key on reset', async () => {
