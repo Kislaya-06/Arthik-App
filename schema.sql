@@ -965,3 +965,172 @@ $$;
 
 REVOKE ALL ON FUNCTION public.arthik_expenses_version(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.arthik_expenses_version(UUID) TO authenticated;
+
+-- ═══ Budget bootstrap RPCs — same SQL as supabase/migrations/20261030145341_performance_sync_version_bootstrap.sql ═══
+CREATE OR REPLACE FUNCTION public.arthik_budget_bootstrap(p_user_id UUID)
+RETURNS JSON
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+    SELECT json_build_object(
+        'profile', (
+            SELECT json_build_object(
+                'daily_budget', p.daily_budget,
+                'is_auto_renew', p.is_auto_renew,
+                'is_budget_mode_enabled', p.is_budget_mode_enabled,
+                'budget_cadence', p.budget_cadence,
+                'weekly_budget', p.weekly_budget,
+                'monthly_budget', p.monthly_budget
+            )
+            FROM public.profiles p
+            WHERE p.id = p_user_id
+        ),
+        'logs', COALESCE((
+            SELECT json_agg(json_build_object(
+                'date', l.date,
+                'amount_saved', l.amount_saved,
+                'spent_amount', l.spent_amount,
+                'status', l.status,
+                'budget_amount', l.budget_amount
+            ) ORDER BY l.date ASC)
+            FROM public.daily_savings_log l
+            WHERE l.user_id = p_user_id
+        ), '[]'::json),
+        'plans', COALESCE((
+            SELECT json_agg(json_build_object(
+                'id', c.id,
+                'effective_from', c.effective_from,
+                'is_enabled', c.is_enabled,
+                'cadence', c.cadence,
+                'amount', c.amount,
+                'carry_mode', c.carry_mode,
+                'carried_over_amount', c.carried_over_amount,
+                'created_at', c.created_at
+            ) ORDER BY c.effective_from ASC)
+            FROM public.budget_plan_changes c
+            WHERE c.user_id = p_user_id
+        ), '[]'::json),
+        'periods', COALESCE((
+            SELECT json_agg(json_build_object(
+                'id', b.id,
+                'cadence', b.cadence,
+                'period_start', b.period_start,
+                'period_end', b.period_end,
+                'active_start', b.active_start,
+                'active_end', b.active_end,
+                'budget_amount', b.budget_amount,
+                'spent_amount', b.spent_amount,
+                'amount_saved', b.amount_saved,
+                'status', b.status,
+                'is_prorated', b.is_prorated,
+                'carry_mode', b.carry_mode,
+                'carried_over_amount', b.carried_over_amount,
+                'created_at', b.created_at
+            ) ORDER BY b.active_start ASC)
+            FROM public.budget_periods b
+            WHERE b.user_id = p_user_id
+        ), '[]'::json)
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.arthik_budget_bootstrap(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.arthik_budget_bootstrap(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.arthik_gullak_deposits(p_user_id UUID)
+RETURNS JSON
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+    SELECT COALESCE((
+        SELECT json_agg(json_build_object(
+            'id', g.id,
+            'amount', g.amount,
+            'date', g.date,
+            'note', g.note,
+            'source', g.source,
+            'created_at', g.created_at
+        ) ORDER BY g.created_at DESC)
+        FROM public.gullak_deposits g
+        WHERE g.user_id = p_user_id
+    ), '[]'::json);
+$$;
+
+REVOKE ALL ON FUNCTION public.arthik_gullak_deposits(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.arthik_gullak_deposits(UUID) TO authenticated;
+
+-- ═══ SEC-11: rows may only point at the caller's own rows; sign-up trigger with an empty search_path ═══
+-- Same SQL as supabase/migrations/20261122120000_rls_reference_ownership.sql (safe to re-run). Must stay after
+-- every table and column it names (expenses.transfer_rule_id / reimburses_share_id, expense_shares, autolog_profiles).
+DROP POLICY IF EXISTS "Users can insert their own expenses" ON public.expenses; -- SEC-11
+CREATE POLICY "Users can insert their own expenses"
+ON public.expenses FOR INSERT
+TO authenticated
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (category_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.categories c WHERE c.id = expenses.category_id AND (c.user_id IS NULL OR c.user_id = (select auth.uid()))
+    ))
+    AND (transfer_rule_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.self_transfer_rules r WHERE r.id = expenses.transfer_rule_id AND r.user_id = (select auth.uid())
+    ))
+    AND (reimburses_share_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.expense_shares s WHERE s.id = expenses.reimburses_share_id AND s.user_id = (select auth.uid())
+    ))
+);
+
+DROP POLICY IF EXISTS "Users can update their own expenses" ON public.expenses;
+CREATE POLICY "Users can update their own expenses"
+ON public.expenses FOR UPDATE
+TO authenticated
+USING ((select auth.uid()) = user_id)
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (category_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.categories c WHERE c.id = expenses.category_id AND (c.user_id IS NULL OR c.user_id = (select auth.uid()))
+    ))
+    AND (transfer_rule_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.self_transfer_rules r WHERE r.id = expenses.transfer_rule_id AND r.user_id = (select auth.uid())
+    ))
+    AND (reimburses_share_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.expense_shares s WHERE s.id = expenses.reimburses_share_id AND s.user_id = (select auth.uid())
+    ))
+);
+
+DROP POLICY IF EXISTS "expense_shares_insert_own" ON public.expense_shares;
+CREATE POLICY "expense_shares_insert_own" ON public.expense_shares
+FOR INSERT TO authenticated
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND EXISTS (SELECT 1 FROM public.expenses e WHERE e.id = expense_shares.expense_id AND e.user_id = (select auth.uid()))
+);
+
+DROP POLICY IF EXISTS "expense_shares_update_own" ON public.expense_shares;
+CREATE POLICY "expense_shares_update_own" ON public.expense_shares
+FOR UPDATE TO authenticated
+USING ((select auth.uid()) = user_id)
+WITH CHECK (
+    (select auth.uid()) = user_id
+    AND EXISTS (SELECT 1 FROM public.expenses e WHERE e.id = expense_shares.expense_id AND e.user_id = (select auth.uid()))
+);
+
+DROP POLICY IF EXISTS "autolog_select_own" ON public.autolog_profiles;
+CREATE POLICY "autolog_select_own" ON public.autolog_profiles
+FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "autolog_insert_own" ON public.autolog_profiles;
+CREATE POLICY "autolog_insert_own" ON public.autolog_profiles
+FOR INSERT TO authenticated WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "autolog_update_own" ON public.autolog_profiles;
+CREATE POLICY "autolog_update_own" ON public.autolog_profiles
+FOR UPDATE TO authenticated USING ((select auth.uid()) = user_id) WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "autolog_delete_own" ON public.autolog_profiles;
+CREATE POLICY "autolog_delete_own" ON public.autolog_profiles
+FOR DELETE TO authenticated USING ((select auth.uid()) = user_id);
+
+ALTER FUNCTION public.handle_new_user() SET search_path = '';

@@ -519,7 +519,9 @@ This document is the **single authoritative canonical source of truth** for all 
      - **Bank Transaction SMS:** Native Android `SmsReceiver`. A first privacy gate (`FinancialFilter.kt`) runs natively BEFORE anything reaches JS: messages from personal phone-number senders, OTP messages and messages with no money mention or transaction wording are dropped and never stored.
      - **Bank Transaction Emails:** Notifications of supported email apps (Gmail, Outlook, Samsung Email, Yahoo Mail, Proton Mail, Spark, Zoho Mail), only when the user turned email detection on. Login / OTP / security emails are dropped.
   2. **Payment App Notification Drop:** Notifications from payment apps (Google Pay, PhonePe, Paytm, etc.) are never read; the native listener only handles the supported email apps. Only definitive settlement signals from actual banking institutions are processed to eliminate double-logging and notification chatter.
-- **Reference:** [`docs/AUTO_LOGGING.md#data-sources`](AUTO_LOGGING.md)
+  3. **Email Sender Trust (owner approved 2026-11-22):** an email notification shows only the sender's display name, which anyone can choose. Only an email whose name is a known bank may log a transaction by itself. An email from a payment provider (Paytm, PhonePe, CRED, …) or an unknown sender is never logged by itself: it goes to review ("Check this email"). It still confirms or adds detail to a transaction another source already logged.
+- **Reference:** [`docs/AUTO_LOGGING.md#data-sources`](AUTO_LOGGING.md), `engine.processEmail`
+- **Verified By:** `tests/autoLogEmail.test.ts`
 
 #### `AUT-002`: Three Operational Modes (Discovery, Recovery, Live)
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -575,8 +577,9 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Canonical Definition:**
   1. **Category:** an automatically logged transaction gets, in order, the category the user remembered for that merchant, else the category the user gave that merchant in their own saved transactions (at least 2 entries of the same type with that merchant as the note, one category on at least 60% of them), else none (the user is asked). Merchant names are compared after removing company words, payment gateways and web parts ("Zomato Private Limited", "zomato.payu" and "Zomato" are one merchant). Amount, type, date and account never change because of this.
   2. **Undo:** every "logged" notification has an Undo button. Undo removes that one transaction and keeps the message as ignored, so it is never logged again. A transaction still waiting to be written is simply never written. If it cannot be removed (offline with the app closed), nothing changes and the user is told to remove it in the app.
-- **Reference:** `src/features/autoLog/merchants.ts`, `ledger.historyCategoryFor`, `notificationActions.applyUndoTap`
-- **Verified By:** `tests/autoLogHelpers.test.ts`, `tests/autoLogImprovements.test.ts`, `tests/autoLogNotifyButtons.test.ts`
+  3. **App Lock (owner approved 2026-11-22):** while Arthik is locked (App Lock on and not unlocked, or the app closed with App Lock on), Undo and the category buttons change nothing; the user is told to open Arthik and do it there.
+- **Reference:** `src/features/autoLog/merchants.ts`, `ledger.historyCategoryFor`, `notificationActions.applyUndoTap`, `notificationActions.handleNotificationAction`, `appLockStore.isAppLockedNow`
+- **Verified By:** `tests/autoLogHelpers.test.ts`, `tests/autoLogImprovements.test.ts`, `tests/autoLogNotifyButtons.test.ts`, `tests/autoLogNotificationActions.test.ts`, `tests/appLockStore.test.ts`
 
 ---
 

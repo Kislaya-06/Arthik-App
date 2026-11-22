@@ -88,6 +88,25 @@ describe('SEC-03 update links only from Arthik\'s own GitHub repository', () => 
     expect(isTrustedReleaseUrl(42 as unknown as string)).toBe(false);
   });
 
+  it('refuses repository paths other users can fill (raw files, pull-request refs, fork commits, branches)', () => {
+    const repo = 'https://github.com/Kislaya-06/Arthik-App/';
+    const bad = [
+      `${repo}raw/refs/pull/1/head/evil.apk`,
+      `${repo}raw/0123456789abcdef0123456789abcdef01234567/evil.apk`,
+      `${repo}raw/main/Arthik.apk`,
+      `${repo}blob/main/Arthik.apk`,
+      `${repo}releases/download/v2.1.0/sub/dir/evil.apk`,
+      `${repo}releases/download/main/evil.apk`,
+      `${repo}pull/1`,
+      `${repo}`,
+    ];
+    for (const url of bad) {
+      expect(isTrustedReleaseUrl(url), url).toBe(false);
+      expect(resolveApkUrl({ apkUrl: url, releaseUrl: '' }), url).toBeNull();
+    }
+    expect(isTrustedReleaseUrl(`${repo}releases`)).toBe(true);
+  });
+
   it('an untrusted apk_url does not block a trusted release_url', () =>
     expect(resolveApkUrl({ apkUrl: 'https://evil.example/Arthik.apk', releaseUrl: APK })).toBe(APK));
 

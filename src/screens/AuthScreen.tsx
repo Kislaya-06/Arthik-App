@@ -275,8 +275,6 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
           const parsed = Linking.parse(urlWithQuery);
 
           const code = parsed.queryParams?.code as string;
-          const accessToken = parsed.queryParams?.access_token as string;
-          const refreshToken = parsed.queryParams?.refresh_token as string;
 
           if (code) {
             // PKCE flow: Exchange authorization code for a session
@@ -307,18 +305,8 @@ export const AuthScreen: React.FC<Props> = ({ navigation }) => {
               await useAuthStore.getState().setSession(session);
             }
             await navigateAfterGoogleAuth();
-          } else if (accessToken && refreshToken) {
-            // Implicit flow fallback
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            if (sessionError) throw sessionError;
-            if (sessionData?.session) {
-              await useAuthStore.getState().setSession(sessionData.session);
-            }
-            await navigateAfterGoogleAuth();
           } else {
+            // PKCE only: raw tokens in the return URL are never trusted (another app can fire this URL).
             // Fallback: Check if session is already active
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {

@@ -1,6 +1,13 @@
 import * as db from './db';
 import { deleteTransaction, setTransactionCategory } from './ledger';
-import { CATEGORY_ACTION_PREFIX, UNDO_ACTION_ID, notificationIdFor, notifyCategoryNotSaved, notifyUndoFailed } from './notify';
+import {
+  CATEGORY_ACTION_PREFIX,
+  UNDO_ACTION_ID,
+  notificationIdFor,
+  notifyCategoryNotSaved,
+  notifyUndoFailed,
+  notifyUnlockToChange,
+} from './notify';
 
 /**
  * Handles a button tapped inside an Automatic Logging notification (a category, or Undo).
@@ -147,9 +154,17 @@ export const applyUndoTap = async (tap: { eventId: string; expenseId: string | n
   }
 };
 
-/** Every Automatic Logging notification button. Returns true when the response was one of them. */
-export const handleNotificationAction = async (payload: unknown): Promise<boolean> => {
+/**
+ * Every Automatic Logging notification button. Returns true when the response was one of them.
+ * While App Lock is locked a button changes nothing: the user is asked to open Arthik (AUT-007).
+ */
+export const handleNotificationAction = async (payload: unknown, opts: { locked?: boolean } = {}): Promise<boolean> => {
   const undo = parseUndoTap(payload);
+  const target = undo ?? parseCategoryTap(payload);
+  if (target && opts.locked) {
+    await notifyUnlockToChange(target.eventId, target.expenseId ?? '');
+    return true;
+  }
   if (undo) {
     await applyUndoTap(undo);
     return true;

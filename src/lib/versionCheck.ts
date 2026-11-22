@@ -20,16 +20,21 @@ export interface VersionCheckResult {
  */
 export const TRUSTED_RELEASE_PREFIX = 'https://github.com/Kislaya-06/Arthik-App/';
 
-/** True only for an https link inside Arthik's GitHub repository, with nothing that could point elsewhere. */
+/**
+ * The release paths only the owner can publish to. Other repository paths (raw files, pull-request refs,
+ * fork-network commits, branches) can serve files written by other GitHub users, so they are never trusted.
+ */
+const RELEASE_PATH =
+  /^releases(\/latest|\/tag\/v\d+(\.\d+)*|\/latest\/download\/[A-Za-z0-9._-]+\.apk|\/download\/v\d+(\.\d+)*\/[A-Za-z0-9._-]+\.apk)?(\?[A-Za-z0-9._\-=&]*)?$/i;
+
+/** True only for an https link to Arthik's own GitHub releases, with nothing that could point elsewhere. */
 export function isTrustedReleaseUrl(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim();
   if (trimmed.length > 500) return false;
   if (!trimmed.toLowerCase().startsWith(TRUSTED_RELEASE_PREFIX.toLowerCase())) return false;
   const rest = trimmed.slice(TRUSTED_RELEASE_PREFIX.length);
-  // Path: letters, digits, dot, dash, underscore, slash. Optional simple query. No "..", "%", "@", "\", "#", spaces.
-  if (!/^[A-Za-z0-9._\-/]*(\?[A-Za-z0-9._\-=&]*)?$/.test(rest)) return false;
-  return !rest.includes('..');
+  return RELEASE_PATH.test(rest) && !rest.includes('..');
 }
 
 /** The page opened in the browser as fallback: the server's link when it is Arthik's own, else the default page. */

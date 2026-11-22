@@ -31,9 +31,15 @@ yarn-error.*
 Thumbs.db
 *.pem
 
-# local env files
+# local env files & credentials (never commit)
 .env
 .env*.local
+.env.*
+!.env.example
+*.keystore
+credentials.json
+google-services.json
+GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo
@@ -55,7 +61,7 @@ supabase/.temp/
 .agent/
 .agents/
 .scratch/
-.impeccable/
+graphify-out/
 
 # Local-only documentation & scripts
 /CODEBASE_EXPLAINER.md

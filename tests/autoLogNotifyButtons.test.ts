@@ -7,6 +7,7 @@ let saved: { id: string; name: string }[] = [];
 vi.mock('react-native', () => ({ Platform: { OS: 'android' } }));
 vi.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 3 },
+  AndroidNotificationVisibility: { PRIVATE: 0, PUBLIC: 1 },
   getPermissionsAsync: async () => ({ status: 'granted' }),
   setNotificationChannelAsync: async () => {},
   setNotificationCategoryAsync: async (id: string, actions: any[]) => {

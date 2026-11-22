@@ -14,6 +14,10 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
     clear: vi.fn(async () => {
       storageMap.clear();
     }),
+    getAllKeys: vi.fn(async () => [...storageMap.keys()]),
+    multiRemove: vi.fn(async (keys: string[]) => {
+      keys.forEach((k) => storageMap.delete(k));
+    }),
   },
 }));
 
@@ -34,6 +38,9 @@ vi.mock('../src/config/supabase', () => ({
     auth: {
       signOut: vi.fn().mockResolvedValue({ error: null }),
     },
+    functions: {
+      invoke: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
+    },
   },
 }));
 
@@ -51,11 +58,13 @@ vi.mock('../src/store/networkStore', () => ({
 }));
 
 // 4. Mock expo-notifications
+const mockDismissAll = vi.fn().mockResolvedValue(undefined);
 vi.mock('expo-notifications', () => ({
   cancelAllScheduledNotificationsAsync: vi.fn().mockResolvedValue(undefined),
+  dismissAllNotificationsAsync: (...a: unknown[]) => mockDismissAll(...a),
 }));
 
-import { useAuthStore } from '../src/store/authStore';
+import { useAuthStore, registerStoreResetCallback } from '../src/store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 describe('authStore (Seam: useAuthStore)', () => {
@@ -160,6 +169,44 @@ describe('authStore (Seam: useAuthStore)', () => {
     await useAuthStore.getState().setSession(null);
 
     expect(await AsyncStorage.getItem(`@arthik_cached_expenses_${TEST_USER_ID}`)).toBe('[{"id":"e1"}]');
+  });
+
+  it('SEC-01: signOut clears this user\'s notifications from the tray (they could reach the next account\'s bell)', async () => {
+    useAuthStore.setState({ user: mockUser, session: mockSession } as any);
+    await useAuthStore.getState().signOut();
+    expect(mockDismissAll).toHaveBeenCalled();
+  });
+
+  it('deleteAccount removes this phone\'s data but keeps OTHER accounts\' unsynced changes', async () => {
+    useAuthStore.setState({ user: mockUser, session: mockSession } as any);
+    storageMap.set(`@arthik_pending_expenses_${TEST_USER_ID}`, '[1]');
+    storageMap.set(`@arthik_cached_expenses_${TEST_USER_ID}`, '[1]');
+    storageMap.set('@arthik_pending_expenses_other_user', '[2]');
+    storageMap.set('@arthik_failed_sync_other_user', '[3]');
+    storageMap.set('@arthik_cached_expenses_other_user', '[4]');
+    storageMap.set('@arthik_app_lock_enabled', 'true');
+
+    await useAuthStore.getState().deleteAccount();
+
+    expect([...storageMap.keys()].sort()).toEqual(['@arthik_failed_sync_other_user', '@arthik_pending_expenses_other_user']);
+    expect(useAuthStore.getState().user).toBeNull();
+  });
+
+  it('resets every per-user store when a session for a DIFFERENT user is installed (no sign-out switch)', async () => {
+    mockIsOffline = true;
+    const reset = vi.fn();
+    const unregister = registerStoreResetCallback(reset);
+    try {
+      await useAuthStore.getState().setSession(mockSession);
+      await useAuthStore.getState().setSession({ ...mockSession, access_token: 'refreshed' }); // same user refresh
+      expect(reset).not.toHaveBeenCalled();
+
+      await useAuthStore.getState().setSession({ user: { id: 'other_user', email: 'b@arthik.app' }, access_token: 'b' } as any);
+      expect(reset).toHaveBeenCalledTimes(1);
+      expect(useAuthStore.getState().user?.id).toBe('other_user');
+    } finally {
+      unregister();
+    }
   });
 
   it('optimistically updates profile and user metadata on updateProfile', async () => {
