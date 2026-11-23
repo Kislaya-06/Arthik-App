@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../money/dateKeys';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { endOfMonth } from 'date-fns/endOfMonth';
@@ -148,10 +149,10 @@ export function buildPlanContext(now: Date): PlanContext {
   const catMap = new Map(categories.map((c) => [c.id, c]));
 
   const todayStr = format(now, 'yyyy-MM-dd');
-  const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const prevWeekStart = format(startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const prevWeekEnd = format(endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const weekStart = format(startOfWeek(now, WEEK_OPTIONS), 'yyyy-MM-dd');
+  const weekEnd = format(endOfWeek(now, WEEK_OPTIONS), 'yyyy-MM-dd');
+  const prevWeekStart = format(startOfWeek(subWeeks(now, 1), WEEK_OPTIONS), 'yyyy-MM-dd');
+  const prevWeekEnd = format(endOfWeek(subWeeks(now, 1), WEEK_OPTIONS), 'yyyy-MM-dd');
   const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
   const prevMonthStart = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd');

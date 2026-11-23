@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../money/dateKeys';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfWeek } from 'date-fns/startOfWeek';
@@ -59,10 +60,10 @@ export interface SavingsHistoryGroup<T extends SavingsHistoryItem> {
 const yearSuffix = (d: Date, today: Date) => (d.getFullYear() === today.getFullYear() ? '' : ` ${format(d, 'yyyy')}`);
 
 function weekLabel(start: Date, today: Date): string {
-  const thisWeek = startOfWeek(today, { weekStartsOn: 1 });
+  const thisWeek = startOfWeek(today, WEEK_OPTIONS);
   if (differenceInCalendarDays(start, thisWeek) === 0) return 'THIS WEEK';
   if (differenceInCalendarDays(start, subWeeks(thisWeek, 1)) === 0) return 'LAST WEEK';
-  const end = endOfWeek(start, { weekStartsOn: 1 });
+  const end = endOfWeek(start, WEEK_OPTIONS);
   const sameYear = start.getFullYear() === end.getFullYear();
   if (sameYear && start.getMonth() === end.getMonth()) {
     return `${format(start, 'd')} – ${format(end, 'd MMM')}${yearSuffix(end, today)}`.toUpperCase();
@@ -89,7 +90,7 @@ export function groupSavingsHistory<T extends SavingsHistoryItem>(
   const byKey = new Map<string, SavingsHistoryGroup<T>>();
   for (const item of items) {
     const d = parseISO(item.date);
-    const anchor = by === 'week' ? startOfWeek(d, { weekStartsOn: 1 }) : new Date(d.getFullYear(), d.getMonth(), 1);
+    const anchor = by === 'week' ? startOfWeek(d, WEEK_OPTIONS) : new Date(d.getFullYear(), d.getMonth(), 1);
     const key = format(anchor, 'yyyy-MM-dd');
     let group = byKey.get(key);
     if (!group) {

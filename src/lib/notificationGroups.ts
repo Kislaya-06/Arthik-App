@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../money/dateKeys';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfWeek } from 'date-fns/startOfWeek';
@@ -19,7 +20,7 @@ function labelFor(createdAt: string, now: Date): { key: string; label: string } 
   const days = differenceInCalendarDays(now, d);
   if (days <= 0) return { key: 'today', label: 'TODAY' };
   if (days === 1) return { key: 'yesterday', label: 'YESTERDAY' };
-  if (differenceInCalendarDays(d, startOfWeek(now, { weekStartsOn: 1 })) >= 0) return { key: 'week', label: 'THIS WEEK' };
+  if (differenceInCalendarDays(d, startOfWeek(now, WEEK_OPTIONS)) >= 0) return { key: 'week', label: 'THIS WEEK' };
   if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return { key: 'month', label: 'THIS MONTH' };
   const year = d.getFullYear() === now.getFullYear() ? '' : ` ${format(d, 'yyyy')}`;
   return { key: format(d, 'yyyy-MM'), label: `${format(d, 'MMMM')}${year}`.toUpperCase() };
@@ -87,6 +88,6 @@ export function notificationTimeLabel(createdAt: string, now: Date): string {
   if (mins < 60) return `${mins}m ago`;
   const days = differenceInCalendarDays(now, d);
   if (days <= 1) return format(d, 'h:mm a');
-  if (differenceInCalendarDays(d, startOfWeek(now, { weekStartsOn: 1 })) >= 0) return format(d, 'EEE');
+  if (differenceInCalendarDays(d, startOfWeek(now, WEEK_OPTIONS)) >= 0) return format(d, 'EEE');
   return format(d, 'd MMM');
 }

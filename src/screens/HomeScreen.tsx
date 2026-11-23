@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../money/dateKeys';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, Text, AppState, useWindowDimensions } from 'react-native';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
@@ -445,12 +446,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     const now = new Date();
     const todayLabel = format(now, 'd MMM');
     if (activeFilter === 'Weekly') {
-      const start = startOfWeek(t, { weekStartsOn: 1 });
-      const end = endOfWeek(t, { weekStartsOn: 1 });
+      const start = startOfWeek(t, WEEK_OPTIONS);
+      const end = endOfWeek(t, WEEK_OPTIONS);
       const sameMonth = format(start, 'M') === format(end, 'M');
       const range = sameMonth ? `${format(start, 'd')}\u2013${format(end, 'd MMM')}` : `${format(start, 'd MMM')} \u2013 ${format(end, 'd MMM')}`;
       // A running week says how far the numbers go, so they are not read as a full-week figure.
-      return withTillToday(range, 'Weekly', isSameWeek(t, now, { weekStartsOn: 1 }), todayLabel);
+      return withTillToday(range, 'Weekly', isSameWeek(t, now, WEEK_OPTIONS), todayLabel);
     }
     const start = startOfMonth(t);
     const end = endOfMonth(t);

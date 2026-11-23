@@ -14,6 +14,9 @@ import { format } from 'date-fns/format';
 /** 'yyyy-MM-dd'. Example: '2026-10-20'. */
 export type DateKey = string;
 
+/** Weeks start on Monday everywhere in Arthik (budgets, Home, Insights, notifications). Pass to every date-fns week function. */
+export const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
+
 const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**

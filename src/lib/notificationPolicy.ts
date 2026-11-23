@@ -23,6 +23,7 @@
  * the user's data changes, so a scheduled message is cancelled the moment it stops being true.
  */
 
+import { WEEK_OPTIONS } from '../money/dateKeys';
 import { addDays } from 'date-fns/addDays';
 import { endOfMonth } from 'date-fns/endOfMonth';
 import { endOfWeek } from 'date-fns/endOfWeek';
@@ -569,7 +570,7 @@ export function buildNotificationPlan(ctx: PlanContext): PlannedNotification[] {
   }
 
   // 3) Weekly recap — this week's Sunday evening, only for an active week.
-  const sunday = endOfWeek(now, { weekStartsOn: 1 });
+  const sunday = endOfWeek(now, WEEK_OPTIONS);
   const weeklyAt = atTime(sunday, WEEKLY_RECAP_TIME);
   if (weeklyAt.getTime() >= earliest && ctx.week.txnCount >= WEEKLY_MIN_TXNS) {
     items.push({

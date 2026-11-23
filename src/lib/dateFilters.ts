@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../money/dateKeys';
 import { format } from 'date-fns/format';
 import { startOfWeek } from 'date-fns/startOfWeek';
 import { endOfWeek } from 'date-fns/endOfWeek';
@@ -52,8 +53,8 @@ export const isDateInPeriod = (
   }
 
   if (period === 'week') {
-    const weekStartStr = format(startOfWeek(referenceDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const weekEndStr = format(endOfWeek(referenceDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const weekStartStr = format(startOfWeek(referenceDate, WEEK_OPTIONS), 'yyyy-MM-dd');
+    const weekEndStr = format(endOfWeek(referenceDate, WEEK_OPTIONS), 'yyyy-MM-dd');
     return cleanDate >= weekStartStr && cleanDate <= weekEndStr;
   }
 

@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../../money/dateKeys';
 import { startOfWeek } from 'date-fns/startOfWeek';
 import { endOfWeek } from 'date-fns/endOfWeek';
 import { startOfMonth } from 'date-fns/startOfMonth';
@@ -31,7 +32,7 @@ export function buildInterval(period: Period, offset: number): { start: Date; en
   const now = new Date(), abs = Math.abs(offset);
   if (period === 'Weekly') {
     const ref = offset < 0 ? subWeeks(now, abs) : now;
-    return { start: startOfWeek(ref, { weekStartsOn: 1 }), end: endOfWeek(ref, { weekStartsOn: 1 }) };
+    return { start: startOfWeek(ref, WEEK_OPTIONS), end: endOfWeek(ref, WEEK_OPTIONS) };
   }
   if (period === 'Monthly') {
     const ref = offset < 0 ? subMonths(now, abs) : now;

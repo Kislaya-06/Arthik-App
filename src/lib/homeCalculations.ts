@@ -17,6 +17,7 @@
  * remains pure, deterministic, and 100% unit-testable in isolation without React or UI dependencies.
  */
 
+import { WEEK_OPTIONS } from '../money/dateKeys';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfWeek } from 'date-fns/startOfWeek';
@@ -175,7 +176,7 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
     periodDates.push(todayStr);
   } else if (activeFilter === 'Weekly') {
     // Week starts Monday, counts days elapsed so far this week up to TODAY
-    const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
+    const monday = startOfWeek(referenceDate, WEEK_OPTIONS);
     const mondayStr = format(monday, 'yyyy-MM-dd');
     // If user joined after Monday (e.g. Wednesday), start from registration day
     const startDateStr = (userCreatedAtStr && userCreatedAtStr > mondayStr) ? userCreatedAtStr : mondayStr;

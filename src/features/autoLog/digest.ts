@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../../money/dateKeys';
 import { startOfWeek } from 'date-fns/startOfWeek';
 
 /**
@@ -6,7 +7,7 @@ import { startOfWeek } from 'date-fns/startOfWeek';
  */
 
 /** Monday 00:00 local time of the week `ms` falls in (DAT-004: weeks start on Monday). */
-export const weekStartOf = (ms: number): number => startOfWeek(new Date(ms), { weekStartsOn: 1 }).getTime();
+export const weekStartOf = (ms: number): number => startOfWeek(new Date(ms), WEEK_OPTIONS).getTime();
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 

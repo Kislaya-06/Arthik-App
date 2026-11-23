@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../../money/dateKeys';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfWeek } from 'date-fns/startOfWeek';
@@ -36,8 +37,8 @@ export function getPeriodBounds(cadence: BudgetCadence, dateStr: string): Period
     return { start: dateStr, end: dateStr, totalDays: 1 };
   }
   if (cadence === 'weekly') {
-    const s = startOfWeek(d, { weekStartsOn: 1 });
-    const e = endOfWeek(d, { weekStartsOn: 1 });
+    const s = startOfWeek(d, WEEK_OPTIONS);
+    const e = endOfWeek(d, WEEK_OPTIONS);
     return {
       start: format(s, 'yyyy-MM-dd'),
       end: format(e, 'yyyy-MM-dd'),
@@ -180,7 +181,7 @@ export function computeEffectiveFrom(
   }
 
   if (kind === 'weekly_amount') {
-    const currentMonday = startOfWeek(d, { weekStartsOn: 1 });
+    const currentMonday = startOfWeek(d, WEEK_OPTIONS);
     const nextMonday = addDays(currentMonday, 7);
     return format(nextMonday, 'yyyy-MM-dd');
   }

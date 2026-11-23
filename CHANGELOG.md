@@ -37,6 +37,8 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 - **Refactor (no visible change, OTA)**: one transaction classifier (`classifyTransaction`, ADR 0023). Whether a row
   is income or spending comes from its type only; the unused category-name fallback (`TXN-002`) is retired. Every
   stored transaction is counted exactly as before.
+- **Refactor (no visible change, OTA)**: "weeks start on Monday" is defined once (`WEEK_OPTIONS`,
+  `src/money/dateKeys.ts`) and used by every week calculation.
 - **Automatic Logging reads only bank SMS and bank emails**: payment-app notifications (Google Pay, PhonePe …) are no
   longer used, because they miss the account number and caused duplicate reviews.
 - **Budget modes**: switching between Pure Mode and Budget Mode takes effect at midnight; switching back the same day

@@ -1,3 +1,4 @@
+import { WEEK_OPTIONS } from '../../money/dateKeys';
 import { useMemo } from 'react';
 import { startOfWeek } from 'date-fns/startOfWeek';
 import { subWeeks } from 'date-fns/subWeeks';
@@ -228,7 +229,7 @@ export function useInsightsData({
       ? subWeeks(new Date(), Math.abs(offset))
       : new Date();
 
-    const weekStart = startOfWeek(weekRef, { weekStartsOn: 1 });
+    const weekStart = startOfWeek(weekRef, WEEK_OPTIONS);
 
     const data = weekDays.map((day, i) => {
       const dateObj = addDays(weekStart, i);
