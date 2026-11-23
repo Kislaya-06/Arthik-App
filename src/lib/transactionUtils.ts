@@ -29,15 +29,13 @@ export const isExcludedFromTotals = (item?: { transaction_class?: string | null 
 
 /** Counts as income in totals/charts/analytics. Self-transfers never do. */
 export const isCountedIncome = (
-  item?: { type?: string; transaction_class?: string | null } | null,
-  category?: { name?: string } | null
-): boolean => classifyTransaction(item, category) === 'income';
+  item?: { type?: string; transaction_class?: string | null } | null
+): boolean => classifyTransaction(item) === 'income';
 
 /** Counts as money spent. Self-transfers (either leg) never do. */
 export const isCountedExpense = (
-  item?: { type?: string; transaction_class?: string | null } | null,
-  category?: { name?: string } | null
-): boolean => classifyTransaction(item, category) === 'spending';
+  item?: { type?: string; transaction_class?: string | null } | null
+): boolean => classifyTransaction(item) === 'spending';
 
 /**
  * What a row IS, from the money point of view. Exactly one answer per row (canonical rules TXN-001..TXN-004):
@@ -51,56 +49,17 @@ export const isCountedExpense = (
 export type TransactionKind = 'spending' | 'income' | 'moneyBack' | 'selfTransfer';
 
 export const classifyTransaction = (
-  item?: { type?: string; transaction_class?: string | null } | null,
-  category?: { name?: string } | null
+  item?: { type?: string; transaction_class?: string | null } | null
 ): TransactionKind => {
   const transactionClass = getTransactionClass(item);
   if (transactionClass === 'self_transfer') return 'selfTransfer';
   if (transactionClass === 'recovery') return 'moneyBack';
-  return isIncomeTransaction(item, category) ? 'income' : 'spending';
-};
-
-export const DEFAULT_INCOME_KEYWORDS = [
-  'salary',
-  'income',
-  'freelance',
-  'business',
-  'dividend',
-  'stipend',
-  'rental',
-  'bonus',
-  'interest',
-  'cashback',
-  'refund',
-  'pocket money',
-  'gift',
-  'sales',
-];
-
-/**
- * Is this transaction income? (TXN-001) The explicit `type` is the only authority.
- * The category-keyword fallback (TXN-002) is an inert, dormant path that only runs for historical rows
- * with no `type` at all; the database makes `type` NOT NULL, so active accounting never reaches it.
- */
-export const isIncomeTransaction = (
-  item?: { type?: 'expense' | 'income' | string } | null,
-  category?: { name?: string } | null
-): boolean => {
-  if (item?.type === 'income') return true;
-  if (item?.type === 'expense') return false;
-  if (!category?.name) return false;
-  const lower = category.name.toLowerCase();
-  return DEFAULT_INCOME_KEYWORDS.some((kw) => lower.includes(kw));
+  return isIncomeTransaction(item) ? 'income' : 'spending';
 };
 
 /**
- * Is this incoming transaction eligible income? Direction comes from the explicit `type` (TXN-001);
- * self-transfers are excluded (TXN-003). Notes and category names are never used to guess a transfer.
+ * Is this row incoming money? (TXN-001) The explicit `type` is the only authority. A row without `type`
+ * is an expense, the same as the database default (TXN-002 retired, ADR 0023). This is the row's direction
+ * only (display sign and colour); totals use classifyTransaction / isCountedIncome / isCountedExpense.
  */
-export const isEligibleIncome = (
-  item?: { type?: string; transaction_class?: string | null } | null,
-  category?: { name?: string } | null
-): boolean => {
-  if (isExcludedFromTotals(item)) return false;
-  return isIncomeTransaction(item, category);
-};
+export const isIncomeTransaction = (item?: { type?: string } | null): boolean => item?.type === 'income';

@@ -72,7 +72,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return calculateExpenseFunding({
       expense,
       allExpenses: expenses,
-      categories,
       records: dailyRecords,
       planChanges,
       todayBudget,
@@ -85,7 +84,6 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [
     expense,
     expenses,
-    categories,
     dailyRecords,
     planChanges,
     dailyBudgetAmount,
@@ -249,7 +247,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     navigation.navigate('EditExpense', { expenseId: expense.id });
   };
 
-  const isIncome = isIncomeTransaction(expense, category);
+  const isIncome = isIncomeTransaction(expense);
   const CategoryIcon = getCategoryIcon(category?.icon || (isIncome ? 'Wallet' : ''));
   const PaymentIcon = getPaymentIcon(expense.payment_mode);
   const paymentLabel = getPaymentLabel(expense.payment_mode);

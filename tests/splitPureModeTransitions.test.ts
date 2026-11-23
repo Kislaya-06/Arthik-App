@@ -46,16 +46,11 @@ describe('Split Expenses & Pure Mode / Budget Mode Transitions', () => {
     expect(people[0].owed).toBe(400);
 
     // Initial Pure Mode totals: Inflow ₹2000, Outflow ₹600, Net ₹1400
-    const catMap = {
-      income_cat: { name: 'Salary', is_income: true },
-      food_cat: { name: 'Food', is_income: false },
-    };
     let totals = calculateExpenseTotals(
       [
         { amount: income.amount, category_id: 'income_cat', type: 'income' },
         { amount: dinner.amount, category_id: 'food_cat', type: 'expense' },
-      ],
-      catMap
+      ]
     );
     expect(totals.totalIncome).toBe(2000);
     expect(totals.totalSpent).toBe(600);
@@ -105,8 +100,7 @@ describe('Split Expenses & Pure Mode / Budget Mode Transitions', () => {
         type: r.type,
         transaction_class: r.transaction_class,
         category_id: r.type === 'income' ? 'income_cat' : 'food_cat',
-      })),
-      catMap
+      }))
     );
     expect(totals.totalIncome).toBe(2000);
     expect(totals.totalSpent).toBe(200);
@@ -165,18 +159,13 @@ describe('Split Expenses & Pure Mode / Budget Mode Transitions', () => {
     expect(countedGroc.amount).toBe(500);
 
     // Net balance in Pure Mode is 3000 - 500 = 2500
-    const catMap = {
-      income_cat: { name: 'Salary', is_income: true },
-      food_cat: { name: 'Food', is_income: false },
-    };
     const pureTotals = calculateExpenseTotals(
       rows.map((r) => ({
         amount: r.amount,
         type: r.type,
         transaction_class: r.transaction_class,
         category_id: r.type === 'income' ? 'income_cat' : 'food_cat',
-      })),
-      catMap
+      }))
     );
     expect(pureTotals.totalIncome).toBe(3000);
     expect(pureTotals.totalSpent).toBe(500);

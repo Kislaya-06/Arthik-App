@@ -9,7 +9,6 @@ import { computeWaterfallFromState, summarizeScope } from '../src/lib/moneyWater
  *  - what already came out of Gullak is written in the past tense: "Drawn ₹136 from Gullak".
  */
 const TODAY = '2026-10-13'; // Tuesday
-const cats = [{ id: 'food', name: 'Food' }, { id: 'sal', name: 'Salary' }];
 const inc = (id: string, amount: number, date: string): any => ({ id, amount, type: 'income', expense_date: date, category_id: 'sal', created_at: `${date}T08:00:00Z` });
 const exp = (id: string, amount: number, date: string): any => ({ id, amount, type: 'expense', expense_date: date, category_id: 'food', created_at: `${date}T12:00:00Z` });
 
@@ -22,7 +21,7 @@ const summaryFor = (expenses: any[], filter: 'Monthly' | 'Weekly' | 'All' | 'Dai
   const spentByDate: Record<string, number> = {};
   for (const e of expenses) if (e.type === 'expense') spentByDate[e.expense_date] = (spentByDate[e.expense_date] || 0) + e.amount;
   const waterfall = computeWaterfallFromState({
-    expenses, categories: cats, isBudgetModeEnabled: true, isAutoRenew: true, todayStr: TODAY,
+    expenses, isBudgetModeEnabled: true, isAutoRenew: true, todayStr: TODAY,
     todayBudget: 100, dailyBudgetAmount: 100, records: records(spentByDate) as any, planChanges: plan,
   });
   const inScope = (d: string) => (filter === 'Monthly' ? d.startsWith('2026-10') : filter === 'Weekly' ? d >= '2026-10-12' : filter === 'Daily' ? d === TODAY : true);

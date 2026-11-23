@@ -151,7 +151,7 @@ const setup = (sc: Scenario): MoneySnapshot => {
   } as any);
   const st = useDailyBudgetStore.getState();
   return {
-    expenses: sc.expenses as any, categories: CATS, gullakDeposits: st.gullakDeposits, dailyRecords: st.dailyRecords,
+    expenses: sc.expenses as any, gullakDeposits: st.gullakDeposits, dailyRecords: st.dailyRecords,
     planChanges: st.planChanges, budgetPeriods: st.budgetPeriods, dailyBudgetAmount: st.dailyBudgetAmount,
     isAutoRenew: st.isAutoRenew, isBudgetModeEnabled: st.isBudgetModeEnabled, budgetCadence: st.budgetCadence,
     totalAccumulatedSavings: st.totalAccumulatedSavings,
@@ -160,15 +160,13 @@ const setup = (sc: Scenario): MoneySnapshot => {
 
 // ─── OLD Home chain (HomeScreen.tsx before ADR 0022, verbatim order) ──────────
 function oldHome(s: MoneySnapshot, activeFilter: Filter, todayKey: string, todayRecord: any, userCreatedAtStr: string | undefined, getAvailableIncomeBalance: () => number) {
-  const { expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, dailyBudgetAmount, dailyRecords, planChanges, budgetCadence, budgetPeriods, totalAccumulatedSavings } = s;
+  const { expenses, gullakDeposits, isBudgetModeEnabled, isAutoRenew, dailyBudgetAmount, dailyRecords, planChanges, budgetCadence, budgetPeriods, totalAccumulatedSavings } = s;
   const referenceDate = parseISO(todayKey);
-  const catMap: Record<string, any> = {};
-  for (let i = 0; i < categories.length; i++) catMap[categories[i].id] = categories[i];
   const filtered = filterExpenses(expenses, activeFilter, referenceDate);
-  const { totalIncome, totalSpent } = calculateExpenseTotals(filtered, catMap);
+  const { totalIncome, totalSpent } = calculateExpenseTotals(filtered);
   const isBudgetConfigured = isBudgetModeEnabled && isAutoRenew && dailyBudgetAmount > 0;
   const todayBudget = isBudgetConfigured ? todayRecord.budget : 0;
-  const spentByDate = spendingTotalsByDateKey(buildLedgerEntries(expenses, categories));
+  const spentByDate = spendingTotalsByDateKey(buildLedgerEntries(expenses));
   const todayLiveSpent = spentByDate[todayKey] || 0;
   const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
   const todayBudgetStatus = calculateBudgetStatus(todayBudget, todayRecordSpent);
@@ -179,7 +177,7 @@ function oldHome(s: MoneySnapshot, activeFilter: Filter, todayKey: string, today
   const availableIncomeBalance = typeof getAvailableIncomeBalance === 'function' ? getAvailableIncomeBalance() : 0;
   const carryCoveredByDate = getCarryCoveredByDate(planChanges, dailyRecords, dailyBudgetAmount, todayKey);
   const fullWaterfall = computeWaterfallFromState({
-    expenses, categories, deposits: gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayStr: todayKey,
+    expenses, deposits: gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayStr: todayKey,
     todayBudget: dailyRecords[todayKey]?.budget, dailyBudgetAmount, records: dailyRecords, planChanges,
   });
   const period0: FilterPeriod | null = activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
@@ -209,9 +207,9 @@ function oldHome(s: MoneySnapshot, activeFilter: Filter, todayKey: string, today
 
 // ─── OLD Savings card chain (SavingsScreen.tsx before ADR 0022) ───────────────
 function oldSavings(s: MoneySnapshot, todayKey: string, todayMetrics: any) {
-  const { expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, dailyBudgetAmount, planChanges, budgetCadence } = s;
+  const { expenses, gullakDeposits, isBudgetModeEnabled, isAutoRenew, dailyBudgetAmount, planChanges, budgetCadence } = s;
   const { budget: todayBudget, spent: todaySpent, remaining: todayRemaining, isOverBudget, overAmount } = todayMetrics;
-  const spentByDate = spendingTotalsByDateKey(buildLedgerEntries(expenses, categories));
+  const spentByDate = spendingTotalsByDateKey(buildLedgerEntries(expenses));
   const cadencePeriodSummary = !isBudgetModeEnabled || budgetCadence === 'daily' ? null : getCurrentPeriodSummary(planChanges, spentByDate, todayKey);
   const isCadenceMode = isBudgetModeEnabled && budgetCadence !== 'daily';
   const cardBudget = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.budget : todayBudget;
@@ -222,7 +220,7 @@ function oldSavings(s: MoneySnapshot, todayKey: string, todayMetrics: any) {
   const cardProgressRatio = cardBudget > 0 ? cardSpent / cardBudget : 0;
   const allDailyRecords = s.dailyRecords;
   const waterfall = computeWaterfallFromState({
-    expenses, categories, deposits: gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayStr: todayKey,
+    expenses, deposits: gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayStr: todayKey,
     todayBudget: allDailyRecords[todayKey]?.budget, dailyBudgetAmount, records: allDailyRecords, planChanges,
   });
   const start = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodStart : todayKey;
@@ -261,7 +259,7 @@ describe('Money Scope module = the old screen wiring (ADR 0022, WAT-001 / BUD / 
       const s = setup(sc);
       const fromStore = useDailyBudgetStore.getState().getAvailableIncomeBalance();
       const fresh = computeWaterfallFromState({
-        expenses: s.expenses, categories: s.categories, deposits: s.gullakDeposits, isBudgetModeEnabled: s.isBudgetModeEnabled,
+        expenses: s.expenses, deposits: s.gullakDeposits, isBudgetModeEnabled: s.isBudgetModeEnabled,
         isAutoRenew: s.isAutoRenew, todayStr: TODAY, todayBudget: s.dailyRecords[TODAY]?.budget, dailyBudgetAmount: s.dailyBudgetAmount,
         records: s.dailyRecords, planChanges: s.planChanges,
       }).incomeRemaining;

@@ -24,7 +24,6 @@ import {
   computeSpentByDate,
   computeIncomeByDate,
 } from '../../src/lib/budgetCalculations';
-import { isIncomeTransaction, isEligibleIncome } from '../../src/lib/transactionUtils';
 
 const row = (id: string, amount: number, date: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -65,7 +64,7 @@ describe('golden numbers: spending totals (unchanged)', () => {
   });
 
   it('per-day spending and income maps', () => {
-    expect(computeSpentByDate(expenses, (e: any) => isIncomeTransaction(e))).toEqual({
+    expect(computeSpentByDate(expenses)).toEqual({
       '2026-10-01': 400,
       '2026-10-02': 250.55,
       '2026-10-05': 100.1,
@@ -74,7 +73,7 @@ describe('golden numbers: spending totals (unchanged)', () => {
       '2026-09-20': 300,
       '2026-11-02': 700,
     });
-    expect(computeIncomeByDate(expenses, (e: any) => isEligibleIncome(e))).toEqual({ '2026-10-02': 5000 });
+    expect(computeIncomeByDate(expenses)).toEqual({ '2026-10-02': 5000 });
   });
 });
 
@@ -118,7 +117,7 @@ describe('golden numbers: budget allowance for daily and weekly budgets (unchang
   });
 
   it('month chart bars for a monthly budget (it already used the real days of the month)', () => {
-    const data = computeMonthlyCashFlowData(month.start, month.end, expenses, [], undefined, undefined, monthlyPlan, today);
+    const data = computeMonthlyCashFlowData(month.start, month.end, expenses, [], undefined, monthlyPlan, today);
     expect(data.weeks.map((w: any) => [w.income, w.spent])).toEqual([
       [5700, 750.95],
       [700, 900],

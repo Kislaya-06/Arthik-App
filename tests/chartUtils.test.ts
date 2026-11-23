@@ -423,8 +423,7 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
           monthStart,
           monthEnd,
           expenses,
-          gullakDeposits,
-          (exp) => exp.type === 'income'
+          gullakDeposits
         );
 
         expect(res.weeks).toHaveLength(4);
@@ -480,7 +479,6 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
           monthEnd,
           expenses,
           gullakDeposits,
-          (exp) => exp.type === 'income',
           undefined,
           {
             isBudgetMode: true,
@@ -529,7 +527,6 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
           monthEnd,
           expenses,
           gullakDeposits,
-          (exp) => exp.type === 'income',
           undefined,
           {
             isBudgetMode: true,
@@ -581,7 +578,6 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
           monthEnd,
           expenses,
           [],
-          (exp) => exp.type === 'income',
           userIsoCreatedAt,
           {
             isBudgetMode: true,

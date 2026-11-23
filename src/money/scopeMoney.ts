@@ -23,14 +23,12 @@ import type { DailyRecord, TodayMetrics } from '../lib/budgetCalculations';
 import type { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord } from '../types';
 import type { Expense } from '../store/expense/types';
 import type { GullakDeposit } from '../store/dailyBudget/types';
-import type { Category } from '../store/categoryStore';
 import { calculateBudgetStatus } from './budgetStatus';
 import { buildLedgerEntries, spendingTotalsByDateKey } from './ledger';
 
 /** The stored data the figures come from (the same objects the stores hold, so caches can match them). */
 export interface MoneySnapshot {
   expenses: Expense[];
-  categories: Category[];
   gullakDeposits: GullakDeposit[];
   dailyRecords: Record<string, DailyRecord>;
   planChanges: BudgetPlanChange[];
@@ -46,7 +44,6 @@ export interface MoneySnapshot {
 // Kept for the last snapshot so a pill switch never re-reads the whole ledger (Home's old separate memos).
 
 interface ScopeBase {
-  catMap: Record<string, Category>;
   spentByDate: Record<string, number>;
   waterfall: WaterfallResult;
   cadencePeriodSummary: PeriodSummaryInfo | null;
@@ -58,7 +55,6 @@ let lastBase: { s: MoneySnapshot; today: string; base: ScopeBase } | null = null
 function sameSnapshot(a: MoneySnapshot, b: MoneySnapshot): boolean {
   return (
     a.expenses === b.expenses &&
-    a.categories === b.categories &&
     a.gullakDeposits === b.gullakDeposits &&
     a.dailyRecords === b.dailyRecords &&
     a.planChanges === b.planChanges &&
@@ -72,16 +68,11 @@ function sameSnapshot(a: MoneySnapshot, b: MoneySnapshot): boolean {
 function scopeBase(s: MoneySnapshot, today: string): ScopeBase {
   if (lastBase && lastBase.today === today && sameSnapshot(lastBase.s, s)) return lastBase.base;
 
-  const catMap: Record<string, Category> = {};
-  for (let i = 0; i < s.categories.length; i++) {
-    catMap[s.categories[i].id] = s.categories[i];
-  }
-  const spentByDate = spendingTotalsByDateKey(buildLedgerEntries(s.expenses, s.categories));
+  const spentByDate = spendingTotalsByDateKey(buildLedgerEntries(s.expenses));
   // Money waterfall: budget first -> then income -> then Gullak (time ordered, shared with the
   // expense detail screen and the Gullak total). Its own cache skips the re-run when every input is the same.
   const waterfall = computeWaterfallFromState({
     expenses: s.expenses,
-    categories: s.categories,
     deposits: s.gullakDeposits,
     isBudgetModeEnabled: s.isBudgetModeEnabled,
     isAutoRenew: s.isAutoRenew,
@@ -99,7 +90,7 @@ function scopeBase(s: MoneySnapshot, today: string): ScopeBase {
   // so "All" must not count it twice.
   const carryCoveredByDate = getCarryCoveredByDate(s.planChanges, s.dailyRecords, s.dailyBudgetAmount, today);
 
-  const base = { catMap, spentByDate, waterfall, cadencePeriodSummary, carryCoveredByDate };
+  const base = { spentByDate, waterfall, cadencePeriodSummary, carryCoveredByDate };
   lastBase = { s, today, base };
   return base;
 }
@@ -142,7 +133,7 @@ export function heroMoney(s: MoneySnapshot, input: HeroMoneyInput): HeroMoney {
   const base = scopeBase(s, today);
 
   const filtered = filterExpenses(s.expenses, filter, referenceDate);
-  const { totalIncome, totalSpent } = calculateExpenseTotals(filtered, base.catMap);
+  const { totalIncome, totalSpent } = calculateExpenseTotals(filtered);
 
   const isBudgetConfigured = s.isBudgetModeEnabled && s.isAutoRenew && s.dailyBudgetAmount > 0;
   const todayBudget = isBudgetConfigured ? todayRecord.budget : 0;

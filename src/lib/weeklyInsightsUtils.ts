@@ -33,14 +33,14 @@ export interface DaySpendingData {
  */
 export function computeWeeklySpend(
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   weekInterval: WeekInterval,
   spentTotalsByDate?: Record<string, number>
 ): number {
   if (spentTotalsByDate) {
     return sumTotalsBetweenDateKeys(spentTotalsByDate, toDateStr(weekInterval.start), toDateStr(weekInterval.end));
   }
-  return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(weekInterval.start), toDateStr(weekInterval.end));
+  return sumSpendingBetweenDateKeys(expenses, toDateStr(weekInterval.start), toDateStr(weekInterval.end));
 }
 
 /**
@@ -407,7 +407,7 @@ export function computeLargestSingleOutflow(
   const endStr = toDateStr(weekInterval.end);
 
   const weekExpenses: ExpenseLike[] = [];
-  const entries = buildLedgerEntries(expenses, categories);
+  const entries = buildLedgerEntries(expenses);
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];

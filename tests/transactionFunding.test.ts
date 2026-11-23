@@ -22,7 +22,6 @@ describe('calculateExpenseFunding', () => {
     const result = calculateExpenseFunding({
       expense,
       allExpenses: [expense],
-      categories: dummyCategories,
       todayBudget: 500,
       dailyBudgetAmount: 500,
       isBudgetModeEnabled: true,
@@ -60,7 +59,6 @@ describe('calculateExpenseFunding', () => {
     const result = calculateExpenseFunding({
       expense,
       allExpenses: [incomeTx, expense],
-      categories: dummyCategories,
       todayBudget: 500,
       dailyBudgetAmount: 500,
       isBudgetModeEnabled: true,
@@ -99,7 +97,6 @@ describe('calculateExpenseFunding', () => {
     const result = calculateExpenseFunding({
       expense,
       allExpenses: [incomeTx, expense],
-      categories: dummyCategories,
       todayBudget: 500,
       dailyBudgetAmount: 500,
       isBudgetModeEnabled: true,
@@ -213,7 +210,6 @@ describe('calculateExpenseFunding', () => {
     const result = calculateExpenseFunding({
       expense,
       allExpenses: [incomeTx, expense],
-      categories: dummyCategories,
       isBudgetModeEnabled: false,
       todayStr: '2026-10-10',
     });
@@ -248,14 +244,12 @@ describe('calculateExpenseFunding', () => {
     const resIncome = calculateExpenseFunding({
       expense: incomeTx,
       allExpenses: [incomeTx],
-      categories: dummyCategories,
     });
     expect(resIncome.isIncome).toBe(true);
 
     const resTrans = calculateExpenseFunding({
       expense: transferTx,
       allExpenses: [transferTx],
-      categories: dummyCategories,
     });
     expect(resTrans.isTransfer).toBe(true);
   });

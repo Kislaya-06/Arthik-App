@@ -184,8 +184,7 @@ New money logic goes here, with a test (`MNY-001`).
 **Transaction identity**
 | File | Job |
 |---|---|
-| `transactionUtils.ts` | `isIncomeTransaction`, `isCountedIncome`, `isCountedExpense`, `isExcludedFromTotals`, `getTransactionClass`, `PURE_DEFICIT_NOTE` |
-| `incomeClassifier.ts` | Builds list-wide classifiers from the functions above plus categories |
+| `transactionUtils.ts` | `classifyTransaction` (the one classifier, row only, ADR 0023), `isCountedIncome`, `isCountedExpense`, `isIncomeTransaction` (display direction), `isExcludedFromTotals`, `getTransactionClass`, `PURE_DEFICIT_NOTE` |
 | `transferRules.ts` | Self-transfer rule matching: by note only, never by amount |
 | `paymentUtils.ts` | Payment-mode icons and labels |
 
@@ -344,7 +343,7 @@ Budget Mode, daily ₹500, the user adds ₹300:
 
 | Task | Go to |
 |---|---|
-| Income / expense identity | `transactionUtils.ts`, `incomeClassifier.ts` |
+| Income / expense identity | `transactionUtils.ts` |
 | Where a spend was paid from | `moneyWaterfall.ts` (+ `transactionFunding.ts` for display) |
 | Home numbers / text | `homeCalculations.ts`, `heroRing.ts` |
 | Total remaining / Gullak total | `store/dailyBudget/metrics.ts` |

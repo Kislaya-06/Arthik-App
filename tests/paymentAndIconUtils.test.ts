@@ -52,41 +52,15 @@ describe('paymentUtils & iconUtils (Category 3 Helpers)', () => {
   });
 
   describe('Slice 2: Income Transaction Classification', () => {
-    it('prioritizes explicit type="income" over category name', () => {
-      const tx = { type: 'income' };
-      const cat = { name: 'Food & Drinks' }; // Expense category
-      expect(isIncomeTransaction(tx, cat)).toBe(true);
-    });
-
-    it('prioritizes explicit type="expense" even if category contains income keywords', () => {
-      const tx = { type: 'expense' };
-      const cat = { name: 'Salary Processing Fee' };
-      expect(isIncomeTransaction(tx, cat)).toBe(false);
-    });
-
-    it('falls back to category keyword match for legacy transactions without explicit type', () => {
-      expect(isIncomeTransaction(null, { name: 'Monthly Salary' })).toBe(true);
-      expect(isIncomeTransaction({}, { name: 'Freelance Design' })).toBe(true);
-      expect(isIncomeTransaction(undefined, { name: 'Stock Dividend' })).toBe(true);
-      expect(isIncomeTransaction(undefined, { name: 'Diwali Bonus' })).toBe(true);
-      expect(isIncomeTransaction(undefined, { name: 'Rental Property' })).toBe(true);
-    });
-
-    it('matches keywords case-insensitively', () => {
-      expect(isIncomeTransaction({}, { name: 'POCKET MONEY' })).toBe(true);
-      expect(isIncomeTransaction({}, { name: 'cAsHbAcK' })).toBe(true);
-    });
-
-    it('returns false for expense categories without income keywords', () => {
-      expect(isIncomeTransaction(null, { name: 'Groceries' })).toBe(false);
-      expect(isIncomeTransaction(null, { name: 'Uber Ride' })).toBe(false);
-      expect(isIncomeTransaction(null, { name: 'Electricity Bill' })).toBe(false);
+    it('type="income" is income, type="expense" is not (TXN-001)', () => {
+      expect(isIncomeTransaction({ type: 'income' })).toBe(true);
+      expect(isIncomeTransaction({ type: 'expense' })).toBe(false);
     });
 
     it('safely returns false for null or undefined inputs', () => {
-      expect(isIncomeTransaction(null, null)).toBe(false);
-      expect(isIncomeTransaction(undefined, undefined)).toBe(false);
-      expect(isIncomeTransaction({}, null)).toBe(false);
+      expect(isIncomeTransaction(null)).toBe(false);
+      expect(isIncomeTransaction(undefined)).toBe(false);
+      expect(isIncomeTransaction({})).toBe(false);
     });
   });
 

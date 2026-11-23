@@ -5,7 +5,7 @@ import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { addDays } from 'date-fns/addDays';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { round2 } from './formatters';
-import { isExcludedFromTotals } from './transactionUtils';
+import { isCountedExpense, isCountedIncome } from './transactionUtils';
 
 export interface DailyRecord {
   date: string; // 'yyyy-MM-dd'
@@ -233,14 +233,11 @@ export interface NonIncomeExpenseEntry {
  * Returns null if the expense is income or has no clean date.
  */
 export const extractNonIncomeExpense = <T extends ExpenseItem>(
-  expense: T,
-  isIncomeFn: (expense: T) => boolean
+  expense: T
 ): NonIncomeExpenseEntry | null => {
-  // Self-transfers and recoveries are never money spent (TXN-003, SPL-003).
-  if (isExcludedFromTotals(expense)) return null;
-  const isIncome = isIncomeFn(expense);
+  // Income, self-transfers and recoveries are never money spent (TXN-001, TXN-003, SPL-003).
   const cleanDate = expense.expense_date?.split('T')[0]?.trim();
-  if (!isIncome && cleanDate) {
+  if (isCountedExpense(expense) && cleanDate) {
     return {
       date: cleanDate,
       amount: Number(expense.amount) || 0,
@@ -253,12 +250,11 @@ export const extractNonIncomeExpense = <T extends ExpenseItem>(
  * Groups all non-income expenses by date ('yyyy-MM-dd') in a single pass.
  */
 export const computeSpentByDate = <T extends ExpenseItem>(
-  expenses: T[],
-  isIncomeFn: (expense: T) => boolean
+  expenses: T[]
 ): Record<string, number> => {
   const spentByDate: Record<string, number> = {};
   for (let i = 0; i < expenses.length; i++) {
-    const entry = extractNonIncomeExpense(expenses[i], isIncomeFn);
+    const entry = extractNonIncomeExpense(expenses[i]);
     if (entry) {
       spentByDate[entry.date] = round2((spentByDate[entry.date] || 0) + entry.amount);
     }
@@ -272,12 +268,11 @@ export const computeSpentByDate = <T extends ExpenseItem>(
  */
 export const computeSpentForDate = <T extends ExpenseItem>(
   expenses: T[],
-  targetDate: string,
-  isIncomeFn: (expense: T) => boolean
+  targetDate: string
 ): number => {
   let totalSpent = 0;
   for (let i = 0; i < expenses.length; i++) {
-    const entry = extractNonIncomeExpense(expenses[i], isIncomeFn);
+    const entry = extractNonIncomeExpense(expenses[i]);
     if (entry && entry.date === targetDate) {
       totalSpent = round2(totalSpent + entry.amount);
     }
@@ -290,10 +285,9 @@ export const computeSpentForDate = <T extends ExpenseItem>(
  * Returns null if the entry is not income or has no clean date.
  */
 export const extractEligibleIncome = <T extends ExpenseItem>(
-  expense: T,
-  isEligibleIncomeFn: (expense: T) => boolean
+  expense: T
 ): NonIncomeExpenseEntry | null => {
-  const isIncome = isEligibleIncomeFn(expense);
+  const isIncome = isCountedIncome(expense);
   const cleanDate = expense.expense_date?.split('T')[0]?.trim();
   if (isIncome && cleanDate) {
     const amt = Number(expense.amount);
@@ -309,12 +303,11 @@ export const extractEligibleIncome = <T extends ExpenseItem>(
  * Groups all eligible incoming money by date ('yyyy-MM-dd') in a single pass.
  */
 export const computeIncomeByDate = <T extends ExpenseItem>(
-  expenses: T[],
-  isEligibleIncomeFn: (expense: T) => boolean
+  expenses: T[]
 ): Record<string, number> => {
   const incomeByDate: Record<string, number> = {};
   for (let i = 0; i < expenses.length; i++) {
-    const entry = extractEligibleIncome(expenses[i], isEligibleIncomeFn);
+    const entry = extractEligibleIncome(expenses[i]);
     if (entry) {
       incomeByDate[entry.date] = round2((incomeByDate[entry.date] || 0) + entry.amount);
     }
@@ -327,12 +320,11 @@ export const computeIncomeByDate = <T extends ExpenseItem>(
  */
 export const computeIncomeForDate = <T extends ExpenseItem>(
   expenses: T[],
-  targetDate: string,
-  isEligibleIncomeFn: (expense: T) => boolean
+  targetDate: string
 ): number => {
   let totalIncome = 0;
   for (let i = 0; i < expenses.length; i++) {
-    const entry = extractEligibleIncome(expenses[i], isEligibleIncomeFn);
+    const entry = extractEligibleIncome(expenses[i]);
     if (entry && entry.date === targetDate) {
       totalIncome = round2(totalIncome + entry.amount);
     }

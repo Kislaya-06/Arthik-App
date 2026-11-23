@@ -1,7 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { round2 } from '../../lib/formatters';
 import { useNotificationStore } from '../notificationStore';
-import { useCategoryStore } from '../categoryStore';
 import type { DailyBudgetState } from './types';
 import { getCurrentExpenses, addExpenseFromBridge } from './expenseBridge';
 import { computeTotalAccountRemaining, runWaterfall } from './metrics';
@@ -37,9 +36,8 @@ export function balancePureDeficit(
   const D = round2(-R);
   if (D <= 0) return;
 
-  const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
   const countedExpenses = currentExpenses
-    .filter((e) => isCountedExpense(e, e.category_id ? catMap.get(e.category_id) : undefined))
+    .filter((e) => isCountedExpense(e))
     .sort((a, b) => (b.expense_date || '').localeCompare(a.expense_date || '') || (b.created_at || '').localeCompare(a.created_at || ''));
 
   const waterfall = options?.excludeTodayAllowance ? runWaterfall({ records: calcState.dailyRecords }) : runWaterfall();

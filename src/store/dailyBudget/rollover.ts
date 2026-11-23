@@ -155,16 +155,14 @@ export function applyScheduledPlanChanges(
 }
 
 export function groupSpentByDate(
-  expenses: Expense[],
-  isIncomeFn: (expense: Expense) => boolean,
-  isEligibleIncomeFn: (expense: Expense) => boolean
+  expenses: Expense[]
 ): {
   spentByDate: Record<string, number>;
   incomeByDate: Record<string, number>;
 } {
   // 1. Group all non-income expenses by date in a single O(N) pass
-  const spentByDate = computeSpentByDate(expenses, isIncomeFn);
-  const incomeByDate = computeIncomeByDate(expenses, isEligibleIncomeFn);
+  const spentByDate = computeSpentByDate(expenses);
+  const incomeByDate = computeIncomeByDate(expenses);
   return { spentByDate, incomeByDate };
 }
 

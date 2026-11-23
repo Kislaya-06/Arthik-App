@@ -1,7 +1,6 @@
 import type { StoreApi } from 'zustand';
 import type { Expense } from '../expense/types';
 import { getTodayDateStr, getUserCreatedAtLocalDate, isDailyOwnedDate, dailyCarryExtraFor, healZeroTodayAllowance, runWaterfall, computeMetrics } from './metrics';
-import { buildCategoryClassifier, buildEligibleIncomeClassifier } from './classifiers';
 import { evaluateDayStatus, computeSpentByDate, computeSpentForDate, computeIncomeByDate, computeIncomeForDate, shouldIgnoreDuplicates } from '../../lib/budgetCalculations';
 import { calculateBudgetStatus } from '../../money/budgetStatus';
 import { overspendFundingBetweenDates } from '../../money/overspendFunding';
@@ -26,11 +25,9 @@ export const createSyncActions = (
   syncWithExpenses: (expenses: Expense[]) => {
     const todayStr = getTodayDateStr();
     const records = { ...get().dailyRecords };
-    const isIncomeFn = buildCategoryClassifier();
-    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
 
-    const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
-    const todayEligibleIncome = computeIncomeForDate(expenses, todayStr, isEligibleIncomeFn);
+    const todaySpent = computeSpentForDate(expenses, todayStr);
+    const todayEligibleIncome = computeIncomeForDate(expenses, todayStr);
 
     let todayRecord = records[todayStr];
     let hasTodayChanged = false;
@@ -136,8 +133,8 @@ export const createSyncActions = (
         }
       }
     } else if (get().isBudgetModeEnabled && (get().budgetCadence === 'weekly' || get().budgetCadence === 'monthly')) {
-      const spentByDate = computeSpentByDate(expenses, isIncomeFn);
-      const incomeByDate = computeIncomeByDate(expenses, isEligibleIncomeFn);
+      const spentByDate = computeSpentByDate(expenses);
+      const incomeByDate = computeIncomeByDate(expenses);
       const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr, incomeByDate);
       if (summary && summary.budget > 0) {
         const ratio = summary.spent / summary.budget;
@@ -228,8 +225,6 @@ export const createSyncActions = (
       updated = true;
     }
 
-    const isIncomeFn = buildCategoryClassifier();
-    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
     const resolvedExpenses = Array.isArray(expenses) ? expenses : getCurrentExpenses();
 
     // FIN-16: a scheduled switch to Budget Mode just matured. Today's record (written while the day was still in
@@ -240,8 +235,8 @@ export const createSyncActions = (
         get(),
         records[todayStr],
         todayStr,
-        computeSpentForDate(resolvedExpenses, todayStr, isIncomeFn),
-        computeIncomeForDate(resolvedExpenses, todayStr, isEligibleIncomeFn)
+        computeSpentForDate(resolvedExpenses, todayStr),
+        computeIncomeForDate(resolvedExpenses, todayStr)
       );
       if (healed) {
         records[todayStr] = healed;
@@ -249,9 +244,7 @@ export const createSyncActions = (
     }
 
     const { spentByDate, incomeByDate } = groupSpentByDate(
-      resolvedExpenses,
-      isIncomeFn,
-      isEligibleIncomeFn
+      resolvedExpenses
     );
 
     const pastDates = collectPastDates(records, spentByDate, todayStr);

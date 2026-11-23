@@ -42,7 +42,7 @@ describe('Yearly Insights Pure Analytics & Engine', () => {
       const expenses: ExpenseLike[] = [
         { id: '1', amount: 50000, expense_date: '2026-02-15', category_id: 'cat-bills' },
         { id: '2', amount: 15000, expense_date: '2026-08-20', category_id: 'cat-shopping' },
-        { id: '3', amount: 200000, expense_date: '2026-01-01', category_id: 'cat-income' }, // Income
+        { id: '3', amount: 200000, expense_date: '2026-01-01', category_id: 'cat-income', type: 'income' }, // Income
         { id: '4', amount: 10000, expense_date: '2025-12-31', category_id: 'cat-food' }, // Prior year
       ];
 
@@ -81,7 +81,7 @@ describe('Yearly Insights Pure Analytics & Engine', () => {
 
     it('derives real-money annual inflow combining operational budget allowance, direct income, and external deposits', () => {
       const expenses: ExpenseLike[] = [
-        { id: '1', amount: 50000, expense_date: '2026-03-01', category_id: 'cat-income' }, // Direct income
+        { id: '1', amount: 50000, expense_date: '2026-03-01', category_id: 'cat-income', type: 'income' }, // Direct income
       ];
       const deposits: GullakDeposit[] = [
         { id: 'd1', date: '2026-05-10', amount: 10000, source: 'external', created_at: '2026-05-10T10:00:00Z' },

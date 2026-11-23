@@ -273,7 +273,7 @@ These are **not committed**. They are tracked here to inform architectural decis
 |---|---|---|---|
 | Offline queue loss on crash mid-write | Low | High | Write-ahead queue before every request (OPT-60), one writer per key (`runExclusive`, OPT-61), flushes remove only confirmed items (OPT-72) |
 | Rollover fires before hydration (budget miscalculation) | Low | High | `registerExpensesLoadedGetter` guard in `checkAndRollover`; tested in `dailyBudgetStore.test.ts` |
-| Income misclassification after category rename | Medium | Medium | `isIncomeTransaction` prioritizes explicit `type` field; keywords are an inert legacy fallback only (`TXN-002`) |
+| Income misclassification after category rename | Medium | Medium | Direction comes from the explicit `type` field only; category names never decide it (`TXN-001` / `TXN-002`, ADR 0023) |
 | OTA to wrong runtime version | Low | High | `runtimeVersion.policy: "appVersion"` prevents mismatched bundle delivery |
 | AsyncStorage key collision across users | Low | Critical | All keys are scoped per `userId`; `resetExpenses`/`resetCategories` clear on sign-out |
 | Category orphan after delete | Eliminated | N/A | DB `ON DELETE SET NULL` + UI block if expenses attached |

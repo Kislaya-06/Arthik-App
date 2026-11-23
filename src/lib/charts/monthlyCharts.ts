@@ -2,7 +2,7 @@ import { format } from 'date-fns/format';
 import { addDays } from 'date-fns/addDays';
 import { isAfter } from 'date-fns/isAfter';
 import { round2 } from '../formatters';
-import { isExcludedFromTotals } from '../transactionUtils';
+import { isExcludedFromTotals, isCountedIncome } from '../transactionUtils';
 import { budgetAllowedForActiveDays } from '../../money/budgetAllowance';
 
 export interface MonthlyWeekSpending {
@@ -146,7 +146,6 @@ export function computeMonthlyCashFlowData(
   monthEnd: Date,
   expenses: Array<{ amount: number; expense_date: string; type?: string; category_id?: string | null; transaction_class?: string | null }>,
   gullakDeposits: Array<{ date: string; amount: number; source?: string }>,
-  isIncomeCheck?: (expense: { category_id?: string | null; transaction_class?: string | null; type?: string }) => boolean,
   userCreatedAtStr?: string,
   budgetConfig?: MonthlyCashFlowBudgetConfig,
   referenceDate: Date = new Date()
@@ -207,7 +206,7 @@ export function computeMonthlyCashFlowData(
 
       if (cleanDate >= startStr && cleanDate <= endStr) {
         if (isExcludedFromTotals(exp)) continue;
-        const isIncome = isIncomeCheck ? isIncomeCheck(exp) : exp.type === 'income';
+        const isIncome = isCountedIncome(exp);
         if (isIncome) {
           weekIncome += exp.amount;
         } else {

@@ -35,7 +35,6 @@ import { computeEffectiveFrom, getPeriodBounds, isFirstDayFirstEnable } from '..
 import { useAuthStore } from '../store/authStore';
 import { getUserCreatedAtLocalDate } from '../store/dailyBudget/metrics';
 import { computeSpentByDate } from '../lib/budgetCalculations';
-import { buildEligibleIncomeClassifier } from '../store/dailyBudget/classifiers';
 import { BudgetCadence } from '../types';
 import { isCountedExpense } from '../lib/transactionUtils';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
@@ -188,8 +187,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
   );
 
   // Spent calculations for current period (zero-spend allows immediate budget modification)
-  const isIncomeFn = useMemo(() => buildEligibleIncomeClassifier(), []);
-  const spentByDate = useMemo(() => computeSpentByDate(expenses, isIncomeFn), [expenses, isIncomeFn]);
+  const spentByDate = useMemo(() => computeSpentByDate(expenses), [expenses]);
 
   const todaySpent = useMemo(() => {
     const rec = dailyRecords[todayStr];

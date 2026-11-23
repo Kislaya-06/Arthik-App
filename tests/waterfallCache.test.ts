@@ -34,7 +34,7 @@ const base = () => ({
 const uncached = (p: ReturnType<typeof base> & { excludeExpensesFrom?: string }) => {
   const pools = buildBudgetPools(p.planChanges || [], p.todayStr);
   return computeMoneyWaterfall({
-    txs: classifyForWaterfall(p.expenses, p.categories),
+    txs: classifyForWaterfall(p.expenses),
     deposits: p.deposits,
     resolvePool: buildPoolResolver(p, pools),
     pureEndPools: Object.values(pools).filter((x) => x.endsInPure),

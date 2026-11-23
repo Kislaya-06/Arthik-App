@@ -50,31 +50,15 @@ export interface LedgerEntry {
 /** Money amount of one date: { '2026-10-05': 250.55, ... } */
 export type TotalsByDateKey = Record<DateKey, number>;
 
-const categoryLookupCache = new WeakMap<readonly LedgerCategory[], Map<string, LedgerCategory>>();
-
-/** id -> category, built once per categories array (cached on the array itself). */
-export function buildCategoryLookup(categories: readonly LedgerCategory[]): Map<string, LedgerCategory> {
-  const cached = categoryLookupCache.get(categories);
-  if (cached) return cached;
-  const lookup = new Map<string, LedgerCategory>();
-  for (const category of categories) {
-    if (category && category.id) lookup.set(category.id, category);
-  }
-  categoryLookupCache.set(categories, lookup);
-  return lookup;
-}
-
 /** Cleans one row. */
 export function toLedgerEntry(
-  row: LedgerSourceRow,
-  categoryLookup: Map<string, LedgerCategory>
+  row: LedgerSourceRow
 ): LedgerEntry {
-  const category = row.category_id ? categoryLookup.get(row.category_id) : undefined;
   const amountCountedAfterMoneyBack = Number(row.amount) || 0;
   return {
     transactionId: row.id ?? '',
     dateKey: toDateKey(row.expense_date),
-    kind: classifyTransaction(row, category),
+    kind: classifyTransaction(row),
     amountPaid: round2(Number(row.gross_amount ?? row.amount) || 0),
     amountCountedAfterMoneyBack,
     categoryId: row.category_id ?? null,
@@ -83,13 +67,11 @@ export function toLedgerEntry(
 
 /** Cleans every row, once. Keep the result in a useMemo / selector and hand it to the total functions below. */
 export function buildLedgerEntries(
-  rows: readonly LedgerSourceRow[],
-  categories: readonly LedgerCategory[] = []
+  rows: readonly LedgerSourceRow[]
 ): LedgerEntry[] {
-  const categoryLookup = buildCategoryLookup(categories);
   const entries: LedgerEntry[] = new Array(rows.length);
   for (let index = 0; index < rows.length; index++) {
-    entries[index] = toLedgerEntry(rows[index], categoryLookup);
+    entries[index] = toLedgerEntry(rows[index]);
   }
   return entries;
 }
@@ -131,12 +113,11 @@ export function sumTotalsBetweenDateKeys(
 /** Total spending between two date keys (both included). One call replaces the old per-screen loops. */
 export function sumSpendingBetweenDateKeys(
   rows: readonly LedgerSourceRow[],
-  categories: readonly LedgerCategory[],
   startDateKey: DateKey,
   endDateKey: DateKey
 ): number {
   let sum = 0;
-  for (const entry of buildLedgerEntries(rows, categories)) {
+  for (const entry of buildLedgerEntries(rows)) {
     if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startDateKey, endDateKey)) {
       sum += entry.amountCountedAfterMoneyBack;
     }
@@ -146,11 +127,10 @@ export function sumSpendingBetweenDateKeys(
 
 /** Total spending of the given rows, whatever their dates (the caller already chose the rows). */
 export function sumCountedSpending(
-  rows: readonly LedgerSourceRow[],
-  categories: readonly LedgerCategory[] = []
+  rows: readonly LedgerSourceRow[]
 ): number {
   let sum = 0;
-  for (const entry of buildLedgerEntries(rows, categories)) {
+  for (const entry of buildLedgerEntries(rows)) {
     if (entry.kind === 'spending') sum += entry.amountCountedAfterMoneyBack;
   }
   return round2(sum);

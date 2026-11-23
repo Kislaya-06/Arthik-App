@@ -85,7 +85,7 @@ const FOOD = '11111111-1111-4111-8111-111111111111';
 const TRAVEL = '22222222-2222-4222-8222-222222222222';
 
 const rowsOf = () => useExpenseStore.getState().expenses;
-const categoryTotal = (categoryId: string) => sumCountedSpending(rowsOf().filter((e) => e.category_id === categoryId), []);
+const categoryTotal = (categoryId: string) => sumCountedSpending(rowsOf().filter((e) => e.category_id === categoryId));
 const counted = (note: string) => rowsOf().find((e) => e.note === note)!.amount;
 
 describe('Friend pays back less than they owe: oldest split clears first, each category gets its own part back', () => {

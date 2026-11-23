@@ -1,7 +1,7 @@
 # 0008. Unified Income Classification via isIncomeTransaction
 
 ## Status
-Accepted (March 2026) — Supersedes [0007. Dual-Engine Income Classification Divergence](0007-income-classification-divergence.md).
+Superseded by [ADR 0023](0023-one-transaction-classifier.md) (24 Nov 2026): the keyword fallback, the category argument and the classifier factories below are gone. Accepted (March 2026) — Supersedes [0007. Dual-Engine Income Classification Divergence](0007-income-classification-divergence.md).
 
 ## Context
 Previously, Arthik evaluated transaction direction using two separate implementations:

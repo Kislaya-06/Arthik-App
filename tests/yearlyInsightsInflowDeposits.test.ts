@@ -22,7 +22,7 @@ describe('FIN-03: Yearly Inflow & Cash Flow Gullak Deposit Attribution (GUL-004)
   it('does NOT double count income deposits in computeYearlyInflow', () => {
     // User earned ₹50,000 salary
     const expenses: ExpenseLike[] = [
-      { id: 'inc-1', amount: 50000, expense_date: '2026-01-10', category_id: 'cat-income' },
+      { id: 'inc-1', amount: 50000, expense_date: '2026-01-10', category_id: 'cat-income', type: 'income' },
     ];
 
     // User deposited ₹10,000 to Gullak from income (source: 'income')
@@ -51,7 +51,7 @@ describe('FIN-03: Yearly Inflow & Cash Flow Gullak Deposit Attribution (GUL-004)
 
   it('correctly handles Budget Mode inflow with external vs income deposits', () => {
     const expenses: ExpenseLike[] = [
-      { id: 'inc-1', amount: 30000, expense_date: '2026-03-01', category_id: 'cat-income' },
+      { id: 'inc-1', amount: 30000, expense_date: '2026-03-01', category_id: 'cat-income', type: 'income' },
     ];
 
     const deposits: GullakDeposit[] = [
@@ -78,7 +78,7 @@ describe('FIN-03: Yearly Inflow & Cash Flow Gullak Deposit Attribution (GUL-004)
   it('does NOT inflate monthly cash flow bar in compute12MonthCashFlow for income deposits', () => {
     // January: ₹50,000 salary, ₹10,000 transferred to Gullak from income
     const expenses: ExpenseLike[] = [
-      { id: 'inc-1', amount: 50000, expense_date: '2026-01-10', category_id: 'cat-income' },
+      { id: 'inc-1', amount: 50000, expense_date: '2026-01-10', category_id: 'cat-income', type: 'income' },
       { id: 'exp-1', amount: 20000, expense_date: '2026-01-20', category_id: 'cat-food' },
     ];
 

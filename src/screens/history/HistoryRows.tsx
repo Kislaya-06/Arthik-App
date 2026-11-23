@@ -31,7 +31,7 @@ export const TransactionRowItem = React.memo<TransactionRowItemProps>(({
   onSwipeOpen,
   onSwipeClose,
 }) => {
-  const isIncome = isIncomeTransaction(item, category);
+  const isIncome = isIncomeTransaction(item);
   const handlePress = useCallback(() => {
     onPress(item.id);
   }, [onPress, item.id]);

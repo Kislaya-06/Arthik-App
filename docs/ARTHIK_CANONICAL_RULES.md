@@ -31,18 +31,18 @@ This document is the **single authoritative canonical source of truth** for all 
   - If `item.type === 'expense'`, it is classified as Expense (`false`).
 - **Code Enforcement:** `src/lib/transactionUtils.ts` (`isIncomeTransaction`)
 - **Database Schema Guarantee:** `schema.sql` enforces `type TEXT NOT NULL DEFAULT 'expense' CHECK (type IN ('expense', 'income'))`.
-- **Verified By:** `tests/incomeClassifier.test.ts`, `tests/transactionUtils.test.ts`
+- **Verified By:** `tests/transactionUtils.test.ts`, `tests/transactionClassifierEquivalence.test.ts`
 
-#### `TXN-002`: Category Keywords Are an Inert Legacy Fallback
-- **Status:** `AMENDED` (Owner decision on 2026-10-17; point 1 amended by owner on 2026-10-22 for income categories, `CAT-004`)
+#### `TXN-002`: Category Names Never Decide Direction (Keyword Fallback Retired)
+- **Status:** `AMENDED` (Owner decision on 2026-10-17; point 1 amended by owner on 2026-10-22 for income categories, `CAT-004`; keyword fallback retired by owner on 2026-11-24, ADR 0023)
 - **Canonical Definition:**
-  The explicit `type` field is the only authority for direction (`TXN-001`). Category-name keyword matching (`DEFAULT_INCOME_KEYWORDS`) exists only as an inert, dormant fallback for historical rows that have no `type` at all:
+  The explicit `type` field is the only authority for direction (`TXN-001`). The old category-name keyword fallback is retired: a row with no `type` counts as spending, the same as the database default. No stored row is affected:
   1. The user explicitly selects "Income" on the Add screen, which saves `type = 'income'` with the income category the user picked (`CAT-004`). A category never decides direction: an income with an income category named "Salary" is income because `type = 'income'`, not because of its name. Money that came back (`SPL-003`) and self transfers (`TXN-003`) are saved with `category_id = null`.
   2. AutoLog determines `type` directly from Credit vs Debit.
-  3. The database makes `type` NOT NULL, so active accounting never reaches the keyword path.
+  3. The database makes `type` NOT NULL (default `'expense'`), and `addExpense` defaults it to `'expense'`.
   4. Keywords, notes and category names are never used to guess a transfer or any other class (`TXN-003`).
-- **Code Enforcement:** `src/lib/transactionUtils.ts` (`isIncomeTransaction`)
-- **Verified By:** `tests/transactionUtils.test.ts`, `tests/selfTransfersAndIncome.test.ts`
+- **Code Enforcement:** `src/lib/transactionUtils.ts` (`isIncomeTransaction`, `classifyTransaction`: they take the row only, never a category)
+- **Verified By:** `tests/transactionUtils.test.ts`, `tests/selfTransfersAndIncome.test.ts`, `tests/transactionClassifierEquivalence.test.ts`
 
 #### `TXN-003`: Self-Transfer Exclusion from Totals
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)

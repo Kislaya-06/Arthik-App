@@ -320,11 +320,10 @@ describe('Fix 3: "limit exceeded" alert follows the budget, not budget + income'
 
 // ───────────────────────────────────────────────────────────────────────────
 describe('Fix 4: Pure Mode expense detail never says "Paid from Gullak"', () => {
-  const cats: any[] = [{ id: 'food', name: 'Food' }, { id: 'sal', name: 'Salary' }];
   it('Pure Mode: nothing is taken from income / Gullak; label is "Your balance"', () => {
     const e = spend('e', 500, TODAY);
     const f = calculateExpenseFunding({
-      expense: e, allExpenses: [income('i', 300, TODAY), e], categories: cats, isBudgetModeEnabled: false, todayStr: TODAY,
+      expense: e, allExpenses: [income('i', 300, TODAY), e], isBudgetModeEnabled: false, todayStr: TODAY,
     });
     expect(f.coveredByGullak).toBe(0);
     expect(f.coveredByIncome).toBe(0);
@@ -335,7 +334,7 @@ describe('Fix 4: Pure Mode expense detail never says "Paid from Gullak"', () => 
   it('Budget Mode is unchanged (income, then Gullak)', () => {
     const e = spend('e', 800, TODAY);
     const f = calculateExpenseFunding({
-      expense: e, allExpenses: [income('i', 150, TODAY), e], categories: cats, todayBudget: 500, dailyBudgetAmount: 500,
+      expense: e, allExpenses: [income('i', 150, TODAY), e], todayBudget: 500, dailyBudgetAmount: 500,
       isBudgetModeEnabled: true, todayStr: TODAY,
     });
     expect(f).toMatchObject({ coveredByBudget: 500, coveredByIncome: 150, coveredByGullak: 150 });

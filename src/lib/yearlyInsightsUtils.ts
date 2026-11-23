@@ -109,14 +109,14 @@ export function computeAnnualDailyBurn(annualSpend: number, activeDaysInYear: nu
  */
 export function computeYearlySpend(
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   yearInterval: YearInterval,
   spentTotalsByDate?: Record<string, number>
 ): number {
   if (spentTotalsByDate) {
     return sumTotalsBetweenDateKeys(spentTotalsByDate, toDateStr(yearInterval.start), toDateStr(yearInterval.end));
   }
-  return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(yearInterval.start), toDateStr(yearInterval.end));
+  return sumSpendingBetweenDateKeys(expenses, toDateStr(yearInterval.start), toDateStr(yearInterval.end));
 }
 
 // ─── 3. Fair Day-Matched Year-to-Date (YTD) Comparison ────────────────────────
@@ -137,7 +137,7 @@ export interface YearlyComparisonResult {
  */
 export function computeYearlyComparison(
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   currentInterval: YearInterval,
   previousInterval: YearInterval,
   offset: number,
@@ -172,8 +172,7 @@ export function computeYearlyComparison(
       const cleanDate = toDateStr(exp.expense_date);
       if (!cleanDate) continue;
 
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
+      if (!isCountedExpense(exp)) continue;
 
       if (isDateInBounds(cleanDate, currStartStr, currEndStr)) {
         currentTotal += exp.amount;
@@ -229,7 +228,7 @@ export function computeYearlyComparison(
  */
 export function computeYearlyInflow(
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   _dailyRecords: Record<string, DailyRecord> | DailyRecord[] = [],
   gullakDeposits: GullakDeposit[] = [],
   budgetConfig?: YearlyBudgetConfig,
@@ -266,8 +265,7 @@ export function computeYearlyInflow(
     if (!cleanDate) continue;
 
     if (isDateInBounds(cleanDate, startStr, endStr)) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isCountedIncome(exp, cat)) {
+      if (isCountedIncome(exp)) {
         totalInflow += exp.amount;
       }
     }
@@ -401,7 +399,7 @@ export function compute12MonthCashFlow(
   yearStart: Date,
   _yearEnd: Date,
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   gullakDeposits: GullakDeposit[] = [],
   budgetConfig?: YearlyBudgetConfig,
   userCreatedAt?: string | null,
@@ -451,10 +449,9 @@ export function compute12MonthCashFlow(
         if (!cleanDate) continue;
 
         if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
-          const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-          if (isCountedIncome(exp, cat)) {
+          if (isCountedIncome(exp)) {
             monthIncome += exp.amount;
-          } else if (isCountedExpense(exp, cat)) {
+          } else if (isCountedExpense(exp)) {
             monthSpent += exp.amount;
           }
         }
@@ -552,7 +549,7 @@ export interface AnnualBudgetDisciplineResult {
  */
 export function computeAnnualBudgetDiscipline(
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   yearInterval: YearInterval,
   budgetConfig?: YearlyBudgetConfig,
   userCreatedAt?: string | null,
@@ -601,8 +598,7 @@ export function computeAnnualBudgetDiscipline(
       if (!exp.expense_date) continue;
       const cleanDate = toDateStr(exp.expense_date);
       if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
-        const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-        if (isCountedExpense(exp, cat)) {
+        if (isCountedExpense(exp)) {
           monthSpend += exp.amount;
         }
       }
@@ -658,7 +654,7 @@ export function computeAnnualCapitalOutlier(
 
   let largestExp: ExpenseLike | null = null;
   let maxAmount = 0;
-  const entries = buildLedgerEntries(expenses, categories);
+  const entries = buildLedgerEntries(expenses);
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
@@ -759,7 +755,7 @@ export function computeAnnualCategoryTrajectory(
   const h2SpendByCat: Record<string, number> = {};
   const annualSpendByCat: Record<string, { amount: number; txnCount: number }> = {};
 
-  const entries = buildLedgerEntries(expenses, categories);
+  const entries = buildLedgerEntries(expenses);
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];

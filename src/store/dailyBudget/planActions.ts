@@ -9,7 +9,6 @@ import type { BudgetPlanChange } from '../../types';
 import type { DailyBudgetState } from './types';
 import { savePendingSettingsOffline, clearPendingSettingsOffline, savePendingPlanChangeOffline, getLastRenewedPeriodKey } from './pendingStorage';
 import { getCurrentExpenses } from './expenseBridge';
-import { buildEligibleIncomeClassifier } from './classifiers';
 import { getTodayDateStr, isDailyOwnedDate, computeMetrics } from './metrics';
 import { balancePureDeficitIfNeeded } from './pureDeficit';
 export { handleSetBudgetModeEnabled } from './budgetModeActions';
@@ -36,8 +35,7 @@ export function handleSetDailyBudget(
   if (willAutoRenew) {
     const existing = records[todayStr];
     const spent = existing?.spent || 0;
-    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-    const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
+    const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr);
     const { saved } = evaluateDayStatus(cleanAmount, spent, todayIncome);
     const spendable = cleanAmount + todayIncome;
     records[todayStr] = {
@@ -149,8 +147,7 @@ export function handleToggleAutoRenew(
   if (enabled && get().dailyBudgetAmount > 0 && isDailyOwnedDate(get().planChanges, todayStr) && (!currentToday || currentToday.budget === 0)) {
     const budget = get().dailyBudgetAmount;
     const spent = currentToday?.spent || 0;
-    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-    const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
+    const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr);
     const { saved } = evaluateDayStatus(budget, spent, todayIncome);
     const spendable = budget + todayIncome;
     records[todayStr] = {

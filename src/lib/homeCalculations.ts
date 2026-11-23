@@ -518,17 +518,15 @@ export interface ExpenseTotals {
  * Extracted from HomeScreen to resolve accumulation logic leakage (.scratch/home/issues/05).
  */
 export const calculateExpenseTotals = (
-  expenses: Array<{ amount: number | string; category_id?: string | null; type?: string; transaction_class?: string | null }>,
-  catMap: Record<string, { name?: string; is_income?: boolean } | undefined>
+  expenses: Array<{ amount: number | string; category_id?: string | null; type?: string; transaction_class?: string | null }>
 ): ExpenseTotals => {
   let income = 0;
   let spent = 0;
   for (let i = 0; i < expenses.length; i++) {
     const e = expenses[i];
-    const cat = e.category_id ? catMap[e.category_id] : undefined;
     const amt = Number(e.amount) || 0;
-    if (isCountedIncome(e, cat)) income += amt;
-    else if (isCountedExpense(e, cat)) spent += amt;
+    if (isCountedIncome(e)) income += amt;
+    else if (isCountedExpense(e)) spent += amt;
     // self-transfers fall through: neither income nor expense
   }
   return {

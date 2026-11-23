@@ -27,8 +27,7 @@ import {
   PlanContext,
   buildNotificationPlan,
 } from './notificationPolicy';
-import { makeIncomeClassifier } from './incomeClassifier';
-import { isExcludedFromTotals } from './transactionUtils';
+import { isCountedExpense } from './transactionUtils';
 import { computeSpentByDate } from './budgetCalculations';
 import {
   NOTIFICATIONS_ENABLED_KEY,
@@ -147,7 +146,6 @@ export function buildPlanContext(now: Date): PlanContext {
   const budget = useDailyBudgetStore.getState();
 
   const catMap = new Map(categories.map((c) => [c.id, c]));
-  const isIncome = makeIncomeClassifier(categories);
 
   const todayStr = format(now, 'yyyy-MM-dd');
   const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -178,7 +176,7 @@ export function buildPlanContext(now: Date): PlanContext {
     }
     if (d === todayStr || enteredToday) loggedToday = true;
 
-    if (isIncome(e) || isExcludedFromTotals(e)) continue;
+    if (!isCountedExpense(e)) continue;
     const amount = Number(e.amount) || 0;
     const name = (e.category_id && catMap.get(e.category_id)?.name) || 'Other';
     const add = (b: Bucket) => {
@@ -202,7 +200,7 @@ export function buildPlanContext(now: Date): PlanContext {
 
   const isGullak = budget.isBudgetModeEnabled;
   const cadence = budget.budgetCadence;
-  const spentByDate = computeSpentByDate(expenses, isIncome);
+  const spentByDate = computeSpentByDate(expenses);
   const todaySpent = spentByDate[todayStr] || 0;
 
   // Gullak stats from the day records (finalized past days + today so far)

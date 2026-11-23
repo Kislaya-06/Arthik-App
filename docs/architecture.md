@@ -256,10 +256,9 @@ Overspending from allowances is absorbed by available income first before any de
 
 ### 6.7 Income classification (unified, single engine)
 
-See [ADR 0008](adr/0008-unified-income-classification.md). Single function `isIncomeTransaction(item, category)` in `src/lib/transactionUtils.ts` is used everywhere:
-1. Check `item.type === 'income'` → true
-2. Check `item.type === 'expense'` → false
-3. Inert legacy fallback (rule `TXN-002`, only for old rows with no `type`; the database makes `type` NOT NULL): match `category.name` against `DEFAULT_INCOME_KEYWORDS`
+See [ADR 0023](adr/0023-one-transaction-classifier.md). One classifier in `src/lib/transactionUtils.ts`, which takes the row only (never a category):
+- `classifyTransaction(row)` → `spending` / `income` / `moneyBack` / `selfTransfer`; totals ask `isCountedIncome(row)` / `isCountedExpense(row)`, built on it.
+- `isIncomeTransaction(row)` is the direction only (`type === 'income'`, `TXN-001`), for display. A row without `type` is spending, like the database default (`TXN-002`).
 
 Categories have a side (`categories.kind` = `'expense'` | `'income'`, rule `CAT-004`, [ADR 0019](adr/0019-income-categories.md)). The side only decides which picker shows a category; it never decides direction. Helpers: `categoryKindOf`, `categoriesOfKind` in `src/store/categoryStore.ts`.
 
@@ -374,13 +373,13 @@ Tests live in `tests/<subject>.test.ts`; the file name says what it covers. Run 
 | # | Decision | Status |
 |---|---|---|
 | [0001](adr/0001-offline-first-asyncstorage-write-path.md) | Offline-first with AsyncStorage queues | Active |
-| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income inferred from category keywords | Legacy (inert fallback, `TXN-002`) |
+| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income inferred from category keywords | Retired (removed by 0023, `TXN-002`) |
 | [0003](adr/0003-zustand-stores-as-sole-data-access-layer.md) | Zustand as sole data-access layer | Active |
 | [0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md) | Supabase anon key + RLS | Active |
 | [0005](adr/0005-cross-store-wiring-via-registration-callbacks.md) | Cross-store via registration callbacks | Active |
 | [0006](adr/0006-ota-updates-tied-to-app-version.md) | OTA tied to app version | Active |
 | [0007](adr/0007-income-classification-divergence.md) | Dual-engine income divergence | **Superseded by 0008** |
-| [0008](adr/0008-unified-income-classification.md) | Unified income classification | Active |
+| [0008](adr/0008-unified-income-classification.md) | Unified income classification | **Superseded by 0023** |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest unit test coverage policy | Active |
 | [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011, amended by 0012) |
 | [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012, amended by canonical `SEC-001`) |
@@ -395,4 +394,5 @@ Tests live in `tests/<subject>.test.ts`; the file name says what it covers. Run 
 | [0020](adr/0020-transform-only-pills-and-commit-after-landing.md) | Transform-Only Pills, Commit After Landing, and the Touch Fence | Active |
 | [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Heights, Scrim | Active |
 | [0022](adr/0022-money-scope-module.md) | Money Scope Module: Screens Get Card Figures from `src/money` Only | Active |
+| [0023](adr/0023-one-transaction-classifier.md) | One Transaction Classifier, No Categories (TXN-002 Retired) | Active |
 

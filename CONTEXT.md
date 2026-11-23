@@ -24,14 +24,13 @@ An inflow transaction (`type: 'income'`) that increases total incoming funds wit
 - *_Avoid_*: Credit, Deposit (conflicts with Gullak Deposit), Top-up
 
 **Transaction Direction Inference**:
-The single, unified evaluation rule used across screens, helpers, and the budget engine to determine if a transaction is income. Implemented in `isIncomeTransaction`: checks explicit `type === 'income'` (returns `true`) or `type === 'expense'` (returns `false`) first, then (inert legacy fallback only, rule `TXN-002`) matches the resolved category name against `DEFAULT_INCOME_KEYWORDS` only when `type` is absent or indeterminate.
-Category lookup is resolved via a category map (`categoryMap.get(item.category_id)` in screens; in `dailyBudgetStore.ts` via `buildCategoryClassifier()` in `src/store/dailyBudget/classifiers.ts`, constructed from `useCategoryStore.getState().categories`). Startup sequencing in `App.tsx` awaits `fetchCategories` before `hydrateFromSupabase`, guaranteeing categories are in memory before budget engine classification runs.
-- *Code location*: `src/lib/transactionUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`), `App.tsx`, screens (`HomeScreen.tsx`, `HistoryScreen.tsx`, `ExpenseDetailScreen.tsx`)
+The single rule used across screens, helpers, and the budget engine to decide a transaction's direction: the explicit `type` only (`TXN-001`). A row without `type` is spending, like the database default (`TXN-002`, ADR 0023). Category names never decide it, so no classifier needs the categories.
+- *Code location*: `src/lib/transactionUtils.ts` (`classifyTransaction`, `isCountedIncome`, `isCountedExpense`; `isIncomeTransaction` for the display direction)
 - *_Avoid_*: Dual-Engine Inference, Keyword Guessing, Category Type Checking
 
 **Unified Income Classification**:
-The architectural standard where `src/lib/transactionUtils.ts` and `src/store/dailyBudgetStore.ts` share the exact same classification logic, eliminating the historical dual-engine divergence (formerly documented in `docs/adr/0007-income-classification-divergence.md`, superseded by `docs/adr/0008-unified-income-classification.md`).
-- *Code location*: `src/lib/transactionUtils.ts` (`isIncomeTransaction`), `src/store/dailyBudget/classifiers.ts` (`buildCategoryClassifier`; re-exported by `src/store/dailyBudgetStore.ts`)
+The architectural standard where every screen, helper and the budget engine ask the same classifier (`classifyTransaction(row)`), eliminating the historical dual-engine divergence (ADR 0007, superseded by ADR 0008, superseded by ADR 0023).
+- *Code location*: `src/lib/transactionUtils.ts` (`classifyTransaction`)
 - *_Avoid_*: Dual-Engine Income Inference, Divergent Direction Check
 
 ---

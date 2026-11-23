@@ -57,7 +57,7 @@ describe('src/money/ledger', () => {
   ];
 
   it('cleans each row once: kind, date key, both amounts', () => {
-    const entries = buildLedgerEntries(rows, []);
+    const entries = buildLedgerEntries(rows);
     expect(entries[1]).toMatchObject({ transactionId: 'b', dateKey: '2026-10-02', kind: 'spending', amountPaid: 250.55 });
     expect(entries[2].kind).toBe('income');
     expect(entries[3].kind).toBe('selfTransfer');
@@ -67,13 +67,13 @@ describe('src/money/ledger', () => {
 
   it('keeps the amount PAID and the amount COUNTED apart (SPL-003)', () => {
     // Paid 1000 for a group dinner; a friend paid back 600, so only 400 counts as my spending.
-    const [entry] = buildLedgerEntries([{ id: 'dinner', amount: 400, gross_amount: 1000, expense_date: '2026-10-04', type: 'expense' }], []);
+    const [entry] = buildLedgerEntries([{ id: 'dinner', amount: 400, gross_amount: 1000, expense_date: '2026-10-04', type: 'expense' }]);
     expect(entry.amountPaid).toBe(1000);
     expect(entry.amountCountedAfterMoneyBack).toBe(400);
   });
 
   it('spending per day ignores income, money back, self transfers and rows without a date; no float drift', () => {
-    const spending = spendingTotalsByDateKey(buildLedgerEntries(rows, []));
+    const spending = spendingTotalsByDateKey(buildLedgerEntries(rows));
     expect(spending).toEqual({
       '2026-10-01': 400,
       '2026-10-02': 250.55,
@@ -84,32 +84,31 @@ describe('src/money/ledger', () => {
 
   it('income per day counts only real income; a zero or negative amount adds nothing', () => {
     const income = incomeTotalsByDateKey(
-      buildLedgerEntries([...rows, row('neg', -30, '2026-10-02', { type: 'income' })], [])
+      buildLedgerEntries([...rows, row('neg', -30, '2026-10-02')])
     );
     expect(income).toEqual({ '2026-10-02': 5000 });
   });
 
   it('sums a date range with both ends included', () => {
-    const spending = spendingTotalsByDateKey(buildLedgerEntries(rows, []));
+    const spending = spendingTotalsByDateKey(buildLedgerEntries(rows));
     expect(sumTotalsBetweenDateKeys(spending, '2026-10-02', '2026-10-06')).toBe(250.85);
     expect(sumTotalsBetweenDateKeys(spending, '2026-11-01', '2026-11-30')).toBe(0);
   });
 
   it('sumSpendingBetweenDateKeys gives the same number as summing the per-day totals', () => {
-    const spending = spendingTotalsByDateKey(buildLedgerEntries(rows, []));
-    expect(sumSpendingBetweenDateKeys(rows, [], '2026-10-01', '2026-10-31')).toBe(
+    const spending = spendingTotalsByDateKey(buildLedgerEntries(rows));
+    expect(sumSpendingBetweenDateKeys(rows, '2026-10-01', '2026-10-31')).toBe(
       sumTotalsBetweenDateKeys(spending, '2026-10-01', '2026-10-31')
     );
-    expect(sumSpendingBetweenDateKeys(rows, [], '2026-10-01', '2026-10-31')).toBe(1550.85);
+    expect(sumSpendingBetweenDateKeys(rows, '2026-10-01', '2026-10-31')).toBe(1550.85);
   });
 
   it('sumCountedSpending adds only spending rows, whatever their dates', () => {
-    expect(sumCountedSpending(rows, [])).toBe(1600.85);
+    expect(sumCountedSpending(rows)).toBe(1600.85);
   });
 
-  it('uses the category name only for old rows that have no type at all (TXN-002)', () => {
-    const categories = [{ id: 'sal', name: 'Salary' }];
-    const [entry] = buildLedgerEntries([{ id: 'x', amount: 10, expense_date: '2026-10-01', category_id: 'sal' }], categories);
-    expect(entry.kind).toBe('income');
+  it('a row with no type is spending, whatever its category is called (TXN-002 retired, ADR 0023)', () => {
+    const [entry] = buildLedgerEntries([{ id: 'x', amount: 10, expense_date: '2026-10-01', category_id: 'sal' }]);
+    expect(entry.kind).toBe('spending');
   });
 });

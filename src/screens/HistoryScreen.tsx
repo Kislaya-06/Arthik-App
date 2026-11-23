@@ -226,10 +226,9 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         created_at: expense.created_at || '',
       });
 
-      const category = expense.category_id ? categoryMap.get(expense.category_id) : undefined;
-      if (isCountedIncome(expense, category)) {
+      if (isCountedIncome(expense)) {
         incomeTotals[dateKey] = (incomeTotals[dateKey] || 0) + expense.amount;
-      } else if (isCountedExpense(expense, category)) {
+      } else if (isCountedExpense(expense)) {
         spentTotals[dateKey] = (spentTotals[dateKey] || 0) + expense.amount;
       }
     });
@@ -315,10 +314,9 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
         created_at: expense.created_at || '',
       });
 
-      const category = expense.category_id ? categoryMap.get(expense.category_id) : undefined;
-      if (isCountedIncome(expense, category)) {
+      if (isCountedIncome(expense)) {
         incomeTotals[dateKey] = (incomeTotals[dateKey] || 0) + expense.amount;
-      } else if (isCountedExpense(expense, category)) {
+      } else if (isCountedExpense(expense)) {
         spentTotals[dateKey] = (spentTotals[dateKey] || 0) + expense.amount;
       }
     });

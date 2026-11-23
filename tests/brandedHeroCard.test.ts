@@ -254,19 +254,14 @@ describe('Pure Mode Hero Card Engine (when isBudgetModeEnabled is false)', () =>
         { amount: 2000, category_id: 'cat-salary', type: 'income' },
         { amount: 150.5, category_id: 'cat-chai', type: 'expense' },
       ];
-      const catMap = {
-        'cat-food': { name: 'Food', is_income: false },
-        'cat-salary': { name: 'Salary', is_income: true },
-        'cat-chai': { name: 'Snacks', is_income: false },
-      };
 
-      const result = calculateExpenseTotals(expenses, catMap);
+      const result = calculateExpenseTotals(expenses);
       expect(result.totalIncome).toBe(2000);
       expect(result.totalSpent).toBe(650.5);
     });
 
     it('handles empty expense list safely', () => {
-      const result = calculateExpenseTotals([], {});
+      const result = calculateExpenseTotals([]);
       expect(result.totalIncome).toBe(0);
       expect(result.totalSpent).toBe(0);
     });

@@ -43,14 +43,14 @@ export interface MonthInterval {
  */
 export function computeMonthlySpend(
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   monthInterval: MonthInterval,
   spentTotalsByDate?: Record<string, number>
 ): number {
   if (spentTotalsByDate) {
     return sumTotalsBetweenDateKeys(spentTotalsByDate, toDateStr(monthInterval.start), toDateStr(monthInterval.end));
   }
-  return sumSpendingBetweenDateKeys(expenses, categories, toDateStr(monthInterval.start), toDateStr(monthInterval.end));
+  return sumSpendingBetweenDateKeys(expenses, toDateStr(monthInterval.start), toDateStr(monthInterval.end));
 }
 
 // ─── 2. Effective Monthly Budget & Budget Health ───────────────────────────────
@@ -379,7 +379,7 @@ export interface MonthlyComparisonResult {
  */
 export function computeMonthlyComparison(
   expenses: ExpenseLike[],
-  categories: Category[],
+  _categories: Category[],
   currentInterval: MonthInterval,
   previousInterval: MonthInterval,
   offset: number,
@@ -422,8 +422,7 @@ export function computeMonthlyComparison(
       const cleanDate = toDateStr(exp.expense_date);
       if (!cleanDate) continue;
 
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (!isCountedExpense(exp, cat)) continue;
+      if (!isCountedExpense(exp)) continue;
 
       if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
         currTotal += exp.amount;
@@ -530,7 +529,7 @@ export function computeMonthlyLargestOutflow(
 
   let largest: ExpenseLike | null = null;
   let txnCount = 0;
-  const entries = buildLedgerEntries(expenses, categories);
+  const entries = buildLedgerEntries(expenses);
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
@@ -623,7 +622,7 @@ export function computeMonthlyCategoryShift(
   const prevCatTotals: Record<string, number> = {};
   let prevTotalSpend = 0;
 
-  const entries = buildLedgerEntries(expenses, categories);
+  const entries = buildLedgerEntries(expenses);
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];

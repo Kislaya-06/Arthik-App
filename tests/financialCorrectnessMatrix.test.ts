@@ -446,7 +446,7 @@ describe('Financial Correctness Scenario Matrix', () => {
       const expensesInitial: TestExpense[] = [
         { amount: 1500, type: 'expense', expense_date: '2026-10-05T12:00:00Z' },
       ];
-      const spentInitial = computeSpentByDate(expensesInitial, (e) => e.type === 'income');
+      const spentInitial = computeSpentByDate(expensesInitial);
       const summaryInitial = getCurrentPeriodSummary(changes, spentInitial, '2026-10-07');
       expect(summaryInitial?.spent).toBe(1500);
       expect(summaryInitial?.remaining).toBe(5500);
@@ -460,7 +460,7 @@ describe('Financial Correctness Scenario Matrix', () => {
       const expensesIncreased: TestExpense[] = [
         { amount: 8000, type: 'expense', expense_date: '2026-10-05T12:00:00Z' },
       ];
-      const spentIncreased = computeSpentByDate(expensesIncreased, (e) => e.type === 'income');
+      const spentIncreased = computeSpentByDate(expensesIncreased);
       const summaryIncreased = getCurrentPeriodSummary(changes, spentIncreased, '2026-10-07');
       expect(summaryIncreased?.spent).toBe(8000);
       expect(summaryIncreased?.remaining).toBe(0); // Clamped, non-negative
@@ -471,7 +471,7 @@ describe('Financial Correctness Scenario Matrix', () => {
       const expensesDecreased: TestExpense[] = [
         { amount: 500, type: 'expense', expense_date: '2026-10-05T12:00:00Z' },
       ];
-      const spentDecreased = computeSpentByDate(expensesDecreased, (e) => e.type === 'income');
+      const spentDecreased = computeSpentByDate(expensesDecreased);
       const summaryDecreased = getCurrentPeriodSummary(changes, spentDecreased, '2026-10-07');
       expect(summaryDecreased?.spent).toBe(500);
       expect(summaryDecreased?.remaining).toBe(6500);
@@ -484,7 +484,7 @@ describe('Financial Correctness Scenario Matrix', () => {
 
       // 4. Delete Mutation (Expense removed)
       const emptyExpenses: TestExpense[] = [];
-      const spentDeleted = computeSpentByDate(emptyExpenses, (e) => e.type === 'income');
+      const spentDeleted = computeSpentByDate(emptyExpenses);
       const summaryDeleted = getCurrentPeriodSummary(changes, spentDeleted, '2026-10-07');
       expect(summaryDeleted?.spent).toBe(0);
       expect(summaryDeleted?.remaining).toBe(7000);

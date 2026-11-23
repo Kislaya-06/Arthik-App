@@ -24,7 +24,6 @@ import {
 import { isCountedIncome, isCountedExpense, isExcludedFromTotals, getTransactionClass } from '../src/lib/transactionUtils';
 import { calculateExpenseTotals } from '../src/lib/homeCalculations';
 import { computeSpentByDate, computeIncomeByDate } from '../src/lib/budgetCalculations';
-import { makeIncomeClassifier, makeEligibleIncomeClassifier } from '../src/lib/incomeClassifier';
 import { computeMoneyWaterfall } from '../src/lib/moneyWaterfall';
 import { classifyForWaterfall } from '../src/lib/moneyWaterfall';
 
@@ -115,14 +114,14 @@ describe('Prithvish example end to end', () => {
     const rows = applyRecoveries([...all, back('b1', 300, settlement.allocations)]);
 
     // totals: income stays 1000, spent goes 500 -> 200
-    expect(calculateExpenseTotals(all, {})).toEqual({ totalIncome: 1000, totalSpent: 500 });
-    expect(calculateExpenseTotals(rows, {})).toEqual({ totalIncome: 1000, totalSpent: 200 });
+    expect(calculateExpenseTotals(all)).toEqual({ totalIncome: 1000, totalSpent: 500 });
+    expect(calculateExpenseTotals(rows)).toEqual({ totalIncome: 1000, totalSpent: 200 });
 
     // per day: the original days get their money back (10 Oct 300 -> 100, 14 Oct 200 -> 100)
-    const spent = computeSpentByDate(rows as any[], makeIncomeClassifier());
+    const spent = computeSpentByDate(rows as any[]);
     expect(spent).toEqual({ '2026-10-10': 100, '2026-10-14': 100 });
     // the 18 Oct money-back row creates no income on 18 Oct
-    expect(computeIncomeByDate(rows as any[], makeEligibleIncomeClassifier())).toEqual({ '2026-10-01': 1000 });
+    expect(computeIncomeByDate(rows as any[])).toEqual({ '2026-10-01': 1000 });
 
     // nothing owed any more
     expect(buildPeopleLedger(rows)[0].owed).toBe(0);
@@ -178,7 +177,7 @@ describe('SPL-006: refunds', () => {
       recovery_person: 'Amazon', expense_date: '2026-10-15', recovery_allocations: plan.allocations,
     };
     const rows = applyRecoveries([shoes, refund]);
-    expect(calculateExpenseTotals(rows, {})).toEqual({ totalIncome: 0, totalSpent: 0 });
+    expect(calculateExpenseTotals(rows)).toEqual({ totalIncome: 0, totalSpent: 0 });
     expect(rows.find((r) => r.id === 'shoes')!.gross_amount).toBe(2000);
   });
 

@@ -33,7 +33,7 @@ describe('Part 2 — one financial source of truth', () => {
   const transfer: any = { amount: 5000, type: 'income', expense_date: '2026-10-06', transaction_class: 'self_transfer' };
 
   it('daily: remaining and Gullak agree, and a self-transfer changes nothing', () => {
-    const totals = calculateExpenseTotals([transfer], {});
+    const totals = calculateExpenseTotals([transfer]);
     expect(totals).toEqual({ totalIncome: 0, totalSpent: 0 });
     const fin = calculateCycleFinancials({ scheduledBudget: 100, spent: 40 });
     const day = evaluateDayStatus(100, 40, 0);

@@ -35,7 +35,7 @@ We decomposed `dailyBudgetStore` and `expenseStore` into focused, cohesive helpe
 | `dailyBudgetStore` | `src/store/dailyBudget/types.ts` | State interfaces, profile patches, deposit records |
 | | `src/store/dailyBudget/pendingStorage.ts` | Offline pending budget and Gullak storage key getters and mutators |
 | | `src/store/dailyBudget/expenseBridge.ts` | Cross-store expense singletons and registration callbacks |
-| | `src/store/dailyBudget/classifiers.ts` | Category map construction and income transaction classification |
+| | `src/store/dailyBudget/classifiers.ts` | Category map construction and income transaction classification (removed by ADR 0023) |
 | | `src/store/dailyBudget/metrics.ts` | `computeMetrics`, `computeAllTimeBudget`, `runWaterfall`, cadence calculations |
 | | `src/store/dailyBudget/rollover.ts` | Modular rollover helpers (`applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods`, etc.) |
 | | `src/store/dailyBudget/hydrate.ts` | Hydration orchestration and phases (`waitForPersistHydration`, remote fetch, Gullak sync) |

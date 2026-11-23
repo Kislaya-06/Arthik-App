@@ -1,82 +1,45 @@
 import { describe, it, expect } from 'vitest';
 import {
-  DEFAULT_INCOME_KEYWORDS,
   isIncomeTransaction,
-  isEligibleIncome,
+  isCountedIncome,
+  isCountedExpense,
+  classifyTransaction,
 } from '../src/lib/transactionUtils';
 
-describe('isIncomeTransaction (the single source of truth for "is this income?")', () => {
-  describe('the explicit type always wins', () => {
-    it('type "income" is income, whatever the category says', () => {
-      expect(isIncomeTransaction({ type: 'income' }, { name: 'Food & Drinks' })).toBe(true);
-      expect(isIncomeTransaction({ type: 'income' }, undefined)).toBe(true);
-      expect(isIncomeTransaction({ type: 'income' }, null)).toBe(true);
-    });
-
-    it('type "expense" is never income, even in a category named like income', () => {
-      expect(isIncomeTransaction({ type: 'expense' }, { name: 'Salary' })).toBe(false);
-      expect(isIncomeTransaction({ type: 'expense' }, { name: 'Refund' })).toBe(false);
-      expect(isIncomeTransaction({ type: 'expense' }, undefined)).toBe(false);
-    });
+describe('isIncomeTransaction (the single source of truth for "is this incoming money?")', () => {
+  it('TXN-001: type "income" is income', () => {
+    expect(isIncomeTransaction({ type: 'income' })).toBe(true);
   });
 
-  describe('legacy rows without a type fall back to the category name', () => {
-    it.each(DEFAULT_INCOME_KEYWORDS)('category containing "%s" is income', (kw) => {
-      expect(isIncomeTransaction({}, { name: `My ${kw} account` })).toBe(true);
-    });
-
-    it('matching ignores upper / lower case', () => {
-      expect(isIncomeTransaction({}, { name: 'SALARY' })).toBe(true);
-      expect(isIncomeTransaction({}, { name: 'Pocket Money' })).toBe(true);
-    });
-
-    it('normal spending categories are not income', () => {
-      for (const name of ['Food & Drinks', 'Transport', 'Shopping', 'Health', 'Bills & Utilities', 'Entertainment']) {
-        expect(isIncomeTransaction({}, { name })).toBe(false);
-      }
-    });
-
-    it('no type and no category name means "not income" (safe default)', () => {
-      expect(isIncomeTransaction({}, undefined)).toBe(false);
-      expect(isIncomeTransaction({}, {})).toBe(false);
-      expect(isIncomeTransaction({}, { name: '' })).toBe(false);
-      expect(isIncomeTransaction(undefined, undefined)).toBe(false);
-      expect(isIncomeTransaction(null, null)).toBe(false);
-    });
-
-    it('an unknown type string behaves like "no type" (falls back to the category)', () => {
-      expect(isIncomeTransaction({ type: 'weird' }, { name: 'Salary' })).toBe(true);
-      expect(isIncomeTransaction({ type: 'weird' }, { name: 'Transport' })).toBe(false);
-    });
+  it('TXN-001: type "expense" is never income', () => {
+    expect(isIncomeTransaction({ type: 'expense' })).toBe(false);
   });
 
-  it('keywords are lower case, trimmed and unique (a typo here silently breaks income detection)', () => {
-    expect(new Set(DEFAULT_INCOME_KEYWORDS).size).toBe(DEFAULT_INCOME_KEYWORDS.length);
-    for (const kw of DEFAULT_INCOME_KEYWORDS) {
-      expect(kw).toBe(kw.toLowerCase().trim());
-      expect(kw.length).toBeGreaterThan(2);
-    }
+  it('TXN-002 retired (ADR 0023): a row without a type is an expense, like the database default', () => {
+    expect(isIncomeTransaction({})).toBe(false);
+    expect(isIncomeTransaction({ type: 'weird' })).toBe(false);
+    expect(isIncomeTransaction(undefined)).toBe(false);
+    expect(isIncomeTransaction(null)).toBe(false);
+    expect(classifyTransaction({})).toBe('spending');
+  });
+});
+
+describe('isCountedIncome - excludes internal transfers and money back from income', () => {
+  it('a normal income row is counted income', () => {
+    expect(isCountedIncome({ type: 'income' })).toBe(true);
   });
 
-  describe('isEligibleIncome - Exclude internal transfers from spendable income', () => {
-    it('genuine salary, freelance, refund, gift are eligible income', () => {
-      expect(isEligibleIncome({ type: 'income' }, { name: 'Salary' })).toBe(true);
-      expect(isEligibleIncome({ type: 'income' }, { name: 'Freelance' })).toBe(true);
-      expect(isEligibleIncome({ type: 'income' }, { name: 'Refund' })).toBe(true);
-      expect(isEligibleIncome({ type: 'income' }, { name: 'Gift' })).toBe(true);
-      expect(isEligibleIncome({}, { name: 'Salary' })).toBe(true);
-    });
+  it('internal transfers are NOT income (TXN-003): only the structured class decides', () => {
+    // Bank A -> Bank B 5,000 must NOT increase spendable income
+    expect(isCountedIncome({ type: 'income', transaction_class: 'self_transfer' })).toBe(false);
+  });
 
-    it('internal transfers are NOT eligible income (TXN-003): only the structured class decides', () => {
-      // Bank A -> Bank B 5,000 must NOT increase spendable income
-      expect(isEligibleIncome({ type: 'income', transaction_class: 'self_transfer' }, { name: 'Self Transfer' })).toBe(false);
-      // A category name alone never turns income into a transfer
-      expect(isEligibleIncome({ type: 'income' }, { name: 'Self Transfer' })).toBe(true);
-    });
+  it('money back is never income (SPL-003)', () => {
+    expect(isCountedIncome({ type: 'income', transaction_class: 'recovery' })).toBe(false);
+  });
 
-    it('regular expenses are not eligible income', () => {
-      expect(isEligibleIncome({ type: 'expense' }, { name: 'Food & Drinks' })).toBe(false);
-      expect(isEligibleIncome({ type: 'expense' }, { name: 'Transport' })).toBe(false);
-    });
+  it('regular expenses are not income, and are counted spending', () => {
+    expect(isCountedIncome({ type: 'expense' })).toBe(false);
+    expect(isCountedExpense({ type: 'expense' })).toBe(true);
   });
 });

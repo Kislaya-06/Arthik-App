@@ -115,11 +115,10 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     let exp = 0;
     for (let i = 0; i < expenses.length; i++) {
       const e = expenses[i];
-      const cat = e.category_id ? catMap[e.category_id] : undefined;
       const amt = Number(e.amount) || 0;
-      if (isCountedIncome(e, cat)) {
+      if (isCountedIncome(e)) {
         inc += amt;
-      } else if (isCountedExpense(e, cat)) {
+      } else if (isCountedExpense(e)) {
         exp += amt;
       }
     }

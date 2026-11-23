@@ -646,21 +646,18 @@ describe('evaluateDayStatus', () => {
 });
 
 describe('computeSpentByDate & computeSpentForDate', () => {
-  const isIncome = (e: { type?: 'expense' | 'income'; category_id?: string | null }) =>
-    e.type === 'income' || (e.type !== 'expense' && e.category_id === 'cat_income');
-
-  it('income is excluded both ways: via type field and via category classifier', () => {
+  it('income is excluded by its type; a row without a type counts as spending (TXN-002 retired)', () => {
     const expenses = [
       { amount: 100, type: 'income' as const, expense_date: '2026-09-18' },
       { amount: 200, type: undefined, category_id: 'cat_income', expense_date: '2026-09-18' },
       { amount: 300, type: 'expense' as const, category_id: 'cat_food', expense_date: '2026-09-18' },
     ];
 
-    const spentByDate = computeSpentByDate(expenses, isIncome);
-    expect(spentByDate['2026-09-18']).toBe(300);
+    const spentByDate = computeSpentByDate(expenses);
+    expect(spentByDate['2026-09-18']).toBe(500);
 
-    const spentForDate = computeSpentForDate(expenses, '2026-09-18', isIncome);
-    expect(spentForDate).toBe(300);
+    const spentForDate = computeSpentForDate(expenses, '2026-09-18');
+    expect(spentForDate).toBe(500);
   });
 
   it('date mismatch is excluded from target date', () => {
@@ -669,8 +666,8 @@ describe('computeSpentByDate & computeSpentForDate', () => {
       { amount: 400, type: 'expense' as const, expense_date: '2026-09-18' },
     ];
 
-    expect(computeSpentForDate(expenses, '2026-09-18', isIncome)).toBe(400);
-    expect(computeSpentForDate(expenses, '2026-09-19', isIncome)).toBe(0);
+    expect(computeSpentForDate(expenses, '2026-09-18')).toBe(400);
+    expect(computeSpentForDate(expenses, '2026-09-19')).toBe(0);
   });
 
   it('handles ISO timestamp vs date-only string by splitting on T', () => {
@@ -679,7 +676,7 @@ describe('computeSpentByDate & computeSpentForDate', () => {
       { amount: 250, type: 'expense' as const, expense_date: '2026-09-18' },
     ];
 
-    expect(computeSpentForDate(expenses, '2026-09-18', isIncome)).toBe(400);
+    expect(computeSpentForDate(expenses, '2026-09-18')).toBe(400);
   });
 
   it('handles NaN amount gracefully as 0', () => {
@@ -689,12 +686,12 @@ describe('computeSpentByDate & computeSpentForDate', () => {
       { amount: 100, type: 'expense' as const, expense_date: '2026-09-18' },
     ];
 
-    expect(computeSpentForDate(expenses, '2026-09-18', isIncome)).toBe(100);
+    expect(computeSpentForDate(expenses, '2026-09-18')).toBe(100);
   });
 
   it('empty list returns empty record and 0 spent', () => {
-    expect(computeSpentByDate([], isIncome)).toEqual({});
-    expect(computeSpentForDate([], '2026-09-18', isIncome)).toBe(0);
+    expect(computeSpentByDate([])).toEqual({});
+    expect(computeSpentForDate([], '2026-09-18')).toBe(0);
   });
 
   it('computeSpentForDate strictly matches computeSpentByDate(...)[targetDate] ?? 0', () => {
@@ -703,13 +700,13 @@ describe('computeSpentByDate & computeSpentForDate', () => {
       { amount: 200, type: 'expense' as const, expense_date: '2026-09-17' },
     ];
     const target = '2026-09-17';
-    expect(computeSpentForDate(expenses, target, isIncome)).toBe(
-      computeSpentByDate(expenses, isIncome)[target] ?? 0
+    expect(computeSpentForDate(expenses, target)).toBe(
+      computeSpentByDate(expenses)[target] ?? 0
     );
 
     const nonExistentTarget = '2026-09-25';
-    expect(computeSpentForDate(expenses, nonExistentTarget, isIncome)).toBe(
-      computeSpentByDate(expenses, isIncome)[nonExistentTarget] ?? 0
+    expect(computeSpentForDate(expenses, nonExistentTarget)).toBe(
+      computeSpentByDate(expenses)[nonExistentTarget] ?? 0
     );
   });
 
@@ -722,13 +719,13 @@ describe('computeSpentByDate & computeSpentForDate', () => {
         { amount: 200, type: 'income' as const, expense_date: '2026-09-19' },
       ];
 
-      const incomeByDate = computeIncomeByDate(expenses, isIncome);
+      const incomeByDate = computeIncomeByDate(expenses);
       expect(incomeByDate['2026-09-18']).toBe(125);
       expect(incomeByDate['2026-09-19']).toBe(200);
 
-      expect(computeIncomeForDate(expenses, '2026-09-18', isIncome)).toBe(125);
-      expect(computeIncomeForDate(expenses, '2026-09-19', isIncome)).toBe(200);
-      expect(computeIncomeForDate(expenses, '2026-09-20', isIncome)).toBe(0);
+      expect(computeIncomeForDate(expenses, '2026-09-18')).toBe(125);
+      expect(computeIncomeForDate(expenses, '2026-09-19')).toBe(200);
+      expect(computeIncomeForDate(expenses, '2026-09-20')).toBe(0);
     });
   });
 
@@ -736,7 +733,7 @@ describe('computeSpentByDate & computeSpentForDate', () => {
     const expenses = [
       { amount: 150, type: 'expense' as const, expense_date: '2026-09-15' },
       { amount: 200, type: 'income' as const, expense_date: '2026-09-15' },
-      { amount: 50, type: undefined, category_id: 'cat_income', expense_date: '2026-09-16' },
+      { amount: 50, type: 'income' as const, category_id: 'cat_income', expense_date: '2026-09-16' },
       { amount: 320, type: 'expense' as const, expense_date: '2026-09-16T18:45:00.000Z' },
       { amount: 180, type: 'expense' as const, expense_date: '2026-09-16' },
       { amount: NaN, type: 'expense' as const, expense_date: '2026-09-17' },
@@ -745,19 +742,19 @@ describe('computeSpentByDate & computeSpentForDate', () => {
       { amount: 100, type: 'expense' as const, expense_date: '2026-09-18' },
     ];
 
-    const spentByDate = computeSpentByDate(expenses, isIncome);
+    const spentByDate = computeSpentByDate(expenses);
     const testDates = ['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19'];
 
     for (const d of testDates) {
-      expect(computeSpentForDate(expenses, d, isIncome)).toBe(spentByDate[d] ?? 0);
+      expect(computeSpentForDate(expenses, d)).toBe(spentByDate[d] ?? 0);
     }
 
     // Explicit check on the aggregated values
-    expect(computeSpentForDate(expenses, '2026-09-15', isIncome)).toBe(150);
-    expect(computeSpentForDate(expenses, '2026-09-16', isIncome)).toBe(500); // 320 (ISO) + 180
-    expect(computeSpentForDate(expenses, '2026-09-17', isIncome)).toBe(450); // NaN and corrupt ignored, 450 counted
-    expect(computeSpentForDate(expenses, '2026-09-18', isIncome)).toBe(100);
-    expect(computeSpentForDate(expenses, '2026-09-14', isIncome)).toBe(0); // non-existent date
+    expect(computeSpentForDate(expenses, '2026-09-15')).toBe(150);
+    expect(computeSpentForDate(expenses, '2026-09-16')).toBe(500); // 320 (ISO) + 180
+    expect(computeSpentForDate(expenses, '2026-09-17')).toBe(450); // NaN and corrupt ignored, 450 counted
+    expect(computeSpentForDate(expenses, '2026-09-18')).toBe(100);
+    expect(computeSpentForDate(expenses, '2026-09-14')).toBe(0); // non-existent date
   });
 });
 
@@ -824,16 +821,7 @@ describe('filterPastRecords', () => {
   });
 });
 
-describe('Income classification unification (type-first, category fallback)', () => {
-  const categories: Record<string, { id: string; name: string }> = {
-    cat_salary: { id: 'cat_salary', name: 'Monthly Salary' },
-    cat_food: { id: 'cat_food', name: 'Food & Dining' },
-  };
-
-  const isIncome = (e: { type?: 'expense' | 'income'; category_id?: string | null }) => {
-    const cat = e.category_id ? categories[e.category_id] : undefined;
-    return isIncomeTransaction(e, cat);
-  };
+describe('Income classification unification (the type decides, never the category)', () => {
 
   it('transaction with type income whose category is NOT an income-keyword category is excluded from spending by the budget engine', () => {
     const tx = {
@@ -843,14 +831,13 @@ describe('Income classification unification (type-first, category fallback)', ()
       category_id: 'cat_food',
       expense_date: '2026-09-18',
     };
-    const category = categories['cat_food'];
 
     // Budget engine (via unified isIncome) excludes it from spending
-    const spent = computeSpentByDate([tx], isIncome);
+    const spent = computeSpentByDate([tx]);
     expect(spent['2026-09-18'] ?? 0).toBe(0);
 
     // isIncomeTransaction classifies it as income
-    expect(isIncomeTransaction(tx, category)).toBe(true);
+    expect(isIncomeTransaction(tx)).toBe(true);
   });
 
   it('transaction with type expense whose category IS an income-keyword category is counted as spending by the budget engine', () => {
@@ -861,17 +848,16 @@ describe('Income classification unification (type-first, category fallback)', ()
       category_id: 'cat_salary',
       expense_date: '2026-09-18',
     };
-    const category = categories['cat_salary'];
 
     // Budget engine (via unified isIncome) counts it as spending
-    const spent = computeSpentByDate([tx], isIncome);
+    const spent = computeSpentByDate([tx]);
     expect(spent['2026-09-18']).toBe(1000);
 
     // isIncomeTransaction classifies it as expense
-    expect(isIncomeTransaction(tx, category)).toBe(false);
+    expect(isIncomeTransaction(tx)).toBe(false);
   });
 
-  it('transaction with type undefined falls back to category-name keywords', () => {
+  it('a row with no type counts as spending, whatever its category is called (TXN-002 retired)', () => {
     const legacyIncomeTx = {
       id: 'tx3',
       amount: 2000,
@@ -887,8 +873,8 @@ describe('Income classification unification (type-first, category fallback)', ()
       expense_date: '2026-09-18',
     };
 
-    const spent = computeSpentByDate([legacyIncomeTx, legacyExpenseTx], isIncome);
-    expect(spent['2026-09-18']).toBe(300);
+    const spent = computeSpentByDate([legacyIncomeTx, legacyExpenseTx]);
+    expect(spent['2026-09-18']).toBe(2300);
   });
 });
 

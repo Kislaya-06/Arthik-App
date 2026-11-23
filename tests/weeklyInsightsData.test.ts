@@ -43,7 +43,7 @@ describe('Weekly Insights Pure Analytics & Engine', () => {
       const expenses: ExpenseLike[] = [
         { id: '1', amount: 500, expense_date: '2026-09-22', category_id: 'cat-food', payment_mode: 'upi' },
         { id: '2', amount: 800, expense_date: '2026-09-24', category_id: 'cat-grocery', payment_mode: 'card' },
-        { id: '3', amount: 50000, expense_date: '2026-09-23', category_id: 'cat-income', payment_mode: 'bank' }, // Income
+        { id: '3', amount: 50000, expense_date: '2026-09-23', category_id: 'cat-income', type: 'income', payment_mode: 'bank' }, // Income
         { id: '4', amount: 200, expense_date: '2026-09-18', category_id: 'cat-food', payment_mode: 'cash' }, // Outside week
       ];
 

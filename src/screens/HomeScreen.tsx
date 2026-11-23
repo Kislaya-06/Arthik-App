@@ -707,7 +707,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 }
                 const e = item.data;
                 const cat = e.category_id ? catMap[e.category_id] : undefined;
-                const isIncome = isIncomeTransaction(e, cat);
+                const isIncome = isIncomeTransaction(e);
                 return (
                   <HomeTransactionItem
                     key={e.id}

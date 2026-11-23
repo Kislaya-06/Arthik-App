@@ -115,7 +115,7 @@ export function useInsightsData({
 
   // ─── Unified Money Ledger Entries ──────────────────────────────────────────
   const ledgerEntries = useMemo(
-    () => buildLedgerEntries(expenses, categories),
+    () => buildLedgerEntries(expenses),
     [expenses, categories]
   );
 
@@ -252,10 +252,6 @@ export function useInsightsData({
       currentInterval.end,
       expenses,
       gullakDeposits,
-      (exp) => {
-        const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-        return isCountedIncome(exp, cat);
-      },
       user?.created_at,
       {
         isBudgetMode: isBudgetModeEnabled,
@@ -469,8 +465,7 @@ export function useInsightsData({
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
       if (isWithinInterval(parseISO(cleanDate), currentInterval)) {
-        const cat = exp.category_id ? categoryMap.get(exp.category_id) : undefined;
-        if (isCountedIncome(exp, cat)) {
+        if (isCountedIncome(exp)) {
           income += exp.amount;
         }
       }

@@ -11,7 +11,6 @@ import type { BudgetCadence, BudgetPlanChange } from '../../types';
 import type { DailyBudgetState } from './types';
 import { savePendingSettingsOffline, clearPendingSettingsOffline, savePendingPlanChangeOffline } from './pendingStorage';
 import { getCurrentExpenses } from './expenseBridge';
-import { buildCategoryClassifier, buildEligibleIncomeClassifier } from './classifiers';
 import { getTodayDateStr, getUserCreatedAtLocalDate, isDailyOwnedDate, computeMetrics } from './metrics';
 import { isCountedExpense } from '../../lib/transactionUtils';
 import { balancePureDeficitIfNeeded } from './pureDeficit';
@@ -90,7 +89,7 @@ export function handleSetBudgetModeEnabled(
       const pools = buildBudgetPools(updatedChanges, effectiveFrom > todayStr ? effectiveFrom : todayStr);
       const pool = pools[poolKeyFor(cadence, todayStr)];
       if (pool && pool.startedOn < todayStr && !pool.closedOn) {
-        const spentByDate = computeSpentByDate(getCurrentExpenses(), buildCategoryClassifier());
+        const spentByDate = computeSpentByDate(getCurrentExpenses());
         const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
         const left = Math.max(0, round2(pool.budget - poolSpentBefore(pools, updatedChanges, pool, tomorrowStr, spentByDate)));
         notifyBudgetResumed(`resumed_${pool.key}_${todayStr}`, cadence, left, pool.budget, todayStr);
@@ -161,8 +160,7 @@ export function handleSetBudgetModeEnabled(
   } else if (enabled && targetBudgetAmount > 0 && isDailyOwnedDate(updatedChanges, todayStr) && (!records[todayStr] || records[todayStr].budget === 0 || !records[todayStr].isFinalized)) {
     const budget = targetBudgetAmount;
     const spent = records[todayStr]?.spent || 0;
-    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-    const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr, isEligibleIncomeFn);
+    const todayIncome = computeIncomeForDate(getCurrentExpenses(), todayStr);
     const { saved } = evaluateDayStatus(budget, spent, todayIncome);
     const spendable = budget + todayIncome;
     records[todayStr] = {

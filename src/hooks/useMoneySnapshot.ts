@@ -1,13 +1,11 @@
 import { useMemo } from 'react';
 import { useExpenseStore } from '../store/expenseStore';
-import { useCategoryStore } from '../store/categoryStore';
 import { useDailyBudgetStore } from '../store/dailyBudgetStore';
 import type { MoneySnapshot } from '../money/scopeMoney';
 
 /** The store data `heroMoney` / `allowanceCardMoney` read, as the same objects the stores hold (ADR 0022). */
 export function useMoneySnapshot(): MoneySnapshot {
   const expenses = useExpenseStore((s) => s.expenses);
-  const categories = useCategoryStore((s) => s.categories);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const dailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
@@ -20,10 +18,10 @@ export function useMoneySnapshot(): MoneySnapshot {
 
   return useMemo(
     () => ({
-      expenses, categories, gullakDeposits, dailyRecords, planChanges, budgetPeriods,
+      expenses, gullakDeposits, dailyRecords, planChanges, budgetPeriods,
       dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, budgetCadence, totalAccumulatedSavings,
     }),
-    [expenses, categories, gullakDeposits, dailyRecords, planChanges, budgetPeriods,
+    [expenses, gullakDeposits, dailyRecords, planChanges, budgetPeriods,
       dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, budgetCadence, totalAccumulatedSavings]
   );
 }

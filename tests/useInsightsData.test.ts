@@ -383,14 +383,13 @@ describe('useInsightsData (pure analytics and derived calculations)', () => {
     it('proves 100% output equivalence against legacy Array.find baseline across diverse datasets', () => {
       function legacyAggregate(
         exps: Expense[],
-        cats: Category[],
+        _cats: Category[],
         interval: { start: Date; end: Date }
       ) {
         let curr = 0;
         const catTotals: Record<string, number> = {};
         for (const exp of exps) {
-          const cat = exp.category_id ? cats.find((c) => c.id === exp.category_id) : undefined;
-          if (isIncomeTransaction(exp, cat) || isExcludedFromTotals(exp)) continue;
+          if (isIncomeTransaction(exp) || isExcludedFromTotals(exp)) continue;
           const cleanDate = exp.expense_date?.split('T')[0]?.trim();
           if (!cleanDate) continue;
           const date = parseISO(cleanDate);

@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeTransferDescriptor, findMatchingTransferRule } from '../src/lib/transferRules';
 import {
-  isCountedIncome, isCountedExpense, isEligibleIncome, getTransactionClass, isExcludedFromTotals,
+  isCountedIncome, isCountedExpense, getTransactionClass, isExcludedFromTotals,
 } from '../src/lib/transactionUtils';
 import { calculateExpenseTotals, calculatePeriodSummary } from '../src/lib/homeCalculations';
 import {
   computeSpentByDate, computeIncomeByDate, calculateCycleFinancials, evaluateDayStatus,
 } from '../src/lib/budgetCalculations';
-import { makeIncomeClassifier, makeEligibleIncomeClassifier } from '../src/lib/incomeClassifier';
 
 const exp400: any = { id: 'e1', amount: 400, type: 'expense', expense_date: '2026-10-05' };
 const salary: any = { id: 'i1', amount: 1000, type: 'income', expense_date: '2026-10-06' };
@@ -17,11 +16,10 @@ const transferIn: any = { id: 't2', amount: 5000, type: 'income', expense_date: 
 
 describe('TXN-004: repayments and refunds are plain income', () => {
   it('a friend paying back counts as income on the day it arrives, the original expense stays fully spent', () => {
-    const totals = calculateExpenseTotals([exp400, friendBack, salary], {});
+    const totals = calculateExpenseTotals([exp400, friendBack, salary]);
     expect(totals).toEqual({ totalIncome: 1200, totalSpent: 400 });
     expect(isCountedIncome(friendBack)).toBe(true);
-    expect(isEligibleIncome(friendBack)).toBe(true);
-    expect(computeIncomeByDate([friendBack], makeEligibleIncomeClassifier())).toEqual({ '2026-10-06': 200 });
+    expect(computeIncomeByDate([friendBack])).toEqual({ '2026-10-06': 200 });
   });
 
   it('a row still carrying the retired "reimbursement" class (old cache / old queue) is treated as normal income', () => {
@@ -29,7 +27,7 @@ describe('TXN-004: repayments and refunds are plain income', () => {
     expect(getTransactionClass(legacy)).toBe('normal');
     expect(isExcludedFromTotals(legacy)).toBe(false);
     expect(isCountedIncome(legacy)).toBe(true);
-    expect(calculateExpenseTotals([legacy], {})).toEqual({ totalIncome: 200, totalSpent: 0 });
+    expect(calculateExpenseTotals([legacy])).toEqual({ totalIncome: 200, totalSpent: 0 });
   });
 
   it('income never changes the budget pool or what is saved to Gullak (BUD-003)', () => {
@@ -56,14 +54,13 @@ describe('TXN-003: self-transfers', () => {
     expect(isCountedIncome(recoveryRow)).toBe(false);
     expect(isCountedExpense(recoveryRow)).toBe(false);
     expect(isExcludedFromTotals(recoveryRow)).toBe(true);
-    expect(calculateExpenseTotals([transferOut, transferIn, recoveryRow], {})).toEqual({ totalIncome: 0, totalSpent: 0 });
-    expect(computeSpentByDate([transferOut, transferIn, recoveryRow], makeIncomeClassifier())).toEqual({});
-    expect(computeIncomeByDate([transferOut, transferIn, recoveryRow], makeEligibleIncomeClassifier())).toEqual({});
+    expect(calculateExpenseTotals([transferOut, transferIn, recoveryRow])).toEqual({ totalIncome: 0, totalSpent: 0 });
+    expect(computeSpentByDate([transferOut, transferIn, recoveryRow])).toEqual({});
+    expect(computeIncomeByDate([transferOut, transferIn, recoveryRow])).toEqual({});
   });
 
   it('only the structured class marks a transfer: notes and category names are never guessed', () => {
     const lookalike: any = { id: 'x', amount: 300, type: 'income', expense_date: '2026-10-06', note: 'transfer from mom -> to bank' };
-    expect(isEligibleIncome(lookalike, { name: 'Self transfer' })).toBe(true);
     expect(isCountedIncome(lookalike)).toBe(true);
     const spend: any = { id: 'y', amount: 300, type: 'expense', expense_date: '2026-10-06', note: 'credit card bill' };
     expect(isCountedExpense(spend)).toBe(true);
@@ -83,9 +80,9 @@ describe('TXN-003: self-transfers', () => {
 });
 
 describe('TXN-001: direction comes from the explicit type', () => {
-  it('type wins over any category keyword', () => {
-    expect(isCountedIncome({ type: 'expense' }, { name: 'Salary' })).toBe(false);
-    expect(isCountedExpense({ type: 'expense' }, { name: 'Salary' })).toBe(true);
-    expect(isCountedIncome({ type: 'income' }, { name: 'Groceries' })).toBe(true);
+  it('the type alone decides', () => {
+    expect(isCountedIncome({ type: 'expense' })).toBe(false);
+    expect(isCountedExpense({ type: 'expense' })).toBe(true);
+    expect(isCountedIncome({ type: 'income' })).toBe(true);
   });
 });

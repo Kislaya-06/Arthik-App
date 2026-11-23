@@ -1,6 +1,5 @@
 import { format } from 'date-fns/format';
 import { Expense } from '../store/expenseStore';
-import { Category } from '../store/categoryStore';
 import { DailyRecord } from './budgetCalculations';
 import { BudgetPlanChange } from '../types';
 import { formatCurrency } from './formatters';
@@ -23,7 +22,6 @@ export interface ExpenseFundingBreakdown {
 export interface CalculateExpenseFundingParams {
   expense: Expense;
   allExpenses: Expense[];
-  categories: Category[];
   records?: Record<string, DailyRecord>;
   planChanges?: BudgetPlanChange[];
   todayBudget?: number;
@@ -45,7 +43,6 @@ export interface CalculateExpenseFundingParams {
 export function calculateExpenseFunding({
   expense,
   allExpenses,
-  categories,
   records = {},
   planChanges = [],
   todayBudget = 0,
@@ -55,8 +52,7 @@ export function calculateExpenseFunding({
   deposits = [],
   todayStr = format(new Date(), 'yyyy-MM-dd'),
 }: CalculateExpenseFundingParams): ExpenseFundingBreakdown {
-  const catMap = new Map(categories.map((c) => [c.id, c]));
-  const isIncome = isIncomeTransaction(expense, expense.category_id ? catMap.get(expense.category_id) : undefined);
+  const isIncome = isIncomeTransaction(expense);
   const isTransfer = isSelfTransferClass(expense);
   const amount = Number(expense.amount) || 0;
 
@@ -95,7 +91,6 @@ export function calculateExpenseFunding({
   const expenses = allExpenses.some((e) => e.id === expense.id) ? allExpenses : [...allExpenses, expense];
   const waterfall = computeWaterfallFromState({
     expenses,
-    categories,
     deposits,
     isBudgetModeEnabled,
     isAutoRenew,

@@ -37,7 +37,7 @@ describe('Monthly Insights Pure Analytics & Engine', () => {
       const expenses: ExpenseLike[] = [
         { id: '1', amount: 1500, expense_date: '2026-10-02', category_id: 'cat-food' },
         { id: '2', amount: 3500, expense_date: '2026-10-15', category_id: 'cat-grocery' },
-        { id: '3', amount: 50000, expense_date: '2026-10-01', category_id: 'cat-income' }, // Income
+        { id: '3', amount: 50000, expense_date: '2026-10-01', category_id: 'cat-income', type: 'income' }, // Income
         { id: '4', amount: 800, expense_date: '2026-09-30', category_id: 'cat-food' }, // September (outside)
       ];
 

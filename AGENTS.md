@@ -107,7 +107,7 @@ src/
 ├── store/        authStore, categoryStore,
 │                 expenseStore (facade; expense/ pendingQueues, syncPending, types, payload, recoveryMiddleware, moneyBack, versionProbe,
 │                   saveGuards, mutationActions (add / update / delete), loadActions, failedSyncActions),
-│                 dailyBudgetStore (facade; dailyBudget/ classifiers, deficitCheck, expenseBridge, metrics, pendingStorage, rollover, types,
+│                 dailyBudgetStore (facade; dailyBudget/ deficitCheck, expenseBridge, metrics, pendingStorage, rollover, types,
 │                   gullakActions, syncActions (syncWithExpenses / checkAndRollover / uploadPendingDailyRecords), recordActions,
 │                   planActions → planSync, pureDeficit, pendingPlan, cadenceActions, budgetModeActions,
 │                   hydrate → hydrateRemote, hydrateOffline),
@@ -199,7 +199,6 @@ Work with surgical precision and zero-breakage guarantee:
     - `planActions.ts` — User mutations, cadence transitions, and plan queues.
     - `hydrate.ts` — Supabase boot hydration and offline fast-paths.
     - `rollover.ts` — Midnight finalization and cadence rollover cycles.
-    - `classifiers.ts` — Financial direction predicates and category classification.
     - `expenseBridge.ts` — Cross-store callbacks preventing circular imports.
 - **Zero Circular Dependencies**: Submodules must receive required state or setters via parameters/callbacks; never import the parent store or peer stores directly. Cross-store wiring must strictly use explicit registration callbacks (`registerSyncCallback`, `registerExpenseGetter`, `registerExpensesLoadedGetter`, `registerStoreResetCallback`, `registerCategoryDeleteCallback`).
 
@@ -235,7 +234,7 @@ Work with surgical precision and zero-breakage guarantee:
 
 ## 8.0 Split Expenses & Money Back Invariant (`SPL-001..SPL-006`)
 - The store's `Expense.amount` is the COUNTED amount (`amount paid − money back`); `gross_amount` is the amount PAID. Anything that writes an amount back to the database or to a form (edit form, `ledger.ts`, queues) MUST use `grossAmountOf(row)`, never `amount`.
-- Money back (`transaction_class = 'recovery'`) is never income and never an expense (`isExcludedFromTotals`). Any new code that sums income by hand must use `isEligibleIncome` / `isCountedIncome` / `isExcludedFromTotals`, never a bare `=== 'self_transfer'`.
+- Money back (`transaction_class = 'recovery'`) is never income and never an expense (`isExcludedFromTotals`). Any new code that sums income by hand must use `classifyTransaction` / `isCountedIncome` / `isCountedExpense` / `isExcludedFromTotals` (they take the row only; categories never decide direction, ADR 0023), never a bare `=== 'self_transfer'`.
 - Who owes what is derived (`src/lib/splitLedger.ts`), never stored. The `expenses` list is normalised in ONE place (`src/store/expense/recoveryMiddleware.ts`); do not re-apply money back anywhere else.
 - New database columns are sent only by rows that use them (`src/store/expense/payload.ts`).
 

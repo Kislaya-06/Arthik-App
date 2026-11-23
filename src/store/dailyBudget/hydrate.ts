@@ -17,7 +17,6 @@ import { useNotificationStore } from '../notificationStore';
 import { useNetworkStore } from '../networkStore';
 import { useAuthStore } from '../authStore';
 import { getCurrentExpenses, areExpensesLoaded, areExpensesFreshFromServer } from './expenseBridge';
-import { buildCategoryClassifier, buildEligibleIncomeClassifier } from './classifiers';
 import { computeSpentByDate, computeIncomeByDate } from '../../lib/budgetCalculations';
 import {
   selfHealDefaultBudget,
@@ -211,10 +210,8 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
     // SELF-HEALING RECOVERY (Fix for OTA Update Bug where user budget was reset to 500)
     // ------------------------------------------------------------------------------------
     const currentExpenses = getCurrentExpenses();
-    const isIncomeFn = buildCategoryClassifier();
-    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
-    const spentByDate = computeSpentByDate(currentExpenses, isIncomeFn);
-    const incomeByDate = computeIncomeByDate(currentExpenses, isEligibleIncomeFn);
+    const spentByDate = computeSpentByDate(currentExpenses);
+    const incomeByDate = computeIncomeByDate(currentExpenses);
 
     resolvedBudget = selfHealDefaultBudget({
       resolvedBudget,

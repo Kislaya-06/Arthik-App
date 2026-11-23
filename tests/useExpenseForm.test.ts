@@ -632,9 +632,11 @@ describe('useExpenseForm (the add / edit income-expense form)', () => {
       expect(mocks.addExpense).toHaveBeenCalledTimes(1);
     });
 
-    it('an income category (legacy rows without a type) counts as income, not as spending', () => {
+    it('the type decides, never the category name: a row without a type counts as spending (TXN-002 retired)', () => {
       useCategoryStore.setState({ categories: [...CATS, { id: 'sal', user_id: 'u', name: 'Salary', icon: 'x', color: '#000', is_default: true }] });
       useExpenseStore.setState({ expenses: [{ id: 'old', user_id: 'u', amount: 900, category_id: 'sal', payment_mode: 'upi', expense_date: '2026-10-01' }] });
+      expect(setup().r().vaultLiquidity.totalVaultLiquidity).toBe(-900);
+      useExpenseStore.setState({ expenses: [{ id: 'new', user_id: 'u', amount: 900, type: 'income', category_id: 'sal', payment_mode: 'upi', expense_date: '2026-10-01' }] });
       expect(setup().r().vaultLiquidity.totalVaultLiquidity).toBe(900);
     });
   });

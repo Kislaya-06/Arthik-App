@@ -52,13 +52,13 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | ADR | Title | Status |
 |---|---|---|
 | [0001](adr/0001-offline-first-asyncstorage-write-path.md) | Offline-First Architecture with AsyncStorage Queues | Active |
-| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income Inferred from Category Keywords | Legacy (amended by 0008; keyword path is inert, `TXN-002`) |
+| [0002](adr/0002-income-inferred-from-category-keywords.md) | Income Inferred from Category Keywords | Retired (keyword path removed by 0023, `TXN-002`) |
 | [0003](adr/0003-zustand-stores-as-sole-data-access-layer.md) | Zustand Stores as the Sole Data-Access Layer | Active |
 | [0004](adr/0004-supabase-anon-key-and-user-scoped-rls.md) | Supabase Anon Key and User-Scoped Row-Level Security | Active |
 | [0005](adr/0005-cross-store-wiring-via-registration-callbacks.md) | Cross-Store Wiring via Explicit Registration Callbacks | Active |
 | [0006](adr/0006-ota-updates-tied-to-app-version.md) | Over-The-Air Updates Tied to App Version Policy | Active |
 | [0007](adr/0007-income-classification-divergence.md) | Dual-Engine Income Classification Divergence | **Superseded by 0008** |
-| [0008](adr/0008-unified-income-classification.md) | Unified Income Classification via isIncomeTransaction | Active |
+| [0008](adr/0008-unified-income-classification.md) | Unified Income Classification via isIncomeTransaction | **Superseded by 0023** |
 | [0009](adr/0009-vitest-unit-test-coverage.md) | Vitest Unit Test Coverage for Store & Library Seams | Active |
 | [0010](adr/0010-budget-cadence-periods.md) | Multi-Cadence Budget Modes and Period Engine | Active (D4 superseded by 0011, amended by 0012) |
 | [0011](adr/0011-zero-proration-and-digital-vault-spending-guard.md) | Zero-Proration Policy and Digital Vault Spending Guard | Active (amended by 0012) |
@@ -73,13 +73,14 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0020](adr/0020-transform-only-pills-and-commit-after-landing.md) | Transform-Only Pills, Commit After Landing, and the Touch Fence | Active |
 | [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Size Ladder (60 / 48 / 36), Scrim | Active |
 | [0022](adr/0022-money-scope-module.md) | Money Scope Module: Screens Get Card Figures from `src/money` Only | Active |
+| [0023](adr/0023-one-transaction-classifier.md) | One Transaction Classifier, No Categories (TXN-002 Retired) | Active |
 
 ---
 
 ## 3. How to Add a New ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0022` (i.e. `0023`).
+2. Next available number after `0023` (i.e. `0024`).
 3. Standard sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the new ADR supersedes an older one, mark `## Status: Superseded by NNNN` in the old ADR.
 5. Register the new ADR in the table above and in `docs/architecture.md §13`.

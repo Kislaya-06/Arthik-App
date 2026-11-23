@@ -1,6 +1,5 @@
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
-import { useCategoryStore } from '../categoryStore';
 import { useAuthStore } from '../authStore';
 import { isCountedIncome } from '../../lib/transactionUtils';
 import { round2 } from '../../lib/formatters';
@@ -23,10 +22,6 @@ import {
   evaluateDayStatus,
   DailyRecord,
 } from '../../lib/budgetCalculations';
-import {
-  buildCategoryClassifier,
-  buildEligibleIncomeClassifier,
-} from './classifiers';
 import { getCurrentExpenses } from './expenseBridge';
 import { isExcludedFromTotals } from '../../lib/transactionUtils';
 import type {
@@ -124,7 +119,6 @@ export const runWaterfall = (
   const todayStr = getTodayDateStr();
   return computeWaterfallFromState({
     expenses: overrides?.expenses ?? getCurrentExpenses(),
-    categories: useCategoryStore.getState().categories,
     deposits: overrides?.deposits ?? st.gullakDeposits ?? [],
     isBudgetModeEnabled: st.isBudgetModeEnabled,
     isAutoRenew: st.isAutoRenew,
@@ -187,9 +181,8 @@ export const computeMetrics = (
 
   let incomeAvail = availableIncome;
   if (incomeAvail === undefined) {
-    const isIncomeFn = buildCategoryClassifier();
     const totalIncome = getCurrentExpenses().reduce(
-      (sum, e) => sum + (isCountedIncome(e, undefined) && isIncomeFn(e) ? Number(e.amount) || 0 : 0),
+      (sum, e) => sum + (isCountedIncome(e) ? Number(e.amount) || 0 : 0),
       0
     );
     const incomeDeposits =
@@ -233,8 +226,6 @@ export const computeMetrics = (
   let totalAccumulatedSavings = rawAccumulatedSavings;
 
   if (expensesList && expensesList.length > 0) {
-    const isIncomeFn = buildCategoryClassifier();
-    const isEligibleIncomeFn = buildEligibleIncomeClassifier();
 
     const st = storeGetter ? storeGetter() : null;
     const currentPlanChanges = st ? st.planChanges : [];
@@ -242,7 +233,7 @@ export const computeMetrics = (
     const allTimeBudget = computeAllTimeBudget(
       records,
       currentPlanChanges,
-      computeSpentByDate(expensesList, isIncomeFn),
+      computeSpentByDate(expensesList),
       budgetPeriods
     );
 
@@ -254,8 +245,8 @@ export const computeMetrics = (
       if (amt <= 0) continue;
       // TXN-003: self-transfers (either leg) are never income and never spent.
       if (isExcludedFromTotals(e)) continue;
-      if (isIncomeFn(e)) {
-        if (isEligibleIncomeFn(e)) allTimeIncome += amt;
+      if (isCountedIncome(e)) {
+        allTimeIncome += amt;
       } else {
         allTimeSpent += amt;
       }
@@ -358,7 +349,7 @@ export const computeCarryableAmount = (st: DailyBudgetState, expenses?: Expense[
     const pools = buildBudgetPools(plans, todayStr);
     const pool = pools[poolKeyFor(owner, todayStr)];
     if (!pool || pool.closedOn) return 0;
-    const spentByDate = computeSpentByDate(expenses ?? getCurrentExpenses(), buildCategoryClassifier());
+    const spentByDate = computeSpentByDate(expenses ?? getCurrentExpenses());
     const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
     const poolLeft = Math.max(0, pool.budget - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate));
     const futureCarry = periodCarryRemaining(plans, todayStr);
@@ -370,13 +361,11 @@ export const computeCarryableAmount = (st: DailyBudgetState, expenses?: Expense[
 export const computeTotalAccountRemaining = (st: DailyBudgetState, expenses?: Expense[]): number => {
   const records = st.dailyRecords || {};
   const expensesList = expenses ?? getCurrentExpenses();
-  const isIncomeFn = buildCategoryClassifier();
-  const isEligibleIncomeFn = buildEligibleIncomeClassifier();
 
   const budget = computeAllTimeBudget(
     records,
     st.planChanges,
-    computeSpentByDate(expensesList, isIncomeFn),
+    computeSpentByDate(expensesList),
     st.budgetPeriods
   );
 
@@ -387,8 +376,8 @@ export const computeTotalAccountRemaining = (st: DailyBudgetState, expenses?: Ex
     if (amt <= 0) continue;
     // TXN-003: self-transfers (either leg) are never income and never spent.
     if (isExcludedFromTotals(e)) continue;
-    if (isIncomeFn(e)) {
-      if (isEligibleIncomeFn(e)) income += amt;
+    if (isCountedIncome(e)) {
+      income += amt;
     } else {
       spent += amt;
     }
@@ -404,11 +393,10 @@ export const computeGrossIncomeBalance = (
   deposits: GullakDeposit[] = [],
   expenses?: Expense[]
 ): number => {
-  const catMap = new Map(useCategoryStore.getState().categories.map((c) => [c.id, c]));
   const totalIncome = (expenses ?? getCurrentExpenses()).reduce(
     (sum, e) =>
       sum +
-      (isCountedIncome(e, e.category_id ? catMap.get(e.category_id) : undefined)
+      (isCountedIncome(e)
         ? Number(e.amount) || 0
         : 0),
     0

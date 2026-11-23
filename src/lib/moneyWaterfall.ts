@@ -351,19 +351,16 @@ export interface RawExpenseLike {
 }
 
 export function classifyForWaterfall(
-  expenses: RawExpenseLike[],
-  categories: Array<{ id: string; name?: string }> = []
+  expenses: RawExpenseLike[]
 ): WaterfallTx[] {
-  const catMap = new Map(categories.map((c) => [c.id, c]));
   const out: WaterfallTx[] = [];
   for (const e of expenses) {
     const date = e.expense_date?.split('T')[0]?.trim();
     const amount = Number(e.amount) || 0;
     if (!date || amount <= 0) continue;
-    const cat = e.category_id ? catMap.get(e.category_id) : undefined;
     let kind: WaterfallKind | null = null;
-    if (isCountedIncome(e, cat)) kind = 'income';
-    else if (isCountedExpense(e, cat)) kind = 'expense';
+    if (isCountedIncome(e)) kind = 'income';
+    else if (isCountedExpense(e)) kind = 'expense';
     if (!kind) continue; // self-transfers: neither income nor expense
     out.push({
       id: e.id,
@@ -378,7 +375,6 @@ export function classifyForWaterfall(
 
 export interface WaterfallFromStateParams extends PoolResolverParams {
   expenses: RawExpenseLike[];
-  categories?: Array<{ id: string; name?: string }>;
   deposits?: IncomeDepositLike[];
   excludeExpensesFrom?: string;
   ungovernedAsOverspend?: boolean;
@@ -426,7 +422,7 @@ export function computeWaterfallFromState(p: WaterfallFromStateParams): Waterfal
 function computeWaterfallUncached(p: WaterfallFromStateParams): WaterfallResult {
   const pools = buildBudgetPools(p.planChanges || [], p.todayStr);
   return computeMoneyWaterfall({
-    txs: classifyForWaterfall(p.expenses, p.categories),
+    txs: classifyForWaterfall(p.expenses),
     deposits: p.deposits,
     resolvePool: buildPoolResolver(p, pools),
     pureEndPools: Object.values(pools).filter((x) => x.endsInPure),

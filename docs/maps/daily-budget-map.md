@@ -6,7 +6,6 @@
 > - Types & Interfaces: `src/store/dailyBudget/types.ts`
 > - Offline Pending Storage: `src/store/dailyBudget/pendingStorage.ts`
 > - Cross-Store Expense Bridge: `src/store/dailyBudget/expenseBridge.ts`
-> - Category Map Classifiers: `src/store/dailyBudget/classifiers.ts`
 > - Metrics & Waterfall: `src/store/dailyBudget/metrics.ts`
 > - Rollover Engine: `src/store/dailyBudget/rollover.ts`
 > - Supabase Hydration Coordinator: `src/store/dailyBudget/hydrate.ts` (+ `hydrateRemote.ts` remote fetch and Gullak merge, `hydrateOffline.ts` offline patch, pending-settings read, plan activation)
@@ -26,7 +25,7 @@ Every function and helper associated with `src/store/dailyBudgetStore.ts` is cat
 | # | Function / Export | Canonical Implementation Module | Category | Description |
 |---|---|---|---|---|
 | 1 | `registerExpenseGetter`, `getCurrentExpenses` | `src/store/dailyBudget/expenseBridge.ts` | **CROSS-STORE** | Bridge callbacks linking `expenseStore` data to budget calculations without circular imports. |
-| 2 | `buildCategoryClassifier`, `buildEligibleIncomeClassifier` | `src/store/dailyBudget/classifiers.ts` | **CROSS-STORE** | In-memory Category map classifiers delegating directly to `isIncomeTransaction(e, cat)`. |
+| 2 | (removed, ADR 0023) | — | — | The category-map classifiers are gone: the spent and income helpers ask `classifyTransaction` themselves, so the budget engine no longer reads the category store. |
 | 3 | `getPendingSettingsKey`, `savePendingSettingsOffline`, `clearPendingSettingsOffline` | `src/store/dailyBudget/pendingStorage.ts` | **STORAGE** | AsyncStorage offline queues for pending budget, Gullak, and plan change mutations. |
 | 4 | `getTodayDateStr`, `computeMetrics`, `runWaterfall`, balance selectors | `src/store/dailyBudget/metrics.ts` | **METRICS** | Local time date strings, waterfall calculations, carryable funds, and available income selectors. `runWaterfall` goes through `computeWaterfallFromState`, which reuses a recent result when every input is the same reference (pure function, immutable store data, `tests/waterfallCache.test.ts`). |
 | 5 | `applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods` | `src/store/dailyBudget/rollover.ts` | **ROLLOVER** | Midnight day evaluation, daily savings finalization, and weekly/monthly cycle rollovers. |
@@ -89,30 +88,15 @@ A day's budget is derived according to three distinct tiers:
 
 ### 2.2 How "Spent" is Computed and Excluded Transactions
 
-The computation of spent delegates to pure helpers `computeSpentForDate` and `computeSpentByDate` in `src/lib/budgetCalculations.ts` using `isIncomeFn = buildCategoryClassifier()`:
+The computation of spent delegates to pure helpers `computeSpentForDate` and `computeSpentByDate` in `src/lib/budgetCalculations.ts` (income: `computeIncomeForDate` / `computeIncomeByDate`). They take the expense list only (ADR 0023):
 
-- In `syncWithExpenses`:
-  ```ts
-  const isIncomeFn = buildCategoryClassifier();
-  const todaySpent = computeSpentForDate(expenses, todayStr, isIncomeFn);
-  ```
-- In `checkAndRollover` and `hydrateFromSupabase`:
-  ```ts
-  const isIncomeFn = buildCategoryClassifier();
-  const spentByDate = computeSpentByDate(expenses, isIncomeFn);
-  ```
+- In `syncWithExpenses`: `computeSpentForDate(expenses, todayStr)`
+- In `checkAndRollover` and `hydrateFromSupabase`: `computeSpentByDate(expenses)`
 
-Inside `computeSpentForDate` and `computeSpentByDate`, each expense is inspected via the extracted predicate `extractDateAndAmount(e, isIncomeFn)`:
-```ts
-const isIncome = isIncomeFn ? isIncomeFn(e) : isIncomeTransaction(e);
-if (isIncome) return null;
-const cleanDate = e.expense_date?.split('T')[0]?.trim();
-if (!cleanDate) return null;
-const amount = Number(e.amount) || 0;
-```
+Inside them, each row goes through `extractNonIncomeExpense(e)`: it counts only when `isCountedExpense(e)` is true and the row has a clean date.
 
 **Excluded Transactions**:
-1. **Income Transactions**: Excluded if `isIncomeFn(e)` evaluates to `true`, which uses `buildCategoryClassifier()` to look up the transaction's category from `useCategoryStore` and delegate directly to `isIncomeTransaction(e, cat)` (checks explicit `type` first, then category name keywords).
+1. **Income, self-transfers and money back**: excluded because `isCountedExpense(e)` is false for them (`classifyTransaction`: the `type` decides, `TXN-001`; the class decides transfers and money back, `TXN-003` / `SPL-003`).
 2. **Date Mismatches**: Excluded if `cleanDate !== targetDate`.
 3. **Pre-Registration Transactions**:
    - In `calculateSavingsMetrics`: `if (userCreatedAt && r.date < userCreatedAt) return;`
@@ -288,7 +272,7 @@ The following table documents every location in the modular daily budget submodu
 
 ## 4. Income Classification & Startup Order
 
-- One classifier everywhere (ADR 0008): `src/store/dailyBudget/classifiers.ts` builds `buildCategoryClassifier` / `buildEligibleIncomeClassifier` from `src/lib/incomeClassifier.ts`, which delegate to `isIncomeTransaction(e, cat)` (`src/lib/transactionUtils.ts`). The `type` column decides; category keywords only matter for legacy untyped rows (`TXN-002`). The eligible classifier also leaves out self-transfers (`TXN-003`) and money back (`SPL-003`).
+- One classifier everywhere (ADR 0023): `classifyTransaction(row)` in `src/lib/transactionUtils.ts`; totals ask `isCountedIncome` / `isCountedExpense`. The `type` column decides; a row without `type` is spending (`TXN-002`). Self-transfers (`TXN-003`) and money back (`SPL-003`) are neither income nor spending.
 - Categories must be in memory before `hydrateFromSupabase` runs `checkAndRollover`. The offline-first start (`src/lib/startupLoad.ts`, `OFL-001`) loads the saved categories first, then refreshes in the background: `fetchCategories(true)` → `fetchExpenses` + `hydrateFromSupabase` in parallel. See [`architecture.md` §5](../architecture.md).
 
 ---

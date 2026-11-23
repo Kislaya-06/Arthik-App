@@ -48,7 +48,7 @@ const CategoryExpenseItem: React.FC<CategoryExpenseItemProps> = React.memo(({
   isDark,
   onPress,
 }) => {
-  const isIncome = isIncomeTransaction(item, category);
+  const isIncome = isIncomeTransaction(item);
   const handlePress = useCallback(() => onPress(item.id), [onPress, item.id]);
   return (
     <TransactionRow
@@ -96,7 +96,7 @@ export const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => 
   [expenses, categoryId, startDate, endDate]);
 
   const totalSpent = useMemo(
-    () => sumCountedSpending(categoryExpenses, category ? [category] : []),
+    () => sumCountedSpending(categoryExpenses),
     [categoryExpenses, category]
   );
 

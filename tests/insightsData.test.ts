@@ -28,7 +28,7 @@ describe('Insights Screen - Expense Aggregation Logic', () => {
       payment_mode: 'cash' | 'upi' | 'card';
       type?: string;
     }>,
-    categories: Array<{ id: string; name: string }>,
+    _categories: Array<{ id: string; name: string }>,
     period: 'Weekly' | 'Monthly' | 'Yearly',
     referenceNow: Date
   ) {
@@ -50,8 +50,7 @@ describe('Insights Screen - Expense Aggregation Logic', () => {
     const catTotals: Record<string, number> = {};
 
     for (const exp of expenses) {
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp)) continue;
 
       const cleanDate = exp.expense_date?.split('T')[0]?.trim();
       if (!cleanDate) continue;
@@ -70,8 +69,7 @@ describe('Insights Screen - Expense Aggregation Logic', () => {
       if (!exp.expense_date) continue;
       const cleanDate = exp.expense_date.split('T')[0]?.trim();
       if (!cleanDate) continue;
-      const cat = exp.category_id ? categories.find((c) => c.id === exp.category_id) : undefined;
-      if (isIncomeTransaction(exp, cat)) continue;
+      if (isIncomeTransaction(exp)) continue;
       if (!earliest || cleanDate < earliest) {
         earliest = cleanDate;
       }
@@ -243,8 +241,7 @@ describe('Insights Screen - Expense Aggregation Logic', () => {
       monthly.currentInterval.start,
       monthly.currentInterval.end,
       expenses,
-      [],
-      (exp) => exp.type === 'income'
+      []
     );
     expect(cashFlow.weeks).toHaveLength(4);
     expect(cashFlow.weeks[0].subLabel).toBe('1–7');
