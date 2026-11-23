@@ -395,4 +395,5 @@ Tests live in `tests/<subject>.test.ts`; the file name says what it covers. Run 
 | [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Heights, Scrim | Active |
 | [0022](adr/0022-money-scope-module.md) | Money Scope Module: Screens Get Card Figures from `src/money` Only | Active |
 | [0023](adr/0023-one-transaction-classifier.md) | One Transaction Classifier, No Categories (TXN-002 Retired) | Active |
+| [0024](adr/0024-architecture-review-candidates-not-pursued.md) | Architecture Review Candidates Not Pursued (Expense Sync, Budget Period, Insights Data) | Active |
 
