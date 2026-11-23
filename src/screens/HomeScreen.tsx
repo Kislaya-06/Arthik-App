@@ -34,14 +34,13 @@ import { isSameWeek } from 'date-fns/isSameWeek';
 import { isSameMonth } from 'date-fns/isSameMonth';
 import { isSameDay } from 'date-fns/isSameDay';
 import { HeroDetailsSheet } from '../components/HeroDetailsSheet';
-import { buildHeroDetails, heroDetailsTitle, moneyBackInRows, autoSavedInScope, withTillToday } from '../lib/heroDetails';
-import { FILTERS, Filter, filterExpenses } from '../lib/expenseFilters';
-import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate, selectRecentTransactions } from '../lib/homeCalculations';
+import { buildHeroDetails, heroDetailsTitle, withTillToday } from '../lib/heroDetails';
+import { FILTERS, Filter } from '../lib/expenseFilters';
+import { selectRecentTransactions } from '../lib/homeCalculations';
 import { dailyCarryForDate } from '../lib/budgetPeriods';
 import { carryCoverCopy } from '../lib/notificationPolicy';
-import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
-import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
-import { isDateInPeriod, FilterPeriod } from '../lib/dateFilters';
+import { heroMoney } from '../money/scopeMoney';
+import { useMoneySnapshot } from '../hooks/useMoneySnapshot';
 import { useAuthStore } from '../store/authStore';
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore, Category } from '../store/categoryStore';
@@ -52,9 +51,6 @@ import { shouldShowHomeNetworkPill } from '../lib/homeNetworkPill';
 import { useNavBarStore } from '../store/navBarStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
-import { round2 } from '../lib/formatters';
-import { calculateBudgetStatus } from '../money/budgetStatus';
-import { buildLedgerEntries, spendingTotalsByDateKey } from '../money/ledger';
 import { isIncomeTransaction } from '../lib/transactionUtils';
 import { getDisplayName } from '../lib/profileUtils';
 import { useTheme } from '../store/themeStore';
@@ -134,7 +130,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [showHeroDetails, setShowHeroDetails] = useState(false);
   const lastRenewedPeriodKey = useDailyBudgetStore((s) => s.lastRenewedPeriodKey);
   const setLastRenewedPeriodKey = useDailyBudgetStore((s) => s.setLastRenewedPeriodKey);
-  const getAvailableIncomeBalance = useDailyBudgetStore((s) => s.getAvailableIncomeBalance);
   const dismissedGapDates = useDailyBudgetStore((s) => s.dismissedGapDates);
   const saveGapDaysToGullak = useDailyBudgetStore((s) => s.saveGapDaysToGullak);
   const dismissGapDays = useDailyBudgetStore((s) => s.dismissGapDays);
@@ -312,16 +307,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [gapDays, dismissGapDays]);
 
-  const filtered = useMemo(
-    () => filterExpenses(expenses, activeFilter, referenceDate),
-    [expenses, activeFilter, referenceDate]
-  );
-
-  const { totalIncome, totalSpent } = useMemo(
-    () => calculateExpenseTotals(filtered, catMap),
-    [filtered, catMap]
-  );
-
   const recentTx = useMemo(
     () => selectRecentTransactions(expenses, gullakDeposits, 5),
     [expenses, gullakDeposits]
@@ -346,33 +331,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Dot on the Ledger button while someone still owes money (SPL-002).
   const hasUnsettledSplits = useMemo(() => hasUnsettledSplitExpenses(expenses), [expenses]);
 
-  const isBudgetConfigured = isBudgetModeEnabled && isAutoRenew && dailyBudgetAmount > 0;
   const todayRecord = useMemo(
     () => getTodayRecord(),
     [getTodayRecord, dailyRecords, dailyBudgetAmount, expenses, isAutoRenew, isBudgetModeEnabled]
   );
-  const todayBudget = isBudgetConfigured ? todayRecord.budget : 0;
-  const spentByDate = useMemo(
-    () => spendingTotalsByDateKey(buildLedgerEntries(expenses, categories)),
-    [expenses, categories]
+
+  // Every hero card number for this pill, from the Money Scope module (ADR 0022): the screen only renders.
+  const moneySnapshot = useMoneySnapshot();
+  const hero = useMemo(
+    () => heroMoney(moneySnapshot, { filter: activeFilter, today: todayKey, todayRecord, userCreatedAt: userCreatedAtStr }),
+    [moneySnapshot, activeFilter, todayKey, todayRecord, userCreatedAtStr]
   );
-  // Calculate today's spent directly from the ledger for guaranteed 0-lag live reactivity
-  const todayLiveSpent = spentByDate[todayKey] || 0;
-
-  const todayRecordSpent = activeFilter === 'Daily' ? totalSpent : todayLiveSpent;
-  const todayBudgetStatus = calculateBudgetStatus(todayBudget, todayRecordSpent);
-  const todayRemaining = todayBudgetStatus.budgetLeftUnspent;
-  const isOverBudget = todayBudgetStatus.isOverBudget;
-
-  const externalDepositsInPeriod = useMemo(
-    () => getExternalDepositsInPeriod(gullakDeposits, activeFilter, referenceDate),
-    [gullakDeposits, activeFilter, referenceDate]
-  );
-
-  const cadencePeriodSummary = useMemo(() => {
-    if (!isBudgetModeEnabled || budgetCadence === 'daily') return null;
-    return getCurrentPeriodSummary(planChanges, spentByDate, todayKey);
-  }, [isBudgetModeEnabled, budgetCadence, planChanges, spentByDate, todayKey]);
+  const {
+    todayBudget,
+    todayRecordSpent,
+    todayRemaining,
+    isOverBudget,
+    cadencePeriodSummary,
+    primaryAmount,
+    primaryLabel,
+    primarySubtext,
+    displaySpent,
+    totalAvailable,
+    isOverBudgetPeriod,
+    periodSpent,
+    periodIncome,
+    remainingIncome,
+    remainingDeposits,
+    isSpendingFromGullak,
+    gullakDrawnAmount,
+    periodBudgetPool,
+  } = hero;
 
   // Period Renewal Modal coordination
   const [renewalModalDismissed, setRenewalModalDismissed] = useState(false);
@@ -428,91 +417,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setRenewalModalDismissed(true);
   }, [currentPeriodKey, setLastRenewedPeriodKey]);
 
-  // Comprehensive financial aggregation for the Hero Summary Card (Option A: Remaining Balance Model):
-  // Directly reflects user expenses (minus) and income/allowance (plus) in real-time.
-  const availableIncomeBalance = useMemo(
-    () => (typeof getAvailableIncomeBalance === 'function' ? getAvailableIncomeBalance() : 0),
-    [getAvailableIncomeBalance, expenses, dailyRecords, gullakDeposits]
-  );
-
-  // Carried-over money inside the daily budgets (from a weekly / monthly budget): already in the old budget,
-  // so "All" must not count it twice. Also the one-line note under the hero ("Add only ₹50 today").
-  const carryCoveredByDate = useMemo(
-    () => getCarryCoveredByDate(planChanges, dailyRecords, dailyBudgetAmount, todayKey),
-    [planChanges, dailyRecords, dailyBudgetAmount, todayKey]
-  );
+  // One-line note under the hero about carried-over money ("Add only ₹50 today").
   const carryNote = useMemo(() => {
     if (!isBudgetModeEnabled) return null;
     const c = dailyCarryForDate(planChanges, (x) => dailyRecords[x]?.budget, dailyBudgetAmount, todayKey);
     if (!c || c.funded <= 0) return null;
     return carryCoverCopy({ date: todayKey, mode: c.mode, budget: c.base + c.extraBudget, funded: c.funded, toAdd: c.toAdd, remainingAfter: c.remainingAfter }).title;
   }, [isBudgetModeEnabled, planChanges, dailyRecords, dailyBudgetAmount, todayKey]);
-
-  // Money waterfall: budget first -> then income -> then Gullak (time ordered, shared with the
-  // expense detail screen and the Gullak total). Gives each pill its own real income / Gullak numbers.
-  // Memoized separately so filter pill switches do NOT re-simulate the heavy chronological lifetime waterfall!
-  const fullWaterfall = useMemo(() => {
-    return computeWaterfallFromState({
-      expenses,
-      categories,
-      deposits: gullakDeposits,
-      isBudgetModeEnabled,
-      isAutoRenew,
-      todayStr: todayKey,
-      todayBudget: dailyRecords[todayKey]?.budget,
-      dailyBudgetAmount,
-      records: dailyRecords,
-      planChanges,
-    });
-  }, [expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges]);
-
-  const scopeFunding = useMemo(() => {
-    const period: FilterPeriod | null =
-      activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
-    return summarizeScope(
-      fullWaterfall,
-      (d) => (period ? isDateInPeriod(d, period, referenceDate) : true),
-      activeFilter === 'All'
-    );
-  }, [fullWaterfall, activeFilter, referenceDate]);
-
-  const {
-    primaryAmount,
-    primaryLabel,
-    primarySubtext,
-    displaySpent,
-    totalAvailable,
-    isOverBudgetPeriod,
-    periodSpent,
-    periodIncome,
-    remainingIncome,
-    remainingDeposits,
-    isSpendingFromGullak,
-    gullakDrawnAmount,
-    periodBudgetPool,
-  } = useMemo(
-    () =>
-      calculatePeriodSummary({
-        activeFilter,
-        dailyBudgetAmount,
-        isAutoRenew: isBudgetModeEnabled && isAutoRenew,
-        todayBudget,
-        dailyRecords,
-        totalIncome,
-        totalSpent,
-        filtered,
-        userCreatedAtStr,
-        referenceDate,
-        externalDepositsInPeriod,
-        planChanges,
-        todaySpent: todayRecordSpent,
-        spentByDate,
-        availableIncomeBalance,
-        funding: { incomeRemaining: scopeFunding.incomeRemaining, gullakDrawn: scopeFunding.gullakDrawn },
-        carryCoveredByDate,
-      }),
-    [carryCoveredByDate, scopeFunding, activeFilter, todayBudget, dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, dailyRecords, totalIncome, totalSpent, filtered, userCreatedAtStr, todayKey, externalDepositsInPeriod, planChanges, todayRecordSpent, spentByDate, availableIncomeBalance]
-  );
 
   // Date range label shown below filter pills for quick orientation
   const filterDateLabel = useMemo(() => {
@@ -551,35 +462,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (!showHeroDetails || !isBudgetModeEnabled) {
       return { sections: [], totalSpent: periodSpent };
     }
-    const period: FilterPeriod | null =
-      activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
-    const inScope = (d: string) => (period ? isDateInPeriod(d, period, referenceDate) : true);
-
-    const activeBudgetLeft =
-      activeFilter === 'Daily' || activeFilter === 'All' || (isBudgetModeEnabled && budgetCadence === 'daily')
-        ? todayRemaining
-        : undefined;
-
-    const totalRemainingBalance = isOverBudgetPeriod ? 0 : primaryAmount;
-    const unspentInflowLeft =
-      activeFilter === 'All'
-        ? Math.min(periodIncome, Math.max(0, round2(totalRemainingBalance - (todayRemaining || 0) - (totalAccumulatedSavings || 0))))
-        : undefined;
-
     return buildHeroDetails({
       isBudgetMode: isBudgetModeEnabled,
       budgetGiven: periodBudgetPool,
       spent: periodSpent,
       incomeReceived: periodIncome,
       incomeLeft: remainingIncome ?? 0,
-      moneyBack: moneyBackInRows(filtered),
-      gullakAdded: round2(externalDepositsInPeriod + autoSavedInScope(dailyRecords, budgetPeriods, inScope)),
+      moneyBack: hero.details.moneyBack,
+      gullakAdded: hero.details.gullakAdded,
       gullakDrawn: gullakDrawnAmount ?? 0,
       gullakNow: activeFilter === 'All' ? totalAccumulatedSavings : null,
-      activeBudgetLeft,
-      unspentInflowLeft,
+      activeBudgetLeft: hero.details.activeBudgetLeft,
+      unspentInflowLeft: hero.details.unspentInflowLeft,
     });
-  }, [showHeroDetails, activeFilter, referenceDate, isBudgetModeEnabled, periodBudgetPool, periodSpent, periodIncome, remainingIncome, filtered, externalDepositsInPeriod, dailyRecords, budgetPeriods, gullakDrawnAmount, totalAccumulatedSavings, todayRemaining, budgetCadence, primaryAmount, isOverBudgetPeriod]);
+  }, [showHeroDetails, activeFilter, isBudgetModeEnabled, periodBudgetPool, periodSpent, periodIncome, remainingIncome, hero.details, gullakDrawnAmount, totalAccumulatedSavings]);
 
   // ─── Pull to History ───────────────────────────────────────────────────────
   // Fired by PullToHistoryList only AFTER the finger is lifted with the ring full.

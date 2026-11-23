@@ -72,13 +72,14 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0019](adr/0019-income-categories.md) | Income Categories and Required Category on Review | Active |
 | [0020](adr/0020-transform-only-pills-and-commit-after-landing.md) | Transform-Only Pills, Commit After Landing, and the Touch Fence | Active |
 | [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Size Ladder (60 / 48 / 36), Scrim | Active |
+| [0022](adr/0022-money-scope-module.md) | Money Scope Module: Screens Get Card Figures from `src/money` Only | Active |
 
 ---
 
 ## 3. How to Add a New ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0021` (i.e. `0022`).
+2. Next available number after `0022` (i.e. `0023`).
 3. Standard sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the new ADR supersedes an older one, mark `## Status: Superseded by NNNN` in the old ADR.
 5. Register the new ADR in the table above and in `docs/architecture.md §13`.

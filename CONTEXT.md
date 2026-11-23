@@ -286,6 +286,11 @@ A structured period window (`BudgetPeriodRecord`) representing an active or fina
 - *Code location*: `src/types/index.ts` (`BudgetPeriodRecord`), `src/lib/periods/finalize.ts` (`buildPeriodsToFinalize`), `src/lib/periods/periodSummary.ts` (`getCurrentPeriodSummary`), `src/store/dailyBudgetStore.ts` (`budgetPeriods`)
 - *_Avoid_*: Cycle, Budget Block, Spending Window
 
+**Money Scope**:
+The time window a money card's figures are computed for: All time, today, this week, this month (the Home pills), or the running Budget Period (the Savings allowance card). Every figure on one card (spent, income, budget, remaining, Gullak in / out, who paid an overspend) belongs to the same Money Scope.
+- *Code location*: `src/money/scopeMoney.ts` (`heroMoney`, `allowanceCardMoney`), `src/hooks/useMoneySnapshot.ts`
+- *_Avoid_*: Filter range, Card period, Pill window
+
 **Active Slice**:
 The continuous date interval `[activeStart, activeEnd]` within a calendar period during which a specific budget plan was active. Slices prevent overlapping, account for mid-period plan switches, and ensure no day or rupee is double-counted.
 - *Code location*: `src/lib/periods/finalize.ts` (`PeriodSlice`, built inside `buildPeriodsToFinalize`)

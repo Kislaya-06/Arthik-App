@@ -46,6 +46,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Navigation** | Screen routing, typed params | `src/navigation/index.tsx`, `src/navigation/navigationRef.ts`, `src/types/index.ts` |
 | **Screens** | UI render + dispatch store actions | `src/screens/**` (including `LedgerScreen.tsx`), `src/screens/insights/**`, `src/screens/autolog/**` |
 | **Stores** | Business logic, Supabase I/O, offline queues, derived state | `src/store/**`, `src/store/expense/**`, `src/store/dailyBudget/**` |
+| **Money** | Turns stored rows into the numbers a card shows; Money Scope = every Home hero / Savings allowance card figure from one call (ADR 0022) | `src/money/**` (`scopeMoney.ts`, `ledger.ts`, …), `src/hooks/useMoneySnapshot.ts` |
 | **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` (including `heroDetails.ts`, `splitLedger.ts`, `gapFiller.ts`, `streakCalendarData.ts`, `asyncStorageList.ts`) |
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/split/**`, `src/components/profile/**`, `src/components/savings/**`, `HeroDetailsSheet.tsx`, `WelcomeBackGapModal.tsx`, `SplashCover.tsx` |
 | **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`, `useExpenseForm.ts`) |
@@ -393,4 +394,5 @@ Tests live in `tests/<subject>.test.ts`; the file name says what it covers. Run 
 | [0019](adr/0019-income-categories.md) | Income Categories and Required Category on Review | Active |
 | [0020](adr/0020-transform-only-pills-and-commit-after-landing.md) | Transform-Only Pills, Commit After Landing, and the Touch Fence | Active |
 | [0021](adr/0021-ui-consistency-contract.md) | UI Consistency Contract: Back Button, Press Feedback, Button Heights, Scrim | Active |
+| [0022](adr/0022-money-scope-module.md) | Money Scope Module: Screens Get Card Figures from `src/money` Only | Active |
 

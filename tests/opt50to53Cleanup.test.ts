@@ -34,8 +34,10 @@ describe('OPT-50: dead files stay deleted and nothing points at them', () => {
 
   it('the waterfall ENGINE is still there and used (only the unused hook was removed)', () => {
     expect(existsSync(join(root, 'src/lib/moneyWaterfall.ts'))).toBe(true);
-    expect(read('src/screens/HomeScreen.tsx')).toMatch(/lib\/moneyWaterfall/);
-    expect(read('src/screens/SavingsScreen.tsx')).toMatch(/lib\/moneyWaterfall/);
+    // ADR 0022: the screens reach the engine through the Money Scope module.
+    expect(read('src/money/scopeMoney.ts')).toMatch(/lib\/moneyWaterfall/);
+    expect(read('src/screens/HomeScreen.tsx')).toMatch(/money\/scopeMoney/);
+    expect(read('src/screens/SavingsScreen.tsx')).toMatch(/money\/scopeMoney/);
   });
 
   it('docs and the repo map no longer list them', () => {

@@ -82,7 +82,8 @@ src/
 ├── features/     autoLog/ (parser, senders, accounts, merchants, digest, autostart, matching, engine, db, service, reviews, ledger, paybackGuard, rollout, background, notificationActions,
 │                 notify, permissions, remote, store, copy, types)
 ├── config/       supabase.ts (client + env; login session stored encrypted through lib/secureSessionStorage, SEC-02), theme.ts (LightColors / DarkColors, design tokens)
-├── hooks/        useExpenseForm.ts (+ expenseForm/types.ts), useStoreWhileVisible.ts, useFormKeyboard.ts, useSavingsDashboard.ts, usePullRefresh.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts, useScrimColor.ts
+├── money/        Money Scope (ADR 0022): scopeMoney.ts (`heroMoney` = every Home hero number, `allowanceCardMoney` = the Savings allowance card) — screens get card figures only from here; ledger.ts, budgetAllowance.ts, budgetStatus.ts, overspendFunding.ts, dateKeys.ts
+├── hooks/        useMoneySnapshot.ts (store data for the Money Scope functions), useExpenseForm.ts (+ expenseForm/types.ts), useStoreWhileVisible.ts, useFormKeyboard.ts, useSavingsDashboard.ts, usePullRefresh.ts, useScrollDirection.ts, useFocusEntry.ts, useRingSweep.ts, useNavBarMetrics.ts, useScrimColor.ts
 ├── lib/          formatters.ts, paymentUtils.ts, iconUtils.ts, budgetUtils.ts, budgetPeriods.ts (facade over periods/ core, pools, carry, streak, calendar, periodSummary, finalize),
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, heroRing.ts (Home ring real % + second lap, UX-004), moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,

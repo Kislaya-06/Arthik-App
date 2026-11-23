@@ -28,11 +28,8 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { useSavingsDashboard } from '../hooks/useSavingsDashboard';
 import { useDailyBudgetStore, GullakDeposit, BudgetPeriodRecord } from '../store/dailyBudgetStore';
-import { useExpenseStore } from '../store/expenseStore';
-import { useCategoryStore } from '../store/categoryStore';
-import { getCurrentPeriodSummary } from '../lib/budgetPeriods';
-import { computeWaterfallFromState, summarizeScope } from '../lib/moneyWaterfall';
-import { buildLedgerEntries, spendingTotalsByDateKey } from '../money/ledger';
+import { allowanceCardMoney } from '../money/scopeMoney';
+import { useMoneySnapshot } from '../hooks/useMoneySnapshot';
 import { isDateInPeriod } from '../lib/dateFilters';
 import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { BudgetEditModal } from '../components/BudgetEditModal';
@@ -74,8 +71,6 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const dashboard = useSavingsDashboard();
   const {
     totalAccumulatedSavings,
-    dailyBudgetAmount,
-    isAutoRenew,
     effectiveStreak,
     effectiveBestStreak,
     savedDaysCount,
@@ -110,8 +105,6 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   const planChanges = useDailyBudgetStore((s) => s.planChanges);
   const getPendingPlanChange = useDailyBudgetStore((s) => s.getPendingPlanChange);
   const cancelPendingPlanChange = useDailyBudgetStore((s) => s.cancelPendingPlanChange);
-  const expenses = useExpenseStore((s) => s.expenses);
-  const categories = useCategoryStore((s) => s.categories);
 
   const pendingPlanChange = useMemo(() => getPendingPlanChange(), [getPendingPlanChange, planChanges]);
   const isScheduledSwitch = Boolean(pendingPlanChange && pendingPlanChange.isEnabled !== isBudgetModeEnabled);
@@ -247,27 +240,17 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
 
   const hasMoreRecords = unifiedList.length > visibleRecordsCount;
 
-  const {
-    budget: todayBudget,
-    spent: todaySpent,
-    remaining: todayRemaining,
-    isOverBudget,
-    overAmount,
-  } = todayMetrics;
-
-  const spentByDate = useMemo(
-    () => spendingTotalsByDateKey(buildLedgerEntries(expenses, categories)),
-    [expenses, categories]
-  );
+  const { isOverBudget } = todayMetrics;
 
   const todayKey = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
-  const cadencePeriodSummary = useMemo(() => {
-    if (!isBudgetModeEnabled || budgetCadence === 'daily') return null;
-    return getCurrentPeriodSummary(planChanges, spentByDate, todayKey);
-  }, [isBudgetModeEnabled, budgetCadence, planChanges, spentByDate, todayKey]);
-
-  const isCadenceMode = isBudgetModeEnabled && budgetCadence !== 'daily';
+  // The card's numbers come from the Money Scope module (ADR 0022): running budget period or today.
+  const moneySnapshot = useMoneySnapshot();
+  const card = useMemo(
+    () => allowanceCardMoney(moneySnapshot, { today: todayKey, todayMetrics }),
+    [moneySnapshot, todayKey, todayMetrics]
+  );
+  const { cadencePeriodSummary } = card;
 
   const cardTitle = useMemo(() => {
     if (budgetCadence === 'weekly') return 'Weekly Allowance';
@@ -296,31 +279,13 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
     return format(new Date(), 'd MMM');
   }, [budgetCadence, cadencePeriodSummary]);
 
-  const cardBudget = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.budget : todayBudget;
-  const cardSpent = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.spent : todaySpent;
-  const cardRemaining = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.remaining : todayRemaining;
-  const cardIsOver = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.isOver : isOverBudget;
-  const cardOverAmount = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.overBy : overAmount;
-  const cardProgressRatio = cardBudget > 0 ? cardSpent / cardBudget : 0;
-
-  const allDailyRecords = useDailyBudgetStore((s) => s.dailyRecords);
-  const cardScopeFunding = useMemo(() => {
-    const waterfall = computeWaterfallFromState({
-      expenses,
-      categories,
-      deposits: gullakDeposits,
-      isBudgetModeEnabled,
-      isAutoRenew,
-      todayStr: todayKey,
-      todayBudget: allDailyRecords[todayKey]?.budget,
-      dailyBudgetAmount,
-      records: allDailyRecords,
-      planChanges,
-    });
-    const start = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodStart : todayKey;
-    const end = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodEnd : todayKey;
-    return summarizeScope(waterfall, (d) => d >= start && d <= end);
-  }, [expenses, categories, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, allDailyRecords, dailyBudgetAmount, planChanges, isCadenceMode, cadencePeriodSummary]);
+  const cardBudget = card.budget;
+  const cardSpent = card.spent;
+  const cardRemaining = card.remaining;
+  const cardIsOver = card.isOver;
+  const cardOverAmount = card.overAmount;
+  const cardProgressRatio = card.progressRatio;
+  const cardScopeFunding = card.funding;
 
   const overspendHint = useMemo(() => {
     if (!cardIsOver) {

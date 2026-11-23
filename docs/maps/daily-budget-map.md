@@ -327,10 +327,12 @@ graph TD
 2. **`src/screens/HomeScreen.tsx`**:
    - `dailyBudgetAmount`, `isAutoRenew`, `totalAccumulatedSavings`, `getTodayRecord`, `dailyRecords`, `isBudgetModeEnabled`, `budgetCadence`
    - `syncWithExpenses`, `hydratedForUserId`, `hydrateFromSupabase`
+   - Hero card numbers come from `heroMoney` (`src/money/scopeMoney.ts`, ADR 0022) over `useMoneySnapshot()`; the screen no longer wires the ledger, period summary or waterfall itself.
 3. **`src/screens/SavingsScreen.tsx`**:
    - `dailyBudgetAmount`, `weeklyBudgetAmount`, `monthlyBudgetAmount`, `isAutoRenew`, `isBudgetModeEnabled`, `totalAccumulatedSavings`, `savingsStreak`, `bestStreak`, `budgetCadence`, `planChanges`, `budgetPeriods`, `gullakDeposits`, `scheduledNextDailyBudget`
    - `toggleAutoRenew`, `setBudgetModeEnabled`, `cancelPendingPlanChange`, `cancelScheduledNextDailyBudget`, `getPendingPlanChange`, `removeGullakDeposit`, `getAvailableIncomeBalance`, `getCarryableAmount`
    - `syncWithExpenses`, `dailyRecords`, `getTodayRecord`, `getPastRecordsList` (some through `useSavingsDashboard`)
+   - Allowance card numbers (budget, spent, remaining, over, who paid the overspend) come from `allowanceCardMoney` (`src/money/scopeMoney.ts`, ADR 0022).
 4. **`src/screens/HistoryScreen.tsx`**:
    - Status badge styling, daily evaluation records, and timeline day badges.
 5. **`src/screens/InsightsScreen.tsx`**:
@@ -357,7 +359,7 @@ graph TD
 14. **`src/components/BudgetEditModal.tsx` & `src/components/DepositGullakModal.tsx`**:
     - Mutates allowance amounts and registers manual Gullak deposits.
 15. **`src/hooks/useSavingsDashboard.ts`**:
-    - Encapsulates reactive dashboard selectors and cadence metrics. (The Money Waterfall is computed by `src/lib/moneyWaterfall.ts`, called directly by `HomeScreen`, `SavingsScreen`, `metrics.ts` and others; the unused `useMoneyWaterfall` hook was removed in OPT-50.)
+    - Encapsulates reactive dashboard selectors and cadence metrics. (The Money Waterfall is computed by `src/lib/moneyWaterfall.ts`, called by `src/money/scopeMoney.ts` (Home and Savings cards), `metrics.ts` and others; the unused `useMoneyWaterfall` hook was removed in OPT-50.)
 16. **`src/store/expenseStore.ts` & `src/store/expense/syncPending.ts`**:
     - `registerExpenseGetter`, `syncWithExpenses(...)`, `uploadPendingDailyRecords()`.
 17. **`src/features/autoLog/ledger.ts`**:
