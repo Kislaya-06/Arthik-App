@@ -23,7 +23,7 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
   const ota = (manifest?.extra?.expoClient?.extra || manifest?.extra || Constants.expoConfig?.extra)?.otaUpdate;
   return {
     version: ota?.version || manifest?.runtimeVersion || Constants.expoConfig?.version || '2.1.0',
-    title: ota?.title || 'Smoother, Cleaner & More Consistent ✨',
+    title: ota?.title || 'Smarter Insights & Faster Adding ✨',
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
