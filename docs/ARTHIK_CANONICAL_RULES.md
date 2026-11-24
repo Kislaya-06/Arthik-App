@@ -364,8 +364,9 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
 - **Canonical Definition:**
   During midnight rollover, past unfinalized calendar days are evaluated against confirmed expenses, marked `isFinalized: true`, and locked. A finalized record is immutable unless the user explicitly navigates to a past date to add, edit, or delete a transaction, which re-evaluates only that specific day's status and savings.
-- **Code Enforcement:** `src/store/dailyBudget/rollover.ts` (`finalizeDailyRecords`)
-- **Verified By:** `tests/dailyBudgetRollover.test.ts`
+  **Streaks follow the records (owner decision 2026-11-25):** a backdated expense, income or money back that changes a past day's (or a weekly / monthly period's) status changes the current streak AND the best streak. The best streak of every cadence is computed from the records only; an older, larger number the records no longer show is never kept.
+- **Code Enforcement:** `src/store/dailyBudget/rollover.ts` (`finalizeDailyRecords`), `src/store/dailyBudget/metrics.ts` (`computeMetrics`)
+- **Verified By:** `tests/dailyBudgetRollover.test.ts`, `tests/streakFromRecords.test.ts`
 
 #### `ROL-003`: Multi-Cadence Period Finalization
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -459,7 +460,19 @@ This document is the **single authoritative canonical source of truth** for all 
   For users who registered mid-week or mid-month, effective budget pacing is prorated to active registered days:
   `Effective Budget = (Target Budget / Total Days) * Active Registered Days`
   Prevents false deficit or artificially skewed pacing warnings for new users.
-- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`
+  **Only real Budget Mode days count (owner decision 2026-11-25):** each active day is priced from the plan history
+  (`planChanges`) and the day's own record, never from today's rate:
+  1. A Pure Mode day (plan off) is worth ₹0.
+  2. A paused day (auto-save off) is worth ₹0, with or without spending: its record has budget 0 / status `unknown`,
+     or it falls inside the saved pause history (`profiles.allowance_pauses`, every auto-save on / off is recorded
+     from 2026-11-25; earlier pauses were never saved and cannot be recovered). While the allowance is paused right
+     now, today and the rest of the week / month are worth ₹0. Spending and income of paused / Pure Mode days still
+     show in Insights in full; only the estimated budget leaves them out.
+  3. A daily-plan day with a record uses the record's budget; without a record, the plan's daily amount.
+  4. A weekly / monthly-plan day uses that plan's per-day share (`BUD-009`).
+  5. An account with no plan history uses the current plan for every day (Pure Mode now = ₹0).
+- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`, `src/money/budgetAllowance.ts` (`dayAllowanceFromHistory`, `allowanceFromHistory`), `src/lib/allowancePauses.ts`, `src/store/dailyBudget/allowancePauseSync.ts`, `src/store/dailyBudgetStore.ts` (pause recorder), `src/screens/insights/useInsightsData.ts`
+- **Verified By:** `tests/insightsAllowanceHistory.test.ts`, `tests/allowancePauses.test.ts`, `tests/allowancePauseStore.test.ts`
 
 #### `INS-005`: Outflow Outliers, Category Shifts & Peak Patterns
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -473,11 +486,14 @@ This document is the **single authoritative canonical source of truth** for all 
 #### `INS-006`: Annual Macro Cashflow & Discipline Score
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
 - **Canonical Definition:**
+  0. **Total Inflow:** budget money of the year's active days priced by `INS-004` (Pure Mode / paused days add ₹0;
+     past Budget Mode days still count after a switch to Pure Mode, real-money rule) + counted income + external
+     Gullak deposits (owner decision 2026-11-25).
   1. **Savings Rate:** `(Net Savings / Total Inflow) * 100` (percentage of real incoming funds retained).
   2. **Daily Burn Velocity:** `Total Annual Outflow / Active Registered Days in Year` (real average daily expenditure rate).
   3. **Consistency Score:** Ratio of completed calendar months concluded within budget.
 - **Code Enforcement:** `src/lib/yearlyInsightsUtils.ts`
-- **Verified By:** `tests/yearlyInsightsData.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`
+- **Verified By:** `tests/yearlyInsightsData.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/insightsAllowanceHistory.test.ts`
 
 ---
 

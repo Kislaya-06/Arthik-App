@@ -27,6 +27,7 @@ const resolveOtaInfo = (manifest?: any): OtaUpdateInfo => {
     highlights: Array.isArray(ota?.highlights) && ota.highlights.length > 0
       ? ota.highlights
       : [
+          'Fairer Insights & Streaks: Insights no longer count your daily allowance for days you were in Pure Mode or had it paused, each day uses the amount you had set that day, your best streak now changes when you add or edit spending on a past day, and the switch on the purple Savings card is white when on',
           'A Cleaner Add Transaction: the screen is calmer and better ordered, with date, split and note together in one neat card, the amount you type shows in red for spending and green for income, every category has its own coloured icon, and the button shows exactly what you will save (like "Save ₹250"). Fixed: the Save button always keeps its size, and "Yes, always" for transfers between your own accounts now works (it asks for a short note to remember)',
           'Same-Size Buttons & Tidier Lists: Buttons now come in three fixed sizes by role (big at the bottom of pages and sheets, medium in popups and cards, small for pills like Change and See More), notification times no longer repeat the day heading, quiet savings days say "Nothing spent", and the tab bar comes back when you reach the end of a list',
           'Small Touches: Category pills fade softly at the edges, the first category chip on Add Transaction no longer looks shaded, and the empty Ledger shows a button to add an expense to split',

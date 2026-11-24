@@ -90,6 +90,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
+  const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
+  const planChanges = useDailyBudgetStore((s) => s.planChanges);
+  const allowancePauses = useDailyBudgetStore((s) => s.allowancePauses);
   const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
@@ -220,6 +223,9 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     dailyRecords,
     gullakDeposits,
     isBudgetModeEnabled,
+    isAutoRenew,
+    planChanges,
+    allowancePauses,
     budgetPeriods,
     budgetCadence,
     dailyBudgetAmount,

@@ -162,6 +162,8 @@ import { handleSetDailyBudget, handleToggleAutoRenew, handleScheduleNextDailyBud
 import { createGullakActions } from './dailyBudget/gullakActions';
 import { createSyncActions } from './dailyBudget/syncActions';
 import { createRecordActions } from './dailyBudget/recordActions';
+import { recordAutoRenewChange } from '../lib/allowancePauses';
+import { queueAllowancePauses, syncAllowancePauses } from './dailyBudget/allowancePauseSync';
 export {
   handleSetDailyBudget,
   handleToggleAutoRenew,
@@ -212,6 +214,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       lastPeriodRolloverKey: null,
       lastRenewedPeriodKey: null,
       dismissedGapDates: [],
+      allowancePauses: [],
       ...createGullakActions(set, get),
       ...createRecordActions(set, get),
 
@@ -318,6 +321,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           lastPeriodRolloverKey: null,
           lastRenewedPeriodKey: null,
           dismissedGapDates: [],
+          allowancePauses: [],
         });
         AsyncStorage.removeItem('arthik-daily-budget-storage-v2').catch(() => {});
         const prevUid = get().ownerUserId;
@@ -375,6 +379,18 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 );
 
 registerMetricsStoreGetter(useDailyBudgetStore.getState);
+
+// INS-004: every real auto-save on / off of the signed-in user (any path: pause switch, mode switch, matured plan)
+// is written into the pause history. The first hydration of a user is not a change and is skipped.
+useDailyBudgetStore.subscribe((state, prev) => {
+  if (state.isAutoRenew === prev.isAutoRenew) return;
+  const userId = state.hydratedForUserId;
+  if (!userId || prev.hydratedForUserId !== userId) return;
+  const next = recordAutoRenewChange(state.allowancePauses || [], state.isAutoRenew, getTodayDateStr());
+  if (next === state.allowancePauses) return;
+  useDailyBudgetStore.setState({ allowancePauses: next });
+  void queueAllowancePauses(userId, next).then(() => syncAllowancePauses(userId));
+});
 
 registerStoreResetCallback(() => {
   useDailyBudgetStore.getState().resetDailyBudget();

@@ -498,6 +498,14 @@ ALTER TABLE public.profiles ADD CONSTRAINT profiles_weekly_budget_non_negative C
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_monthly_budget_non_negative;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_monthly_budget_non_negative CHECK (monthly_budget >= 0);
 
+-- 12.1a: Allowance pause history (INS-004, 2026-11-25). A list of {"from": "yyyy-MM-dd", "to": "yyyy-MM-dd" | null}:
+-- the days the daily allowance was paused (auto-save off). Read only by Insights, which counts no budget for them.
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS allowance_pauses JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_allowance_pauses_is_array;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_allowance_pauses_is_array CHECK (jsonb_typeof(allowance_pauses) = 'array');
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_allowance_pauses_small;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_allowance_pauses_small CHECK (jsonb_array_length(allowance_pauses) <= 500);
+
 -- 12.2: New Table: public.budget_plan_changes (Rule Timeline & Cadence Audit Log)
 CREATE TABLE IF NOT EXISTS public.budget_plan_changes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

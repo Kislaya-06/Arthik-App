@@ -17,6 +17,10 @@
  * Callers round the result the way their screen needs (round2 for exact money, Math.round for chart bars).
  */
 import { DateKey, addDaysToDateKey, countDaysInclusive, daysInMonthOfDateKey, monthBoundsOfDateKey } from './dateKeys';
+import { resolvePlanForDate } from '../lib/periods/core';
+import type { BudgetPlanChange } from '../types';
+import type { DailyRecord } from '../lib/budgetCalculations';
+import { AllowancePause, isPausedOn } from '../lib/allowancePauses';
 
 export type BudgetCadenceName = 'daily' | 'weekly' | 'monthly';
 
@@ -91,4 +95,61 @@ export function budgetAllowedForActiveDays(
   const lastActiveDateKey =
     limits.todayDateKey && limits.todayDateKey < rangeEndDateKey ? limits.todayDateKey : rangeEndDateKey;
   return budgetAllowedBetweenDates(plan, firstActiveDateKey, lastActiveDateKey);
+}
+
+/**
+ * What Insights needs to know about the past to price each day (INS-004 / INS-006, owner decision 2026-11-25).
+ * Only the fields read here are required, so tests can pass plain objects.
+ */
+export interface AllowanceHistory {
+  planChanges: BudgetPlanChange[];
+  dailyRecords: Record<string, Pick<DailyRecord, 'budget' | 'status'>>;
+  todayKey: DateKey;
+  /** false = the allowance is paused right now: today and later days get nothing (pauses are not kept as history). */
+  isAutoRenew: boolean;
+  /** Old accounts with no plan history: the plan to use for every day. null = Pure Mode. */
+  fallbackPlan: BudgetAllowancePlan | null;
+  /** Days the allowance was paused (saved since 2026-11-25). A past day inside a pause is worth nothing. */
+  pauses?: AllowancePause[];
+}
+
+/**
+ * Budget money ONE day was really worth: the plan that ruled that day decides, never today's plan.
+ *  - Pure Mode day (plan off): 0.
+ *  - Daily day with a saved record: the record's budget (a paused day keeps budget 0; an 'unknown' day is 0).
+ *  - Paused day (inside a saved pause, or today / later while paused now): 0.
+ *  - Daily day with no record: the plan's daily amount.
+ *  - Weekly / monthly day: that plan's per-day share (BUD-009).
+ */
+export function dayAllowanceFromHistory(h: AllowanceHistory, dateKey: DateKey): number {
+  const isTodayOrLater = dateKey >= h.todayKey;
+  if (isTodayOrLater && !h.isAutoRenew) return 0;
+  if (!isTodayOrLater && isPausedOn(h.pauses, dateKey)) return 0;
+
+  if (h.planChanges.length === 0) {
+    return h.fallbackPlan ? dailyBudgetAllowanceOnDate(h.fallbackPlan, dateKey) : 0;
+  }
+  const plan = resolvePlanForDate(h.planChanges, dateKey);
+  if (!plan) return h.fallbackPlan ? dailyBudgetAllowanceOnDate(h.fallbackPlan, dateKey) : 0;
+  if (!plan.isEnabled) return 0;
+
+  const amount = Number(plan.amount) || 0;
+  if (plan.cadence === 'daily') {
+    const rec = h.dailyRecords[dateKey];
+    if (rec) return rec.status === 'unknown' ? 0 : Math.max(0, Number(rec.budget) || 0);
+    return amount;
+  }
+  return dailyBudgetAllowanceOnDate(
+    { cadence: plan.cadence, weeklyBudgetAmount: amount, monthlyBudgetAmount: amount },
+    dateKey
+  );
+}
+
+/** Sum of `dayAllowanceFromHistory` from startDateKey to endDateKey (both included). Not rounded. */
+export function allowanceFromHistory(h: AllowanceHistory, startDateKey: DateKey, endDateKey: DateKey): number {
+  let total = 0;
+  for (let d = startDateKey; d <= endDateKey; d = addDaysToDateKey(d, 1)) {
+    total += dayAllowanceFromHistory(h, d);
+  }
+  return total;
 }

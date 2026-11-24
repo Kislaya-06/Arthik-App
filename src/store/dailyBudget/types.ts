@@ -1,3 +1,4 @@
+import type { AllowancePause } from '../../lib/allowancePauses';
 import type { Expense } from '../expense/types';
 import type { DailyRecord } from '../../lib/budgetCalculations';
 import type { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord } from '../../types';
@@ -55,6 +56,8 @@ export interface DailyBudgetState {
   lastPeriodRolloverKey: string | null;
   lastRenewedPeriodKey: string | null;
   dismissedGapDates: string[];
+  /** Days the allowance was paused (INS-004). Recorded by the facade whenever auto-save turns on / off. */
+  allowancePauses: AllowancePause[];
 
   // Actions
   saveGapDaysToGullak: (gapDates: string[]) => Promise<void>;

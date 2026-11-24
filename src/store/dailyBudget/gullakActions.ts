@@ -49,8 +49,7 @@ export const createGullakActions = (
         deposits,
         userCreatedAt,
         budgetPeriods,
-        get().budgetCadence,
-        get().bestStreakByCadence
+        get().budgetCadence
       );
       set({
         dailyRecords: records,

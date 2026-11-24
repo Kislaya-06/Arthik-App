@@ -1,4 +1,5 @@
 import type { StoreApi } from 'zustand';
+import { syncAllowancePauses } from './allowancePauseSync';
 import type { Expense } from '../expense/types';
 import { getTodayDateStr, getUserCreatedAtLocalDate, isDailyOwnedDate, dailyCarryExtraFor, healZeroTodayAllowance, runWaterfall, computeMetrics } from './metrics';
 import { evaluateDayStatus, computeSpentByDate, computeSpentForDate, computeIncomeByDate, computeIncomeForDate, shouldIgnoreDuplicates } from '../../lib/budgetCalculations';
@@ -187,8 +188,7 @@ export const createSyncActions = (
         get().gullakDeposits,
         undefined,
         get().budgetPeriods,
-        get().budgetCadence,
-        get().bestStreakByCadence
+        get().budgetCadence
       );
       set({ dailyRecords: records, ...metrics });
     }
@@ -285,8 +285,7 @@ export const createSyncActions = (
       get().gullakDeposits,
       userCreatedAtStr,
       get().budgetPeriods,
-      get().budgetCadence,
-      get().bestStreakByCadence
+      get().budgetCadence
     );
 
     if (
@@ -356,5 +355,6 @@ export const createSyncActions = (
     // Also upload pending budget periods and pending plan changes
     await get().uploadPendingBudgetPeriods();
     await get().syncPendingPlanChanges();
+    await syncAllowancePauses(currentUser.id);
   },
 });

@@ -63,6 +63,14 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
   nothing changed; less work after every save; animations on the UI thread; History on a recycling list.
 
 ### Fixed
+- **Insights count only real budget days (OTA)** (`INS-004`, `INS-006`): the Weekly / Monthly budget pool and the
+  Yearly inflow no longer add the daily allowance for days you were in Pure Mode or had the allowance paused. Each day
+  uses the rate that was set that day, and past budget days still count after you switch to Pure Mode. Pauses are now
+  remembered (new `profiles.allowance_pauses` column, owner runs
+  `supabase/migrations/20261125120000_allowance_pauses.sql`), so a paused day counts no budget even with nothing spent.
+- **Streak follows past changes (OTA)** (`ROL-002`): adding, editing or getting money back on a past day's spending
+  now also updates the best streak, not only the current one.
+- **Savings card switch (OTA)**: the Budget Mode switch on the purple Savings card turns white when on, instead of green.
 - **Nothing lost offline**: every save is queued on the phone before it is sent; budget changes, Gullak deposits,
   categories and remembered transfer notes made offline always reach the server.
 - **Budget Mode start**: a scheduled switch to Budget Mode no longer leaves the first day's allowance at ₹0.

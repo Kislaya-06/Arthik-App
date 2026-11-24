@@ -171,7 +171,6 @@ export const computeMetrics = (
   userCreatedAt?: string,
   budgetPeriods?: Record<string, BudgetPeriodRecord>,
   currentCadence: BudgetCadence = 'daily',
-  existingBestStreakByCadence?: Record<BudgetCadence, number>,
   availableIncome?: number
 ) => {
   const manual =
@@ -305,10 +304,11 @@ export const computeMetrics = (
 
   const { currentStreak, bestByCadence } = computeCadenceStreak(units, currentCadence);
 
+  // Best streaks come from the records only (ROL-002): a backdated expense / money back can lower them too.
   const mergedBestByCadence: Record<BudgetCadence, number> = {
-    daily: Math.max(bestByCadence.daily, existingBestStreakByCadence?.daily || 0, dailyMetrics.bestStreak),
-    weekly: Math.max(bestByCadence.weekly, existingBestStreakByCadence?.weekly || 0),
-    monthly: Math.max(bestByCadence.monthly, existingBestStreakByCadence?.monthly || 0),
+    daily: Math.max(bestByCadence.daily, dailyMetrics.bestStreak),
+    weekly: bestByCadence.weekly,
+    monthly: bestByCadence.monthly,
   };
 
   const savingsStreak =

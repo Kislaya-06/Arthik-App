@@ -354,6 +354,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
               onValueChange={handleToggle}
               width={52}
               height={26}
+              onColor="#FFFFFF"
               offColor="#FFFFFF"
               trackColor="rgba(255, 255, 255, 0.2)"
             />

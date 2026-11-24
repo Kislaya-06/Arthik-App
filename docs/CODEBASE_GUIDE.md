@@ -173,7 +173,7 @@ rows (ADR 0004). A new table or column = `schema.sql` + a new file in `supabase/
 |---|---|
 | `dateKeys.ts` | One way to name a day (`yyyy-MM-dd`): `toDateKey`, `todayDateKey`, day counts, days in a month |
 | `ledger.ts` | Cleans a row once: `amountPaid` and `amountCountedAfterMoneyBack`; per-day totals |
-| `budgetAllowance.ts` | Per-day budget rate (`BUD-009`): monthly ÷ that month's real days |
+| `budgetAllowance.ts` | Per-day budget rate (`BUD-009`): monthly ÷ that month's real days; `allowanceFromHistory` prices each past day from the plan history for Insights (`INS-004`) |
 | `budgetStatus.ts` | Left / over / how full, on top of `calculateCycleFinancials` |
 | `overspendFunding.ts` | Whether income or Gullak covered an overspend (from the waterfall) |
 

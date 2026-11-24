@@ -5,7 +5,7 @@ import { getDay } from 'date-fns/getDay';
 import { addDays } from 'date-fns/addDays';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
-import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
+import { budgetAllowedBetweenDates, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
@@ -53,7 +53,9 @@ export function computeEffectiveWeekBudget(
   weeklyAmount: number,
   userCreatedAtStr: string | undefined | null,
   weekInterval: WeekInterval,
-  monthlyAmount?: number
+  monthlyAmount?: number,
+  /** When given, each day is priced from the plan history (Pure Mode / paused days are worth 0, INS-004). */
+  history?: AllowanceHistory
 ): { effectiveBudget: number; activeDays: number; isPartialFirstWeek: boolean } {
   const startStr = toDateStr(weekInterval.start);
   const endStr = toDateStr(weekInterval.end);
@@ -73,7 +75,9 @@ export function computeEffectiveWeekBudget(
   }
 
   let effectiveBudget = 0;
-  if (cadence === 'weekly') {
+  if (history) {
+    effectiveBudget = round2(allowanceFromHistory(history, addDaysToDateKey(endStr, -(activeDays - 1)), endStr));
+  } else if (cadence === 'weekly') {
     effectiveBudget = isPartialFirstWeek
       ? round2((weeklyAmount / 7) * activeDays)
       : weeklyAmount;

@@ -57,8 +57,7 @@ export function handleSetBudgetCadence(
     get().gullakDeposits,
     undefined,
     get().budgetPeriods,
-    cadence,
-    get().bestStreakByCadence
+    cadence
   );
 
   set({

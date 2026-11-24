@@ -113,6 +113,8 @@ describe('useInsightsData (pure analytics and derived calculations)', () => {
     dailyRecords,
     gullakDeposits,
     isBudgetModeEnabled: true,
+    isAutoRenew: true,
+    planChanges: [],
     budgetPeriods: {},
     budgetCadence: 'daily',
     dailyBudgetAmount: 500,

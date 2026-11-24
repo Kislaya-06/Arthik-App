@@ -21,7 +21,7 @@ import { getDaysInMonth } from 'date-fns/getDaysInMonth';
 import { isCountedExpense } from './transactionUtils';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
-import { budgetAllowedBetweenDates } from '../money/budgetAllowance';
+import { budgetAllowedBetweenDates, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
 import { round2, formatAmountWithCommas } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
@@ -65,7 +65,9 @@ export function computeEffectiveMonthBudget(
   weeklyAmount: number,
   monthlyAmount: number,
   userCreatedAtStr: string | undefined | null,
-  monthInterval: MonthInterval
+  monthInterval: MonthInterval,
+  /** When given, each day is priced from the plan history (Pure Mode / paused days are worth 0, INS-004). */
+  history?: AllowanceHistory
 ): { effectiveBudget: number; activeDays: number; totalDays: number; isPartialFirstMonth: boolean } {
   const startStr = toDateStr(monthInterval.start);
   const endStr = toDateStr(monthInterval.end);
@@ -93,7 +95,11 @@ export function computeEffectiveMonthBudget(
     monthlyBudgetAmount: monthlyAmount,
   };
   const firstActiveDateKey = addDaysToDateKey(endStr, -(activeDays - 1));
-  const effectiveBudget = round2(budgetAllowedBetweenDates(budgetPlan, firstActiveDateKey, endStr));
+  const effectiveBudget = round2(
+    history
+      ? allowanceFromHistory(history, firstActiveDateKey, endStr)
+      : budgetAllowedBetweenDates(budgetPlan, firstActiveDateKey, endStr)
+  );
 
   return { effectiveBudget, activeDays, totalDays, isPartialFirstMonth };
 }

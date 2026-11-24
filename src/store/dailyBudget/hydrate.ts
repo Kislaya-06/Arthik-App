@@ -13,6 +13,7 @@ import {
   dailyCarryExtraFor,
 } from './metrics';
 import { getLastRenewedPeriodKey } from './pendingStorage';
+import { loadAllowancePauses, syncAllowancePauses } from './allowancePauseSync';
 import { useNotificationStore } from '../notificationStore';
 import { useNetworkStore } from '../networkStore';
 import { useAuthStore } from '../authStore';
@@ -289,8 +290,7 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       resolvedDeposits,
       userCreatedAtStr,
       resolvedPeriods,
-      resolvedCadence,
-      get().bestStreakByCadence
+      resolvedCadence
     );
 
     set({
@@ -315,6 +315,12 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       })(),
       ...metrics,
     });
+
+    // INS-004: the pause history, in its own request so a missing column never breaks hydration.
+    void loadAllowancePauses(userId).then((pauses) => {
+      if (pauses && get().hydratedForUserId === userId) set({ allowancePauses: pauses });
+    });
+    void syncAllowancePauses(userId);
 
     if (activatedPlan) {
       await persistActivatedPlanSettings(userId, activatedPlan, resolvedAutoRenew);

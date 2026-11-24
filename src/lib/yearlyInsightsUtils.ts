@@ -28,7 +28,7 @@ import { isAfter } from 'date-fns/isAfter';
 import { isCountedIncome, isCountedExpense } from './transactionUtils';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
-import { budgetAllowedBetweenDates, budgetAllowedForActiveDays } from '../money/budgetAllowance';
+import { budgetAllowedBetweenDates, budgetAllowedForActiveDays, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
 import { round2, formatCurrency } from './formatters';
 import { ExpenseLike, toDateStr, toDateObj, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -234,7 +234,12 @@ export function computeYearlyInflow(
   budgetConfig?: YearlyBudgetConfig,
   yearInterval?: YearInterval,
   referenceDate: Date | number | string = new Date(),
-  userCreatedAt?: string | null
+  userCreatedAt?: string | null,
+  /**
+   * When given, budget days are read from the plan history, whatever the mode is today (INS-006): Pure Mode /
+   * paused days add nothing, and past Budget Mode days stay real money even after a switch to Pure Mode.
+   */
+  history?: AllowanceHistory
 ): number {
   if (!yearInterval) return 0;
   const refDate = toDateObj(referenceDate);
@@ -244,7 +249,7 @@ export function computeYearlyInflow(
 
   let totalInflow = 0;
 
-  if (budgetConfig?.isBudgetMode) {
+  if (history || budgetConfig?.isBudgetMode) {
     const isPastYear = endStr < todayStr;
     const activeDays = computeActiveDaysInYear(
       yearInterval.start,
@@ -256,7 +261,11 @@ export function computeYearlyInflow(
     // One rule for every screen (BUD-009): the active days end today (or at year end for a past year).
     const lastActiveDateKey = isPastYear || endStr < todayStr ? endStr : todayStr;
     const firstActiveDateKey = addDaysToDateKey(lastActiveDateKey, -(activeDays - 1));
-    totalInflow += Math.round(budgetAllowedBetweenDates(budgetConfig, firstActiveDateKey, lastActiveDateKey));
+    totalInflow += Math.round(
+      history
+        ? allowanceFromHistory(history, firstActiveDateKey, lastActiveDateKey)
+        : budgetAllowedBetweenDates(budgetConfig!, firstActiveDateKey, lastActiveDateKey)
+    );
   }
 
   for (const exp of expenses) {

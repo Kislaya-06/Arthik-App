@@ -111,8 +111,7 @@ export function buildOfflineHydrationPatch(
     get().gullakDeposits,
     undefined,
     get().budgetPeriods,
-    resolvedCadence,
-    get().bestStreakByCadence
+    resolvedCadence
   );
   return {
     dailyRecords: records,

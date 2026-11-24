@@ -47,7 +47,9 @@ import {
   computeAnnualCapitalOutlier,
   computeAnnualCategoryTrajectory,
 } from '../../lib/yearlyInsightsUtils';
-import { BudgetCadence, BudgetPeriodRecord } from '../../types';
+import { BudgetCadence, BudgetPeriodRecord, BudgetPlanChange } from '../../types';
+import type { AllowanceHistory } from '../../money/budgetAllowance';
+import type { AllowancePause } from '../../lib/allowancePauses';
 import { Expense } from '../../store/expenseStore';
 import { Category } from '../../store/categoryStore';
 import { DailyRecord, GullakDeposit } from '../../store/dailyBudgetStore';
@@ -68,6 +70,11 @@ export interface UseInsightsDataParams {
   dailyRecords: Record<string, DailyRecord>;
   gullakDeposits: GullakDeposit[];
   isBudgetModeEnabled: boolean;
+  /** Auto-save on. false = allowance paused. */
+  isAutoRenew: boolean;
+  planChanges: BudgetPlanChange[];
+  /** Days the allowance was paused (INS-004). */
+  allowancePauses?: AllowancePause[];
   budgetPeriods: Record<string, BudgetPeriodRecord>;
   budgetCadence: BudgetCadence;
   dailyBudgetAmount: number;
@@ -101,6 +108,9 @@ export function useInsightsData({
   dailyRecords,
   gullakDeposits,
   isBudgetModeEnabled,
+  isAutoRenew,
+  planChanges,
+  allowancePauses,
   budgetPeriods,
   budgetCadence,
   dailyBudgetAmount,
@@ -404,6 +414,18 @@ export function useInsightsData({
   }, [period, weeklyDayMatchedComp, monthlyComp, yearlyComparison]);
 
   // Weekly Breathing Strip & Analytics calculations
+  // INS-004 / INS-006: budget money comes from the days Budget Mode really ran, each at its own rate.
+  const allowanceHistory = useMemo<AllowanceHistory>(() => ({
+    planChanges,
+    dailyRecords,
+    todayKey: toDateKey(new Date()),
+    isAutoRenew: isBudgetModeEnabled && isAutoRenew,
+    fallbackPlan: isBudgetModeEnabled
+      ? { cadence: budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount }
+      : null,
+    pauses: allowancePauses,
+  }), [planChanges, allowancePauses, dailyRecords, isBudgetModeEnabled, isAutoRenew, budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount]);
+
   const effectiveBudgetResult = useMemo(() => {
     return computeEffectiveWeekBudget(
       budgetCadence,
@@ -411,9 +433,10 @@ export function useInsightsData({
       weeklyBudgetAmount,
       user?.created_at,
       currentInterval,
-      monthlyBudgetAmount
+      monthlyBudgetAmount,
+      allowanceHistory
     );
-  }, [budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount, user?.created_at, currentInterval]);
+  }, [budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount, user?.created_at, currentInterval, allowanceHistory]);
 
   const budgetHealth = useMemo(() => {
     return computeBudgetHealth(effectiveBudgetResult.effectiveBudget, currentTotal);
@@ -450,9 +473,10 @@ export function useInsightsData({
       weeklyBudgetAmount,
       monthlyBudgetAmount,
       user?.created_at,
-      currentInterval
+      currentInterval,
+      allowanceHistory
     );
-  }, [period, budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount, user?.created_at, currentInterval]);
+  }, [period, budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount, user?.created_at, currentInterval, allowanceHistory]);
 
   const monthlyBudgetHealth = useMemo(() => {
     return computeMonthlyBudgetHealth(monthlyEffectiveBudget.effectiveBudget, currentTotal);
@@ -743,9 +767,11 @@ export function useInsightsData({
       },
       currentInterval,
       focusTime,
-      user?.created_at
+      user?.created_at,
+      allowanceHistory
     );
   }, [
+    allowanceHistory,
     period,
     expenses,
     categories,

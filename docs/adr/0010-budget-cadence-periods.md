@@ -34,7 +34,7 @@ The timeline engine (`src/lib/budgetPeriods.ts`) walks the chronological list of
 
 ### D6: Multi-Cadence Streak Tracking & Period Finalization
 - Completed periods are evaluated by `buildPeriodsToFinalize` and permanently recorded in Supabase `budget_periods`.
-- Streaks track consecutive successful periods for the current cadence (`bestStreakByCadence`), displayed in units matching the cadence ("5 days", "3 weeks", "2 months").
+- Streaks track consecutive successful periods for the current cadence (`bestStreakByCadence`), displayed in units matching the cadence ("5 days", "3 weeks", "2 months"). Both current and best are rebuilt from the records every time (2026-11-25, `ROL-002`), so a backdated change can lower the best streak.
 - Intervals where Budget Mode was toggled off are marked as "Paused" in the adaptive streak calendar and do not count as broken streaks or red penalty days.
 
 ### D7: Offline-First Queueing & Sync

@@ -178,8 +178,7 @@ export function handleSetBudgetModeEnabled(
     get().gullakDeposits,
     undefined,
     get().budgetPeriods,
-    cadence,
-    get().bestStreakByCadence
+    cadence
   );
 
   const autoRenew = options?.autoRenew !== undefined

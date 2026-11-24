@@ -189,6 +189,7 @@ The savings streak is computed by `calculateSavingsMetrics`:
 - **What is Neutral**: `rec.status === 'unknown'`. It advances `dayCheck` by 1 without incrementing `streak` and without breaking the loop.
 - **Streak Guards & Best Streak**:
   - Lines 167–175: If `confirmedSavedDays === 0`, `streak = 0` and `maxStreak = 0`. If `streak > confirmedSavedDays`, `streak = confirmedSavedDays`. `finalizedSavedRecords` filters out pre-registration days (`(!userCreatedAt || r.date >= userCreatedAt)`), preventing pre-registration streaks from bleeding into `bestStreak`.
+  - `computeMetrics` (`metrics.ts`) builds `bestStreak` / `bestStreakByCadence` from the records only (`ROL-002`): a backdated change can lower them; no stored older best is kept.
   - Best streak gap bridging: Identifies the longest contiguous sequence of saved records in historical order, treating intermediate days as neutral bridges only if explicitly recorded with `status === 'unknown'`.
 
 ### 2.7 How `totalAccumulatedSavings` is Computed
@@ -321,6 +322,7 @@ graph TD
    - Status badge styling, daily evaluation records, and timeline day badges.
 5. **`src/screens/InsightsScreen.tsx`**:
    - Consumes period budget targets, cadence limits, and multi-period savings metrics.
+   - Budget money in the Weekly / Monthly pool and the Yearly inflow is priced day by day from `planChanges` + `dailyRecords` (`allowanceFromHistory`, `src/money/budgetAllowance.ts`, `INS-004` / `INS-006`): Pure Mode and paused days are worth ₹0. Paused days come from the record (budget 0) or the saved pause history `allowancePauses` (recorded by a `subscribe` in `dailyBudgetStore.ts` on every auto-save on / off, synced by `allowancePauseSync.ts` to `profiles.allowance_pauses`).
 6. **`src/screens/ProfileScreen.tsx`**:
    - Budget Mode toggle (`isBudgetModeEnabled`), cadence switching (`budgetCadence`), and allowance pausing (`PauseBudgetModal`).
 7. **`src/screens/NotificationsScreen.tsx`**:

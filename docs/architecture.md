@@ -157,6 +157,7 @@ counts as saved, OPT-62).
 | `@arthik_pending_transfer_rules_<userId>` | Remembered notes made offline, sent before the expenses (OPT-73) |
 | `@arthik_pending_deficit_check_<userId>` | Cold-start PUR-001 deficit check still to run (activation date, FIN-16) |
 | `@arthik_pending_settings_<userId>` | Pending profile budget changes |
+| `@arthik_pending_allowance_pauses_<userId>` | Allowance pause history not yet sent (`profiles.allowance_pauses`, INS-004) |
 | `@arthik_app_lock_enabled` | Global biometric lock preference |
 | `@arthik_app_lock_enabled_<userId>` | Per-user biometric lock preference |
 | `arthik-daily-budget-storage-v2` | Persisted Zustand daily budget slice |

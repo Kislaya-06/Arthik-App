@@ -69,8 +69,7 @@ export function handleSetDailyBudget(
     get().gullakDeposits,
     undefined,
     get().budgetPeriods,
-    get().budgetCadence,
-    get().bestStreakByCadence
+    get().budgetCadence
   );
 
   set({
@@ -172,8 +171,7 @@ export function handleToggleAutoRenew(
     get().gullakDeposits,
     undefined,
     get().budgetPeriods,
-    get().budgetCadence,
-    get().bestStreakByCadence
+    get().budgetCadence
   );
 
   set({

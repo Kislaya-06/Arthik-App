@@ -318,13 +318,14 @@ The mechanism by which unspent funds from a prematurely terminated cadence trans
 - *_Avoid_*: Rollover Transfer, Switch Deposit, Remainder Flush
 
 **Cadence-Native Streak**:
-The streak evaluation unit matching the active cadence: Daily evaluates consecutive saved days, Weekly evaluates consecutive saved weeks (Monday–Sunday), and Monthly evaluates consecutive saved calendar months. Mid-period daily variations do not break a Weekly or Monthly streak.
+The streak evaluation unit matching the active cadence: Daily evaluates consecutive saved days, Weekly evaluates consecutive saved weeks (Monday–Sunday), and Monthly evaluates consecutive saved calendar months. Mid-period daily variations do not break a Weekly or Monthly streak. Current and best streaks are always rebuilt from the records, so a backdated expense or money back can raise or lower both (`ROL-002`).
 - *Code location*: `src/lib/periods/streak.ts` (`computeCadenceStreak`, re-exported by `src/lib/budgetPeriods.ts`), `src/store/dailyBudgetStore.ts` (`bestStreakByCadence`)
 - *_Avoid_*: Universal Daily Streak, Pace Streak
 
 **Paused**:
 The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red. Pause changes the screen, not the money: spending on a paused day still comes from the period's budget pool (if alive), then income, then Gullak (ADR 0012).
-- *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`buildWeeklyStreakCards`, `buildMonthlyStreakMatrix`)
+Since 2026-11-25 the days the allowance was paused (auto-save off) are remembered as the **pause history** (`allowancePauses`, `profiles.allowance_pauses`), so Insights count no estimated budget for them (`INS-004`).
+- *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`buildWeeklyStreakCards`, `buildMonthlyStreakMatrix`), `src/lib/allowancePauses.ts`
 - *_Avoid_*: Stopped, Inactive, Broken, Skipped
 
 **Budget Pool**:
