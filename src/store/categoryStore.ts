@@ -99,6 +99,9 @@ const savePendingCatDelete = async (uid: string, catId: string) => {
   }));
 };
 
+// Others had the Gullak mint (#ADEBB3) and a dollar icon; now a neutral slate and the rupee (2026-11-25).
+const OTHERS_COLOR = '#B4BCC8';
+
 // Display-only visual placeholder array shown before real categories load from Supabase.
 // IMPORTANT: These fake IDs ('1' through '7') are NEVER selectable and NEVER sent to Supabase.
 const DEFAULT_CATEGORIES: Category[] = [
@@ -108,7 +111,7 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: '4', user_id: null, name: 'Bills & Utilities', icon: 'FileText', color: '#F4A460', is_default: true, kind: 'expense', isPlaceholder: true },
   { id: '5', user_id: null, name: 'Entertainment', icon: 'Film', color: '#9988A1', is_default: true, kind: 'expense', isPlaceholder: true },
   { id: '6', user_id: null, name: 'Health', icon: 'HeartPulse', color: '#E35336', is_default: true, kind: 'expense', isPlaceholder: true },
-  { id: '7', user_id: null, name: 'Others', icon: 'DollarSign', color: '#ADEBB3', is_default: true, kind: 'expense', isPlaceholder: true },
+  { id: '7', user_id: null, name: 'Others', icon: 'IndianRupee', color: OTHERS_COLOR, is_default: true, kind: 'expense', isPlaceholder: true },
 ];
 
 export const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
@@ -118,7 +121,7 @@ export const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
   'Bills & Utilities': '#F4A460',
   'Entertainment': '#9988A1',
   'Health': '#E35336',
-  'Others': '#ADEBB3',
+  'Others': OTHERS_COLOR,
 };
 
 export const LEGACY_CATEGORY_COLOR_MAP: Record<string, string> = {
@@ -128,7 +131,7 @@ export const LEGACY_CATEGORY_COLOR_MAP: Record<string, string> = {
   '#FCD34D': '#F4A460', // Bills & Utilities
   '#C084FC': '#9988A1', // Entertainment
   '#F87171': '#E35336', // Health
-  '#94A3B8': '#ADEBB3', // Others
+  '#94A3B8': OTHERS_COLOR, // Others
 };
 
 export const normalizeCategoryColors = (cats: Category[]): { updated: Category[]; changedCategories: Category[] } => {
@@ -142,8 +145,12 @@ export const normalizeCategoryColors = (cats: Category[]): { updated: Category[]
       targetColor = LEGACY_CATEGORY_COLOR_MAP[cat.color.toUpperCase()];
     }
 
-    if (targetColor && cat.color.toUpperCase() !== targetColor.toUpperCase()) {
-      const up = { ...cat, color: targetColor };
+    // The default Others category moves from the dollar icon to the rupee.
+    const targetIcon = cat.is_default && cat.name === 'Others' && cat.icon === 'DollarSign' ? 'IndianRupee' : cat.icon;
+
+    const colorChanged = !!targetColor && cat.color.toUpperCase() !== targetColor.toUpperCase();
+    if (colorChanged || targetIcon !== cat.icon) {
+      const up = { ...cat, color: colorChanged ? targetColor! : cat.color, icon: targetIcon };
       changedCategories.push(up);
       return up;
     }
@@ -227,7 +234,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
               .map((c) =>
                 supabase
                   .from('categories')
-                  .update({ color: c.color })
+                  .update({ color: c.color, icon: c.icon })
                   .eq('id', c.id)
               )
           ).catch(() => {});

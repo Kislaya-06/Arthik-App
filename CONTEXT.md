@@ -222,6 +222,16 @@ The side a category belongs to: `'expense'` or `'income'` (`categories.kind`, de
 - *Code location*: `src/store/categoryStore.ts` (`categoryKindOf`, `categoriesOfKind`), `schema.sql`, `supabase/migrations/20261022120000_income_categories.sql`
 - *_Avoid_*: Category Type (that word is the transaction `type`)
 
+**Add Again**:
+Long-pressing + lists the last few plain spends (no splits, no money back, one per place + category + amount); picking one opens Add Transaction filled in for today. It copies the amount paid (`grossAmountOf`).
+- *Code location*: `src/lib/quickAdd.ts` (`recentRepeatables`), `src/components/RepeatEntrySheet.tsx`
+- *_Avoid_*: Duplicate, Clone
+
+**Category Pre-pick**:
+The category a new entry starts on: the one used most in the same part of the day over the last 60 days, when there are 3+ such entries and it has more than half of them. Never applied to edits or Add Again.
+- *Code location*: `src/lib/quickAdd.ts` (`suggestCategoryForNow`), `src/hooks/useExpenseForm.ts`
+- *_Avoid_*: Default Category (that is a seeded category)
+
 **Category Placeholder**:
 A transient visual category array (`id: '1'` to `'7'`, `isPlaceholder: true`) rendered purely in memory as `DEFAULT_CATEGORIES` while real categories load from the database. These IDs are never selectable and never sent to Supabase.
 - *Code location*: `src/store/categoryStore.ts` (`DEFAULT_CATEGORIES`, `isPlaceholder: true`)
@@ -453,3 +463,29 @@ The foundational invariant that dismissing an event must NEVER physically delete
 
 
 
+
+### 11. Insights Language
+
+**No-spend Day**:
+A finished day (since sign-up, today never counts) with no counted spending. Self-transfers and money back are not spending, so they never break it. Counted in Pure Mode too.
+- *_Avoid_*: Zero day, Empty day, Saved day (a Saved day is a budget result, `Day Status — Saved`)
+
+**Small Leak**:
+A counted expense under ₹200. Shown only when a period has at least 5 of them: many small amounts that add up, not one small purchase.
+- *_Avoid_*: Micro expense, Latte factor
+
+**Spending Projection**:
+Where spending will land by the end of the current week or month at the pace so far: spent so far + the daily average of the days so far × the days left. A single expense of 30% or more of the period's spending (a Major Single Outflow, `INS-005`) is counted once and kept out of the average. Never shown for finished periods or the first days of a period.
+- *_Avoid_*: Forecast budget, Predicted balance
+
+**Runway**:
+How many days the money you can spend (Total Account Remaining minus Gullak) lasts at your average daily spending of the last 30 days. Gullak is shown beside it, never inside it.
+- *_Avoid_*: Balance days, Survival days
+
+**Top Places**:
+Places you keep going back to, grouped by the expense note (the same name cleaned the same way Automatic Logging cleans merchant names), most visits first. A note seen only once in the period is a one-time buy, not a place. Expenses without a note are left out.
+- *_Avoid_*: Top merchants (Arthik has no merchant field), Payees
+
+**Gullak Milestone ETA**:
+When Gullak will reach its next milestone (Starter Piggy ₹1k … Wealth Champion ₹1L) at the pace it grew over the last 90 days (money in minus money drawn out). Not shown when Gullak is not growing.
+- *_Avoid_*: Savings goal (the user sets no goal), Target

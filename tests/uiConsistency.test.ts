@@ -291,7 +291,8 @@ describe('Light theme: mint / coral used as text are readable (Home accents, all
   it('amounts and the Home accents use the text tokens', () => {
     const amount = read('src/components/ui/AmountText.tsx');
     expect(amount).toContain("? colors.mintText");
-    expect(amount).toContain("? colors.coralText");
+    // A normal expense is not coloured (owner decision 2026-11-25): only income is mint.
+    expect(amount).not.toContain("? colors.coralText");
     const home = read('src/screens/HomeScreen.tsx');
     expect(home).toContain('styles.historyAffordanceText, { color: colors.mintText');
     expect(home).toContain('styles.networkStatusText, { color: colors.mintText }');

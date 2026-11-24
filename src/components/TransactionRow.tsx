@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { Animated } from 'react-native';
-import DollarSign from 'lucide-react-native/icons/dollar-sign';
+import { Animated, Text } from 'react-native';
+import IndianRupee from 'lucide-react-native/icons/indian-rupee';
 import Wallet from 'lucide-react-native/icons/wallet';
 import { format } from 'date-fns/format';
 import { Expense } from '../store/expenseStore';
@@ -12,7 +12,8 @@ import { ItemRowShell } from './ui/ItemRowShell';
 import { isRecoveryClass } from '../lib/transactionUtils';
 import { grossAmountOf } from '../lib/splitLedger';
 import { formatCurrency } from '../lib/formatters';
-import { historyRowTimeLabel, recentRowDateLabel } from '../lib/historyRows';
+import { historyRowTimeLabel, recentRowDateLabel, rowInitial } from '../lib/historyRows';
+import { FontFamily } from '../config/theme';
 
 export type TxRowProps = {
   expense: Expense;
@@ -38,7 +39,7 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
   phaseATranslateY,
   dateMode = 'date',
 }) => {
-  const IconComp = category ? (getCategoryIcon(category.icon) ?? DollarSign) : (isIncome ? Wallet : DollarSign);
+  const IconComp = category ? (getCategoryIcon(category.icon) ?? IndianRupee) : (isIncome ? Wallet : IndianRupee);
   const catColor = category?.color ?? (isIncome ? '#ADEBB3' : '#FFD3AC');
 
   const dateStr = useMemo(() => {
@@ -58,6 +59,8 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
   const hasNote = Boolean(expense.note && expense.note.trim().length > 0);
   const mainTitle = hasNote ? expense.note!.trim() : categoryName;
   let subtitle = hasNote ? `${categoryName} · ${modeLabel}` : modeLabel;
+  // A place reads better as its letter ("Z" for Zomato); money back keeps its icon.
+  const initial = isMoneyBack ? null : rowInitial(expense.note, categoryName);
 
   // The row shows what was PAID. If part of it came back, or it is split, say so (SPL-001 / SPL-003).
   const paid = grossAmountOf(expense);
@@ -69,7 +72,15 @@ const TransactionRowBase: React.FC<TxRowProps> = ({
     <ItemRowShell
       iconBadge={
         <GradientIconBadge size={48} color={catColor} isDark={isDark}>
-          {({ iconColor }) => <IconComp size={22} color={iconColor} strokeWidth={2.2} />}
+          {({ iconColor }) =>
+            initial ? (
+              <Text style={{ color: iconColor, fontSize: 20, fontFamily: FontFamily.bold }} allowFontScaling={false}>
+                {initial}
+              </Text>
+            ) : (
+              <IconComp size={22} color={iconColor} strokeWidth={2.2} />
+            )
+          }
         </GradientIconBadge>
       }
       title={mainTitle}

@@ -4,7 +4,8 @@ export type RootStackParamList = {
   Auth: undefined;
   ProfileSetup: undefined;
   AppTabs: { screen?: keyof TabParamList; params?: TabParamList[keyof TabParamList] } | undefined;
-  AddExpense: { defaultDate?: string } | undefined;
+  /** repeatFrom: an expense id; the form opens filled in from it (long-press +), saved only on Save. */
+  AddExpense: { defaultDate?: string; repeatFrom?: string } | undefined;
   EditExpense: { expenseId: string; /** Open the form with Split switched on (the "Split" button on a logged expense). */ splitOn?: boolean };
   ExpenseDetail: { expenseId: string };
   GullakDepositDetail: { depositId: string };

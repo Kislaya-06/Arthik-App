@@ -20,7 +20,8 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
   colors,
 }) => {
   const unit = budgetCadence === 'weekly' ? 'Week' : budgetCadence === 'monthly' ? 'Month' : 'Day';
-  const streakLabel = `${effectiveStreak} ${unit}${effectiveStreak === 1 ? '' : 's'} Streak`;
+  const noStreak = effectiveStreak <= 0;
+  const streakLabel = noStreak ? 'Start a streak today' : `${effectiveStreak} ${unit}${effectiveStreak === 1 ? '' : 's'} Streak`;
   return (
     <View style={styles.headerRow}>
       <View style={styles.headerTitleContainer}>
@@ -47,8 +48,8 @@ export const SavingsHeader: React.FC<SavingsHeaderProps> = React.memo(({
         accessibilityLabel={`${streakLabel}. Open streak calendar`}
         style={[styles.streakBadge, { backgroundColor: colors.cardSubtle, borderColor: colors.borderSubtle }]}
       >
-        <StreakFlame streak={effectiveStreak} size={22} />
-        <Text style={[styles.streakBadgeText, { color: colors.coralText }]} numberOfLines={1}>
+        {!noStreak && <StreakFlame streak={effectiveStreak} size={22} />}
+        <Text style={[styles.streakBadgeText, { color: noStreak ? colors.textSecondary : colors.coralText }]} numberOfLines={1}>
           {streakLabel}
         </Text>
       </PressableOpacity>

@@ -279,3 +279,15 @@ describe('categoryStore (Seam: useCategoryStore)', () => {
     });
   });
 });
+
+describe('Default Others category: rupee icon and its own colour (2026-11-25)', () => {
+  it('moves the old dollar icon and Gullak mint to the rupee and slate; other categories untouched', async () => {
+    const { normalizeCategoryColors } = await import('../src/store/categoryStore');
+    const others = { id: 'o', user_id: 'u1', name: 'Others', icon: 'DollarSign', color: '#ADEBB3', is_default: true, kind: 'expense' as const };
+    const mine = { id: 'm', user_id: 'u1', name: 'Tips', icon: 'DollarSign', color: '#ADEBB3', is_default: false, kind: 'expense' as const };
+    const { updated, changedCategories } = normalizeCategoryColors([others, mine]);
+    expect(updated[0]).toMatchObject({ icon: 'IndianRupee', color: '#B4BCC8' });
+    expect(updated[1]).toEqual(mine);
+    expect(changedCategories.map((c) => c.id)).toEqual(['o']);
+  });
+});

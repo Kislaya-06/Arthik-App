@@ -74,3 +74,15 @@ export function recentRowDateLabel(expenseDate: string, createdAt: string | null
     return expenseDate;
   }
 }
+
+/**
+ * The letter on a transaction's avatar: first letter or digit of its note ("Zomato" → "Z"), so places tell apart at a
+ * glance (the badge keeps the category colour). null keeps the category icon: no note, the note is just the
+ * category name, or it has no letter.
+ */
+export function rowInitial(note: string | null | undefined, categoryName: string): string | null {
+  const text = (note || '').trim();
+  if (!text || text.toLowerCase() === categoryName.trim().toLowerCase()) return null;
+  const m = text.match(/[\p{L}\p{N}]/u);
+  return m ? m[0].toLocaleUpperCase() : null;
+}

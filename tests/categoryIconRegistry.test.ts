@@ -12,7 +12,7 @@ import { getCategoryIcon } from '../src/lib/iconUtils';
 const ICONS_GRID = [
   'Coffee', 'Truck', 'ShoppingBag', 'Video', 'Activity',
   'FileText', 'GraduationCap', 'Send', 'Home', 'ShoppingCart',
-  'Move', 'Gift', 'CupSoda', 'Music', 'Users', 'DollarSign',
+  'Move', 'Gift', 'CupSoda', 'Music', 'Users', 'IndianRupee',
   'MoreHorizontal'
 ];
 
@@ -20,7 +20,7 @@ const ICONS_GRID = [
 const INCOME_ICONS_GRID = [
   'Briefcase', 'Laptop', 'Percent', 'Gift', 'Wallet',
   'TrendingUp', 'Landmark', 'Banknote', 'PiggyBank', 'HandCoins',
-  'Coins', 'Store', 'Award', 'Home', 'Users', 'DollarSign',
+  'Coins', 'Store', 'Award', 'Home', 'Users', 'IndianRupee',
   'MoreHorizontal'
 ];
 

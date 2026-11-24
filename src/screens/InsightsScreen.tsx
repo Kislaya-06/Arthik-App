@@ -43,6 +43,10 @@ import {
 import { PeriodNavigator, PeriodNavigatorProps } from './insights/PeriodNavigator';
 import { styles } from './insights/InsightsScreen.styles';
 import { useInsightsData } from './insights/useInsightsData';
+import { useInsightsExtras } from './insights/useInsightsExtras';
+import { TourTarget } from '../components/tour/TourTarget';
+import { InsightsExtraSections } from './insights/InsightsExtraSections';
+import { YearStoryBanner, YearStoryModal } from './insights/YearStory';
 
 import { useExpenseStore } from '../store/expenseStore';
 import { useCategoryStore } from '../store/categoryStore';
@@ -215,6 +219,7 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     yearTransactionCount,
     gullakDepositsInYearCount,
     hasPrevData,
+    allowanceHistory,
   } = useInsightsData({
     period,
     offset,
@@ -236,6 +241,19 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
     focusTime,
     user,
   });
+
+  const extras = useInsightsExtras({
+    period,
+    offset,
+    currentInterval,
+    budgetPool: activeBudgetPool ? activeBudgetPool.totalPool : null,
+    allowanceHistory,
+    yearlyInflow,
+    yearlyGullakAdded: yearlyGullakMetrics?.totalSavedInYear ?? 0,
+    focusTime,
+  });
+  const [storyOpen, setStoryOpen] = useState(false);
+  const storyYear = currentInterval.start.getFullYear();
 
   // ─── Swipe gesture on hero card (horizontal swipe = period nav via RNGH) ──
   const navBoundsRef = useRef({ offset, minOff });
@@ -313,6 +331,20 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
       setSelectedCategoryId(catId);
     }
   }, [selectedCategoryId, navigation, currentInterval, dateLabel]);
+
+  const extraSectionProps = {
+    extras,
+    period,
+    categories,
+    onOpenCategory: (categoryId: string) =>
+      navigation.navigate('CategoryDetail', {
+        categoryId,
+        startDate: format(currentInterval.start, 'yyyy-MM-dd'),
+        endDate: format(currentInterval.end, 'yyyy-MM-dd'),
+        dateRangeLabel: dateLabel,
+      }),
+    onOpenLedger: () => navigation.navigate('Ledger'),
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -462,6 +494,10 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </GestureDetector>
 
+        {period === 'Yearly' && extras.yearStory && (
+          <YearStoryBanner year={storyYear} onPress={() => setStoryOpen(true)} />
+        )}
+
         {/* ── Weekly Breathing Strip (Dual Clean Tiles) ── */}
         {period === 'Weekly' && (
           <View style={{ marginTop: Spacing.surface }}>
@@ -530,6 +566,13 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
               }}
             />
           </View>
+        )}
+
+        {/* ── Where You're Heading: the most actionable cards, right under the summary ── */}
+        {currentTotal > 0 && (
+          <TourTarget id="insights.heading" scrollRef={scrollRef}>
+            <InsightsExtraSections part="heading" {...extraSectionProps} />
+          </TourTarget>
         )}
 
         {/* ── Weekly Spending Flow Section (hidden for a week with no spending: 7 empty bars say nothing) ── */}
@@ -923,6 +966,8 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
                 />
               </View>
             )}
+
+            <InsightsExtraSections part="rest" {...extraSectionProps} />
           </>
         ) : (
           <EmptyState
@@ -935,6 +980,16 @@ export const InsightsScreen: React.FC<Props> = ({ navigation }) => {
           />
         )}
       </ScrollView>
+
+      {extras.yearStory && (
+        <YearStoryModal
+          visible={storyOpen}
+          year={storyYear}
+          slides={extras.yearStory}
+          categories={categories}
+          onClose={() => setStoryOpen(false)}
+        />
+      )}
     </View>
   );
 };

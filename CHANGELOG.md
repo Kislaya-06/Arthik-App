@@ -13,6 +13,23 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 ## [Unreleased] — OTA updates on 2.1.0 (JS only, no new APK)
 
 ### Added
+- **Add again (OTA)**: press and hold + (either tab bar) to see your last few plain spends; pick one and Add Transaction
+  opens filled in for today (amount, category, note, payment). Splits and money back are never offered.
+- **Category pre-pick on Add (OTA)**: a new entry starts on the category you used most at this time of day in the last
+  60 days (3+ entries, more than half of them); edits and repeats are never changed.
+- **Letter avatars (OTA)**: each row shows the first letter of its note (Z for Zomato) in the category badge; money
+  back rows and rows with no note keep the category icon.
+- **"What's new" tour (OTA)**: shown once after this update to people who already have entries. Each Next opens the
+  screen where the feature lives, dims everything else and explains it in a card; Skip or Back ends it.
+- **Twelve new Insights (OTA)** (`INS-007..INS-011`), in three new sections:
+  - *Where you're heading* (right under the summary, the cards to act on): week / month-end spending estimate with the
+    daily cut needed (`INS-007`), money runway in days (`INS-008`), next Gullak milestone ETA (`INS-009`).
+  - *Your habits*: no-spend days with the longest run, small spends under ₹200 that add up, when you spend (time of
+    day, from entries added on the same day), categories far above or below your own average (a big rise reads "4x"),
+    top places from your notes (places you went 2+ times, most visits first; a one-time buy is not a place).
+  - *Money with others & Gullak*: money still owed to you leads, then paid for others / came back / refunds (opens the
+    Ledger); where Gullak money came from (`INS-010`, one sentence when it all came from one source), best month and the month with least money left (`INS-011`).
+  - *Your <year> in Arthik*: a tap-through year story on the Yearly tab (years with 30+ days of entries).
 - **Split expenses and money back** (`SPL-001..006`): split with friends, see who owes what in the new Ledger (Owes
   you / Settled groups, tally bars, Mark as paid, Settle all). A friend paying back is never income; refunds go back to
   their expense. Payback review asks "Is this their payment?" and lets you choose the person, then confirm.
@@ -32,6 +49,10 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 - **Tactile saves**: a soft success buzz when you save an expense, deposit to Gullak or change your budget.
 
 ### Changed
+- **Amount colours (OTA)**: spending amounts are plain text colour; only money coming in is green (warnings still pass
+  their own coral).
+- **Others category (OTA)**: a grey ₹ icon and its own grey colour (old DollarSign / mint rows are migrated on load).
+- **Savings streak at 0 (OTA)**: says "Start a streak today" without a flame.
 - **Refactor (no visible change, OTA)**: the Home card and the Savings allowance card get their numbers from one
   place, the Money Scope module (`src/money/scopeMoney.ts`, ADR 0022). Every figure is the same as before.
 - **Refactor (no visible change, OTA)**: one transaction classifier (`classifyTransaction`, ADR 0023). Whether a row

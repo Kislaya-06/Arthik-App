@@ -996,5 +996,6 @@ export function useInsightsData({
     yearTransactionCount,
     gullakDepositsInYearCount,
     hasPrevData,
+    allowanceHistory,
   };
 }

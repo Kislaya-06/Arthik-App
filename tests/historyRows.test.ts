@@ -114,3 +114,20 @@ describe('recentRowDateLabel: right-hand date of a Home / Category row', () => {
     expect(recentRowDateLabel('2026-10-23', '2026-10-23T23:37:00', '2026-11-21')).toBe('23 Oct');
   });
 });
+
+describe('rowInitial (letter avatar from the note)', () => {
+  it('first letter or digit of the note, upper case', async () => {
+    const { rowInitial } = await import('../src/lib/historyRows');
+    expect(rowInitial('zomato', 'Food & Drinks')).toBe('Z');
+    expect(rowInitial('  ₹ 99 store', 'Shopping')).toBe('9');
+    expect(rowInitial('चाय', 'Food & Drinks')).toBe('च');
+  });
+
+  it('no letter (keep the category icon) without a note, when the note is just the category name, or has no letter', async () => {
+    const { rowInitial } = await import('../src/lib/historyRows');
+    expect(rowInitial(null, 'Food & Drinks')).toBeNull();
+    expect(rowInitial('  ', 'Food & Drinks')).toBeNull();
+    expect(rowInitial('transport', 'Transport')).toBeNull();
+    expect(rowInitial('🍕🍕', 'Food & Drinks')).toBeNull();
+  });
+});

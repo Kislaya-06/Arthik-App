@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,11 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useNavBarMetrics } from '../hooks/useNavBarMetrics';
 import { NAV_LABEL_MAX_FONT_SCALE } from '../lib/navBarLayout';
 import * as Haptics from 'expo-haptics';
+import { useExpenseStore, Expense } from '../store/expenseStore';
+import { useCategoryStore } from '../store/categoryStore';
+import { recentRepeatables } from '../lib/quickAdd';
+import { RepeatEntrySheet } from './RepeatEntrySheet';
+import { TourTarget } from './tour/TourTarget';
 
 // ─── Dual-Layer Cross-Fading Icon ───────────────────────────────────────────
 const AnimatedIcon = ({
@@ -197,7 +202,7 @@ const CapsuleTabItem = React.memo<CapsuleTabItemProps>(({
 });
 
 // ─── Center Flush Action Button (+) ──────────────────────────────────────────
-const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
+const CenterAddButton = React.memo<{ onPress: () => void; onLongPress: () => void; tourId: string }>(({ onPress, onLongPress, tourId }) => {
   const { colors } = useTheme();
   const reduceMotion = useReduceMotion();
   const scale = useAnimatedValue(1);
@@ -225,7 +230,12 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
   return (
     <Pressable
       accessibilityRole="button" accessibilityLabel="Add transaction"
+      accessibilityHint="Long press to add a recent spend again"
+      accessibilityActions={[{ name: 'longpress', label: 'Add a recent spend again' }]}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === 'longpress' && onLongPress()}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       unstable_pressDelay={0}
@@ -233,6 +243,7 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
       style={styles.addButtonWrapper}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
+      <TourTarget id={tourId}>
       <Animated.View
         style={[
           styles.addButton,
@@ -245,12 +256,13 @@ const CenterAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
       >
         <Plus size={22} color={colors.forestGreen} strokeWidth={2.8} />
       </Animated.View>
+      </TourTarget>
     </Pressable>
   );
 });
 
 // ─── Individual Floating Action Button (+) for Pure Mode ─────────────────────
-const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) => {
+const IndividualAddButton = React.memo<{ onPress: () => void; onLongPress: () => void; tourId: string }>(({ onPress, onLongPress, tourId }) => {
   const { colors } = useTheme();
   const reduceMotion = useReduceMotion();
   const scale = useAnimatedValue(1);
@@ -278,7 +290,12 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
   return (
     <Pressable
       accessibilityRole="button" accessibilityLabel="Add transaction"
+      accessibilityHint="Long press to add a recent spend again"
+      accessibilityActions={[{ name: 'longpress', label: 'Add a recent spend again' }]}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === 'longpress' && onLongPress()}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       unstable_pressDelay={0}
@@ -286,6 +303,7 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
       style={styles.individualFabWrapper}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
+      <TourTarget id={tourId}>
       <Animated.View
         style={[
           styles.individualFab,
@@ -298,6 +316,7 @@ const IndividualAddButton = React.memo<{ onPress: () => void }>(({ onPress }) =>
       >
         <Plus size={22} color={colors.forestGreen} strokeWidth={2.8} />
       </Animated.View>
+      </TourTarget>
     </Pressable>
   );
 });
@@ -376,6 +395,27 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 
   const handleAddExpense = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    navigation.navigate('AddExpense');
+  }, [navigation]);
+
+  // "Add again": read once when opened, so the bar does not re-render on every expense change.
+  const [repeatEntries, setRepeatEntries] = useState<Expense[] | null>(null);
+  const openRepeat = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    const expenses = useExpenseStore.getState().expenses;
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+    setRepeatEntries(recentRepeatables(expenses).map((r) => byId.get(r.id)!));
+  }, []);
+  const closeRepeat = useCallback(() => setRepeatEntries(null), []);
+  const pickRepeat = useCallback(
+    (expenseId: string) => {
+      setRepeatEntries(null);
+      navigation.navigate('AddExpense', { repeatFrom: expenseId });
+    },
+    [navigation]
+  );
+  const newFromRepeat = useCallback(() => {
+    setRepeatEntries(null);
     navigation.navigate('AddExpense');
   }, [navigation]);
 
@@ -477,7 +517,7 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
 
           {/* Center Zone: Locked at 50% */}
           <View style={[styles.centerContainer, { width: m.centerSlot }]}>
-            <CenterAddButton onPress={handleAddExpense} />
+            <CenterAddButton onPress={handleAddExpense} onLongPress={openRepeat} tourId={isBudgetModeEnabled ? 'nav.plus' : 'nav.plus.hidden'} />
           </View>
 
           {/* Right Wing: Savings & Insights */}
@@ -566,10 +606,20 @@ export const BottomNavBar: React.FC<BottomTabBarProps> = ({ state, navigation })
           </View>
 
           {/* Individual Floating Circular FAB (+) */}
-          <IndividualAddButton onPress={handleAddExpense} />
+          <IndividualAddButton onPress={handleAddExpense} onLongPress={openRepeat} tourId={isBudgetModeEnabled ? 'nav.plus.hidden' : 'nav.plus'} />
         </View>
       </Animated.View>
     </Animated.View>
+      <RepeatEntrySheet
+        visible={repeatEntries !== null}
+        entries={repeatEntries ?? []}
+        categories={useCategoryStore.getState().categories}
+        colors={colors}
+        isDark={isDark}
+        onPick={pickRepeat}
+        onNew={newFromRepeat}
+        onClose={closeRepeat}
+      />
     </>
   );
 };

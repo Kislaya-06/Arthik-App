@@ -15,6 +15,7 @@ import CupSoda from 'lucide-react-native/icons/cup-soda';
 import Music from 'lucide-react-native/icons/music';
 import Users from 'lucide-react-native/icons/users';
 import DollarSign from 'lucide-react-native/icons/dollar-sign';
+import IndianRupee from 'lucide-react-native/icons/indian-rupee';
 import MoreHorizontal from 'lucide-react-native/icons/ellipsis';
 import Briefcase from 'lucide-react-native/icons/briefcase';
 import Laptop from 'lucide-react-native/icons/laptop';
@@ -52,6 +53,7 @@ export const CATEGORY_ICONS: Readonly<Record<string, LucideIcon>> = {
   Music,
   Users,
   DollarSign,
+  IndianRupee,
   MoreHorizontal,
   Briefcase,
   Laptop,

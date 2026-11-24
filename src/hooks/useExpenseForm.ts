@@ -31,6 +31,7 @@ import { recordMoneyBack } from '../store/expense/moneyBack';
 import { calculateGullakIncomeDeficit } from '../lib/gullakReconciliation';
 import { round2 } from '../lib/formatters';
 import { UseExpenseFormParams, UseExpenseFormReturn, SplitMemberState, SplitFormState, MoneyBackMode, MoneyBackFormState } from './expenseForm/types';
+import { suggestCategoryForNow } from '../lib/quickAdd';
 export { UseExpenseFormParams, UseExpenseFormReturn, SplitMemberState, SplitFormState, MoneyBackMode, MoneyBackFormState } from './expenseForm/types';
 
 let memberIdCounter = 0;
@@ -209,6 +210,17 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     if (hasPrefilled.current) return;
 
     if (!isEdit || !expenseId) {
+      // A new entry: filled in from a recent one (long-press +), or the usual category for this time of day.
+      const repeatFrom = (route.params as { repeatFrom?: string } | undefined)?.repeatFrom;
+      const source = repeatFrom ? expenses.find((e) => e.id === repeatFrom) : undefined;
+      if (source) {
+        setAmount(grossAmountOf(source).toString());
+        setSelectedCategoryId(source.category_id || null);
+        setNote(source.note || '');
+        setPaymentMode(source.payment_mode);
+      } else {
+        setSelectedCategoryId(suggestCategoryForNow(expenses, new Date()));
+      }
       hasPrefilled.current = true;
       return;
     }

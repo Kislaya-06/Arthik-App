@@ -31,6 +31,7 @@ import { OtaUpdateModal } from './src/components/OtaUpdateModal';
 import { useOtaStore } from './src/store/otaStore';
 import { onBeforeSignOut } from './src/features/autoLog/service';
 import { AppAlertModal } from './src/components/ui/AppAlertModal';
+import { WhatsNewTour } from './src/components/tour/WhatsNewTour';
 import { patchNativeAlert } from './src/store/alertStore';
 import { flushPendingSelections } from './src/lib/selectionCommitFence';
 import { perfMark } from './src/lib/perfMarks';
@@ -306,6 +307,7 @@ export default function App() {
           <SplashCover />
           <AppLockOverlay />
           <ConnectedOtaModal />
+          <WhatsNewTour />
           <AppAlertModal />
           <StatusBar
             barStyle={isDark ? 'light-content' : 'dark-content'}

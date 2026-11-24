@@ -74,12 +74,11 @@ export const AmountText: React.FC<AmountTextProps> = ({
 
   // Determine semantic color if not overridden
   const resolvedColor = color || (
-    // Light: deep mint / coral (>= 4.8:1); Dark / AMOLED: the same brand mint / coral as before.
+    // Only money coming in is coloured (mint). A normal expense reads in the text colour so a list of
+    // spends stays calm; warnings (over budget, missed days) pass their own coral `color`.
     direction === 'income'
       ? colors.mintText
-      : direction === 'expense'
-        ? colors.coralText
-        : colors.textPrimary
+      : colors.textPrimary
   );
 
   // Auto accessibility label if not provided

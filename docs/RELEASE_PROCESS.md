@@ -16,7 +16,8 @@
   eas update --branch preview --environment preview --message "feature: short description"
   ```
   Users get it silently the next time they open the app; the "What's new" popup shows the `app.json`
-  `expo.extra.otaUpdate` highlights (keep them and `src/store/otaStore.ts` fallback highlights current).
+  `expo.extra.otaUpdate` highlights (keep them and `src/store/otaStore.ts` fallback highlights current). New features
+  also get a "What's new" tour step: a new `TOUR_ID` + steps in `src/lib/whatsNewTour.ts` (AGENTS.md §11.3).
   > `--environment preview` is required (recent eas-cli asks for it in `--non-interactive` mode, otherwise the update
   > fails). The `preview` environment has no EAS variables, so the Supabase config is bundled from `app.json` → `extra`.
 - **Native Kotlin code (`modules/**`), `app.json` permissions / plugins, or a native library changed** → a new APK is

@@ -74,7 +74,7 @@ src/
 │                 savings/ (SavingsHeader, SavingsHeroCard, BudgetHubSection, SavingsHistorySection, styles),
 │                 transfer/ (TransferExtras, TransferDetailCard),
 │                 split/ (SplitExtras, MoneyBackExtras, MoneyBackSheet, SplitDetailCard),
-│                 BottomNavBar, BrandedHeroCard, HeroDetailsSheet, CadenceSwitchModal, VaultSpendingGuardModal,
+│                 BottomNavBar (+ long-press + opens RepeatEntrySheet), RepeatEntrySheet, tour/ (WhatsNewTour overlay, TourTarget), BrandedHeroCard, HeroDetailsSheet, CadenceSwitchModal, VaultSpendingGuardModal,
 │                 PeriodRenewalModal, CustomDatePickerModal, BudgetEditModal, MoneyExplainerModal,
 │                 StreakCalendarModal, DepositGullakModal, GradientIconBadge, PiggyBankCoinIcon,
 │                 CategoryRowItem, AppLockOverlay, SplashCover, OtaUpdateModal, PullToHistoryList, ErrorBoundary, OfflineBanner, SyncFailedBanner,
@@ -88,9 +88,10 @@ src/
 │                 budgetCalculations.ts, homeCalculations.ts, heroDetails.ts, heroRing.ts (Home ring real % + second lap, UX-004), moneyWaterfall.ts, transferRules.ts,
 │                 cadenceSwitch.ts, vaultSpendingGuard.ts, notificationPolicy.ts, notificationService.ts,
 │                 notificationSync.ts, authLinkHandler.ts, amountKeypad.ts, budgetModeUtils.ts, splitLedger.ts,
+│                 insights/ (habits, forecast, moneyFlows, yearStory: pure helpers of the 2026-11-25 Insights sections, INS-007..011),
 │                 savingsHistoryGroups.ts (Savings history week / month groups + totals, display only), notificationGroups.ts (Notifications date sections + `stackRepeatedNotifications`: 3+ Gullak savings in a row fold into one row that opens; nothing removed),
 │                 homeNetworkPill.ts (Home offline / syncing pill waits while the top OfflineBanner is on screen),
-│                 allowancePauses.ts (pause history: which days the allowance was off, INS-004), streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), asyncStorageList.ts (locked list helpers `changeStoredList` / `removeFromStoredList`), queueLock.ts (one writer per queue key), startupLoad.ts (offline-first splash order, OFL-001), supabasePaging.ts (no silent 1,000-row cut), signOutCleanup.ts (Log Out removes the user's cached copies of server data, never the unsynced queues), secureSessionStorage.ts + expoSessionCipher.ts + sessionCodec.ts (SEC-02: Supabase session encrypted with AES-256-GCM, key in secure storage; plain-text fallback when encryption cannot be proven; never read `sb-*-auth-token` from AsyncStorage directly), navBarLayout.ts, settleReview.ts, chartUtils.ts (facade over charts/ donutSegments, monthlyCharts, gullakMilestones, dualRing), profileUtils.ts,
+│                 allowancePauses.ts (pause history: which days the allowance was off, INS-004), streakCalendarData.ts, quickCategoryPick.ts + quickCategories.ts (top categories for the notification buttons), quickAdd.ts (Add again list + time-of-day category pre-pick), whatsNewTour.ts (tour id + steps; next release: new TOUR_ID), asyncStorageList.ts (locked list helpers `changeStoredList` / `removeFromStoredList`), queueLock.ts (one writer per queue key), startupLoad.ts (offline-first splash order, OFL-001), supabasePaging.ts (no silent 1,000-row cut), signOutCleanup.ts (Log Out removes the user's cached copies of server data, never the unsynced queues), secureSessionStorage.ts + expoSessionCipher.ts + sessionCodec.ts (SEC-02: Supabase session encrypted with AES-256-GCM, key in secure storage; plain-text fallback when encryption cannot be proven; never read `sb-*-auth-token` from AsyncStorage directly), navBarLayout.ts, settleReview.ts, chartUtils.ts (facade over charts/ donutSegments, monthlyCharts, gullakMilestones, dualRing), profileUtils.ts,
 │                 sheetTransition.ts (shared enter / exit motion of the Cadence, Period Renewal and Vault sheets), whileVisibleSelector.ts (hidden popups keep their last store value),
 │                 versionCheck.ts + apkInstaller.ts (force update / in-app APK install),
 │                 segmentedMotion.ts (pill springs, landing time, transform-only pill pieces), selectionCommitFence.ts (touch fence for deferred pill values),
@@ -100,7 +101,7 @@ src/
 ├── navigation/   index.tsx (Root stack + tabs), navigationRef.ts
 ├── screens/      Splash, Onboarding, Auth, ProfileSetup, Home (+ HomeScreen.styles, home/HomeRecentItems), History (+ HistoryScreen.styles, history/ HistoryRows, HistoryEmptyState, historyHelpers),
 │                 ExpenseForm (+ ExpenseFormScreen.styles, expenseForm/CategoryChipItem),
-│                 Insights (with insights/ periodUtils, PeriodNavigator, useInsightsData, styles),
+│                 Insights (with insights/ periodUtils, PeriodNavigator, useInsightsData, useInsightsExtras + InsightsExtraSections + InsightBreakdownCard (the 2026-11-25 sections), YearStory, styles),
 │                 Savings, ExpenseForm, ExpenseDetail, Ledger (+ ledger/LedgerParts: TallyBar, PersonInitial), CategoryDetail, ManageCategories,
 │                 AddEditCategory, Notifications, Profile, ResetPassword, GullakDepositDetail, Faq,
 │                 UpdateRequired, autolog/ (Center, Setup, WelcomeBack, Review, Accounts, Info, Intro, Email)
@@ -111,7 +112,7 @@ src/
 │                   gullakActions, syncActions (syncWithExpenses / checkAndRollover / uploadPendingDailyRecords), recordActions,
 │                   planActions → planSync, pureDeficit, pendingPlan, cadenceActions, budgetModeActions,
 │                   hydrate → hydrateRemote, hydrateOffline),
-│                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, splashCoverStore, alertStore
+│                 transferRulesStore, notificationStore, networkStore, navBarStore, themeStore, appLockStore, ambientStore, otaStore, tourStore ("What's new" tour step + spotlight targets, shown once per TOUR_ID), splashCoverStore, alertStore
 └── types/        index.ts (RootStackParamList, TabParamList)
 ```
 
@@ -369,6 +370,7 @@ Follow `docs/RELEASE_PROCESS.md` (generic `X.Y.Z` playbook). Key points: same ke
 ## 11.3 In-App OTA Update Popup Invariant (`OtaUpdateModal` & `app.json`)
 - **"What's New" Highlights Update**: Whenever an OTA release is prepared without bumping the version (the standard OTA workflow), you MUST update `app.json` (`expo.extra.otaUpdate.title` and `expo.extra.otaUpdate.highlights`) and `src/store/otaStore.ts` (fallback highlights).
 - This ensures the in-app update popup (`OtaUpdateModal`) that displays on user devices after downloading the update accurately communicates the exact changes, fixes, or improvements in that release. Never release an OTA update with stale highlights from a previous release.
+- **"What's new" spotlight tour (owner rule, 2026-11-25)**: every release with a new feature the user can see or use also gets a tour step for it. Set a new `TOUR_ID` and replace `TOUR_STEPS` in `src/lib/whatsNewTour.ts` (one step per feature: the tab it lives on, a title of at most 36 characters, a body of at most 170), and wrap each feature in `<TourTarget id=…>` (pass the screen's `scrollRef` when it can be below the fold). The tour is a dim scrim with a plain cut-out around the feature; it has no ring or pulse. Fixes-only releases keep the old `TOUR_ID`, so no tour shows.
 
 ## 11.4 Version Bump Guard & Pre-OTA Confirmation Invariant (CRITICAL)
 - **Check Before Every OTA Release**: Prior to executing any `eas update` command, the agent MUST inspect `app.json` and `package.json` to verify whether the app version string has changed.

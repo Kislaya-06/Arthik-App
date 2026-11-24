@@ -50,6 +50,10 @@ import { useNotificationStore } from '../store/notificationStore';
 import { useNetworkStore } from '../store/networkStore';
 import { shouldShowHomeNetworkPill } from '../lib/homeNetworkPill';
 import { useNavBarStore } from '../store/navBarStore';
+import { useAppLockStore } from '../store/appLockStore';
+import { useOtaStore } from '../store/otaStore';
+import { maybeStartWhatsNewTour } from '../store/tourStore';
+import { TourTarget } from '../components/tour/TourTarget';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList, RootStackParamList } from '../types';
 import { isIncomeTransaction } from '../lib/transactionUtils';
@@ -183,6 +187,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       loadData(false);
       // Back on Home: list at the top, nothing pulled, footer hidden behind the nav bar again.
       listRef.current?.reset();
+      // "What's new" tour: once after an update, when Home has settled and no lock screen / update popup is up.
+      const tourTimer = setTimeout(() => {
+        if (useAppLockStore.getState().isLocked || useOtaStore.getState().visible) return;
+        maybeStartWhatsNewTour(useExpenseStore.getState().expenses.length > 0);
+      }, 1200);
+      return () => clearTimeout(tourTimer);
     }, [loadData, showNavBar])
   );
 
@@ -709,7 +719,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 const e = item.data;
                 const cat = e.category_id ? catMap[e.category_id] : undefined;
                 const isIncome = isIncomeTransaction(e);
-                return (
+                const row = (
                   <HomeTransactionItem
                     key={e.id}
                     expense={e}
@@ -721,6 +731,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     index={idx}
                   />
                 );
+                return idx === 0 ? <TourTarget key={e.id} id="home.recent">{row}</TourTarget> : row;
               })}
             </View>
           )}

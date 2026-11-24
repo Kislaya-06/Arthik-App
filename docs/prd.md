@@ -49,6 +49,8 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Edit transaction | All fields editable |
 | Delete transaction | Confirm dialog, immediate removal with Supabase sync |
 | Payment modes | Cash, UPI, Card |
+| Add again | Press and hold + for the last few plain spends; one tap opens Add filled in for today (`src/lib/quickAdd.ts`) |
+| Category pre-pick | A new entry starts on the category used most at this time of day (last 60 days, 3+ entries, more than half) |
 | Note suggestions | Autocomplete from recent notes, ranked by recency + frequency + category affinity |
 | Offline logging | Fully functional offline; syncs on reconnect. The splash opens from the data saved on the phone and never waits for the server (`OFL-001`); budget settings, Gullak, categories and remembered transfer notes are queued and sent by themselves |
 
@@ -108,6 +110,10 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Category breakdown | Spending split by category with dynamic palettes. |
 | Spending flow chart | Daily bars in the spend (coral) colour with the peak day called out. Hidden for a week with no spending (the hero and the By Category empty state already say so). |
 | Timeline dots | Dynamic bounds derived from earliest transaction (no phantom dots). |
+| Where you're heading | Week / month-end spending estimate vs budget (Pure Mode: vs last period) with the daily cut needed (`INS-007`); money runway in days, Gullak kept apart (`INS-008`); next Gullak milestone ETA, Budget Mode only (`INS-009`). Current period only. Shown right under the summary strip, above the charts. |
+| Your habits | No-spend days + longest run; small spends under ₹200 (5+ in the period); when you spend (morning / afternoon / evening / night, only entries added the same day); categories ≥ 1.5x or ≤ 0.5x their own 4-week / 3-month average (rises only while the period runs; 2x and up reads "4x"); top places from notes, only places visited 2+ times, most visits first. |
+| Money with others & Gullak | Still owed to you leads (+ who owes most, oldest debt), then paid for others, came back, refunds (opens Ledger); where Gullak money came from + overspend cover (one sentence when there is one source), Budget Mode only (`INS-010`); best month and least-money-left month, Yearly (`INS-011`). |
+| Year story | "Your <year> in Arthik" banner on the Yearly tab (30+ days with entries) opens a tap-through story: totals, top category, top place, no-spend days, best month, Gullak (Budget Mode), closing. Swipe down to close. No sharing in v1. |
 
 ### 4.7 Categories ✅ Shipped
 
@@ -161,6 +167,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | 3-Theme System | Light, Dark, and battery-saving AMOLED Pure Black (`AmoledColors`) with 3-theme picker on Profile. |
 | In-App Mandatory Updates | In-app APK downloading with progress bar and automatic package installer trigger (`REQUEST_INSTALL_PACKAGES` via `apkInstaller.ts` + `UpdateRequiredScreen`). |
 | OTA updates | Branded in-app update modal with What's New highlights (`OtaUpdateModal`). |
+| What's new tour | Once per release (`TOUR_ID`), for people with entries: each step opens the screen, spotlights the new feature and explains it; Skip / Back ends it (`WhatsNewTour`). |
 | Force-Update Gate | Non-dismissible screen for legacy app versions (controlled by the Supabase `app_config` row `version_control`; links trusted only from Arthik's GitHub releases, SEC-03). |
 | EAS Build | APK via `preview` profile, AAB via `production`. |
 

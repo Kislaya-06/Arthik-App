@@ -44,7 +44,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddEditCategory'>;
 export const ICONS_GRID = [
   'Coffee', 'Truck', 'ShoppingBag', 'Video', 'Activity',
   'FileText', 'GraduationCap', 'Send', 'Home', 'ShoppingCart',
-  'Move', 'Gift', 'CupSoda', 'Music', 'Users', 'DollarSign',
+  'Move', 'Gift', 'CupSoda', 'Music', 'Users', 'IndianRupee',
   'MoreHorizontal'
 ];
 
@@ -52,7 +52,7 @@ export const ICONS_GRID = [
 export const INCOME_ICONS_GRID = [
   'Briefcase', 'Laptop', 'Percent', 'Gift', 'Wallet',
   'TrendingUp', 'Landmark', 'Banknote', 'PiggyBank', 'HandCoins',
-  'Coins', 'Store', 'Award', 'Home', 'Users', 'DollarSign',
+  'Coins', 'Store', 'Award', 'Home', 'Users', 'IndianRupee',
   'MoreHorizontal'
 ];
 

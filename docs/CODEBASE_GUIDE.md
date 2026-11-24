@@ -211,6 +211,9 @@ New money logic goes here, with a test (`MNY-001`).
 
 **Insights** — `weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts`, `insightsCommon.ts`:
 spend, budget health, safe daily pace (`INS-001`), day-matched comparisons, multi-cadence savings.
+`lib/insights/` (pure) holds the 2026-11-25 sections: `habits.ts` (no-spend days, small leaks, category vs own average,
+time of day, top places), `forecast.ts` (projection `INS-007`, runway `INS-008`, Gullak ETA `INS-009`), `moneyFlows.ts`
+(split summary, Gullak sources `INS-010`, best / worst month `INS-011`), `yearStory.ts` (year story slides).
 
 **Notifications**
 | File | Job |
@@ -269,6 +272,7 @@ queued before the request, removed when the server confirms.
 | `notificationStore.ts` | In-app bell, capped at 50 |
 | `appLockStore.ts`, `themeStore.ts`, `ambientStore.ts`, `navBarStore.ts` | App lock, theme, ambient background, nav bar visibility |
 | `otaStore.ts` | OTA check + "What's new" modal (fallback highlights) |
+| `tourStore.ts` | "What's new" spotlight tour: current step, `<TourTarget>` registry, `maybeStartWhatsNewTour` (once per `TOUR_ID`, only for people with entries) |
 | `alertStore.ts` | Queue of themed dialogs (`AppAlertModal`) |
 | `splashCoverStore.ts` | Mint cover over the splash → first screen hand-off |
 
@@ -278,7 +282,7 @@ queued before the request, removed when the server confirms.
 
 **Screens** — `HomeScreen` (hero card, ring, recent items), `HistoryScreen` (FlashList, filters, swipe to delete),
 `SavingsScreen` (Budget Hub, Gullak, streak, history), `InsightsScreen` + `insights/` (`PeriodNavigator`,
-`periodUtils`, `useInsightsData`), `ExpenseFormScreen` (Add / Edit Transaction; logic in `useExpenseForm`),
+`periodUtils`, `useInsightsData`, `useInsightsExtras` + `InsightsExtraSections`, `YearStory`), `ExpenseFormScreen` (Add / Edit Transaction; logic in `useExpenseForm`),
 `ExpenseDetailScreen`, `LedgerScreen` (+ `ledger/LedgerParts`), `ProfileScreen`, `NotificationsScreen`,
 `CategoryDetailScreen`, `ManageCategoriesScreen`, `AddEditCategoryScreen`, `GullakDepositDetailScreen`, `FaqScreen`,
 `UpdateRequiredScreen`, sign-in flow (`SplashScreen`, `OnboardingScreen`, `AuthScreen`, `ResetPasswordScreen`,
@@ -356,7 +360,7 @@ Budget Mode, daily ₹500, the user adds ₹300:
 | New table / column | `schema.sql` + new `supabase/migrations/*.sql` + docs |
 | Automatic Logging parsing / duplicates | `features/autoLog/parser.ts`, `senders.ts`, `matching.ts` |
 | Colours, spacing, sizes | `config/theme.ts` + `docs/design-system.md` |
-| Insights math | `*InsightsUtils.ts`, `screens/insights/useInsightsData.ts` |
+| Insights math | `*InsightsUtils.ts`, `lib/insights/*`, `screens/insights/useInsightsData.ts`, `useInsightsExtras.ts` |
 
 ## 14. Staying safe when changing code
 1. Check the change against the canonical rules; if it contradicts one, stop and name the rule ID (AGENTS.md).

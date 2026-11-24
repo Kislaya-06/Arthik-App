@@ -495,6 +495,42 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Code Enforcement:** `src/lib/yearlyInsightsUtils.ts`
 - **Verified By:** `tests/yearlyInsightsData.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/insightsAllowanceHistory.test.ts`
 
+#### `INS-007`: Spending Projection (Weekly & Monthly)
+- **Status:** `APPROVED` (Owner approved on 2026-11-25)
+- **Canonical Definition:**
+  Shown only for the current week (from its 3rd day) or month (from its 4th day), never for a finished period.
+  `projected = spentSoFar + avg × daysLeft`, where `avg = (spentSoFar − majorOutflows) / daysElapsed` and a major outflow is a single counted expense ≥ 30% of `spentSoFar` (`INS-005`), counted once and kept out of the average. Today counts as elapsed. The target is the period's budget pool in Budget Mode (`INS-004`) and the previous full period's counted spending in Pure Mode. The card shows the amount over / under the target and, when over, the daily cut needed: `round((projected − target) / daysLeft)`.
+- **Code Enforcement:** `src/lib/insights/forecast.ts` (`computeSpendingProjection`)
+- **Verified By:** `tests/insightsForecast.test.ts`
+
+#### `INS-008`: Runway
+- **Status:** `APPROVED` (Owner approved on 2026-11-25)
+- **Canonical Definition:**
+  Monthly tab, current month only. `spendable = Total Account Remaining (BAL-001) − Gullak`. `dailyAvg` = counted spending of the last 30 finished days / 30. `runwayDays = floor(spendable / dailyAvg)`. Not shown when fewer than 30 days have passed since sign-up or when `dailyAvg` is 0. When `spendable ≤ 0` it says no spendable money is left. Gullak is always shown on its own line, never added to the runway.
+- **Code Enforcement:** `src/lib/insights/forecast.ts` (`computeRunway`)
+- **Verified By:** `tests/insightsForecast.test.ts`
+
+#### `INS-009`: Gullak Milestone ETA
+- **Status:** `APPROVED` (Owner approved on 2026-11-25)
+- **Canonical Definition:**
+  Budget Mode only (`GUL-002`), Monthly and Yearly tabs. `pace` = (Gullak money in − money drawn out for overspending) over the last 90 days / 90. The next milestone is the first `MILESTONES` amount above the current Gullak. `etaDays = ceil((milestone − gullak) / pace)`. When `pace ≤ 0` it says Gullak is not growing right now; when every milestone is passed it says so; an ETA more than 3 years away says "more than 3 years at this pace".
+- **Code Enforcement:** `src/lib/insights/forecast.ts` (`computeGullakEta`)
+- **Verified By:** `tests/insightsForecast.test.ts`
+
+#### `INS-010`: Where Gullak Money Came From
+- **Status:** `APPROVED` (Owner approved on 2026-11-25)
+- **Canonical Definition:**
+  Budget Mode only (`GUL-002`), Monthly and Yearly tabs. For the period: **auto-saved** = finalized daily `saved` + finalized period `amountSaved` (`INS-002` attribution), **from income** = deposits with `source = 'income'`, **from outside** = deposits with `source = 'external'`. Shares are of their sum. A separate line shows **used to cover overspending** = the Gullak drawdown of the period (`GUL-008`, money waterfall), never subtracted from the shares. Hidden when all four are 0.
+- **Code Enforcement:** `src/lib/insights/moneyFlows.ts` (`computeGullakSources`)
+- **Verified By:** `tests/insightsMoneyFlows.test.ts`
+
+#### `INS-011`: Best and Worst Month
+- **Status:** `APPROVED` (Owner approved on 2026-11-25)
+- **Canonical Definition:**
+  Yearly tab, finished months only (the current month never counts), at least 2 of them. For each month `moneyLeft = inflow − counted spending`, where inflow = that month's budget allowance by `INS-004` + counted income + external Gullak deposits (the `INS-006` parts). Best = highest `moneyLeft`, worst = lowest; a tie goes to the later month. The reason line names the month's top category and its ratio to that category's monthly average over the year's finished months, only when the ratio ≥ 1.5.
+- **Code Enforcement:** `src/lib/insights/moneyFlows.ts` (`computeBestWorstMonth`)
+- **Verified By:** `tests/insightsMoneyFlows.test.ts`
+
 ---
 
 ### Domain 7: NOT & SEC — Notifications & Digital Vault Spending Guard
