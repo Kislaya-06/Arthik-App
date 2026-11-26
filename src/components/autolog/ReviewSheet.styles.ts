@@ -241,6 +241,21 @@ export const styles = StyleSheet.create({
     fontSize: FontSize.titleSmall,
     fontFamily: FontFamily.bold,
   },
+  noteInput: {
+    flex: 1,
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.medium,
+  },
+  confirmTitle: {
+    fontSize: FontSize.body,
+    fontFamily: FontFamily.bold,
+    textAlign: 'center',
+  },
+  confirmBody: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: FontFamily.medium,
+    textAlign: 'center',
+  },
   footerCol: {
     gap: Spacing.group,
   },

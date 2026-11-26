@@ -13,6 +13,8 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 ## [Unreleased] — OTA updates on 2.1.0 (JS only, no new APK)
 
 ### Added
+- **Notes in Automatic Logging review (OTA)**: the review sheet has an optional Note. Leave it empty and the payee
+  name is saved as before; for a transaction that only needs a category, an empty note keeps the saved one.
 - **Add again (OTA)**: press and hold + (either tab bar) to see your last few plain spends; pick one and Add Transaction
   opens filled in for today (amount, category, note, payment). Splits and money back are never offered.
 - **Category pre-pick on Add (OTA)**: a new entry starts on the category you used most at this time of day in the last
@@ -84,6 +86,9 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
   nothing changed; less work after every save; animations on the UI thread; History on a recycling list.
 
 ### Fixed
+- **Review buttons work on the first tap (OTA)**: "Not a transaction", "Discard review" / "Delete transaction" and
+  "Mark as Self Transfer" now ask inside the review sheet instead of a second popup on top of it, which sometimes
+  needed two taps. A fast double tap can no longer run an action twice.
 - **Insights count only real budget days (OTA)** (`INS-004`, `INS-006`): the Weekly / Monthly budget pool and the
   Yearly inflow no longer add the daily allowance for days you were in Pure Mode or had the allowance paused. Each day
   uses the rate that was set that day, and past budget days still count after you switch to Pure Mode. Pauses are now

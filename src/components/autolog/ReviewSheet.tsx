@@ -1,6 +1,6 @@
 import { toFriendlyMessage } from '../../lib/friendlyError';
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, Alert, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, Pressable, ScrollView, TextInput, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import ShieldCheck from 'lucide-react-native/icons/shield-check';
 import Users from 'lucide-react-native/icons/users';
@@ -53,6 +53,15 @@ interface Props {
   onDone: (message: string) => void;
 }
 
+/** Same cap as the ledger (`createTransaction` keeps 200 characters), so nothing typed is cut silently. */
+const MAX_REVIEW_NOTE_CHARS = 200;
+
+/**
+ * "Not a transaction", "Discard" and "Self transfer" ask inside the sheet's own footer, never in a second dialog
+ * stacked on this Modal (a dialog over the sheet sometimes needed two taps on Android).
+ */
+type ConfirmKind = 'ignore' | 'discard' | 'transfer';
+
 const TYPE_OPTIONS: SegmentedOption[] = [
   { key: 'expense', label: 'Expense' },
   { key: 'income', label: 'Income' },
@@ -84,6 +93,10 @@ export const ReviewSheet: React.FC<Props> = ({
    */
   const [pickedPersonKey, setPickedPersonKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [confirm, setConfirm] = useState<ConfirmKind | null>(null);
+  /** Set synchronously on the first tap: a fast second tap can never log, ignore or delete twice. */
+  const busyRef = useRef(false);
 
   const categoryOnly = !!event && event.status === 'logged' && event.needsCategory;
   const sheetHeight = Math.min(Math.round(windowHeight * 0.86), 740);
@@ -98,6 +111,9 @@ export const ReviewSheet: React.FC<Props> = ({
       setBusy(false);
       setSettlingWith(null);
       setPickedPersonKey(null);
+      setNoteText('');
+      setConfirm(null);
+      busyRef.current = false;
     }
   }, [visible, event?.id, event?.direction, event?.merchant, event?.sender]);
 
@@ -141,6 +157,8 @@ export const ReviewSheet: React.FC<Props> = ({
   if (!event) return null;
 
   const run = async (fn: () => Promise<void>, message: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -150,9 +168,15 @@ export const ReviewSheet: React.FC<Props> = ({
     } catch (e: any) {
       setError(toFriendlyMessage(e, 'Something went wrong. Please try again.'));
     } finally {
+      busyRef.current = false;
       setBusy(false);
+      setConfirm(null);
     }
   };
+
+  // Empty -> undefined: the payee name is saved, exactly as before notes existed.
+  const note = noteText.trim() || undefined;
+  const defaultNote = event.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
 
   const handleSave = () => {
     if (needsAmount && !amount) {
@@ -170,7 +194,7 @@ export const ReviewSheet: React.FC<Props> = ({
       return;
     }
     if (categoryOnly && categoryId) {
-      return run(() => setEventCategory(event, categoryId, remember), 'Category saved');
+      return run(() => setEventCategory(event, categoryId, remember, note), 'Category saved');
     }
     if (discovery) {
       return run(
@@ -184,23 +208,17 @@ export const ReviewSheet: React.FC<Props> = ({
         type,
         categoryId,
         remember,
-        needsAmount ? amount ?? undefined : undefined
+        needsAmount ? amount ?? undefined : undefined,
+        { note }
       );
     }, `${money(amount)} logged as ${type === 'income' ? 'income' : 'an expense'}`);
   };
 
-  const handleSelfTransfer = () => {
-    Alert.alert(
-      'Mark as self transfer?',
-      `This transaction will not be counted as an expense or income${event.merchant ? `, and future transfers for "${event.merchant}" will be remembered` : ''}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Mark as Transfer',
-          onPress: () => run(() => markAsSelfTransfer(event, remember), 'Marked as self transfer'),
-        },
-      ]
-    );
+  const openConfirm = (kind: ConfirmKind) => {
+    if (busyRef.current) return;
+    Haptics.selectionAsync().catch(() => {});
+    setError(null);
+    setConfirm(kind);
   };
 
   const settleWith = (personName: string) => {
@@ -214,7 +232,7 @@ export const ReviewSheet: React.FC<Props> = ({
         null,
         false,
         needsAmount ? amount ?? undefined : undefined,
-        { clearNeedsCategory: true }
+        { clearNeedsCategory: true, note }
       );
       if (!logged.expenseId) throw new Error('Could not log this payment. Please try again.');
       await convertIncomeToMoneyBack({ incomeId: logged.expenseId, kind: 'settlement', who: personName });
@@ -233,44 +251,12 @@ export const ReviewSheet: React.FC<Props> = ({
         categoryId,
         remember,
         needsAmount ? amount ?? undefined : undefined,
-        { clearNeedsCategory: true }
+        { clearNeedsCategory: true, note }
       );
       if (logged.expenseId && navigationRef.isReady()) {
         (navigationRef as any).navigate('EditExpense', { expenseId: logged.expenseId, splitOn: true });
       }
     }, `${money(amount)} logged as an expense`);
-  };
-
-  const handleIgnore = () => {
-    Alert.alert(
-      'Ignore message?',
-      `Choose how you want Arthik to handle messages from ${event.sender}:`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Ignore only this message', onPress: () => run(() => ignoreEvent(event, 'message'), 'Ignored') },
-        {
-          text: `Ignore similar from ${event.sender}`,
-          onPress: () => run(() => ignoreEvent(event, 'similar'), 'Similar messages will be ignored'),
-        },
-      ]
-    );
-  };
-
-  const handleDiscard = () => {
-    Alert.alert(
-      categoryOnly ? 'Delete transaction?' : 'Discard review?',
-      categoryOnly
-        ? 'This transaction will be removed from your expenses.'
-        : 'This item will be removed from pending reviews and will not be logged.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: categoryOnly ? 'Delete' : 'Discard',
-          style: 'destructive',
-          onPress: () => run(() => discardEvent(event), categoryOnly ? 'Transaction deleted' : 'Review discarded'),
-        },
-      ]
-    );
   };
 
   // ── Split-Row Receipt Summary Card (Zero void space, compact layout) ──
@@ -550,6 +536,28 @@ export const ReviewSheet: React.FC<Props> = ({
           </View>
         </View>
 
+        {/* ── Optional note: empty saves the payee name, as before ── */}
+        {!discovery ? (
+          <View style={styles.section}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>NOTE (OPTIONAL)</Text>
+            <View style={[styles.amountBox, { backgroundColor: colors.inputBg }]}>
+              <TextInput
+                value={noteText}
+                onChangeText={setNoteText}
+                maxLength={MAX_REVIEW_NOTE_CHARS}
+                placeholder={defaultNote}
+                placeholderTextColor={colors.textMuted}
+                keyboardAppearance={isDark ? 'dark' : 'light'}
+                returnKeyType="done"
+                editable={!busy}
+                accessibilityLabel="Note"
+                accessibilityHint={`Leave empty to save "${defaultNote}"`}
+                style={[styles.noteInput, { color: colors.textPrimary }]}
+              />
+            </View>
+          </View>
+        ) : null}
+
         {/* ── Remember Preference 48px Stadium Pill ── */}
         <Pressable
           disabled={!!pickedPerson}
@@ -665,7 +673,7 @@ export const ReviewSheet: React.FC<Props> = ({
               size="standard"
               icon={<ArrowLeftRight size={16} color={colors.textPrimary} />}
               disabled={busy}
-              onPress={handleSelfTransfer}
+              onPress={() => openConfirm('transfer')}
             />
 
             {type === 'expense' && event.direction !== 'credit' ? (
@@ -683,7 +691,66 @@ export const ReviewSheet: React.FC<Props> = ({
       </ScrollView>
     );
 
-    footer = (
+    footer = confirm ? (
+      <View style={styles.footerCol}>
+        <Text style={[styles.confirmTitle, { color: colors.textPrimary }]}>
+          {confirm === 'ignore'
+            ? 'Not a transaction? Ignore it'
+            : confirm === 'transfer'
+            ? 'Mark as self transfer?'
+            : categoryOnly
+            ? 'Delete this transaction?'
+            : 'Discard this review?'}
+        </Text>
+        <Text style={[styles.confirmBody, { color: colors.textSecondary }]}>
+          {confirm === 'ignore'
+            ? 'It will not be logged.'
+            : confirm === 'transfer'
+            ? `It will not count as an expense or income${event.merchant ? `. Future transfers to "${event.merchant}" will be remembered` : ''}.`
+            : categoryOnly
+            ? 'It will be removed from your expenses.'
+            : 'It will be removed from reviews and not logged.'}
+        </Text>
+        {confirm === 'ignore' ? (
+          <>
+            <AppButton
+              label="Only this message"
+              variant="primary"
+              size="cta"
+              loading={busy}
+              disabled={busy}
+              onPress={() => run(() => ignoreEvent(event, 'message'), 'Ignored')}
+            />
+            <AppButton
+              label={`All similar from ${event.sender}`}
+              variant="outline"
+              size="cta"
+              disabled={busy}
+              onPress={() => run(() => ignoreEvent(event, 'similar'), 'Similar messages will be ignored')}
+            />
+          </>
+        ) : confirm === 'transfer' ? (
+          <AppButton
+            label="Mark as Transfer"
+            variant="primary"
+            size="cta"
+            loading={busy}
+            disabled={busy}
+            onPress={() => run(() => markAsSelfTransfer(event, remember), 'Marked as self transfer')}
+          />
+        ) : (
+          <AppButton
+            label={categoryOnly ? 'Delete' : 'Discard'}
+            variant="danger"
+            size="cta"
+            loading={busy}
+            disabled={busy}
+            onPress={() => run(() => discardEvent(event), categoryOnly ? 'Transaction deleted' : 'Review discarded')}
+          />
+        )}
+        <AppButton label="Cancel" variant="ghost" size="cta" disabled={busy} onPress={() => setConfirm(null)} />
+      </View>
+    ) : (
       <View style={{ gap: Spacing.element }}>
         {settleHint && !busy ? (
           <Text numberOfLines={2} style={[styles.settleNote, { color: colors.textSecondary }]}>
@@ -714,7 +781,7 @@ export const ReviewSheet: React.FC<Props> = ({
           <Pressable
             hitSlop={{ top: 8, bottom: 12, left: 12, right: 12 }}
             disabled={busy}
-            onPress={handleIgnore}
+            onPress={() => openConfirm('ignore')}
             style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.65 }]}
           >
             <Text style={[styles.secondaryText, { color: colors.textSecondary }]}>
@@ -725,7 +792,7 @@ export const ReviewSheet: React.FC<Props> = ({
           <Pressable
             hitSlop={{ top: 8, bottom: 12, left: 12, right: 12 }}
             disabled={busy}
-            onPress={handleDiscard}
+            onPress={() => openConfirm('discard')}
             style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.65 }]}
           >
             <Text style={[styles.secondaryText, { color: colors.coralText }]}>
@@ -744,7 +811,7 @@ export const ReviewSheet: React.FC<Props> = ({
       title={title}
       colors={colors}
       isDark={isDark}
-      avoidKeyboard={needsAmount}
+      avoidKeyboard={!discovery}
       containerStyle={[styles.modalContainer, { height: sheetHeight }]}
       contentStyle={styles.modalContent}
       footer={

@@ -127,9 +127,10 @@ export const fakeLedger = {
     ledger.txs.set(id, { ...tx, id });
     return id;
   },
-  setTransactionCategory: async (id: string, categoryId: string | null) => {
+  setTransactionCategory: async (id: string, categoryId: string | null, note?: string) => {
     const t = ledger.txs.get(id);
     if (t) t.categoryId = categoryId;
+    if (t && note?.trim()) t.note = note.trim();
     return !!t;
   },
   setTransactionType: async (id: string, type: 'expense' | 'income') => {

@@ -65,6 +65,24 @@ describe('ReviewSheet Layout & UI Invariants', () => {
   it('renders Mark as Self Transfer for both expense and income when not in discovery mode', () => {
     expect(src).toMatch(/\{!discovery \? \(\s*<View style=\{styles\.actionPillsGroup\}>\s*<AppButton\s*label="Mark as Self Transfer"/);
   });
+  it('asks Not a transaction / Discard / Self transfer inside the sheet, never in a dialog stacked on it (two-tap bug)', () => {
+    expect(src).not.toMatch(/Alert\.alert/);
+    expect(src).not.toMatch(/\bAlert\b[^\n]*from 'react-native'/);
+    expect(src).toMatch(/openConfirm\('ignore'\)/);
+    expect(src).toMatch(/openConfirm\('discard'\)/);
+    expect(src).toMatch(/openConfirm\('transfer'\)/);
+  });
+
+  it('runs one action per tap: a synchronous ref blocks a fast second tap', () => {
+    expect(src).toMatch(/if \(busyRef\.current\) return;\s*busyRef\.current = true;/);
+  });
+
+  it('has an optional note whose placeholder is the payee name saved when it is left empty', () => {
+    expect(src).toMatch(/NOTE \(OPTIONAL\)/);
+    expect(src).toMatch(/placeholder=\{defaultNote\}/);
+    expect(src).toMatch(/const note = noteText\.trim\(\) \|\| undefined;/);
+  });
+
 });
 
 describe('BottomSheetModal Slide Animation Invariant', () => {

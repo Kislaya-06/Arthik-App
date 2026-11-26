@@ -20,13 +20,13 @@ export const classifyEvent = async (
   categoryId: string | null,
   rememberMerchant: boolean,
   amountOverride?: number,
-  options?: { clearNeedsCategory?: boolean }
+  options?: { clearNeedsCategory?: boolean; note?: string }
 ) => {
   const e = { ...event };
   if (amountOverride && amountOverride > 0) e.amount = amountOverride;
   if (e.amount == null) throw new Error('Amount is missing');
   const acc = e.accountKey ? await db.getAccount(e.accountKey) : null;
-  await logEvent(e, type, categoryId, acc?.kind ?? null, quiet);
+  await logEvent(e, type, categoryId, acc?.kind ?? null, quiet, options?.note);
   if (options?.clearNeedsCategory) {
     e.needsCategory = false;
   }
@@ -86,9 +86,9 @@ const reconcileAwaitingNotifications = async (e: AutoLogEvent) => {
   }
 };
 
-/** Logged already; user picks the category. */
-export const setEventCategory = async (event: AutoLogEvent, categoryId: string, rememberMerchant: boolean) => {
-  if (event.expenseId) await setTransactionCategory(event.expenseId, categoryId);
+/** Logged already; user picks the category (and may replace the note; empty keeps the saved one). */
+export const setEventCategory = async (event: AutoLogEvent, categoryId: string, rememberMerchant: boolean, note?: string) => {
+  if (event.expenseId) await setTransactionCategory(event.expenseId, categoryId, note);
   await db.updateEvent(event.id, { needsCategory: false });
   if (rememberMerchant && event.merchant) {
     await db.setMerchantPref(event.merchant, categoryId, event.direction === 'credit' ? 'income' : 'expense');

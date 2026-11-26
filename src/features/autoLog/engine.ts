@@ -230,9 +230,11 @@ export const logEvent = async (
   categoryId: string | null,
   accountKind: string | null,
   opts: ProcessOptions,
+  customNote?: string,
 ) => {
   const id = e.expenseId || Crypto.randomUUID();
-  const note = e.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
+  // The user's own note from the review wins; an empty one falls back to the payee name.
+  const note = customNote?.trim() || e.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
   const created = await createTransaction(
     {
       amount: e.amount as number, type, categoryId, note, paymentMode: paymentModeFor(accountKind, type), occurredAt: e.occurredAt,

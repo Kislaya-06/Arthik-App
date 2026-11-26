@@ -96,14 +96,16 @@ export const createTransaction = async (tx: NewTransaction, presetId?: string): 
   }
 };
 
-export const setTransactionCategory = async (expenseId: string, categoryId: string | null): Promise<boolean> => {
+/** `note`: a new note from the review (empty / undefined keeps the saved one). */
+export const setTransactionCategory = async (expenseId: string, categoryId: string | null, note?: string): Promise<boolean> => {
   const cat = categoryId && isValidUUID(categoryId) ? categoryId : null;
+  const newNote = note?.trim().slice(0, 200) || null;
   const store = useExpenseStore.getState();
   const existing = store.expenses.find((e) => e.id === expenseId);
   if (storeReady() && existing) {
     try {
       await store.updateExpense(
-        existing.id, grossAmountOf(existing), cat, existing.note || '', existing.payment_mode, existing.expense_date, existing.type || 'expense'
+        existing.id, grossAmountOf(existing), cat, newNote ?? (existing.note || ''), existing.payment_mode, existing.expense_date, existing.type || 'expense'
       );
       return true;
     } catch {
@@ -111,7 +113,7 @@ export const setTransactionCategory = async (expenseId: string, categoryId: stri
     }
   }
   try {
-    const { error } = await supabase.from('expenses').update({ category_id: cat }).eq('id', expenseId);
+    const { error } = await supabase.from('expenses').update(newNote ? { category_id: cat, note: newNote } : { category_id: cat }).eq('id', expenseId);
     return !error;
   } catch {
     return false;

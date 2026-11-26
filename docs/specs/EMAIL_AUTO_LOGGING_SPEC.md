@@ -617,7 +617,9 @@ The review sheet resolves an item in one screen:
 - **Between my own accounts** (self-transfer, optionally remembered)
 - **Expense, split with someone** (`SPL-001`) and **Paid back by someone?** for credits (`SPL-005`)
 - **Remember for this merchant** (off by default)
+- **Note (optional)**: saved as the transaction's note; empty saves the payee name (as before), and for an item that only needs a category an empty note keeps the saved one
 - **Ignore** this message, or messages like it from this sender
+- "Not a transaction", "Discard" and "Mark as self transfer" ask inside the sheet's footer (never a second dialog on top of the sheet), and each action runs once per tap
 
 ---
 
