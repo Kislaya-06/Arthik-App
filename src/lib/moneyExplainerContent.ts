@@ -35,23 +35,23 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
     items: [
       {
         tag: 'Savings Safe',
-        title: 'Unspent Money Stays With You',
+        title: 'You choose where leftover goes',
         description:
-          'No money is moved to Gullak mid-cycle. Your unspent budget carries forward safely into your new plan.',
+          'Save the unspent budget to Gullak, or carry it forward so it pays part of your new budget. It moves at midnight.',
         iconName: 'shield',
       },
       {
         tag: 'Real Money',
         title: 'Full Budget Without Cuts',
         description:
-          'Your budget is never cut down mid-cycle. The entire amount is ready to use right away, and any unspent money rolls forward safely.',
+          'A new budget gives its full amount, even mid-week or mid-month. Whatever you do not spend goes to Gullak when it ends.',
         iconName: 'calendar',
       },
       {
         tag: 'One Budget',
         title: 'One budget per week or month',
         description:
-          'A week or month gets its budget once. Pausing, resuming or switching back inside the same period never gives a second one. Whatever is left is what continues.',
+          'A week or month gets its budget once. Switching back inside the same period never gives a second full budget.',
         iconName: 'calendar',
       },
       {
@@ -81,7 +81,7 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
         tag: '100% Safe',
         title: 'Gullak is used last',
         description:
-          'Your saved Gullak balance is never deleted or reset. In Pure Mode a spend is paid from your budget first, then income, and only then from Gullak, exactly as in Budget Mode.',
+          'Your Gullak is never deleted or reset. In Pure Mode a spend is paid from your income first, and only then from Gullak.',
         iconName: 'coins',
       },
       {
@@ -92,17 +92,17 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
         iconName: 'wallet',
       },
       {
-        tag: 'Limits Paused',
-        title: 'Limits and warnings are paused',
+        tag: 'From Tomorrow',
+        title: 'Your budget ends at midnight',
         description:
-          'Starting today, spending limits, warnings, and automatic rollovers are paused. Your weekly or monthly budget stays with its period: spends use it, and if you switch back in the same period you continue with what is left.',
+          'What is left of a weekly or monthly budget moves to Gullak. Come back in the same period and it returns, minus anything Pure Mode took from Gullak.',
         iconName: 'shield',
       },
       {
         tag: 'Flexible',
         title: 'Resume anytime in one tap',
         description:
-          'You can switch Budget Mode back on at any point to resume daily allowances and savings streaks.',
+          'You can switch Budget Mode back on at any point. It starts the next day.',
         iconName: 'check',
       },
     ],
@@ -132,7 +132,7 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
         tag: 'Reversible',
         title: 'Safe removal anytime',
         description:
-          'Any manual deposit can be removed from the Gullak timeline, safely restoring your available income balance if needed.',
+          'Remove a wrong deposit anytime. Money from income goes back to income. New money leaves your total.',
         iconName: 'shield',
       },
     ],
@@ -169,7 +169,7 @@ export const MONEY_EXPLAINER_DATA: Record<MoneyExplainerTopic, MoneyExplainerCon
         tag: 'Overspending',
         title: 'What if you spend more?',
         description:
-          'If expenses exceed your budget allowance, no money rolls over for that cycle and the streak is paused without penalty to existing savings.',
+          'The extra is paid from your income first. Only when income is used up does it come from Gullak.',
         iconName: 'shield',
       },
     ],

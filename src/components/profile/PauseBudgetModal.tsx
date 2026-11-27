@@ -64,9 +64,9 @@ export const PauseBudgetModal: React.FC<PauseBudgetModalProps> = ({
               const left = visible && typeof getCarryableAmount === 'function' ? getCarryableAmount() : 0;
               if ((budgetCadence === 'weekly' || budgetCadence === 'monthly') && left > 0) {
                 const w = budgetCadence === 'weekly' ? 'week' : 'month';
-                return `Your ${formatCurrency(left)} remaining budget stays active for this ${w}. You can switch back anytime.`;
+                return `At midnight, what is left of this ${w}'s budget (${formatCurrency(left)} now) moves to your Gullak.`;
               }
-              return 'Pure Mode keeps the same books: your budget is used first, then income, then Gullak.';
+              return 'In Pure Mode your spending is paid from your income first, then your Gullak.';
             })()}
           </Text>
 

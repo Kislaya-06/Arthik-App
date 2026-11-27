@@ -75,13 +75,14 @@ All architectural and financial logic decisions are recorded in [`docs/adr/`](ad
 | [0022](adr/0022-money-scope-module.md) | Money Scope Module: Screens Get Card Figures from `src/money` Only | Active |
 | [0023](adr/0023-one-transaction-classifier.md) | One Transaction Classifier, No Categories (TXN-002 Retired) | Active |
 | [0024](adr/0024-architecture-review-candidates-not-pursued.md) | Architecture Review Candidates Not Pursued (Expense Sync, Budget Period, Insights Data) | Active |
+| [0025](adr/0025-gullak-is-one-running-balance.md) | Gullak Is One Running Balance; Simpler Switching | Active |
 
 ---
 
 ## 3. How to Add a New ADR
 
 1. Copy the file name pattern: `NNNN-short-hyphenated-title.md`
-2. Next available number after `0024` (i.e. `0025`).
+2. Next available number after `0025` (i.e. `0026`).
 3. Standard sections: **Context**, **Decision**, **Consequences**, **What Would Have to Be True to Revisit**.
 4. If the new ADR supersedes an older one, mark `## Status: Superseded by NNNN` in the old ADR.
 5. Register the new ADR in the table above and in `docs/architecture.md §13`.

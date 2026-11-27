@@ -19,7 +19,6 @@ import { BrandedHeroCard } from '../components/BrandedHeroCard';
 import { AutoLogHomeBanner } from '../components/autolog/AutoLogHomeBanner';
 import { PeriodRenewalModal } from '../components/PeriodRenewalModal';
 import { WelcomeBackGapModal } from '../components/WelcomeBackGapModal';
-import { findInactiveGapDays } from '../lib/gapFiller';
 import { PullToHistoryList, PullToHistoryListHandle } from '../components/PullToHistoryList';
 import { RefreshScrollShell } from '../components/RefreshScrollShell';
 import { usePullRefresh } from '../hooks/usePullRefresh';
@@ -135,9 +134,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [showHeroDetails, setShowHeroDetails] = useState(false);
   const lastRenewedPeriodKey = useDailyBudgetStore((s) => s.lastRenewedPeriodKey);
   const setLastRenewedPeriodKey = useDailyBudgetStore((s) => s.setLastRenewedPeriodKey);
-  const dismissedGapDates = useDailyBudgetStore((s) => s.dismissedGapDates);
-  const saveGapDaysToGullak = useDailyBudgetStore((s) => s.saveGapDaysToGullak);
-  const dismissGapDays = useDailyBudgetStore((s) => s.dismissGapDays);
+  // The oldest stretch that has something to say; the next one shows once this is answered.
+  const absence = useDailyBudgetStore((s) => s.absences.find((a) => a.status !== 'unchecked'));
+  const chooseAbsence = useDailyBudgetStore((s) => s.chooseAbsence);
+  const closeAbsence = useDailyBudgetStore((s) => s.closeAbsence);
   const [gapModalDismissed, setGapModalDismissed] = useState(false);
 
   // Align activeFilter to active cadence on mount or hydration if not yet switched
@@ -267,56 +267,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [user?.created_at]);
 
-  const gapDays = useMemo(() => {
-    if (gapModalDismissed) return [];
-    if (!isBudgetModeEnabled || !isAutoRenew || budgetCadence !== 'daily' || dailyBudgetAmount <= 0) {
-      return [];
-    }
-    return findInactiveGapDays({
-      todayStr: todayKey,
-      userCreatedAt: userCreatedAtStr,
-      planChanges,
-      dailyRecords,
-      expenses,
-      dismissedDates: dismissedGapDates,
-      isBudgetModeEnabled,
-      isAutoRenew,
-      dailyBudgetAmount,
-      lookbackDays: 7,
-    });
-  }, [
-    gapModalDismissed,
-    isBudgetModeEnabled,
-    isAutoRenew,
-    budgetCadence,
-    dailyBudgetAmount,
-    todayKey,
-    userCreatedAtStr,
-    planChanges,
-    dailyRecords,
-    expenses,
-    dismissedGapDates,
-  ]);
-
-  const shouldShowGapModal = gapDays.length > 0 && !gapModalDismissed;
-
-  const handleSaveGapDaysToGullak = useCallback(async () => {
-    if (gapDays.length === 0) return;
-    await saveGapDaysToGullak(gapDays);
-    setGapModalDismissed(true);
-  }, [gapDays, saveGapDaysToGullak]);
+  // "Not now" only hides the popup until the app is opened again: an undecided choice stays undecided.
+  const shouldShowGapModal = !!absence && !gapModalDismissed;
 
   const handleAddExpenseForGap = useCallback((targetDate: string) => {
     setGapModalDismissed(true);
+    closeAbsence();
+    // Back on Home without saving: an undecided choice is asked again (rule 29).
+    const unsubscribe = navigation.addListener('focus', () => {
+      unsubscribe();
+      setGapModalDismissed(false);
+    });
     navigation.navigate('AddExpense', { defaultDate: targetDate });
-  }, [navigation]);
+  }, [navigation, closeAbsence]);
 
   const handleDismissGapModal = useCallback(() => {
-    setGapModalDismissed(true);
-    if (gapDays.length > 0) {
-      dismissGapDays(gapDays);
-    }
-  }, [gapDays, dismissGapDays]);
+    // An info popup is done once closed. An unanswered question only hides until the app is opened again.
+    if (absence?.status === 'saved') closeAbsence();
+    else setGapModalDismissed(true);
+  }, [absence?.status, closeAbsence]);
 
   const recentTx = useMemo(
     () => selectRecentTransactions(expenses, gullakDeposits, 5),
@@ -411,15 +380,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const handleChangeBudgetRenewal = useCallback(async (newAmount: number) => {
     if (budgetCadence === 'weekly') {
-      setWeeklyBudget(newAmount);
+      setWeeklyBudget(newAmount, { immediate: cadencePeriodSummary?.spent === 0 });
     } else if (budgetCadence === 'monthly') {
-      setMonthlyBudget(newAmount);
+      setMonthlyBudget(newAmount, { immediate: cadencePeriodSummary?.spent === 0 });
     }
     if (currentPeriodKey) {
       await setLastRenewedPeriodKey(currentPeriodKey);
     }
     setRenewalModalDismissed(true);
-  }, [budgetCadence, currentPeriodKey, setLastRenewedPeriodKey, setWeeklyBudget, setMonthlyBudget]);
+  }, [budgetCadence, currentPeriodKey, setLastRenewedPeriodKey, setWeeklyBudget, setMonthlyBudget, cadencePeriodSummary?.spent]);
 
   const handleCloseRenewalModal = useCallback(async () => {
     if (currentPeriodKey) {
@@ -633,6 +602,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </View>
 
         {/* Branded Hero Card */}
+        <TourTarget id="home.hero">
         <BrandedHeroCard
           primaryLabel={primaryLabel}
           primaryAmount={primaryAmount}
@@ -658,6 +628,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           carryNote={carryNote}
           onOpenDetails={isBudgetModeEnabled ? handleOpenHeroDetails : undefined}
         />
+        </TourTarget>
 
         {/* Automatic Logging: only visible when something needs review/attention */}
         <AutoLogHomeBanner />
@@ -764,9 +735,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <WelcomeBackGapModal
         visible={shouldShowGapModal}
-        gapDates={gapDays}
-        dailyBudgetAmount={dailyBudgetAmount}
-        onSaveToGullak={handleSaveGapDaysToGullak}
+        from={absence?.from ?? ''}
+        to={absence?.to ?? ''}
+        amount={absence?.amount ?? 0}
+        needsChoice={absence?.status === 'choice'}
+        onSave={() => chooseAbsence('save')}
+        onSkip={() => chooseAbsence('skip')}
         onAddExpense={handleAddExpenseForGap}
         onDismiss={handleDismissGapModal}
       />

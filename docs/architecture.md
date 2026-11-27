@@ -1,5 +1,8 @@
 # Arthik — Architecture
 
+> [!IMPORTANT]
+> **Money rules changed on 2026-11-28** ([spec](specs/2026-11-28-simple-money-rules.md), [ADR 0025](adr/0025-gullak-is-one-running-balance.md)): Gullak is one running balance from the waterfall (no cap, no Pure leftover), there is no paused allowance, an ended budget's leftover goes to Gullak unless "Carry forward", and absent days follow `ROL-004`. Where any older text here differs, the spec and the canonical rules win.
+
 > **Version:** 2.1.0 APK + OTA updates (November 2026)
 > **Platform:** Android (Expo SDK 57, React Native 0.86)
 > **Backend:** Supabase (Postgres + Auth + RLS)
@@ -9,7 +12,7 @@
 ## 1. System Overview
 
 Arthik is a single-user personal finance mobile app for Android. It operates under two high-level operational modes:
-1. **Pure Mode (`is_budget_mode_enabled: false`)**: Pure, unconstrained expense and income tracking with a 4-tab interface, cashflow overview, and the same single expense ring (`DonutChart`) as Budget Mode. Spending is never blocked and may go negative (`SEC-001` amend). Pools ending in Pure retain unspent money as `pureLeftover` without converting to income (`PUR-002`). Switching from Pure to Budget Mode with a deficit automatically creates one balancing income transaction (`PUR-001`).
+1. **Pure Mode (`is_budget_mode_enabled: false`)**: Pure, unconstrained expense and income tracking with a 4-tab interface, cashflow overview, and the same single expense ring (`DonutChart`) as Budget Mode. Spending is never blocked and may go negative (`SEC-001` amend). A running weekly / monthly leftover moves to Gullak at the switch (`PUR-002`). Switching from Pure to Budget Mode with a deficit automatically creates one balancing income transaction (`PUR-001`).
 2. **Budget Mode (`is_budget_mode_enabled: true`)**: Structured financial discipline across three cadences (**Daily**, **Weekly**, **Monthly**), dynamic non-binding pace suggestions, solvency guard (`SEC-001`), automatic period rollovers into a digital **Gullak** (savings reserve), and next-day cadence switching.
 
 Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real-Money Invariant**: every rupee tracked represents real money in the user's possession. Outflows cannot be created in Budget Mode if available liquidity is zero, and mid-cycle switches preserve unspent capital without artificial proration or premature Gullak dumps. The app is built offline-first and syncs to Supabase when connectivity is available.
@@ -47,7 +50,7 @@ Arthik functions as a **Digital Bank Vault** grounded in the foundational **Real
 | **Screens** | UI render + dispatch store actions | `src/screens/**` (including `LedgerScreen.tsx`), `src/screens/insights/**`, `src/screens/autolog/**` |
 | **Stores** | Business logic, Supabase I/O, offline queues, derived state | `src/store/**`, `src/store/expense/**`, `src/store/dailyBudget/**` |
 | **Money** | Turns stored rows into the numbers a card shows; Money Scope = every Home hero / Savings allowance card figure from one call (ADR 0022) | `src/money/**` (`scopeMoney.ts`, `ledger.ts`, …), `src/hooks/useMoneySnapshot.ts` |
-| **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` (including `heroDetails.ts`, `splitLedger.ts`, `gapFiller.ts`, `streakCalendarData.ts`, `asyncStorageList.ts`) |
+| **Pure Helpers** | Stateless calculations, formatters, classifiers, period engine | `src/lib/**` (including `heroDetails.ts`, `splitLedger.ts`, `absence.ts`, `periods/allTimeBudget.ts`, `streakCalendarData.ts`, `asyncStorageList.ts`) |
 | **Components** | Shared UI atoms, modals, bottom sheets | `src/components/**`, `src/components/split/**`, `src/components/profile/**`, `src/components/savings/**`, `HeroDetailsSheet.tsx`, `WelcomeBackGapModal.tsx`, `SplashCover.tsx` |
 | **Hooks** | UI & screen-level state/data aggregation | `src/hooks/**` (including `useInsightsData.ts`, `useExpenseForm.ts`) |
 | **Config** | Supabase client, design tokens (Light, Dark, AMOLED) | `src/config/supabase.ts`, `src/config/theme.ts` |
@@ -223,15 +226,15 @@ Entered budgets are **never scaled down or prorated** due to mid-cycle starts or
 - Switching cadences as well as toggling between Pure Mode and Budget Mode takes effect **tomorrow at 12:00 AM (00:00:00)** (`computeEffectiveFrom`), allowing today's budget and transactions to conclude cleanly under the active plan. Exception: new accounts on day one or any account with 0 expenses logged enable Budget Mode immediately on "Today" (`BPR-002` #3).
 - **Same-Day Reversal Protection (`PUR-003`)**: If a user switches modes (scheduled for tomorrow) and toggles back on the same day, the pending switch is immediately cancelled (`handleCancelPendingPlanChange`), scheduled notifications are removed, and the app seamlessly remains in its currently active mode with zero glitches.
 - **Pure Mode Hero Card Details Guard**: In Pure Mode, Hero Card tap is disabled and "Tap the card for details" hint is hidden (`GUL-002`).
-- **Zero Mid-Cycle Gullak Dumps (Golden Invariant)**: Mid-cycle cadence switching carries unspent funds forward into the new cadence rather than prematurely dumping them into Gullak (`amountSaved = 0`).
-- **Carry-Forward Modes (CAR-001)**:
-  - **Additive (`'additive'`)**: Remaining balance is added once on top of the first period's target budget ceiling (`targetBudget + carriedOverAmount`) via `carryForPeriod`.
-  - **Allocation (`'allocation'`)**: Carried funds $U$ provide multi-period drawdown across Daily, Weekly, and Monthly targets:
-    - Daily: `dailyCarryForDate`, `dailyCarryRemaining`.
-    - Weekly & Monthly: `periodCarryForPeriod`, `periodCarryRemaining`. In each period $k$, $\text{funded}_k = \min(B, \text{remaining}_{k-1})$ and user gap $\text{toAdd}_k = B - \text{funded}_k$.
-    - **All-Pill Zero Double-Counting**: In `homeCalculations` and `metrics.ts`, only the carry-FUNDED part of a period budget is excluded from the All pill (`pc.funded`); the gap part counts like any budget and real money added grows it by exactly that amount. Home and the account total are always the same number.
-    - **Lifecycle Notifications**: Scheduled at period start (08:30) for fully funded periods and partial gap periods, and exactly one "carried money has run out" notice on the first unfunded day / week / month (`buildCarryEnds`), then silence.
-- **Deficit Isolation**: Overspent periods are settled from available income/Gullak reserves; they clamp to 0 (`Math.max(0, ...)`) and never carry negative debt into a new cadence.
+- **A budget that ends goes to Gullak** (`GUL-001`): also at a switch, unless the user chose "Carry forward".
+- **Carry forward (CAR-001)**: stored as `carry_mode = 'allocation'`. The leftover pays the new budget first and the user adds only the rest; `settleCarryAmounts` sets the amount from the real leftover at the switch midnight. The retired `'additive'` value is only read for old plans.
+  - Daily: `dailyCarryForDate`, `dailyCarryRemaining`. Weekly and monthly: `periodCarryForPeriod`, `periodCarryRemaining` ($\text{funded}_k = \min(B, \text{remaining}_{k-1})$, $\text{toAdd}_k = B - \text{funded}_k$).
+  - **Unused carry that ends** (Pure Mode, "Save to Gullak", a new plan without carry) goes to Gullak (`droppedCarries`), so it never vanishes.
+  - **All-pill**: only the carry-funded part of a budget is left out, so money is counted once.
+  - **Notifications**: 08:30 at each funded start, and one "carried money has run out" notice (`buildCarryEnds`).
+- **One running Gullak** (`computeMoneyWaterfall`): budget, then income, then Gullak, never below zero. What nothing covers is a `deficit` that only later income pays. `total = income left + Gullak + running budget left + carry still waiting - deficit` (`tests/moneyInvariant.test.ts`).
+- **Days the app was closed** (`ROL-004`, `lib/absence.ts`, `absenceActions.ts`): each gap is judged on its own; 7+ days without an expense waits for the user. `profiles.allowance_pauses` holds skipped stretches (`ask: true` while unanswered) and `profiles.last_open_day` the last opened day (migration `20261128120000`).
+- **One affordability check** for add, edit and delete: `previewMoneyImpact` (`store/dailyBudget/moneyImpact.ts`).
 
 ### 6.4 Natural Cycle Rollover vs. Mid-Cycle Switches
 Gullak savings deposits happen **exclusively upon the natural completion of a full cycle**:
@@ -397,4 +400,5 @@ Tests live in `tests/<subject>.test.ts`; the file name says what it covers. Run 
 | [0022](adr/0022-money-scope-module.md) | Money Scope Module: Screens Get Card Figures from `src/money` Only | Active |
 | [0023](adr/0023-one-transaction-classifier.md) | One Transaction Classifier, No Categories (TXN-002 Retired) | Active |
 | [0024](adr/0024-architecture-review-candidates-not-pursued.md) | Architecture Review Candidates Not Pursued (Expense Sync, Budget Period, Insights Data) | Active |
+| [0025](adr/0025-gullak-is-one-running-balance.md) | Gullak Is One Running Balance; Simpler Switching | Active |
 

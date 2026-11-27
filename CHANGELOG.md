@@ -12,6 +12,30 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 
 ## [Unreleased] — OTA updates on 2.1.0 (JS only, no new APK)
 
+### Changed
+- **Simpler money rules (OTA)**: Gullak is now one running balance. When a budget ends, also at a switch, the
+  leftover goes to Gullak unless you choose Carry forward (which now has one meaning). Switching to Pure Mode moves the
+  running week / month leftover to Gullak; coming back in the same period returns it, minus what Pure Mode took from
+  Gullak. The paused allowance is gone. Pure Mode Day / Week / Month show only that period's income and spending, and a
+  "new money" deposit counts only in All. Away 7+ days with nothing logged, you choose: save, don't count, or add what
+  you spent. Editing and deleting now use the same "add income first" check as adding. A new-week / new-month budget
+  change applies at once when nothing is spent yet, and starting with only a few days left shows a short note.
+
+### Fixed
+- **Gullak calculation (OTA)**: money taken from a weekly / monthly Gullak is now subtracted; Pure Mode spending no
+  longer silently eats later savings; a day saved with no budget can no longer turn into savings; Home "All" no longer
+  counts budget for days that never got one; "Carry forward" uses the real leftover at midnight. If your Gullak number
+  changes, a note in notifications says so.
+- **Carried money (OTA)**: money still waiting from "Carry forward" now goes to Gullak if you switch to Pure Mode or
+  save it, instead of disappearing.
+- **Delete checks (OTA)**: deleting from History (swipe), from a deposit's own screen, or deleting a "money back"
+  entry now uses the same "add income first" check as everywhere else. A back-dated expense is checked against its own
+  day too.
+- **Home "All" total (OTA)**: it is now the same number as your account total, including after Pure Mode followed by
+  Carry forward, and it no longer counts weeks you chose not to count.
+- **Long breaks (OTA)**: a second long break asks its own question, and the question survives a reinstall (needs the
+  `last_open_day` SQL; without it the phone remembers).
+
 ### Added
 - **Notes in Automatic Logging review (OTA)**: the review sheet has an optional Note. Leave it empty and the payee
   name is saved as before; for a transaction that only needs a category, an empty note keeps the saved one.

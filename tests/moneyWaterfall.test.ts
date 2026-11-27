@@ -118,6 +118,7 @@ describe('expense detail card agrees with Home (bug: "paid from income" while in
   const params = (expense: any) => ({
     expense, allExpenses: all, categories: cats as any, todayBudget: 500, dailyBudgetAmount: 500,
     isBudgetModeEnabled: true, isAutoRenew: true, todayStr: TODAY,
+    deposits: [{ amount: 10000, date: '2026-10-01', source: 'external' as const }], budgetPeriods: {},
   });
 
   it('income is already 0 -> today overspend is paid from Gullak, not income', () => {
@@ -129,7 +130,7 @@ describe('expense detail card agrees with Home (bug: "paid from income" while in
   });
 
   it('card numbers equal waterfall numbers for every expense', () => {
-    const w = run(all);
+    const w = run(all, 500, { deposits: [{ amount: 10000, date: '2026-10-01', source: 'external' as const }], budgetPeriods: {} });
     for (const e of all.filter((x) => x.type === 'expense')) {
       const f = calculateExpenseFunding(params(e));
       expect(f.coveredByBudget).toBe(w.byExpense[e.id].fromBudget);

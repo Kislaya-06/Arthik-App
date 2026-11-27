@@ -35,6 +35,7 @@ export interface UseExpenseFormReturn {
   isBudgetModeEnabled: boolean;
   backdatedSpendingNotice: BackdatedSpendingNotice | null;
   shortfallAmount: number;
+  editShortfall: number;
 
   // Category Store Status
   categories: Category[];

@@ -516,8 +516,8 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(monthlySlice.budgetAmount).toBe(15500);
       expect(monthlySlice.spentAmount).toBe(700);
       // Golden Invariant: Gullak deposit is 0 on cadence switch; unspent is carried forward
-      expect(monthlySlice.amountSaved).toBe(0);
-      expect(monthlySlice.carriedOverAmount).toBe(14800);
+      expect(monthlySlice.amountSaved).toBe(14800); // rule 20: "Save to Gullak" is the default
+      expect(monthlySlice.carriedOverAmount).toBe(0);
       expect(monthlySlice.status).toBe('saved');
     });
 
@@ -558,8 +558,8 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].budgetAmount).toBe(31000);
       expect(periods[0].spentAmount).toBe(5000);
       // Golden Invariant: Gullak deposit is 0 on cadence switch; unspent is carried forward
-      expect(periods[0].amountSaved).toBe(0);
-      expect(periods[0].carriedOverAmount).toBe(26000);
+      expect(periods[0].amountSaved).toBe(26000); // rule 20: "Save to Gullak" is the default
+      expect(periods[0].carriedOverAmount).toBe(0);
     });
 
     it('Transition 3: Weekly -> Monthly (W -> M)', () => {
@@ -599,8 +599,8 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].budgetAmount).toBe(7000);
       expect(periods[0].spentAmount).toBe(1000);
       // Golden Invariant: Gullak deposit is 0 on cadence switch; unspent is carried forward
-      expect(periods[0].amountSaved).toBe(0);
-      expect(periods[0].carriedOverAmount).toBe(6000);
+      expect(periods[0].amountSaved).toBe(6000); // rule 20: "Save to Gullak" is the default
+      expect(periods[0].carriedOverAmount).toBe(0);
     });
 
     it('Transition 4: Weekly -> Daily (W -> D)', () => {
@@ -923,7 +923,7 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(secondRun.length).toBe(0);
     });
 
-    it('sets amountSaved = 0 on premature cadence switch slice while recording unspent in carriedOverAmount', () => {
+    it('saves the unspent part of a premature cadence switch slice to Gullak (rule 20)', () => {
       // User on weekly budget 7000 from Monday 2026-10-05.
       // Switches to daily starting Friday 2026-10-09.
       const changes: BudgetPlanChange[] = [
@@ -960,9 +960,8 @@ describe('budgetPeriods - Pure Cadence Period Engine Tests', () => {
       expect(periods[0].budgetAmount).toBe(7000);
       expect(periods[0].spentAmount).toBe(2000);
       // GOLDEN INVARIANT: Premature switch slice deposits 0 into Gullak!
-      expect(periods[0].amountSaved).toBe(0);
-      // Unspent amount is assigned to carriedOverAmount
-      expect(periods[0].carriedOverAmount).toBe(5000);
+      expect(periods[0].amountSaved).toBe(5000); // rule 20: "Save to Gullak" is the default
+      expect(periods[0].carriedOverAmount).toBe(0);
     });
 
     it('does not finalize an active period before it ends', () => {

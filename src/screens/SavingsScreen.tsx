@@ -35,6 +35,7 @@ import { StreakCalendarModal } from '../components/StreakCalendarModal';
 import { BudgetEditModal } from '../components/BudgetEditModal';
 import { DepositGullakModal } from '../components/DepositGullakModal';
 import { MoneyExplainerModal } from '../components/MoneyExplainerModal';
+import { checkDepositRemoval, depositRemovalMessage } from '../lib/removalCheck';
 import { PauseBudgetModal } from '../components/profile/PauseBudgetModal';
 import { MoneyExplainerTopic } from '../lib/moneyExplainerContent';
 import { CompositeScreenProps, useScrollToTop } from '@react-navigation/native';
@@ -165,13 +166,20 @@ export const SavingsScreen: React.FC<SavingsScreenProps> = ({ navigation }) => {
   }, [cancelPendingPlanChange, pendingPlanChange, isBudgetModeEnabled, budgetCadence]);
 
   const handleDeleteDeposit = useCallback((id: string, amount: number) => {
+    // Rules 9 and 12: removing a wrong deposit is a correction; it must not leave spending uncovered.
+    const money = checkDepositRemoval(id);
+    if (money.blocked) {
+      Alert.alert('Add Income First', money.blocked);
+      return;
+    }
+    const deposit = useDailyBudgetStore.getState().gullakDeposits.find((d) => d.id === id);
     Alert.alert(
-      'Withdraw from Gullak',
-      `Return ${formatCurrency(amount)} to your spending balance?`,
+      'Remove Deposit',
+      depositRemovalMessage(deposit ?? { amount }),
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Withdraw',
+          text: 'Remove',
           style: 'destructive',
           onPress: () => removeGullakDeposit(id),
         },

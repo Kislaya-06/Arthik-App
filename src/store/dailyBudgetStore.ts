@@ -29,7 +29,6 @@ export {
   computeGrossIncomeBalance,
 };
 import { registerStoreResetCallback } from './authStore';
-import { getStoredDismissedGapDates } from '../lib/gapFiller';
 
 import {
   DailyRecord,
@@ -159,11 +158,12 @@ export {
 };
 
 import { handleSetDailyBudget, handleToggleAutoRenew, handleScheduleNextDailyBudget, handleCancelScheduledNextDailyBudget, handleSetBudgetModeEnabled, handleSetBudgetCadence, handleSetWeeklyBudget, handleSetMonthlyBudget, resolvePendingPlanChange, resolveEffectiveFromLabel, handleCancelPendingPlanChange, uploadPendingBudgetPeriods, syncPendingPlanChanges, handleSetLastRenewedPeriodKey } from './dailyBudget/planActions';
+import { previewMoneyImpact } from './dailyBudget/moneyImpact';
+import { markOpenDayKnown } from './dailyBudget/lastOpenSync';
+import { createAbsenceActions } from './dailyBudget/absenceActions';
 import { createGullakActions } from './dailyBudget/gullakActions';
 import { createSyncActions } from './dailyBudget/syncActions';
 import { createRecordActions } from './dailyBudget/recordActions';
-import { recordAutoRenewChange } from '../lib/allowancePauses';
-import { queueAllowancePauses, syncAllowancePauses } from './dailyBudget/allowancePauseSync';
 export {
   handleSetDailyBudget,
   handleToggleAutoRenew,
@@ -213,8 +213,12 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       lastPeriodExceededKey: null,
       lastPeriodRolloverKey: null,
       lastRenewedPeriodKey: null,
-      dismissedGapDates: [],
       allowancePauses: [],
+      lastOpenDay: null,
+      absences: [],
+      gullakBeforeFix: null,
+      previewMoneyImpact: (change) => previewMoneyImpact(get().dailyRecords, change, get().planChanges),
+      ...createAbsenceActions(set, get),
       ...createGullakActions(set, get),
       ...createRecordActions(set, get),
 
@@ -274,10 +278,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       hydrateFromSupabase: (userId: string) => {
         if (hydrationInFlight?.userId === userId) return hydrationInFlight.promise;
         const promise = (async () => {
-          const dismissed = await getStoredDismissedGapDates(userId);
-          if (dismissed && dismissed.length) {
-            set({ dismissedGapDates: dismissed });
-          }
           await runHydrateFromSupabase({
             get,
             set,
@@ -292,6 +292,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
       },
 
       resetDailyBudget: () => {
+        markOpenDayKnown(null);
         set({
           ownerUserId: null,
           hydratedForUserId: null,
@@ -320,8 +321,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
           lastPeriodExceededKey: null,
           lastPeriodRolloverKey: null,
           lastRenewedPeriodKey: null,
-          dismissedGapDates: [],
           allowancePauses: [],
+          lastOpenDay: null,
+          absences: [],
+          gullakBeforeFix: null,
         });
         AsyncStorage.removeItem('arthik-daily-budget-storage-v2').catch(() => {});
         const prevUid = get().ownerUserId;
@@ -333,7 +336,7 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
     {
       name: 'arthik-daily-budget-storage-v2',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') return persistedState as DailyBudgetState;
         let state = persistedState as Record<string, unknown>;
@@ -372,6 +375,10 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
             dailyRecords: normalizeLegacyRecordStatuses(state.dailyRecords as Record<string, DailyRecord> | undefined),
           };
         }
+        if (version < 5) {
+          // Remember the number the old calculation showed, to explain any change once (rule 33).
+          state = { ...state, gullakBeforeFix: (state.totalAccumulatedSavings as number | undefined) ?? null };
+        }
         return state as unknown as DailyBudgetState;
       },
     }
@@ -379,18 +386,6 @@ export const useDailyBudgetStore = create<DailyBudgetState>()(
 );
 
 registerMetricsStoreGetter(useDailyBudgetStore.getState);
-
-// INS-004: every real auto-save on / off of the signed-in user (any path: pause switch, mode switch, matured plan)
-// is written into the pause history. The first hydration of a user is not a change and is skipped.
-useDailyBudgetStore.subscribe((state, prev) => {
-  if (state.isAutoRenew === prev.isAutoRenew) return;
-  const userId = state.hydratedForUserId;
-  if (!userId || prev.hydratedForUserId !== userId) return;
-  const next = recordAutoRenewChange(state.allowancePauses || [], state.isAutoRenew, getTodayDateStr());
-  if (next === state.allowancePauses) return;
-  useDailyBudgetStore.setState({ allowancePauses: next });
-  void queueAllowancePauses(userId, next).then(() => syncAllowancePauses(userId));
-});
 
 registerStoreResetCallback(() => {
   useDailyBudgetStore.getState().resetDailyBudget();

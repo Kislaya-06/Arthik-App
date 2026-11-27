@@ -37,26 +37,18 @@ export const isExceedingVaultLiquidity = (amount: number): boolean => {
     const budgetState = useDailyBudgetStore.getState();
     if (!budgetState.hydratedForUserId) return false;
 
-    const availIncome = budgetState.getAvailableIncomeBalance();
-    const gullak = budgetState.totalAccumulatedSavings;
-    let activeAllowance = 0;
-    if (budgetState.budgetCadence === 'weekly') {
-      activeAllowance = budgetState.weeklyBudgetAmount;
-    } else if (budgetState.budgetCadence === 'monthly') {
-      activeAllowance = budgetState.monthlyBudgetAmount;
-    } else {
-      const todayRec = budgetState.getTodayRecord();
-      activeAllowance = todayRec.budget || budgetState.dailyBudgetAmount;
-    }
-
-    // Strict rule: If Income is 0, Gullak is 0, and amount > allowance
-    if (availIncome <= 0 && gullak <= 0 && amount > activeAllowance) {
-      return true;
-    }
-    return false;
+    // Same rule as the add form (spec 2026-11-28 rule 12): more than the account holds needs income first.
+    return amount > Math.max(0, budgetState.getTotalAccountRemaining());
   } catch {
     return false;
   }
+};
+
+/** How much income a bank-message expense needs first (0 = none). Same rule as the add form. */
+export const liquidityShortfall = (amount: number): number => {
+  if (!isExceedingVaultLiquidity(amount)) return 0;
+  const available = Math.max(0, useDailyBudgetStore.getState().getTotalAccountRemaining());
+  return Math.round((amount - available) * 100) / 100;
 };
 
 export const createTransaction = async (tx: NewTransaction, presetId?: string): Promise<string | null> => {

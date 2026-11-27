@@ -197,11 +197,11 @@ describe('Existing users after the update (self-heal + waterfall in the real sto
     expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(0); // 300 saved - 400 overspend, floored at 0
   });
 
-  it("income that arrives today is not eaten by an old overspend (All pill)", () => {
+  it("rule 4: an overspend nothing covered is paid by the next income", () => {
     const expenses = [spend('old', 900, '2026-10-10'), income('today', 300, TODAY)];
     setup(expenses, { dailyRecords: {} });
     useDailyBudgetStore.getState().checkAndRollover(expenses);
-    expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(300);
+    expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(0); // 400 over the budget, 300 income pays part of it
   });
 
   it("today's live overspend uses income first, then Gullak", () => {

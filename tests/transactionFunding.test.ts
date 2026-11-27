@@ -101,6 +101,7 @@ describe('calculateExpenseFunding', () => {
       dailyBudgetAmount: 500,
       isBudgetModeEnabled: true,
       todayStr: '2026-10-10',
+      deposits: [{ amount: 10000, date: '2026-10-01', source: 'external' as const }],
     });
 
     // 800 total: 500 daily allowance, 150 income, 150 Gullak
@@ -164,6 +165,7 @@ describe('calculateExpenseFunding', () => {
       dailyBudgetAmount: 500,
       isBudgetModeEnabled: true,
       todayStr: '2026-10-10',
+      deposits: [{ amount: 10000, date: '2026-10-01', source: 'external' as const }],
     };
 
     // Tx 1: 300 -> 300 budget (200 budget left)
@@ -315,6 +317,7 @@ describe('calculateExpenseFunding', () => {
       dailyBudgetAmount: 250,
       isBudgetModeEnabled: true,
       todayStr: '2026-10-12',
+      deposits: [{ amount: 10000, date: '2026-10-01', source: 'external' as const }],
       records: {
         '2026-10-11': { date: '2026-10-11', budget: 250, spent: 1485, saved: -1235, isFinalized: true, status: 'missed' as const },
       },

@@ -16,13 +16,14 @@ import {
   getCarryCoveredByDate,
   PeriodSummary,
 } from '../lib/homeCalculations';
-import { getCurrentPeriodSummary, PeriodSummaryInfo } from '../lib/budgetPeriods';
+import { getCurrentPeriodSummary, allTimeBudget, PeriodSummaryInfo } from '../lib/budgetPeriods';
 import { computeWaterfallFromState, summarizeScope, ScopeFunding, WaterfallResult } from '../lib/moneyWaterfall';
 import { moneyBackInRows, autoSavedInScope } from '../lib/heroDetails';
 import type { DailyRecord, TodayMetrics } from '../lib/budgetCalculations';
 import type { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord } from '../types';
 import type { Expense } from '../store/expense/types';
 import type { GullakDeposit } from '../store/dailyBudget/types';
+import type { AllowancePause } from '../lib/allowancePauses';
 import { calculateBudgetStatus } from './budgetStatus';
 import { buildLedgerEntries, spendingTotalsByDateKey } from './ledger';
 
@@ -38,6 +39,8 @@ export interface MoneySnapshot {
   isBudgetModeEnabled: boolean;
   budgetCadence: BudgetCadence;
   totalAccumulatedSavings: number;
+  /** Stretches the user chose not to count (away 7+ days). */
+  allowancePauses?: AllowancePause[];
 }
 
 // ─── Parts that do not depend on the Home pill ────────────────────────────────
@@ -61,7 +64,9 @@ function sameSnapshot(a: MoneySnapshot, b: MoneySnapshot): boolean {
     a.dailyBudgetAmount === b.dailyBudgetAmount &&
     a.isAutoRenew === b.isAutoRenew &&
     a.isBudgetModeEnabled === b.isBudgetModeEnabled &&
-    a.budgetCadence === b.budgetCadence
+    a.budgetCadence === b.budgetCadence &&
+    a.budgetPeriods === b.budgetPeriods &&
+    a.allowancePauses === b.allowancePauses
   );
 }
 
@@ -81,11 +86,13 @@ function scopeBase(s: MoneySnapshot, today: string): ScopeBase {
     dailyBudgetAmount: s.dailyBudgetAmount,
     records: s.dailyRecords,
     planChanges: s.planChanges,
+    budgetPeriods: s.budgetPeriods,
+    skipped: s.allowancePauses,
   });
   const cadencePeriodSummary =
     !s.isBudgetModeEnabled || s.budgetCadence === 'daily'
       ? null
-      : getCurrentPeriodSummary(s.planChanges, spentByDate, today);
+      : getCurrentPeriodSummary(s.planChanges, spentByDate, today, undefined, waterfall.pools);
   // Carried-over money inside the daily budgets (from a weekly / monthly budget): already in the old budget,
   // so "All" must not count it twice.
   const carryCoveredByDate = getCarryCoveredByDate(s.planChanges, s.dailyRecords, s.dailyBudgetAmount, today);
@@ -163,7 +170,21 @@ export function heroMoney(s: MoneySnapshot, input: HeroMoneyInput): HeroMoney {
     filtered,
     userCreatedAtStr: userCreatedAt,
     referenceDate,
-    externalDepositsInPeriod,
+    // Rule 7: new money put into Gullak is not income; only the All view adds it to the card.
+    externalDepositsInPeriod: filter === 'All' ? externalDepositsInPeriod : 0,
+    recordsAreComplete: true,
+    allTimeBudgetTotal:
+      filter === 'All'
+        ? allTimeBudget(
+            s.dailyRecords[today] ? s.dailyRecords : { ...s.dailyRecords, [today]: todayRecord },
+            s.planChanges,
+            base.spentByDate,
+            today,
+            s.budgetPeriods,
+            s.allowancePauses,
+            base.waterfall.pools
+          )
+        : undefined,
     planChanges: s.planChanges,
     todaySpent: todayRecordSpent,
     spentByDate: base.spentByDate,

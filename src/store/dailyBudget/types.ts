@@ -1,4 +1,6 @@
 import type { AllowancePause } from '../../lib/allowancePauses';
+import type { Absence } from './absenceActions';
+import type { MoneyImpact } from './moneyImpact';
 import type { Expense } from '../expense/types';
 import type { DailyRecord } from '../../lib/budgetCalculations';
 import type { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord } from '../../types';
@@ -55,13 +57,17 @@ export interface DailyBudgetState {
   lastPeriodExceededKey: string | null;
   lastPeriodRolloverKey: string | null;
   lastRenewedPeriodKey: string | null;
-  dismissedGapDates: string[];
   /** Days the allowance was paused (INS-004). Recorded by the facade whenever auto-save turns on / off. */
   allowancePauses: AllowancePause[];
+  /** Last day the app was opened, and the closed stretch still to be shown or decided (spec 2026-11-28). */
+  lastOpenDay: string | null;
+  previewMoneyImpact: (change: { expenses?: Expense[]; deposits?: GullakDeposit[] }) => MoneyImpact;
+  gullakBeforeFix: number | null;
+  absences: Absence[];
+  chooseAbsence: (choice: 'save' | 'skip') => void;
+  closeAbsence: () => void;
 
   // Actions
-  saveGapDaysToGullak: (gapDates: string[]) => Promise<void>;
-  dismissGapDays: (gapDates: string[]) => Promise<void>;
   setDailyBudget: (amount: number) => void;
   scheduleNextDailyBudget: (amount: number) => void;
   cancelScheduledNextDailyBudget: () => void;
@@ -69,7 +75,6 @@ export interface DailyBudgetState {
   addGullakDeposit: (amount: number, note?: string, source?: GullakDepositSource) => void;
   removeGullakDeposit: (id: string) => void;
   updateGullakDepositAmount: (id: string, newAmount: number) => void;
-  adjustGullakIncomeDeposits: (dateStr: string, deficit: number) => Promise<void>;
   getAvailableIncomeBalance: () => number;
   getGrossIncomeBalance: () => number;
   /** Everything left across the whole account (budgets + income + external deposits - spent). Can be <= 0. */

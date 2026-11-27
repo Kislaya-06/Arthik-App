@@ -43,7 +43,7 @@ describe('Button size ladder: page / sheet buttons are 60', () => {
     const vault = read('src/components/VaultSpendingGuardModal.tsx');
     expect(vault).toMatch(/primaryButton:\s*\{[\s\S]*?height:\s*ControlHeight\.cta/);
     expect(vault).toMatch(/cancelButton:\s*\{[\s\S]*?height:\s*ControlHeight\.cta/);
-    expect(appButton(read('src/components/WelcomeBackGapModal.tsx'), 'label="Skip for now"')).toMatch(/size="cta"/);
+    expect(appButton(read('src/components/WelcomeBackGapModal.tsx'), "label=\"Don't count these days\"")).toMatch(/size="cta"/);
   });
 });
 

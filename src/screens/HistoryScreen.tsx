@@ -29,6 +29,7 @@ import { isAfter } from 'date-fns/isAfter';
 import { addDays } from 'date-fns/addDays';
 import * as Haptics from 'expo-haptics';
 import { TabParamList, RootStackParamList } from '../types';
+import { checkExpenseRemoval, checkDepositRemoval, depositRemovalMessage } from '../lib/removalCheck';
 import { formatCurrency } from '../lib/formatters';
 import { isCountedIncome, isCountedExpense } from '../lib/transactionUtils';
 import { useScrollDirection } from '../hooks/useScrollDirection';
@@ -607,7 +608,12 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleDeleteExpense = useCallback((expense: Expense) => {
     const isIncome = expense.type === 'income';
     const title = isIncome ? 'Delete Income?' : 'Delete Expense?';
-    const message = `Delete this ${formatCurrency(expense.amount)} transaction?`;
+    const money = checkExpenseRemoval(expense.id, useExpenseStore.getState().expenses);
+    if (money.blocked) {
+      Alert.alert('Add Income First', money.blocked);
+      return;
+    }
+    const message = `Delete this ${formatCurrency(expense.amount)} transaction?${money.warning}`;
 
     Alert.alert(title, message, [
       { text: 'Cancel', style: 'cancel' },
@@ -623,20 +629,21 @@ export const HistoryScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [deleteExpense]);
 
   const handleDeleteGullak = useCallback((deposit: GullakDeposit) => {
-    Alert.alert(
-      'Withdraw from Gullak?',
-      `Return ${formatCurrency(deposit.amount)} to your spending balance?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Withdraw',
-          style: 'destructive',
-          onPress: async () => {
-            await removeGullakDeposit(deposit.id);
-          },
+    const money = checkDepositRemoval(deposit.id);
+    if (money.blocked) {
+      Alert.alert('Add Income First', money.blocked);
+      return;
+    }
+    Alert.alert('Remove Deposit', depositRemovalMessage(deposit), [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          await removeGullakDeposit(deposit.id);
         },
-      ]
-    );
+      },
+    ]);
   }, [removeGullakDeposit]);
 
   const [activeSwipeId, setActiveSwipeId] = useState<string | null>(null);

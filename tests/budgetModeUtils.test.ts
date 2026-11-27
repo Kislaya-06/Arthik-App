@@ -308,20 +308,10 @@ describe('budgetModeUtils (pure helpers)', () => {
     });
   });
 
-  describe('resolveAutoRenewForPlan (PUR-003: auto-save when a scheduled plan decides the mode)', () => {
-    it('turns auto-save ON when Budget Mode starts from Pure Mode', () => {
-      expect(resolveAutoRenewForPlan(true, false, false)).toBe(true);
-    });
-
-    it('keeps the user choice when Budget Mode was already on (paused stays paused, on stays on)', () => {
-      expect(resolveAutoRenewForPlan(true, true, false)).toBe(false);
-      expect(resolveAutoRenewForPlan(true, true, true)).toBe(true);
-    });
-
-    it('turns auto-save OFF when the plan is Pure Mode', () => {
-      expect(resolveAutoRenewForPlan(false, true, true)).toBe(false);
-      expect(resolveAutoRenewForPlan(false, false, true)).toBe(false);
+  describe('resolveAutoRenewForPlan (rule 15: only Budget Mode or Pure Mode)', () => {
+    it('the old auto-save flag always equals the mode', () => {
+      expect(resolveAutoRenewForPlan(true)).toBe(true);
+      expect(resolveAutoRenewForPlan(false)).toBe(false);
     });
   });
 });
-

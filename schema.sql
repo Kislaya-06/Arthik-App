@@ -1142,3 +1142,6 @@ CREATE POLICY "autolog_delete_own" ON public.autolog_profiles
 FOR DELETE TO authenticated USING ((select auth.uid()) = user_id);
 
 ALTER FUNCTION public.handle_new_user() SET search_path = '';
+
+-- Last day the app was opened (ROL-004, migration 20261128120000).
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_open_day DATE;

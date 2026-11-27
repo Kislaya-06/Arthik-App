@@ -10,6 +10,8 @@ import { DateKey, addDaysToDateKey } from '../money/dateKeys';
 export interface AllowancePause {
   from: DateKey;
   to: DateKey | null;
+  /** Skipped only until the user answers the "you were away" question (ROL-004). */
+  ask?: true;
 }
 
 // Matches the database limit (profiles_allowance_pauses_small).
@@ -48,7 +50,7 @@ export function parseAllowancePauses(raw: unknown): AllowancePause[] | null {
     const { from, to } = p as { from?: unknown; to?: unknown };
     if (typeof from !== 'string' || !DATE_KEY.test(from)) continue;
     if (to !== null && (typeof to !== 'string' || !DATE_KEY.test(to))) continue;
-    out.push({ from, to });
+    out.push((p as { ask?: unknown }).ask === true ? { from, to, ask: true } : { from, to });
   }
   return out;
 }

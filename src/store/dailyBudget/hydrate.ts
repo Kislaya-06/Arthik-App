@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { round2 } from '../../lib/formatters';
 import { resolvePlanForDate } from '../../lib/budgetPeriods';
-import { resolveAutoRenewForPlan } from '../../lib/budgetModeUtils';
 import { markDeficitCheckPending, restoreDeficitCheckPending } from './deficitCheck';
 import type { BudgetCadence, BudgetPlanChange, BudgetPeriodRecord, BudgetPeriodStatus } from '../../types';
 import type { DailyBudgetState, GullakDeposit } from './types';
@@ -14,6 +13,8 @@ import {
 } from './metrics';
 import { getLastRenewedPeriodKey } from './pendingStorage';
 import { loadAllowancePauses, syncAllowancePauses } from './allowancePauseSync';
+import { loadLastOpenDay, latestDay, markOpenDayKnown } from './lastOpenSync';
+import { withTimeout } from '../../lib/networkUtils';
 import { useNotificationStore } from '../notificationStore';
 import { useNetworkStore } from '../networkStore';
 import { useAuthStore } from '../authStore';
@@ -62,6 +63,7 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
     if (useNetworkStore.getState().isOffline) {
       const patch = buildOfflineHydrationPatch(get, pendingSettings, todayStr, userId);
       set(patch);
+      markOpenDayKnown(userId); // offline: the phone's own day is the best there is
       return;
     }
 
@@ -164,11 +166,6 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
     let activatedPlan: BudgetPlanChange | null = null;
     if (activePlanForToday) {
       if (activePlanForToday.isEnabled !== resolvedBudgetModeEnabled) {
-        resolvedAutoRenew = resolveAutoRenewForPlan(
-          activePlanForToday.isEnabled,
-          resolvedBudgetModeEnabled,
-          resolvedAutoRenew
-        );
         activatedPlan = activePlanForToday;
       }
       resolvedBudgetModeEnabled = activePlanForToday.isEnabled;
@@ -176,6 +173,9 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
         resolvedCadence = activePlanForToday.cadence;
       }
     }
+
+    // Only two states: Budget Mode or Pure Mode (spec 2026-11-28 rule 15). No paused allowance.
+    resolvedAutoRenew = resolvedBudgetModeEnabled && resolvedBudget > 0;
 
     // Process budget periods
     let resolvedPeriods: Record<string, BudgetPeriodRecord> = { ...get().budgetPeriods };
@@ -284,6 +284,14 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       resolvedDeposits = get().gullakDeposits || [];
     }
 
+    // Skipped stretches and the last opened day must be known BEFORE anything is counted. Own requests: a missing
+    // column never breaks hydration, and each falls back to what the phone knows.
+    const [pauses, serverOpenDay] = await Promise.all([
+      withTimeout(loadAllowancePauses(userId), 3500, null),
+      loadLastOpenDay(userId),
+    ]);
+    if (pauses) set({ allowancePauses: pauses });
+
     // 3. Recalculate metrics from combined records
     const metrics = computeMetrics(
       records,
@@ -306,6 +314,7 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       gullakDeposits: resolvedDeposits,
       ownerUserId: userId,
       hydratedForUserId: userId,
+      lastOpenDay: latestDay(get().lastOpenDay, serverOpenDay),
       lastRenewedPeriodKey: await (async () => {
         try {
           return await AsyncStorage.getItem(getLastRenewedPeriodKey(userId));
@@ -315,11 +324,8 @@ export async function runHydrateFromSupabase(ctx: HydrateContext): Promise<void>
       })(),
       ...metrics,
     });
+    markOpenDayKnown(userId);
 
-    // INS-004: the pause history, in its own request so a missing column never breaks hydration.
-    void loadAllowancePauses(userId).then((pauses) => {
-      if (pauses && get().hydratedForUserId === userId) set({ allowancePauses: pauses });
-    });
     void syncAllowancePauses(userId);
 
     if (activatedPlan) {

@@ -7,7 +7,8 @@ import { round2 } from '../formatters';
 import { calculateCycleFinancials } from '../budgetCalculations';
 import { BudgetPlanChange, BudgetPeriodRecord, BudgetPeriodStatus } from '../../types';
 import { getPeriodBounds, carryForPeriod, resolvePlanForDate, getDateOwner, BUDGET_RULES_V2_FROM } from './core';
-import { buildBudgetPools, poolSpentBefore } from './pools';
+import { buildBudgetPools, poolSpentBefore, isPeriodSkipped } from './pools';
+import type { AllowancePause } from '../allowancePauses';
 
 export interface PeriodSlice {
   owner: 'weekly' | 'monthly';
@@ -33,12 +34,15 @@ export function buildPeriodsToFinalize(
   todayStr: string,
   alreadyFinalizedKeys?: Set<string> | string[],
   userCreatedAtStr?: string,
-  incomeByDate?: Record<string, number>
+  incomeByDate?: Record<string, number>,
+  /** What the waterfall put into Gullak per pool stretch. Omitted (unit use) = the slice's own leftover. */
+  poolSavings?: Array<{ key: string; date: string; amount: number }>,
+  skipped?: AllowancePause[]
 ): BudgetPeriodRecord[] {
   const today = parseISO(todayStr);
   const yesterday = subDays(today, 1);
   const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-  const pools = buildBudgetPools(changes, todayStr);
+  const pools = buildBudgetPools(changes, todayStr, skipped);
 
   const finalizedSet = alreadyFinalizedKeys instanceof Set
     ? alreadyFinalizedKeys
@@ -153,6 +157,8 @@ export function buildPeriodsToFinalize(
       continue;
     }
 
+    if (isPeriodSkipped(skipped, slice.periodStart, slice.periodEnd)) continue; // "Don't count these days"
+
     const key = `${slice.owner}_${slice.activeStart}`;
     if (finalizedSet.has(key)) {
       continue;
@@ -200,17 +206,23 @@ export function buildPeriodsToFinalize(
       spent: spentAmount,
     });
 
-    const budgetAmount = fin.spendable;
+    let budgetAmount = fin.spendable;
     const unspentInSlice = fin.remaining;
-
-    // GOLDEN INVARIANT (Audio Clips 1 & 3):
-    // Gullak deposits ONLY happen when a period ends naturally!
-    // If a period slice ends early due to a cadence switch, amountSaved = 0 (Gullak gets 0).
-    const amountSaved = isCadenceSwitchEarlyEnd
-      ? 0
-      : budgetAmount <= 0
-      ? 0
-      : fin.gullakDeposit;
+    // A leftover goes to Gullak whenever a budget ends, also early (spec 2026-11-28 rule 2). Only
+    // "Carry forward" keeps it out: it funds the next budget instead.
+    const nextPlan = isCadenceSwitchEarlyEnd
+      ? resolvePlanForDate(changes, format(addDays(parseISO(slice.activeEnd), 1), 'yyyy-MM-dd'))
+      : null;
+    const isCarried = !!nextPlan && nextPlan.isEnabled && !!nextPlan.carryMode;
+    let amountSaved = isCarried || budgetAmount <= 0 ? 0 : fin.gullakDeposit;
+    if (poolSavings) {
+      const moved = poolSavings.find(
+        (m) => m.key === `${slice.owner}_${slice.periodStart}` && m.date === slice.activeEnd
+      );
+      amountSaved = moved ? moved.amount : 0;
+      // A stretch after a return from Pure Mode: its budget is what really came back.
+      if (moved && usePoolRemaining && moved.amount > 0) budgetAmount = round2(moved.amount + spentAmount);
+    }
 
     let status: BudgetPeriodStatus = fin.status;
 
@@ -227,7 +239,7 @@ export function buildPeriodsToFinalize(
       amountSaved,
       status,
       isProrated,
-      carriedOverAmount: isCadenceSwitchEarlyEnd ? unspentInSlice : carriedOver,
+      carriedOverAmount: isCarried ? unspentInSlice : carriedOver,
       carryMode,
       createdAt: todayStr,
     });

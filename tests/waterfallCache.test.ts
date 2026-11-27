@@ -37,7 +37,6 @@ const uncached = (p: ReturnType<typeof base> & { excludeExpensesFrom?: string })
     txs: classifyForWaterfall(p.expenses),
     deposits: p.deposits,
     resolvePool: buildPoolResolver(p, pools),
-    pureEndPools: Object.values(pools).filter((x) => x.endsInPure),
     asOf: p.todayStr,
     excludeExpensesFrom: p.excludeExpensesFrom,
   });

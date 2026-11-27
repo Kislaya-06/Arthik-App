@@ -1,5 +1,7 @@
 # Arthik
 
+> **2026-11-28:** simple money rules ([spec](docs/specs/2026-11-28-simple-money-rules.md), [ADR 0025](docs/adr/0025-gullak-is-one-running-balance.md)). **Deficit**: spending nothing could cover; only later income pays it. **Absence**: days the app was not opened (`ROL-004`). There is no "paused allowance".
+
 Arthik is a personal finance, expense, and daily-savings tracking mobile application for Android built with React Native (Expo) and Supabase.
 
 > **Supreme rules:** every money rule (transactions, budgets, Gullak, cadence switching, rollover, insights, AutoLog privacy) is defined in [`docs/ARTHIK_CANONICAL_RULES.md`](docs/ARTHIK_CANONICAL_RULES.md). This glossary must agree with it; if they ever differ, the canonical file wins and this file must be fixed.
@@ -38,7 +40,7 @@ The architectural standard where every screen, helper and the budget engine ask 
 ### 2. Daily Savings & Budgeting (Gullak)
 
 **Recurring Allowance (Base Daily Budget)**:
-The user's persistent profile baseline allowance automatically applied to each new day when Auto-Renew is enabled.
+The user's persistent profile baseline allowance automatically applied to each new day in Budget Mode.
 - *Code location*: `src/store/dailyBudgetStore.ts` (`dailyBudgetAmount`, `isAutoRenew`), `src/store/authStore.ts` (`Profile.daily_budget`)
 - *_Avoid_*: Baseline Budget, Base Allowance, Daily Cap, Spending Ceiling
 
@@ -120,9 +122,9 @@ The recursive multi-period allocation drawdown (canonical rule `CAR-001` Mode B)
 - *Code location*: `src/lib/budgetPeriods.ts` (`periodCarryForPeriod`, `periodCarryRemaining`), `src/lib/homeCalculations.ts`, `src/store/dailyBudget/metrics.ts`, `src/lib/notificationSync.ts`
 - *_Avoid_*: Budget Top-up, Virtual Rollover, Inflated Pool
 
-**Pure Mode Leftover (`pureLeftover`)**:
-Unspent budget from a weekly or monthly pool that ended while the user was in Pure Mode (canonical rule `PUR-002`). It does not become income and generates no inbox notification. On Pure days, spending draws from `pureLeftover` first before income or Gullak. When the user returns to Budget Mode, any remaining leftover flows into Gullak (`totalAccumulatedSavings`).
-- *Code location*: `src/lib/moneyWaterfall.ts` (`pureLeftoverAdded`, `pureLeftoverUsed`, `pureLeftoverRemaining`), `src/store/dailyBudget/metrics.ts`
+**Deficit**:
+Spending that budget, income and Gullak together could not cover. Gullak never goes below zero. Only later income pays a deficit, never later savings (`WAT-001`).
+- *Code location*: `src/lib/periods/pools.ts` (`PoolClosure`), `src/lib/moneyWaterfall.ts`
 - *_Avoid_*: Pure Income, Restored Income, Expired Budget
 
 **Split Expense**:
@@ -142,7 +144,7 @@ The automatic real-income balancing transaction created when a user switches fro
 
 **Scheduled Mode Transition & Same-Day Reversal Protection (`PUR-003`)**:
 Mode transitions (Pure Mode ↔ Budget Mode) take effect next day at 12:00 AM (`effectiveFrom = tomorrow`), protecting running-day budget and midnight Gullak savings. If toggled back on the same day, the pending switch is cancelled, scheduled notifications removed, and the active mode continues seamlessly with zero glitches. Overspending past weekly/monthly allowances draws from unspent income and Gullak reserves; Digital Vault Guard only blocks if total account liquidity ($R \le 0$) is exhausted.
-- *Code location*: `src/store/dailyBudget/planActions.ts` (`handleSetBudgetModeEnabled`, `handleCancelPendingPlanChange`), `src/store/dailyBudget/rollover.ts` (`applyScheduledPlanChanges`), `src/store/dailyBudget/hydrate.ts` (cold-start activation + `persistActivatedPlanSettings`), `src/lib/budgetModeUtils.ts` (`resolveAutoRenewForPlan`: Pure → Budget turns auto-save ON, Budget → Pure turns it OFF, already-on keeps the user choice), `src/lib/vaultSpendingGuard.ts`
+- *Code location*: `src/store/dailyBudget/planActions.ts` (`handleSetBudgetModeEnabled`, `handleCancelPendingPlanChange`), `src/store/dailyBudget/rollover.ts` (`applyScheduledPlanChanges`), `src/store/dailyBudget/hydrate.ts` (cold-start activation + `persistActivatedPlanSettings`), `src/lib/budgetModeUtils.ts` (`resolveAutoRenewForPlan`: the old auto-save flag always equals the mode), `src/lib/vaultSpendingGuard.ts`
 - *_Avoid_*: Immediate Mode Wipe, Mid-day Gullak Dump, Contradictory Notifications
 
 ---
@@ -321,9 +323,7 @@ The transfer of unspent budget funds into the digital Gullak reserve that occurs
 - *_Avoid_*: Premature Deposit, Mid-Cycle Rollover, Cutoff Deposit
 
 **Cadence Switch Carry-Forward**:
-The mechanism by which unspent funds from a prematurely terminated cadence transfer into the newly active cadence context starting tomorrow at 00:00:00. Supported in two modes:
-- **Additive (`'additive'`)**: Carried funds are added on top of the target budget ceiling (`targetBudget + carriedOverAmount`). Default mode.
-- **Allocation (`'allocation'`)**: Carried funds provide a pre-funded headstart toward the target budget ceiling (`targetBudget`).
+The choice at a cadence switch that keeps the leftover out of Gullak: it pays the new budget first, and the user adds only the rest. The new budget does not grow. The amount is the real leftover at the switch midnight. The older "add on top" mode is retired (read only for old plans).
 - *Code location*: `src/lib/cadenceSwitch.ts` (`calculateCadenceCarryForward`, `buildCadenceSwitchPlan`), `src/components/CadenceSwitchModal.tsx`
 - *_Avoid_*: Rollover Transfer, Switch Deposit, Remainder Flush
 
@@ -333,18 +333,18 @@ The streak evaluation unit matching the active cadence: Daily evaluates consecut
 - *_Avoid_*: Universal Daily Streak, Pace Streak
 
 **Paused**:
-The state where a date range or calendar period had no active budget plan (e.g. Budget Mode was turned OFF, or tracking was paused). In the Streak Calendar, paused intervals are displayed with a neutral muted "Paused" badge and never penalize the user, break streaks, or turn red. Pause changes the screen, not the money: spending on a paused day still comes from the period's budget pool (if alive), then income, then Gullak (ADR 0012).
-Since 2026-11-25 the days the allowance was paused (auto-save off) are remembered as the **pause history** (`allowancePauses`, `profiles.allowance_pauses`), so Insights count no estimated budget for them (`INS-004`).
+A date range with no budget because Budget Mode was off (or the user chose not to count those days). In the Streak Calendar it shows a neutral "Paused" badge and never breaks a streak. There is no "paused allowance" state any more.
+Days with no budget are kept in `allowancePauses` (`profiles.allowance_pauses`): old auto-save pauses, and stretches the user chose not to count (`ROL-004`), so Insights count no estimated budget for them (`INS-004`).
 - *Code location*: `src/components/StreakCalendarModal.tsx`, `src/lib/budgetModeUtils.ts` (`buildWeeklyStreakCards`, `buildMonthlyStreakMatrix`), `src/lib/allowancePauses.ts`
 - *_Avoid_*: Stopped, Inactive, Broken, Skipped
 
 **Budget Pool**:
-The ONE budget of a calendar period for a cadence (a week for `weekly`, a month for `monthly`). Created the first day Budget Mode is on with that cadence in that period, with the plan amount plus the first-period carry-over. Pausing, resuming or switching away and back inside the period never creates a second one. A pool the user switched away from is *closed*: what was left was carried to the new cadence. A pool whose period ends in Pure Mode turns its unused part into income.
+The ONE budget of a calendar period for a cadence (a week for `weekly`, a month for `monthly`), created the first day Budget Mode is on with that cadence in that period. It never gets a second full amount. Left for Pure Mode, its leftover moves to Gullak and returns on a same-period comeback, minus Pure Gullak draws. Left for another cadence, it is closed: the leftover goes to Gullak or is carried forward.
 - *Code location*: `src/lib/budgetPeriods.ts` (`BudgetPool`, `buildBudgetPools`, `poolForDate`, `poolSpentBefore`, `BUDGET_RULES_V2_FROM`), `src/lib/moneyWaterfall.ts`, `docs/adr/0012-one-budget-per-calendar-period.md`
 - *_Avoid_*: Second Budget, Budget Reset, Fresh Budget
 
 **Carry-over**:
-Money left in the running weekly / monthly budget that moves into the new cadence at a switch. Only real, unused money can be carried; a daily day carries nothing (its unused money goes to Gullak that night). Additive carry applies to the first period of the new plan only. Into a daily plan it is either added to tomorrow's budget or spent daily budget by daily budget until used up (the user is told each morning how much to add).
+Money left in the running weekly / monthly budget that the user chose to move into the new cadence at a switch. A daily day has nothing new to carry (its unused money goes to Gullak that night); only earlier unused carry can move on. Carry that ends unused goes to Gullak.
 - *Code location*: `src/lib/budgetPeriods.ts` (`carryForPeriod`, `dailyCarryForDate`), `src/store/dailyBudgetStore.ts` (`getCarryableAmount`, `setBudgetCadence`), `src/store/dailyBudget/metrics.ts` (`computeCarryableAmount`), `src/store/dailyBudget/planActions.ts` (`setBudgetCadence`), `src/lib/notificationPolicy.ts` (`carryCoverCopy`)
 - *_Avoid_*: Rollover (that is the daily / period end deposit into Gullak), Transfer
 

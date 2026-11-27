@@ -1,5 +1,6 @@
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
+import { subDays } from 'date-fns/subDays';
 import { useAuthStore } from '../authStore';
 import { isCountedIncome } from '../../lib/transactionUtils';
 import { round2 } from '../../lib/formatters';
@@ -8,6 +9,7 @@ import { computeWaterfallFromState, WaterfallResult } from '../../lib/moneyWater
 import {
   buildBudgetPools,
   poolSpentBefore,
+  allTimeBudget,
   poolKeyFor,
   dailyCarryForDate,
   dailyCarryRemaining,
@@ -102,6 +104,8 @@ export const dailyCarryExtraFor = (dateStr: string, st?: DailyBudgetState): numb
   );
 };
 
+const NO_PERIODS: Record<string, BudgetPeriodRecord> = {};
+
 /**
  * Replays all money in time order (budget -> income -> Gullak). Single source of truth shared with
  * the Home hero chips and the expense detail funding card (src/lib/moneyWaterfall.ts).
@@ -112,6 +116,7 @@ export const runWaterfall = (
     deposits?: GullakDeposit[];
     excludeExpensesFrom?: string;
     expenses?: Expense[];
+    budgetPeriods?: Record<string, BudgetPeriodRecord>;
   }
 ): WaterfallResult => {
   const st = storeGetter ? storeGetter() : ({} as DailyBudgetState);
@@ -127,43 +132,30 @@ export const runWaterfall = (
     dailyBudgetAmount: st.dailyBudgetAmount,
     records,
     planChanges: st.planChanges,
+    budgetPeriods: overrides?.budgetPeriods ?? st.budgetPeriods ?? NO_PERIODS,
+    skipped: st.allowancePauses,
+    savingsFrom: getUserCreatedAtStr(),
     excludeExpensesFrom: overrides?.excludeExpensesFrom,
   });
 };
 
-/**
- * All budget money that ever existed, each rupee ONCE:
- *  - daily plan days: that day's budget
- *  - weekly / monthly: ONE pool per calendar period (a pool the user handed over to another cadence only counts
- *    what it really used: the rest was carried to the new cadence's budget)
- */
+/** All budget money that ever existed, each rupee once (see src/lib/periods/allTimeBudget.ts). */
 export const computeAllTimeBudget = (
   records: Record<string, DailyRecord>,
   planChanges: BudgetPlanChange[],
   spentByDate: Record<string, number>,
-  budgetPeriods?: Record<string, BudgetPeriodRecord>
-): number => {
-  let total = 0;
-  for (const r of Object.values(records)) {
-    if (r.status === 'unknown' || !(r.budget > 0)) continue;
-    if (!isDailyOwnedDate(planChanges, r.date)) continue; // a weekly / monthly / Pure day owns no daily budget
-    total += Number(r.budget) || 0;
-  }
-  if (!planChanges || planChanges.length === 0) {
-    // Old user without plan history: only period records exist (if any).
-    if (budgetPeriods) for (const bp of Object.values(budgetPeriods)) total += Number(bp.budgetAmount) || 0;
-    return round2(total);
-  }
-  const pools = buildBudgetPools(planChanges, getTodayDateStr());
-  for (const pool of Object.values(pools)) {
-    if (pool.closedOn) total += Math.min(pool.budget, poolSpentBefore(pools, planChanges, pool, pool.closedOn, spentByDate));
-    else total += pool.budget;
-  }
-  const todayStr = getTodayDateStr();
-  total += dailyCarryRemaining(planChanges, (d) => records[d]?.budget, 0, todayStr);
-  total += periodCarryRemaining(planChanges, todayStr);
-  return round2(total);
-};
+  budgetPeriods?: Record<string, BudgetPeriodRecord>,
+  expenses?: Expense[]
+): number =>
+  allTimeBudget(
+    records,
+    planChanges,
+    spentByDate,
+    getTodayDateStr(),
+    budgetPeriods,
+    storeGetter ? storeGetter().allowancePauses : undefined,
+    runWaterfall({ records, budgetPeriods, expenses }).pools
+  );
 
 export const computeMetrics = (
   records: Record<string, DailyRecord>,
@@ -171,7 +163,9 @@ export const computeMetrics = (
   userCreatedAt?: string,
   budgetPeriods?: Record<string, BudgetPeriodRecord>,
   currentCadence: BudgetCadence = 'daily',
-  availableIncome?: number
+  availableIncome?: number,
+  /** The expense list the caller is working with (default: the store's). */
+  expenses?: Expense[]
 ) => {
   const manual =
     deposits && Array.isArray(deposits)
@@ -191,7 +185,7 @@ export const computeMetrics = (
     incomeAvail = round2(Math.max(0, totalIncome - incomeDeposits));
   }
 
-  const waterfallResult = runWaterfall({ records, deposits });
+  const waterfallResult = runWaterfall({ records, deposits, budgetPeriods, expenses });
   const dailyMetrics = calculateSavingsMetrics(
     records,
     getTodayDateStr(),
@@ -200,68 +194,13 @@ export const computeMetrics = (
     manual,
     incomeAvail,
     undefined,
-    // Overspend really paid from Gullak (budget -> income -> Gullak), not "all overspend".
     waterfallResult.gullakDrawn
   );
 
-  let periodsSaved = 0;
   const periodsList = budgetPeriods ? Object.values(budgetPeriods) : [];
-  for (const p of periodsList) {
-    periodsSaved += Number(p.amountSaved) || 0;
-  }
-  let rawAccumulatedSavings = round2(dailyMetrics.totalAccumulatedSavings + periodsSaved);
 
-  const st = storeGetter ? storeGetter() : null;
-  const isBudgetOn = st ? st.isBudgetModeEnabled : false;
-  if (isBudgetOn) {
-    const pureLeftoverNet = round2(waterfallResult.pureLeftoverAdded - waterfallResult.pureLeftoverUsed);
-    if (pureLeftoverNet > 0) {
-      rawAccumulatedSavings = round2(rawAccumulatedSavings + pureLeftoverNet);
-    }
-  }
-
-  // Hard Real-Money Invariant: Gullak savings cannot exceed Total Account Remaining
-  const expensesList = getCurrentExpenses();
-  let totalAccumulatedSavings = rawAccumulatedSavings;
-
-  if (expensesList && expensesList.length > 0) {
-
-    const st = storeGetter ? storeGetter() : null;
-    const currentPlanChanges = st ? st.planChanges : [];
-
-    const allTimeBudget = computeAllTimeBudget(
-      records,
-      currentPlanChanges,
-      computeSpentByDate(expensesList),
-      budgetPeriods
-    );
-
-    let allTimeIncome = 0;
-    let allTimeSpent = 0;
-    for (let i = 0; i < expensesList.length; i++) {
-      const e = expensesList[i];
-      const amt = Number(e.amount) || 0;
-      if (amt <= 0) continue;
-      // TXN-003: self-transfers (either leg) are never income and never spent.
-      if (isExcludedFromTotals(e)) continue;
-      if (isCountedIncome(e)) {
-        allTimeIncome += amt;
-      } else {
-        allTimeSpent += amt;
-      }
-    }
-
-    const externalDeposits =
-      deposits && Array.isArray(deposits)
-        ? deposits.reduce((s, d) => s + (d.source !== 'income' ? Number(d.amount) || 0 : 0), 0)
-        : 0;
-
-    const totalInflow = round2(allTimeBudget + allTimeIncome + externalDeposits);
-    const totalAccountRemaining = Math.max(0, round2(totalInflow - allTimeSpent));
-
-    // Universal Hard Cap (Rule GUL-001): Gullak savings can never exceed Total Account Remaining ('All' balance)
-    totalAccumulatedSavings = Math.min(rawAccumulatedSavings, totalAccountRemaining);
-  }
+  // Gullak is the waterfall's running balance (spec 2026-11-28). It is never rebuilt or capped here.
+  const totalAccumulatedSavings = waterfallResult.gullakBalance;
 
   const todayStr = getTodayDateStr();
   const uCreatedAt = userCreatedAt ?? getUserCreatedAtStr();
@@ -329,13 +268,34 @@ export const computeMetrics = (
   };
 };
 
+/** What the budget running before `plan` starts still held at that midnight (money a carry can move). */
+export const leftoverBeforeSwitch = (
+  st: Pick<DailyBudgetState, 'planChanges' | 'dailyRecords' | 'dailyBudgetAmount' | 'allowancePauses'>,
+  before: BudgetPlanChange[],
+  plan: BudgetPlanChange,
+  expenses: Expense[]
+): number => {
+  const lastDay = format(subDays(parseISO(plan.effectiveFrom), 1), 'yyyy-MM-dd');
+  const owner = getDateOwner(before, lastDay);
+  if (owner === 'daily') {
+    return dailyCarryRemaining(before, (d) => st.dailyRecords[d]?.budget, st.dailyBudgetAmount, lastDay);
+  }
+  if (owner !== 'weekly' && owner !== 'monthly') return 0;
+  const pools = buildBudgetPools(st.planChanges, plan.effectiveFrom, st.allowancePauses);
+  const pool = pools[poolKeyFor(owner, lastDay)];
+  if (!pool) return 0;
+  const funded = runWaterfall({ expenses }).pools[pool.key]?.budget ?? pool.budget;
+  const spent = poolSpentBefore(pools, st.planChanges, pool, plan.effectiveFrom, computeSpentByDate(expenses));
+  return Math.max(0, funded - spent) + periodCarryRemaining(before, lastDay);
+};
+
 export const computeAvailableIncomeBalance = (): number => runWaterfall().incomeRemaining;
 
 export const computePriorAvailableIncomeBalance = (todayStr: string = getTodayDateStr()): number =>
   runWaterfall({ excludeExpensesFrom: todayStr }).incomeRemaining;
 
 export const computeCarryableAmount = (st: DailyBudgetState, expenses?: Expense[]): number => {
-  if (!st.isBudgetModeEnabled) return 0; // Pure Mode: nothing is carried; a pool's leftover stays as pureLeftover (PUR-002)
+  if (!st.isBudgetModeEnabled) return 0; // Pure Mode: nothing to carry, the budget already ended
   const todayStr = getTodayDateStr();
   const plans = st.planChanges || [];
   if (plans.length === 0) return 0;
@@ -351,7 +311,8 @@ export const computeCarryableAmount = (st: DailyBudgetState, expenses?: Expense[
     if (!pool || pool.closedOn) return 0;
     const spentByDate = computeSpentByDate(expenses ?? getCurrentExpenses());
     const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
-    const poolLeft = Math.max(0, pool.budget - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate));
+    const effective = runWaterfall({ expenses: expenses ?? getCurrentExpenses() }).pools[pool.key]?.budget ?? pool.budget;
+    const poolLeft = Math.max(0, effective - poolSpentBefore(pools, plans, pool, tomorrowStr, spentByDate));
     const futureCarry = periodCarryRemaining(plans, todayStr);
     return round2(poolLeft + futureCarry);
   }
@@ -366,7 +327,8 @@ export const computeTotalAccountRemaining = (st: DailyBudgetState, expenses?: Ex
     records,
     st.planChanges,
     computeSpentByDate(expensesList),
-    st.budgetPeriods
+    st.budgetPeriods,
+    expensesList
   );
 
   let income = 0;

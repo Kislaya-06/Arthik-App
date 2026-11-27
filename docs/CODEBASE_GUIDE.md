@@ -49,7 +49,7 @@ the Gullak.
 
 **"Cadence changed mid-month — where does the unspent money go?"** — Not to the Gullak (the period has not ended,
 `CAR-001`). It is **carried** (`src/lib/cadenceSwitch.ts`, `src/lib/periods/carry.ts`):
-- **Mode A (Additive):** added once on top of the new budget.
+- **Carry forward** pays the new budget first (the old "additive" mode is retired). Unused carry that ends goes to Gullak.
 - **Mode B (Allocation):** funds the coming periods. Example: ₹13,000 carried, weekly ₹5,000 → weeks 1–2 fully
   funded, week 3 gets ₹3,000 from carry and the user adds ₹2,000.
 - Only the carry-funded part is left out of the Home All pill; Home All and the account total are always the same
@@ -57,8 +57,7 @@ the Gullak.
 
 **Pure Mode** (`PUR-*`):
 - Spending is never blocked and may go negative (`SEC-001`).
-- A period ending in Pure Mode keeps its unspent money as hidden `pureLeftover`; it never becomes income and sends
-  no message (`PUR-002`). Spending in Pure uses leftover, then income, then Gullak.
+- A running weekly / monthly leftover moves to Gullak at the switch to Pure Mode (`PUR-002`). Pure spending uses income, then Gullak.
 - Switching Pure → Budget with a negative Remaining adds one balancing income (note `Auto-balance (Pure Mode deficit)`)
   and a notification (`PUR-001`). It counts in Total Income but not in the Home budget chip.
 - Mode switches take effect tomorrow at 12:00 AM; switching back the same day cancels it (`PUR-003`). A new account or
@@ -195,18 +194,18 @@ New money logic goes here, with a test (`MNY-001`).
 | `budgetPeriods.ts` (facade) + `periods/` (`core`, `pools`, `carry`, `streak`, `calendar`, `periodSummary`, `finalize`) | Period bounds, date owner (`getDateOwner`), budget pools, carry, period finalization, cadence streaks. Pure, no `new Date()` |
 | `cadenceSwitch.ts` | What is left, how much carries, capacity check, `buildCadenceSwitchPlan`, Mode B summary |
 | `budgetUtils.ts`, `budgetModeUtils.ts` | Budget resolution on hydrate; tabs per mode, labels, streak cards (`buildWeeklyStreakCards`, `buildMonthlyStreakMatrix`), `resolveAutoRenewForPlan` |
-| `dateFilters.ts`, `gapFiller.ts` | Is a date in a period; zero-activity days for Welcome Back savings (`ROL-004`) |
+| `dateFilters.ts`, `absence.ts` | Is a date in a period; days the app was closed and the few-days-left notice (`ROL-004`, `BPR-002`) |
 
 **Funding and display**
 | File | Job |
 |---|---|
-| **`moneyWaterfall.ts`** | **The one answer to "where did the money come from"**: per-spend `fromBudget / fromLeftover / fromIncome / fromGullak`, per-day totals, income left, Gullak used, `pureLeftover`. Reuses a result when every input is the same reference (`OPT-75`) |
+| **`moneyWaterfall.ts`** | **The one answer to "where did the money come from"**: per-spend `fromBudget / fromIncome / fromGullak / short`, per-day totals, income left, the running Gullak balance and the deficit. Reuses a result when every input is the same reference (`OPT-75`) |
 | `transactionFunding.ts` | Funding breakdown on Expense Detail |
 | `homeCalculations.ts` | Home hero card: `calculatePeriodSummary` for All / Daily / Weekly / Monthly (amounts, labels, copy) |
 | `heroDetails.ts`, `heroRing.ts` | Home card details sheet; ring's real % and second lap (`UX-004`), display only |
 | `splitLedger.ts`, `settleReview.ts` | Who owes what, settlements, refund planning; the review sheet's settle summary and button text |
 | `vaultSpendingGuard.ts` | `calculateVaultLiquidity`, `canAddExpense`; always allowed in Pure Mode |
-| `gullakReconciliation.ts` | When income that funded a Gullak deposit is deleted or reduced, the unbacked part is taken back from the Gullak after a confirmation (`GUL-001`, `GUL-004`) |
+| `periods/allTimeBudget.ts` | All budget money ever given, each rupee once (`BAL-001`) |
 | `savingsHistoryGroups.ts`, `historyRows.ts`, `notificationGroups.ts`, `homeNetworkPill.ts` | Display grouping: Savings history weeks / months, History rows and time labels, Notifications date sections and Gullak stacks, one Home offline message at a time |
 
 **Insights** — `weeklyInsightsUtils.ts`, `monthlyInsightsUtils.ts`, `yearlyInsightsUtils.ts`, `insightsCommon.ts`:

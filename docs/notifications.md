@@ -40,14 +40,15 @@ When a user switches cadence using Allocation Mode (CAR-001 Mode B), notificatio
 - **Fully Funded Period:** e.g. *"This week's ₹5,000 is funded from your carried balance. ₹10,000 left."* (Monthly: *"This month's …"*).
 - **Partial Gap Period:** e.g. *"₹2,000 funded from carry. Add ₹3,000 to complete this week's budget."* (Monthly: *"This month's …"*).
 - **Funding-Ended Notice (once):** On the first day / week / month that carried money no longer funds the budget (the day after remaining carry reaches ₹0), ONE message is sent at 08:30: *"Carried money has run out — From today your ₹500 daily budget is no longer covered by carried money. Add ₹500 today to fund it."* (weekly: *"…From this week your ₹5,000 weekly budget … Add ₹5,000 this week to fund it."*, monthly: *"this month"*). Copy: `carryEndCopy`; built by `buildCarryEnds` from the last funded day/period; id `carry_end_${date}`.
-- **Then Silence:** After that notice no more carry notifications are sent, and none on non-start days. Additive / next-day switches have no end notice. Uses channel `gullak` and unique ID `carry_${periodStart}` for funded periods.
+- **Then Silence:** After that notice no more carry notifications are sent, and none on non-start days. Old "add on top" switches have no end notice. Uses channel `gullak` and unique ID `carry_${periodStart}` for funded periods.
 
 ### Pure Mode Deficit Balanced Notification (`pure_deficit_balanced` — PUR-001)
 When the user switches from Pure Mode to Budget Mode while in deficit ($R < 0$), an inbox notification is posted to the in-app bell:
 - **Title**: *"Pure Mode deficit balanced"*
 - **Message**: *"You spent ₹{D} more than you had in Pure Mode. We added ₹{D} to Total Income so everything is balanced."*
 - **Stable ID**: `pure_deficit_${dateStr}_${D}` (ensures idempotency across multiple sync passes).
-- **PUR-002**: a pool that ends in Pure Mode sends no notification; its unspent money stays as `pureLeftover`.
+- **PUR-002**: a pool left at a switch to Pure Mode moves to Gullak and sends no notification. There is no "Welcome back" amount message any more.
+- **Calculation fix (one time):** if the 2026-11-28 recalculation changes the Gullak number, the bell gets "We fixed a calculation" with the old and new amounts.
 
 ### Scheduled Mode Switch Notifications (`PUR-003`)
 When toggling between Pure Mode and Budget Mode, the switch takes effect tomorrow and an inbox notification confirms the schedule:

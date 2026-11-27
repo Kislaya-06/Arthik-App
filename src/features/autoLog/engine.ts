@@ -177,7 +177,7 @@ const reviewQuestion: Record<ReviewReason, string> = {
   ambiguous_match: 'This may already be logged. Please check.',
   unknown_sender: 'Arthik cannot confirm who sent this email. Please check it.',
   possible_transfer: 'Is this a transfer between your own accounts?',
-  exceeds_liquidity: 'Exceeds spending limit. Zero funds in Income & Gullak.',
+  exceeds_liquidity: 'This is more than your balance. Add income to log it.',
 };
 
 /**
