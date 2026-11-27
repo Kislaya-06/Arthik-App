@@ -134,7 +134,8 @@ const startDailyUser = (expenses: Expense[]) => {
   registerExpenseGetter(() => expenses);
   useDailyBudgetStore.setState({
     ownerUserId: USER, hydratedForUserId: USER, isBudgetModeEnabled: true, budgetCadence: 'daily', dailyBudgetAmount: 100,
-    isAutoRenew: true, budgetPeriods: {}, gullakDeposits: [], dailyRecords: {}, lastExceededNotifiedDate: null,
+    isAutoRenew: true, budgetPeriods: {}, dailyRecords: {},
+    gullakDeposits: [{ id: 'g', amount: 1000, date: '2026-10-01', source: 'external', created_at: '' }], lastExceededNotifiedDate: null,
     planChanges: [{ id: 'p', userId: USER, effectiveFrom: '2026-10-01', isEnabled: true, cadence: 'daily', amount: 100, createdAt: '' }],
   } as any);
 };

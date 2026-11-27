@@ -11,10 +11,11 @@ import { AppButton } from '../ui/AppButton';
 import { SegmentedControl, SegmentedOption } from '../ui/SegmentedControl';
 import { Checkbox } from './AutoLogUi';
 import { useTheme } from '../../store/themeStore';
-import { useCategoryStore, Category, categoriesOfKind } from '../../store/categoryStore';
+import { useCategoryStore, Category, categoriesOfKind, FALLBACK_INCOME_CATEGORY_NAME } from '../../store/categoryStore';
 import { Spacing, FontSize, FontFamily, ControlHeight } from '../../config/theme';
 import type { AutoLogEvent, TrackedAccount } from '../../features/autoLog/types';
 import { accountLabelFromKey, dateTime, eventTitle, money } from '../../features/autoLog/copy';
+import { createTransaction, liquidityShortfall } from '../../features/autoLog/ledger';
 import { useExpenseStore } from '../../store/expenseStore';
 import { navigationRef } from '../../navigation/navigationRef';
 import { convertIncomeToMoneyBack } from '../../store/expense/moneyBack';
@@ -174,6 +175,10 @@ export const ReviewSheet: React.FC<Props> = ({
     }
   };
 
+  // Spec 2026-11-28 rule 12: Budget Mode needs the income first. The footer button says so and does both
+  // (no dialog on top of this sheet).
+  const shortfall = !discovery && !categoryOnly && !pickedPerson && type === 'expense' && amount ? liquidityShortfall(amount) : 0;
+
   // Empty -> undefined: the payee name is saved, exactly as before notes existed.
   const note = noteText.trim() || undefined;
   const defaultNote = event.merchant || (type === 'income' ? 'Income (auto)' : 'Expense (auto)');
@@ -202,16 +207,29 @@ export const ReviewSheet: React.FC<Props> = ({
         "We'll use this format for future transactions."
       );
     }
-    return run(async () => {
-      await classifyEvent(
-        event,
-        type,
-        categoryId,
-        remember,
-        needsAmount ? amount ?? undefined : undefined,
-        { note }
-      );
-    }, `${money(amount)} logged as ${type === 'income' ? 'income' : 'an expense'}`);
+    const topUpCategoryId = () => {
+      const incomes = categoriesOfKind(categories, 'income').filter((c) => !c.isPlaceholder);
+      return (incomes.find((c) => c.name === FALLBACK_INCOME_CATEGORY_NAME) ?? incomes[0])?.id ?? null;
+    };
+    const log = (topUp: number) =>
+      run(async () => {
+        if (topUp > 0) {
+          await createTransaction({
+            amount: topUp, type: 'income', categoryId: topUpCategoryId(), note: 'Added to balance',
+            paymentMode: 'upi', occurredAt: event.occurredAt,
+          });
+        }
+        await classifyEvent(
+          event,
+          type,
+          categoryId,
+          remember,
+          needsAmount ? amount ?? undefined : undefined,
+          { note }
+        );
+      }, `${money(amount)} logged as ${type === 'income' ? 'income' : 'an expense'}`);
+
+    return log(shortfall);
   };
 
   const openConfirm = (kind: ConfirmKind) => {
@@ -769,6 +787,8 @@ export const ReviewSheet: React.FC<Props> = ({
               ? 'Save Category'
               : type === 'income'
               ? `Save as Income · ${money(amount)}`
+              : shortfall > 0
+              ? `Add ${money(shortfall)} income & log`
               : `Save as Expense · ${money(amount)}`
           }
           variant="primary"

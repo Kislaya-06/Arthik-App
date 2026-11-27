@@ -53,21 +53,23 @@ const ICONS: Record<string, any> = {
 const FAQ_DATA = [
   // Budget Modes
   ['bm_1', 'Budget Modes', 'What is Pure mode?',
-   'Pure Mode is a streamlined expense tracker focused solely on tracking your spending and income without spending limits, daily allowances, or Gullak savings. The bottom navigation has 4 tabs and the Home screen shows your overall cashflow with an Inflow/Outflow ring. You can switch to Budget Mode anytime in your Profile.'],
+   'Pure Mode is a streamlined expense tracker focused solely on tracking your spending and income without spending limits, daily allowances, or Gullak savings. The bottom navigation has 4 tabs and Day, Week and Month on Home show only that time\u2019s income and spending; All shows the money you have left. You can switch to Budget Mode anytime in your Profile.'],
   ['bm_2', 'Budget Modes', 'How do weekly and monthly budgets work?',
    'Instead of a daily allowance, you can set a target budget for the entire week (Monday to Sunday) or calendar month. Your active balance tracks what remains for that period. At the end of the week or month, any unspent budget automatically rolls over into your Savings Gullak.'],
   ['bm_3', 'Budget Modes', 'When does money go to Gullak?',
    'Unspent money rolls over into your Gullak when a budget period ends:\n• Daily: Every midnight (12:00 AM) for yesterday’s savings.\n• Weekly: Every Sunday midnight (11:59:59 PM) for the week’s savings.\n• Monthly: At the end of the last day of each month.\nYou can also deposit custom cash into your Gullak manually anytime from the Savings screen.'],
   ['bm_4', 'Budget Modes', 'What happens when I switch cadence mid-week?',
-   'When switching your budget plan (like from Daily to Weekly or Monthly), the change starts tomorrow at 12:00 AM. In Arthik, every rupee is real money. Your full budget is available right away without any cuts or deductions, and any unspent money rolls into your Gullak when the cycle ends.'],
+   'A switch starts tomorrow at 12:00 AM. You choose what happens to the unspent budget: save it to Gullak, or carry it forward so it pays part of your new budget. The new budget gives its full amount.'],
   ['bm_5', 'Budget Modes', 'Is my Gullak safe if I turn Budget Mode off?',
-   'Yes, 100%! All money in your Gullak represents real accumulated savings and is permanently preserved in your account. Turning Budget Mode off simply hides the Savings tab and pauses active budget tracking. Whenever you re-enable Budget Mode, your Gullak balance, deposit history, and past savings remain intact.'],
+   'It stays real money. Pure Mode hides Gullak. A running weekly or monthly budget moves its leftover to Gullak at midnight. If you spend more than your income in Pure Mode, the rest comes from Gullak. When you return, you continue with what is left.'],
 
   // Daily Budget
   ['db_1', 'Daily Budget', 'When does my Daily Budget renew each day?',
-   'If Auto-Renew is turned on in Daily cadence, your default daily allowance from your Profile is automatically allocated at midnight (12:00 AM) for the new day.'],
+   'In Budget Mode your daily budget is added every midnight (12:00 AM), even if you do not open the app. If you were away for 7 days or more and logged nothing, Arthik asks you whether to count those days.'],
   ['db_2', 'Daily Budget', 'When does a changed Daily Budget take effect?',
-   'Your new daily budget takes effect starting tomorrow at 12:00 AM. Today’s active allowance remains unchanged to maintain daily spending discipline and preserve accurate tracking.'],
+   'If nothing is spent today, it applies right away. Otherwise it starts tomorrow at 12:00 AM.'],
+  ['db_4', 'Daily Budget', 'What if I do not open the app for some days?',
+   'Your budget still counts and the unspent money goes to Gullak. If you were away 7 days or more and added no expense, Arthik asks you: save that money, do not count those days, or add what you spent.'],
   ['db_3', 'Daily Budget', 'What happens if I spend less than my Daily Budget?',
    'Any unspent money from your daily allowance automatically rolls over into your Daily Savings Gullak at midnight, building your lifetime savings.'],
 
@@ -75,7 +77,7 @@ const FAQ_DATA = [
   ['gs_1', 'Gullak & Savings', 'How does money get deposited into my Gullak?',
    'Money is added to your Gullak in two ways:\n\n1. Automatic Period Rollover: Unspent funds roll over automatically at the end of your active period (daily at midnight, weekly on Sunday night, or monthly on the last day).\n2. Manual Deposit: Tap "Deposit to Gullak" on the Savings screen to deposit custom savings anytime.'],
   ['gs_2', 'Gullak & Savings', 'What happens if I overspend my Daily Budget?',
-   'If your expenses exceed your budget allowance, the overspent amount is deducted directly from your Gullak balance as an overspending penalty. Your savings for that period become ₹0 and your savings streak resets.'],
+   'The extra is paid from your income first. Only when income is used up does it come from Gullak. Your savings for that day are ₹0 and your savings streak resets.'],
   ['gs_3', 'Gullak & Savings', 'How can I delete a Gullak deposit?',
    'On the Savings screen, scroll down to the history section and select the "Deposits" filter. Tap any manual deposit row to remove it.'],
 
@@ -83,7 +85,7 @@ const FAQ_DATA = [
   ['sr_1', 'Streak & Rules', 'How do savings streaks work and when do they break?',
    '• Increases: Every finalized period (day, week, or month) you stay within your budget and save money (Saved > 0).\n• Resets to 0: If you exceed your budget, save ₹0 on an active period, or miss tracking during an active budget.'],
   ['sr_2', 'Streak & Rules', 'What do the different colors mean on the Streak Calendar?',
-   '🟢 Green: Stayed within budget and saved money.\n🔴 Red: Budget exceeded (overspent).\n⚪ Gray: Untracked or paused period (no budget was active).'],
+   '🟢 Green: Stayed within budget and saved money.\n🔴 Red: Budget exceeded (overspent).\n⚪ Gray: No budget on those days (Pure Mode, or days you chose not to count).'],
 
   // Income & Expenses
   ['ie_1', 'Income & Expenses', 'Why does adding Income not increase my Daily Budget?',

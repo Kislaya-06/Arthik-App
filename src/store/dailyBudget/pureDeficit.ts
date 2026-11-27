@@ -44,7 +44,8 @@ export function balancePureDeficit(
   let runningSum = 0;
   let dateStr = todayStr;
   for (const e of countedExpenses) {
-    const gDrawn = waterfall.byExpense[e.id]?.fromGullak || 0;
+    const split = waterfall.byExpense[e.id];
+    const gDrawn = (split?.fromGullak || 0) + (split?.short || 0);
     runningSum = round2(runningSum + gDrawn);
     if (runningSum >= D) {
       dateStr = e.expense_date?.split('T')[0]?.trim() || todayStr;

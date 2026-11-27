@@ -683,7 +683,8 @@ describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net
   // -------------------------------------------------------------------------
   describe('PUR-003: scheduled Budget Mode switch on a cold start', () => {
     const PURE_ROW = { id: 'p1', effective_from: '2026-01-01', is_enabled: false, cadence: 'daily', amount: 0 };
-    const profileUpdates = () => mockSupabaseSpies.update.mock.calls.map((c) => c[0]);
+    // Settings writes only: the last-opened day is saved on its own (ROL-004).
+    const profileUpdates = () => mockSupabaseSpies.update.mock.calls.map((c) => c[0]).filter((u) => !('last_open_day' in u));
 
     it('turns auto-save ON and gives today the daily budget when Pure -> Budget Mode matures while the app was closed', async () => {
       mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
@@ -721,7 +722,7 @@ describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net
       expect(state.dailyRecords[TODAY_STR].budget).toBe(100);
     });
 
-    it('saves the activation to the profile so a later "pause auto-save" is never undone by the next start', async () => {
+    it('saves the activation to the profile; Budget Mode always has its allowance (rule 15)', async () => {
       mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: false, budget_cadence: 'daily' };
       mockSupabaseData.planChanges = [
         PURE_ROW,
@@ -744,12 +745,12 @@ describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net
 
       const state = useDailyBudgetStore.getState();
       expect(state.isBudgetModeEnabled).toBe(true);
-      expect(state.isAutoRenew).toBe(false);
-      expect(state.dailyRecords[TODAY_STR].budget).toBe(0);
-      expect(state.dailyRecords[TODAY_STR].status).toBe('unknown');
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(100);
+      expect(state.dailyRecords[TODAY_STR].status).toBe('active');
     });
 
-    it('never flips a paused allowance back on when Budget Mode was already on (section 8.1 sovereignty)', async () => {
+    it('rule 15: an old paused allowance in Budget Mode gets its allowance again', async () => {
       mockSupabaseData.profiles = { daily_budget: 100, is_auto_renew: false, is_budget_mode_enabled: true, budget_cadence: 'daily' };
       mockSupabaseData.planChanges = [
         { id: 'p0', effective_from: '2026-03-01', is_enabled: true, cadence: 'daily', amount: 100 },
@@ -759,8 +760,8 @@ describe('dailyBudgetStore — hydrateFromSupabase Characterization & Safety Net
 
       const state = useDailyBudgetStore.getState();
       expect(state.isBudgetModeEnabled).toBe(true);
-      expect(state.isAutoRenew).toBe(false);
-      expect(state.dailyRecords[TODAY_STR].budget).toBe(0);
+      expect(state.isAutoRenew).toBe(true);
+      expect(state.dailyRecords[TODAY_STR].budget).toBe(100);
       expect(profileUpdates()).toHaveLength(0);
     });
 

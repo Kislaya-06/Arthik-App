@@ -1,3 +1,4 @@
+import { fewDaysLeftNotice } from '../lib/absence';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -289,6 +290,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
 
     if (!isBudgetModeEnabled) {
       // First enable: applies today; Re-enabling existing user schedules tomorrow (PUR-003)
+      const turnOn = () => {
       if (selectedCadence === 'daily') {
         setDailyBudget(evaluatedAmount);
       } else if (selectedCadence === 'weekly') {
@@ -300,6 +302,22 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
       setBudgetModeEnabled(true, { cadence: selectedCadence, amount: evaluatedAmount, autoRenew: true });
       saveSuccessHaptic();
       onClose();
+      const notice = fewDaysLeftNotice(selectedCadence, effectiveFromStr);
+      if (notice) Alert.alert('Budget set', notice);
+      };
+      const balance = useDailyBudgetStore.getState().getTotalAccountRemaining();
+      if (balance < 0) {
+        Alert.alert(
+          'Your balance is below zero',
+          `When Budget Mode starts, we will add the missing amount (${formatCurrency(-balance)} right now) to your income.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Continue', onPress: turnOn },
+          ]
+        );
+        return;
+      }
+      turnOn();
       return;
     }
 
@@ -389,6 +407,7 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
     saveSuccessHaptic();
     onClose();
   }, [
+    effectiveFromStr,
     evaluatedAmount,
     isBudgetModeEnabled,
     selectedCadence,
@@ -665,6 +684,9 @@ export const BudgetEditModal: React.FC<BudgetEditModalProps> = ({
           setBudgetCadence(tc, { amount, carryMode, carriedOverAmount });
           setShowCadenceSwitchModal(false);
           onClose();
+          // A cadence switch starts tomorrow, so the days are counted from tomorrow.
+          const notice = fewDaysLeftNotice(tc, format(addDays(new Date(), 1), 'yyyy-MM-dd'));
+          if (notice) Alert.alert('Budget set', notice);
         }}
         onClose={() => setShowCadenceSwitchModal(false)}
       />

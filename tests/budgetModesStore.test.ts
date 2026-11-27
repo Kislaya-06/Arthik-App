@@ -147,7 +147,7 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
   describe('1. Persist Migration (v-old -> v4)', () => {
     it('safely migrates old persisted payload missing budget mode fields without crashing', () => {
       const persistOptions = (useDailyBudgetStore as any).persist?.getOptions();
-      expect(persistOptions.version).toBe(4);
+      expect(persistOptions.version).toBe(5);
 
       const oldPayloadV1 = {
         dailyBudgetAmount: 500,
@@ -301,7 +301,7 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
   });
 
   describe('4. Mode OFF (Pure Expense Tracker)', () => {
-    it('sends NO warning/exceeded/rollover notifications, creates no records, and leaves manual deposits untouched', () => {
+    it('sends NO warning/exceeded/rollover notifications, creates no records, keeps deposit rows, and pays the Pure expense from Gullak (rule 3)', () => {
       useDailyBudgetStore.setState({
         ownerUserId: 'user_modes_test_1',
         hydratedForUserId: 'user_modes_test_1',
@@ -335,7 +335,7 @@ describe('Budget Modes & Cadence Integration (dailyBudgetStore)', () => {
       const state = useDailyBudgetStore.getState();
       expect(state.gullakDeposits.length).toBe(1);
       expect(state.gullakDeposits[0].amount).toBe(1200);
-      expect(state.totalAccumulatedSavings).toBe(1200);
+      expect(state.totalAccumulatedSavings).toBe(0); // 2500 spent, the 1200 in Gullak paid its part
     });
 
     it('turning OFF via setBudgetModeEnabled does NOT delete records or Gullak deposits', () => {

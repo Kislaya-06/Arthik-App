@@ -24,6 +24,8 @@ export { StreakUnit, computeCadenceStreak } from './periods/streak';
 
 export { DailyCarryDay, dailyCarryForDate, dailyCarryRemaining, PeriodCarry, periodCarryForPeriod, periodCarryRemaining } from './periods/carry';
 
-export { BudgetPool, poolKeyFor, buildBudgetPools, poolForDate, poolSpentBefore } from './periods/pools';
+export { BudgetPool, PoolClosure, poolKeyFor, buildBudgetPools, poolForDate, poolSpentBefore, isPoolClosedOn, isPeriodSkipped } from './periods/pools';
+export { settleCarryAmounts, droppedCarries } from './periods/carry';
+export { allTimeBudget } from './periods/allTimeBudget';
 
 export { PeriodBounds, DateOwner, EffectiveFromKind, getPeriodBounds, carryForPeriod, resolvePlanForDate, getDateOwner, hasNeverEnabledBudgetMode, isFirstDayFirstEnable, computeEffectiveFrom, upsertPendingChange, isDailyGovernedDate, BUDGET_RULES_V2_FROM, getNextPeriodStart } from './periods/core';

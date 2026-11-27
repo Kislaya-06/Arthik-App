@@ -518,7 +518,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
   });
 
   describe('Slice 8: Auto-Save Unspent to Gullak Toggle & Hydration Invariants', () => {
-    it('preserves isAutoRenew false and custom budget amount across hydrateFromSupabase', async () => {
+    it('rule 15: hydration keeps the custom budget; there is no paused allowance in Budget Mode', async () => {
       useDailyBudgetStore.getState().resetDailyBudget();
       useDailyBudgetStore.getState().setBudgetModeEnabled(true);
       useDailyBudgetStore.getState().setDailyBudget(250);
@@ -539,9 +539,7 @@ describe('dailyBudgetStore (Seam: useDailyBudgetStore)', () => {
       state = useDailyBudgetStore.getState();
       expect(state.isBudgetModeEnabled).toBe(true);
       expect(state.dailyBudgetAmount).toBe(250);
-      expect(state.isAutoRenew).toBe(false);
-      expect(state.getTodayRecord().budget).toBe(0);
-      expect(state.getTodayRecord().status).toBe('unknown');
+      expect(state.isAutoRenew).toBe(true);
     });
 
     it('activates today budget when toggling auto-renew back ON and keeps it across hydration', async () => {

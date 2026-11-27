@@ -4,7 +4,7 @@
 > **Status:** ACTIVE — Governed by Owner Approval Protocol  
 > **Repository:** `Arthik-App` (this file lives at `docs/ARTHIK_CANONICAL_RULES.md`)  
 > **Initial Creation:** 2026-10-17  
-> **Last Updated:** 2026-11-19  
+> **Last Updated:** 2026-11-28  
 
 ---
 
@@ -71,14 +71,15 @@ This document is the **single authoritative canonical source of truth** for all 
 ### Domain 2: WAT & BUD — Time-Ordered Money Waterfall & Rollover
 
 #### `WAT-001`: Chronological Funding Priority Hierarchy
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
+- **Status:** `APPROVED BY OWNER` (changed 2026-11-28)
 - **Canonical Definition:**
-  Every transaction outflow is funded in strict, deterministic 3-tier chronological priority:
-  1. **Tier 1 (Active Period Budget):** The active scheduled allowance for the current cadence (Daily allowance, Weekly budget pool, or Monthly budget pool).
-  2. **Tier 2 (Available Income Pool):** If spending exceeds the active budget allowance (overspend), the deficit is absorbed by any chronologically available, unspent earned income (`incomeRemaining`).
-  3. **Tier 3 (Gullak Reserve):** Only when BOTH the active budget allowance AND available income are fully exhausted does overspend draw down accumulated Gullak savings (`gullakDrawn`).
+  Every outflow is funded in strict chronological order: (1) the running budget, (2) unspent earned income, (3) Gullak.
+  4. **Gullak is one running balance and never goes below zero.** What nothing can cover is a **deficit**.
+     Later **income** pays the deficit first. Later budget savings and deposits never pay it.
+  5. A day with no budget (Pure Mode, skipped day) is paid from income, then Gullak. This holds for all history.
+  6. **Invariant:** total = income left + Gullak + running budget left + carried money still waiting − deficit.
 - **Code Enforcement:** `src/lib/moneyWaterfall.ts`
-- **Verified By:** `tests/moneyWaterfall.test.ts`, `tests/moneyWaterfallStore.test.ts`
+- **Verified By:** `tests/moneyWaterfall.test.ts`, `tests/simpleMoneyRules.test.ts`, `tests/moneyInvariant.test.ts`
 
 #### `BUD-003`: Real Money Invariant — Income Never Rolls to Gullak
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -151,17 +152,16 @@ This document is the **single authoritative canonical source of truth** for all 
 
 ### Domain 3: GUL — Gullak (Savings Reserve) & Real-Money Vault
 
-#### `GUL-001`: Universal Savings Cap & Real-Money Vault
-- **Status:** `APPROVED AS-IS` (Owner refined and approved on 2026-10-17)
+#### `GUL-001`: Gullak Is the Waterfall's Running Balance
+- **Status:** `APPROVED BY OWNER` (changed 2026-11-28)
 - **Canonical Definition:**
-  1. **Universal Upper Bound:** Gullak savings can NEVER exceed the user's Total Account Remaining (`All` filter balance).
-     `Gullak = Minimum(Raw Accumulated Savings from Waterfall, Total Account Remaining)`
-  2. **Sub-Vault Principle:** Gullak is an internal savings envelope within the user's total money. A sub-pocket cannot physically hold more cash than the user's entire account universe.
-  3. **Natural Waterfall Deduction:** Overspending beyond active budget and income draws down Gullak naturally via chronological waterfall priority. No artificial zeroing hacks are required.
-  4. **Automatic Deficit Protection:** If Total Account Remaining drops to 0 or deficit, Gullak balance naturally evaluates to 0.
-  5. **Backdated Spending on Ungoverned Days:** When logging an expense on a past date with no active budget or unspent funds (e.g. Sunday before Monday activation), the expense is funded directly from available Gullak reserves. A contextual notice chip on `ExpenseFormScreen` informs the user of the exact Gullak deduction in real time.
-- **Code Enforcement:** `src/store/dailyBudget/metrics.ts`, `src/lib/budgetUtils.ts`, `src/screens/ExpenseFormScreen.tsx`
-- **Verified By:** `tests/gullakReconciliationHardCap.test.ts`, `tests/gullakDeposits.test.ts`, `tests/budgetUtils.test.ts`
+  1. Money enters Gullak only as unspent budget when a budget ends, and as a manual deposit.
+  2. A budget ends: daily at midnight; weekly on Sunday midnight; monthly at the last day's midnight; and at the midnight a switch takes effect (to Pure Mode, or to another cadence unless "Carry forward" was chosen). Carried money that is still waiting when its plan ends without carrying it on also goes to Gullak.
+  3. Money leaves Gullak only when the running budget and income are both used up (`WAT-001`), when budget money returns after Pure Mode (`PUR-002`), or when the user removes a wrong deposit.
+  4. The Gullak number is read from the waterfall. It is never rebuilt with a second formula and never capped; `WAT-001` #6 keeps it within the total.
+  5. **Backdated spending on ungoverned days** is funded from income, then Gullak, and the form says so.
+- **Code Enforcement:** `src/lib/moneyWaterfall.ts`, `src/store/dailyBudget/metrics.ts`
+- **Verified By:** `tests/simpleMoneyRules.test.ts`, `tests/moneyInvariant.test.ts`
 
 #### `GUL-002`: Pure Mode Interface Exclusion
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -174,9 +174,11 @@ This document is the **single authoritative canonical source of truth** for all 
   Users can manually allocate money into Gullak via two distinct sources:
   1. **Source `'income'` (Transfer from Salary/Earned Income):** Decrements the Available Income pool and increments Gullak savings by equal amount. Total Account Remaining (`All` pill) is unchanged. Cannot exceed currently available income balance.
   2. **Source `'external'` (Fresh Outside Cash):** Fresh capital added to Gullak. Increments both Gullak savings AND Total Account Remaining (`All` pill).
-  3. **Income Deletion / Reduction Reconciliation (`FIN-06`):** If an income entry is deleted or reduced below the income-funded Gullak deposits on that date, an alert confirms the adjustment and the unbacked deficit is deducted from Gullak deposits in real time, preventing phantom savings balances.
-- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/lib/yearlyInsightsUtils.ts`, `src/lib/gullakReconciliation.ts`, `src/store/dailyBudgetStore.ts`, `src/screens/ExpenseDetailScreen.tsx`, `src/hooks/useExpenseForm.ts`
-- **Verified By:** `tests/gullakDeposits.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/gullakIncomeDeleteEditGuard.test.ts`
+  3. **Income Deletion / Reduction (changed 2026-11-28):** the check looks at the money, not at dates. If reducing or deleting income would take part of Gullak, a confirm popup says how much Gullak will drop (Cancel keeps the income). If even Gullak cannot cover it, the user must add income first (`SEC-001`). A "from income" deposit moves only income that exists.
+  4. **Removing a wrong deposit** is a correction: "from income" returns to income, "new money" leaves the total.
+  5. **New money** is not income; on the Home card only the All view adds it (it also shows in Recent and History).
+- **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/lib/yearlyInsightsUtils.ts`, `src/store/dailyBudgetStore.ts`, `src/screens/ExpenseDetailScreen.tsx`, `src/hooks/useExpenseForm.ts`
+- **Verified By:** `tests/gullakDeposits.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/simpleMoneyStore.test.ts`
 
 #### `GUL-008`: Automated Overspend Drawdown (No Manual Withdrawal)
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -199,38 +201,32 @@ This document is the **single authoritative canonical source of truth** for all 
   2. **Weekly:** Fixed weekly allowance starting Monday 00:00:00 and concluding Sunday 23:59:59.
   3. **Monthly:** Fixed monthly allowance starting on the 1st of the calendar month and concluding on the final day of the month at 23:59:59.
 
-#### `BPR-002`: Tomorrow Effective Rule & Zero-Spend Immediate Adjustment Rule
-- **Status:** `APPROVED AS-IS` (Owner approved immediate zero-spend adjustment on 2026-10-19)
+#### `BPR-002`: When a Change Takes Effect
+- **Status:** `APPROVED BY OWNER` (changed 2026-11-28)
 - **Canonical Definition:**
-  1. **Standard Modification (Spend > 0):** All budget allowance modifications and cadence switch plans take effect starting **Tomorrow at 00:00:00** (`effectiveFrom = tomorrow`) when spending has already occurred in the current period. The active calendar day concludes safely under the existing plan so historical day records, daily savings, and streak metrics are not disrupted mid-day.
-  2. **Zero-Spend Immediate Adjustment Exception:** When ₹0 has been spent in the active cycle (`todaySpent === 0` for Daily, `currentWeekSpent === 0` for Weekly, `currentMonthSpent === 0` for Monthly), modifying the budget amount takes effect **IMMEDIATELY** for the current period (`effectiveFrom = todayStr`), with no need to wait for midnight or the next cycle. Any obsolete pending scheduled change is superseded and cleared.
-  3. **Onboarding & Zero-Expense Exception:** Enabling Budget Mode for the very first time from Pure Mode activates immediately on "Today", for a NEW account on its first day OR any account with 0 expenses logged (Budget Mode never on before). The "Pure Mode" row every account is created with is not history. Existing accounts with spending history keep the tomorrow rule (`PUR-003`). Owner decision 2026-10-23.
+  1. A cadence switch and a Pure / Budget switch take effect **tomorrow at 00:00**.
+  2. A budget amount change applies **now** if nothing is spent in the current period, else from the next day / Monday / 1st. The new-period popup follows the same rule.
+  3. A new account's (or a zero-expense account's) first enable starts today.
+  4. A budget started mid-week / mid-month gives the full amount. If 2 or fewer days (weekly) or 5 or fewer days (monthly) remain, counting the start day, an info popup says the leftover will go to Gullak.
+- **Code Enforcement:** `src/lib/periods/core.ts`, `src/components/BudgetEditModal.tsx`, `src/lib/absence.ts` (`fewDaysLeftNotice`), `src/screens/HomeScreen.tsx`
+- **Verified By:** `tests/simpleMoneyStore.test.ts`, `tests/budgetPeriods.test.ts`
 
 #### `CAR-001`: The Universal Carry-Forward Law (Supreme Owner Specification)
 - **Status:** `APPROVED BY OWNER (SUPREME SPECIFICATION)` (2026-10-17)
 - **Canonical Definition:**
   Whenever a user switches cadence mid-cycle with unspent funds $U$ remaining in their current budget pool (e.g. Weekly to Daily, Monthly to Daily, Monthly to Weekly, Weekly to Monthly):
   
-  1. **Zero Gullak on Mid-Cycle Switch:**
-     Unspent funds $U$ are NEVER dumped into Gullak on switch night (`gullakDeposit: 0`). They are carried forward into the new cadence plan.
+  1. **The user chooses (changed 2026-11-28):** **Save to Gullak** (default; the leftover moves at the switch midnight) or **Carry forward**.
 
-  2. **Two Universal Carry Modes (Across ALL Switches):**
-     - **Mode A (Additive Mode):**
-       - Unspent funds $U$ are added on top of the new target budget.
-       - A clear UI popup/banner informs the user that their unspent funds have been carried into their new pool.
-     - **Mode B (Allocation / Headstart Mode — Funded Multi-Period Drawdown):**
-       - Unspent funds $U$ are used to fund future periods day-by-day (or week-by-week) without requiring the user to deposit new money.
-       - **Fully Funded Periods:** Each day/week, the budget is paid out of the carried balance $U$. The user deposits ₹0 fresh cash.
-       - **Partial / Exhaustion Period:** On the day/week where carried funds are insufficient to cover the full target budget (e.g. Daily target is ₹500, but only ₹200 carry remains):
-         - The remaining ₹200 carry funds part of the budget.
-         - The user is required to deposit ONLY the gap (₹300).
-       - **Completion:** Once carried funds reach ₹0, standard budgeting resumes normally.
+  2. **Carry forward has one meaning:** the leftover funds the new budget first (day by day, week by week or month by month) and the user adds only the rest. The new budget does not grow. Old plans saved with the retired "add on top" mode keep their old numbers.
+     - **Final amount is the real leftover at the midnight of the switch**, not the figure at the moment of choosing.
+     - From daily, only still-unused earlier carry can move (today's daily leftover goes to Gullak).
 
   3. **The All-Pill Zero Double-Counting Guarantee (Real Money Invariant):**
      - Carried money $U$ was ALREADY counted in the user's Total Account Remaining (`All` filter balance) when the original budget period began.
-     - During the carry drawdown (both Additive and Allocation), **the All-pill MUST NEVER increment for carry-funded amounts**.
+     - During the carry drawdown, **the All-pill MUST NEVER increment for carry-funded amounts**.
      - Only the carry-FUNDED part of a budget is left out of the All-pill. The gap part of the budget on the partial day/week/month (e.g. the ₹300) counts like any budget does (exactly as every normal day, week or month adds its budget), real money the user adds grows it by exactly that amount, and once carry is exhausted standard budgeting resumes. Owner decision 2026-10-17.
-     - The Home All-pill and the account total used by the spending guard, the Gullak cap and the Pure Mode deficit MUST always be the same number, including on gap periods and across any switch (`BAL-001`).
+     - The Home All-pill and the account total used by the spending guard and the Pure Mode deficit MUST always be the same number, including on gap periods and across any switch (`BAL-001`).
 
   4. **Crisp, Concise Notification Lifecycle:**
      - **During Drawdown:** On each funded day/week, a short, concise notification is sent (e.g. *"Today's ₹500 budget is funded from your carried balance. ₹1,500 remaining."*).
@@ -240,7 +236,7 @@ This document is the **single authoritative canonical source of truth** for all 
   5. **Multi-Switch Cascading Invariant:**
      - A user may switch cadences multiple times within the same month (e.g. Monthly ➔ Weekly ➔ Daily).
      - Unspent carry cascades forward through each switch using `dailyCarryRemaining`, tracking exactly how much carried cash remains unused.
-     - Switching back to a prior cadence in the same calendar period reuses the existing period pool and does not mint duplicate budget allocations.
+     - A budget closed by a cadence switch never reopens with a new full amount inside the same period.
 - **Code Enforcement:** `src/lib/budgetPeriods.ts` (`dailyCarryForDate`, `dailyCarryRemaining`, `periodCarryForPeriod`, `periodCarryRemaining`), `src/lib/homeCalculations.ts`, `src/store/dailyBudget/metrics.ts`, `src/lib/notificationPolicy.ts` (`carryEndCopy`), `src/lib/notificationSync.ts` (`buildCarryEnds`), `src/lib/cadenceSwitch.ts`
 - **Verified By:** `tests/cadenceFixes.test.ts`, `tests/carryAllocationWeeklyMonthly.test.ts`
 
@@ -375,18 +371,18 @@ This document is the **single authoritative canonical source of truth** for all 
 - **Code Enforcement:** `src/store/dailyBudget/rollover.ts` (`finalizePeriods`)
 - **Verified By:** `tests/dailyBudgetRollover.test.ts`
 
-#### `ROL-004`: Inactivity Gap-Filler & Zero-Spend Savings Confirmation (Option A)
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-21)
+#### `ROL-004`: Days the App Was Not Opened
+- **Status:** `APPROVED BY OWNER` (changed 2026-11-28)
 - **Canonical Definition:**
-  When an active Daily cadence user returns after 1 or more inactive days (where no transactions were recorded and no daily record was created):
-  1. **Lookback Window & Scope:** Evaluates up to the last 7 calendar days on or after user registration that were governed by the `'daily'` cadence, where `isAutoRenew === true`, `isBudgetModeEnabled === true`, and `dailyBudgetAmount > 0`.
-  2. **Phantom Savings Protection:** The app never fabricates automatic zero-activity days silently. Instead, a Welcome Back BottomSheet Modal prompts the user upon app opening with explicit choices.
-  3. **User Confirmation Actions:**
-     - **"Save to Gullak"**: Creates finalized daily records for all confirmed inactive days with `budget = dailyBudgetAmount`, `spent = 0`, `saved = budget`, `status = 'saved'`, and `isFinalized = true`. Total Gullak savings, Inflow (Total Account Remaining), and streak metrics advance accurately and sync to Supabase `daily_savings_log`.
-     - **"I spent money"**: Navigates to `ExpenseForm` with the oldest gap date prefilled so the user can accurately record their backdated expenses.
-     - **"Skip for now" / Dismiss**: Records the gap dates as dismissed in local storage (`@arthik_dismissed_gap_dates_<userId>`), preventing phantom savings and avoiding repeated nagging.
-- **Code Enforcement:** `src/lib/gapFiller.ts` (`findInactiveGapDays`), `src/components/WelcomeBackGapModal.tsx`, `src/store/dailyBudget/gullakActions.ts` (`saveGapDaysToGullak`, `dismissGapDays`), `src/screens/HomeScreen.tsx`
-- **Verified By:** `tests/gapFiller.test.ts`
+  1. In Budget Mode every day's budget counts even if the app was not opened; unspent money goes to Gullak.
+  2. **1 to 6 days away:** a popup says what was saved, with **OK** and **I spent money**.
+  3. **7 or more days away and not one expense logged in them** (by hand or automatically): the fully empty days / periods do not count until the user chooses **Save to Gullak**, **Don't count these days**, or **I spent money** (they count once an expense in them is saved; leaving without one keeps the question).
+  4. One logged expense in the stretch means no choice: everything counts.
+  5. Weekly / monthly: the choice covers only periods lying entirely inside the absence. A period the app was opened in, and the running period, always count.
+  6. The decision waits for a server-fresh expense list. The evening reminder is unchanged (`NOT-001`).
+  7. Skipped stretches are saved in `profiles.allowance_pauses`.
+- **Code Enforcement:** `src/lib/absence.ts`, `src/store/dailyBudget/absenceActions.ts`, `src/components/WelcomeBackGapModal.tsx`
+- **Verified By:** `tests/simpleMoneyStore.test.ts`
 
 #### `HEA-001`: Legacy Default ₹500 Self-Healing
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -463,8 +459,8 @@ This document is the **single authoritative canonical source of truth** for all 
   **Only real Budget Mode days count (owner decision 2026-11-25):** each active day is priced from the plan history
   (`planChanges`) and the day's own record, never from today's rate:
   1. A Pure Mode day (plan off) is worth ₹0.
-  2. A paused day (auto-save off) is worth ₹0, with or without spending: its record has budget 0 / status `unknown`,
-     or it falls inside the saved pause history (`profiles.allowance_pauses`, every auto-save on / off is recorded
+  2. A day without a budget (old paused days, or days the user chose not to count, `ROL-004`) is worth ₹0, with or without spending: its record has budget 0 / status `unknown`,
+     or it falls inside the saved skip history (`profiles.allowance_pauses`; old auto-save pauses were recorded
      from 2026-11-25; earlier pauses were never saved and cannot be recovered). While the allowance is paused right
      now, today and the rest of the week / month are worth ₹0. Spending and income of paused / Pure Mode days still
      show in Insights in full; only the estimated budget leaves them out.
@@ -538,13 +534,14 @@ This document is the **single authoritative canonical source of truth** for all 
 #### `SEC-001`: Digital Vault Spending Guard (Budget Mode Solvency Protection)
 - **Status:** `APPROVED AS-IS` (Owner amended on 2026-10-17, enhanced on 2026-10-19)
 - **Canonical Definition:**
+  0. **One check (changed 2026-11-28):** adding or editing an expense may not leave spending uncovered ("Add income & log expense"); deleting or reducing income, money back or a deposit that would leave spending uncovered says "Add income first". A bank-message expense bigger than the account waits in Review.
   1. **Budget Mode Solvency Guard:** In Budget Mode, a user cannot spend money they do not possess. If total account liquidity $\le 0$, new expense creation is blocked and `VaultSpendingGuardModal` is displayed (*"Account balance exhausted. Please add money first."*, `VAULT_GUARD_MESSAGE`).
   2. **In-Sheet Add Money & Save (Zero-Abandonment Resilience):** Instead of a hard dead-end requiring the user to leave and re-enter typed expense data, `VaultSpendingGuardModal` provides an inline flow to add money to the vault and immediately complete saving the pending expense. The expense cannot be saved without adding funds (`addedAmount >= expenseAmount`), but the user never loses form state.
   3. **Pure Mode Exemption:** Pure Mode never blocks spending and allows the user to spend into negative balance (`canAddExpense: true`, no guard sheet, AutoLog `isExceedingVaultLiquidity` returns `false`).
   4. **Overspending Allowance in Budget Mode:** Spending beyond the active daily/weekly allowance is permitted as long as total account liquidity (allowances, income, or Gullak reserve) remains positive.
   5. **Backdated Ungoverned Shortfall Guarding:** When logging a backdated expense on an ungoverned day that exceeds total available vault/Gullak liquidity, the system proactively blocks save and launches `VaultSpendingGuardModal` pre-filled with the exact shortfall amount required (`Math.max(0, expenseAmount - totalVaultLiquidity)`) and dynamic contextual copy (*'Available: ₹X • Need: ₹Y'*).
 - **Code Enforcement:** `src/lib/vaultSpendingGuard.ts`, `src/components/VaultSpendingGuardModal.tsx`, `src/hooks/useExpenseForm.ts`, `src/features/autoLog/ledger.ts`
-- **Verified By:** `tests/vaultSpendingGuard.test.ts`, `tests/canonicalStatusAndGuard.test.ts`, `tests/pureModeRules.test.ts`, `tests/vaultSpendingGuardAndBudgetEdit.test.ts`
+- **Verified By:** `tests/vaultSpendingGuard.test.ts`, `tests/canonicalStatusAndGuard.test.ts`, `tests/pureModeRules.test.ts`, `tests/vaultSpendingGuardAndBudgetEdit.test.ts`, `tests/simpleMoneyStore.test.ts`
 
 #### `NOT-001`: Multi-Tier Notification Architecture & Fatigue Protection
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -736,20 +733,19 @@ This document is the **single authoritative canonical source of truth** for all 
   7. Invariant: Total Income never decreases. Repeat Pure Mode cycles only balance the new incremental deficit.
   8. Display Guardrail: The auto-balance income is excluded from `periodIncome` on Home budget summary chips, but fully counted in all-time total income, inflows, and the waterfall.
   9. **Switch That Matured While the App Was Closed (owner decision 2026-11-19):** the same check runs once for it. Because a stale saved expense list could invent a deficit, it waits until the expense list comes from the server, and it measures the deficit before the new day's allowance exists (exactly like the switch does when the app is open). It runs once per switch (a durable marker, never twice) and does nothing if the app is not in Budget Mode any more.
+  10. **Told first, cannot be refused (changed 2026-11-28):** when the balance is below zero, the switch popup says the missing amount will be added to income. The user may cancel the switch, not the income. The date search in point 5 counts Gullak draws plus uncovered amounts.
 - **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/deficitCheck.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudget/syncActions.ts` (`checkAndRollover`), `src/lib/homeCalculations.ts`, `src/lib/transactionUtils.ts` (`PURE_DEFICIT_NOTE`)
 - **Verified By:** `tests/pureModeRules.test.ts`, `tests/dailyBudgetHydrate.test.ts`
 
-#### `PUR-002`: Pure Mode Ended-Pool Leftover Retention
-- **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
+#### `PUR-002`: Switching to Pure Mode and Coming Back
+- **Status:** `APPROVED BY OWNER` (changed 2026-11-28)
 - **Canonical Definition:**
-  When a weekly or monthly budget pool ends while the user is in Pure Mode (`endsInPure === true`):
-  1. **Not Converted to Income:** Unspent pool money NEVER becomes unallocated income (`incomeAvail` / `incomeRestored` are untouched). No `pure_end_*` notification is sent.
-  2. **Waterfall Leftover Bucket:** Unspent funds are captured as `pureLeftover` (`pureLeftoverAdded`).
-  3. **Pure Day Spend Priority:** On Pure Mode days, spending draws from `pureLeftover` FIRST before unallocated income or Gullak (`fromLeftover = min(overspend, leftoverAvail)`).
-  4. **Gullak Conversion on Resume:** When Budget Mode is turned back ON, remaining unspent `pureLeftover` flows directly into Gullak (`totalAccumulatedSavings`). While in Pure Mode, Gullak displays 0.
-  5. **Remaining Stability:** Account remaining (`computeTotalAccountRemaining`) is completely unchanged by period endings in Pure Mode.
-- **Code Enforcement:** `src/lib/moneyWaterfall.ts`, `src/store/dailyBudget/metrics.ts`, `src/store/dailyBudget/rollover.ts`
-- **Verified By:** `tests/pureModeRules.test.ts`, `tests/cadenceFixes.test.ts`
+  1. At the switch midnight the running weekly / monthly leftover moves to Gullak (daily leftover does so every night). The switch popup says so. The old separate "Pure leftover" bucket is retired.
+  2. Pure Mode never blocks. Spending is paid from income, then Gullak; what neither covers is a deficit paid by later income.
+  3. Coming back to the same cadence in the same week / month gives no new full budget: the moved amount returns from Gullak **minus whatever Gullak paid in Pure Mode** (Gullak 2,000 + moved 3,000, Pure draws 600: budget 2,400, Gullak 2,000).
+  4. Pure Mode Daily / Weekly / Monthly show only that period's income and spending. All shows all money left.
+- **Code Enforcement:** `src/lib/periods/pools.ts`, `src/lib/moneyWaterfall.ts`, `src/components/BrandedHeroCard.tsx`
+- **Verified By:** `tests/simpleMoneyRules.test.ts`, `tests/pureModeRules.test.ts`
 
 #### `PUR-003`: Mode Switching Next-Day Scheduling & Same-Day Reversal Protection
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-18)
@@ -767,9 +763,9 @@ This document is the **single authoritative canonical source of truth** for all 
   3. **Zero Proration & Full Liquidity Guard**:
      - Overspending past weekly/monthly budget allowance is permitted as long as total account liquidity (budget + income + Gullak) > 0 (`SEC-001`). Digital Vault Guard only blocks outflows when `totalVaultLiquidity <= 0` (`accountRemaining <= 0`).
   4. **When the Switch Matures (owner decision 2026-11-19)** — whether the app was open at midnight or opened the next morning:
-     - Pure Mode → Budget Mode turns auto-save (`isAutoRenew`) ON; Budget Mode → Pure Mode turns it OFF; if Budget Mode was already on, the user's own choice stays (a paused allowance stays paused). One helper decides this for both the rollover and the cold-start hydration (`resolveAutoRenewForPlan`).
-     - The new mode and auto-save are saved to the profile, so a later "pause auto-save" is never undone by the next start.
-     - The first Budget Mode day gets its allowance at once: an unfinalized today record with budget 0 receives the daily amount, when Budget Mode, auto-save and a daily plan are on. A real budget (> 0) and a finalized day are never touched (`healZeroTodayAllowance`).
+     - There is no paused allowance (changed 2026-11-28): the old auto-save flag (`isAutoRenew`) always equals the mode.
+     - The new mode is saved to the profile.
+     - The first Budget Mode day gets its allowance at once: an unfinalized today record with budget 0 receives the daily amount when Budget Mode and a daily plan are on.
 - **Code Enforcement:** `src/store/dailyBudget/planActions.ts`, `src/store/dailyBudget/hydrate.ts`, `src/store/dailyBudget/rollover.ts`, `src/store/dailyBudget/metrics.ts` (`healZeroTodayAllowance`), `src/store/dailyBudget/syncActions.ts` (`syncWithExpenses`, `checkAndRollover`), `src/lib/budgetModeUtils.ts` (`resolveAutoRenewForPlan`), `src/lib/budgetPeriods.ts`, `src/lib/vaultSpendingGuard.ts`, `src/screens/ProfileScreen.tsx`
 - **Verified By:** `tests/budgetModesStore.test.ts`, `tests/cadenceFixes.test.ts`, `tests/vaultSpendingGuard.test.ts`, `tests/dailyBudgetHydrate.test.ts`, `tests/budgetModeUtils.test.ts`
 

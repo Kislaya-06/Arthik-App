@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import Sparkles from 'lucide-react-native/icons/sparkles';
 import Plus from 'lucide-react-native/icons/plus';
@@ -15,50 +15,44 @@ import { Spacing, BorderRadius, FontSize, FontFamily, LineHeight, LetterSpacing 
 
 export interface WelcomeBackGapModalProps {
   visible: boolean;
-  gapDates: string[];
-  dailyBudgetAmount: number;
-  onSaveToGullak: () => Promise<void> | void;
+  from: string;
+  to: string;
+  /** Budget money of the closed days. */
+  amount: number;
+  /** true = 7+ days without any expense: the user chooses (rule 29). false = already saved (rule 28). */
+  needsChoice: boolean;
+  onSave: () => void;
+  onSkip: () => void;
   onAddExpense: (targetDate: string) => void;
   onDismiss: () => void;
 }
 
 export const WelcomeBackGapModal: React.FC<WelcomeBackGapModalProps> = ({
   visible,
-  gapDates,
-  dailyBudgetAmount,
-  onSaveToGullak,
+  from,
+  to,
+  amount,
+  needsChoice,
+  onSave,
+  onSkip,
   onAddExpense,
   onDismiss,
 }) => {
   const { colors, isDark } = useTheme();
-  const [isSaving, setIsSaving] = useState(false);
 
-  if (!gapDates || gapDates.length === 0) {
+  if (!from || !to) {
     return null;
   }
 
-  const dayCount = gapDates.length;
-  const totalAmount = dayCount * dailyBudgetAmount;
-
-  // Format date summary
   const dateSummary =
-    dayCount === 1
-      ? `yesterday (${format(parseISO(gapDates[0]), 'EEE, d MMM')})`
-      : `${dayCount} days (${format(parseISO(gapDates[0]), 'd MMM')} – ${format(parseISO(gapDates[dayCount - 1]), 'd MMM')})`;
+    from === to
+      ? format(parseISO(from), 'EEE, d MMM')
+      : `${format(parseISO(from), 'd MMM')} – ${format(parseISO(to), 'd MMM')}`;
+  const money = `₹${formatAmountWithCommas(String(amount))}`;
 
-  const handleSave = async () => {
-    try {
-      setIsSaving(true);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      await onSaveToGullak();
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleAdd = () => {
-    const targetDate = gapDates[0];
-    onAddExpense(targetDate);
+  const handleSave = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    onSave();
   };
 
   return (
@@ -80,7 +74,7 @@ export const WelcomeBackGapModal: React.FC<WelcomeBackGapModalProps> = ({
         {/* Title & Context */}
         <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome Back! 👋</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          You had no recorded activity for {dateSummary}.
+          You had no recorded activity ({dateSummary}).
         </Text>
 
         {/* Unspent Allowance Card */}
@@ -94,45 +88,43 @@ export const WelcomeBackGapModal: React.FC<WelcomeBackGapModalProps> = ({
           ]}
         >
           <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>
-            TOTAL UNSPENT ALLOWANCE
+            {needsChoice ? 'UNSPENT BUDGET' : 'SAVED TO GULLAK'}
           </Text>
           <Text style={[styles.amountValue, { color: colors.textPrimary }]}>
-            ₹{formatAmountWithCommas(String(totalAmount))}
+            {money}
           </Text>
           <Text style={[styles.amountExplainer, { color: colors.textMuted }]}>
-            ₹{formatAmountWithCommas(String(dailyBudgetAmount))}/day allocated to your daily budget. Did you spend ₹0 on {dayCount === 1 ? 'this day' : 'these days'}?
+            {needsChoice ? 'Choose if this budget should count.' : 'Spent something on these days? Add it and the saved money updates.'}
           </Text>
         </View>
 
         {/* Actions */}
         <View style={styles.actionsContainer}>
           <AppButton
-            label={`Save ₹${formatAmountWithCommas(String(totalAmount))} to Gullak`}
-            icon={<Sparkles size={18} color={colors.white} />}
-            onPress={handleSave}
+            label={needsChoice ? `Save ${money} to Gullak` : 'OK'}
+            icon={needsChoice ? <Sparkles size={18} color={colors.white} /> : undefined}
+            onPress={needsChoice ? handleSave : onDismiss}
             variant="primary"
             size="cta"
-            loading={isSaving}
-            disabled={isSaving}
           />
 
           <AppButton
             label="I spent money"
             icon={<Plus size={18} color={colors.textPrimary} />}
-            onPress={handleAdd}
+            onPress={() => onAddExpense(from)}
             variant="outline"
             size="cta"
-            disabled={isSaving}
           />
 
-          <AppButton
-            label="Skip for now"
-            onPress={onDismiss}
-            variant="ghost"
-            size="cta"
-            disabled={isSaving}
-            style={styles.skipButton}
-          />
+          {needsChoice && (
+            <AppButton
+              label="Don't count these days"
+              onPress={onSkip}
+              variant="ghost"
+              size="cta"
+              style={styles.skipButton}
+            />
+          )}
         </View>
       </View>
     </BottomSheetModal>

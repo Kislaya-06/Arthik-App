@@ -1,12 +1,9 @@
 import * as Crypto from 'expo-crypto';
-import { format } from 'date-fns/format';
-import { round2 } from '../../lib/formatters';
 import { supabase } from '../../config/supabase';
 import { useAuthStore } from '../authStore';
 import { useNotificationStore } from '../notificationStore';
-import { notifyBudgetResumed } from '../../lib/budgetAlerts';
-import { evaluateDayStatus, computeIncomeForDate, computeSpentByDate } from '../../lib/budgetCalculations';
-import { buildBudgetPools, poolSpentBefore, poolKeyFor, computeEffectiveFrom, upsertPendingChange, resolvePlanForDate, BUDGET_RULES_V2_FROM } from '../../lib/budgetPeriods';
+import { evaluateDayStatus, computeIncomeForDate } from '../../lib/budgetCalculations';
+import { computeEffectiveFrom, upsertPendingChange, resolvePlanForDate } from '../../lib/budgetPeriods';
 import type { BudgetCadence, BudgetPlanChange } from '../../types';
 import type { DailyBudgetState } from './types';
 import { savePendingSettingsOffline, clearPendingSettingsOffline, savePendingPlanChangeOffline } from './pendingStorage';
@@ -81,21 +78,6 @@ export function handleSetBudgetModeEnabled(
   };
 
   const updatedChanges = upsertPendingChange(get().planChanges, newChange);
-
-  // ADR 0012: switching Budget Mode back on inside the same week / month continues the SAME budget.
-  // Say so ("Welcome back: ₹4,600 left of this month's ₹9,000").
-  if (enabled && (cadence === 'weekly' || cadence === 'monthly') && todayStr >= BUDGET_RULES_V2_FROM) {
-    try {
-      const pools = buildBudgetPools(updatedChanges, effectiveFrom > todayStr ? effectiveFrom : todayStr);
-      const pool = pools[poolKeyFor(cadence, todayStr)];
-      if (pool && pool.startedOn < todayStr && !pool.closedOn) {
-        const spentByDate = computeSpentByDate(getCurrentExpenses());
-        const tomorrowStr = format(new Date(new Date(`${todayStr}T12:00:00`).getTime() + 86400000), 'yyyy-MM-dd');
-        const left = Math.max(0, round2(pool.budget - poolSpentBefore(pools, updatedChanges, pool, tomorrowStr, spentByDate)));
-        notifyBudgetResumed(`resumed_${pool.key}_${todayStr}`, cadence, left, pool.budget, todayStr);
-      }
-    } catch {}
-  }
 
   // If effectiveFrom > todayStr (scheduled for tomorrow):
   // TODAY'S RUNNING STATE MUST NOT BE WIPED OR ALTERED!
@@ -183,7 +165,7 @@ export function handleSetBudgetModeEnabled(
 
   const autoRenew = options?.autoRenew !== undefined
     ? options.autoRenew
-    : (enabled ? (get().isBudgetModeEnabled ? get().isAutoRenew : true) : false);
+    : enabled;
 
   set({
     isBudgetModeEnabled: enabled,

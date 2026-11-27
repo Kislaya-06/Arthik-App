@@ -73,6 +73,9 @@ export function buildOfflineHydrationPatch(
     resolvedMonthlyBudget = pendingSettings.monthly_budget;
   }
 
+  // Only two states (rule 15): no paused allowance.
+  resolvedAutoRenew = resolvedBudgetModeEnabled && resolvedBudget > 0;
+
   if (!records[todayStr]) {
     const todayBudget = resolvedBudgetModeEnabled && resolvedAutoRenew && resolvedBudget > 0 ? resolvedBudget : 0;
     records[todayStr] = {

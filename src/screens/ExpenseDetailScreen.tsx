@@ -26,7 +26,7 @@ import { getPaymentIcon, getPaymentLabel } from '../lib/paymentUtils';
 import { isIncomeTransaction, isRecoveryClass } from '../lib/transactionUtils';
 import { SplitDetailCard } from '../components/split/SplitDetailCard';
 import { deleteBlockReason, grossAmountOf, recoverySlices, buildPeopleLedger, matchIncomingToPeople, refundCandidates } from '../lib/splitLedger';
-import { calculateGullakIncomeDeficit } from '../lib/gullakReconciliation';
+import { checkExpenseRemoval } from '../lib/removalCheck';
 import { MoneyBackSheet } from '../components/split/MoneyBackSheet';
 import { GradientIconBadge } from '../components/GradientIconBadge';
 import { AmountText } from '../components/ui/AmountText';
@@ -54,6 +54,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const isAutoRenew = useDailyBudgetStore((s) => s.isAutoRenew);
   const gullakDeposits = useDailyBudgetStore((s) => s.gullakDeposits);
+  const budgetPeriods = useDailyBudgetStore((s) => s.budgetPeriods);
+  const allowancePauses = useDailyBudgetStore((s) => s.allowancePauses);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [showMoneyBack, setShowMoneyBack] = useState(false);
@@ -80,6 +82,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       isAutoRenew,
       deposits: gullakDeposits,
       todayStr,
+      budgetPeriods,
+      skipped: allowancePauses,
     });
   }, [
     expense,
@@ -125,6 +129,12 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert("Can't delete yet", blocked);
       return;
     }
+    // Rules 12-13, before every kind of delete below (money back included: it puts spending back).
+    const money = checkExpenseRemoval(expense.id, expenses);
+    if (money.blocked) {
+      Alert.alert('Add Income First', money.blocked);
+      return;
+    }
     // SPL-003: deleting a money-back entry puts the spending (and what the person owes) back as it was.
     if (isRecoveryClass(expense)) {
       const days = recoverySlices(expense, expenses)
@@ -140,7 +150,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         .filter(Boolean);
       Alert.alert(
         'Delete money back',
-        `${formatCurrency(expense.amount)} will go back to being spent${days.length ? ` on ${Array.from(new Set(days)).join(', ')}` : ''}, and what was settled will be owed again.\n\nDo you want to continue?`,
+        `${formatCurrency(expense.amount)} will go back to being spent${days.length ? ` on ${Array.from(new Set(days)).join(', ')}` : ''}, and what was settled will be owed again.${money.warning}\n\nDo you want to continue?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -190,19 +200,10 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
 
     if (isIncome) {
-      const gullakDeposits = useDailyBudgetStore.getState().gullakDeposits || [];
-      const deficit = calculateGullakIncomeDeficit({
-        dateStr: cleanDate,
-        expenseId: expense.id,
-        newAmount: 0,
-        expenses,
-        gullakDeposits,
-      });
-
       const title = isPastDate ? 'Delete Past Income' : 'Delete Income';
       const message =
-        deficit > 0
-          ? `Delete this past income? ${formatCurrency(deficit)} will also be deducted from Gullak since it was funded by this income.`
+        money.warning
+          ? `Delete this income?${money.warning}`
           : isPastDate
           ? `Delete this past income? Your available income balance will decrease by ${formatCurrency(expense.amount)}.`
           : `Delete this income transaction?`;
@@ -210,12 +211,9 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert(title, message, [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: deficit > 0 ? 'Delete & Adjust Gullak' : 'Delete',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            if (deficit > 0) {
-              await useDailyBudgetStore.getState().adjustGullakIncomeDeposits(cleanDate, deficit);
-            }
             await deleteExpense(expense.id);
             useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
             navigation.pop(1);

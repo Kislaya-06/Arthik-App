@@ -65,7 +65,7 @@ vi.mock('../src/money/ledger', async (importOriginal) => {
 });
 
 import { parseISO } from 'date-fns/parseISO';
-import { useDailyBudgetStore, registerExpensesLoadedGetter, registerExpenseGetter } from '../src/store/dailyBudgetStore';
+import { useDailyBudgetStore, computeAllTimeBudget, registerExpensesLoadedGetter, registerExpenseGetter } from '../src/store/dailyBudgetStore';
 import { heroMoney, allowanceCardMoney, MoneySnapshot } from '../src/money/scopeMoney';
 import { FILTERS, Filter, filterExpenses } from '../src/lib/expenseFilters';
 import { calculatePeriodSummary, getExternalDepositsInPeriod, calculateExpenseTotals, getCarryCoveredByDate } from '../src/lib/homeCalculations';
@@ -178,13 +178,25 @@ function oldHome(s: MoneySnapshot, activeFilter: Filter, todayKey: string, today
   const carryCoveredByDate = getCarryCoveredByDate(planChanges, dailyRecords, dailyBudgetAmount, todayKey);
   const fullWaterfall = computeWaterfallFromState({
     expenses, deposits: gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayStr: todayKey,
-    todayBudget: dailyRecords[todayKey]?.budget, dailyBudgetAmount, records: dailyRecords, planChanges,
+    todayBudget: dailyRecords[todayKey]?.budget, dailyBudgetAmount, records: dailyRecords, planChanges, budgetPeriods: useDailyBudgetStore.getState().budgetPeriods,
   });
   const period0: FilterPeriod | null = activeFilter === 'Daily' ? 'day' : activeFilter === 'Weekly' ? 'week' : activeFilter === 'Monthly' ? 'month' : null;
   const scopeFunding = summarizeScope(fullWaterfall, (d) => (period0 ? isDateInPeriod(d, period0, referenceDate) : true), activeFilter === 'All');
   const summary = calculatePeriodSummary({
+    recordsAreComplete: true,
+    // BAL-001: the All view uses the account's own all-time budget (the spending guard's number).
+    allTimeBudgetTotal:
+      activeFilter === 'All'
+        ? computeAllTimeBudget(
+            dailyRecords[todayKey] ? dailyRecords : { ...dailyRecords, [todayKey]: useDailyBudgetStore.getState().getTodayRecord() },
+            planChanges,
+            spentByDate,
+            useDailyBudgetStore.getState().budgetPeriods,
+            expenses
+          )
+        : undefined,
     activeFilter, dailyBudgetAmount, isAutoRenew: isBudgetModeEnabled && isAutoRenew, todayBudget, dailyRecords, totalIncome, totalSpent,
-    filtered, userCreatedAtStr, referenceDate, externalDepositsInPeriod, planChanges, todaySpent: todayRecordSpent, spentByDate,
+    filtered, userCreatedAtStr, referenceDate, externalDepositsInPeriod: activeFilter === 'All' ? externalDepositsInPeriod : 0, planChanges, todaySpent: todayRecordSpent, spentByDate,
     availableIncomeBalance, funding: { incomeRemaining: scopeFunding.incomeRemaining, gullakDrawn: scopeFunding.gullakDrawn }, carryCoveredByDate,
   });
   // heroDetails numbers
@@ -221,7 +233,7 @@ function oldSavings(s: MoneySnapshot, todayKey: string, todayMetrics: any) {
   const allDailyRecords = s.dailyRecords;
   const waterfall = computeWaterfallFromState({
     expenses, deposits: gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayStr: todayKey,
-    todayBudget: allDailyRecords[todayKey]?.budget, dailyBudgetAmount, records: allDailyRecords, planChanges,
+    todayBudget: allDailyRecords[todayKey]?.budget, dailyBudgetAmount, records: allDailyRecords, planChanges, budgetPeriods: s.budgetPeriods,
   });
   const start = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodStart : todayKey;
   const end = isCadenceMode && cadencePeriodSummary ? cadencePeriodSummary.periodEnd : todayKey;
@@ -254,6 +266,19 @@ describe('Money Scope module = the old screen wiring (ADR 0022, WAT-001 / BUD / 
     });
   }
 
+  it('BAL-001: the Home "All" number is the account total, in every scenario', () => {
+    const check = (name: string, s: ReturnType<typeof setup>) => {
+      const st = useDailyBudgetStore.getState();
+      const hero = heroMoney(s, { filter: 'All', today: TODAY, todayRecord: st.getTodayRecord() });
+      expect(hero.isOverBudgetPeriod ? -hero.primaryAmount : hero.primaryAmount, name).toBe(st.getTotalAccountRemaining());
+    };
+    for (const sc of SCENARIOS) check(sc.name, setup(sc));
+    // An old account with no plan history at all.
+    const legacy = setup(SCENARIOS[0]);
+    useDailyBudgetStore.setState({ planChanges: [] });
+    check('no plan history', { ...legacy, planChanges: useDailyBudgetStore.getState().planChanges });
+  });
+
   it('the old getAvailableIncomeBalance() equals the snapshot waterfall it now reads (no hidden global)', () => {
     for (const sc of SCENARIOS) {
       const s = setup(sc);
@@ -261,7 +286,7 @@ describe('Money Scope module = the old screen wiring (ADR 0022, WAT-001 / BUD / 
       const fresh = computeWaterfallFromState({
         expenses: s.expenses, deposits: s.gullakDeposits, isBudgetModeEnabled: s.isBudgetModeEnabled,
         isAutoRenew: s.isAutoRenew, todayStr: TODAY, todayBudget: s.dailyRecords[TODAY]?.budget, dailyBudgetAmount: s.dailyBudgetAmount,
-        records: s.dailyRecords, planChanges: s.planChanges,
+        records: s.dailyRecords, planChanges: s.planChanges, budgetPeriods: s.budgetPeriods,
       }).incomeRemaining;
       expect(fresh, sc.name).toBe(fromStore);
     }

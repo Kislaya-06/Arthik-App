@@ -64,6 +64,8 @@ export interface ResolveHydratedDayBudgetParams {
 export function resolveHydratedDayBudget(params: ResolveHydratedDayBudgetParams): number {
   const { rawLogBudget, localRecordBudget, resolvedBudget } = params;
 
+  // A saved budget of 0 is a real answer (no budget that day). Only a missing value (null) is guessed.
+  if (rawLogBudget === 0) return 0;
   if (rawLogBudget !== null && rawLogBudget > 0) {
     // Explicit custom budget saved for this day in Supabase log
     return rawLogBudget;

@@ -305,9 +305,7 @@ export const BudgetHubSection: React.FC<BudgetHubSectionProps> = React.memo(({
                 >
                   {pendingPlanChange.isEnabled
                     ? pendingPlanChange.carriedOverAmount && pendingPlanChange.carriedOverAmount > 0
-                      ? pendingPlanChange.carryMode === 'additive'
-                        ? `+${formatCurrency(pendingPlanChange.carriedOverAmount)} carry-over added to new budget`
-                        : `${formatCurrency(pendingPlanChange.carriedOverAmount)} counted towards new budget`
+                      ? `About ${formatCurrency(pendingPlanChange.carriedOverAmount)} will be carried forward at midnight`
                       : 'Takes effect tomorrow at 12:00 AM'
                     : 'Takes effect tomorrow at 12:00 AM · Tap ✕ to cancel'}
                 </Text>

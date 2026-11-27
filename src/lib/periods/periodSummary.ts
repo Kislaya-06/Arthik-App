@@ -41,7 +41,9 @@ export function getCurrentPeriodSummary(
   changes: BudgetPlanChange[],
   spentByDate: Record<string, number>,
   todayStr: string,
-  incomeByDate?: Record<string, number>
+  incomeByDate?: Record<string, number>,
+  /** The waterfall's pools: their budget includes money returned from Gullak after Pure Mode (rule 19). */
+  funded?: Record<string, { budget: number }>
 ): PeriodSummaryInfo | null {
   const owner = getDateOwner(changes, todayStr);
   if (owner === 'paused' || owner === 'daily') {
@@ -109,7 +111,8 @@ export function getCurrentPeriodSummary(
   // ADR 0012: ONE budget per calendar period. After Pure Mode (or a switch) and back inside the same period the
   // hero continues with what is left of the period's pool; Pure Mode days spent from the same pool count too.
   const pools = buildBudgetPools(changes, todayStr);
-  const pool = pools[`${owner}_${bounds.start}`];
+  const built = pools[`${owner}_${bounds.start}`];
+  const pool = built && funded?.[built.key] ? { ...built, budget: funded[built.key].budget } : built;
   const poolMode = !!pool && activeStart > pool.startedOn && activeStart >= BUDGET_RULES_V2_FROM;
   if (poolMode && pool) {
     const tomorrowStr = format(addDays(parseISO(todayStr), 1), 'yyyy-MM-dd');

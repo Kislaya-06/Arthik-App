@@ -7,7 +7,7 @@
  */
 import type { TabParamList } from '../types';
 
-export const TOUR_ID = '2026-11-25-quick-add';
+export const TOUR_ID = '2026-11-28-simple-money';
 export const tourSeenKey = (id = TOUR_ID) => `@arthik_tour_seen_${id}`;
 
 export interface TourStep {
@@ -18,24 +18,19 @@ export interface TourStep {
   body: string;
 }
 
+// Both steps live on Home, the one tab Pure Mode and Budget Mode share.
 export const TOUR_STEPS: readonly TourStep[] = [
   {
-    target: 'home.recent',
+    target: 'home.hero',
     tab: 'Home',
-    title: 'Spot each place at a glance',
-    body: 'Every entry now shows the first letter of its note. Spending is in plain colour and only money coming in is green.',
+    title: 'Gullak is simpler now',
+    body: 'Leftover budget goes to Gullak when a budget ends. When you switch, you can save it or carry it forward. Pure Mode Day, Week and Month show only that time.',
   },
   {
     target: 'nav.plus',
     tab: 'Home',
-    title: 'Add it again in one tap',
-    body: 'Press and hold + to see your recent spends. Pick one and it fills in for today. A normal tap on + now picks the category you usually use at this time.',
-  },
-  {
-    target: 'insights.heading',
-    tab: 'Insights',
-    title: "See where you're heading",
-    body: 'Your month-end estimate, how many days your money lasts and when Gullak hits its next goal. Plus your habits and money shared with friends.',
+    title: 'Money checks that make sense',
+    body: 'If an add, edit or delete needs more money, Arthik asks you to add income first. Away 7+ days with nothing added? You choose what counts.',
   },
 ];
 

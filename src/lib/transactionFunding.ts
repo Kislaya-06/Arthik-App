@@ -1,7 +1,8 @@
 import { format } from 'date-fns/format';
 import { Expense } from '../store/expenseStore';
 import { DailyRecord } from './budgetCalculations';
-import { BudgetPlanChange } from '../types';
+import { BudgetPlanChange, BudgetPeriodRecord } from '../types';
+import type { AllowancePause } from './allowancePauses';
 import { formatCurrency } from './formatters';
 import { isIncomeTransaction, isSelfTransferClass } from './transactionUtils';
 import { computeWaterfallFromState } from './moneyWaterfall';
@@ -31,6 +32,8 @@ export interface CalculateExpenseFundingParams {
   deposits?: Array<{ amount: number | string; source?: 'income' | 'external'; date?: string }>;
   todayStr?: string;
   userCreatedAtStr?: string;
+  budgetPeriods?: Record<string, BudgetPeriodRecord>;
+  skipped?: AllowancePause[];
 }
 
 /**
@@ -51,6 +54,8 @@ export function calculateExpenseFunding({
   isAutoRenew = true,
   deposits = [],
   todayStr = format(new Date(), 'yyyy-MM-dd'),
+  budgetPeriods = {},
+  skipped,
 }: CalculateExpenseFundingParams): ExpenseFundingBreakdown {
   const isIncome = isIncomeTransaction(expense);
   const isTransfer = isSelfTransferClass(expense);
@@ -99,6 +104,8 @@ export function calculateExpenseFunding({
     dailyBudgetAmount,
     records,
     planChanges,
+    budgetPeriods,
+    skipped,
   });
 
   const split = waterfall.byExpense[expense.id];
@@ -122,12 +129,14 @@ export function calculateExpenseFunding({
   const bCovered = split?.fromBudget ?? 0;
   const iCovered = split?.fromIncome ?? 0;
   const gCovered = split?.fromGullak ?? 0;
+  const notCovered = split?.short ?? 0;
   const isOver = (split?.overspend ?? 0) > 0;
 
   const parts: string[] = [];
   if (bCovered > 0) parts.push(`${formatCurrency(bCovered)} Allowance`);
   if (iCovered > 0) parts.push(`${formatCurrency(iCovered)} Income`);
   if (gCovered > 0) parts.push(`${formatCurrency(gCovered)} Gullak`);
+  if (notCovered > 0) parts.push(`${formatCurrency(notCovered)} not covered yet`);
 
   const primarySource: 'budget' | 'income' | 'gullak' | 'split' =
     bCovered === amount ? 'budget' : iCovered === amount ? 'income' : gCovered === amount ? 'gullak' : 'split';
@@ -138,7 +147,9 @@ export function calculateExpenseFunding({
     : primarySource === 'gullak' ? 'Paid from Gullak'
     : parts.join(' + ');
 
-  const explanation = gCovered > 0 && iCovered > 0
+  const explanation = notCovered > 0
+    ? `${formatCurrency(notCovered)} is not covered yet. Your next income will pay it.`
+    : gCovered > 0 && iCovered > 0
     ? `Paid ${formatCurrency(iCovered)} from income, and ${formatCurrency(gCovered)} deducted from Gullak savings.`
     : gCovered > 0
     ? `Exceeded limit: ${formatCurrency(gCovered)} was deducted from your Gullak savings.`

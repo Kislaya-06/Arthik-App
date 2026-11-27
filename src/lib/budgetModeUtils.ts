@@ -16,19 +16,11 @@ import {
 export type TabName = 'Home' | 'History' | 'Savings' | 'Insights';
 
 /**
- * Auto-save (`isAutoRenew`) for the day a scheduled plan change (`PUR-003`) decides the mode.
- * ONE rule for both places that apply a matured plan (the midnight rollover and the cold-start hydration):
- * - the plan turns Budget Mode ON from Pure Mode -> auto-save starts ON (the user just chose to start saving);
- * - the plan is Pure Mode -> auto-save is OFF;
- * - Budget Mode was already on -> keep the user's own choice (a paused allowance stays paused, AGENTS.md 8.1).
+ * There are only two states: Budget Mode and Pure Mode (spec 2026-11-28 rule 15). The old "auto-save" flag
+ * (`isAutoRenew`, still a database column) therefore always equals the mode.
  */
-export function resolveAutoRenewForPlan(
-  planEnabled: boolean,
-  modeWasEnabled: boolean,
-  currentAutoRenew: boolean
-): boolean {
-  if (!planEnabled) return false;
-  return modeWasEnabled ? currentAutoRenew : true;
+export function resolveAutoRenewForPlan(planEnabled: boolean): boolean {
+  return planEnabled;
 }
 
 /**

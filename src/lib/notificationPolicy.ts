@@ -457,14 +457,6 @@ export function rolloverCopy(cadence: Cadence, amount: number): Copy {
   return { title: `${money(amount)} added to your Gullak`, body: `From ${from}.` };
 }
 
-export function budgetResumedCopy(cadence: 'weekly' | 'monthly', remaining: number, budget: number): Copy {
-  const word = cadence === 'weekly' ? "week's" : "month's";
-  return {
-    title: 'Welcome back',
-    body: `${money(remaining)} left of this ${word} ${money(budget)}. It is the same budget, not a new one.`,
-  };
-}
-
 export function budgetUpdatedCopy(amount: number): Copy {
   return { title: 'Daily budget updated', body: `${money(amount)} per day is active from today.` };
 }

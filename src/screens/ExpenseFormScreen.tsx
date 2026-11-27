@@ -115,6 +115,7 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
     isBudgetModeEnabled,
     backdatedSpendingNotice,
     shortfallAmount,
+    editShortfall,
     categories,
     isCategoriesLoading,
     areCategoriesPlaceholder,
@@ -786,14 +787,14 @@ export const ExpenseFormScreen: React.FC<Props> = ({ route, navigation }) => {
         <VaultSpendingGuardModal
           visible={showVaultGuard}
           onClose={() => setShowVaultGuard(false)}
-          expenseAmount={shortfallAmount > 0 ? shortfallAmount : evaluatedAmount}
+          expenseAmount={editShortfall || (shortfallAmount > 0 ? shortfallAmount : evaluatedAmount)}
           onAddMoneyAndSave={handleSaveWithIncome}
           onAddIncomeFirst={() => {
             setShowVaultGuard(false);
             onTypeChange('income');
           }}
           isBudgetMode={isBudgetModeEnabled}
-          totalVaultLiquidity={vaultLiquidity.totalVaultLiquidity}
+          totalVaultLiquidity={editShortfall ? 0 : vaultLiquidity.totalVaultLiquidity}
         />
 
       </ScrollView>

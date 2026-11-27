@@ -4,7 +4,6 @@ import {
   Cadence,
   LimitCopyInput,
   budgetUpdatedCopy,
-  budgetResumedCopy,
   limitCopy,
   rolloverCopy,
 } from './notificationPolicy';
@@ -74,16 +73,3 @@ export function notifyBudgetUpdated(id: string, amount: number, date: string): v
     data: { date, amount, screen: 'Savings' },
   });
 }
-
-/** Budget Mode switched back on inside the same week / month: "Welcome back: ₹4,600 left of this month's ₹9,000." */
-export function notifyBudgetResumed(id: string, cadence: 'weekly' | 'monthly', remaining: number, budget: number, date: string): void {
-  const { title, body } = budgetResumedCopy(cadence, remaining, budget);
-  useNotificationStore.getState().addNotification({
-    id,
-    title,
-    message: body,
-    type: 'general',
-    data: { date, amount: remaining, screen: 'Savings' },
-  });
-}
-

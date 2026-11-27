@@ -105,6 +105,10 @@ export interface PeriodCalculationParams {
    * That money is already inside the old budget, so the "All" total must not count it a second time.
    */
   carryCoveredByDate?: Record<string, number>;
+  /** true = the store's records are the facts: a past day without one never got a budget (same as the guard). */
+  recordsAreComplete?: boolean;
+  /** All view only: the account's all-time budget (`allTimeBudget`). When given it replaces the loop below. */
+  allTimeBudgetTotal?: number;
 }
 
 /** Carried-over money inside each daily budget (see `PeriodCalculationParams.carryCoveredByDate`). */
@@ -249,6 +253,8 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
       dayBudget = todayBudget > 0 ? todayBudget : (isBudgetConfigured ? dailyBudgetAmount : 0);
     } else if (dailyRecords[d] && Number(dailyRecords[d].budget) > 0) {
       dayBudget = Number(dailyRecords[d].budget);
+    } else if (params.recordsAreComplete) {
+      dayBudget = 0;
     } else if (planChanges && planChanges.length > 0) {
       const plan = resolvePlanForDate(planChanges, d);
       if (plan) {
@@ -266,6 +272,8 @@ export const calculatePeriodSummary = (params: PeriodCalculationParams): PeriodS
 
     periodBudget += Math.max(0, dayBudget - carryPart);
   });
+
+  if (activeFilter === 'All' && params.allTimeBudgetTotal !== undefined) periodBudget = params.allTimeBudgetTotal;
 
   // A weekly / monthly user may have no daily budget at all, yet a budget IS configured.
   if (activeFilter === 'All' && periodBudget > 0 && planChanges && planChanges.length > 0) {

@@ -20,7 +20,6 @@ vi.mock('../src/lib/notificationService', () => ({
 
 vi.mock('../src/lib/budgetAlerts', () => ({
   notifyLimit: vi.fn(),
-  notifyBudgetResumed: vi.fn(),
   notifyBudgetUpdated: vi.fn(),
   notifyRollover: vi.fn(),
   notifyPurePeriodEnded: vi.fn(),

@@ -1,9 +1,59 @@
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
+import { addDays } from 'date-fns/addDays';
 import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import { round2 } from '../formatters';
 import { BudgetPlanChange } from '../../types';
 import { getPeriodBounds, resolvePlanForDate, BUDGET_RULES_V2_FROM, getNextPeriodStart } from './core';
+
+/** Switches chosen from this day on get their carried amount from the real leftover. Older ones keep theirs. */
+export const CARRY_SETTLE_FROM = '2026-11-28';
+
+/**
+ * Every started "Carry forward" switch gets the leftover the old budget really had at its midnight.
+ * `leftAt` returns that leftover for the budget running the day before `plan` starts.
+ * Returns the same array when nothing changes.
+ */
+export function settleCarryAmounts(
+  changes: BudgetPlanChange[],
+  todayStr: string,
+  leftAt: (before: BudgetPlanChange[], plan: BudgetPlanChange) => number
+): BudgetPlanChange[] {
+  let result = changes;
+  for (const original of [...changes].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))) {
+    if (!original.isEnabled || !original.carryMode) continue;
+    if (original.effectiveFrom > todayStr || original.effectiveFrom < CARRY_SETTLE_FROM) continue;
+    const before = result.filter((c) => c.effectiveFrom < original.effectiveFrom);
+    const amount = round2(Math.max(0, leftAt(before, original)));
+    if (amount === round2(Number(original.carriedOverAmount) || 0)) continue;
+    result = result.map((c) => (c.id === original.id ? { ...c, carriedOverAmount: amount } : c));
+  }
+  return result;
+}
+
+/**
+ * Carried money still waiting to become a budget when a later plan ends its carry without carrying it on (Pure Mode,
+ * "Save to Gullak", a new amount). A budget ended, so it goes to Gullak (spec 2026-11-28 rule 2); without this it
+ * would simply vanish. `date` is the last day of the old plan.
+ */
+export function droppedCarries(
+  changes: BudgetPlanChange[],
+  recordBudgetFor: (dateStr: string) => number | undefined,
+  todayStr: string
+): Array<{ date: string; amount: number }> {
+  const out: Array<{ date: string; amount: number }> = [];
+  for (const change of changes) {
+    if (change.effectiveFrom > todayStr || (change.isEnabled && change.carryMode)) continue;
+    const before = changes.filter((c) => c.effectiveFrom < change.effectiveFrom);
+    if (before.length === 0) continue;
+    const lastDay = format(addDays(parseISO(change.effectiveFrom), -1), 'yyyy-MM-dd');
+    const amount = round2(
+      dailyCarryRemaining(before, recordBudgetFor, 0, lastDay) + periodCarryRemaining(before, lastDay)
+    );
+    if (amount > 0) out.push({ date: lastDay, amount });
+  }
+  return out;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Daily carry-over: weekly / monthly -> daily (ADR 0012)

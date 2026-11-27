@@ -1,7 +1,7 @@
 import type { StoreApi } from 'zustand';
 import { syncAllowancePauses } from './allowancePauseSync';
 import type { Expense } from '../expense/types';
-import { getTodayDateStr, getUserCreatedAtLocalDate, isDailyOwnedDate, dailyCarryExtraFor, healZeroTodayAllowance, runWaterfall, computeMetrics } from './metrics';
+import { getTodayDateStr, getUserCreatedAtLocalDate, isDailyOwnedDate, dailyCarryExtraFor, healZeroTodayAllowance, runWaterfall, computeMetrics, leftoverBeforeSwitch } from './metrics';
 import { evaluateDayStatus, computeSpentByDate, computeSpentForDate, computeIncomeByDate, computeIncomeForDate, shouldIgnoreDuplicates } from '../../lib/budgetCalculations';
 import { calculateBudgetStatus } from '../../money/budgetStatus';
 import { overspendFundingBetweenDates } from '../../money/overspendFunding';
@@ -10,6 +10,11 @@ import { getCurrentPeriodSummary } from '../../lib/budgetPeriods';
 import { useAuthStore } from '../authStore';
 import { hasDeficitCheckPending, clearDeficitCheckPending } from './deficitCheck';
 import { getCurrentExpenses, areExpensesFreshFromServer } from './expenseBridge';
+import { trackAbsence } from './absenceActions';
+import { useNotificationStore } from '../notificationStore';
+import { formatCurrency } from '../../lib/formatters';
+import { settleCarryAmounts } from '../../lib/budgetPeriods';
+import { savePendingPlanChangeOffline } from './pendingStorage';
 import { balancePureDeficit } from './planActions';
 import { applyScheduledNextDayBudget, applyScheduledPlanChanges, groupSpentByDate, collectPastDates, finalizeDailyRecords, finalizePeriods } from './rollover';
 import { supabase } from '../../config/supabase';
@@ -136,7 +141,8 @@ export const createSyncActions = (
     } else if (get().isBudgetModeEnabled && (get().budgetCadence === 'weekly' || get().budgetCadence === 'monthly')) {
       const spentByDate = computeSpentByDate(expenses);
       const incomeByDate = computeIncomeByDate(expenses);
-      const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr, incomeByDate);
+      const funded = runWaterfall({ records, expenses }).pools;
+      const summary = getCurrentPeriodSummary(get().planChanges, spentByDate, todayStr, incomeByDate, funded);
       if (summary && summary.budget > 0) {
         const ratio = summary.spent / summary.budget;
         const periodKey = `${summary.cadence}_${summary.periodStart}`;
@@ -188,7 +194,9 @@ export const createSyncActions = (
         get().gullakDeposits,
         undefined,
         get().budgetPeriods,
-        get().budgetCadence
+        get().budgetCadence,
+        undefined,
+        expenses
       );
       set({ dailyRecords: records, ...metrics });
     }
@@ -213,6 +221,23 @@ export const createSyncActions = (
       void clearDeficitCheckPending(currentUser.id);
       if (get().isBudgetModeEnabled) {
         balancePureDeficit(get, todayStr, { excludeTodayAllowance: true });
+      }
+    }
+
+    const listNow = Array.isArray(expenses) ? expenses : getCurrentExpenses();
+    // Absence first: it decides which closed days count before they are finalized (rules 27-31).
+    trackAbsence(set, get, todayStr, listNow, areExpensesFreshFromServer());
+
+    if (areExpensesFreshFromServer()) {
+      const settled = settleCarryAmounts(get().planChanges, todayStr, (before, plan) =>
+        leftoverBeforeSwitch(get(), before, plan, listNow)
+      );
+      if (settled !== get().planChanges) {
+        const changed = settled.filter((c) => !get().planChanges.includes(c));
+        set({ planChanges: settled });
+        void Promise.all(changed.map((c) => savePendingPlanChangeOffline(currentUser.id, c))).then(() =>
+          get().syncPendingPlanChanges()
+        );
       }
     }
 
@@ -271,6 +296,7 @@ export const createSyncActions = (
       currentUser,
       todayStr,
       userCreatedAtStr,
+      expenses: resolvedExpenses,
       spentByDate,
       incomeByDate,
       skipRolloverNotification,
@@ -285,7 +311,9 @@ export const createSyncActions = (
       get().gullakDeposits,
       userCreatedAtStr,
       get().budgetPeriods,
-      get().budgetCadence
+      get().budgetCadence,
+      undefined,
+      resolvedExpenses
     );
 
     if (
@@ -298,6 +326,20 @@ export const createSyncActions = (
         dailyRecords: records,
         ...metrics,
       });
+    }
+
+    const before = get().gullakBeforeFix;
+    if (before !== null && before !== undefined && areExpensesFreshFromServer()) {
+      set({ gullakBeforeFix: null });
+      if (get().isBudgetModeEnabled && Math.abs(before - metrics.totalAccumulatedSavings) >= 1) {
+        useNotificationStore.getState().addNotification({
+          id: 'gullak_calculation_fixed',
+          title: 'We fixed a calculation',
+          message: `Your Gullak is now ${formatCurrency(metrics.totalAccumulatedSavings)} (it showed ${formatCurrency(before)} before).`,
+          type: 'general',
+          data: { screen: 'Savings' },
+        });
+      }
     }
   },
 

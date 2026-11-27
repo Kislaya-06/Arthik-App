@@ -35,9 +35,8 @@ vi.mock('../src/store/authStore', () => ({
 }));
 
 import { useDailyBudgetStore } from '../src/store/dailyBudgetStore';
-import { getPendingAllowancePausesKey } from '../src/store/dailyBudget/allowancePauseSync';
 
-const flush = () => new Promise((r) => setTimeout(r, 0));
+
 
 describe('allowance pause history in the store (INS-004)', () => {
   beforeEach(() => {
@@ -51,23 +50,9 @@ describe('allowance pause history in the store (INS-004)', () => {
     expect(useDailyBudgetStore.getState().allowancePauses).toEqual([]);
   });
 
-  it('pausing opens a pause, queues it and sends it; the queue is cleared once the server took it', async () => {
-    mockUpdate.mockReturnValue({ error: null });
+  it('rule 15: there is no paused allowance any more, so a mode change records no pause', () => {
     useDailyBudgetStore.setState({ hydratedForUserId: 'u1' });
     useDailyBudgetStore.setState({ isAutoRenew: false });
-    expect(useDailyBudgetStore.getState().allowancePauses).toEqual([{ from: '2026-11-25', to: null }]);
-    await flush();
-    await flush();
-    expect(mockUpdate).toHaveBeenCalledWith({ allowance_pauses: [{ from: '2026-11-25', to: null }] });
-    expect(storageMap.has(getPendingAllowancePausesKey('u1'))).toBe(false);
-  });
-
-  it('a failed send (column missing / offline) keeps the queue', async () => {
-    mockUpdate.mockReturnValue({ error: { message: 'column "allowance_pauses" does not exist' } });
-    useDailyBudgetStore.setState({ hydratedForUserId: 'u1' });
-    useDailyBudgetStore.setState({ isAutoRenew: false });
-    await flush();
-    await flush();
-    expect(JSON.parse(storageMap.get(getPendingAllowancePausesKey('u1'))!)).toEqual([{ from: '2026-11-25', to: null }]);
+    expect(useDailyBudgetStore.getState().allowancePauses).toEqual([]);
   });
 });

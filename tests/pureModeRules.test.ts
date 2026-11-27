@@ -218,7 +218,7 @@ describe('Pure Mode Acceptance Tests (PUR-001, PUR-002, SEC-001 amend)', () => {
     expect(isExceedingVaultLiquidity(100)).toBe(true);
   });
 
-  it('2. PUR-002: ended-in-Pure pool does not become income, consumed by Pure spend first, flows to Gullak on Budget resume', () => {
+  it('2. rule 18: a budget left at a Pure switch goes to Gullak, and Pure spending draws from it', () => {
     // Dates >= BUDGET_RULES_V2_FROM (2026-10-14)
     // Setup a weekly pool: Nov 02 to Nov 08, amount 1000
     // User spends 300 on Nov 03.
@@ -281,64 +281,21 @@ describe('Pure Mode Acceptance Tests (PUR-001, PUR-002, SEC-001 amend)', () => {
 
     useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
 
-    // 1) In Pure mode: income is NOT created, Gullak = 0
+    // Rule 18: the leftover went to Gullak at the switch (hidden in Pure Mode), never to income.
     expect(useDailyBudgetStore.getState().getAvailableIncomeBalance()).toBe(0);
-    expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(0);
-    // No notification sent for ended-in-Pure pool
-    const pureEndNotif = addedNotifications.find((n) => String(n.id).startsWith('pure_end_'));
-    expect(pureEndNotif).toBeUndefined();
+    expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(700);
+    expect(addedNotifications.find((n) => String(n.id).startsWith('pure_end_'))).toBeUndefined();
+    expect(computeTotalAccountRemaining(useDailyBudgetStore.getState(), useExpenseStore.getState().expenses)).toBe(700);
 
-    // Remaining in account = 1000 allowance - 300 spend = 700
-    const remBefore = computeTotalAccountRemaining(useDailyBudgetStore.getState(), useExpenseStore.getState().expenses);
-    expect(remBefore).toBe(700);
-
-    // 2) Pure-day spend ₹200 on Nov 10: should use leftover first (income and Gullak untouched)
+    // A Pure-day spend of 200 has no income to use, so Gullak pays it.
     const expense200: Expense = {
-      id: 'e-2',
-      user_id: 'test_user_pure',
-      amount: 200,
-      category_id: null,
-      payment_mode: 'upi',
-      expense_date: '2026-11-10',
-      type: 'expense',
-      created_at: '2026-11-10T10:00:00Z',
+      id: 'e-2', user_id: 'test_user_pure', amount: 200, category_id: null, payment_mode: 'upi',
+      expense_date: '2026-11-10', type: 'expense', created_at: '2026-11-10T10:00:00Z',
     };
     useExpenseStore.setState({ expenses: [expense300, expense200] });
     useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
-
-    const wf = runWaterfall();
-    expect(wf.pureLeftoverAdded).toBe(700);
-    expect(wf.pureLeftoverUsed).toBe(200);
-    expect(wf.pureLeftoverRemaining).toBe(500);
-    expect(wf.byExpense['e-2'].fromLeftover).toBe(200);
-    expect(wf.byExpense['e-2'].fromIncome).toBe(0);
-    expect(wf.byExpense['e-2'].fromGullak).toBe(0);
-
-    // Remaining is now 1000 - 300 - 200 = 500
-    const remAfter = computeTotalAccountRemaining(useDailyBudgetStore.getState(), useExpenseStore.getState().expenses);
-    expect(remAfter).toBe(500);
-
-    // 3) Going to Budget Mode on Nov 15: unspent leftover (500) shows as Gullak!
-    useDailyBudgetStore.setState({
-      isBudgetModeEnabled: true,
-      planChanges: [
-        ...useDailyBudgetStore.getState().planChanges,
-        {
-          id: 'pc-3',
-          userId: 'test_user_pure',
-          effectiveFrom: '2026-11-15',
-          isEnabled: true,
-          cadence: 'daily',
-          amount: 0,
-          createdAt: '2026-11-15T00:00:00Z',
-        },
-      ],
-      budgetCadence: 'daily',
-      dailyBudgetAmount: 0,
-    });
-    useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
+    expect(runWaterfall().byExpense['e-2']).toMatchObject({ fromIncome: 0, fromGullak: 200, short: 0 });
     expect(useDailyBudgetStore.getState().totalAccumulatedSavings).toBe(500);
-    expect(computeTotalAccountRemaining(useDailyBudgetStore.getState(), useExpenseStore.getState().expenses)).toBe(500);
   });
 
   it('3. PUR-001 deficit: income 5000, allowances 3500, Pure spend 9000 -> R = -500. Toggle Budget Mode ON balances deficit', async () => {

@@ -63,8 +63,9 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Smarter Insights & Faster Adding ✨",
+        "title": "Simpler Gullak & Budgets 🐷",
         "highlights": [
+          "Simpler Gullak: leftover budget goes to Gullak whenever a budget ends (or carry it forward), switching to Pure Mode and back is clearer, there is no paused allowance, a 7+ day break asks you what to count, and some Gullak calculations are fixed (you get a note if your number changes)",
           "Faster Adding & A Quick Tour: press and hold + to add a recent spend again in one tap, Add picks the category you usually use at this time, each entry shows the first letter of its note, spending is shown in plain colour (only money coming in is green), \"Others\" has its own grey ₹ icon, and a short tour shows you what is new (Skip any time)",
           "New Insights: see where your month is heading and how long your money lasts, when your Gullak hits its next milestone, your no-spend days, small spends that add up, when in the day you spend, your top places, money shared with friends, where Gullak money came from, your best month, and a tap-through story of your year",
           "Fairer Insights & Streaks: Insights no longer count your daily allowance for days you were in Pure Mode or had it paused, each day uses the amount you had set that day, your best streak now changes when you add or edit spending on a past day, and the switch on the purple Savings card is white when on",

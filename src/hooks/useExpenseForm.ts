@@ -28,7 +28,8 @@ import { useTransferRulesStore } from '../store/transferRulesStore';
 import { findMatchingTransferRule, normalizeTransferDescriptor } from '../lib/transferRules';
 import { buildPeopleLedger, cleanPersonName, validateSplitAllocations, planSettlement, planRefund, refundCandidates, minAmountForExpense, minShareForExpense, settledPersonsForExpense, grossAmountOf, personKey, type RecoveryPlan } from '../lib/splitLedger';
 import { recordMoneyBack } from '../store/expense/moneyBack';
-import { calculateGullakIncomeDeficit } from '../lib/gullakReconciliation';
+import { formatCurrency } from '../lib/formatters';
+import { applyRecoveries } from '../lib/splitLedger';
 import { round2 } from '../lib/formatters';
 import { UseExpenseFormParams, UseExpenseFormReturn, SplitMemberState, SplitFormState, MoneyBackMode, MoneyBackFormState } from './expenseForm/types';
 import { suggestCategoryForNow } from '../lib/quickAdd';
@@ -77,6 +78,8 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card'>('upi');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVaultGuard, setShowVaultGuard] = useState(false);
+  /** Income an EDIT needs first (rule 12). 0 for a new expense. */
+  const [editShortfall, setEditShortfall] = useState(0);
 
   const [splitOn, setSplitOn] = useState(false);
   const [splitMembers, setSplitMembers] = useState<SplitMemberState[]>([
@@ -674,8 +677,23 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
         (vaultLiquidity.totalVaultLiquidity < numAmount)
       );
       if (!isEdit && (!vaultLiquidity.canAddExpense || isShortfall)) {
+        setEditShortfall(0);
         setShowVaultGuard(true);
         return;
+      }
+      // A back-dated expense can be uncovered on ITS day even when today's total is enough (money that reached
+      // Gullak later never pays for an earlier day).
+      if (!isEdit && isBudgetModeEnabled) {
+        const added = {
+          id: 'new-expense-preview', amount: numAmount, gross_amount: numAmount, type: 'expense' as const,
+          expense_date: format(selectedDate, 'yyyy-MM-dd'), created_at: new Date().toISOString(),
+        } as unknown as (typeof expenses)[number];
+        const impact = useDailyBudgetStore.getState().previewMoneyImpact?.({ expenses: [added, ...expenses] });
+        if (impact && impact.shortfall > 0) {
+          setEditShortfall(impact.shortfall);
+          setShowVaultGuard(true);
+          return;
+        }
       }
 
       if (areCategoriesPlaceholder) {
@@ -742,33 +760,38 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
           (Array.isArray(existingExp?.split_allocations) && existingExp.split_allocations.length > 0)
         );
 
-        if (existingExp?.type === 'income') {
-          const effectiveNewIncome = transactionType === 'income' ? numAmount : 0;
-          const gullakDeposits = useDailyBudgetStore.getState().gullakDeposits || [];
-          const cleanDate = existingExp.expense_date?.split('T')[0]?.trim() || dateStr;
-          const deficit = calculateGullakIncomeDeficit({
-            dateStr: cleanDate,
-            expenseId,
-            newAmount: effectiveNewIncome,
-            expenses,
-            gullakDeposits,
-          });
-
-          if (deficit > 0) {
+        // Rules 12-13: an edit may not take the balance below zero, and it says when Gullak will drop.
+        if (existingExp && isBudgetModeEnabled) {
+          const edited = applyRecoveries(
+            expenses.map((e) =>
+              e.id === expenseId
+                ? { ...e, amount: numAmount, gross_amount: numAmount, type: transactionType, expense_date: dateStr }
+                : e
+            )
+          );
+          const impact = useDailyBudgetStore.getState().previewMoneyImpact?.({ expenses: edited });
+          if (impact && impact.shortfall > 0) {
+            setIsSubmitting(false);
+            if (transactionType === 'expense' && existingExp.type !== 'income') {
+              setEditShortfall(impact.shortfall);
+              setShowVaultGuard(true);
+            } else {
+              Alert.alert('Add Income First', `Add ${formatCurrency(impact.shortfall)} income first. This money is already spent.`);
+            }
+            return;
+          }
+          if (impact && existingExp.type === 'income' && impact.gullakDrop > 0) {
             setIsSubmitting(false);
             Alert.alert(
-              'Gullak Adjustment Required',
-              transactionType === 'income'
-                ? `Reducing this income to ₹${numAmount} will also reduce ₹${deficit} from your Gullak savings (funded by this income).\n\nDo you want to proceed?`
-                : `Changing this income to an expense will also reduce ₹${deficit} from your Gullak savings (funded by this income).\n\nDo you want to proceed?`,
+              'Gullak Will Go Down',
+              `This change takes ${formatCurrency(impact.gullakDrop)} out of your Gullak.`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'Update & Adjust Gullak',
+                  text: 'Confirm',
                   onPress: async () => {
                     setIsSubmitting(true);
                     try {
-                      await useDailyBudgetStore.getState().adjustGullakIncomeDeposits(cleanDate, deficit);
                       await updateExpense(
                         expenseId,
                         numAmount,
@@ -777,9 +800,7 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
                         paymentMode,
                         dateStr,
                         transactionType,
-                        ...(transactionType === 'expense' && (splitActive || hadSplit)
-                          ? [{ split: splitPayload }]
-                          : [])
+                        ...(transactionType === 'expense' && (splitActive || hadSplit) ? [{ split: splitPayload }] : [])
                       );
                       useDailyBudgetStore.getState().syncWithExpenses(useExpenseStore.getState().expenses);
                       if (onSuccess) onSuccess();
@@ -913,19 +934,18 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
 
       const categoryIdToSave = selectedCategoryId;
 
-      await addExpense(
-        numAmount,
-        categoryIdToSave,
-        clampedNote,
-        paymentMode,
-        dateStr,
-        'expense',
-        {
+      if (isEdit && expenseId) {
+        // The edit that needed money: change the same expense, never add a second one.
+        await updateExpense(expenseId, numAmount, categoryIdToSave, clampedNote, paymentMode, dateStr, 'expense', {
+          split: splitPayload,
+        });
+      } else {
+        await addExpense(numAmount, categoryIdToSave, clampedNote, paymentMode, dateStr, 'expense', {
           id: newId,
           transactionClass: 'normal',
           ...(splitPayload ? { split: splitPayload } : {}),
-        }
-      );
+        });
+      }
 
       // 3. Keep daily budget and smart notifications in sync
       const currentExpenses = useExpenseStore.getState().expenses;
@@ -1004,5 +1024,6 @@ export function useExpenseForm({ route, navigation }: UseExpenseFormParams): Use
     moneyBack,
     backdatedSpendingNotice,
     shortfallAmount,
+    editShortfall,
   };
 }

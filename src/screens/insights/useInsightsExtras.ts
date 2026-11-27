@@ -47,6 +47,7 @@ export function useInsightsExtras(p: Params) {
   const dailyBudgetAmount = useDailyBudgetStore((s) => s.dailyBudgetAmount);
   const gullak = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
   const getTotalAccountRemaining = useDailyBudgetStore((s) => s.getTotalAccountRemaining);
+  const allowancePauses = useDailyBudgetStore((s) => s.allowancePauses);
   const userCreatedAt = useAuthStore((s) => s.user?.created_at);
 
   const { period, offset, currentInterval, budgetPool, allowanceHistory, yearlyInflow, yearlyGullakAdded, focusTime } = p;
@@ -69,8 +70,10 @@ export function useInsightsExtras(p: Params) {
         dailyBudgetAmount,
         records: dailyRecords,
         planChanges,
+        budgetPeriods,
+        skipped: allowancePauses,
       }),
-    [expenses, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges]
+    [expenses, gullakDeposits, isBudgetModeEnabled, isAutoRenew, todayKey, dailyRecords, dailyBudgetAmount, planChanges, budgetPeriods, allowancePauses]
   );
   const gullakDrawnBetween = (start: string, end: string) =>
     summarizeScope(waterfall, (d) => d >= start && d <= end).gullakDrawn;

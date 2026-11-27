@@ -116,7 +116,8 @@ vi.mock('../src/store/notificationStore', () => ({
 }));
 
 // Import store & helpers
-import { useDailyBudgetStore, registerExpensesLoadedGetter, registerExpenseGetter } from '../src/store/dailyBudgetStore';
+import { useDailyBudgetStore, registerExpensesLoadedGetter, registerExpenseGetter, runWaterfall,
+} from '../src/store/dailyBudgetStore';
 import { Expense } from '../src/store/expenseStore';
 import { format } from 'date-fns/format';
 import { addDays } from 'date-fns/addDays';
@@ -339,17 +340,17 @@ describe('Bug 5: monthly budget, Pure Mode in the middle (the product-owner exam
     return w;
   };
 
-  it('toggling Pure Mode and back never changes what ends up in Gullak (3200 either way)', () => {
+  it('rule 19: Pure days paid by income leave the returned budget whole, so Gullak keeps it', () => {
     const a = build(false);
     runDays(a, '2026-12-01', '2026-12-02', 0);
     const withoutToggle = st().totalAccumulatedSavings;
     const b = build(true);
     runDays(b, '2026-12-01', '2026-12-02', 0);
     expect(withoutToggle).toBe(9000 - 5800);
-    expect(st().totalAccumulatedSavings).toBe(withoutToggle);
+    expect(st().totalAccumulatedSavings).toBe(withoutToggle + 15 * 200); // the 15 Pure days came from income
   });
 
-  it('coming back on 24 Nov: the SAME pool continues: 4600 left of 9000 (not a fresh 9000)', () => {
+  it('rule 19: coming back brings the moved 7600 back (not a fresh 9000)', () => {
     const w = newWorld();
     fresh('monthly', { monthly: 9000, from: '2026-11-01' });
     runDays(w, '2026-11-02', '2026-11-08', 200);
@@ -359,15 +360,15 @@ describe('Bug 5: monthly budget, Pure Mode in the middle (the product-owner exam
     openDay(w, '2026-11-24');
     const spentByDate: Record<string, number> = {};
     for (const e of w.expenses) if (e.type === 'expense') spentByDate[e.expense_date] = (spentByDate[e.expense_date] || 0) + e.amount;
-    const sum = getCurrentPeriodSummary(st().planChanges, spentByDate, '2026-11-24');
+    const sum = getCurrentPeriodSummary(st().planChanges, spentByDate, '2026-11-24', undefined, runWaterfall().pools);
     expect(sum?.budget).toBe(9000);
-    expect(sum?.spent).toBe(4400);       // 1400 + 3000 (the 24th has no spending yet)
-    expect(sum?.remaining).toBe(4600);
+    expect(sum?.spent).toBe(1400);       // only Budget Mode days use the budget
+    expect(sum?.remaining).toBe(7600);
   });
 
-  it('nothing is taken from income or Gullak while the pool still has money', () => {
+  it('Pure days are paid from income first', () => {
     build(true);
-    expect(st().getAvailableIncomeBalance()).toBe(100000);
+    expect(st().getAvailableIncomeBalance()).toBe(100000 - 15 * 200);
   });
 });
 
@@ -390,7 +391,7 @@ describe('Bug 5: Pure Mode spends budget -> income -> Gullak (same books as Budg
     expect(st().totalAccumulatedSavings).toBe(0);
   });
 
-  it('a Pure expense inside the pool leaves income and Gullak untouched', () => {
+  it('rule 18: a Pure expense is paid from income, then Gullak (which got the leftover)', () => {
     const w = newWorld(false);
     w.expenses.push(mk('inc', 500, '2026-11-01', 'income'));
     fresh('monthly', { monthly: 9000, from: '2026-11-01' });
@@ -399,8 +400,8 @@ describe('Bug 5: Pure Mode spends budget -> income -> Gullak (same books as Budg
     pureOn('2026-11-02');
     w.expenses.push(mk('e', 7000, '2026-11-03'));
     openDay(w, '2026-11-03');
-    expect(st().getAvailableIncomeBalance()).toBe(500);
-    expect(st().totalAccumulatedSavings).toBe(1000);
+    expect(st().getAvailableIncomeBalance()).toBe(0);
+    expect(st().totalAccumulatedSavings).toBe(1000 + 9000 - 6500);
   });
 
   it('a Pure user who never had a budget: expenses come from income, then Gullak', () => {
@@ -416,14 +417,14 @@ describe('Bug 5: Pure Mode spends budget -> income -> Gullak (same books as Budg
 });
 
 describe('Bug 5: the period ends while the user is in Pure Mode', () => {
-  it('what is left of the pool stays as leftover (PUR-002), does NOT become income, nothing goes to Gullak in Pure Mode', () => {
+  it('rule 18: what is left goes to Gullak at the switch, not to income', () => {
     const w = newWorld(false);
     fresh('monthly', { monthly: 9000, from: '2026-11-01' });
     runDays(w, '2026-11-02', '2026-11-09', 200);        // 8 x 200 = 1600 used, 7400 left
     pureOn('2026-11-09');
     runDays(w, '2026-11-10', '2026-12-03', 0);          // November ends in Pure Mode
-    expect(st().totalAccumulatedSavings).toBe(0);       // Pure Mode has no Gullak
-    expect(st().getAvailableIncomeBalance()).toBe(0);   // PUR-002: leftover does NOT become unallocated income
+    expect(st().totalAccumulatedSavings).toBe(7400);    // hidden in Pure Mode, but real
+    expect(st().getAvailableIncomeBalance()).toBe(0);   // never income
   });
 
   it('coming back in the NEXT period starts normally with a fresh budget and leftover flows into Gullak', () => {
@@ -633,21 +634,7 @@ describe('Carry cover notification ("how much to add today")', () => {
   });
 });
 
-describe('Welcome back / Pure period ended messages', () => {
-  it('switching Budget Mode back on inside the month says what is left of the SAME budget', () => {
-    const w = newWorld();
-    mockAddNotification.mockClear();
-    fresh('monthly', { monthly: 9000, from: '2026-11-01' });
-    runDays(w, '2026-11-02', '2026-11-08', 200);
-    pureOn('2026-11-08');
-    runDays(w, '2026-11-09', '2026-11-23', 200);
-    pureOff('2026-11-23');
-    const msg = mockAddNotification.mock.calls.map((c: any[]) => c[0]).find((n: any) => String(n.id).startsWith('resumed_'));
-    expect(msg?.title).toBe('Welcome back');
-    expect(msg?.message).toContain('₹4,600');
-    expect(msg?.message).toContain('₹9,000');
-  });
-
+describe('Pure period ended messages', () => {
   it('a month that ends in Pure Mode does not send pure_end notification (PUR-002)', () => {
     const w = newWorld(false);
     mockAddNotification.mockClear();

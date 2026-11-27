@@ -336,6 +336,7 @@ describe('Fix 4: Pure Mode expense detail never says "Paid from Gullak"', () => 
     const f = calculateExpenseFunding({
       expense: e, allExpenses: [income('i', 150, TODAY), e], todayBudget: 500, dailyBudgetAmount: 500,
       isBudgetModeEnabled: true, todayStr: TODAY,
+      deposits: [{ amount: 10000, date: '2026-10-01', source: 'external' as const }],
     });
     expect(f).toMatchObject({ coveredByBudget: 500, coveredByIncome: 150, coveredByGullak: 150 });
   });

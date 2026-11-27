@@ -35,6 +35,7 @@ import {
   getUserCreatedAtLocalDate,
   isDailyOwnedDate,
   dailyCarryExtraFor,
+  runWaterfall,
 } from './metrics';
 import { balancePureDeficitIfNeeded } from './planActions';
 
@@ -55,6 +56,7 @@ export interface FinalizePeriodsContext {
   currentUser: { id: string };
   todayStr: string;
   userCreatedAtStr?: string;
+  expenses: Expense[];
   spentByDate: Record<string, number>;
   incomeByDate: Record<string, number>;
   skipRolloverNotification: boolean;
@@ -110,11 +112,7 @@ export function applyScheduledPlanChanges(
             : { monthlyBudgetAmount: activePlanForToday.amount }
           : {};
 
-      const autoRenew = resolveAutoRenewForPlan(
-        activePlanForToday.isEnabled,
-        get().isBudgetModeEnabled,
-        get().isAutoRenew
-      );
+      const autoRenew = resolveAutoRenewForPlan(activePlanForToday.isEnabled);
 
       set({
         isBudgetModeEnabled: activePlanForToday.isEnabled,
@@ -404,7 +402,9 @@ export function finalizePeriods(ctx: FinalizePeriodsContext): { updated: boolean
     todayStr,
     canHealPeriods ? [] : Object.keys(existingPeriods),
     userCreatedAtStr,
-    incomeByDate
+    incomeByDate,
+    runWaterfall({ expenses: ctx.expenses }).poolSavings,
+    get().allowancePauses
   );
   // Match old rows by cadence + activeStart (same as the DB unique key), not only by id,
   // so a healed period can never become a duplicate (which would double the Gullak savings).

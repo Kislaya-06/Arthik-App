@@ -162,6 +162,8 @@ describe('Gullak Deposits Feature - TDD Specification & Verification', () => {
     });
 
     it('records an explicit "income" source deposit correctly', () => {
+      // Only income that exists can be moved (rule 8).
+      registerExpenseGetter(() => [{ id: 'inc', amount: 1000, type: 'income', expense_date: todayStr } as any]);
       useDailyBudgetStore.getState().addGullakDeposit(450, 'From freelance payout', 'income');
 
       const state = useDailyBudgetStore.getState();

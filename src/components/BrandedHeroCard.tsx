@@ -169,11 +169,13 @@ const BrandedHeroCardBase: React.FC<BrandedHeroCardProps> = ({
 
   // In Pure Mode, inflow represents all funds deposited/received into the account during this period:
   // (Historical active daily budget allowances + Transaction Income + External deposits)
-  const pureInflow = totalAvailable;
-  const pureMetrics = useMemo(
-    () => calculatePureHeroMetrics(activeFilter, pureInflow, periodSpent),
-    [activeFilter, pureInflow, periodSpent]
-  );
+  const pureInflow = activeFilter === 'All' ? totalAvailable : periodIncome;
+  const pureMetrics = useMemo(() => {
+    const metrics = calculatePureHeroMetrics(activeFilter, pureInflow, periodSpent);
+    if (activeFilter === 'All') return metrics;
+    // The big number is what was spent; income shows beside it.
+    return { ...metrics, title: calculatePureHeroMetrics(activeFilter, 0, periodSpent).title, totalRemaining: metrics.totalExpense, isDeficit: false };
+  }, [activeFilter, pureInflow, periodSpent]);
 
   // Cadence-aware primary values with dynamic non-binding pace guidance:
   const effectivePrimaryLabel = useMemo(() => {

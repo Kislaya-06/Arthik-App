@@ -1,8 +1,7 @@
 import type { StoreApi } from 'zustand';
-import { getTodayDateStr, getUserCreatedAtStr, dailyCarryExtraFor, computeMetrics } from './metrics';
+import { getTodayDateStr, computeMetrics } from './metrics';
 import { round2 } from '../../lib/formatters';
 import { useAuthStore } from '../authStore';
-import { storeDismissedGapDates } from '../../lib/gapFiller';
 import type { GullakDepositSource, GullakDeposit } from './types';
 import * as Crypto from 'expo-crypto';
 import { useNetworkStore } from '../networkStore';
@@ -18,60 +17,7 @@ import type { DailyBudgetState } from './types';
 export const createGullakActions = (
   set: StoreApi<DailyBudgetState>['setState'],
   get: StoreApi<DailyBudgetState>['getState']
-): Pick<DailyBudgetState, 'saveGapDaysToGullak' | 'dismissGapDays' | 'addGullakDeposit' | 'removeGullakDeposit' | 'updateGullakDepositAmount' | 'adjustGullakIncomeDeposits' | 'syncPendingGullakDeposits'> => ({
-  saveGapDaysToGullak: async (gapDates: string[]) => {
-    if (!gapDates || gapDates.length === 0) return;
-    const records = { ...get().dailyRecords };
-    const baseBudget = get().dailyBudgetAmount;
-    let updated = false;
-
-    for (const d of gapDates) {
-      const extraCarry = dailyCarryExtraFor(d, get());
-      const budget = round2(baseBudget + extraCarry);
-      records[d] = {
-        date: d,
-        budget,
-        spent: 0,
-        saved: budget,
-        isFinalized: true,
-        status: 'saved',
-        needsUpload: true,
-      };
-      updated = true;
-    }
-
-    if (updated) {
-      const deposits = get().gullakDeposits;
-      const userCreatedAt = getUserCreatedAtStr();
-      const budgetPeriods = get().budgetPeriods;
-      const metrics = computeMetrics(
-        records,
-        deposits,
-        userCreatedAt,
-        budgetPeriods,
-        get().budgetCadence
-      );
-      set({
-        dailyRecords: records,
-        ...metrics,
-      });
-
-      await get().uploadPendingDailyRecords();
-    }
-  },
-
-  dismissGapDays: async (gapDates: string[]) => {
-    if (!gapDates || gapDates.length === 0) return;
-    const current = get().dismissedGapDates || [];
-    const merged = Array.from(new Set([...current, ...gapDates]));
-    set({ dismissedGapDates: merged });
-
-    const currentUser = useAuthStore.getState().user;
-    if (currentUser) {
-      await storeDismissedGapDates(currentUser.id, gapDates);
-    }
-  },
-
+): Pick<DailyBudgetState, 'addGullakDeposit' | 'removeGullakDeposit' | 'updateGullakDepositAmount' | 'syncPendingGullakDeposits'> => ({
   addGullakDeposit: (amount: number, note?: string, source: GullakDepositSource = 'external') => {
     if (!amount || amount <= 0) return;
     const newDeposit: GullakDeposit = {
@@ -182,28 +128,6 @@ export const createGullakActions = (
           console.error('[dailyBudgetStore] Error updating gullak_deposit:', error);
         }
       });
-  },
-
-  adjustGullakIncomeDeposits: async (dateStr: string, deficit: number) => {
-    let remainingDeficit = round2(deficit);
-    if (remainingDeficit <= 0) return;
-
-    const allDeposits = [...(get().gullakDeposits || [])];
-    const dateDeposits = allDeposits
-      .filter((d) => d.source === 'income' && d.date?.split('T')[0]?.trim() === dateStr)
-      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-
-    for (const dep of dateDeposits) {
-      if (remainingDeficit <= 0) break;
-      if (dep.amount <= remainingDeficit) {
-        remainingDeficit = round2(remainingDeficit - dep.amount);
-        get().removeGullakDeposit(dep.id);
-      } else {
-        const updated = round2(dep.amount - remainingDeficit);
-        remainingDeficit = 0;
-        get().updateGullakDepositAmount(dep.id, updated);
-      }
-    }
   },
 
   syncPendingGullakDeposits: async () => {

@@ -1,5 +1,9 @@
 # Technical Architecture Map: `src/store/dailyBudgetStore.ts`
 
+> [!IMPORTANT]
+> **Money rules changed on 2026-11-28** ([spec](../specs/2026-11-28-simple-money-rules.md), [ADR 0025](../adr/0025-gullak-is-one-running-balance.md)): Gullak is one running balance from the waterfall (no cap, no Pure leftover), there is no paused allowance, an ended budget's leftover goes to Gullak unless "Carry forward", and absent days follow `ROL-004`. Where any older text here differs, the spec and the canonical rules win.
+> New files: `src/store/dailyBudget/absenceActions.ts` (closed days), `moneyImpact.ts` (one add / edit / delete check), `src/lib/absence.ts`, `src/lib/periods/allTimeBudget.ts`. Removed: `gapFiller.ts`, `gullakReconciliation.ts`, `saveGapDaysToGullak`, `dismissGapDays`, `adjustGullakIncomeDeposits`.
+
 > [!NOTE]
 > **Architecture & Modular Decomposition (October 2026, facade split November 2026)**
 > `src/store/dailyBudgetStore.ts` serves as the public facade (~380 lines) delegating to focused submodules under `src/store/dailyBudget/`. Store actions live in factories that receive the store's own `set` / `get` and are spread into the store (`...createGullakActions(set, get)`), so no submodule imports the store:
@@ -10,8 +14,8 @@
 > - Rollover Engine: `src/store/dailyBudget/rollover.ts`
 > - Supabase Hydration Coordinator: `src/store/dailyBudget/hydrate.ts` (+ `hydrateRemote.ts` remote fetch and Gullak merge, `hydrateOffline.ts` offline patch, pending-settings read, plan activation)
 > - Database Anomaly Self-Healing: `src/store/dailyBudget/selfHealing.ts`
-> - Plan Actions & Cadence Settings: `src/store/dailyBudget/planActions.ts` (daily budget, auto-save, scheduling; re-exports `planSync.ts`, `pureDeficit.ts`, `pendingPlan.ts`, `cadenceActions.ts`, `budgetModeActions.ts`)
-> - Store action factories: `gullakActions.ts` (Gullak deposits + gap days), `syncActions.ts` (`syncWithExpenses`, `checkAndRollover`, `uploadPendingDailyRecords`), `recordActions.ts` (`getTodayRecord`, `getPastRecordsList`)
+> - Plan Actions & Cadence Settings: `src/store/dailyBudget/planActions.ts` (daily budget, scheduling; re-exports `planSync.ts`, `pureDeficit.ts`, `pendingPlan.ts`, `cadenceActions.ts`, `budgetModeActions.ts`)
+> - Store action factories: `gullakActions.ts` (Gullak deposits), `syncActions.ts` (`syncWithExpenses`, `checkAndRollover`, `uploadPendingDailyRecords`), `recordActions.ts` (`getTodayRecord`, `getPastRecordsList`)
 > For system architecture, see [`docs/architecture.md §6`](../architecture.md) and [`docs/adr/0013-store-module-split.md`](../adr/0013-store-module-split.md). For live calculation helpers, see [`src/lib/budgetCalculations.ts`](../../src/lib/budgetCalculations.ts) and [`src/lib/budgetUtils.ts`](../../src/lib/budgetUtils.ts).
 
 This document catalogs the functions of `dailyBudgetStore` and its sub-modules under `src/store/dailyBudget/`. It adheres strictly to the domain vocabulary defined in [CONTEXT.md](../../CONTEXT.md).
@@ -31,11 +35,11 @@ Every function and helper associated with `src/store/dailyBudgetStore.ts` is cat
 | 5 | `applyScheduledNextDayBudget`, `finalizeDailyRecords`, `finalizePeriods` | `src/store/dailyBudget/rollover.ts` | **ROLLOVER** | Midnight day evaluation, daily savings finalization, and weekly/monthly cycle rollovers. |
 | 6 | `runHydrateFromSupabase` (`hydrate.ts`); `buildOfflineHydrationPatch`, `persistActivatedPlanSettings`, `readPendingSettings`, `mergePendingPlanChanges`, `mergePendingPeriods` (`hydrateOffline.ts`); `fetchRemoteBudgetData`, `mergeGullakDeposits`, `hydrateGullakDeposits` (`hydrateRemote.ts`) | `src/store/dailyBudget/hydrate*.ts` | **HYDRATION** | Startup hydration coordinator, persist-hydration gate, offline fast-path, and remote fetching. A scheduled Pure ↔ Budget switch that matured while the app was closed is applied here too: auto-save comes from `resolveAutoRenewForPlan` (`src/lib/budgetModeUtils.ts`, same rule as the rollover) and `persistActivatedPlanSettings` saves the new mode to the profile (FIN-16, `PUR-003`). |
 | 6b | `markDeficitCheckPending`, `restoreDeficitCheckPending`, `hasDeficitCheckPending`, `clearDeficitCheckPending` | `src/store/dailyBudget/deficitCheck.ts` | **HYDRATION** | Durable per-user marker (`@arthik_pending_deficit_check_<userId>`): the PUR-001 deficit check for a Pure → Budget switch that matured on a cold start. Consumed once by `checkAndRollover` when expenses are server-fresh (`balancePureDeficit`, `excludeTodayAllowance`). |
-| 4b | `healZeroTodayAllowance` | `src/store/dailyBudget/metrics.ts` | **METRICS** | Pure helper (FIN-16): gives an unfinalized today record with budget 0 its daily amount when Budget Mode, auto-save and a daily plan are on. Used by `syncWithExpenses` and right after `applyScheduledPlanChanges` in `checkAndRollover`. Never fills a paused allowance. |
+| 4b | `healZeroTodayAllowance` | `src/store/dailyBudget/metrics.ts` | **METRICS** | Pure helper (FIN-16): gives an unfinalized today record with budget 0 its daily amount when Budget Mode and a daily plan are on. Used by `syncWithExpenses` and right after `applyScheduledPlanChanges` in `checkAndRollover`. |
 | 7 | `selfHealDefaultBudget`, `selfHealCorruptedRows` | `src/store/dailyBudget/selfHealing.ts` | **SELF-HEALING** | Repairs OTA migration defaults (e.g. 500 budget) and corrupted savings log rows. |
 | 8 | `handleSetDailyBudget`, `handleToggleAutoRenew` (`planActions.ts`); `handleSetBudgetModeEnabled` (`budgetModeActions.ts`); `handleCancelPendingPlanChange`, `resolvePendingPlanChange` (`pendingPlan.ts`); cadence / weekly / monthly handlers (`cadenceActions.ts`); `balancePureDeficit` (`pureDeficit.ts`); `syncPendingPlanChanges`, `uploadPendingBudgetPeriods` (`planSync.ts`) — all importable from `planActions.ts` | `src/store/dailyBudget/` | **PLAN-ACTIONS** | Allowance updates, cadence switching, next-day scheduling (`PUR-003`), scheduled plan cancellation, and pending plan queues. |
 | 9 | `getTodayRecord`, `getPastRecordsList` | `src/store/dailyBudget/recordActions.ts` | **STORE-READ** | Zustand selectors for today's record and filtered past daily records. |
-| 10 | `addGullakDeposit`, `removeGullakDeposit`, `updateGullakDepositAmount`, `adjustGullakIncomeDeposits`, `syncPendingGullakDeposits`, `saveGapDaysToGullak`, `dismissGapDays` | `src/store/dailyBudget/gullakActions.ts` | **STORAGE** | Gullak manual deposits management, income-deficit reconciliation adjustments, and offline queue synchronization. |
+| 10 | `addGullakDeposit`, `removeGullakDeposit`, `updateGullakDepositAmount`, `syncPendingGullakDeposits` | `src/store/dailyBudget/gullakActions.ts` | **STORAGE** | Gullak manual deposits and offline queue synchronization. |
 | 11 | `syncWithExpenses` | `src/store/dailyBudget/syncActions.ts` | **MIXED** | Recomputes today's live spent, checks 80%/100% notification thresholds, and invokes rollover. |
 | 12 | `checkAndRollover` | `src/store/dailyBudget/syncActions.ts` | **FACADE** | Runs `rollover.ts` (`applyScheduledNextDayBudget`, `applyScheduledPlanChanges`, `finalizeDailyRecords`, `finalizePeriods`) and updates store metrics. |
 | 13 | `uploadPendingDailyRecords` | `src/store/dailyBudget/syncActions.ts` | **STORAGE** | Scans `dailyRecords` for `needsUpload === true` and upserts them to Supabase `daily_savings_log`. |
@@ -59,8 +63,8 @@ A day's budget is derived according to three distinct tiers:
 1. **Recurring Allowance (Base Daily Budget)**:
    - Configured via `setDailyBudget(amount)` in `src/store/dailyBudget/planActions.ts`.
    - Sanitized via `cleanAmount = Math.max(0, round2(amount))`.
-   - User Preference Sovereignty: `willAutoRenew = cleanAmount > 0 ? currentAutoRenew : false`. Changing amount respects user's paused state and never autonomously forces `isAutoRenew = true`.
-   - Applies automatically to any new day when `isAutoRenew` is `true`.
+   - There is no paused allowance: `isAutoRenew` always equals the mode.
+   - Applies automatically to every new day in Budget Mode.
 2. **Next-Day Scheduling (Day's Allowance Discipline)**:
    - Configured via `scheduleNextDailyBudget(amount)` / `handleScheduleNextDailyBudget`.
    - Sanitized via `cleanAmount = Math.max(0, round2(amount))`.
@@ -84,7 +88,7 @@ A day's budget is derived according to three distinct tiers:
      625:   continue;
      626: }
      ```
-   - In `checkAndRollover()` for historical days with existing record having `budget === 0`: If `isAutoRenew && dailyBudgetAmount > 0`, retroactively assigns `budget = dailyBudgetAmount`; otherwise, locks `status = 'unknown'`, `budget = 0`, `saved = 0`.
+   - A saved budget of 0 stays 0 (never rebuilt). In `checkAndRollover()` for historical days with existing record having `budget === 0`: If `isAutoRenew && dailyBudgetAmount > 0`, retroactively assigns `budget = dailyBudgetAmount`; otherwise, locks `status = 'unknown'`, `budget = 0`, `saved = 0`.
 
 ### 2.2 How "Spent" is Computed and Excluded Transactions
 
@@ -212,7 +216,7 @@ const gullakDrawn = gullakDrawnOverride !== undefined
   ? Math.max(0, gullakDrawnOverride)
   : pastOverspent + todayGullakDeduction;
 
-// 4. Manual Gullak deposits added; net savings floored at 0 and capped at totalAccountRemaining
+// 4. Gullak itself is NOT computed here: it is waterfall.gullakBalance (never rebuilt, never capped)
 let netSavings = Math.max(0, round2(totalSaved - gullakDrawn + manualDeposits));
 if (totalAccountRemaining !== undefined) {
   netSavings = Math.min(netSavings, Math.max(0, round2(totalAccountRemaining)));
@@ -232,7 +236,9 @@ if (totalAccountRemaining !== undefined) {
 - `dailyCarryRemaining(changes, getBudgetForDate, targetDailyBudget, dateStr)`: Pure daily allocation carry remaining after dateStr.
 - `periodCarryForPeriod(changes, periodStart)`: CAR-001 Mode B recursive multi-period drawdown for weekly and monthly plans. Returns `{ funded, toAdd, remainingAfter, base }` or `null`.
 - `periodCarryRemaining(changes, dateStr)`: CAR-001 Mode B allocation carry remaining at end of dateStr across future periods.
-- `carryForPeriod(plan, periodStart)`: Additive carry mode helper (adds once to the first period only).
+- `carryForPeriod(plan, periodStart)`: reads the retired "add on top" value of old plans.
+- `settleCarryAmounts(changes, today, leftAt)`: sets each new carry to the real leftover at its midnight.
+- `droppedCarries(changes, recordBudgetFor, today)`: unused carry that ended without being carried on; it goes to Gullak.
 - `getCarryableAmount()` (`src/store/dailyBudget/metrics.ts`): Evaluates real unspent money that can be carried into a new plan, including `poolLeft + periodCarryRemaining(plans, todayStr)`.
 - `computeAllTimeBudget()` (`src/store/dailyBudget/metrics.ts`): Incorporates `dailyCarryRemaining` and `periodCarryRemaining` into the all-time budget pool, so carried money is not new money: the account total stays flat across a daily, weekly or monthly allocation switch.
 - `calculatePeriodSummary()` (`src/lib/homeCalculations.ts`): Under `activeFilter === 'All'`, the carry-funded part of a budget period adds 0 to the All pill budget pool (`carryCover = pc.funded`: only the carry-funded part is left out; the gap part counts like any budget), guaranteeing zero double counting until real new money (gap or income) is deposited.
@@ -322,9 +328,9 @@ graph TD
    - Status badge styling, daily evaluation records, and timeline day badges.
 5. **`src/screens/InsightsScreen.tsx`**:
    - Consumes period budget targets, cadence limits, and multi-period savings metrics.
-   - Budget money in the Weekly / Monthly pool and the Yearly inflow is priced day by day from `planChanges` + `dailyRecords` (`allowanceFromHistory`, `src/money/budgetAllowance.ts`, `INS-004` / `INS-006`): Pure Mode and paused days are worth ₹0. Paused days come from the record (budget 0) or the saved pause history `allowancePauses` (recorded by a `subscribe` in `dailyBudgetStore.ts` on every auto-save on / off, synced by `allowancePauseSync.ts` to `profiles.allowance_pauses`).
+   - Budget money in the Weekly / Monthly pool and the Yearly inflow is priced day by day from `planChanges` + `dailyRecords` (`allowanceFromHistory`, `src/money/budgetAllowance.ts`, `INS-004` / `INS-006`): Pure Mode and paused days are worth ₹0. Days with no budget come from the record (budget 0) or the saved list `allowancePauses` (old pauses and stretches skipped under `ROL-004`, synced by `allowancePauseSync.ts` to `profiles.allowance_pauses`).
 6. **`src/screens/ProfileScreen.tsx`**:
-   - Budget Mode toggle (`isBudgetModeEnabled`), cadence switching (`budgetCadence`), and allowance pausing (`PauseBudgetModal`).
+   - Budget Mode toggle (`isBudgetModeEnabled`), cadence switching (`budgetCadence`), and the Pure Mode switch popup (`PauseBudgetModal`).
 7. **`src/screens/NotificationsScreen.tsx`**:
    - Budget threshold alert preferences, evening rollover nudges, and notification status sync.
    - Inbox is shown in date sections (TODAY / YESTERDAY / THIS WEEK / THIS MONTH / month names), one card each (`src/lib/notificationGroups.ts`).
@@ -367,7 +373,7 @@ With the introduction of Budget Modes, the store orchestrates two high-level tra
   - Suppresses all budget warning, limit exceeded, and rollover notifications.
   - Preserves past active budget allowances in all-time, monthly, and weekly Inflow metrics (Real-Money Invariant).
   - Spending is never blocked: user may spend into negative without `VaultSpendingGuardModal` or AutoLog liquidity blockers (`SEC-001` amend).
-  - Unspent budget from pools that ended in Pure Mode is retained as `pureLeftover` without inflating income or sending notifications (`PUR-002`). Pure spending draws from `pureLeftover` first.
+  - A pool left at a switch to Pure Mode moves its leftover to Gullak; a same-period return takes it back minus Pure Gullak draws (`PUR-002`).
   - Switching to Budget Mode with negative remaining ($R < 0$) automatically creates one real income transaction for deficit $D = \text{round2}(-R)$ with note `Auto-balance (Pure Mode deficit)`, backdated to the earliest expense causing Gullak draw $\ge D$ (`PUR-001`), and posts a `pure_deficit_balanced` notification.
   - Hero Card tap is disabled in Pure Mode (`onOpenDetails` and the title chevron guarded), preventing opening the multi-cadence period breakdown sheet.
 - **Budget Mode (`isBudgetModeEnabled: true`)**:

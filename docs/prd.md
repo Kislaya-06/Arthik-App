@@ -1,5 +1,8 @@
 # Arthik — Product Requirements Document (PRD)
 
+> [!IMPORTANT]
+> **Money rules changed on 2026-11-28** ([spec](specs/2026-11-28-simple-money-rules.md), [ADR 0025](adr/0025-gullak-is-one-running-balance.md)): Gullak is one running balance from the waterfall (no cap, no Pure leftover), there is no paused allowance, an ended budget's leftover goes to Gullak unless "Carry forward", and absent days follow `ROL-004`. Where any older text here differs, the spec and the canonical rules win.
+
 > **Version:** v2.1.0
 > **Platform:** Android (primary). iOS config exists but is untested and unsupported.
 > **Status:** Living document — updated atomically with every feature and architecture addition.
@@ -58,13 +61,13 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 
 | Feature | Detail |
 |---|---|
-| Pure Mode vs Budget Mode | Pure Mode provides unconstrained expense tracking without spending blocks; Budget Mode activates multi-cadence spending limits, solvency guard, Gullak savings rollovers, and a 5th navigation tab (`Savings`). Mode switching schedules for tomorrow at midnight with same-day reversal protection (`PUR-003`); switching from Pure to Budget Mode with negative balance automatically balances the deficit into Total Income (`PUR-001`); pools ending in Pure retain unspent funds as `pureLeftover` without converting to income (`PUR-002`). |
+| Pure Mode vs Budget Mode | Only these two states. Pure Mode never blocks spending and its Day / Week / Month cards show only that period's income and spending; Budget Mode adds multi-cadence budgets, the spending guard, Gullak and the `Savings` tab. Switching starts tomorrow, with same-day reversal (`PUR-003`). A running weekly / monthly leftover moves to Gullak at a switch to Pure Mode and comes back on a same-period return, minus what Pure Mode took from Gullak (`PUR-002`). Returning below zero adds a balancing income; the user is told first (`PUR-001`). |
 | Multi-Cadence Budgets | User can configure spending allowances across three native cadences: **Daily**, **Weekly** (Mon–Sun), or **Monthly** (1st to month-end). |
 | Zero-Proration Policy | Budgets configured mid-period are 100% active immediately without fractional day slicing (`isProrated: false`). |
 | Dynamic Pace Guidance | Non-binding guidance: suggested daily pace (`remaining / remainingDays`), suggested weekly pace, and projected monthly spend based on actual 28, 29, 30, or 31 month days. |
 | Next-Day Cadence Switch | Cadence switches schedule for tomorrow at 12:00 AM (00:00:00) so today's budget concludes cleanly under the active plan. |
-| Carry-Forward Engine | Unspent funds carry forward on mid-cycle switch via **Additive** (added to first period's target budget) or **Allocation** (multi-period drawdown across Daily, Weekly, and Monthly targets: $\text{funded}_k = \min(B, \text{remaining}_{k-1})$, user adds only the gap, zero double counting in All-pill, and crisp lifecycle notifications). |
-| Gullak Rollover Protection | Unspent allowance rolls into Gullak **strictly upon natural cycle completion** (Daily at 23:59:59, Weekly on Sunday at 23:59:59, Monthly at month-end). Mid-cycle switches carry forward with zero Gullak dumps. |
+| Cadence Switch Choice | **Save to Gullak** (default) or **Carry forward**: the leftover pays the new budget first and the user adds only the rest. The final amount is the real leftover at the switch midnight. Unused carry that ends goes to Gullak (`CAR-001`). |
+| Gullak Rollover Protection | Unspent budget rolls into Gullak whenever a budget ends (also at a switch, unless carried forward); normally **strictly upon natural cycle completion** (Daily at 23:59:59, Weekly on Sunday at 23:59:59, Monthly at month-end). Mid-cycle switches carry forward with zero Gullak dumps. |
 | Deficit Isolation | Overspending is settled from available income/Gullak reserves; carried forward deficit is clamped to 0 so new cadences start clean. |
 | Digital Vault Spending Guard | Expense creation blocked in Budget Mode if total available liquidity (allowance + income + reserves) equals zero (`SEC-001`). Pure Mode allows spending into negative balance without blocking. |
 | Gullak (accumulated savings) | Lifetime sum of all natural cycle savings + manual deposits − uncovered overspending. |
@@ -87,7 +90,7 @@ Every rupee you don't spend today becomes a rupee in your Gullak tonight. No man
 | Feature | Detail |
 |---|---|
 | Gullak balance | Total accumulated savings headline with PiggyBank badge. |
-| Dynamic Allowance Card | Displays active cadence bounds (e.g. *"29 Sep – 5 Oct"*), unspent balance, paused auto-renew hints, and luminous warm coral over-budget alerts. |
+| Dynamic Allowance Card | Displays active cadence bounds (e.g. *"29 Sep – 5 Oct"*), unspent balance, and luminous warm coral over-budget alerts. |
 | Scheduled Switch Banner | Unboxed, luminous banner displaying countdown to 12:00 AM, target amount, and 1-tap cancel. |
 | Savings timeline | Past saved days, weekly / monthly periods and manual deposits, grouped by week (daily budget) or month (weekly / monthly) with each group's total. |
 | Filter | All / This Week / This Month / Deposits. |

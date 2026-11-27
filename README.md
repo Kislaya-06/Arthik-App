@@ -62,7 +62,6 @@ Log expenses and income without typing them.
 - **Bank emails too (v2.1, optional).** For banks and cards that email instead of sending an SMS: alert emails from Gmail, Outlook and other email apps are read from their notifications, on your phone. The SMS and the email for the same payment become **one** transaction — even when the email arrives hours later. Unclear matches wait in review.
 - **Review management.** Swipe to delete a pending review, or Clear All (with confirmation).
 - **Reset learned rules.** Clears learned merchant categories and ignore rules; tracked accounts and past transactions stay.
-- **Welcome back.** After signing out or pausing, choose to *recover* the missed period or only *learn* from it.
 
 > Beta is rolling out gradually, starting with people who used Arthik before v2.0. It is controlled server-side (no app update needed to widen it).
 
@@ -70,9 +69,9 @@ Log expenses and income without typing them.
 - 🧾 **Expense & income tracking** — custom spring keypad (with calculator), Cash / UPI / Card, categories, notes with suggestions.
 - 🎯 **Budget Modes: Daily, Weekly, Monthly** — or **Pure Mode** with no limits. Mode switches take effect at midnight (`PUR-003`); budget changes apply today when nothing is spent yet (`BPR-002`).
 - 🤝 **Split Expenses & Money Back** — split expenses with one or more friends (`SPL-001`), see live breakdown, track who owes what on the Ledger screen (`SPL-002`), and record money back or refunds without inflating income (`SPL-003..SPL-006`).
-- 🐷 **Gullak** — unspent budget rolls into your savings jar at the end of every period; smart zero-spend gap filler recovers inactive days' unspent budget (`ROL-004`); add manual deposits too.
+- 🐷 **Gullak** — unspent budget goes into your savings jar whenever a budget ends; away 7+ days with nothing logged, you choose whether those days count; add manual deposits too.
 - 🔥 **Streaks & calendar** — scaled to your cadence; paused periods never break a streak.
-- 🔄 **Next-day cadence switching** with carry-forward (Additive / Allocation) and capacity warnings.
+- 🔄 **Next-day cadence switching** — save the leftover to Gullak or carry it forward into the new budget.
 - 🛡️ **Vault Spending Guard** — real-money discipline: overspending past allowances draws from unspent Income and Gullak; when account liquidity is depleted (`accountRemaining <= 0`), in-sheet Add Money & Save allows adding funds without losing typed expense data (`SEC-001`). Pure Mode spending is never blocked.
 - 📈 **Insights** — weekly, monthly and yearly breakdowns, cash-flow and savings charts.
 - 📶 **Offline-first** — everything works offline; changes sync automatically with retries and a failed-sync recovery list.

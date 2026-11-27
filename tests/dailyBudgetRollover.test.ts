@@ -517,7 +517,7 @@ describe('dailyBudgetStore — checkAndRollover Characterization & Safety Net', 
     useDailyBudgetStore.getState().checkAndRollover(expenses, true);
 
     const state = useDailyBudgetStore.getState();
-    expect(state.totalAccumulatedSavings).toBe(400); // 400 from Mar 12 + 0 from Mar 13 + 0 from Mar 14
+    expect(state.totalAccumulatedSavings).toBe(300); // 400 saved on Mar 12, 100 drawn on Mar 13 (rule 3)
 
     // Inline snapshot of finalized dailyRecords
     expect({

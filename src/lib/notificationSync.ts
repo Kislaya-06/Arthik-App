@@ -22,6 +22,7 @@ import {
   resolvePlanForDate,
   getCurrentPeriodSummary,
 } from './budgetPeriods';
+import { runWaterfall } from '../store/dailyBudget/metrics';
 import {
   CadencePeriod,
   PeriodStats,
@@ -227,7 +228,7 @@ export function buildPlanContext(now: Date): PlanContext {
 
   let period: CadencePeriod | null = null;
   if (isGullak && cadence !== 'daily') {
-    const s = getCurrentPeriodSummary(budget.planChanges, spentByDate, todayStr);
+    const s = getCurrentPeriodSummary(budget.planChanges, spentByDate, todayStr, undefined, runWaterfall().pools);
     if (s && s.budget > 0) {
       period = { cadence: s.cadence, budget: s.budget, spent: s.spent, remaining: s.remaining, isOver: s.isOver, overBy: s.overBy };
     }

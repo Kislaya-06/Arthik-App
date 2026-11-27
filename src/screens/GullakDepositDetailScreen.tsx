@@ -22,7 +22,7 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { AppButton } from '../components/ui/AppButton';
 import { alertButtonPalette } from '../lib/alertButtonPalette';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatCurrency } from '../lib/formatters';
+import { checkDepositRemoval, depositRemovalMessage } from '../lib/removalCheck';
 import { Spacing, BorderRadius, FontSize, FontFamily, ControlHeight } from '../config/theme';
 import { PressableOpacity } from '../components/ui/PressableOpacity';
 import { PRESS_DIM_OPACITY } from '../lib/pressFeedback';
@@ -57,21 +57,22 @@ export const GullakDepositDetailScreen: React.FC<Props> = ({ route, navigation }
   }
 
   const handleDelete = () => {
-    Alert.alert(
-      'Withdraw from Gullak?',
-      `Return ${formatCurrency(deposit.amount)} to your spending balance?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Withdraw',
-          style: 'destructive',
-          onPress: () => {
-            removeGullakDeposit(deposit.id);
-            if (navigation.canGoBack()) navigation.goBack();
-          },
+    const money = checkDepositRemoval(deposit.id);
+    if (money.blocked) {
+      Alert.alert('Add Income First', money.blocked);
+      return;
+    }
+    Alert.alert('Remove Deposit', depositRemovalMessage(deposit), [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          removeGullakDeposit(deposit.id);
+          if (navigation.canGoBack()) navigation.goBack();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   let formattedDate = deposit.date;

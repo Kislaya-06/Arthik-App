@@ -38,7 +38,7 @@ export interface CadenceSwitchModalProps {
   onConfirmSwitch: (params: {
     targetCadence: BudgetCadence;
     amount: number;
-    carryMode: CadenceCarryMode;
+    carryMode?: CadenceCarryMode;
     carriedOverAmount: number;
   }) => void;
   onClose: () => void;
@@ -61,13 +61,13 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
   const activeAccent = isDark ? colors.mintGreen : colors.forestGreen;
   const activeBg = isDark ? 'rgba(184, 224, 200, 0.12)' : 'rgba(27, 77, 62, 0.07)';
 
-  const [carryMode, setCarryMode] = useState<CadenceCarryMode>('allocation');
+  const [carryForward, setCarryForward] = useState(false);
   const [targetAmount, setTargetAmount] = useState<number>(initialTargetAmount);
 
   useEffect(() => {
     if (visible) {
       setTargetAmount(initialTargetAmount);
-      setCarryMode('allocation');
+      setCarryForward(false);
     }
   }, [visible, initialTargetAmount]);
 
@@ -136,10 +136,10 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
       currentBudget,
       currentSpent,
       targetAmount,
-      carryMode,
+      carryMode: 'allocation',
       todayStr,
     });
-  }, [currentCadence, targetCadence, currentBudget, currentSpent, targetAmount, carryMode, todayStr]);
+  }, [currentCadence, targetCadence, currentBudget, currentSpent, targetAmount, todayStr]);
 
   const isToDaily = targetCadence === 'daily';
   const isFromDaily = currentCadence === 'daily';
@@ -154,10 +154,11 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
     onConfirmSwitch({
       targetCadence,
       amount: targetAmount,
-      carryMode,
-      carriedOverAmount: plan.carriedAmount,
+      // The amount here is today's figure; the store settles the real leftover at midnight (rule 22).
+      carryMode: carryForward ? 'allocation' : undefined,
+      carriedOverAmount: carryForward ? plan.carriedAmount : 0,
     });
-  }, [onConfirmSwitch, targetCadence, targetAmount, carryMode, plan.carriedAmount]);
+  }, [onConfirmSwitch, targetCadence, targetAmount, carryForward, plan.carriedAmount]);
 
   if (!isMounted) return null;
 
@@ -255,7 +256,11 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                 <Text style={[styles.gullakTitle, { color: colors.textPrimary }]}>Gullak</Text>
               </View>
               <Text style={[styles.gullakRowText, { color: colors.textPrimary }]}>
-                ₹0 added on this switch
+                {isFromDaily
+                  ? "Today's unspent money is saved at midnight"
+                  : carryForward || !(plan.unspentAmount > 0)
+                  ? '₹0 added on this switch'
+                  : `${formatCurrency(plan.unspentAmount)} will be saved at midnight`}
               </Text>
               <Text style={[styles.gullakRowSubtext, { color: colors.textSecondary }]}>
                 Next deposit: at the end of the {targetLabel} cycle ({targetPeriodInfo.endDateFormatted})
@@ -333,20 +338,15 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                   </View>
                 </View>
 
-                {/* Option 1: Add to Target Budget */}
                 <PressableOpacity
                   style={[
                     styles.modeOptionCard,
-                    carryMode === 'additive' && styles.modeOptionCardActive,
+                    carryForward === false && styles.modeOptionCardActive,
                     {
                       backgroundColor:
-                        carryMode === 'additive'
-                          ? activeBg
-                          : isDark
-                          ? 'rgba(255, 255, 255, 0.03)'
-                          : '#FAFAFA',
+                        carryForward === false ? activeBg : isDark ? 'rgba(255, 255, 255, 0.03)' : '#FAFAFA',
                       borderColor:
-                        carryMode === 'additive'
+                        carryForward === false
                           ? activeAccent
                           : isDark
                           ? 'rgba(255, 255, 255, 0.08)'
@@ -354,54 +354,45 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     },
                   ]}
                   activeOpacity={0.8}
-                  onPress={() => setCarryMode('additive')}
+                  onPress={() => setCarryForward(false)}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: carryMode === 'additive' }}
+                  accessibilityState={{ checked: carryForward === false }}
                 >
                   <View style={styles.modeCardHeader}>
                     <Text
                       style={[
                         styles.modeCardTitle,
-                        { color: carryMode === 'additive' ? colors.textPrimary : colors.textSecondary },
+                        { color: carryForward === false ? colors.textPrimary : colors.textSecondary },
                       ]}
                     >
-                      {isToDaily ? "Add to tomorrow's budget" : `Add to ${targetLabel} budget`}
+                      Save to Gullak
                     </Text>
                     <View
                       style={[
                         styles.radioCircle,
-                        carryMode === 'additive' && styles.radioCircleActive,
-                        { borderColor: carryMode === 'additive' ? activeAccent : colors.textSecondary },
+                        carryForward === false && styles.radioCircleActive,
+                        { borderColor: carryForward === false ? activeAccent : colors.textSecondary },
                       ]}
                     >
-                      {carryMode === 'additive' && (
+                      {carryForward === false && (
                         <View style={[styles.radioInner, { backgroundColor: activeAccent }]} />
                       )}
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    {isToDaily ? "Tomorrow's budget" : `${targetLabel} budget`} →{' '}
-                    <Text style={{ fontFamily: FontFamily.bold, color: colors.textPrimary }}>
-                      {formatCurrency(plan.targetBudgetAmount + plan.unspentAmount)}
-                    </Text>
-                    {isToDaily ? '. Unused money goes to Gullak at night.' : ` (for ${targetPeriodInfo.remainingDays} days)`}
+                    This money moves to your Gullak at midnight. Your new budget starts fresh.
                   </Text>
                 </PressableOpacity>
 
-                {/* Option 2: Keep target budget */}
                 <PressableOpacity
                   style={[
                     styles.modeOptionCard,
-                    carryMode === 'allocation' && styles.modeOptionCardActive,
+                    carryForward === true && styles.modeOptionCardActive,
                     {
                       backgroundColor:
-                        carryMode === 'allocation'
-                          ? activeBg
-                          : isDark
-                          ? 'rgba(255, 255, 255, 0.03)'
-                          : '#FAFAFA',
+                        carryForward === true ? activeBg : isDark ? 'rgba(255, 255, 255, 0.03)' : '#FAFAFA',
                       borderColor:
-                        carryMode === 'allocation'
+                        carryForward === true
                           ? activeAccent
                           : isDark
                           ? 'rgba(255, 255, 255, 0.08)'
@@ -409,41 +400,33 @@ export const CadenceSwitchModal: React.FC<CadenceSwitchModalProps> = ({
                     },
                   ]}
                   activeOpacity={0.8}
-                  onPress={() => setCarryMode('allocation')}
+                  onPress={() => setCarryForward(true)}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: carryMode === 'allocation' }}
+                  accessibilityState={{ checked: carryForward === true }}
                 >
                   <View style={styles.modeCardHeader}>
                     <Text
                       style={[
                         styles.modeCardTitle,
-                        { color: carryMode === 'allocation' ? colors.textPrimary : colors.textSecondary },
+                        { color: carryForward === true ? colors.textPrimary : colors.textSecondary },
                       ]}
                     >
-                      {isToDaily ? 'Pay my daily budget from it' : `Pay my ${targetCadence} budget from it`}
+                      Carry forward
                     </Text>
                     <View
                       style={[
                         styles.radioCircle,
-                        carryMode === 'allocation' && styles.radioCircleActive,
-                        { borderColor: carryMode === 'allocation' ? activeAccent : colors.textSecondary },
+                        carryForward === true && styles.radioCircleActive,
+                        { borderColor: carryForward === true ? activeAccent : colors.textSecondary },
                       ]}
                     >
-                      {carryMode === 'allocation' && (
+                      {carryForward === true && (
                         <View style={[styles.radioInner, { backgroundColor: activeAccent }]} />
                       )}
                     </View>
                   </View>
                   <Text style={[styles.modeCardDesc, { color: colors.textSecondary }]}>
-                    {isToDaily ? (
-                      <>
-                        Your daily {formatCurrency(plan.targetBudgetAmount)} is paid from it for {coverText}. We will tell you each morning how much to add.
-                      </>
-                    ) : (
-                      <>
-                        Your {targetCadence} {formatCurrency(plan.targetBudgetAmount)} is paid from it for {coverText}. We will tell you at the start of each period how much to add.
-                      </>
-                    )}
+                    Your new {formatCurrency(plan.targetBudgetAmount)} budget is paid from it for {coverText}. You add only the rest. Final amount is set at midnight.
                   </Text>
                 </PressableOpacity>
               </View>

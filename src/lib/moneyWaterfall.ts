@@ -16,21 +16,28 @@
  * overspend that happened BEFORE it arrived. Home chips, the Gullak total and the
  * expense-detail funding card all read from this one function, so they can never disagree.
  *
- * Order inside one day: income and deposits are applied first, then expenses
- * (sorted by created_at, then id).
+ * Order inside one day: budget endings / returns of that midnight, then income, then deposits, then expenses
+ * (sorted by created_at, then id), then that day's unspent daily budget goes to Gullak.
+ *
+ * With `budgetPeriods` passed, Gullak is ONE running balance, built here and nowhere else: it never goes below
+ * zero, and what nothing can cover is a `deficit` that only later INCOME pays (spec 2026-11-28 rules 3-6).
  */
 
-import { todayDateKey } from '../money/dateKeys';
+import { todayDateKey, addDaysToDateKey } from '../money/dateKeys';
 import { round2 } from './formatters';
+import type { AllowancePause } from './allowancePauses';
 import {
   resolvePlanForDate,
   buildBudgetPools,
   poolForDate,
+  isPoolClosedOn,
+  getDateOwner,
+  droppedCarries,
   BudgetPool,
   BUDGET_RULES_V2_FROM,
 } from './budgetPeriods';
 import { isCountedExpense, isCountedIncome } from './transactionUtils';
-import type { BudgetPlanChange } from '../types';
+import type { BudgetPeriodRecord, BudgetPlanChange } from '../types';
 
 export type WaterfallKind = 'expense' | 'income';
 
@@ -47,8 +54,8 @@ export interface WaterfallPool {
   /** Same key = same budget pool (a day, a week or a month). */
   key: string;
   budget: number;
-  /** The pool was handed over to another cadence on this date: nothing is left in it from then on. */
-  closedOn?: string | null;
+  /** The pool is not the running budget on the asked date: nothing is left in it. */
+  closed?: boolean;
   /**
    * Pure Mode day with no budget left to use: the whole expense is an overspend (income first, then Gullak),
    * exactly as in Budget Mode. Pure Mode only changes the screen, never the money.
@@ -67,10 +74,11 @@ export interface IncomeDepositLike {
 
 export interface ExpenseFundingSplit {
   fromBudget: number;
-  fromLeftover: number;
   fromIncome: number;
   fromGullak: number;
-  /** Amount beyond the budget pool (fromIncome + fromGullak). */
+  /** What nothing could cover (added to the deficit). */
+  short: number;
+  /** Amount beyond the budget pool (fromIncome + fromGullak + short). */
   overspend: number;
   /** False when no budget governed that date (Pure Mode / paused). Nothing is drawn then. */
   governed: boolean;
@@ -82,8 +90,6 @@ export interface DayFunding {
   overspend: number;
   incomeUsed: number;
   gullakDrawn: number;
-  /** Income handed to the income pool because a budget pool ended while in Pure Mode (ADR 0012). */
-  incomeRestored: number;
 }
 
 export interface WaterfallResult {
@@ -94,9 +100,14 @@ export interface WaterfallResult {
   incomeRemaining: number;
   incomeUsed: number;
   gullakDrawn: number;
-  pureLeftoverAdded: number;
-  pureLeftoverUsed: number;
-  pureLeftoverRemaining: number;
+  /** Money in Gullak right now. Only meaningful when savings are tracked. */
+  gullakBalance: number;
+  /** Spending nothing could cover yet. The next income pays it. */
+  deficit: number;
+  /** Weekly / monthly pools: effective budget (after any return from Pure Mode), spent so far, closed or not. */
+  pools: Record<string, { budget: number; spent: number; closed: boolean }>;
+  /** What each pool put into Gullak. `date` is the last day of the stretch that ended. */
+  poolSavings: Array<{ key: string; date: string; amount: number }>;
 }
 
 const emptyDay = (): DayFunding => ({
@@ -105,7 +116,6 @@ const emptyDay = (): DayFunding => ({
   overspend: 0,
   incomeUsed: 0,
   gullakDrawn: 0,
-  incomeRestored: 0,
 });
 
 export interface ComputeWaterfallParams {
@@ -122,16 +132,37 @@ export interface ComputeWaterfallParams {
    */
   ungovernedAsOverspend?: boolean;
   /**
-   * Pools that ended while the user was in Pure Mode: what is left in them becomes income (Pure Mode has no
-   * Gullak, and the money must not disappear).
+   * Track Gullak as a running balance: unspent daily budgets (`credits`, added at the end of their date) and the
+   * weekly / monthly `pools`. Omitted = draws are not limited (unit use of the replay only).
    */
-  pureEndPools?: BudgetPool[];
+  savings?: { credits: Array<{ date: string; amount: number }>; pools: BudgetPool[] };
   /** "Today": pools that ended before this date are settled. */
   asOf?: string;
 }
 
+type PoolEvent = { date: string; pool: BudgetPool; type: 'end' | 'return'; lastDate: string };
+
+/** The midnights on which pools give money to Gullak ('end') or take it back ('return'), oldest first. */
+function poolEvents(pools: BudgetPool[], asOf?: string): PoolEvent[] {
+  const out: PoolEvent[] = [];
+  const reached = (date: string) => !asOf || date <= asOf;
+  for (const pool of pools) {
+    for (const c of pool.closures) {
+      if (c.reason !== 'carry' && reached(c.from)) {
+        out.push({ date: c.from, pool, type: 'end', lastDate: addDaysToDateKey(c.from, -1) });
+      }
+      if (c.reason === 'pure' && c.to && reached(c.to)) out.push({ date: c.to, pool, type: 'return', lastDate: c.to });
+    }
+    const after = addDaysToDateKey(pool.periodEnd, 1);
+    if (!pool.closures.some((c) => c.to === null) && reached(after)) {
+      out.push({ date: after, pool, type: 'end', lastDate: pool.periodEnd });
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export function computeMoneyWaterfall(params: ComputeWaterfallParams): WaterfallResult {
-  const { txs, deposits = [], resolvePool, excludeExpensesFrom, ungovernedAsOverspend = false, pureEndPools = [], asOf } = params;
+  const { txs, deposits = [], resolvePool, excludeExpensesFrom, ungovernedAsOverspend = false, savings, asOf } = params;
 
   const byDateTx = new Map<string, WaterfallTx[]>();
   for (const tx of txs) {
@@ -141,58 +172,81 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
     if (list) list.push(tx);
     else byDateTx.set(tx.date, [tx]);
   }
-  const depositsByDate = new Map<string, number>();
+  const incomeDeposits = new Map<string, number>();
+  const newMoney = new Map<string, number>();
   for (const d of deposits) {
-    if (d.source !== 'income') continue;
     const amt = Number(d.amount) || 0;
     if (amt <= 0) continue;
-    const dKey = d.date || '9999-12-31';
-    depositsByDate.set(dKey, round2((depositsByDate.get(dKey) || 0) + amt));
+    const key = d.date?.split('T')[0] || '9999-12-31';
+    const map = d.source === 'income' ? incomeDeposits : newMoney;
+    map.set(key, round2((map.get(key) || 0) + amt));
   }
+  const credits = new Map<string, number>();
+  for (const c of savings?.credits ?? []) {
+    if (c.amount > 0) credits.set(c.date, round2((credits.get(c.date) || 0) + c.amount));
+  }
+  const events = savings ? poolEvents(savings.pools, asOf) : [];
 
-  const dates = Array.from(new Set([...byDateTx.keys(), ...depositsByDate.keys()])).sort();
+  const dates = Array.from(
+    new Set([...byDateTx.keys(), ...incomeDeposits.keys(), ...newMoney.keys(), ...credits.keys(), ...events.map((e) => e.date)])
+  ).sort();
 
   const byExpense: Record<string, ExpenseFundingSplit> = {};
   const byDate: Record<string, DayFunding> = {};
   const poolSpent: Record<string, number> = {};
+  const poolBudgets: Record<string, number> = {};
+  for (const p of savings?.pools ?? []) poolBudgets[p.key] = round2(p.budget);
+  /** Pool money moved to Gullak by an ending, and the Gullak draws counted up to that moment. */
+  const moved: Record<string, { amount: number; drawnBefore: number }> = {};
+  const poolSavings: WaterfallResult['poolSavings'] = [];
 
   let incomeAvail = 0;
   let incomeReceived = 0;
   let incomeUsed = 0;
   let gullakDrawn = 0;
-  let leftoverAvail = 0;
-  let pureLeftoverAdded = 0;
-  let pureLeftoverUsed = 0;
+  let gullak = 0;
+  let deficit = 0;
 
-  const flushed = new Set<string>();
-  const flushPureEnded = (before: string) => {
-    for (const pool of pureEndPools) {
-      if (flushed.has(pool.key) || pool.periodEnd >= before) continue;
-      flushed.add(pool.key);
-      const left = Math.max(0, round2(pool.budget - (poolSpent[pool.key] || 0)));
-      if (left <= 0) continue;
-      leftoverAvail = round2(leftoverAvail + left);
-      pureLeftoverAdded = round2(pureLeftoverAdded + left);
+  const applyPoolEvent = ({ pool, type, lastDate }: PoolEvent) => {
+    const spent = poolSpent[pool.key] || 0;
+    if (type === 'end') {
+      const left = Math.max(0, round2(poolBudgets[pool.key] - spent));
+      gullak = round2(gullak + left);
+      moved[pool.key] = { amount: left, drawnBefore: gullakDrawn };
+      poolSavings.push({ key: pool.key, date: lastDate, amount: left });
+      return;
     }
+    // Rule 19: what was moved comes back, minus what Gullak had to pay in between.
+    const m = moved[pool.key] || { amount: 0, drawnBefore: gullakDrawn };
+    const back = Math.min(gullak, Math.max(0, round2(m.amount - (gullakDrawn - m.drawnBefore))));
+    gullak = round2(gullak - back);
+    poolBudgets[pool.key] = round2(spent + back);
   };
 
+  let nextEvent = 0;
   for (const date of dates) {
-    flushPureEnded(date);
+    // 0. Budgets that ended (or came back) at the midnight before this date.
+    while (nextEvent < events.length && events[nextEvent].date <= date) applyPoolEvent(events[nextEvent++]);
+
     const day = (byDate[date] = byDate[date] || emptyDay());
     const list = byDateTx.get(date) || [];
 
-    // 1. Income arrives first (WAT-002). Money back (friend / refund) is not income: it already reduced the original expense (SPL-003).
+    // 1. Income arrives first (WAT-002). It pays any deficit first. Money back is not income (SPL-003).
     for (const tx of list) {
-      if (tx.kind === 'income') {
-        incomeAvail = round2(incomeAvail + tx.amount);
-        incomeReceived = round2(incomeReceived + tx.amount);
-        day.incomeReceived = round2(day.incomeReceived + tx.amount);
-      }
+      if (tx.kind !== 'income') continue;
+      const repaid = round2(Math.min(deficit, tx.amount));
+      deficit = round2(deficit - repaid);
+      incomeAvail = round2(incomeAvail + tx.amount - repaid);
+      incomeUsed = round2(incomeUsed + repaid);
+      incomeReceived = round2(incomeReceived + tx.amount);
+      day.incomeReceived = round2(day.incomeReceived + tx.amount);
+      day.incomeUsed = round2(day.incomeUsed + repaid);
     }
 
-    // 2. Income moved into Gullak leaves the income pool
-    const dep = depositsByDate.get(date) || 0;
-    if (dep > 0) incomeAvail = round2(Math.max(0, incomeAvail - dep));
+    // 2. Manual deposits: "from income" moves only what exists; new money is added.
+    const fromIncomeDeposit = round2(Math.min(incomeDeposits.get(date) || 0, incomeAvail));
+    incomeAvail = round2(incomeAvail - fromIncomeDeposit);
+    gullak = round2(gullak + fromIncomeDeposit + (newMoney.get(date) || 0));
 
     // 3. Expenses in order
     const expenses = list
@@ -204,47 +258,51 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
       day.spent = round2(day.spent + tx.amount);
 
       if ((!pool || (!(pool.budget > 0) && !pool.pure)) && !ungovernedAsOverspend) {
-        byExpense[tx.id] = { fromBudget: tx.amount, fromLeftover: 0, fromIncome: 0, fromGullak: 0, overspend: 0, governed: false };
+        byExpense[tx.id] = { fromBudget: tx.amount, fromIncome: 0, fromGullak: 0, short: 0, overspend: 0, governed: false };
         continue;
       }
 
       const poolKey = pool && pool.budget > 0 ? pool.key : `none_${date}`;
-      const poolBudget = pool && pool.budget > 0 ? round2(pool.budget) : 0;
+      const budget = pool && pool.budget > 0 ? round2(poolBudgets[poolKey] ?? pool.budget) : 0;
       const already = poolSpent[poolKey] || 0;
-      const handedOver = !!pool && !!pool.closedOn && date >= pool.closedOn;
-      const budgetLeft = handedOver ? 0 : Math.max(0, round2(poolBudget - already));
+      const budgetLeft = pool?.closed ? 0 : Math.max(0, round2(budget - already));
       const fromBudget = round2(Math.min(tx.amount, budgetLeft));
       const overspend = round2(tx.amount - fromBudget);
 
-      // In the expense loop, if the day is Pure (pool null or pool.pure, same condition already used for ungoverned/pure spending)
-      // take fromLeftover = min(overspend, leftoverAvail) BEFORE income; reduce leftoverAvail; leftoverUsedInPure += fromLeftover
-      const isPureDay = !pool || !!pool.pure;
-      let fromLeftover = 0;
-      let remainderAfterLeftover = overspend;
-      if (isPureDay && leftoverAvail > 0 && overspend > 0) {
-        fromLeftover = round2(Math.min(overspend, leftoverAvail));
-        leftoverAvail = round2(leftoverAvail - fromLeftover);
-        pureLeftoverUsed = round2(pureLeftoverUsed + fromLeftover);
-        remainderAfterLeftover = round2(overspend - fromLeftover);
-      }
-
-      const fromIncome = round2(Math.min(remainderAfterLeftover, incomeAvail));
-      const fromGullak = round2(remainderAfterLeftover - fromIncome);
+      const fromIncome = round2(Math.min(overspend, incomeAvail));
+      const rest = round2(overspend - fromIncome);
+      const fromGullak = savings ? round2(Math.min(rest, gullak)) : rest;
+      const short = round2(rest - fromGullak);
 
       poolSpent[poolKey] = round2(already + tx.amount);
       incomeAvail = round2(incomeAvail - fromIncome);
       incomeUsed = round2(incomeUsed + fromIncome);
+      if (savings) gullak = round2(gullak - fromGullak);
       gullakDrawn = round2(gullakDrawn + fromGullak);
+      deficit = round2(deficit + short);
 
       day.overspend = round2(day.overspend + overspend);
       day.incomeUsed = round2(day.incomeUsed + fromIncome);
       day.gullakDrawn = round2(day.gullakDrawn + fromGullak);
 
-      byExpense[tx.id] = { fromBudget, fromLeftover, fromIncome, fromGullak, overspend, governed: true };
+      byExpense[tx.id] = { fromBudget, fromIncome, fromGullak, short, overspend, governed: true };
     }
+
+    // 4. The day's unspent daily budget reaches Gullak.
+    gullak = round2(gullak + (credits.get(date) || 0));
   }
 
-  if (asOf) flushPureEnded(asOf);
+  // Endings up to today that fall after the last row.
+  while (nextEvent < events.length) applyPoolEvent(events[nextEvent++]);
+
+  const poolsOut: WaterfallResult['pools'] = {};
+  for (const p of savings?.pools ?? []) {
+    poolsOut[p.key] = {
+      budget: poolBudgets[p.key],
+      spent: poolSpent[p.key] || 0,
+      closed: !!asOf && (isPoolClosedOn(p, asOf) || asOf > p.periodEnd),
+    };
+  }
 
   return {
     byExpense,
@@ -253,9 +311,10 @@ export function computeMoneyWaterfall(params: ComputeWaterfallParams): Waterfall
     incomeRemaining: round2(Math.max(0, incomeAvail)),
     incomeUsed,
     gullakDrawn,
-    pureLeftoverAdded: round2(pureLeftoverAdded),
-    pureLeftoverUsed: round2(pureLeftoverUsed),
-    pureLeftoverRemaining: round2(Math.max(0, pureLeftoverAdded - pureLeftoverUsed)),
+    gullakBalance: gullak,
+    deficit,
+    pools: poolsOut,
+    poolSavings,
   };
 }
 
@@ -272,25 +331,28 @@ export interface PoolResolverParams {
   dailyBudgetAmount: number;
   records?: Record<string, { budget: number; status?: string }>;
   planChanges?: BudgetPlanChange[];
+  /** Stretches the user chose not to count (away 7+ days). */
+  skipped?: AllowancePause[];
 }
 
 /**
  * Which budget pays for an expense on `date`? Decided by the PLAN HISTORY of that date (not by today's mode):
  *  - daily plan  -> that day's own budget
  *  - weekly / monthly plan -> the period's ONE pool (ADR 0012)
- *  - Pure Mode   -> the same period pool if it is still alive, otherwise nothing: the expense then comes from
- *                   income and then Gullak, exactly like an overspend in Budget Mode.
+ *  - Pure Mode, or a day with no budget -> nothing: the expense comes from income, then Gullak.
  * Old users with no plan history at all are old daily users (Budget Mode on) or Pure users (off).
  */
 export function buildPoolResolver(p: PoolResolverParams, poolsIn?: Record<string, BudgetPool>): PoolResolver {
   const records = p.records || {};
   const planChanges = p.planChanges || [];
   const hasPlans = planChanges.length > 0;
-  const pools = poolsIn ?? buildBudgetPools(planChanges, p.todayStr);
+  const pools = poolsIn ?? buildBudgetPools(planChanges, p.todayStr, p.skipped);
 
+  // A day with no budget is paid from income, then Gullak. With savings tracked this holds for ALL history (the
+  // money was really spent); without tracking, days before the rule date stay ungoverned.
+  const tracked = (p as { budgetPeriods?: unknown }).budgetPeriods !== undefined;
   const pureResult = (date: string): WaterfallPool | null =>
-    // Before the rule date Pure days were never part of the money logic: keep every old number as it was.
-    date >= BUDGET_RULES_V2_FROM ? { key: `pure_${date}`, budget: 0, pure: true } : null;
+    tracked || date >= BUDGET_RULES_V2_FROM ? { key: `pure_${date}`, budget: 0, pure: true } : null;
 
   return (date: string): WaterfallPool | null => {
     let mode: 'daily' | 'weekly' | 'monthly' | 'pure';
@@ -304,20 +366,24 @@ export function buildPoolResolver(p: PoolResolverParams, poolsIn?: Record<string
     if (mode === 'weekly' || mode === 'monthly') {
       const pool = poolForDate(pools, planChanges, date);
       if (!pool) return null;
-      return { key: pool.key, budget: pool.budget, closedOn: pool.closedOn };
+      return { key: pool.key, budget: pool.budget, closed: isPoolClosedOn(pool, date) };
     }
 
     if (mode === 'pure') {
-      if (hasPlans && plan && plan.cadence !== 'daily') {
-        const pool = poolForDate(pools, planChanges, date);
-        if (pool) return { key: pool.key, budget: pool.budget, closedOn: pool.closedOn };
+      // A day with a saved budget (its leftover goes to Gullak) is paid from that budget first, never twice.
+      const saved = records[date];
+      if (saved && saved.budget > 0 && saved.status !== 'unknown' && date < p.todayStr) {
+        return { key: `daily_${date}`, budget: round2(saved.budget) };
       }
-      return pureResult(date);
+      // Before the rules date, Pure days kept spending from the paused pool.
+      const old = hasPlans ? poolForDate(pools, planChanges, date) : null;
+      return old ? { key: old.key, budget: old.budget } : pureResult(date);
     }
 
     // daily
     const rec = records[date];
-    if (rec && rec.status === 'unknown' && (!plan || plan.cadence !== 'daily')) return null;
+    // A past day recorded with no budget stays without one (never rebuilt from the plan amount).
+    if (rec && rec.status === 'unknown' && date < p.todayStr) return pureResult(date);
     let budget: number;
     if (date === p.todayStr) {
       if (rec && rec.budget > 0) budget = rec.budget;
@@ -332,7 +398,7 @@ export function buildPoolResolver(p: PoolResolverParams, poolsIn?: Record<string
     } else {
       budget = (p.isAutoRenew || p.isBudgetModeEnabled) ? p.dailyBudgetAmount || 0 : 0;
     }
-    return budget > 0 ? { key: `daily_${date}`, budget: round2(budget) } : null;
+    return budget > 0 ? { key: `daily_${date}`, budget: round2(budget) } : pureResult(date);
   };
 }
 
@@ -378,6 +444,10 @@ export interface WaterfallFromStateParams extends PoolResolverParams {
   deposits?: IncomeDepositLike[];
   excludeExpensesFrom?: string;
   ungovernedAsOverspend?: boolean;
+  /** Pass it (even empty) to track the Gullak balance. Only old accounts without plan history read its rows. */
+  budgetPeriods?: Record<string, BudgetPeriodRecord>;
+  /** First day that can hold savings (sign-up day). */
+  savingsFrom?: string;
 }
 
 /**
@@ -419,13 +489,34 @@ export function computeWaterfallFromState(p: WaterfallFromStateParams): Waterfal
   return result;
 }
 
+/** Unspent budgets that reach Gullak, besides the pools: finished daily days, and period rows of old accounts. */
+function savingsCredits(p: WaterfallFromStateParams): Array<{ date: string; amount: number }> {
+  const out: Array<{ date: string; amount: number }> = [];
+  const changes = p.planChanges || [];
+  for (const [date, r] of Object.entries(p.records || {})) {
+    const rec = r as { saved?: number; isFinalized?: boolean; status?: string };
+    if (!rec.isFinalized || date >= p.todayStr || rec.status === 'unknown') continue;
+    if (p.savingsFrom && date < p.savingsFrom) continue;
+    const owner = changes.length > 0 ? getDateOwner(changes, date) : 'daily';
+    if (owner === 'weekly' || owner === 'monthly') continue;
+    out.push({ date, amount: Number(rec.saved) || 0 });
+  }
+  out.push(...droppedCarries(changes, (day) => p.records?.[day]?.budget, p.todayStr));
+  if (changes.length === 0) {
+    for (const period of Object.values(p.budgetPeriods || {})) {
+      out.push({ date: period.activeEnd, amount: Number(period.amountSaved) || 0 });
+    }
+  }
+  return out;
+}
+
 function computeWaterfallUncached(p: WaterfallFromStateParams): WaterfallResult {
-  const pools = buildBudgetPools(p.planChanges || [], p.todayStr);
+  const pools = buildBudgetPools(p.planChanges || [], p.todayStr, p.skipped);
   return computeMoneyWaterfall({
     txs: classifyForWaterfall(p.expenses),
     deposits: p.deposits,
     resolvePool: buildPoolResolver(p, pools),
-    pureEndPools: Object.values(pools).filter((x) => x.endsInPure),
+    savings: p.budgetPeriods ? { credits: savingsCredits(p), pools: Object.values(pools) } : undefined,
     asOf: p.todayStr,
     excludeExpensesFrom: p.excludeExpensesFrom,
     ungovernedAsOverspend: p.ungovernedAsOverspend,

@@ -15,13 +15,14 @@ export function useMoneySnapshot(): MoneySnapshot {
   const isBudgetModeEnabled = useDailyBudgetStore((s) => s.isBudgetModeEnabled);
   const budgetCadence = useDailyBudgetStore((s) => s.budgetCadence);
   const totalAccumulatedSavings = useDailyBudgetStore((s) => s.totalAccumulatedSavings);
+  const allowancePauses = useDailyBudgetStore((s) => s.allowancePauses);
 
   return useMemo(
     () => ({
       expenses, gullakDeposits, dailyRecords, planChanges, budgetPeriods,
-      dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, budgetCadence, totalAccumulatedSavings,
+      dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, budgetCadence, totalAccumulatedSavings, allowancePauses,
     }),
     [expenses, gullakDeposits, dailyRecords, planChanges, budgetPeriods,
-      dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, budgetCadence, totalAccumulatedSavings]
+      dailyBudgetAmount, isAutoRenew, isBudgetModeEnabled, budgetCadence, totalAccumulatedSavings, allowancePauses]
   );
 }
