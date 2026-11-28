@@ -18,7 +18,6 @@ import { parseISO } from 'date-fns/parseISO';
 import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { addDays } from 'date-fns/addDays';
 import { getDaysInMonth } from 'date-fns/getDaysInMonth';
-import { isCountedExpense } from './transactionUtils';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
@@ -423,27 +422,9 @@ export function computeMonthlyComparison(
     matchedPrevTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, matchedPrevEndStr);
     prevFullTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, prevEndStr);
   } else {
-    for (const exp of expenses) {
-      if (!exp.expense_date) continue;
-      const cleanDate = toDateStr(exp.expense_date);
-      if (!cleanDate) continue;
-
-      if (!isCountedExpense(exp)) continue;
-
-      if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
-        currTotal += exp.amount;
-      }
-      if (isDateInBounds(cleanDate, prevStartStr, matchedPrevEndStr)) {
-        matchedPrevTotal += exp.amount;
-      }
-      if (isDateInBounds(cleanDate, prevStartStr, prevEndStr)) {
-        prevFullTotal += exp.amount;
-      }
-    }
-
-    currTotal = round2(currTotal);
-    matchedPrevTotal = round2(matchedPrevTotal);
-    prevFullTotal = round2(prevFullTotal);
+    currTotal = sumSpendingBetweenDateKeys(expenses, currentStartStr, matchedCurrentEndStr);
+    matchedPrevTotal = sumSpendingBetweenDateKeys(expenses, prevStartStr, matchedPrevEndStr);
+    prevFullTotal = sumSpendingBetweenDateKeys(expenses, prevStartStr, prevEndStr);
   }
 
   if (currTotal === 0) {

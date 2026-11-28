@@ -172,18 +172,8 @@ export const computeMetrics = (
       ? deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0)
       : 0;
 
-  let incomeAvail = availableIncome;
-  if (incomeAvail === undefined) {
-    const totalIncome = getCurrentExpenses().reduce(
-      (sum, e) => sum + (isCountedIncome(e) ? Number(e.amount) || 0 : 0),
-      0
-    );
-    const incomeDeposits =
-      deposits && Array.isArray(deposits)
-        ? deposits.reduce((sum, d) => sum + (d.source === 'income' ? Number(d.amount) || 0 : 0), 0)
-        : 0;
-    incomeAvail = round2(Math.max(0, totalIncome - incomeDeposits));
-  }
+  const incomeAvail =
+    availableIncome ?? computeGrossIncomeBalance(Array.isArray(deposits) ? deposits : []);
 
   const waterfallResult = runWaterfall({ records, deposits, budgetPeriods, expenses });
   const dailyMetrics = calculateSavingsMetrics(

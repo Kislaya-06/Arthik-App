@@ -2,7 +2,9 @@ import { format } from 'date-fns/format';
 import { addDays } from 'date-fns/addDays';
 import { isAfter } from 'date-fns/isAfter';
 import { round2 } from '../formatters';
-import { isExcludedFromTotals, isCountedIncome } from '../transactionUtils';
+import { isExcludedFromTotals } from '../transactionUtils';
+import { buildLedgerEntries, sumKindBetweenDateKeys } from '../../money/ledger';
+import { externalDepositsBetween } from '../../money/inflow';
 import { budgetAllowedForActiveDays, allowanceForActiveDays, type AllowanceHistory } from '../../money/budgetAllowance';
 
 export interface MonthlyWeekSpending {
@@ -164,6 +166,7 @@ export function computeMonthlyCashFlowData(
 
   let totalIncome = 0;
   let totalSpent = 0;
+  const ledgerEntries = buildLedgerEntries(expenses);
 
   for (const range of weekRanges) {
     const rangeStart = addDays(monthStart, range.startDay - 1);
@@ -202,35 +205,11 @@ export function computeMonthlyCashFlowData(
       );
     }
 
-    // 2. Direct Income Transactions
-    for (const exp of expenses) {
-      const cleanDate = exp.expense_date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      if (cleanUserCreated && cleanDate < cleanUserCreated) continue;
-
-      if (cleanDate >= startStr && cleanDate <= endStr) {
-        if (isExcludedFromTotals(exp)) continue;
-        const isIncome = isCountedIncome(exp);
-        if (isIncome) {
-          weekIncome += exp.amount;
-        } else {
-          weekSpent += exp.amount;
-        }
-      }
-    }
-
-    // 3. External Gullak Deposits
-    for (const dep of gullakDeposits) {
-      const cleanDate = dep.date?.split('T')[0]?.trim();
-      if (!cleanDate) continue;
-      if (cleanUserCreated && cleanDate < cleanUserCreated) continue;
-
-      if (cleanDate >= startStr && cleanDate <= endStr) {
-        if (dep.source === 'external') {
-          weekIncome += dep.amount;
-        }
-      }
-    }
+    // 2. Direct income, spending and 3. external Gullak deposits, from the sign-up date on.
+    const countFromStr = cleanUserCreated && cleanUserCreated > startStr ? cleanUserCreated : startStr;
+    weekIncome += sumKindBetweenDateKeys(ledgerEntries, 'income', countFromStr, endStr);
+    weekSpent += sumKindBetweenDateKeys(ledgerEntries, 'spending', countFromStr, endStr);
+    weekIncome += externalDepositsBetween(gullakDeposits, countFromStr, endStr);
 
     // Find the first date in [rangeStart..rangeEnd] that has an event (ascending order)
     let firstEventDate: string | null = null;

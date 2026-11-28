@@ -25,8 +25,9 @@ import { endOfYear } from 'date-fns/endOfYear';
 import { setMonth } from 'date-fns/setMonth';
 import { addDays } from 'date-fns/addDays';
 import { isAfter } from 'date-fns/isAfter';
-import { isCountedIncome, isCountedExpense } from './transactionUtils';
-import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { isCountedExpense } from './transactionUtils';
+import { sumSpendingBetweenDateKeys, sumKindBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { externalDepositsBetween } from '../money/inflow';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import {
   budgetAllowedBetweenDates, budgetAllowedForActiveDays, allowanceForActiveDays, allowanceFromHistory,
@@ -170,22 +171,8 @@ export function computeYearlyComparison(
     currentTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, currStartStr, currEndStr);
     matchedPrevTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, prevCutoffStr);
   } else {
-    for (const exp of expenses) {
-      if (!exp.expense_date) continue;
-      const cleanDate = toDateStr(exp.expense_date);
-      if (!cleanDate) continue;
-
-      if (!isCountedExpense(exp)) continue;
-
-      if (isDateInBounds(cleanDate, currStartStr, currEndStr)) {
-        currentTotal += exp.amount;
-      } else if (isDateInBounds(cleanDate, prevStartStr, prevCutoffStr)) {
-        matchedPrevTotal += exp.amount;
-      }
-    }
-
-    currentTotal = round2(currentTotal);
-    matchedPrevTotal = round2(matchedPrevTotal);
+    currentTotal = sumSpendingBetweenDateKeys(expenses, currStartStr, currEndStr);
+    matchedPrevTotal = sumSpendingBetweenDateKeys(expenses, prevStartStr, prevCutoffStr);
   }
 
   const prevYearLabel = format(previousInterval.start, 'yyyy');
@@ -271,29 +258,8 @@ export function computeYearlyInflow(
     );
   }
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      if (isCountedIncome(exp)) {
-        totalInflow += exp.amount;
-      }
-    }
-  }
-
-  for (const dep of gullakDeposits) {
-    if (!dep.date) continue;
-    const cleanDate = toDateStr(dep.date);
-    if (!cleanDate) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      if (dep.source === 'external') {
-        totalInflow += dep.amount;
-      }
-    }
-  }
+  totalInflow += sumKindBetweenDateKeys(buildLedgerEntries(expenses), 'income', startStr, endStr);
+  totalInflow += externalDepositsBetween(gullakDeposits, startStr, endStr);
 
   return round2(totalInflow);
 }
@@ -433,6 +399,7 @@ export function compute12MonthCashFlow(
   let peakMonthSpent = 0;
   let surplusMonthsCount = 0;
   let activeMonthsCount = 0;
+  const ledgerEntries = buildLedgerEntries(expenses);
 
   for (let m = 0; m < 12; m++) {
     const mStart = startOfMonth(setMonth(yearStart, m));
@@ -460,31 +427,9 @@ export function compute12MonthCashFlow(
         );
       }
 
-      for (const exp of expenses) {
-        if (!exp.expense_date) continue;
-        const cleanDate = toDateStr(exp.expense_date);
-        if (!cleanDate) continue;
-
-        if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
-          if (isCountedIncome(exp)) {
-            monthIncome += exp.amount;
-          } else if (isCountedExpense(exp)) {
-            monthSpent += exp.amount;
-          }
-        }
-      }
-
-      for (const dep of gullakDeposits) {
-        if (!dep.date) continue;
-        const cleanDate = toDateStr(dep.date);
-        if (!cleanDate) continue;
-
-        if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
-          if (dep.source === 'external') {
-            monthIncome += dep.amount;
-          }
-        }
-      }
+      monthIncome += sumKindBetweenDateKeys(ledgerEntries, 'income', mStartStr, mEndStr);
+      monthSpent += sumKindBetweenDateKeys(ledgerEntries, 'spending', mStartStr, mEndStr);
+      monthIncome += externalDepositsBetween(gullakDeposits, mStartStr, mEndStr);
 
       monthIncome = round2(monthIncome);
       monthSpent = round2(monthSpent);

@@ -13,6 +13,8 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 ## [Unreleased] — OTA updates on 2.1.0 (JS only, no new APK)
 
 ### Changed
+- **Refactor: one home for repeated money totals (OTA)**: per-day and date-range totals, outside "new money", the
+  income balance and most paise rounding now use shared functions. No figure changes.
 - **Simpler money rules (OTA)**: Gullak is now one running balance. When a budget ends, also at a switch, the
   leftover goes to Gullak unless you choose Carry forward (which now has one meaning). Switching to Pure Mode moves the
   running week / month leftover to Gullak; coming back in the same period returns it, minus what Pure Mode took from

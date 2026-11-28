@@ -1,3 +1,4 @@
+import { round2 } from './formatters';
 import { WEEK_OPTIONS } from '../money/dateKeys';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -241,12 +242,12 @@ export function buildPlanContext(now: Date): PlanContext {
 
   const stats = (b: Bucket, prev: Bucket, saved: number): PeriodStats => ({
     txnCount: b.txnCount,
-    spent: Math.round(b.spent * 100) / 100,
-    prevSpent: Math.round(prev.spent * 100) / 100,
+    spent: round2(b.spent),
+    prevSpent: round2(prev.spent),
     topCategory: top(b),
     daysTracked,
     daysUnderBudget,
-    savedToGullak: Math.round(saved * 100) / 100,
+    savedToGullak: round2(saved),
   });
 
   const carryDays = isGullak ? buildCarryDays(now, budget) : undefined;

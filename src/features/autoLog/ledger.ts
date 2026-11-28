@@ -6,7 +6,7 @@ import { useExpenseStore, isValidUUID, Expense } from '../../store/expenseStore'
 import { useDailyBudgetStore } from '../../store/dailyBudgetStore';
 import { cancelTonightNudge } from '../../lib/notificationService';
 import { grossAmountOf, buildPeopleLedger, matchIncomingToPeople } from '../../lib/splitLedger';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCurrency, round2 } from '../../lib/formatters';
 import { categoryFromHistory } from './merchants';
 
 /**
@@ -48,7 +48,7 @@ export const isExceedingVaultLiquidity = (amount: number): boolean => {
 export const liquidityShortfall = (amount: number): number => {
   if (!isExceedingVaultLiquidity(amount)) return 0;
   const available = Math.max(0, useDailyBudgetStore.getState().getTotalAccountRemaining());
-  return Math.round((amount - available) * 100) / 100;
+  return round2(amount - available);
 };
 
 export const createTransaction = async (tx: NewTransaction, presetId?: string): Promise<string | null> => {

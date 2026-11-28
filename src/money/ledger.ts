@@ -110,19 +110,29 @@ export function sumTotalsBetweenDateKeys(
   return round2(sum);
 }
 
+/** Total of one kind of row between two date keys (both included). Build the entries once, then ask for many ranges. */
+export function sumKindBetweenDateKeys(
+  entries: readonly LedgerEntry[],
+  kind: TransactionKind,
+  startDateKey: DateKey,
+  endDateKey: DateKey
+): number {
+  let sum = 0;
+  for (const entry of entries) {
+    if (entry.kind === kind && entry.dateKey && isDateKeyWithin(entry.dateKey, startDateKey, endDateKey)) {
+      sum += entry.amountCountedAfterMoneyBack;
+    }
+  }
+  return round2(sum);
+}
+
 /** Total spending between two date keys (both included). One call replaces the old per-screen loops. */
 export function sumSpendingBetweenDateKeys(
   rows: readonly LedgerSourceRow[],
   startDateKey: DateKey,
   endDateKey: DateKey
 ): number {
-  let sum = 0;
-  for (const entry of buildLedgerEntries(rows)) {
-    if (entry.kind === 'spending' && entry.dateKey && isDateKeyWithin(entry.dateKey, startDateKey, endDateKey)) {
-      sum += entry.amountCountedAfterMoneyBack;
-    }
-  }
-  return round2(sum);
+  return sumKindBetweenDateKeys(buildLedgerEntries(rows), 'spending', startDateKey, endDateKey);
 }
 
 /** Total spending of the given rows, whatever their dates (the caller already chose the rows). */

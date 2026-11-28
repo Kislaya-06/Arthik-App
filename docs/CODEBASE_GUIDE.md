@@ -172,6 +172,7 @@ rows (ADR 0004). A new table or column = `schema.sql` + a new file in `supabase/
 |---|---|
 | `dateKeys.ts` | One way to name a day (`yyyy-MM-dd`): `toDateKey`, `todayDateKey`, day counts, days in a month |
 | `ledger.ts` | Cleans a row once: `amountPaid` and `amountCountedAfterMoneyBack`; per-day totals |
+| `inflow.ts` | `externalDepositsBetween`: "new money" Gullak deposits of a date range, used by the yearly Inflow tile, 12-month bars, monthly cash-flow chart and best / worst month. Row totals of a range come from `sumKindBetweenDateKeys` in `ledger.ts` (`MNY-001`) |
 | `budgetAllowance.ts` | Per-day budget rate (`BUD-009`): monthly ÷ that month's real days; `allowanceFromHistory` / `allowanceForActiveDays` price each past day from the plan history for Insights and its charts (`INS-004`); `monthlyBudgetAmountOnDate` gives the monthly budget of a past week (`INS-002`) |
 | `budgetStatus.ts` | Left / over / how full, on top of `calculateCycleFinancials` |
 | `overspendFunding.ts` | Whether income or Gullak covered an overspend (from the waterfall) |

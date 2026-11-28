@@ -4,7 +4,7 @@ import { format } from 'date-fns/format';
 import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { BudgetCadence } from '../types';
 import { getPeriodBounds } from './budgetPeriods';
-import { formatAmountWithCommas } from './formatters';
+import { formatAmountWithCommas, round2 } from './formatters';
 import { calculateBudgetStatus } from '../money/budgetStatus';
 
 export type CadenceCarryMode = 'additive' | 'allocation';
@@ -55,8 +55,8 @@ export function computeAllocationSummary(
   }
 
   const full = Math.floor(U / B);
-  const part = Math.round((U - full * B) * 100) / 100;
-  const gap = part > 0 ? Math.round((B - part) * 100) / 100 : 0;
+  const part = round2(U - full * B);
+  const gap = part > 0 ? round2(B - part) : 0;
 
   let coverText = '';
   if (full === 0) {

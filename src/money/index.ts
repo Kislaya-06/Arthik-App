@@ -5,6 +5,7 @@
  */
 export * from './dateKeys';
 export * from './ledger';
+export * from './inflow';
 export * from './budgetAllowance';
 export * from './budgetStatus';
 export * from './overspendFunding';
