@@ -31,7 +31,7 @@ import { PiggyBankCoinIcon, AnimatedPiggyBank } from './PiggyBankCoinIcon';
 import { GradientIconBadge } from './GradientIconBadge';
 import { KeypadGrid } from './ui/KeypadGrid';
 import { MoneyHelpBadge, MoneyExplainerModal } from './MoneyExplainerModal';
-import { formatAmountWithCommas, formatCurrency } from '../lib/formatters';
+import { formatAmountWithCommas, formatCurrency, round2 } from '../lib/formatters';
 import {
   applyKeypadPress,
   evaluateExpression,
@@ -170,7 +170,7 @@ export const DepositGullakModal: React.FC<DepositGullakModalProps> = ({
   const handleMaxIncomePress = useCallback(() => {
     Keyboard.dismiss();
     if (availableIncome > 0) {
-      setAmount(String(Math.round(availableIncome * 100) / 100));
+      setAmount(String(round2(availableIncome)));
     }
   }, [availableIncome]);
 

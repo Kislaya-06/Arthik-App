@@ -7,6 +7,7 @@ import { AllowanceHistory, allowanceFromHistory } from '../../money/budgetAllowa
 import { LedgerRow, buildPersonSummaries, grossAmountOf, splitAllocationsOf } from '../splitLedger';
 import { classifyTransaction, isCountedExpense, isCountedIncome } from '../transactionUtils';
 import { round2 } from '../formatters';
+import { externalDepositsBetween } from '../../money/inflow';
 import type { GullakDeposit } from '../../store/dailyBudget/types';
 import type { DateRange } from './habits';
 
@@ -162,7 +163,7 @@ export function computeBestWorstMonth(
         if (r.category_id) byCategory.set(r.category_id, (byCategory.get(r.category_id) || 0) + amount);
       }
     }
-    for (const d of deposits) if (d.source === 'external' && inRange(d.date, range)) inflow += Number(d.amount) || 0;
+    inflow += externalDepositsBetween(deposits, range.start, range.end);
 
     months.push({ monthKey: firstDateKey, inflow: round2(inflow), spent: round2(spent), moneyLeft: round2(inflow - spent), byCategory });
   }

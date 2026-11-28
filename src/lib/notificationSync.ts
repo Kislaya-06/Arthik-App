@@ -1,3 +1,4 @@
+import { round2 } from './formatters';
 import { WEEK_OPTIONS } from '../money/dateKeys';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -213,7 +214,8 @@ export function buildPlanContext(now: Date): PlanContext {
   if (isGullak) {
     for (const rec of Object.values(budget.dailyRecords)) {
       if (!rec || !(rec.budget > 0) || rec.date > todayStr) continue;
-      const saved = rec.status === 'missed' ? 0 : rec.saved || 0;
+      // NOT-001: today's leftover is not in Gullak before midnight, so only finished days count as saved.
+      const saved = rec.status === 'missed' || rec.date >= todayStr ? 0 : rec.saved || 0;
       if (rec.date >= weekStart && rec.date <= weekEnd) {
         daysTracked += 1;
         if (rec.status === 'saved' || rec.status === 'even' || rec.status === 'active') daysUnderBudget += 1;
@@ -241,12 +243,12 @@ export function buildPlanContext(now: Date): PlanContext {
 
   const stats = (b: Bucket, prev: Bucket, saved: number): PeriodStats => ({
     txnCount: b.txnCount,
-    spent: Math.round(b.spent * 100) / 100,
-    prevSpent: Math.round(prev.spent * 100) / 100,
+    spent: round2(b.spent),
+    prevSpent: round2(prev.spent),
     topCategory: top(b),
     daysTracked,
     daysUnderBudget,
-    savedToGullak: Math.round(saved * 100) / 100,
+    savedToGullak: round2(saved),
   });
 
   const carryDays = isGullak ? buildCarryDays(now, budget) : undefined;

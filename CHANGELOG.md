@@ -13,6 +13,8 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
 ## [Unreleased] — OTA updates on 2.1.0 (JS only, no new APK)
 
 ### Changed
+- **Refactor: one home for repeated money totals (OTA)**: per-day and date-range totals, outside "new money", the
+  income balance and most paise rounding now use shared functions. No figure changes.
 - **Simpler money rules (OTA)**: Gullak is now one running balance. When a budget ends, also at a switch, the
   leftover goes to Gullak unless you choose Carry forward (which now has one meaning). Switching to Pure Mode moves the
   running week / month leftover to Gullak; coming back in the same period returns it, minus what Pure Mode took from
@@ -22,6 +24,14 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
   change applies at once when nothing is spent yet, and starting with only a few days left shows a short note.
 
 ### Fixed
+- **Savings dates, recaps and rounding (OTA)** (`INS-002`, `INS-006`, `NOT-001`): a finished week or month's savings now
+  count on the day it ended on every screen (a week across New Year moves to the new year). Weekly and monthly recaps no
+  longer call today's leftover "added to your Gullak". Cash-flow chart totals match the Inflow figure, and a month spent
+  exactly to its budget (with paise) now counts as kept.
+- **Insights charts use your real budget history (OTA)** (`INS-004`, `INS-006`): the yearly bars, the monthly cash-flow
+  chart and the discipline score no longer apply today's budget to past days. Money from past Budget Mode days stays
+  after a switch to Pure Mode. The discipline score judges only days that had a budget. On the Weekly tab, a past week's
+  "month budget share" uses the monthly budget of that week.
 - **Gullak calculation (OTA)**: money taken from a weekly / monthly Gullak is now subtracted; Pure Mode spending no
   longer silently eats later savings; a day saved with no budget can no longer turn into savings; Home "All" no longer
   counts budget for days that never got one; "Carry forward" uses the real leftover at midnight. If your Gullak number

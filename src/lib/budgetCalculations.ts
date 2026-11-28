@@ -5,7 +5,8 @@ import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { addDays } from 'date-fns/addDays';
 import { isDateInPeriod, FilterPeriod } from './dateFilters';
 import { round2 } from './formatters';
-import { isCountedExpense, isCountedIncome } from './transactionUtils';
+import { toLedgerEntry, buildLedgerEntries, spendingTotalsByDateKey, incomeTotalsByDateKey } from '../money/ledger';
+import { isCountedIncome } from './transactionUtils';
 
 export interface DailyRecord {
   date: string; // 'yyyy-MM-dd'
@@ -236,11 +237,11 @@ export const extractNonIncomeExpense = <T extends ExpenseItem>(
   expense: T
 ): NonIncomeExpenseEntry | null => {
   // Income, self-transfers and recoveries are never money spent (TXN-001, TXN-003, SPL-003).
-  const cleanDate = expense.expense_date?.split('T')[0]?.trim();
-  if (isCountedExpense(expense) && cleanDate) {
+  const entry = toLedgerEntry(expense);
+  if (entry.kind === 'spending' && entry.dateKey) {
     return {
-      date: cleanDate,
-      amount: Number(expense.amount) || 0,
+      date: entry.dateKey,
+      amount: entry.amountCountedAfterMoneyBack,
     };
   }
   return null;
@@ -251,16 +252,7 @@ export const extractNonIncomeExpense = <T extends ExpenseItem>(
  */
 export const computeSpentByDate = <T extends ExpenseItem>(
   expenses: T[]
-): Record<string, number> => {
-  const spentByDate: Record<string, number> = {};
-  for (let i = 0; i < expenses.length; i++) {
-    const entry = extractNonIncomeExpense(expenses[i]);
-    if (entry) {
-      spentByDate[entry.date] = round2((spentByDate[entry.date] || 0) + entry.amount);
-    }
-  }
-  return spentByDate;
-};
+): Record<string, number> => spendingTotalsByDateKey(buildLedgerEntries(expenses));
 
 /**
  * Computes non-income spending for a single target date ('yyyy-MM-dd').
@@ -304,16 +296,7 @@ export const extractEligibleIncome = <T extends ExpenseItem>(
  */
 export const computeIncomeByDate = <T extends ExpenseItem>(
   expenses: T[]
-): Record<string, number> => {
-  const incomeByDate: Record<string, number> = {};
-  for (let i = 0; i < expenses.length; i++) {
-    const entry = extractEligibleIncome(expenses[i]);
-    if (entry) {
-      incomeByDate[entry.date] = round2((incomeByDate[entry.date] || 0) + entry.amount);
-    }
-  }
-  return incomeByDate;
-};
+): Record<string, number> => incomeTotalsByDateKey(buildLedgerEntries(expenses));
 
 /**
  * Computes eligible incoming money for a single target date ('yyyy-MM-dd').

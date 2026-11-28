@@ -125,6 +125,31 @@ describe('useInsightsData (pure analytics and derived calculations)', () => {
     user: { created_at: '2026-08-01T00:00:00Z' },
   };
 
+  it('INS-006: the charts get the same plan history as the yearly Inflow tile', () => {
+    const plan = (effectiveFrom: string, isEnabled: boolean) =>
+      ({ id: effectiveFrom, userId: 'u1', effectiveFrom, isEnabled, cadence: 'daily' as const, amount: 100 });
+    // Budget Mode in August, Pure Mode since 1 September.
+    const pureNow: UseInsightsDataParams = {
+      ...defaultParams, expenses: [], dailyRecords: {}, gullakDeposits: [], isBudgetModeEnabled: false,
+      planChanges: [plan('2026-08-01', true), plan('2026-09-01', false)],
+    };
+    const year = renderHook(() => useInsightsData({ ...pureNow, period: 'Yearly', offset: 0 })).result.current;
+    expect(year.yearlyInflow).toBe(3100);
+    expect(year.yearlyCashFlowData.totalIncome).toBe(3100);
+
+    const august = renderHook(() => useInsightsData({ ...pureNow, period: 'Monthly', offset: -2 })).result.current;
+    expect(august.monthlyCashFlowData.totalIncome).toBe(3100);
+
+    // Budget raised today: the discipline score still judges August against ₹100 a day.
+    const raised = renderHook(() => useInsightsData({
+      ...pureNow, period: 'Yearly', offset: 0, isBudgetModeEnabled: true, dailyBudgetAmount: 500,
+      expenses: [{ ...expenses[1], amount: 5000 }],
+      planChanges: [plan('2026-08-01', true), { ...plan('2026-10-14', true), amount: 500 }],
+    })).result.current;
+    expect(raised.annualBudgetDiscipline.keptMonths).toBe(1);
+    expect(raised.annualBudgetDiscipline.totalCompletedMonths).toBe(2);
+  });
+
   it('computes Weekly period offset 0 (This Week)', () => {
     const { result } = renderHook(() => useInsightsData({ ...defaultParams, period: 'Weekly', offset: 0 }));
     expect(result.current.dateLabel).toBe('This Week');

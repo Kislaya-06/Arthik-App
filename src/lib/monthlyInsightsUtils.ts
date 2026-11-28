@@ -18,11 +18,11 @@ import { parseISO } from 'date-fns/parseISO';
 import { differenceInCalendarDays } from 'date-fns/differenceInCalendarDays';
 import { addDays } from 'date-fns/addDays';
 import { getDaysInMonth } from 'date-fns/getDaysInMonth';
-import { isCountedExpense } from './transactionUtils';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
+import { periodSavedDateKey } from '../money/gullakSaved';
 import { round2, formatAmountWithCommas } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -306,8 +306,7 @@ export function computeMonthlyGullakSavings(
     if (!p) continue;
     if (p.status === 'saved' && (p.amountSaved || 0) > 0) {
       if (p.cadence === 'weekly') {
-        // A weekly period belongs to this month if its completion / rollover date (activeEnd) is within this month
-        if (p.activeEnd && isDateInBounds(p.activeEnd, startStr, endStr)) {
+        if (isDateInBounds(periodSavedDateKey(p), startStr, endStr)) {
           autoSaved += Number(p.amountSaved) || 0;
           savedWeeksCount++;
           if (p.activeStart && p.activeEnd) {
@@ -318,11 +317,7 @@ export function computeMonthlyGullakSavings(
           }
         }
       } else if (p.cadence === 'monthly') {
-        // A monthly period belongs to this month if activeStart or activeEnd is within this month
-        if (
-          (p.activeStart && isDateInBounds(p.activeStart, startStr, endStr)) ||
-          (p.activeEnd && isDateInBounds(p.activeEnd, startStr, endStr))
-        ) {
+        if (isDateInBounds(periodSavedDateKey(p), startStr, endStr)) {
           autoSaved += Number(p.amountSaved) || 0;
           savedMonthsCount++;
           if (p.activeStart && p.activeEnd) {
@@ -423,27 +418,9 @@ export function computeMonthlyComparison(
     matchedPrevTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, matchedPrevEndStr);
     prevFullTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, prevEndStr);
   } else {
-    for (const exp of expenses) {
-      if (!exp.expense_date) continue;
-      const cleanDate = toDateStr(exp.expense_date);
-      if (!cleanDate) continue;
-
-      if (!isCountedExpense(exp)) continue;
-
-      if (isDateInBounds(cleanDate, currentStartStr, matchedCurrentEndStr)) {
-        currTotal += exp.amount;
-      }
-      if (isDateInBounds(cleanDate, prevStartStr, matchedPrevEndStr)) {
-        matchedPrevTotal += exp.amount;
-      }
-      if (isDateInBounds(cleanDate, prevStartStr, prevEndStr)) {
-        prevFullTotal += exp.amount;
-      }
-    }
-
-    currTotal = round2(currTotal);
-    matchedPrevTotal = round2(matchedPrevTotal);
-    prevFullTotal = round2(prevFullTotal);
+    currTotal = sumSpendingBetweenDateKeys(expenses, currentStartStr, matchedCurrentEndStr);
+    matchedPrevTotal = sumSpendingBetweenDateKeys(expenses, prevStartStr, matchedPrevEndStr);
+    prevFullTotal = sumSpendingBetweenDateKeys(expenses, prevStartStr, prevEndStr);
   }
 
   if (currTotal === 0) {

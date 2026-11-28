@@ -25,10 +25,14 @@ import { endOfYear } from 'date-fns/endOfYear';
 import { setMonth } from 'date-fns/setMonth';
 import { addDays } from 'date-fns/addDays';
 import { isAfter } from 'date-fns/isAfter';
-import { isCountedIncome, isCountedExpense } from './transactionUtils';
-import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { isCountedExpense } from './transactionUtils';
+import { sumSpendingBetweenDateKeys, sumKindBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
+import { externalDepositsBetween } from '../money/inflow';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
-import { budgetAllowedBetweenDates, budgetAllowedForActiveDays, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
+import {
+  budgetAllowedBetweenDates, budgetAllowedForActiveDays, allowanceForActiveDays, allowanceFromHistory,
+  dayAllowanceFromHistory, AllowanceHistory,
+} from '../money/budgetAllowance';
 import { round2, formatCurrency } from './formatters';
 import { ExpenseLike, toDateStr, toDateObj, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -167,22 +171,8 @@ export function computeYearlyComparison(
     currentTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, currStartStr, currEndStr);
     matchedPrevTotal = sumTotalsBetweenDateKeys(spentTotalsByDate, prevStartStr, prevCutoffStr);
   } else {
-    for (const exp of expenses) {
-      if (!exp.expense_date) continue;
-      const cleanDate = toDateStr(exp.expense_date);
-      if (!cleanDate) continue;
-
-      if (!isCountedExpense(exp)) continue;
-
-      if (isDateInBounds(cleanDate, currStartStr, currEndStr)) {
-        currentTotal += exp.amount;
-      } else if (isDateInBounds(cleanDate, prevStartStr, prevCutoffStr)) {
-        matchedPrevTotal += exp.amount;
-      }
-    }
-
-    currentTotal = round2(currentTotal);
-    matchedPrevTotal = round2(matchedPrevTotal);
+    currentTotal = sumSpendingBetweenDateKeys(expenses, currStartStr, currEndStr);
+    matchedPrevTotal = sumSpendingBetweenDateKeys(expenses, prevStartStr, prevCutoffStr);
   }
 
   const prevYearLabel = format(previousInterval.start, 'yyyy');
@@ -268,29 +258,8 @@ export function computeYearlyInflow(
     );
   }
 
-  for (const exp of expenses) {
-    if (!exp.expense_date) continue;
-    const cleanDate = toDateStr(exp.expense_date);
-    if (!cleanDate) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      if (isCountedIncome(exp)) {
-        totalInflow += exp.amount;
-      }
-    }
-  }
-
-  for (const dep of gullakDeposits) {
-    if (!dep.date) continue;
-    const cleanDate = toDateStr(dep.date);
-    if (!cleanDate) continue;
-
-    if (isDateInBounds(cleanDate, startStr, endStr)) {
-      if (dep.source === 'external') {
-        totalInflow += dep.amount;
-      }
-    }
-  }
+  totalInflow += sumKindBetweenDateKeys(buildLedgerEntries(expenses), 'income', startStr, endStr);
+  totalInflow += externalDepositsBetween(gullakDeposits, startStr, endStr);
 
   return round2(totalInflow);
 }
@@ -412,7 +381,9 @@ export function compute12MonthCashFlow(
   gullakDeposits: GullakDeposit[] = [],
   budgetConfig?: YearlyBudgetConfig,
   userCreatedAt?: string | null,
-  referenceDate: Date | number | string = new Date()
+  referenceDate: Date | number | string = new Date(),
+  /** When given, budget days come from the plan history, whatever the mode is today (INS-004 / INS-006). */
+  history?: AllowanceHistory
 ): YearlyCashFlowData {
   const refDate = toDateObj(referenceDate);
   const months: YearlyCashFlowMonth[] = [];
@@ -428,6 +399,9 @@ export function compute12MonthCashFlow(
   let peakMonthSpent = 0;
   let surplusMonthsCount = 0;
   let activeMonthsCount = 0;
+  const ledgerEntries = buildLedgerEntries(expenses);
+  let exactBudget = 0;
+  let roundedBudget = 0;
 
   for (let m = 0; m < 12; m++) {
     const mStart = startOfMonth(setMonth(yearStart, m));
@@ -442,41 +416,24 @@ export function compute12MonthCashFlow(
     let monthSpent = 0;
 
     if (!isFuture) {
-      if (budgetConfig?.isBudgetMode) {
+      const joinedKey = userCreatedAt ? toDateStr(userCreatedAt) : null;
+      let monthBudget = 0;
+      if (history) {
+        monthBudget = allowanceForActiveDays(history, mStartStr, mEndStr, joinedKey);
+      } else if (budgetConfig?.isBudgetMode) {
         // One rule for every screen (BUD-009): only days after the user joined and up to today get allowance.
-        monthIncome += Math.round(
-          budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, {
-            userJoinedDateKey: userCreatedAt ? toDateStr(userCreatedAt) : null,
-            todayDateKey: todayStr,
-          })
-        );
+        monthBudget = budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, {
+          userJoinedDateKey: joinedKey,
+          todayDateKey: todayStr,
+        });
       }
+      exactBudget += monthBudget;
+      roundedBudget += Math.round(monthBudget);
+      monthIncome += Math.round(monthBudget);
 
-      for (const exp of expenses) {
-        if (!exp.expense_date) continue;
-        const cleanDate = toDateStr(exp.expense_date);
-        if (!cleanDate) continue;
-
-        if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
-          if (isCountedIncome(exp)) {
-            monthIncome += exp.amount;
-          } else if (isCountedExpense(exp)) {
-            monthSpent += exp.amount;
-          }
-        }
-      }
-
-      for (const dep of gullakDeposits) {
-        if (!dep.date) continue;
-        const cleanDate = toDateStr(dep.date);
-        if (!cleanDate) continue;
-
-        if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
-          if (dep.source === 'external') {
-            monthIncome += dep.amount;
-          }
-        }
-      }
+      monthIncome += sumKindBetweenDateKeys(ledgerEntries, 'income', mStartStr, mEndStr);
+      monthSpent += sumKindBetweenDateKeys(ledgerEntries, 'spending', mStartStr, mEndStr);
+      monthIncome += externalDepositsBetween(gullakDeposits, mStartStr, mEndStr);
 
       monthIncome = round2(monthIncome);
       monthSpent = round2(monthSpent);
@@ -511,7 +468,8 @@ export function compute12MonthCashFlow(
     });
   }
 
-  totalIncome = round2(totalIncome);
+  // INS-006: the total rounds the budget once, like the Inflow tile. Each bar keeps its own rounding.
+  totalIncome = round2(totalIncome - roundedBudget + Math.round(exactBudget));
   totalSpent = round2(totalSpent);
 
   const maxAmount = Math.max(
@@ -562,7 +520,9 @@ export function computeAnnualBudgetDiscipline(
   yearInterval: YearInterval,
   budgetConfig?: YearlyBudgetConfig,
   userCreatedAt?: string | null,
-  referenceDate: Date | number | string = new Date()
+  referenceDate: Date | number | string = new Date(),
+  /** When given, each month is judged on the days that really had a budget (INS-006). */
+  history?: AllowanceHistory
 ): AnnualBudgetDisciplineResult {
   if (!budgetConfig?.isBudgetMode) {
     return { canDisplay: false, keptMonths: 0, totalCompletedMonths: 0, consistencyRatio: 0, disciplineText: '' };
@@ -597,16 +557,33 @@ export function computeAnnualBudgetDiscipline(
 
     if (activeDays <= 0) continue;
 
+    // INS-006: with history, only days that had a budget count, for the budget and for the spending.
+    const budgetDays = new Set<string>();
+    let historyBudget = 0;
+    if (history) {
+      const firstKey = userCreatedStr > mStartStr ? userCreatedStr : mStartStr;
+      for (let d = firstKey; d <= mEndStr; d = addDaysToDateKey(d, 1)) {
+        const dayBudget = dayAllowanceFromHistory(history, d);
+        if (dayBudget > 0) {
+          budgetDays.add(d);
+          historyBudget += dayBudget;
+        }
+      }
+      if (budgetDays.size === 0) continue;
+    }
+
     // One rule for every screen (BUD-009).
     const effectiveBudget = Math.round(
-      budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, { userJoinedDateKey: userCreatedStr || null })
+      history
+        ? historyBudget
+        : budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, { userJoinedDateKey: userCreatedStr || null })
     );
 
     let monthSpend = 0;
     for (const exp of expenses) {
       if (!exp.expense_date) continue;
       const cleanDate = toDateStr(exp.expense_date);
-      if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
+      if (isDateInBounds(cleanDate, mStartStr, mEndStr) && (!history || budgetDays.has(cleanDate))) {
         if (isCountedExpense(exp)) {
           monthSpend += exp.amount;
         }
@@ -614,7 +591,7 @@ export function computeAnnualBudgetDiscipline(
     }
 
     totalCompletedMonths++;
-    if (monthSpend <= effectiveBudget) {
+    if (round2(monthSpend) <= effectiveBudget) {
       keptMonths++;
     }
   }

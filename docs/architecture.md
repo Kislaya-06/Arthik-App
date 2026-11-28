@@ -272,9 +272,9 @@ Self-transfers are identified ONLY by `transaction_class === 'self_transfer'` (`
 
 ### 6.8 Multi-Cadence Insights & Period Rollover Reconciliation (`INS-002`, `HEA-002`)
 Insights breathing strips reconcile savings across all budget cadences without relying on nonexistent daily records for non-daily modes:
-- **Weekly & Monthly Cadence Savings**: Weekly and Monthly insights aggregate finalized savings directly from `budget_periods` (`status === 'saved'`). Cross-month weekly periods attribute their savings at `activeEnd` matching true cash accounting rollovers.
+- **Weekly & Monthly Cadence Savings**: Weekly and Monthly insights aggregate finalized savings directly from `budget_periods` (`status === 'saved'`). Every screen places a finished period's savings on the day it ended (`periodSavedDateKey`, `activeEnd`), matching true cash accounting rollovers.
 - **Mid-Interval Cadence Switching**: Daily records and period slices combine additively (`autoSaved = dailySaved + periodSaved`) ensuring zero data loss and exact reconciliation.
-- **Option 2 (Month Budget Share %)**: When monthly cadence users view the Weekly Insights tab, the second card renders `MONTH BUDGET SHARE` (showing current week's spend percentage of total monthly pool, status badge `On Track` (mint dot, ≤ 25%) / `High Burn` (coral dot, > 25%) / `Critical Burn` (coral dot, > 50%), drawn icons instead of emoji (`pillIcon`, INS-002), and contextual subtext `₹X of ₹Y pool`) paired with cadence-aware discipline takeaways.
+- **Option 2 (Month Budget Share %)**: When monthly cadence users view the Weekly Insights tab, the second card renders `MONTH BUDGET SHARE` (showing current week's spend percentage of the monthly pool that ruled that week, `monthlyBudgetAmountOnDate`, status badge `On Track` (mint dot, ≤ 25%) / `High Burn` (coral dot, > 25%) / `Critical Burn` (coral dot, > 50%), drawn icons instead of emoji (`pillIcon`, INS-002), and contextual subtext `₹X of ₹Y pool`) paired with cadence-aware discipline takeaways.
 
 ---
 

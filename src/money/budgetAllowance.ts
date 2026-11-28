@@ -98,6 +98,27 @@ export function budgetAllowedForActiveDays(
 }
 
 /**
+ * Budget money ONE range was really given, by plan history (INS-004): nothing before sign-up, nothing after today.
+ * Not rounded.
+ */
+export function allowanceForActiveDays(
+  h: AllowanceHistory,
+  rangeStartDateKey: DateKey,
+  rangeEndDateKey: DateKey,
+  userJoinedDateKey?: DateKey | null
+): number {
+  const first = userJoinedDateKey && userJoinedDateKey > rangeStartDateKey ? userJoinedDateKey : rangeStartDateKey;
+  const last = h.todayKey < rangeEndDateKey ? h.todayKey : rangeEndDateKey;
+  return allowanceFromHistory(h, first, last);
+}
+
+/** The monthly budget that ruled `dateKey` (INS-002). `fallback` = today's amount, when that day had no monthly plan. */
+export function monthlyBudgetAmountOnDate(planChanges: BudgetPlanChange[], dateKey: DateKey, fallback: number): number {
+  const plan = resolvePlanForDate(planChanges, dateKey);
+  return plan?.isEnabled && plan.cadence === 'monthly' ? Number(plan.amount) || 0 : fallback;
+}
+
+/**
  * What Insights needs to know about the past to price each day (INS-004 / INS-006, owner decision 2026-11-25).
  * Only the fields read here are required, so tests can pass plain objects.
  */

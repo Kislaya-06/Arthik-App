@@ -63,8 +63,10 @@
       },
       "otaUpdate": {
         "version": "2.1.0",
-        "title": "Simpler Gullak & Budgets 🐷",
+        "title": "Truer Insights & Savings 📊",
         "highlights": [
+          "Matching Savings Numbers: a week or month's savings now show on the day it ended on every screen, recaps count only finished days, and chart totals and the discipline score handle rupees and paise correctly",
+          "Truer Insights Charts: yearly and monthly charts and the discipline score now use the budget you really had on each day, so changing your budget or switching to Pure Mode no longer changes your past",
           "Simpler Gullak: leftover budget goes to Gullak whenever a budget ends (or carry it forward), switching to Pure Mode and back is clearer, there is no paused allowance, a 7+ day break asks you what to count, and some Gullak calculations are fixed (you get a note if your number changes)",
           "Faster Adding & A Quick Tour: press and hold + to add a recent spend again in one tap, Add picks the category you usually use at this time, each entry shows the first letter of its note, spending is shown in plain colour (only money coming in is green), \"Others\" has its own grey ₹ icon, and a short tour shows you what is new (Skip any time)",
           "New Insights: see where your month is heading and how long your money lasts, when your Gullak hits its next milestone, your no-spend days, small spends that add up, when in the day you spend, your top places, money shared with friends, where Gullak money came from, your best month, and a tap-through story of your year",

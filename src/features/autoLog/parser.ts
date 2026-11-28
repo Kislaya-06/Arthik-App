@@ -1,3 +1,4 @@
+import { round2 } from '../../lib/formatters';
 import type { AccountKind, CreditKind, Direction, ParsedKind, ParsedMessage } from './types';
 import { resolveBank, resolveEmailSender, senderCore } from './senders';
 
@@ -53,7 +54,7 @@ const toAmount = (raw?: string): number | undefined => {
   if (!raw) return undefined;
   const n = Number(raw.replace(/,/g, ''));
   if (!Number.isFinite(n) || n <= 0 || n > 99999999) return undefined;
-  return Math.round(n * 100) / 100;
+  return round2(n);
 };
 
 /** Amounts that are not balances / limits. */

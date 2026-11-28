@@ -2,7 +2,7 @@ export { DualRingState, computeDualRingState } from './charts/dualRing';
 
 export { GullakMilestoneProgress, YearlyGullakMetrics, computeYearlyGullakMilestones } from './charts/gullakMilestones';
 
-export { MonthlyWeekSpending, computeMonthlyWeeksData, MonthlyCashFlowWeek, MonthlyCashFlowData, MonthlyCashFlowBudgetConfig, computeMonthlyCashFlowData } from './charts/monthlyCharts';
+export { MonthlyCashFlowWeek, MonthlyCashFlowData, MonthlyCashFlowBudgetConfig, computeMonthlyCashFlowData } from './charts/monthlyCharts';
 
 export { SegmentInterpolation, buildSegmentInterpolation, PreparedSegment, prepareCategorySegments, PreparedBlockSegment, generateRoundedBlockPath, generateFullAnnulusPath, prepareCategoryBlockSegments, PreparedBlockSweepSegment, prepareBlockSweepSegments } from './charts/donutSegments';
 

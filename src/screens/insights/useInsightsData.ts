@@ -49,6 +49,7 @@ import {
 } from '../../lib/yearlyInsightsUtils';
 import { BudgetCadence, BudgetPeriodRecord, BudgetPlanChange } from '../../types';
 import type { AllowanceHistory } from '../../money/budgetAllowance';
+import { monthlyBudgetAmountOnDate } from '../../money/budgetAllowance';
 import type { AllowancePause } from '../../lib/allowancePauses';
 import { Expense } from '../../store/expenseStore';
 import { Category } from '../../store/categoryStore';
@@ -255,6 +256,18 @@ export function useInsightsData({
     return { weeklyData: data, maxWeekDay: maxDay.amount > 0 ? maxDay : null };
   }, [spentTotalsByDate, period, offset]);
 
+  // INS-004 / INS-006: budget money comes from the days Budget Mode really ran, each at its own rate.
+  const allowanceHistory = useMemo<AllowanceHistory>(() => ({
+    planChanges,
+    dailyRecords,
+    todayKey: toDateKey(new Date()),
+    isAutoRenew: isBudgetModeEnabled && isAutoRenew,
+    fallbackPlan: isBudgetModeEnabled
+      ? { cadence: budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount }
+      : null,
+    pauses: allowancePauses,
+  }), [planChanges, allowancePauses, dailyRecords, isBudgetModeEnabled, isAutoRenew, budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount]);
+
   // Monthly week-by-week cash flow (Money In vs Money Out)
   const monthlyCashFlowData = useMemo(() => {
     if (period !== 'Monthly') return { weeks: [], totalIncome: 0, totalSpent: 0, maxAmount: 0 };
@@ -270,9 +283,12 @@ export function useInsightsData({
         dailyBudgetAmount,
         weeklyBudgetAmount,
         monthlyBudgetAmount,
-      }
+      },
+      undefined,
+      allowanceHistory
     );
   }, [
+    allowanceHistory,
     period,
     currentInterval,
     expenses,
@@ -414,18 +430,6 @@ export function useInsightsData({
   }, [period, weeklyDayMatchedComp, monthlyComp, yearlyComparison]);
 
   // Weekly Breathing Strip & Analytics calculations
-  // INS-004 / INS-006: budget money comes from the days Budget Mode really ran, each at its own rate.
-  const allowanceHistory = useMemo<AllowanceHistory>(() => ({
-    planChanges,
-    dailyRecords,
-    todayKey: toDateKey(new Date()),
-    isAutoRenew: isBudgetModeEnabled && isAutoRenew,
-    fallbackPlan: isBudgetModeEnabled
-      ? { cadence: budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount }
-      : null,
-    pauses: allowancePauses,
-  }), [planChanges, allowancePauses, dailyRecords, isBudgetModeEnabled, isAutoRenew, budgetCadence, dailyBudgetAmount, weeklyBudgetAmount, monthlyBudgetAmount]);
-
   const effectiveBudgetResult = useMemo(() => {
     return computeEffectiveWeekBudget(
       budgetCadence,
@@ -568,10 +572,17 @@ export function useInsightsData({
     );
   }, [dailyRecords, gullakDeposits, currentInterval, budgetPeriods, budgetCadence]);
 
+  // INS-002: a week is compared with the monthly budget of its last day (today for the current week).
+  const weekMonthlyBudgetAmount = useMemo(() => {
+    const endKey = toDateKey(currentInterval.end);
+    const todayKey = allowanceHistory.todayKey;
+    return monthlyBudgetAmountOnDate(planChanges, endKey < todayKey ? endKey : todayKey, monthlyBudgetAmount);
+  }, [planChanges, currentInterval, allowanceHistory, monthlyBudgetAmount]);
+
   const weeklyMonthlyBudgetShare = useMemo(() => {
     if (period !== 'Weekly' || budgetCadence !== 'monthly') return null;
-    return computeWeeklyShareOfMonthlyBudget(currentTotal, monthlyBudgetAmount);
-  }, [period, budgetCadence, currentTotal, monthlyBudgetAmount]);
+    return computeWeeklyShareOfMonthlyBudget(currentTotal, weekMonthlyBudgetAmount);
+  }, [period, budgetCadence, currentTotal, weekMonthlyBudgetAmount]);
 
   const weekTransactionCount = useMemo(() => {
     const startKey = toDateKey(currentInterval.start);
@@ -608,7 +619,7 @@ export function useInsightsData({
       cadence: budgetCadence,
       savedWeeksCount: weeklyGullak.savedWeeksCount,
       monthlyBudgetShare: weeklyMonthlyBudgetShare,
-      monthlyBudgetAmount,
+      monthlyBudgetAmount: weekMonthlyBudgetAmount,
     });
   }, [
     currentTotal,
@@ -625,7 +636,7 @@ export function useInsightsData({
     elapsedDaysInWeek,
     budgetCadence,
     weeklyMonthlyBudgetShare,
-    monthlyBudgetAmount,
+    weekMonthlyBudgetAmount,
   ]);
 
   const largestOutflow = useMemo(() => {
@@ -824,9 +835,11 @@ export function useInsightsData({
         monthlyBudgetAmount,
       },
       user?.created_at,
-      focusTime
+      focusTime,
+      allowanceHistory
     );
   }, [
+    allowanceHistory,
     period,
     currentInterval,
     expenses,
@@ -874,9 +887,11 @@ export function useInsightsData({
         monthlyBudgetAmount,
       },
       user?.created_at,
-      focusTime
+      focusTime,
+      allowanceHistory
     );
   }, [
+    allowanceHistory,
     period,
     isBudgetModeEnabled,
     expenses,
