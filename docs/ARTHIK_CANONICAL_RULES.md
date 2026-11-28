@@ -440,9 +440,9 @@ This document is the **single authoritative canonical source of truth** for all 
      - Weekly (on Weekly tab or Monthly tab with weekly periods): Tallies `savedWeeksCount` with badge `X Saved Weeks`.
      - Monthly: Tallies `savedMonthsCount` with badge `1 Saved Month`.
   4. **Option 2 (Month Budget Share % on Weekly Tab for Monthly Users):**
-     - When a monthly cadence user views the Weekly Insights tab, instead of an irrelevant ₹0 Gullak tile, the right card transforms into `MONTH BUDGET SHARE` displaying the week's spending percentage of the total monthly budget (`percentage%`), a status pill with a coloured dot instead of an emoji (`On Track` with a mint dot if $\le 25\%$, `High Burn` with a coral dot if $> 25\%$, `Critical Burn` if $> 50\%$), and dynamic subtext (`₹X of ₹Y pool`).     - Accompanied by intelligent cadence-aware discipline takeaways.
+     - When a monthly cadence user views the Weekly Insights tab, instead of an irrelevant ₹0 Gullak tile, the right card transforms into `MONTH BUDGET SHARE` displaying the week's spending percentage of the total monthly budget (`percentage%`; the monthly budget that ruled the week's last day, today for the current week, and today's amount when that day had no monthly plan, owner decision 2026-11-28), a status pill with a coloured dot instead of an emoji (`On Track` with a mint dot if $\le 25\%$, `High Burn` with a coral dot if $> 25\%$, `Critical Burn` if $> 50\%$), and dynamic subtext (`₹X of ₹Y pool`).     - Accompanied by intelligent cadence-aware discipline takeaways.
 - **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts` (`computeWeeklyGullakSavings`, `computeWeeklyShareOfMonthlyBudget`, `computeSmartWeeklyTakeaway`), `src/lib/monthlyInsightsUtils.ts` (`computeMonthlyGullakSavings`, `computeSmartMonthlyTakeaway`), `src/components/WeeklyBreathingStrip.tsx`, `src/components/MonthlyBreathingStrip.tsx`, `src/screens/insights/useInsightsData.ts`, `src/screens/InsightsScreen.tsx`
-- **Verified By:** `tests/multiCadenceInsightsSavings.test.ts`, `tests/weeklyInsightsData.test.ts`, `tests/monthlyInsightsData.test.ts`
+- **Verified By:** `tests/multiCadenceInsightsSavings.test.ts`, `tests/weeklyInsightsData.test.ts`, `tests/monthlyInsightsData.test.ts`, `tests/insightsChartHistory.test.ts`
 
 #### `INS-003`: Fair Day-Matched Comparisons (MTD & YTD)
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -467,8 +467,8 @@ This document is the **single authoritative canonical source of truth** for all 
   3. A daily-plan day with a record uses the record's budget; without a record, the plan's daily amount.
   4. A weekly / monthly-plan day uses that plan's per-day share (`BUD-009`).
   5. An account with no plan history uses the current plan for every day (Pure Mode now = ₹0).
-- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`, `src/money/budgetAllowance.ts` (`dayAllowanceFromHistory`, `allowanceFromHistory`), `src/lib/allowancePauses.ts`, `src/store/dailyBudget/allowancePauseSync.ts`, `src/store/dailyBudgetStore.ts` (pause recorder), `src/screens/insights/useInsightsData.ts`
-- **Verified By:** `tests/insightsAllowanceHistory.test.ts`, `tests/allowancePauses.test.ts`, `tests/allowancePauseStore.test.ts`
+- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts`, `src/lib/monthlyInsightsUtils.ts`, `src/money/budgetAllowance.ts` (`dayAllowanceFromHistory`, `allowanceFromHistory`), `src/lib/allowancePauses.ts`, `src/store/dailyBudget/allowancePauseSync.ts`, `src/store/dailyBudgetStore.ts` (pause recorder), `src/screens/insights/useInsightsData.ts`, `src/lib/yearlyInsightsUtils.ts`, `src/lib/charts/monthlyCharts.ts`
+- **Verified By:** `tests/insightsChartHistory.test.ts`, `tests/insightsAllowanceHistory.test.ts`, `tests/allowancePauses.test.ts`, `tests/allowancePauseStore.test.ts`
 
 #### `INS-005`: Outflow Outliers, Category Shifts & Peak Patterns
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -487,9 +487,13 @@ This document is the **single authoritative canonical source of truth** for all 
      Gullak deposits (owner decision 2026-11-25).
   1. **Savings Rate:** `(Net Savings / Total Inflow) * 100` (percentage of real incoming funds retained).
   2. **Daily Burn Velocity:** `Total Annual Outflow / Active Registered Days in Year` (real average daily expenditure rate).
-  3. **Consistency Score:** Ratio of completed calendar months concluded within budget.
-- **Code Enforcement:** `src/lib/yearlyInsightsUtils.ts`
-- **Verified By:** `tests/yearlyInsightsData.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/insightsAllowanceHistory.test.ts`
+  3. **Consistency Score:** Ratio of completed calendar months concluded within budget. Each month is judged only on
+     its days that had a budget (`INS-004`): their budget against the counted spending of those same days. A month with
+     no budget day is left out of the score. The card is shown only in Budget Mode (owner decision 2026-11-28).
+  4. **Same pricing in every chart:** the yearly Inflow tile, the 12-month bars, the monthly cash-flow chart and the
+     Consistency Score all price budget days from the plan history (`INS-004`), never from today's setting.
+- **Code Enforcement:** `src/lib/yearlyInsightsUtils.ts`, `src/lib/charts/monthlyCharts.ts`, `src/money/budgetAllowance.ts` (`allowanceForActiveDays`)
+- **Verified By:** `tests/yearlyInsightsData.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/insightsAllowanceHistory.test.ts`, `tests/insightsChartHistory.test.ts`
 
 #### `INS-007`: Spending Projection (Weekly & Monthly)
 - **Status:** `APPROVED` (Owner approved on 2026-11-25)

@@ -22,6 +22,10 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
   change applies at once when nothing is spent yet, and starting with only a few days left shows a short note.
 
 ### Fixed
+- **Insights charts use your real budget history (OTA)** (`INS-004`, `INS-006`): the yearly bars, the monthly cash-flow
+  chart and the discipline score no longer apply today's budget to past days. Money from past Budget Mode days stays
+  after a switch to Pure Mode. The discipline score judges only days that had a budget. On the Weekly tab, a past week's
+  "month budget share" uses the monthly budget of that week.
 - **Gullak calculation (OTA)**: money taken from a weekly / monthly Gullak is now subtracted; Pure Mode spending no
   longer silently eats later savings; a day saved with no budget can no longer turn into savings; Home "All" no longer
   counts budget for days that never got one; "Carry forward" uses the real leftover at midnight. If your Gullak number

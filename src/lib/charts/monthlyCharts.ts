@@ -3,7 +3,7 @@ import { addDays } from 'date-fns/addDays';
 import { isAfter } from 'date-fns/isAfter';
 import { round2 } from '../formatters';
 import { isExcludedFromTotals, isCountedIncome } from '../transactionUtils';
-import { budgetAllowedForActiveDays } from '../../money/budgetAllowance';
+import { budgetAllowedForActiveDays, allowanceForActiveDays, type AllowanceHistory } from '../../money/budgetAllowance';
 
 export interface MonthlyWeekSpending {
   day: string; // 'W1', 'W2', 'W3', 'W4'
@@ -148,7 +148,9 @@ export function computeMonthlyCashFlowData(
   gullakDeposits: Array<{ date: string; amount: number; source?: string }>,
   userCreatedAtStr?: string,
   budgetConfig?: MonthlyCashFlowBudgetConfig,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  /** When given, budget days come from the plan history, whatever the mode is today (INS-004 / INS-006). */
+  history?: AllowanceHistory
 ): MonthlyCashFlowData {
   const cleanUserCreated = userCreatedAtStr ? userCreatedAtStr.split('T')[0]?.trim() : undefined;
   const weeks: MonthlyCashFlowWeek[] = [];
@@ -187,7 +189,9 @@ export function computeMonthlyCashFlowData(
 
     // 1. Budget Allowance Allocation (when Budget Mode is ON)
     // Only elapsed days up to today receive operational liquidity; future weeks remain empty until reached.
-    if (budgetConfig?.isBudgetMode) {
+    if (history) {
+      weekIncome += Math.round(allowanceForActiveDays(history, startStr, endStr, cleanUserCreated));
+    } else if (budgetConfig?.isBudgetMode) {
       const todayStr = format(referenceDate, 'yyyy-MM-dd');
       // One rule for every screen (BUD-009): only days after the user joined and up to today get allowance.
       weekIncome += Math.round(

@@ -329,6 +329,7 @@ graph TD
 5. **`src/screens/InsightsScreen.tsx`**:
    - Consumes period budget targets, cadence limits, and multi-period savings metrics.
    - Budget money in the Weekly / Monthly pool and the Yearly inflow is priced day by day from `planChanges` + `dailyRecords` (`allowanceFromHistory`, `src/money/budgetAllowance.ts`, `INS-004` / `INS-006`): Pure Mode and paused days are worth ₹0. Days with no budget come from the record (budget 0) or the saved list `allowancePauses` (old pauses and stretches skipped under `ROL-004`, synced by `allowancePauseSync.ts` to `profiles.allowance_pauses`).
+   - The yearly 12-month bars, the monthly cash-flow chart and the discipline score use the same history (`allowanceForActiveDays` / `dayAllowanceFromHistory`). The discipline score counts only each month's budget days. The Weekly tab's month budget share uses `monthlyBudgetAmountOnDate` for that week's last day.
 6. **`src/screens/ProfileScreen.tsx`**:
    - Budget Mode toggle (`isBudgetModeEnabled`), cadence switching (`budgetCadence`), and the Pure Mode switch popup (`PauseBudgetModal`).
 7. **`src/screens/NotificationsScreen.tsx`**:

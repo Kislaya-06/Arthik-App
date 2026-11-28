@@ -28,7 +28,10 @@ import { isAfter } from 'date-fns/isAfter';
 import { isCountedIncome, isCountedExpense } from './transactionUtils';
 import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntries } from '../money/ledger';
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
-import { budgetAllowedBetweenDates, budgetAllowedForActiveDays, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
+import {
+  budgetAllowedBetweenDates, budgetAllowedForActiveDays, allowanceForActiveDays, allowanceFromHistory,
+  dayAllowanceFromHistory, AllowanceHistory,
+} from '../money/budgetAllowance';
 import { round2, formatCurrency } from './formatters';
 import { ExpenseLike, toDateStr, toDateObj, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -412,7 +415,9 @@ export function compute12MonthCashFlow(
   gullakDeposits: GullakDeposit[] = [],
   budgetConfig?: YearlyBudgetConfig,
   userCreatedAt?: string | null,
-  referenceDate: Date | number | string = new Date()
+  referenceDate: Date | number | string = new Date(),
+  /** When given, budget days come from the plan history, whatever the mode is today (INS-004 / INS-006). */
+  history?: AllowanceHistory
 ): YearlyCashFlowData {
   const refDate = toDateObj(referenceDate);
   const months: YearlyCashFlowMonth[] = [];
@@ -442,11 +447,14 @@ export function compute12MonthCashFlow(
     let monthSpent = 0;
 
     if (!isFuture) {
-      if (budgetConfig?.isBudgetMode) {
+      const joinedKey = userCreatedAt ? toDateStr(userCreatedAt) : null;
+      if (history) {
+        monthIncome += Math.round(allowanceForActiveDays(history, mStartStr, mEndStr, joinedKey));
+      } else if (budgetConfig?.isBudgetMode) {
         // One rule for every screen (BUD-009): only days after the user joined and up to today get allowance.
         monthIncome += Math.round(
           budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, {
-            userJoinedDateKey: userCreatedAt ? toDateStr(userCreatedAt) : null,
+            userJoinedDateKey: joinedKey,
             todayDateKey: todayStr,
           })
         );
@@ -562,7 +570,9 @@ export function computeAnnualBudgetDiscipline(
   yearInterval: YearInterval,
   budgetConfig?: YearlyBudgetConfig,
   userCreatedAt?: string | null,
-  referenceDate: Date | number | string = new Date()
+  referenceDate: Date | number | string = new Date(),
+  /** When given, each month is judged on the days that really had a budget (INS-006). */
+  history?: AllowanceHistory
 ): AnnualBudgetDisciplineResult {
   if (!budgetConfig?.isBudgetMode) {
     return { canDisplay: false, keptMonths: 0, totalCompletedMonths: 0, consistencyRatio: 0, disciplineText: '' };
@@ -597,16 +607,33 @@ export function computeAnnualBudgetDiscipline(
 
     if (activeDays <= 0) continue;
 
+    // INS-006: with history, only days that had a budget count, for the budget and for the spending.
+    const budgetDays = new Set<string>();
+    let historyBudget = 0;
+    if (history) {
+      const firstKey = userCreatedStr > mStartStr ? userCreatedStr : mStartStr;
+      for (let d = firstKey; d <= mEndStr; d = addDaysToDateKey(d, 1)) {
+        const dayBudget = dayAllowanceFromHistory(history, d);
+        if (dayBudget > 0) {
+          budgetDays.add(d);
+          historyBudget += dayBudget;
+        }
+      }
+      if (budgetDays.size === 0) continue;
+    }
+
     // One rule for every screen (BUD-009).
     const effectiveBudget = Math.round(
-      budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, { userJoinedDateKey: userCreatedStr || null })
+      history
+        ? historyBudget
+        : budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, { userJoinedDateKey: userCreatedStr || null })
     );
 
     let monthSpend = 0;
     for (const exp of expenses) {
       if (!exp.expense_date) continue;
       const cleanDate = toDateStr(exp.expense_date);
-      if (isDateInBounds(cleanDate, mStartStr, mEndStr)) {
+      if (isDateInBounds(cleanDate, mStartStr, mEndStr) && (!history || budgetDays.has(cleanDate))) {
         if (isCountedExpense(exp)) {
           monthSpend += exp.amount;
         }
