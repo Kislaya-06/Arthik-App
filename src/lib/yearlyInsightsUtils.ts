@@ -400,6 +400,8 @@ export function compute12MonthCashFlow(
   let surplusMonthsCount = 0;
   let activeMonthsCount = 0;
   const ledgerEntries = buildLedgerEntries(expenses);
+  let exactBudget = 0;
+  let roundedBudget = 0;
 
   for (let m = 0; m < 12; m++) {
     const mStart = startOfMonth(setMonth(yearStart, m));
@@ -415,17 +417,19 @@ export function compute12MonthCashFlow(
 
     if (!isFuture) {
       const joinedKey = userCreatedAt ? toDateStr(userCreatedAt) : null;
+      let monthBudget = 0;
       if (history) {
-        monthIncome += Math.round(allowanceForActiveDays(history, mStartStr, mEndStr, joinedKey));
+        monthBudget = allowanceForActiveDays(history, mStartStr, mEndStr, joinedKey);
       } else if (budgetConfig?.isBudgetMode) {
         // One rule for every screen (BUD-009): only days after the user joined and up to today get allowance.
-        monthIncome += Math.round(
-          budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, {
-            userJoinedDateKey: joinedKey,
-            todayDateKey: todayStr,
-          })
-        );
+        monthBudget = budgetAllowedForActiveDays(budgetConfig, mStartStr, mEndStr, {
+          userJoinedDateKey: joinedKey,
+          todayDateKey: todayStr,
+        });
       }
+      exactBudget += monthBudget;
+      roundedBudget += Math.round(monthBudget);
+      monthIncome += Math.round(monthBudget);
 
       monthIncome += sumKindBetweenDateKeys(ledgerEntries, 'income', mStartStr, mEndStr);
       monthSpent += sumKindBetweenDateKeys(ledgerEntries, 'spending', mStartStr, mEndStr);
@@ -464,7 +468,8 @@ export function compute12MonthCashFlow(
     });
   }
 
-  totalIncome = round2(totalIncome);
+  // INS-006: the total rounds the budget once, like the Inflow tile. Each bar keeps its own rounding.
+  totalIncome = round2(totalIncome - roundedBudget + Math.round(exactBudget));
   totalSpent = round2(totalSpent);
 
   const maxAmount = Math.max(
@@ -586,7 +591,7 @@ export function computeAnnualBudgetDiscipline(
     }
 
     totalCompletedMonths++;
-    if (monthSpend <= effectiveBudget) {
+    if (round2(monthSpend) <= effectiveBudget) {
       keptMonths++;
     }
   }

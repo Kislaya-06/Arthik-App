@@ -24,6 +24,10 @@ Each entry says whether it ships by **OTA** (JS only) or needs a **new APK**.
   change applies at once when nothing is spent yet, and starting with only a few days left shows a short note.
 
 ### Fixed
+- **Savings dates, recaps and rounding (OTA)** (`INS-002`, `INS-006`, `NOT-001`): a finished week or month's savings now
+  count on the day it ended on every screen (a week across New Year moves to the new year). Weekly and monthly recaps no
+  longer call today's leftover "added to your Gullak". Cash-flow chart totals match the Inflow figure, and a month spent
+  exactly to its budget (with paise) now counts as kept.
 - **Insights charts use your real budget history (OTA)** (`INS-004`, `INS-006`): the yearly bars, the monthly cash-flow
   chart and the discipline score no longer apply today's budget to past days. Money from past Budget Mode days stays
   after a switch to Pure Mode. The discipline score judges only days that had a budget. On the Weekly tab, a past week's

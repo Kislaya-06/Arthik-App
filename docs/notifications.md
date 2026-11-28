@@ -29,6 +29,9 @@ In Budget Mode an empty day is a *full-allowance* day: the whole allowance rolls
 | 80% used (in app) | – | in-app bell only | in-app bell only | – |
 | Next-day rollover, scheduled budget applied (in app) | – | in-app bell only | in-app bell only | – |
 
+Recap "added to your Gullak" (`NOT-001`): only finished days and finished budgets are counted. Today's leftover is not
+counted, because it reaches Gullak at midnight.
+
 Alerts saved before this wording (old "₹0 over" text) are rewritten once on the phone with the same new text (`fixLegacyZeroOverCopy`, notification store `version: 1` migrate). Real overspends and every other notification are left as they were.
 
 Tapping: nudge → Add Expense; recaps → Insights; Gullak / limit alerts → Savings (Home if Budget Mode is off).

@@ -433,6 +433,9 @@ This document is the **single authoritative canonical source of truth** for all 
      - **Daily Cadence:** Aggregates `amount_saved` across all finalized daily records where `status === 'saved'` in the interval.
      - **Weekly Cadence:** Aggregates `amountSaved` from finalized weekly `budget_periods` (`status === 'saved'`) falling within the interval. For cross-month weekly periods spanning month boundaries, attribution is evaluated by `activeEnd` strictly matching cash accounting rollovers.
      - **Monthly Cadence (Monthly Tab):** Aggregates `amountSaved` from finalized monthly `budget_periods` (`status === 'saved'`).
+     - **One date everywhere (owner decision 2026-11-28):** a finished weekly or monthly budget's savings belong to the
+       day that budget ended (`activeEnd`, also when it ended early). Weekly, Monthly and Yearly Insights (including
+       "best savings month") and the Home card details all use this one date (`periodSavedDateKey`).
      - **Mid-Interval Cadence Switches:** Slices are additive (`autoSaved = dailySaved + periodSaved`) ensuring zero data loss and exact reconciliation.
   2. **Manual Deposits:** Sums all manual Gullak deposits made within the interval.
   3. **Cadence-Aware Saved Counts & Dynamic Badges** (badges show the Gullak piggy-bank icon `PiggyBankCoinIcon` before the text, never an emoji; owner decision 2026-11-20):
@@ -441,8 +444,8 @@ This document is the **single authoritative canonical source of truth** for all 
      - Monthly: Tallies `savedMonthsCount` with badge `1 Saved Month`.
   4. **Option 2 (Month Budget Share % on Weekly Tab for Monthly Users):**
      - When a monthly cadence user views the Weekly Insights tab, instead of an irrelevant ₹0 Gullak tile, the right card transforms into `MONTH BUDGET SHARE` displaying the week's spending percentage of the total monthly budget (`percentage%`; the monthly budget that ruled the week's last day, today for the current week, and today's amount when that day had no monthly plan, owner decision 2026-11-28), a status pill with a coloured dot instead of an emoji (`On Track` with a mint dot if $\le 25\%$, `High Burn` with a coral dot if $> 25\%$, `Critical Burn` if $> 50\%$), and dynamic subtext (`₹X of ₹Y pool`).     - Accompanied by intelligent cadence-aware discipline takeaways.
-- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts` (`computeWeeklyGullakSavings`, `computeWeeklyShareOfMonthlyBudget`, `computeSmartWeeklyTakeaway`), `src/lib/monthlyInsightsUtils.ts` (`computeMonthlyGullakSavings`, `computeSmartMonthlyTakeaway`), `src/components/WeeklyBreathingStrip.tsx`, `src/components/MonthlyBreathingStrip.tsx`, `src/screens/insights/useInsightsData.ts`, `src/screens/InsightsScreen.tsx`
-- **Verified By:** `tests/multiCadenceInsightsSavings.test.ts`, `tests/weeklyInsightsData.test.ts`, `tests/monthlyInsightsData.test.ts`, `tests/insightsChartHistory.test.ts`
+- **Code Enforcement:** `src/lib/weeklyInsightsUtils.ts` (`computeWeeklyGullakSavings`, `computeWeeklyShareOfMonthlyBudget`, `computeSmartWeeklyTakeaway`), `src/money/gullakSaved.ts`, `src/lib/charts/gullakMilestones.ts`, `src/lib/heroDetails.ts`, `src/lib/monthlyInsightsUtils.ts` (`computeMonthlyGullakSavings`, `computeSmartMonthlyTakeaway`), `src/components/WeeklyBreathingStrip.tsx`, `src/components/MonthlyBreathingStrip.tsx`, `src/screens/insights/useInsightsData.ts`, `src/screens/InsightsScreen.tsx`
+- **Verified By:** `tests/multiCadenceInsightsSavings.test.ts`, `tests/weeklyInsightsData.test.ts`, `tests/monthlyInsightsData.test.ts`, `tests/insightsChartHistory.test.ts`, `tests/gullakSavedDate.test.ts`
 
 #### `INS-003`: Fair Day-Matched Comparisons (MTD & YTD)
 - **Status:** `APPROVED AS-IS` (Owner approved on 2026-10-17)
@@ -492,6 +495,9 @@ This document is the **single authoritative canonical source of truth** for all 
      no budget day is left out of the score. The card is shown only in Budget Mode (owner decision 2026-11-28).
   4. **Same pricing in every chart:** the yearly Inflow tile, the 12-month bars, the monthly cash-flow chart and the
      Consistency Score all price budget days from the plan history (`INS-004`), never from today's setting.
+  5. **Rounding (owner decision 2026-11-28):** a chart total rounds the budget money once, so it matches the Inflow
+     tile. Each bar keeps its own rounding, so adding the bars by hand can differ by a rupee. The Consistency Score
+     rounds a month's spending to paise before comparing it, so spending exactly the budget keeps the month.
 - **Code Enforcement:** `src/lib/yearlyInsightsUtils.ts`, `src/lib/charts/monthlyCharts.ts`, `src/money/budgetAllowance.ts` (`allowanceForActiveDays`)
 - **Verified By:** `tests/yearlyInsightsData.test.ts`, `tests/yearlyInsightsInflowDeposits.test.ts`, `tests/insightsAllowanceHistory.test.ts`, `tests/insightsChartHistory.test.ts`
 
@@ -555,9 +561,12 @@ This document is the **single authoritative canonical source of truth** for all 
      - Real-time Budget Exceeded alert (dispatched once per day upon exceeding daily allowance).
      - Cadence Carry Funding notification (drawdown alert informing user that today's budget is funded from carry).
      - Cadence Carry Gap prompt (alert informing user of remaining partial carry and required top-up).
+  2a. **Recap savings (owner decision 2026-11-28):** the weekly and monthly recaps count only finished days (and
+     finished budgets) as "added to your Gullak". Today's leftover is not in Gullak before midnight.
   3. **Exceeded Alert Funding:** the "income paid X, Gullak paid Y" part of the Budget Exceeded alert (daily, weekly, monthly) is read from the money waterfall for the days of that day/period (`MNY-001`). It is never guessed from the income balance left now.
   4. **Funding-Ended Notice + Cutoff:** While an allocation carry funds the budget, one short funding message is sent per funded day/week/month. On the first unfunded day/week/month ONE "carried money has run out, add the money yourself" notice is sent (`carry_end_<date>`); then carry notifications permanently stop.
-- **Code Enforcement:** `src/lib/budgetCalculations.ts`, `src/lib/budgetAlerts.ts`, `src/store/dailyBudget/rollover.ts`
+- **Code Enforcement:** `src/lib/budgetCalculations.ts`, `src/lib/budgetAlerts.ts`, `src/store/dailyBudget/rollover.ts`, `src/lib/notificationSync.ts` (recap savings)
+- **Verified By:** `tests/notificationSync.test.ts` (recap savings)
 
 ---
 

@@ -183,7 +183,7 @@ describe('period helpers', () => {
       '2026-09-30': { date: '2026-09-30', saved: 70, isFinalized: true, status: 'saved' },
       '2026-10-03': { date: '2026-10-03', saved: 30, isFinalized: false, status: 'active' },
     };
-    const periods = { a: { periodEnd: '2026-10-10', amountSaved: 40 }, b: { periodEnd: '2026-09-10', amountSaved: 999 } };
+    const periods = { a: { activeEnd: '2026-10-10', amountSaved: 40 }, b: { activeEnd: '2026-09-10', amountSaved: 999 } };
     expect(autoSavedInScope(records, periods, (d) => d >= '2026-10-01')).toBe(140);
     expect(autoSavedInScope(records, periods, () => true)).toBe(100 + 70 + 40 + 999);
   });

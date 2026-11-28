@@ -78,3 +78,26 @@ describe('INS-002: month budget share uses the monthly budget of that week', () 
     expect(monthlyBudgetAmountOnDate([], '2026-03-08', 60000)).toBe(60000);
   });
 });
+
+describe('INS-006: chart totals and the discipline comparison', () => {
+  it('rounds the budget in a chart total once, like the Inflow tile', () => {
+    const h = history([plan('2026-01-01', 1000, true, 'weekly')]);
+    const cfg = { isBudgetMode: true, cadence: 'weekly', weeklyBudgetAmount: 1000 };
+    const year = bars(cfg, h);
+    expect(tile(cfg, h)).toBe(15000);
+    expect(year.totalIncome).toBe(15000);
+    expect(year.months.slice(0, 4).map((m) => m.income)).toEqual([4429, 4000, 4429, 2143]);
+    // January at 100.40 a day: the week bars 703 + 703 + 703 + 1004 add to 3113, the month was given 3112.40.
+    const month = janChart({ isBudgetMode: true, cadence: 'daily', dailyBudgetAmount: 100.4 }, history([plan('2026-01-01', 100.4)]));
+    expect(month.weeks.map((w) => w.income)).toEqual([703, 703, 703, 1004]);
+    expect(month.totalIncome).toBe(3112);
+  });
+
+  it('keeps a month whose paise add up to exactly the budget', () => {
+    const h = history([plan('2026-01-01', 3100, true, 'monthly')]);
+    const result = computeAnnualBudgetDiscipline(
+      [spend(1399.38, '2026-01-01'), spend(1190.26, '2026-01-02'), spend(510.36, '2026-01-03')], [], YEAR,
+      { isBudgetMode: true, cadence: 'monthly', monthlyBudgetAmount: 3100 }, JOINED, TODAY, h);
+    expect([result.keptMonths, result.totalCompletedMonths]).toEqual([3, 3]);
+  });
+});

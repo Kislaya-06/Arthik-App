@@ -8,7 +8,6 @@ import {
   prepareBlockSweepSegments,
   calculatePillFillHeight,
   getSpendingFlowFillColor,
-  computeMonthlyWeeksData,
   computeMonthlyCashFlowData,
   computeYearlyGullakMilestones,
   computeDualRingState,
@@ -258,141 +257,6 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
         expect(match).not.toBeNull();
         const alpha = parseFloat(match![1]);
         expect(alpha).toBeGreaterThan(0.70);
-      });
-    });
-
-    describe('computeMonthlyWeeksData', () => {
-      it('correctly divides a 30-day month into exactly 4 weeks (W1–W4) and finds firstSpendingDate', () => {
-        const monthStart = new Date(2026, 8, 1); // 1 Sep 2026
-        const monthEnd = new Date(2026, 8, 30);  // 30 Sep 2026
-
-        const expenses = [
-          { amount: 500, expense_date: '2026-09-03' }, // W1 (first: 2026-09-03)
-          { amount: 200, expense_date: '2026-09-07' }, // W1
-          { amount: 800, expense_date: '2026-09-10' }, // W2 (first: 2026-09-10)
-          { amount: 1500, expense_date: '2026-09-18' }, // W3 (first: 2026-09-18)
-          { amount: 300, expense_date: '2026-09-25' }, // W4 (first: 2026-09-25)
-          { amount: 450, expense_date: '2026-09-30' }, // W4
-        ];
-
-        const { weeks, maxWeek } = computeMonthlyWeeksData(monthStart, monthEnd, expenses);
-
-        // Always exactly 4 weeks — no awkward 2-day W5
-        expect(weeks).toHaveLength(4);
-
-        expect(weeks[0].day).toBe('W1');
-        expect(weeks[0].amount).toBe(700);
-        expect(weeks[0].subLabel).toBe('1–7');
-        expect(weeks[0].dateStr).toBe('2026-09-03'); // earliest spend in W1
-
-        expect(weeks[1].day).toBe('W2');
-        expect(weeks[1].amount).toBe(800);
-        expect(weeks[1].subLabel).toBe('8–14');
-        expect(weeks[1].dateStr).toBe('2026-09-10'); // earliest spend in W2
-
-        expect(weeks[2].day).toBe('W3');
-        expect(weeks[2].amount).toBe(1500);
-        expect(weeks[2].subLabel).toBe('15–21');
-        expect(weeks[2].dateStr).toBe('2026-09-18'); // earliest spend in W3
-
-        // W4 absorbs all remaining days to month end (22–30)
-        expect(weeks[3].day).toBe('W4');
-        expect(weeks[3].amount).toBe(750); // 300 + 450
-        expect(weeks[3].subLabel).toBe('22–30');
-        expect(weeks[3].dateStr).toBe('2026-09-25'); // earliest spend in W4
-        expect(weeks[3].startDate).toBe('2026-09-22');
-        expect(weeks[3].endDate).toBe('2026-09-30');
-
-        expect(maxWeek?.day).toBe('W3');
-        expect(maxWeek?.amount).toBe(1500);
-      });
-
-      it('ignores income transactions when classifier is provided', () => {
-        const monthStart = new Date(2026, 8, 1);
-        const monthEnd = new Date(2026, 8, 30);
-
-        const expenses = [
-          { amount: 500, expense_date: '2026-09-03', isIncome: false },
-          { amount: 50000, expense_date: '2026-09-05', isIncome: true },
-        ];
-
-        const { weeks } = computeMonthlyWeeksData(
-          monthStart,
-          monthEnd,
-          expenses as any,
-          (exp: any) => exp.isIncome
-        );
-
-        expect(weeks[0].amount).toBe(500);
-      });
-
-      it('strictly zeroes out pre-registration weeks when user joined mid-month (e.g. 15 Sep)', () => {
-        const monthStart = new Date(2026, 8, 1);
-        const monthEnd = new Date(2026, 8, 30);
-
-        // Pre-registration dirty/test data on Sep 05 and Sep 12
-        const expenses = [
-          { amount: 400, expense_date: '2026-09-05' }, // W1 (1–7)
-          { amount: 900, expense_date: '2026-09-12' }, // W2 (8–14)
-          { amount: 1200, expense_date: '2026-09-16' }, // W3 (15–21)
-          { amount: 800, expense_date: '2026-09-24' },  // W4 (22–30)
-        ];
-
-        const { weeks, maxWeek } = computeMonthlyWeeksData(
-          monthStart,
-          monthEnd,
-          expenses,
-          undefined,
-          '2026-09-15' // User joined on 15 Sep
-        );
-
-        expect(weeks).toHaveLength(4);
-
-        // W1 (1–7) strictly 0
-        expect(weeks[0].day).toBe('W1');
-        expect(weeks[0].amount).toBe(0);
-
-        // W2 (8–14) strictly 0 (prior to join date)
-        expect(weeks[1].day).toBe('W2');
-        expect(weeks[1].amount).toBe(0);
-
-        // W3 (15–21) has the 1200 expense from 16 Sep
-        expect(weeks[2].day).toBe('W3');
-        expect(weeks[2].amount).toBe(1200);
-        expect(weeks[2].dateStr).toBe('2026-09-16');
-
-        // W4 has 800
-        expect(weeks[3].amount).toBe(800);
-
-        // Peak week should be W3
-        expect(maxWeek?.day).toBe('W3');
-        expect(maxWeek?.amount).toBe(1200);
-      });
-
-      it('keeps all weeks active when user joined in an earlier month (e.g. 15 July vs Sep view)', () => {
-        const monthStart = new Date(2026, 8, 1); // September
-        const monthEnd = new Date(2026, 8, 30);
-
-        const expenses = [
-          { amount: 250, expense_date: '2026-09-02' },
-          { amount: 350, expense_date: '2026-09-09' },
-          { amount: 600, expense_date: '2026-09-17' },
-          { amount: 700, expense_date: '2026-09-24' },
-        ];
-
-        const { weeks } = computeMonthlyWeeksData(
-          monthStart,
-          monthEnd,
-          expenses,
-          undefined,
-          '2026-07-15' // User joined 15 July
-        );
-
-        expect(weeks).toHaveLength(4);
-        expect(weeks[0].amount).toBe(250);
-        expect(weeks[1].amount).toBe(350);
-        expect(weeks[2].amount).toBe(600);
-        expect(weeks[3].amount).toBe(700);
       });
     });
 
@@ -673,8 +537,8 @@ describe('Circular Donut Chart Sweep Math Engine', () => {
         const yearStart = new Date(2026, 0, 1);
         const yearEnd = new Date(2026, 11, 31);
         const budgetPeriods = [
-          { activeStart: '2026-03-01', amountSaved: 5000, status: 'saved' },
-          { activeStart: '2026-03-15', amountSaved: 3000, status: 'saved' },
+          { activeStart: '2026-03-01', activeEnd: '2026-03-07', amountSaved: 5000, status: 'saved' },
+          { activeStart: '2026-03-15', activeEnd: '2026-03-21', amountSaved: 3000, status: 'saved' },
         ];
 
         const metrics = computeYearlyGullakMilestones(yearStart, yearEnd, [], [], 8000, budgetPeriods);

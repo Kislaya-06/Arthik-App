@@ -5,6 +5,7 @@
  * SAME numbers the card already shows (no second calculation of budget, income or Gullak draw), so the two can
  * never disagree. Pure functions only.
  */
+import { periodSavedDateKey } from '../money/gullakSaved';
 import { round2 } from './formatters';
 import { isRecoveryClass } from './transactionUtils';
 import type { HeroSubtextChip } from './homeCalculations';
@@ -55,7 +56,7 @@ export const moneyBackInRows = (rows: ReadonlyArray<{ amount: number | string; t
 /** Budget the app saved to Gullak by itself in a period: finalized saved days plus finished weekly / monthly periods. */
 export function autoSavedInScope(
   records: Record<string, { date: string; saved?: number; isFinalized?: boolean; status?: string }>,
-  periods: Record<string, { periodEnd: string; amountSaved?: number }>,
+  periods: Record<string, { activeEnd: string; amountSaved?: number }>,
   inScope: (date: string) => boolean
 ): number {
   let sum = 0;
@@ -63,7 +64,7 @@ export function autoSavedInScope(
     if (r.isFinalized && r.status === 'saved' && inScope(r.date)) sum += Number(r.saved) || 0;
   }
   for (const p of Object.values(periods)) {
-    if (inScope(p.periodEnd)) sum += Number(p.amountSaved) || 0;
+    if (inScope(periodSavedDateKey(p))) sum += Number(p.amountSaved) || 0;
   }
   return round2(sum);
 }

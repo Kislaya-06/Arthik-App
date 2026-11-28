@@ -88,7 +88,8 @@ describe('buildPlanContext (store data -> planner input)', () => {
     expect(c.streak).toBe(2);
     expect(c.week.daysTracked).toBe(3);
     expect(c.week.daysUnderBudget).toBe(2);
-    expect(c.week.savedToGullak).toBe(520);
+    // NOT-001: today's 320 is not in Gullak until midnight, so the recap counts finished days only.
+    expect(c.week.savedToGullak).toBe(200);
     const plan = buildNotificationPlan(c);
     expect(plan.find((p) => p.type === 'gullak_reward')?.title).toBe('₹320 saved yesterday');
   });

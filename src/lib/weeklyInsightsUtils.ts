@@ -7,6 +7,7 @@ import { sumSpendingBetweenDateKeys, sumTotalsBetweenDateKeys, buildLedgerEntrie
 import { addDaysToDateKey, isDateKeyWithin } from '../money/dateKeys';
 import { budgetAllowedBetweenDates, allowanceFromHistory, AllowanceHistory } from '../money/budgetAllowance';
 import { calculateBudgetStatus } from '../money/budgetStatus';
+import { periodSavedDateKey } from '../money/gullakSaved';
 import { formatCurrency, formatAmountWithCommas, round2 } from './formatters';
 import { ExpenseLike, toDateStr, isDateInBounds } from './insightsCommon';
 import type { DailyRecord, GullakDeposit } from '../store/dailyBudgetStore';
@@ -214,10 +215,7 @@ export function computeWeeklyGullakSavings(
   for (const p of periodsList) {
     if (!p) continue;
     if (p.cadence === 'weekly' && p.status === 'saved' && (p.amountSaved || 0) > 0) {
-      if (
-        (p.activeStart && isDateInBounds(p.activeStart, startStr, endStr)) ||
-        (p.activeEnd && isDateInBounds(p.activeEnd, startStr, endStr))
-      ) {
+      if (isDateInBounds(periodSavedDateKey(p), startStr, endStr)) {
         autoSaved += Number(p.amountSaved) || 0;
         savedWeeksCount++;
         if (p.activeStart && p.activeEnd) {

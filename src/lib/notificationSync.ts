@@ -214,7 +214,8 @@ export function buildPlanContext(now: Date): PlanContext {
   if (isGullak) {
     for (const rec of Object.values(budget.dailyRecords)) {
       if (!rec || !(rec.budget > 0) || rec.date > todayStr) continue;
-      const saved = rec.status === 'missed' ? 0 : rec.saved || 0;
+      // NOT-001: today's leftover is not in Gullak before midnight, so only finished days count as saved.
+      const saved = rec.status === 'missed' || rec.date >= todayStr ? 0 : rec.saved || 0;
       if (rec.date >= weekStart && rec.date <= weekEnd) {
         daysTracked += 1;
         if (rec.status === 'saved' || rec.status === 'even' || rec.status === 'active') daysUnderBudget += 1;

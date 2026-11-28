@@ -1,3 +1,4 @@
+import { periodSavedDateKey } from '../../money/gullakSaved';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 
@@ -38,7 +39,7 @@ export function computeYearlyGullakMilestones(
   dailyRecords: Array<{ date: string; saved: number; status: string }>,
   gullakDeposits: Array<{ date: string; amount: number }>,
   allTimeGullakSavings: number,
-  budgetPeriods?: Array<{ activeStart: string; amountSaved: number; status: string }>
+  budgetPeriods?: Array<{ activeEnd: string; amountSaved: number; status: string }>
 ): YearlyGullakMetrics {
   const startStr = format(yearStart, 'yyyy-MM-dd');
   const endStr = format(yearEnd, 'yyyy-MM-dd');
@@ -72,9 +73,10 @@ export function computeYearlyGullakMilestones(
   // Include weekly and monthly period savings
   if (budgetPeriods && budgetPeriods.length > 0) {
     for (const p of budgetPeriods) {
-      if (p.activeStart >= startStr && p.activeStart <= endStr && p.amountSaved > 0) {
+      const savedOn = periodSavedDateKey(p);
+      if (savedOn >= startStr && savedOn <= endStr && p.amountSaved > 0) {
         rolloverSum += p.amountSaved;
-        const m = format(parseISO(p.activeStart), 'MMMM');
+        const m = format(parseISO(savedOn), 'MMMM');
         monthSavings[m] = (monthSavings[m] || 0) + p.amountSaved;
       }
     }
